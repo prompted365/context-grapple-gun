@@ -1,11 +1,11 @@
 #!/bin/bash
-# CGG v2 — SessionStart hook PATCH
+# CGG v3 — SessionStart hook PATCH
 # Add this logic to your existing SessionStart hook (session-restore.sh).
 # If you don't have one, use this as your complete SessionStart hook.
 #
 # This script discovers project-scoped plan files with CGG triggers,
-# extracts them to flag files for the UserPromptSubmit gate, and
-# counts pending CPR flags for the session banner.
+# extracts them to flag files for the UserPromptSubmit gate,
+# counts pending CPR flags, and scans the signal store for active signals.
 cat > /dev/null
 
 PROJECT_DIR="${CLAUDE_PROJECT_DIR:-$(pwd)}"
@@ -78,9 +78,62 @@ if [ "$CPR_COUNT" -gt 0 ]; then
   CGG_MSG="$CGG_MSG [CPR QUEUE: $CPR_COUNT pending flags. /grapple when ready.]"
 fi
 
-# Output (append to your existing SessionStart output)
+# --- CGG v3: Signal Scanning ---
+SIGNAL_DIR="$PROJECT_DIR/audit-logs/signals"
+SIREN_MSG=""
+if [ -d "$SIGNAL_DIR" ]; then
+  ACTIVE_SIGNALS=0
+  ACTIVE_WARRANTS=0
+  LOUDEST_ID="none"
+  LOUDEST_VOL=0
+  LOUDEST_BAND=""
+
+  for JSONL_FILE in "$SIGNAL_DIR"/*.jsonl; do
+    [ -f "$JSONL_FILE" ] || continue
+    while IFS= read -r LINE; do
+      STATUS=$(echo "$LINE" | python3 -c "import sys,json; d=json.loads(sys.stdin.read()); print(d.get('status',''))" 2>/dev/null)
+      TYPE=$(echo "$LINE" | python3 -c "import sys,json; d=json.loads(sys.stdin.read()); print(d.get('type',''))" 2>/dev/null)
+      if [ "$STATUS" = "active" ]; then
+        if [ "$TYPE" = "signal" ]; then
+          ACTIVE_SIGNALS=$(( ACTIVE_SIGNALS + 1 ))
+          VOL=$(echo "$LINE" | python3 -c "import sys,json; d=json.loads(sys.stdin.read()); print(d.get('volume',0))" 2>/dev/null)
+          if [ "$VOL" -gt "$LOUDEST_VOL" ] 2>/dev/null; then
+            LOUDEST_VOL="$VOL"
+            LOUDEST_ID=$(echo "$LINE" | python3 -c "import sys,json; d=json.loads(sys.stdin.read()); print(d.get('id','?'))" 2>/dev/null)
+            LOUDEST_BAND=$(echo "$LINE" | python3 -c "import sys,json; d=json.loads(sys.stdin.read()); print(d.get('band','?'))" 2>/dev/null)
+          fi
+        elif [ "$TYPE" = "warrant" ]; then
+          ACTIVE_WARRANTS=$(( ACTIVE_WARRANTS + 1 ))
+        fi
+      fi
+    done < "$JSONL_FILE"
+  done
+
+  if [ "$ACTIVE_SIGNALS" -gt 0 ] || [ "$ACTIVE_WARRANTS" -gt 0 ]; then
+    SIREN_MSG="[SIREN: $ACTIVE_SIGNALS active signals, $ACTIVE_WARRANTS active warrants."
+    if [ "$LOUDEST_VOL" -gt 0 ]; then
+      SIREN_MSG="$SIREN_MSG Loudest: $LOUDEST_ID (volume=$LOUDEST_VOL, band=$LOUDEST_BAND)."
+    fi
+    SIREN_MSG="$SIREN_MSG /siren when ready.]"
+  fi
+fi
+
+# Combine all context messages
+FULL_MSG=""
 if [ -n "$CGG_MSG" ]; then
-  echo "{\"hookSpecificOutput\":{\"hookEventName\":\"SessionStart\",\"additionalContext\":\"$CGG_MSG\"}}"
+  FULL_MSG="$CGG_MSG"
+fi
+if [ -n "$SIREN_MSG" ]; then
+  if [ -n "$FULL_MSG" ]; then
+    FULL_MSG="$FULL_MSG $SIREN_MSG"
+  else
+    FULL_MSG="$SIREN_MSG"
+  fi
+fi
+
+# Output (append to your existing SessionStart output)
+if [ -n "$FULL_MSG" ]; then
+  echo "{\"hookSpecificOutput\":{\"hookEventName\":\"SessionStart\",\"additionalContext\":\"$FULL_MSG\"}}"
 fi
 
 exit 0

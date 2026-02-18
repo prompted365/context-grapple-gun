@@ -1,5 +1,5 @@
 #!/bin/bash
-# CGG v2 — UserPromptSubmit one-shot trigger gate
+# CGG v3 — UserPromptSubmit one-shot trigger gate
 # Fires ONCE per handoff: spawns ripple-assessor evaluation, then self-disarms.
 # Called by UserPromptSubmit hook. Reads stdin (prompt JSON) but ignores content.
 cat > /dev/null
@@ -12,7 +12,7 @@ HANDOFF_FILE="$FLAG_DIR/pending-handoff-id.txt"
 PROCESSED_IDS="$HOME/.claude/cgg-processed-handoff-ids.txt"
 META_LOG="$HOME/.claude/grapple-meta-log.jsonl"
 
-# Fast exit: no pending trigger → no cost
+# Fast exit: no pending trigger = no cost
 [ ! -f "$TRIGGER_FILE" ] && exit 0
 
 # Read trigger data
@@ -54,5 +54,5 @@ else
   PLAN_REF="Plan file: not located (assessor should search for handoff_id: $HANDOFF_ID)"
 fi
 
-echo "{\"hookSpecificOutput\":{\"hookEventName\":\"UserPromptSubmit\",\"additionalContext\":\"[CGG TRIGGER FIRED] Spawn ripple-assessor agent (Task tool, subagent_type: ripple-assessor) BEFORE starting user work. $PLAN_REF. Expected CPR count: $EXPECTED_CPRS. Handoff ID: $HANDOFF_ID. The assessor will read the plan, evaluate pending CPR flags, and write proposals to ~/.claude/grapple-proposals/latest.md. Run it in the background so you can proceed with the user's request.\"}}"
+echo "{\"hookSpecificOutput\":{\"hookEventName\":\"UserPromptSubmit\",\"additionalContext\":\"[CGG TRIGGER FIRED] Spawn ripple-assessor agent (Task tool, subagent_type: ripple-assessor) BEFORE starting user work. $PLAN_REF. Expected CPR count: $EXPECTED_CPRS. Handoff ID: $HANDOFF_ID. The assessor will read the plan, evaluate pending CPR flags and active signals, and write proposals to ~/.claude/grapple-proposals/latest.md. Run it in the background so you can proceed with the user's request.\"}}"
 exit 0
