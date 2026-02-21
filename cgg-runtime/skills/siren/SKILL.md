@@ -20,7 +20,7 @@ Parse the user's arguments after `/siren` to determine the sub-command. Default 
 
 ### `/siren` (default — Status Dashboard)
 
-1. Scan `audit-logs/signals/*.jsonl` for all entries where `status` is `active` or `acknowledged`
+1. Scan `audit-logs/signals/*.jsonl` for all entries where `status` is `active`, `acknowledged`, or `working`
 2. Also scan project CLAUDE.md and MEMORY.md files for inline `<!-- --signal -->` blocks (these are informational — the JSONL store is authoritative)
 3. Run tick logic inline (see Tick section below) to update volumes and check expiry
 4. Check for harmonic triads in the current 24h window:
@@ -44,7 +44,7 @@ Warrants:
 # | ID        | Band      | Pri | Minting Condition  | Status
 1 | wrn_aaa   | PRIMITIVE | P1  | volume_threshold   | active
 
-Commands: /siren emit — create signal | /siren tick — advance cycle | /siren history — resolved signals | /grapple — full triage docket
+Commands: /siren emit — create signal | /siren tick — advance cycle | /siren update — change status | /siren history — resolved signals | /grapple — full triage docket
 ```
 
 Effective volume is computed for `homeskillet` as the hearing target using: `effective_volume = volume - (directory_hops(source, project_root) * 5)`.
@@ -53,20 +53,21 @@ Effective volume is computed for `homeskillet` as the hearing target using: `eff
 
 ### `/siren tick`
 
-Advance the tick cycle for all active signals:
+Advance the tick cycle for tickable signals:
 
-1. Read all active signals from `audit-logs/signals/*.jsonl`
-2. For each active signal:
+1. Read all signals from `audit-logs/signals/*.jsonl` (latest entry per ID wins)
+2. **Only tick signals where `status` is `active` or `acknowledged`.** Do NOT tick, accrue volume, or mint warrants for signals where `status` is `working`, `resolved`, `expired`, or `warranted`.
+3. For each tickable signal:
    a. `volume = min(volume + volume_rate, max_volume)`
    b. `tick_count += 1`
    c. `last_tick_at = current ISO timestamp`
    d. Check TTL: if `ttl_hours > 0` and signal age exceeds TTL → set `status: "expired"`
    e. Compute `effective_volume` per hearing target using distance model
    f. Check warrant minting: if `volume >= escalation.warrant_threshold` AND `escalation.warrant_id` is empty → mint a warrant
-3. Check for harmonic triads (see definition above). If triad detected → mint a warrant with `minting_condition: "harmonic_triad"`
-4. Write updated signal state back to today's JSONL file (append new state lines; do NOT modify old lines — JSONL is append-only, latest entry per ID wins)
-5. Write any new warrants to today's JSONL file
-6. Report what changed:
+4. Check for harmonic triads (see definition above). If triad detected → mint a warrant with `minting_condition: "harmonic_triad"`
+5. Write updated signal state back to today's JSONL file (append new state lines; do NOT modify old lines — JSONL is append-only, latest entry per ID wins)
+6. Write any new warrants to today's JSONL file
+7. Report what changed:
 
 ```
 SIREN TICK (YYYY-MM-DDTHH:MM)
@@ -161,6 +162,31 @@ Create a new signal from arguments:
    Band: COGNITIVE | Kind: LESSON | Volume: 30/100 | TTL: 24h
    Payload: "<message>"
    ```
+
+---
+
+### `/siren update <signal_id> status=<new_status>`
+
+Update a signal's status (optimistic lock / semaphore for multi-session coordination):
+
+1. Parse arguments:
+   - `signal_id`: the full signal ID (e.g., `sig_2026-02-18T15:54Z_ecotone_push_pathway_gap`)
+   - `status`: new status value — must be one of: `active`, `acknowledged`, `working`, `resolved`, `expired`
+   - Optional `note`: free-text reason for the status change
+2. Read the signal's latest state from `audit-logs/signals/*.jsonl` (latest entry per ID wins)
+3. If signal not found, report error and exit
+4. Build updated signal object with the new status + optional fields:
+   - If `status=working`: set `working_since` to current ISO timestamp
+   - If `status=resolved`: set `resolved_at` to current ISO timestamp, `resolution_note` to the note
+5. Append the updated signal to today's `audit-logs/signals/YYYY-MM-DD.jsonl` (never modify old lines)
+6. Report:
+   ```
+   Signal updated: sig_xxx
+   Status: active → working
+   Note: "Implementing outbound signal emission"
+   ```
+
+**Use case:** When beginning work on a signal's root cause, mark it `working` to prevent other sessions from ticking its volume or minting warrants. When done, mark it `resolved`.
 
 ---
 
