@@ -22,6 +22,7 @@ Automated between-session lesson evaluation and signal management for Claude Cod
 | `skills/init-cogpr/SKILL.md` | v3 convention installer (overlap with cogpr package) |
 | `skills/grapple/SKILL.md` | v3 unified docket (overlap with cogpr package) |
 | `skills/siren/SKILL.md` | Signal emission + triage dashboard (NEW) |
+| `skills/grapple-cog-cycle-session/SKILL.md` | Standardized session shutdown & handoff sequence (NEW) |
 
 ## Requires
 
