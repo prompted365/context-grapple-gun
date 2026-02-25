@@ -2,6 +2,8 @@
   <img src="assets/cgg-banner.jpeg" alt="Context Grapple Gun by Prompted LLC & Ubiquity OS" width="100%" />
 </p>
 
+> **Looking for the practical developer guide?** See [`DEV-README.md`](DEV-README.md).
+
 # Context Grapple Gun (CGG)
 
 A thermodynamic gating framework for autonomous agentic alignment and cross-session continuity. CGG captures durable lessons during sessions through metabolic lesson extraction, then evaluates and promotes them to broader scopes asynchronously — with human approval at every gate. Built for teams running persistent AI agents, CGG enforces behavioral alignment not through static rules, but through a living signal manifold that compounds institutional knowledge across sessions, agents, and repositories.
