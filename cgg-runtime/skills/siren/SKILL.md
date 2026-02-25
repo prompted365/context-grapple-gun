@@ -212,6 +212,117 @@ SIREN HISTORY
 
 ---
 
+### `/siren conformation`
+
+Snapshot the current system conformation — the total state at the latest tic boundary:
+
+1. Read latest tic from `audit-logs/tics/*.jsonl` (last `type: "tic"` entry across all files)
+2. Read all signals from `audit-logs/signals/*.jsonl` — latest entry per ID, filter `status` in (`active`, `acknowledged`, `working`)
+3. Read all warrants from `audit-logs/signals/*.jsonl` — latest entry per ID where `type: "warrant"`, filter `status` in (`active`, `acknowledged`)
+4. Scan project `CLAUDE.md` and `MEMORY.md` for pending CogPR flags (`<!-- --agnostic-candidate -->` blocks with `status: "pending"`)
+5. Read `.ticzone` for zone configuration
+6. Compute rule fingerprints: read `CLAUDE.md` and `~/.claude/CLAUDE.md`, record file size and line count as change indicators
+7. Create `audit-logs/conformations/` directory if absent
+8. Write snapshot to `audit-logs/conformations/tic-<project_tic_count>.json`:
+
+```json
+{
+  "type": "conformation",
+  "tic_count_project": 1,
+  "tic_count_global": 1,
+  "tic": "2026-02-25T03:33:00Z",
+  "tic_zone": "operationTorque-estate",
+  "snapshot_at": "2026-02-25T04:00:00Z",
+  "active_signals": [
+    {"id": "sig_xxx", "kind": "BEACON", "band": "PRIMITIVE", "volume": 80, "status": "active", "subsystem": "ruvector"}
+  ],
+  "active_warrants": [
+    {"id": "wrn_xxx", "band": "PRIMITIVE", "priority": 1, "minting_condition": "volume_threshold", "status": "active"}
+  ],
+  "pending_cogprs": [
+    {"source": "CLAUDE.md:283", "lesson": "one-line summary", "band": "COGNITIVE", "subsystem": "cgg", "recommended_scopes": ["~/.claude/CLAUDE.md"]}
+  ],
+  "zone": {
+    "name": "operationTorque-estate",
+    "bands": ["PRIMITIVE", "COGNITIVE", "SOCIAL", "PRESTIGE"],
+    "muffling_per_hop": 5
+  },
+  "rules_in_force": {
+    "project": {"file": "CLAUDE.md", "lines": 450, "bytes": 28000},
+    "global": {"file": "~/.claude/CLAUDE.md", "lines": 120, "bytes": 8000}
+  },
+  "counts": {
+    "active_signals": 1,
+    "active_warrants": 0,
+    "pending_cogprs": 3,
+    "resolved_signals_since_last_tic": 1
+  }
+}
+```
+
+9. Report:
+
+```
+CONFORMATION at tic #1 (project) / #1 (global)
+Zone: operationTorque-estate
+Active signals: 1 | Active warrants: 0 | Pending CogPRs: 3
+Rules: project CLAUDE.md (450 lines) | global CLAUDE.md (120 lines)
+Snapshot written: audit-logs/conformations/tic-1.json
+```
+
+---
+
+### `/siren conformation diff [tic_a] [tic_b]`
+
+Diff two conformation snapshots:
+
+1. Read `audit-logs/conformations/tic-<a>.json` and `audit-logs/conformations/tic-<b>.json`
+   - If only one argument given, diff that tic against the latest snapshot
+   - If no arguments, diff the two most recent snapshots
+   - If a snapshot file is missing, report error
+2. Compare each section:
+
+**Signals:**
+- New signals (in B but not A)
+- Removed signals (in A but not B — resolved/expired)
+- Changed signals (same ID, different volume/status)
+
+**Warrants:**
+- Minted (in B but not A)
+- Dismissed (in A but not B)
+
+**CogPRs:**
+- New (in B but not A)
+- Promoted (in A with status pending, absent in B — moved to rules)
+- Rejected (in A with status pending, absent in B — removed)
+
+**Rules:**
+- Line count delta (indicates rule file was modified)
+
+3. Report:
+
+```
+CONFORMATION DIFF: tic #1 → tic #2
+
+Signals:
+  + sig_new_xxx (COGNITIVE/LESSON, volume 30) — NEW
+  - sig_old_yyy (COGNITIVE/TENSION) — RESOLVED
+  ~ sig_existing (volume 25→45)
+
+Warrants:
+  + wrn_aaa (P1, volume_threshold) — MINTED
+
+CogPRs:
+  + "New lesson about X" (CLAUDE.md:100) — NEW
+  ✓ "Old lesson about Y" — PROMOTED to ~/.claude/CLAUDE.md
+
+Rules:
+  ~ project CLAUDE.md: 430→450 lines (+20)
+  = global CLAUDE.md: unchanged
+```
+
+---
+
 ## Standalone Guarantee
 
 Everything runs inside Claude Code with zero external dependencies:

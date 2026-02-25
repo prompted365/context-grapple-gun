@@ -23,6 +23,8 @@ When the user invokes this command, output the following exact text to initiate 
 
 1. Signal Manifold Hygiene: Execute `/siren tick`. Ensure volume has accrued, TTLs are cleared, and thresholds are checked.
 
+1.5. Snapshot Conformation: Execute `/siren conformation` to capture the system's total state at this tic boundary. This snapshot enables future diffing between epochs.
+
 2. Extract Lessons (CogPRs): Did we establish a new rule or optimize a workflow? If yes, IMMEDIATELY write the `<!-- --agnostic-candidate -->` block into the nearest CLAUDE.md or MEMORY.md. Use the COGNITIVE band.
 
 3. SHIFT POSTURE TO NATIVE PLAN MODE: You must now explicitly exit ENG mode and transition to your native PLAN mode.

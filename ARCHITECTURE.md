@@ -101,3 +101,18 @@ The tic sequence makes conformations replayable and diffable. You can reconstruc
 The structural analogy is deliberate: the tic sequence is the primary structure. Signals, warrants, and CogPRs are the side chains. Bands are charge groups. Acoustic routing is the solvent environment. The conformation at any given tic is the folded shape of the system under the accumulated pressure of its entire history.
 
 This is the terminal abstraction rung. Everything below it — files, signals, rules, zones — is mechanism. The conformation is what those mechanisms produce: a shape, inspectable at any point in the sequence, that captures everything the system knows and everything it's doing about what it knows.
+
+<!-- --agnostic-candidate
+  lesson: "System conformation — the total state at any tic boundary (signals, CogPRs, warrants, drift, zone, rules) — is the terminal abstraction rung. The tic sequence is the primary structure that makes conformations replayable. Mechanisms produce shape; shape is what you audit."
+  source_date: "2026-02-24"
+  source: "vendor/context-grapple-gun/ARCHITECTURE.md:103"
+  band: "COGNITIVE"
+  motivation_layer: "COGNITIVE"
+  subsystem: "cgg"
+  recommended_scopes:
+    - "CLAUDE.md"
+  rationale: "The conformation concept completes the CGG abstraction stack. It connects the file-level primitives to the fold-level audit capability. Any system using tics needs to understand that the tic sequence enables conformation replay — this is the 'why' behind tic separation."
+  review_hints: "Validate after conformation diffing is implemented. The concept is architecturally sound but tooling doesn't exist yet. Keep at project scope until replay tooling proves the concept."
+  civilization_prior_refs: []
+  status: "pending"
+-->
