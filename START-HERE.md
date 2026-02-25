@@ -133,7 +133,7 @@ Yes. CGG is open source (MIT license). You pay for Claude Code usage as normal -
 
 ## Maintainers
 
-[Prompted LLC](https://prompted.community) -- part of the Ubiquity OS ecosystem.
+[Prompted LLC](https://promptedllc.com) -- part of the Ubiquity OS ecosystem.
 
 Breyden Taylor -- [LinkedIn](https://www.linkedin.com/in/breyden-taylor/) | breyden@prompted.community
 
