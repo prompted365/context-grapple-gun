@@ -1,16 +1,25 @@
 ---
-name: grapple-cog-cycle-session
-description: Expands the standard System Shutdown & Hygiene Sequence for CGG v3.
+name: cadence-downbeat
+description: Session epoch boundary — emits canonical tic, captures lessons, writes handoff. The downbeat of the CGG cadence.
 user-invocable: true
 ---
 
-# /grapple-cog-cycle-session
+# /cadence-downbeat
 
 When the user invokes this command, output the following exact text to initiate the session handoff protocol:
 
 "We are wrapping up this session. Initiate the System Shutdown & Hygiene Sequence. Execute the following steps sequentially in ENG/DIRECT mode, and do not queue them:
 
 0. Reconcile Native Plan State: Locate the active plan file in ~/.claude/plans/. Evaluate its status based on the spirit of the original goal. Explicitly mark it 100% 'Completed', 'Superseded', or leave it 'Active' only if the exact thread must resume.
+
+0.5. Emit Tic: Record the canonical downbeat timestamp.
+   - Read project tic count from audit-logs/signals/*.jsonl (count entries where type=tic)
+   - Read global tic count from ~/.claude/cgg-tic-counter.json (create if absent, start at 0)
+   - Increment both counters
+   - Append tic record to audit-logs/signals/YYYY-MM-DD.jsonl:
+     {"type": "tic", "tic": "<ISO-8601 now>", "tic_zone": "<name from .ticzone>", "cadence_position": "downbeat", "scope": "project", "tic_count_project": N, "tic_count_global": M}
+   - Update ~/.claude/cgg-tic-counter.json with new count and last_tic
+   - Report: 'Tic #N (project) / #M (global) at YYYY-MM-DDTHH:MM:SSZ'
 
 1. Signal Manifold Hygiene: Execute `/siren tick`. Ensure volume has accrued, TTLs are cleared, and thresholds are checked.
 

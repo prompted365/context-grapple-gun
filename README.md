@@ -111,8 +111,8 @@ graph TB
     %% Session Controls
     T1["100k Token<br/>Manually Trigger"]:::trigger
     T2["100k Token<br/>Manually Trigger"]:::trigger
-    Cycle1["/grapple-cog-cycle-session"]:::trigger
-    Cycle2["/grapple-cog-cycle-session"]:::trigger
+    Cycle1["/cadence-downbeat"]:::trigger
+    Cycle2["/cadence-downbeat"]:::trigger
 
     %% CogPR Buffer - Continuous
     CogPR1["CogPR Buffer<br/>(Friction Detection)"]:::session
@@ -183,7 +183,7 @@ Four beats, steady time:
 | Beat | Action | What happens |
 |------|--------|-------------|
 | 1 | **Work** | Implement, debug, ship. Lessons are a side effect of real work. |
-| 2 | **Capture** | `/grapple-cog-cycle-session` at or before 100k tokens. Handoff written, CogPRs staged. |
+| 2 | **Capture** | `/cadence-downbeat` at or before 100k tokens. Tic emitted, handoff written, CogPRs staged. |
 | 3 | **Evaluate** | Between sessions, ripple assessor runs automatically. No human involvement. |
 | 4 | **Review** | `/grapple` when the queue warrants it -- every 2-4 sessions, not every session. |
 
@@ -222,6 +222,54 @@ Most of this runs silently. Signals accrue volume, assessors run between session
 
 The right analogy isn't an alert system. It's closer to a geological survey: instruments always recording, data read when you choose to.
 
+### Tic (canonical timestamp primitive)
+
+Cadences are syncopated -- Homeskillet downbeats at the 100k token mark, Mogul at monologue boundaries, cron at fixed intervals. Tics are canon. They provide the cross-system timestamp mapping regardless of each system's rhythm.
+
+Every `/cadence-downbeat` emits a tic. Tics accumulate at two scopes:
+- **Project tic counter**: derived by counting `"type": "tic"` entries in `audit-logs/signals/*.jsonl`
+- **Global tic counter**: `~/.claude/cgg-tic-counter.json` -- simple `{"count": N, "last_tic": "ISO-8601"}`
+
+Tic record format (appended to signal store):
+```json
+{
+  "type": "tic",
+  "tic": "2026-02-24T21:15:00-05:00",
+  "tic_zone": "operationTorque-estate",
+  "cadence_position": "downbeat",
+  "scope": "project",
+  "tic_count_project": 42,
+  "tic_count_global": 137
+}
+```
+
+### Tic-zone (acoustic region)
+
+A tic-zone is a named acoustic region defined by a `.ticzone` file at the zone root. It lays out the acoustic space for banded communications. All systems within a zone share the tic primitive regardless of their cadence position.
+
+```json
+{
+  "name": "operationTorque-estate",
+  "tz": "America/Toronto",
+  "lat": 43.6532,
+  "lon": -79.3832,
+  "include": [".", "~/.claude"],
+  "bands": ["PRIMITIVE", "COGNITIVE", "SOCIAL", "PRESTIGE"],
+  "muffling_per_hop": 5
+}
+```
+
+- `name`: Zone identifier used in tic records and acoustic routing.
+- `tz`: IANA timezone. Maps the zone to Earth's temporal grid.
+- `lat`/`lon`: Optional geographic coordinates for future spatial coupling.
+- `include`: Paths belonging to this zone. Relative paths resolved from `.ticzone` location.
+- `bands`: Active frequency bands in this zone.
+- `muffling_per_hop`: Acoustic muffling constant for the zone's distance model.
+
+A `.ticignore` file (gitignore-style) excludes paths from the zone's acoustic space. Signals originating from ignored paths are not routed.
+
+Zone nesting: a `.ticzone` in a subdirectory creates a nested zone inheriting the parent's `tz` and `bands` unless overridden. Muffling crosses zone boundaries at 2x the per-hop rate.
+
 ## Packages
 
 ### `cogpr/` -- Cognitive Pull Request conventions
@@ -243,7 +291,7 @@ Claude Code only. Automation connecting lesson capture to evaluation to review.
 | `hooks/cgg-gate.sh` | One-shot gate on first prompt |
 | `hooks/session-restore-patch.sh` | Plan discovery and trigger extraction |
 | `agents/ripple-assessor.md` | Fresh evaluator agent |
-| `skills/` | `/init-gun`, `/siren`, `/grapple-cog-cycle-session` |
+| `skills/` | `/init-gun`, `/siren`, `/cadence-downbeat` |
 
 ## Installation
 

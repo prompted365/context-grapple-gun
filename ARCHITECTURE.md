@@ -40,7 +40,7 @@ Long agent sessions produce three predictable degradations:
 
 CGG treats the context window like a **resource that must be rotated**. You do not "power through" at 120k+ tokens. You **end the epoch on purpose**.
 
-The `/grapple-cog-cycle-session` command is the **epoch boundary primitive**. It converts "session entropy" into "structured evolution candidates" by:
+The `/cadence-downbeat` command is the **epoch boundary primitive**. The downbeat emits a canonical tic — the cross-system timestamp primitive that unifies syncopated cadences. It converts "session entropy" into "structured evolution candidates" by:
 1. Stopping active work before degradation gets severe.
 2. Bundling pending CogPR proposals.
 3. Flushing the bloated session context.

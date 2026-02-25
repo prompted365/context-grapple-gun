@@ -24,7 +24,7 @@ You already know these concepts under different names:
 | Ripple Assessor | CI test runner that checks proposed rules against existing prompts |
 | `/grapple` | Code review. You approve, reject, or edit the proposed changes |
 | `/siren` | Datadog / PagerDuty. Tracks recurring friction, alerts on threshold breach |
-| `/grapple-cog-cycle-session` | Graceful shutdown with cleanup hooks |
+| `/cadence-downbeat` | Epoch boundary — emits tic, captures lessons, writes handoff |
 
 ## How a session actually flows
 
@@ -39,7 +39,7 @@ flowchart TB
         D["Write lesson locally<br/>to nearest CLAUDE.md"]
         E["Flag as CogPR<br/>agnostic-candidate block"]
         F[/"Context near 100k tokens<br/>or natural stopping point"/]
-        G["Run /grapple-cog-cycle-session"]
+        G["Run /cadence-downbeat"]
 
         A --> B
         B --> C
@@ -100,7 +100,7 @@ flowchart TB
 
 Context windows are finite. Around 100k tokens, Claude Code starts losing grip on early-session context. CGG turns this constraint into a feature.
 
-Hit `/grapple-cog-cycle-session` at or before the 100k mark. The session writes a handoff file, captures pending lessons, and shuts down cleanly. Next session picks up where you left off, but the lessons from Session N are already evaluated and queued for review.
+Hit `/cadence-downbeat` at or before the 100k mark. The session writes a handoff file, captures pending lessons, and shuts down cleanly. Next session picks up where you left off, but the lessons from Session N are already evaluated and queued for review.
 
 Over a multi-week roadmap, this creates a rhythm:
 
@@ -115,7 +115,7 @@ Over a multi-week roadmap, this creates a rhythm:
 This is the cadence. Four beats, steady time:
 
 1. **Work** -- implement, debug, ship
-2. **Capture** -- `/grapple-cog-cycle-session` before context degrades
+2. **Capture** -- `/cadence-downbeat` before context degrades
 3. **Evaluate** -- ripple assessor runs between sessions, no human involvement
 4. **Review** -- `/grapple` to approve, reject, or promote
 
@@ -169,7 +169,7 @@ For Claude Desktop or Claude for Work, copy `cogpr/claude-desktop/project-instru
 
 2. **Claude flags a lesson.** When it hits something durable -- a non-obvious API behavior, a deployment gotcha, an architectural constraint -- it drops a `<!-- --agnostic-candidate -->` CogPR flag in the local file.
 
-3. **End the session.** Run `/grapple-cog-cycle-session` before context degrades. This bundles everything into a handoff file and stages the CogPRs.
+3. **End the session.** Run `/cadence-downbeat` before context degrades. This emits a tic, bundles everything into a handoff file, and stages the CogPRs.
 
 4. **Between sessions.** The SessionStart hook fires automatically. A fresh agent evaluates the pending PRs without session bias.
 
@@ -179,7 +179,7 @@ For Claude Desktop or Claude for Work, copy `cogpr/claude-desktop/project-instru
 
 | Command | What it does |
 |---------|-------------|
-| `/grapple-cog-cycle-session` | Session shutdown. Writes handoff, stages CogPRs, cleans context. |
+| `/cadence-downbeat` | Epoch boundary. Emits tic, writes handoff, stages CogPRs, cleans context. |
 | `/grapple` | Review dashboard. Approve or reject proposed prompt changes. |
 | `/siren` | Monitoring. View active friction signals and background alerts. |
 | `/init-gun` | One-time setup. Wires hooks and patches settings. |
