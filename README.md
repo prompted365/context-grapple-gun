@@ -16,6 +16,7 @@ CGG gives knowledge a lifecycle. Lessons are captured locally, evaluated by a fr
 
 Over time, the project's operating rules grow from real work -- not because someone sat down to write documentation, but because the system extracted what actually mattered.
 
+
 ### Why CGG exists
 
 Organizations deploying persistent AI systems face a specific set of problems that better models do not solve:
