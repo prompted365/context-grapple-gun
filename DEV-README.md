@@ -33,12 +33,12 @@ You already know these concepts under different names:
 flowchart TB
     subgraph S1["Session N -- you and Claude working"]
         direction TB
-        A["Work normally\nimplement, debug, explore"]
+        A["Work normally<br/>implement, debug, explore"]
         B("Claude spots a durable lesson")
-        C{"Worth promoting\nbeyond this file?"}
-        D["Write lesson locally\nto nearest CLAUDE.md"]
-        E["Flag as CogPR\nagnostic-candidate block"]
-        F[/"Context near 100k tokens\nor natural stopping point"/]
+        C{"Worth promoting<br/>beyond this file?"}
+        D["Write lesson locally<br/>to nearest CLAUDE.md"]
+        E["Flag as CogPR<br/>agnostic-candidate block"]
+        F[/"Context near 100k tokens<br/>or natural stopping point"/]
         G["Run /grapple-cog-cycle-session"]
 
         A --> B
@@ -52,11 +52,11 @@ flowchart TB
 
     subgraph BT["Between sessions -- automated"]
         direction TB
-        H[("Handoff plan file\nwritten to disk")]
-        I["SessionStart hook\nfinds plan, extracts trigger"]
-        J["One-shot gate fires\non first prompt"]
-        K{{"Ripple Assessor\nfresh agent, no session bias"}}
-        L[("Proposals written\nto grapple-proposals/")]
+        H[("Handoff plan file<br/>written to disk")]
+        I["SessionStart hook<br/>finds plan, extracts trigger"]
+        J["One-shot gate fires<br/>on first prompt"]
+        K{{"Ripple Assessor<br/>fresh agent, no session bias"}}
+        L[("Proposals written<br/>to grapple-proposals/")]
 
         H --> I
         I --> J
@@ -68,9 +68,9 @@ flowchart TB
         direction TB
         M["Run /grapple"]
         N{"Review each proposal"}
-        O["Approve -- lesson\npromoted to target scope"]
-        P["Reject -- stays\nlocal, no side effects"]
-        Q["Edit -- modify\nbefore promoting"]
+        O["Approve -- lesson<br/>promoted to target scope"]
+        P["Reject -- stays<br/>local, no side effects"]
+        Q["Edit -- modify<br/>before promoting"]
 
         M --> N
         N --> O

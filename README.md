@@ -48,37 +48,37 @@ This downstream flow keeps the ladder honest. Global lessons stay concrete becau
 flowchart LR
     subgraph GLOBAL["Global scope -- ~/.claude/CLAUDE.md"]
         direction LR
-        G1(("Core signal\nthe primitive"))
-        G2["Treaty-level law\napplies everywhere"]
+        G1(("Core signal<br/>the primitive"))
+        G2["Treaty-level law<br/>applies everywhere"]
         G1 --- G2
     end
 
     subgraph PROJ_A["Project A"]
         direction TB
-        PA1["Project CLAUDE.md\nvalidated for this codebase"]
-        PA2["Local CLAUDE.md\nborn here, file-specific"]
-        PA2 -. "CogPR approved\nvia /grapple" .-> PA1
+        PA1["Project CLAUDE.md<br/>validated for this codebase"]
+        PA2["Local CLAUDE.md<br/>born here, file-specific"]
+        PA2 -. "CogPR approved<br/>via /grapple" .-> PA1
     end
 
     subgraph PROJ_B["Project B"]
         direction TB
-        PB1["Project CLAUDE.md\nvalidated for this codebase"]
-        PB2["Local CLAUDE.md\nborn here, file-specific"]
-        PB2 -. "CogPR approved\nvia /grapple" .-> PB1
+        PB1["Project CLAUDE.md<br/>validated for this codebase"]
+        PB2["Local CLAUDE.md<br/>born here, file-specific"]
+        PB2 -. "CogPR approved<br/>via /grapple" .-> PB1
     end
 
     subgraph PROJ_C["Project C -- new repo"]
         direction TB
-        PC1["Project CLAUDE.md\nspecialized expression"]
-        PC2["Local discovery\nsame primitive, new form"]
-        PC2 -. "validates global\nlesson locally" .-> PC1
+        PC1["Project CLAUDE.md<br/>specialized expression"]
+        PC2["Local discovery<br/>same primitive, new form"]
+        PC2 -. "validates global<br/>lesson locally" .-> PC1
     end
 
-    PA1 == "Promotion\n2+ cycles validated" ==> GLOBAL
-    PB1 -. "Candidate\npending validation" .-> GLOBAL
-    GLOBAL == "Specialization\ncore signal descends" ==> PC1
-    GLOBAL -. "Informs but\ndoes not dictate" .-> PA1
-    GLOBAL -. "Informs but\ndoes not dictate" .-> PB1
+    PA1 == "Promotion<br/>2+ cycles validated" ==> GLOBAL
+    PB1 -. "Candidate<br/>pending validation" .-> GLOBAL
+    GLOBAL == "Specialization<br/>core signal descends" ==> PC1
+    GLOBAL -. "Informs but<br/>does not dictate" .-> PA1
+    GLOBAL -. "Informs but<br/>does not dictate" .-> PB1
 
     classDef global fill:#0f3460,stroke:#4cc9f0,color:#f8f9fa,stroke-width:2px
     classDef project fill:#1a1a2e,stroke:#4361ee,color:#f8f9fa
