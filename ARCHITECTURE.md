@@ -61,3 +61,43 @@ What the human approves are *laws*, not *tactics*. You approve new primitives, s
 ## 4. The Ripple Assessor (Asynchronous Evolution)
 
 The assessor exists to keep the main session loop fast. Instead of asking the active agent to both do the work *and* deeply evaluate every improvement proposal against global invariants, CGG splits the responsibilities. The active session produces work and emits signals. The background Assessor evaluates those signals with more time, a clean context, and less noise.
+
+## 5. Tics, Zones, and System Conformation
+
+### The clock problem
+
+Different systems operate at different cadences. A CLI agent might downbeat every 100k tokens. An autonomous superintendent might downbeat at each monologue boundary. A cron job fires on a fixed schedule. None of these share a rhythm, and wall-clock timestamps alone cannot answer the question: "In what order did things happen across these systems?"
+
+The **tic** solves this. Every epoch boundary emits a tic record containing both an ISO-8601 timestamp and a monotonic sequence counter at two scopes (project and global). The timestamp tells you *when*. The counter tells you *in what order*. Together they provide:
+
+- **Temporal auditability**: reconstruct the system's state at any point in time.
+- **Sequential auditability**: reconstruct the system's state at any point in the sequence, regardless of clock skew or cadence differences.
+- **Cross-cadence mapping**: relate events from systems with incompatible rhythms through a shared total ordering.
+
+Tics are not signals. They do not accrue volume, expire via TTL, trigger warrants, or propagate through the acoustic model. They are the clock. They are stored separately from the signal manifold (`audit-logs/tics/`, not `audit-logs/signals/`).
+
+### Jurisdictional scoping
+
+The acoustic model (Section 2) routes signals based on directory distance and frequency bands. But directory distance is a filesystem primitive — it maps poorly to organizational boundaries, multi-repo deployments, or geographically distributed teams.
+
+**Tic-zones** add jurisdictional scoping. A `.ticzone` file at a directory root defines a named acoustic region with explicit path inclusion, timezone, optional coordinates, active bands, and a muffling constant. Zones answer the question: "Which agents can hear which signals?" through configuration, not convention.
+
+Zone nesting enables federation. A subdirectory can define a nested zone that inherits the parent's properties but overrides specific bands or muffling rates. Cross-zone signal propagation attenuates at double the intra-zone rate — inter-jurisdictional communication is possible but expensive, which is structurally correct for compartmentalized environments.
+
+### System conformation
+
+At any tic boundary, the total state of a CGG-governed system forms a **conformation**: the set of active signals, pending CogPRs, minted warrants, drift measurements, zone membership, and rules in force at each scope tier.
+
+Between tic N and tic N+1, environmental pressure (work, friction, discovery) causes the conformation to shift. Small shifts: a local lesson captured, a signal volume incremented. Fold events: a warrant mints from a harmonic triad, or a global rule promotion reshapes downstream behavior.
+
+The tic sequence makes conformations replayable and diffable. You can reconstruct the system's shape at tic 42, compare it to tic 41, and trace exactly which events caused the transition. This is the same audit primitive at every level of the stack:
+
+| Reader | What they see |
+|--------|--------------|
+| Engineer | "What changed between sessions?" |
+| Compliance officer | "What rules were in force when this decision was made?" |
+| System itself | "What shape am I in?" |
+
+The structural analogy is deliberate: the tic sequence is the primary structure. Signals, warrants, and CogPRs are the side chains. Bands are charge groups. Acoustic routing is the solvent environment. The conformation at any given tic is the folded shape of the system under the accumulated pressure of its entire history.
+
+This is the terminal abstraction rung. Everything below it — files, signals, rules, zones — is mechanism. The conformation is what those mechanisms produce: a shape, inspectable at any point in the sequence, that captures everything the system knows and everything it's doing about what it knows.

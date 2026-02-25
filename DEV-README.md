@@ -100,7 +100,7 @@ flowchart TB
 
 Context windows are finite. Around 100k tokens, Claude Code starts losing grip on early-session context. CGG turns this constraint into a feature.
 
-Hit `/cadence-downbeat` at or before the 100k mark. The session writes a handoff file, captures pending lessons, and shuts down cleanly. Next session picks up where you left off, but the lessons from Session N are already evaluated and queued for review.
+Hit `/cadence-downbeat` at or before the 100k mark. The downbeat emits a canonical tic (a sequenced timestamp that provides total ordering across agents and cadences), writes a handoff file, captures pending lessons, and shuts down cleanly. Next session picks up where you left off, but the lessons from Session N are already evaluated and queued for review. The tic sequence means you can always reconstruct what the system knew at any point -- not just by clock time, but by ordinal position in the sequence.
 
 Over a multi-week roadmap, this creates a rhythm:
 

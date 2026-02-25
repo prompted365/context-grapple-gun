@@ -7,9 +7,25 @@
 
 # Context Grapple Gun
 
-CGG is a governance framework for persistent AI agents that need to learn across sessions without drifting. It solves a specific problem: when an agent discovers something true during a work session -- a bug pattern, an API quirk, an architectural constraint -- that knowledge dies with the context window. The next session starts from zero.
+CGG is a file-based governance layer for persistent AI systems. It stabilizes agent behavior through scoped rule promotion, epoch boundaries, canonical timestamping, and human constitutional review. No databases, no running services, no external dependencies -- flat files, git-tracked, auditable by default.
 
-CGG gives that knowledge a lifecycle. Lessons are captured locally, evaluated by a fresh agent between sessions, and promoted to broader scopes with human approval at every gate. Over time, the project's system prompts grow from real work -- not because someone sat down to write documentation, but because the system extracted what actually mattered.
+It solves a structural problem: when an AI agent discovers something true during a work session -- a bug pattern, an API quirk, an architectural constraint -- that knowledge dies with the context window. The next session starts from zero. Worse, in a multi-agent or multi-team deployment, there is no mechanism for one agent's hard-won lesson to propagate to another without a human manually rewriting system prompts.
+
+CGG gives knowledge a lifecycle. Lessons are captured locally, evaluated by a fresh agent between sessions, and promoted to broader scopes with human approval at every gate. Runtime conditions are monitored through a parallel signal system with acoustic routing, volume accrual, and automatic escalation. Every epoch boundary emits a canonical tic -- a sequentially numbered timestamp that provides total ordering across agents, cadences, and jurisdictions.
+
+Over time, the project's operating rules grow from real work -- not because someone sat down to write documentation, but because the system extracted what actually mattered.
+
+### Why CGG exists
+
+Organizations deploying persistent AI systems face a specific set of problems that better models do not solve:
+
+- **Behavioral drift over time.** Agents gradually contradict their own constraints as context windows fill and rotate.
+- **No rule evolution pathway.** When an agent discovers a better way to operate, the insight dies with the session. Manually updating system prompts doesn't scale.
+- **Invisible blast radius.** When an agent's behavior changes, there is no audit trail showing what changed, when, why, or who approved it.
+- **Cross-system incoherence.** Multiple agents operating in the same domain have no mechanism to share validated lessons or coordinate on discovered constraints.
+- **Jurisdictional ambiguity.** In regulated or multi-team environments, there is no way to define which agents can hear which signals, or which rules apply in which scope.
+
+CGG addresses these directly through five structural mechanisms: the abstraction ladder (scoped rule tiers), the epoch boundary (context rotation discipline), the human constitutional gate (approval-gated promotion), the signal manifold (runtime condition monitoring), and the tic/tic-zone system (canonical ordering and jurisdictional scoping).
 
 ## The abstraction ladder
 
@@ -222,9 +238,17 @@ Most of this runs silently. Signals accrue volume, assessors run between session
 
 The right analogy isn't an alert system. It's closer to a geological survey: instruments always recording, data read when you choose to.
 
-### Tic (canonical timestamp primitive)
+### Tic (canonical clock primitive)
 
-Cadences are syncopated -- Homeskillet downbeats at the 100k token mark, Mogul at monologue boundaries, cron at fixed intervals. Tics are canon. They provide the cross-system timestamp mapping regardless of each system's rhythm.
+A tic is both a timestamp and a sequence number. This distinction matters.
+
+A timestamp tells you *when* something happened. A monotonic counter tells you *in what order*. Tics provide both -- an ISO-8601 timestamp paired with project and global sequence counters. This gives you three audit capabilities simultaneously:
+
+- **Temporal**: "What did the system know at 2026-02-24T21:15:00?"
+- **Sequential**: "What happened between tic 42 and tic 47, regardless of wall-clock time?"
+- **Cross-cadence**: "Agent A's tic #3 occurred between Agent B's tic #41 and #42" -- even though they run on completely different rhythms.
+
+Different systems emit tics at different cadences. A Claude Code agent downbeats at the 100k token mark. An Agent Zero superintendent downbeats at monologue boundaries. A cron job downbeats on a fixed schedule. None share a rhythm -- but they all share the tic sequence. The tic counter is the total ordering that makes syncopated cadences commensurable.
 
 Every `/cadence-downbeat` emits a tic. Tics accumulate at two scopes:
 - **Project tic counter**: derived by counting `"type": "tic"` entries in `audit-logs/tics/*.jsonl`
@@ -242,6 +266,8 @@ Tic record format (appended to `audit-logs/tics/YYYY-MM-DD.jsonl`):
   "tic_count_global": 137
 }
 ```
+
+Tics are stored separately from signals (`audit-logs/tics/`, not `audit-logs/signals/`). The clock is not a signal -- tics are exempt from TTL expiry, muffling, volume accrual, and warrant triads.
 
 ### Tic-zone (acoustic region)
 
@@ -269,6 +295,45 @@ A tic-zone is a named acoustic region defined by a `.ticzone` file (JSONC -- `//
 A `.ticignore` file (gitignore-style) excludes paths from the zone's acoustic space. Signals originating from ignored paths are not routed.
 
 Zone nesting: a `.ticzone` in a subdirectory creates a nested zone inheriting the parent's `tz` and `bands` unless overridden. Muffling crosses zone boundaries at 2x the per-hop rate.
+
+### System conformation
+
+At any tic boundary, the total state of a CGG-governed system forms a conformation: which signals are active, which CogPRs are pending, which warrants are minted, what the drift measurements show, which zone you're in, what rules are in force at each scope tier.
+
+Between tic N and tic N+1, environmental pressure -- work, friction, discovery -- causes the conformation to shift. Most shifts are small: a local lesson captured, a signal volume incremented. Some are fold events: a warrant mints from a harmonic triad (three independent signal types converging), or a global rule gets promoted that reshapes how every downstream project operates.
+
+The tic sequence makes this replayable. You can reconstruct the system's exact conformation at any tic boundary, diff it against the previous one, and trace exactly what caused the transition. This is the audit primitive that works at every abstraction level -- an engineer reads it as "what changed between sessions," a compliance officer reads it as "what rules were in force when this decision was made," and the system itself reads it as "what shape am I in."
+
+The sequence is the primary structure. The signals, warrants, and CogPRs are the side chains. The bands are the charge groups. The acoustic routing is the solvent environment. The conformation at any given tic is the folded shape of the system under the accumulated pressure of everything that happened before it.
+
+## Applicability
+
+CGG is model-agnostic and host-agnostic. Claude Code is the current primary host, but the primitives -- flat-file signal stores, append-only JSONL, YAML/JSONC config, human-gated promotion -- are portable to any agent framework.
+
+### Engineering teams
+
+The CI/CD mental model is intentional. CogPRs are pull requests for agent behavior, not codebases. The ripple assessor is the CI runner. `/grapple` is code review. Engineers already know these workflows -- CGG maps directly onto them.
+
+### Regulated industries
+
+For organizations where AI behavioral changes require documented approval chains -- fintech, healthcare, defense, legal -- CGG provides:
+
+- **Audit trail**: Every rule change is a CogPR with a reviewable diff, approval timestamp, and scope designation. Every epoch boundary emits a sequenced tic.
+- **Blast radius containment**: Scoped memory tiers ensure a lesson validated in one project cannot silently propagate to another without climbing the abstraction ladder through human gates.
+- **Jurisdictional mapping**: Tic-zones define which agents operate in which acoustic regions, which bands are active, and how signals attenuate across boundaries.
+
+### Public sector
+
+Government AI deployments face specific constraints that CGG addresses structurally:
+
+- **FOIA readiness**: All state is in flat, human-readable files. No databases to subpoena, no APIs to query. `git log` is the audit tool.
+- **Administration epochs**: Tic counters and epoch boundaries map cleanly to fiscal years, legislative sessions, and administration changes. Rules can be version-controlled per epoch.
+- **Compartmentalization**: Tic-zones enforce that signals from one agency's agents cannot propagate into another agency's acoustic space without explicit zone inclusion.
+- **Constitutional gate**: The human approval requirement for rule promotion mirrors the principle that AI systems execute policy -- they do not make it.
+
+### Multi-agent coordination
+
+When multiple agents operate in the same domain with different cadences, CGG provides the shared clock (tics), shared jurisdiction (zones), and shared governance (the abstraction ladder) that prevent them from drifting into incoherence. Each agent maintains its own rhythm. The tic sequence is how they stay synchronized without being coupled.
 
 ## Packages
 
