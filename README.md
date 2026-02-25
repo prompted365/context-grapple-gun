@@ -90,23 +90,11 @@ flowchart TB
     class PA2,PB2,PC2 local
 ```
 
-### The 4/4 cadence
+### The unified flow: how knowledge survives context death
 
-Over multiple sessions, CGG settles into a natural rhythm. Four beats, steady time:
-
-| Beat | Action | What happens |
-|------|--------|-------------|
-| 1 | **Work** | Implement, debug, ship. Lessons are a side effect of doing real work. |
-| 2 | **Capture** | Hit `/grapple-cog-cycle-session` at or before 100k tokens. Handoff written, CogPRs staged. |
-| 3 | **Evaluate** | Between sessions, the ripple assessor runs automatically. No human involvement. |
-| 4 | **Review** | Run `/grapple` when the queue warrants it -- every 2-4 sessions, not necessarily every session. |
-
-This isn't a strict 1:1:1:1 mapping to sessions. You might hit beats 1 and 2 three times before doing beat 4. The review cadence is driven by proposal density, not a fixed schedule.
-
-The steady-state result: the agent learns at project level autonomously between beats 1 and 3. You shape what sticks and what climbs during beat 4. Over a multi-week roadmap, the project's `CLAUDE.md` grows organically from real friction rather than upfront documentation effort.
+The system runs three loops concurrently at different speeds. The **fast loop** is your working session -- implement, debug, verify. The **medium loop** is project memory, where validated lessons accumulate across sessions. The **slow loop** is global memory, where universal invariants settle after enough cross-project validation. The 100k token cycle-session trigger physically destroys the local context window, but because the CogPR buffer feeds project and global memory asynchronously, knowledge arcs over the destruction event and cascades into the next session.
 
 ```mermaid
-%%{init: {'theme': 'dark', 'themeVariables': {'primaryColor': '#2c5282', 'primaryTextColor': '#e2e8f0', 'primaryBorderColor': '#4299e1', 'lineColor': '#4299e1', 'secondaryColor': '#1a365d', 'tertiaryColor': '#2a4365', 'edgeLabelBackground': '#1a365d', 'clusterBkg': '#1a365d', 'clusterBorder': '#2b6cb0'}}}%%
 graph TB
     classDef session fill:#2a4365,stroke:#2b6cb0,color:#e2e8f0,stroke-width:2px
     classDef project fill:#2c5282,stroke:#4299e1,color:#e2e8f0,stroke-width:2px
@@ -114,61 +102,91 @@ graph TB
     classDef trigger fill:#7b341e,stroke:#ed8936,color:#fff,stroke-width:2px
     classDef human fill:#276749,stroke:#48bb78,color:#fff,stroke-width:2px
 
-    S1["Session 1\nDesign - Implement - Verify"]:::session
-    S2["Session 2\nDesign - Implement - Verify"]:::session
-    S3["Session 3\nDesign - Implement - Verify"]:::session
+    %% Session Layer - Fast Loop
+    S1["Session 1<br/>Design → Implement → Verify"]:::session
+    S2["Session 2<br/>Design → Implement → Verify"]:::session
+    S3["Session 3<br/>Design → Implement → Verify"]:::session
 
-    T1["100k Token\nManually Trigger"]:::trigger
-    T2["100k Token\nManually Trigger"]:::trigger
+    %% Session Controls
+    T1["100k Token<br/>Manually Trigger"]:::trigger
+    T2["100k Token<br/>Manually Trigger"]:::trigger
     Cycle1["/grapple-cog-cycle-session"]:::trigger
     Cycle2["/grapple-cog-cycle-session"]:::trigger
 
-    CogPR1["CogPR Buffer\nFriction Detection"]:::session
-    CogPR2["CogPR Buffer\nFriction Detection"]:::session
+    %% CogPR Buffer - Continuous
+    CogPR1["CogPR Buffer<br/>(Friction Detection)"]:::session
+    CogPR2["CogPR Buffer<br/>(Friction Detection)"]:::session
 
-    Assess1["Ripple Assessor\nBackground Eval"]:::project
-    Assess2["Ripple Assessor\nBackground Eval"]:::project
+    %% Evaluation Layer
+    Assess1["Ripple Assessor<br/>(Background Eval)"]:::project
+    Assess2["Ripple Assessor<br/>(Background Eval)"]:::project
 
-    Review["/grapple\nHuman Review"]:::human
+    %% Human Review
+    Review["/grapple<br/>Human Review"]:::human
 
-    ProjMem["Project Memory\nAccumulated Primitives"]:::project
+    %% Project Layer - Medium Loop
+    ProjMem["Project Memory<br/>(Accumulated Primitives)"]:::project
 
-    GlobalMem["Global Memory\nUniversal Invariants"]:::global
+    %% Global Layer - Slow Loop
+    GlobalMem["Global Memory<br/>(Universal Invariants)"]:::global
 
+    %% Bidirectional Knowledge Flow
     LocalObs["Raw Observations"]:::session
 
+    %% Session 1 Flow
     S1 -->|Continuous| CogPR1
     S1 --> T1
-    T1 -->|at 100k| Cycle1
+    T1 -->|>= 100k| Cycle1
     Cycle1 --> Assess1
     Assess1 --> Review
 
-    Review -->|Approve and Merge| S2
+    %% Session 2 Flow
+    Review -->|Approve & Merge| S2
     S2 -->|Continuous| CogPR2
     S2 --> T2
-    T2 -->|at 100k| Cycle2
+    T2 -->|>= 100k| Cycle2
     Cycle2 --> Assess2
     Assess2 --> Review
 
-    Review -->|Approve and Merge| S3
+    %% Session 3 Flow
+    Review -->|Approve & Merge| S3
 
+    %% Upward Abstraction
     CogPR1 -->|Extract Patterns| ProjMem
     CogPR2 -->|Extract Patterns| ProjMem
     ProjMem -->|Validate Universality| GlobalMem
 
+    %% Downward Specialization
     GlobalMem -.->|Cascade Truths| ProjMem
     ProjMem -.->|Specialize Rules| S2
     ProjMem -.->|Specialize Rules| S3
 
+    %% Continuous Feedback
     S1 -->|New Discoveries| LocalObs
     S2 -->|New Discoveries| LocalObs
     S3 -->|New Discoveries| LocalObs
     LocalObs -.->|Feed Upward| CogPR1
     LocalObs -.->|Feed Upward| CogPR2
 
+    %% Async Signals
     CogPR1 -.->|Async| Assess1
     CogPR2 -.->|Async| Assess2
 ```
+
+The `/grapple` human review isn't just a safety check -- it's the epoch boundary. It marks the moment where Session N's raw discoveries become Session N+1's upgraded starting state. The agent should have amnesia after the context flush. It doesn't, because the abstraction ladder carried the knowledge through.
+
+### The 4/4 cadence
+
+Four beats, steady time:
+
+| Beat | Action | What happens |
+|------|--------|-------------|
+| 1 | **Work** | Implement, debug, ship. Lessons are a side effect of real work. |
+| 2 | **Capture** | `/grapple-cog-cycle-session` at or before 100k tokens. Handoff written, CogPRs staged. |
+| 3 | **Evaluate** | Between sessions, ripple assessor runs automatically. No human involvement. |
+| 4 | **Review** | `/grapple` when the queue warrants it -- every 2-4 sessions, not every session. |
+
+You might run beats 1 and 2 three times before doing beat 4. The review cadence is driven by proposal density, not a fixed schedule. The agent learns at project level autonomously between beats 1 and 3. You shape what sticks and what climbs during beat 4.
 
 ## Signal architecture
 
