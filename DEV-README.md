@@ -4,11 +4,11 @@
 
 # Context Grapple Gun -- Practical developer guide
 
+> **Just opened a terminal for the first time?** Start with [`START-HERE.md`](START-HERE.md) -- no jargon, four commands.
 > **Want the theory?** See [`README.md`](README.md) for the abstraction ladder model and signal architecture.
+> **Want the deep physics?** Read the [Architecture & Design Rationale](ARCHITECTURE.md).
 
 **A CI/CD pipeline for your AI's memory and system prompts.**
-
-> **Curious about the theory behind the pipeline?** Read the [Architecture & Design Rationale](ARCHITECTURE.md).
 
 You've been here: Claude Code solves a gnarly race condition at 2am. You close the session. Tomorrow, same agent, same repo -- it has no idea what it learned last night. You re-explain the fix, or worse, watch it make the same mistake again.
 

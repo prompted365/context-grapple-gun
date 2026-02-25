@@ -2,8 +2,9 @@
   <img src="assets/cgg-banner.jpeg" alt="Context Grapple Gun by Prompted LLC & Ubiquity OS" width="100%" />
 </p>
 
-> **Looking for the practical developer guide?** See [`DEV-README.md`](DEV-README.md).
-> **Want to understand the system physics?** Read the [Architecture & Design Rationale](ARCHITECTURE.md).
+> **New to the terminal?** Start with [`START-HERE.md`](START-HERE.md) -- plain language, four commands, 60-second install.
+> **Developer?** The practical guide is [`DEV-README.md`](DEV-README.md).
+> **Architect?** Read the [Architecture & Design Rationale](ARCHITECTURE.md).
 
 # Context Grapple Gun
 
