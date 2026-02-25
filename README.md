@@ -45,7 +45,7 @@ This downstream flow keeps the ladder honest. Global lessons stay concrete becau
 
 ```mermaid
 %%{init: {'theme': 'dark', 'themeVariables': {'primaryColor': '#4361ee', 'primaryTextColor': '#f8f9fa', 'primaryBorderColor': '#6c757d', 'lineColor': '#4895ef', 'secondaryColor': '#1a1a2e', 'tertiaryColor': '#16213e', 'edgeLabelBackground': '#1a1a2e', 'clusterBkg': '#16213e', 'clusterBorder': '#3d3d3d'}}}%%
-flowchart TB
+flowchart LR
     subgraph GLOBAL["Global scope -- ~/.claude/CLAUDE.md"]
         direction LR
         G1(("Core signal\nthe primitive"))
