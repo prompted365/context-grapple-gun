@@ -13,10 +13,10 @@ When the user invokes this command, output the following exact text to initiate 
 0. Reconcile Native Plan State: Locate the active plan file in ~/.claude/plans/. Evaluate its status based on the spirit of the original goal. Explicitly mark it 100% 'Completed', 'Superseded', or leave it 'Active' only if the exact thread must resume.
 
 0.5. Emit Tic: Record the canonical downbeat timestamp.
-   - Read project tic count from audit-logs/signals/*.jsonl (count entries where type=tic)
+   - Read project tic count from audit-logs/tics/*.jsonl (count entries where type=tic)
    - Read global tic count from ~/.claude/cgg-tic-counter.json (create if absent, start at 0)
    - Increment both counters
-   - Append tic record to audit-logs/signals/YYYY-MM-DD.jsonl:
+   - Append tic record to audit-logs/tics/YYYY-MM-DD.jsonl:
      {"type": "tic", "tic": "<ISO-8601 now>", "tic_zone": "<name from .ticzone>", "cadence_position": "downbeat", "scope": "project", "tic_count_project": N, "tic_count_global": M}
    - Update ~/.claude/cgg-tic-counter.json with new count and last_tic
    - Report: 'Tic #N (project) / #M (global) at YYYY-MM-DDTHH:MM:SSZ'

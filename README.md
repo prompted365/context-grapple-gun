@@ -227,10 +227,10 @@ The right analogy isn't an alert system. It's closer to a geological survey: ins
 Cadences are syncopated -- Homeskillet downbeats at the 100k token mark, Mogul at monologue boundaries, cron at fixed intervals. Tics are canon. They provide the cross-system timestamp mapping regardless of each system's rhythm.
 
 Every `/cadence-downbeat` emits a tic. Tics accumulate at two scopes:
-- **Project tic counter**: derived by counting `"type": "tic"` entries in `audit-logs/signals/*.jsonl`
+- **Project tic counter**: derived by counting `"type": "tic"` entries in `audit-logs/tics/*.jsonl`
 - **Global tic counter**: `~/.claude/cgg-tic-counter.json` -- simple `{"count": N, "last_tic": "ISO-8601"}`
 
-Tic record format (appended to signal store):
+Tic record format (appended to `audit-logs/tics/YYYY-MM-DD.jsonl`):
 ```json
 {
   "type": "tic",
@@ -245,9 +245,9 @@ Tic record format (appended to signal store):
 
 ### Tic-zone (acoustic region)
 
-A tic-zone is a named acoustic region defined by a `.ticzone` file at the zone root. It lays out the acoustic space for banded communications. All systems within a zone share the tic primitive regardless of their cadence position.
+A tic-zone is a named acoustic region defined by a `.ticzone` file (JSONC -- `//` comments and trailing commas accepted) at the zone root. It lays out the acoustic space for banded communications. All systems within a zone share the tic primitive regardless of their cadence position.
 
-```json
+```jsonc
 {
   "name": "operationTorque-estate",
   "tz": "America/Toronto",
