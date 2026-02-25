@@ -8,6 +8,8 @@
 
 **A CI/CD pipeline for your AI's memory and system prompts.**
 
+> **Curious about the theory behind the pipeline?** Read the [Architecture & Design Rationale](ARCHITECTURE.md).
+
 You've been here: Claude Code solves a gnarly race condition at 2am. You close the session. Tomorrow, same agent, same repo -- it has no idea what it learned last night. You re-explain the fix, or worse, watch it make the same mistake again.
 
 CGG fixes this. The agent captures lessons as it works, drafts them as "Cognitive Pull Requests," and queues them for your review. You approve the ones worth keeping. Next session, those lessons are loaded. The agent gets smarter over time instead of resetting to zero.
