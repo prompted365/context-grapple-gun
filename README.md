@@ -50,7 +50,7 @@ flowchart TB
         direction LR
         G1(("Core signal<br/>the primitive"))
         G2["Treaty-level law<br/>applies everywhere"]
-        G1 --- G2
+        G1 ------ G2
     end
 
     subgraph PROJ_A["Project A"]
