@@ -29,7 +29,7 @@ You already know these concepts under different names:
 ## How a session actually flows
 
 ```mermaid
-%%{init: {'theme': 'dark', 'themeVariables': {'primaryColor': '#4361ee', 'primaryTextColor': '#f8f9fa', 'primaryBorderColor': '#6c757d', 'lineColor': '#4895ef', 'secondaryColor': '#1a1a2e', 'tertiaryColor': '#16213e', 'edgeLabelBackground': '#1a1a2e', 'clusterBkg': '#16213e', 'clusterBorder': '#3d3d3d', 'noteTextColor': '#e0e0e0', 'noteBkgColor': '#2d2d2d'}}}%%
+%%{init: {'theme': 'dark', 'flowchart': {'padding': 24, 'rankSpacing': 60, 'nodeSpacing': 40}, 'themeVariables': {'primaryColor': '#4361ee', 'primaryTextColor': '#f8f9fa', 'primaryBorderColor': '#6c757d', 'lineColor': '#4895ef', 'secondaryColor': '#1a1a2e', 'tertiaryColor': '#16213e', 'edgeLabelBackground': '#1a1a2e', 'clusterBkg': '#16213e', 'clusterBorder': '#3d3d3d', 'noteTextColor': '#e0e0e0', 'noteBkgColor': '#2d2d2d'}}}%%
 flowchart TB
     subgraph S1["Session N -- you and Claude working"]
         direction TB
@@ -78,8 +78,8 @@ flowchart TB
         N --> Q
     end
 
-    G ==> H
-    L ==> M
+    G ===> H
+    L ===> M
 
     classDef work fill:#1a1a2e,stroke:#4361ee,color:#f8f9fa
     classDef decision fill:#0f3460,stroke:#4895ef,color:#f8f9fa

@@ -44,8 +44,8 @@ Example: a global lesson says "always validate embedding dimensions before simil
 This downstream flow keeps the ladder honest. Global lessons stay concrete because their project-level expressions test them against real codebases. If a global lesson can't produce a useful specialization in a new project, it probably shouldn't be global. The top of the ladder stays sharp because the bottom keeps filing it.
 
 ```mermaid
-%%{init: {'theme': 'dark', 'themeVariables': {'primaryColor': '#4361ee', 'primaryTextColor': '#f8f9fa', 'primaryBorderColor': '#6c757d', 'lineColor': '#4895ef', 'secondaryColor': '#1a1a2e', 'tertiaryColor': '#16213e', 'edgeLabelBackground': '#1a1a2e', 'clusterBkg': '#16213e', 'clusterBorder': '#3d3d3d'}}}%%
-flowchart LR
+%%{init: {'theme': 'dark', 'flowchart': {'padding': 24, 'rankSpacing': 60, 'nodeSpacing': 40}, 'themeVariables': {'primaryColor': '#4361ee', 'primaryTextColor': '#f8f9fa', 'primaryBorderColor': '#6c757d', 'lineColor': '#4895ef', 'secondaryColor': '#1a1a2e', 'tertiaryColor': '#16213e', 'edgeLabelBackground': '#1a1a2e', 'clusterBkg': '#16213e', 'clusterBorder': '#3d3d3d'}}}%%
+flowchart TB
     subgraph GLOBAL["Global scope -- ~/.claude/CLAUDE.md"]
         direction LR
         G1(("Core signal<br/>the primitive"))
@@ -74,11 +74,11 @@ flowchart LR
         PC2 -. "validates global<br/>lesson locally" .-> PC1
     end
 
-    PA1 == "Promotion<br/>2+ cycles validated" ==> GLOBAL
-    PB1 -. "Candidate<br/>pending validation" .-> GLOBAL
-    GLOBAL == "Specialization<br/>core signal descends" ==> PC1
-    GLOBAL -. "Informs but<br/>does not dictate" .-> PA1
-    GLOBAL -. "Informs but<br/>does not dictate" .-> PB1
+    PA1 == "Promotion<br/>2+ cycles validated" ===> GLOBAL
+    PB1 -. "Candidate<br/>pending validation" ..-> GLOBAL
+    GLOBAL == "Specialization<br/>core signal descends" ===> PC1
+    GLOBAL -. "Informs but<br/>does not dictate" ..-> PA1
+    GLOBAL -. "Informs but<br/>does not dictate" ..-> PB1
 
     classDef global fill:#0f3460,stroke:#4cc9f0,color:#f8f9fa,stroke-width:2px
     classDef project fill:#1a1a2e,stroke:#4361ee,color:#f8f9fa
