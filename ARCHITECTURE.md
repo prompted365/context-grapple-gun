@@ -114,5 +114,9 @@ This is the terminal abstraction rung. Everything below it — files, signals, r
   rationale: "The conformation concept completes the CGG abstraction stack. It connects the file-level primitives to the fold-level audit capability. Any system using tics needs to understand that the tic sequence enables conformation replay — this is the 'why' behind tic separation."
   review_hints: "Validate after conformation diffing is implemented. The concept is architecturally sound but tooling doesn't exist yet. Keep at project scope until replay tooling proves the concept."
   civilization_prior_refs: []
-  status: "pending"
+  status: "promoted"
+  promoted_at: "2026-02-25"
+  promoted_to:
+    - "CLAUDE.md (Tic section — conformation terminal abstraction note)"
+  grapple_docket: "2026-02-25"
 -->
