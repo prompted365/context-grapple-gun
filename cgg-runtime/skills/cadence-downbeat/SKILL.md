@@ -36,10 +36,10 @@ When the user invokes this command, output the following exact text to initiate 
    - Generate a filename from the handoff_id (replace colons with dashes, spaces with dashes)
    - Write the plan content to: ~/.claude/projects/$PROJECT_KEY/<filename>.md
    - The file MUST contain the `<!-- cgg-handoff -->` and `<!-- cgg-evaluate -->` blocks from the plan
-   - This enables session-restore.sh to discover the plan, extract triggers, and spawn the ripple-assessor automatically
-   - Without this file, the trigger pipeline is dead — the ripple-assessor never fires
 
 5. Populate the Native Plan: Inside this new plan, you must include:
    - Session Learning & ROI: List the specific lessons captured today and provide a Time Saved Estimate (e.g., 'Saves 45 mins of future debugging').
    - Friction (Signals): Drop any new `<!-- --signal -->` blocks directly into the 'Working State' section for unresolved technical debt.
-   - Wire the Trigger: At the very bottom, compile the exact `<!-- cgg-evaluate -->` HTML trigger block. Ensure pending_cprs_expected matches the exact number of CogPRs you created in Step 2."
+   - Wire the Trigger: At the very bottom, compile the exact `<!-- cgg-evaluate -->` HTML trigger block. Ensure pending_cprs_expected matches the exact number of CogPRs you created in Step 2.
+
+The ripple-assessor runs HEADLESS on next session start (background, non-blocking via cgg-gate.sh hook). It writes proposals to ~/.claude/grapple-proposals/latest.md — keeping its ~10k tokens OUT of the runtime context window. The completion notification is informational only ('proposals ready for /grapple when ready') — it does NOT demand immediate attention. Proposals are consumed when the user invokes /grapple, not before."
