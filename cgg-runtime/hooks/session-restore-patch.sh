@@ -67,9 +67,21 @@ if [ -f "$MEMORY_FILE" ]; then
   CPR_COUNT=$(( CPR_COUNT + ${_mem_count:-0} ))
 fi
 
-# Build CGG context message
+# Build CGG context message — extract Next Actions inline instead of forcing full plan re-read
 if [ -n "$LATEST_PLAN" ]; then
-  CGG_MSG="[CGG CHARTER: Read $LATEST_PLAN]"
+  # Extract ## Next Actions section (lighter than full plan read)
+  NEXT_ACTIONS=$(awk '/^## Next Actions/,/^## [^N]/' "$LATEST_PLAN" 2>/dev/null | head -20 | sed 's/"/\\"/g' | tr '\n' ' ')
+  if [ -n "$NEXT_ACTIONS" ] && [ ${#NEXT_ACTIONS} -gt 20 ]; then
+    CGG_MSG="[CGG HANDOFF NEXT ACTIONS: $NEXT_ACTIONS] [Full plan if needed: $LATEST_PLAN]"
+  else
+    # Fallback: try ## Not Started or ## Working State for compact context
+    WORKING=$(awk '/^### Not Started/,/^### [^N]/' "$LATEST_PLAN" 2>/dev/null | head -15 | sed 's/"/\\"/g' | tr '\n' ' ')
+    if [ -n "$WORKING" ] && [ ${#WORKING} -gt 20 ]; then
+      CGG_MSG="[CGG HANDOFF REMAINING: $WORKING] [Full plan if needed: $LATEST_PLAN]"
+    else
+      CGG_MSG="[CGG CHARTER: Read $LATEST_PLAN]"
+    fi
+  fi
 fi
 if [ -n "$TRIGGER_MSG" ]; then
   CGG_MSG="$CGG_MSG $TRIGGER_MSG"
@@ -118,6 +130,22 @@ if [ -d "$SIGNAL_DIR" ]; then
   fi
 fi
 
+# --- Parallel context awareness ---
+SESSION_META="$HOME/.claude/usage-data/session-meta"
+PARALLEL_MSG=""
+if [ -d "$SESSION_META" ]; then
+  NOW=$(date +%s)
+  RECENT_COUNT=0
+  for META_FILE in $(ls -t "$SESSION_META"/*.json 2>/dev/null | head -20); do
+    META_AGE=$(( NOW - $(stat -f%m "$META_FILE" 2>/dev/null || echo 0) ))
+    [ "$META_AGE" -gt 7200 ] && break
+    RECENT_COUNT=$(( RECENT_COUNT + 1 ))
+  done
+  if [ "$RECENT_COUNT" -gt 1 ]; then
+    PARALLEL_MSG="[PARALLEL: $RECENT_COUNT recent sessions touched this project in last 2h. Files may have shifted since last handoff.]"
+  fi
+fi
+
 # Combine all context messages
 FULL_MSG=""
 if [ -n "$CGG_MSG" ]; then
@@ -128,6 +156,13 @@ if [ -n "$SIREN_MSG" ]; then
     FULL_MSG="$FULL_MSG $SIREN_MSG"
   else
     FULL_MSG="$SIREN_MSG"
+  fi
+fi
+if [ -n "$PARALLEL_MSG" ]; then
+  if [ -n "$FULL_MSG" ]; then
+    FULL_MSG="$FULL_MSG $PARALLEL_MSG"
+  else
+    FULL_MSG="$PARALLEL_MSG"
   fi
 fi
 

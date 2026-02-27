@@ -31,6 +31,14 @@ When the user invokes this command, output the following exact text to initiate 
 
 4. Generate the Handoff Plan: Using your native planning capability, generate a NEW plan for the next session. This ensures Claude Code registers it as the active state.
 
+4.5. Save Handoff to Disk: After generating the plan, save it as a standalone markdown file so the trigger pipeline can discover it on next session start.
+   - Compute PROJECT_KEY by replacing '/' with '-' in the project directory path
+   - Generate a filename from the handoff_id (replace colons with dashes, spaces with dashes)
+   - Write the plan content to: ~/.claude/projects/$PROJECT_KEY/<filename>.md
+   - The file MUST contain the `<!-- cgg-handoff -->` and `<!-- cgg-evaluate -->` blocks from the plan
+   - This enables session-restore.sh to discover the plan, extract triggers, and spawn the ripple-assessor automatically
+   - Without this file, the trigger pipeline is dead — the ripple-assessor never fires
+
 5. Populate the Native Plan: Inside this new plan, you must include:
    - Session Learning & ROI: List the specific lessons captured today and provide a Time Saved Estimate (e.g., 'Saves 45 mins of future debugging').
    - Friction (Signals): Drop any new `<!-- --signal -->` blocks directly into the 'Working State' section for unresolved technical debt.
