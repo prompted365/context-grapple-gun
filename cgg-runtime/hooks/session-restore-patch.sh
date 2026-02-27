@@ -130,19 +130,26 @@ if [ -d "$SIGNAL_DIR" ]; then
   fi
 fi
 
-# --- Parallel context awareness ---
+# --- Parallel context awareness (project-filtered) ---
 SESSION_META="$HOME/.claude/usage-data/session-meta"
 PARALLEL_MSG=""
 if [ -d "$SESSION_META" ]; then
-  NOW=$(date +%s)
-  RECENT_COUNT=0
-  for META_FILE in $(ls -t "$SESSION_META"/*.json 2>/dev/null | head -20); do
-    META_AGE=$(( NOW - $(stat -f%m "$META_FILE" 2>/dev/null || echo 0) ))
-    [ "$META_AGE" -gt 7200 ] && break
-    RECENT_COUNT=$(( RECENT_COUNT + 1 ))
-  done
+  RECENT_COUNT=$(python3 -c "
+import json, glob, time, sys
+now = time.time()
+count = 0
+for f in sorted(glob.glob('$SESSION_META/*.json'), key=lambda x: -__import__('os').path.getmtime(x))[:30]:
+    age = now - __import__('os').path.getmtime(f)
+    if age > 7200: break
+    try:
+        d = json.load(open(f))
+        if d.get('project_path','') == '$PROJECT_DIR':
+            count += 1
+    except: pass
+print(count)
+" 2>/dev/null || echo "0")
   if [ "$RECENT_COUNT" -gt 1 ]; then
-    PARALLEL_MSG="[PARALLEL: $RECENT_COUNT recent sessions touched this project in last 2h. Files may have shifted since last handoff.]"
+    PARALLEL_MSG="[PARALLEL: $RECENT_COUNT recent sessions on this project in last 2h. Files may have shifted since last handoff.]"
   fi
 fi
 
