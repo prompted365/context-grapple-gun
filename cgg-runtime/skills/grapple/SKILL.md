@@ -108,21 +108,6 @@ Enter Plan Mode. Present the docket in three sections, ordered by priority:
 - **Verdict**: PROMOTE | SKIP | MODIFY
 - **Confidence**: 0.85
 - **Reasoning**: <2-3 sentences>
-- **Trip hazards**: <list any cross-project conflicts from assessor, or "none">
-
----
-
-## Section D: Specialization Opportunities (Descend)
-
-(Global rules that could be specialized into the current project — from assessor's descend scan)
-
-### SPR-1: <global rule summary>
-- **Global source**: `~/.claude/CLAUDE.md:<line>`
-- **Global lesson**: <the rule as written globally>
-- **Project application**: <how it applies specifically here>
-- **Proposed specialization**: <what the project-specific version would say>
-- **Confidence**: 0.75
-- **Verdict**: SPECIALIZE | SKIP
 ```
 
 Wait for user approval before proceeding.
@@ -145,19 +130,6 @@ For each SKIP:
 For each MODIFY:
 1. Apply the modification to the lesson text
 2. Then promote as above
-
-**Specialization Verdicts (Section D):**
-
-For each approved SPECIALIZE:
-1. Read the current project's CLAUDE.md
-2. Find the appropriate section (match existing heading style)
-3. Write the specialized version of the global rule in the project's format/tone
-4. Do NOT modify the global `~/.claude/CLAUDE.md` — the global rule stays as-is
-5. Log in meta-log: `action: "specialize"`, `global_source`, `project_target`, `specialization_text`
-
-For each SKIP:
-1. Log in meta-log: `action: "specialize_skip"`, `global_source`, `reason`
-2. No files modified
 
 **Warrant Verdicts:**
 
