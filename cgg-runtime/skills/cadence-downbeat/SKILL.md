@@ -17,13 +17,23 @@ Locate the active plan file in `~/.claude/plans/`. Evaluate its status based on 
 
 ### Step 0.5: Emit Tic
 Record the canonical downbeat timestamp.
-- Read project tic count from `audit-logs/tics/*.jsonl` (count entries where `type=tic`)
-- Read global tic count from `~/.claude/cgg-tic-counter.json` (create if absent, start at 0)
-- Increment both counters
-- Append tic record to `audit-logs/tics/YYYY-MM-DD.jsonl`:
-  `{"type": "tic", "tic": "<ISO-8601 now>", "tic_zone": "<name from .ticzone>", "cadence_position": "downbeat", "scope": "project", "tic_count_project": N, "tic_count_global": M}`
-- Update `~/.claude/cgg-tic-counter.json` with new count and `last_tic`
-- Report: `Tic #N (project) / #M (global) at YYYY-MM-DDTHH:MM:SSZ`
+
+**Counting rule (SUBSTRATE INVARIANT):** The canonical tic count is the physical number of `type=tic` entries across all `audit-logs/tics/*.jsonl` files, determined by JSON-parsing — never by grep, never by reading an embedded `tic_count_project` field from a previous entry. The global counter file (`~/.claude/cgg-tic-counter.json`) is a cached mirror of this physical truth, not an independent state machine.
+
+1. Append tic record to `audit-logs/tics/YYYY-MM-DD.jsonl`:
+   `{"type": "tic", "tic": "<ISO-8601 now>", "tic_zone": "<name from .ticzone>", "cadence_position": "downbeat", "scope": "project"}`
+   Note: `tic_count_project` and `tic_count_global` are omitted — they are advisory and the canonical count is physical truth.
+2. Reconcile counters from physical truth:
+   ```bash
+   PHYS=$(python3 -c "import json,glob; print(sum(1 for f in glob.glob('audit-logs/tics/*.jsonl') for l in open(f) if json.loads(l).get('type')=='tic'))")
+   ```
+3. Write global counter atomically (cached mirror of physical truth):
+   ```bash
+   TMP="$HOME/.claude/cgg-tic-counter.json.tmp.$$"
+   printf '{"count": %d, "last_tic": "%s"}\n' "$PHYS" "$NOW" > "$TMP"
+   mv "$TMP" "$HOME/.claude/cgg-tic-counter.json"
+   ```
+4. Report: `Tic #PHYS (physical) at YYYY-MM-DDTHH:MM:SSZ`
 
 ### Step 1: Signal Manifold Hygiene
 Execute `/siren tick`. Ensure volume has accrued, TTLs are cleared, and thresholds are checked.

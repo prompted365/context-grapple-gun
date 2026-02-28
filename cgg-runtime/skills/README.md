@@ -15,14 +15,15 @@ Automated between-session lesson evaluation and signal management for Claude Cod
 
 | File | Purpose |
 |------|---------|
-| `hooks/cgg-gate.sh` | UserPromptSubmit one-shot gate |
-| `hooks/session-restore-patch.sh` | SessionStart plan discovery + signal scanning (v3) |
-| `agents/ripple-assessor.md` | Fresh CPR + signal evaluator (sonnet, read-only) |
+| `hooks/cgg-gate.sh` | UserPromptSubmit one-shot gate (tries deterministic assessor first, falls back to LLM agent) |
+| `hooks/session-restore-patch.sh` | SessionStart plan discovery + signal scanning (single-pass Python dedup) |
+| `agents/ripple-assessor.md` | Fresh CPR + signal evaluator (sonnet, read-only) — used when no deterministic assessor exists |
 | `skills/init-gun/SKILL.md` | v3 master installer |
 | `skills/init-cogpr/SKILL.md` | v3 convention installer (overlap with cogpr package) |
 | `skills/grapple/SKILL.md` | v3 unified docket (overlap with cogpr package) |
-| `skills/siren/SKILL.md` | Signal emission + triage dashboard (NEW) |
-| `skills/cadence-downbeat/SKILL.md` | Epoch boundary — emits tic, captures lessons, writes handoff (renamed from grapple-cog-cycle-session) |
+| `skills/siren/SKILL.md` | Signal emission + triage dashboard |
+| `skills/cadence-downbeat/SKILL.md` | Epoch boundary — emits tic, captures lessons, writes handoff |
+| `skills/cadence-syncopate/SKILL.md` | Emergency session turnaround — minimal tic + handoff in ≤5% context |
 
 ## Requires
 

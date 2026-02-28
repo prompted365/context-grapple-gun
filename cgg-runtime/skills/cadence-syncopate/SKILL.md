@@ -10,7 +10,7 @@ Emergency session boundary for low-context situations. Produces a valid handoff 
 
 When the user invokes this command, execute the following steps. Every step is mandatory but minimal.
 
-## Phase 1: ENG/DIRECT — Operational Writes (Steps 1–3)
+## Phase 1: ENG/DIRECT — Operational Writes (Steps 1–2)
 
 All operational mutation happens here. These are the writes that MUST complete before the handoff.
 
@@ -26,32 +26,32 @@ This buys headroom. The next session's SessionStart hook will reset it to 80%.
 
 ### Step 2: Emit Tic (lightweight)
 
-- Read project tic count from `audit-logs/tics/*.jsonl` (count entries where `type=tic`)
-- Read global tic count from `~/.claude/cgg-tic-counter.json` (create if absent, start at 0)
-- Increment both counters
-- Append tic record to `audit-logs/tics/YYYY-MM-DD.jsonl`:
-  `{"type": "tic", "tic": "<ISO-8601 now>", "tic_zone": "<name from .ticzone>", "cadence_position": "syncopate", "scope": "project", "tic_count_project": N, "tic_count_global": M}`
-- Update `~/.claude/cgg-tic-counter.json` with new count and `last_tic`
-- Report: `Tic #N (project) / #M (global) at YYYY-MM-DDTHH:MM:SSZ [syncopate]`
+**Counting rule (SUBSTRATE INVARIANT):** The canonical tic count is the physical number of `type=tic` entries across all `audit-logs/tics/*.jsonl` files, determined by JSON-parsing — never by grep, never by reading an embedded `tic_count_project` field from a previous entry. The global counter file (`~/.claude/cgg-tic-counter.json`) is a cached mirror of this physical truth, not an independent state machine.
+
+1. Append tic record to `audit-logs/tics/YYYY-MM-DD.jsonl`:
+   `{"type": "tic", "tic": "<ISO-8601 now>", "tic_zone": "<name from .ticzone>", "cadence_position": "syncopate", "scope": "project"}`
+   Note: `tic_count_project` and `tic_count_global` are omitted — they are advisory and the canonical count is physical truth.
+2. Reconcile counters from physical truth:
+   ```bash
+   PHYS=$(python3 -c "import json,glob; print(sum(1 for f in glob.glob('audit-logs/tics/*.jsonl') for l in open(f) if json.loads(l).get('type')=='tic'))")
+   ```
+3. Write global counter atomically (cached mirror of physical truth):
+   ```bash
+   TMP="$HOME/.claude/cgg-tic-counter.json.tmp.$$"
+   printf '{"count": %d, "last_tic": "%s"}\n' "$PHYS" "$NOW" > "$TMP"
+   mv "$TMP" "$HOME/.claude/cgg-tic-counter.json"
+   ```
+4. Report: `Tic #PHYS (physical) at YYYY-MM-DDTHH:MM:SSZ [syncopate]`
 
 Note: `cadence_position` is `"syncopate"`, not `"downbeat"`. This distinguishes emergency exits from planned epoch boundaries.
 
-### Step 3: Update MEMORY.md Active Session State
+## Phase 2: PLAN MODE — The Handoff (Steps 3–4)
 
-Overwrite the `## Active Session State` section in MEMORY.md with:
-- Branch name
-- List of modified files (from `git status`)
-- Current tic number
-
-This is the crash-recovery breadcrumb. If the plan is lost, MEMORY.md still has the trail.
-
-## Phase 2: PLAN MODE — The Handoff (Steps 4–5)
-
-### Step 4: Enter Plan Mode
+### Step 3: Enter Plan Mode
 
 Use the `EnterPlanMode` tool to switch to Claude Code's native plan mode. This is mandatory and mechanical — call the tool, do not just declare the shift.
 
-### Step 5: Write the Handoff as the Plan
+### Step 4: Write the Handoff as the Plan
 
 Generate a NEW native plan. The plan content IS the handoff — this is the ONE AND ONLY place the handoff gets written. Claude Code auto-saves the plan to `~/.claude/plans/` when approved, and references it in the next session.
 

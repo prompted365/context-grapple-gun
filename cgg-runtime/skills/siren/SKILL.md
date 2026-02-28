@@ -216,20 +216,32 @@ SIREN HISTORY
 
 Snapshot the current system conformation — the total state at the latest tic boundary:
 
-1. Read latest tic from `audit-logs/tics/*.jsonl` (last `type: "tic"` entry across all files)
+1. Compute physical tic count and latest entry:
+   ```bash
+   python3 -c "
+   import json, glob
+   entries = []
+   for f in sorted(glob.glob('audit-logs/tics/*.jsonl')):
+       for line in open(f):
+           d = json.loads(line)
+           if d.get('type') == 'tic':
+               entries.append(d)
+   print(f'{len(entries)}|{json.dumps(entries[-1]) if entries else \"{}\"}')"
+   ```
+   Parse the output: count before `|` is the physical tic count, JSON after `|` is the last tic entry for zone/timestamp metadata.
 2. Read all signals from `audit-logs/signals/*.jsonl` — latest entry per ID, filter `status` in (`active`, `acknowledged`, `working`)
 3. Read all warrants from `audit-logs/signals/*.jsonl` — latest entry per ID where `type: "warrant"`, filter `status` in (`active`, `acknowledged`)
 4. Scan project `CLAUDE.md` and `MEMORY.md` for pending CogPR flags (`<!-- --agnostic-candidate -->` blocks with `status: "pending"`)
 5. Read `.ticzone` for zone configuration
 6. Compute rule fingerprints: read `CLAUDE.md` and `~/.claude/CLAUDE.md`, record file size and line count as change indicators
 7. Create `audit-logs/conformations/` directory if absent
-8. Write snapshot to `audit-logs/conformations/tic-<project_tic_count>.json`:
+8. Write snapshot to `audit-logs/conformations/tic-<physical_count>.json`
+   where `physical_count` is from the inline Python above, NOT any `tic_count_project` field from a JSONL entry:
 
 ```json
 {
   "type": "conformation",
-  "tic_count_project": 1,
-  "tic_count_global": 1,
+  "tic_count_physical": 1,
   "tic": "2026-02-25T03:33:00Z",
   "tic_zone": "operationTorque-estate",
   "snapshot_at": "2026-02-25T04:00:00Z",
@@ -263,7 +275,7 @@ Snapshot the current system conformation — the total state at the latest tic b
 9. Report:
 
 ```
-CONFORMATION at tic #1 (project) / #1 (global)
+CONFORMATION at tic #1 (physical count)
 Zone: operationTorque-estate
 Active signals: 1 | Active warrants: 0 | Pending CogPRs: 3
 Rules: project CLAUDE.md (450 lines) | global CLAUDE.md (120 lines)

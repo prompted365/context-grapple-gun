@@ -131,9 +131,13 @@ The lessons Claude captured during the session are still written to your local f
 **Is this free?**
 Yes. CGG is open source (MIT license). You pay for Claude Code usage as normal -- CGG doesn't add any extra API costs.
 
+## Where does CGG come from?
+
+CGG is a compact expression of the Ubiquity concurrent development methodology -- the governance lifecycle distilled into four commands and flat files. When flat files aren't enough, Ubiquity's deeper layers (semantic recall, graph topology, expression gating) pick up where CGG leaves off. But for most people, CGG is all you need.
+
 ## Maintainers
 
-[Prompted LLC](https://promptedllc.com) -- part of the Ubiquity OS ecosystem.
+[Prompted](https://prompted.community) -- part of the Ubiquity OS ecosystem.
 
 Breyden Taylor -- [LinkedIn](https://www.linkedin.com/in/breyden-taylor/) | breyden@prompted.community
 

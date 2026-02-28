@@ -1,7 +1,11 @@
 #!/bin/bash
 # CGG v3 — UserPromptSubmit one-shot trigger gate
-# Fires ONCE per handoff: spawns ripple-assessor evaluation, then self-disarms.
+# Fires ONCE per handoff: runs ripple-assessor evaluation, then self-disarms.
 # Called by UserPromptSubmit hook. Reads stdin (prompt JSON) but ignores content.
+#
+# Assessment strategy (deterministic first, LLM fallback):
+#   1. If scripts/ripple-assessor.py exists → run it directly (fast, deterministic)
+#   2. Otherwise → instruct Claude to spawn the ripple-assessor agent (original behavior)
 cat > /dev/null
 
 PROJECT_DIR="${CLAUDE_PROJECT_DIR:-$(pwd)}"
@@ -46,7 +50,23 @@ fi
 TIMESTAMP=$(date -Iseconds)
 echo "{\"timestamp\":\"$TIMESTAMP\",\"action\":\"trigger_fired\",\"handoff_id\":\"$HANDOFF_ID\",\"expected_cprs\":$EXPECTED_CPRS,\"plan_path\":\"$PLAN_PATH\",\"project\":\"$PROJECT_DIR\"}" >> "$META_LOG"
 
-# Inject additionalContext instructing Claude to spawn the ripple-assessor
+# --- Assessment strategy ---
+# Try deterministic assessor first (faster, no LLM cost)
+DETERMINISTIC_ASSESSOR="$PROJECT_DIR/scripts/ripple-assessor.py"
+if [ -f "$DETERMINISTIC_ASSESSOR" ]; then
+  # Run deterministic assessor directly — it reads the plan and writes proposals
+  python3 "$DETERMINISTIC_ASSESSOR" \
+    --plan "$PLAN_PATH" \
+    --project "$PROJECT_DIR" \
+    --output "$HOME/.claude/grapple-proposals/latest.md" \
+    2>/dev/null &
+
+  echo "{\"timestamp\":\"$TIMESTAMP\",\"action\":\"deterministic_assessor_spawned\",\"handoff_id\":\"$HANDOFF_ID\",\"assessor\":\"$DETERMINISTIC_ASSESSOR\"}" >> "$META_LOG"
+  echo "{\"hookSpecificOutput\":{\"hookEventName\":\"UserPromptSubmit\",\"additionalContext\":\"[CGG TRIGGER FIRED] Deterministic ripple-assessor running in background. Proposals will appear at ~/.claude/grapple-proposals/latest.md. /grapple when ready.\"}}"
+  exit 0
+fi
+
+# Fall back to LLM agent spawn (original behavior)
 PLAN_REF=""
 if [ -n "$PLAN_PATH" ]; then
   PLAN_REF="Plan file: $PLAN_PATH"

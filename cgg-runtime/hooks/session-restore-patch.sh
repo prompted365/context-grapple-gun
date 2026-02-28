@@ -6,6 +6,9 @@
 # This script discovers project-scoped plan files with CGG triggers,
 # extracts them to flag files for the UserPromptSubmit gate,
 # counts pending CPR flags, and scans the signal store for active signals.
+#
+# Signal scanning uses single-pass Python for dedup (latest-entry-per-ID-wins)
+# instead of line-by-line bash parsing. Much faster on large signal stores.
 cat > /dev/null
 
 PROJECT_DIR="${CLAUDE_PROJECT_DIR:-$(pwd)}"
@@ -90,44 +93,36 @@ if [ "$CPR_COUNT" -gt 0 ]; then
   CGG_MSG="$CGG_MSG [CPR QUEUE: $CPR_COUNT pending flags. /grapple when ready.]"
 fi
 
-# --- CGG v3: Signal Scanning ---
+# --- CGG v3: Signal Scanning (single-pass Python dedup) ---
 SIGNAL_DIR="$PROJECT_DIR/audit-logs/signals"
 SIREN_MSG=""
 if [ -d "$SIGNAL_DIR" ]; then
-  ACTIVE_SIGNALS=0
-  ACTIVE_WARRANTS=0
-  LOUDEST_ID="none"
-  LOUDEST_VOL=0
-  LOUDEST_BAND=""
-
-  for JSONL_FILE in "$SIGNAL_DIR"/*.jsonl; do
-    [ -f "$JSONL_FILE" ] || continue
-    while IFS= read -r LINE; do
-      STATUS=$(echo "$LINE" | python3 -c "import sys,json; d=json.loads(sys.stdin.read()); print(d.get('status',''))" 2>/dev/null)
-      TYPE=$(echo "$LINE" | python3 -c "import sys,json; d=json.loads(sys.stdin.read()); print(d.get('type',''))" 2>/dev/null)
-      if [ "$STATUS" = "active" ]; then
-        if [ "$TYPE" = "signal" ]; then
-          ACTIVE_SIGNALS=$(( ACTIVE_SIGNALS + 1 ))
-          VOL=$(echo "$LINE" | python3 -c "import sys,json; d=json.loads(sys.stdin.read()); print(d.get('volume',0))" 2>/dev/null)
-          if [ "$VOL" -gt "$LOUDEST_VOL" ] 2>/dev/null; then
-            LOUDEST_VOL="$VOL"
-            LOUDEST_ID=$(echo "$LINE" | python3 -c "import sys,json; d=json.loads(sys.stdin.read()); print(d.get('id','?'))" 2>/dev/null)
-            LOUDEST_BAND=$(echo "$LINE" | python3 -c "import sys,json; d=json.loads(sys.stdin.read()); print(d.get('band','?'))" 2>/dev/null)
-          fi
-        elif [ "$TYPE" = "warrant" ]; then
-          ACTIVE_WARRANTS=$(( ACTIVE_WARRANTS + 1 ))
-        fi
-      fi
-    done < "$JSONL_FILE"
-  done
-
-  if [ "$ACTIVE_SIGNALS" -gt 0 ] || [ "$ACTIVE_WARRANTS" -gt 0 ]; then
-    SIREN_MSG="[SIREN: $ACTIVE_SIGNALS active signals, $ACTIVE_WARRANTS active warrants."
-    if [ "$LOUDEST_VOL" -gt 0 ]; then
-      SIREN_MSG="$SIREN_MSG Loudest: $LOUDEST_ID (volume=$LOUDEST_VOL, band=$LOUDEST_BAND)."
-    fi
-    SIREN_MSG="$SIREN_MSG /siren when ready.]"
-  fi
+  SIREN_MSG=$(python3 -c "
+import json, glob, sys
+signals = {}
+warrants = {}
+for f in sorted(glob.glob('$SIGNAL_DIR/*.jsonl')):
+    for line in open(f):
+        try:
+            d = json.loads(line)
+            eid = d.get('id', '')
+            if not eid: continue
+            if d.get('type') == 'signal':
+                signals[eid] = d
+            elif d.get('type') == 'warrant':
+                warrants[eid] = d
+        except: pass
+active_sigs = [s for s in signals.values() if s.get('status') in ('active','acknowledged','working')]
+active_wrns = [w for w in warrants.values() if w.get('status') in ('active','acknowledged')]
+if not active_sigs and not active_wrns:
+    sys.exit(0)
+loudest = max(active_sigs, key=lambda s: s.get('volume',0), default=None)
+parts = ['[SIREN: %d active signals, %d active warrants.' % (len(active_sigs), len(active_wrns))]
+if loudest:
+    parts.append('Loudest: %s (volume=%s, band=%s).' % (loudest.get('id','?'), loudest.get('volume',0), loudest.get('band','?')))
+parts.append('/siren when ready.]')
+print(' '.join(parts))
+" 2>/dev/null || true)
 fi
 
 # --- Parallel context awareness (project-filtered) ---

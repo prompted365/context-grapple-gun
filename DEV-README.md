@@ -185,13 +185,29 @@ For Claude Desktop or Claude for Work, copy `cogpr/claude-desktop/project-instru
 | `/init-gun` | One-time setup. Wires hooks and patches settings. |
 | `/init-cogpr` | One-time setup. Verifies convention layer is in place. |
 
+## Deterministic assessor option
+
+By default, the trigger gate spawns a fresh Claude agent (the ripple-assessor) to evaluate pending CogPRs between sessions. This works well for most installs.
+
+If you want faster, cheaper, more predictable evaluation, drop a `scripts/ripple-assessor.py` into your project root. The gate hook checks for this file first -- if it exists, it runs the Python script directly instead of spawning an LLM agent. Same inputs, same output path (`~/.claude/grapple-proposals/latest.md`), no API cost.
+
+Simple installs get the agent. Mature installs get deterministic evaluation. The gate handles both.
+
 ## Safety
 
 CGG never modifies `CLAUDE.md` without your explicit approval through `/grapple`. Background triggers fire exactly once per handoff. Lessons learned in one project don't leak into another -- everything is scoped by `project_dir`.
 
+## Where CGG fits
+
+CGG is a compact expression of the Ubiquity concurrent development methodology. It gives you the governance lifecycle -- session boundaries, lesson promotion, signal monitoring, human review gates -- in four commands and flat files.
+
+There's a ceiling. As signal stores grow, grep-based dedup becomes slow. As lesson corpora span dozens of files, finding the right lesson for the current context requires semantic understanding, not keyword matching. That ceiling is where Ubiquity's deeper layers begin: embedding-based recall, graph topology, expression gating, conformation-aware retrieval. Those require infrastructure CGG deliberately avoids.
+
+Start here. When flat files aren't enough, you'll know.
+
 ## Maintainers
 
-[Prompted LLC](https://prompted.community/) -- part of the Ubiquity OS ecosystem.
+[Prompted](https://prompted.community) -- part of the Ubiquity OS ecosystem.
 
 Breyden Taylor -- [LinkedIn](https://www.linkedin.com/in/breyden-taylor/) | breyden@prompted.community
 
