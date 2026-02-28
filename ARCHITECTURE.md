@@ -9,7 +9,7 @@ It is best understood as three coupled systems:
 
 ## 1. Core Objects (The Ephemeral vs. The Durable)
 
-Most agent "memory" systems fail because they confuse *storage* with *knowledge*, and *recall* with *governance*. CGG prevents "global memory" from becoming a trash heap of specific incidents by enforcing a five-tier taxonomy.
+Most agent "memory" systems fail because they confuse *storage* with *knowledge*, and *recall* with *governance*. CGG prevents "global memory" from becoming a trash heap by enforcing a five-tier taxonomy.
 
 ### Tier 1: Local Observations (Raw Discoveries)
 These are bottom-of-the-ladder artifacts:
@@ -17,13 +17,13 @@ These are bottom-of-the-ladder artifacts:
 - "This Rust trait bound keeps failing in this crate."
 - "This UI bug only happens when feature flag X is on."
 
-These are *true*, but they are **too contextual** to store globally.
+These are true, but too contextual to store globally.
 
 ### Tier 2: Session Knowledge (Contextual Patterns)
-Within an active session, the agent accumulates temporary "working theories" about the repo structure, task constraints, and current failure modes. This is useful *now*, but dangerous to persist as-is.
+Within an active session, the agent accumulates temporary "working theories" about the repo structure, task constraints, and current failure modes. This is useful now, but dangerous to persist as-is.
 
 ### Tier 3: CogPRs (The Promotion Buffer)
-A Cognitive Pull Request (CogPR) is the **unit of proposed evolution**. It is the moment where a raw observation becomes a candidate for durable memory. It strips variables (file paths, one-off IDs), extracts the invariant lesson, and proposes a target scope. This is the critical "signal hygiene" layer.
+A Cognitive Pull Request (CogPR) is the unit of proposed evolution. It strips variables (file paths, one-off IDs), extracts the invariant lesson, and proposes a target scope. This is the critical "signal hygiene" layer.
 
 ### Tier 4: Project Memory (Reusable Rules)
 Lessons proven useful multiple times in one repository. They are tied to a specific stack (e.g., "In this Rust workspace, errors must implement `thiserror::Error`") but are not yet universal.
@@ -38,9 +38,9 @@ Long agent sessions produce three predictable degradations:
 2. **Recall failures** (earlier context becomes "soft")
 3. **Cost blowups** (you pay more for worse behavior)
 
-CGG treats the context window like a **resource that must be rotated**. You do not "power through" at 120k+ tokens. You **end the epoch on purpose**.
+CGG treats the context window as a resource that must be rotated. You do not "power through" at 120k+ tokens. You end the epoch on purpose.
 
-The `/cadence-downbeat` command is the **epoch boundary primitive**. The downbeat emits a canonical tic — the cross-system timestamp primitive that unifies syncopated cadences. It converts "session entropy" into "structured evolution candidates" by:
+The `/cadence-downbeat` command is the epoch boundary primitive. The downbeat emits a canonical tic — the cross-system timestamp primitive that unifies syncopated cadences. It converts "session entropy" into "structured evolution candidates" by:
 1. Stopping active work before degradation gets severe.
 2. Bundling pending CogPR proposals.
 3. Flushing the bloated session context.
@@ -49,18 +49,18 @@ The `/cadence-downbeat` command is the **epoch boundary primitive**. The downbea
 
 ## 3. Plan Mode Hijacking (The Governance Gate)
 
-CGG relies heavily on repurposing existing agent UI patterns for novel architectural uses. Specifically, it hijacks "Plan Mode" (typically used for code implementation planning) to serve as a **constitutional governance gate**.
+CGG relies on repurposing existing agent UI patterns for novel architectural uses. Specifically, it hijacks "Plan Mode" (typically used for code implementation planning) to serve as a constitutional governance gate.
 
-Plan mode appears at three different points in the CGG pipeline, doing three different jobs:
-1. **The Handoff Writer:** At the epoch boundary, Plan Mode is hijacked to write the context-exit handoff payload.
-2. **The Review Surface:** When running `/grapple`, Plan Mode is hijacked to present CogPR proposals to the human in a UI that supports native approve/reject/edit actions.
+Plan mode appears at three different points in the CGG pipeline, each doing a different job:
+1. **The Handoff Writer:** At the epoch boundary, Plan Mode writes the context-exit handoff payload.
+2. **The Review Surface:** When running `/grapple`, Plan Mode presents CogPR proposals to the human in a UI that supports approve/reject/edit actions.
 3. **The Scope Arbitrator:** It forces the human to decide if a lesson belongs at the Project or Global tier.
 
-What the human approves are *laws*, not *tactics*. You approve new primitives, scope promotions, and behavioral constraints. You do not approve one-off code fixes. This turns the human into an **editor of the agent's constitution**, not a micromanager of its thoughts.
+What the human approves are laws, not tactics. You approve new primitives, scope promotions, and behavioral constraints. You do not approve one-off code fixes. This makes the human an editor of the agent's constitution, not a micromanager of its thoughts.
 
 ## 4. The Ripple Assessor (Asynchronous Evolution)
 
-The assessor exists to keep the main session loop fast. Instead of asking the active agent to both do the work *and* deeply evaluate every improvement proposal against global invariants, CGG splits the responsibilities. The active session produces work and emits signals. The background Assessor evaluates those signals with more time, a clean context, and less noise.
+The assessor keeps the main session loop fast. Instead of asking the active agent to both do the work and deeply evaluate every improvement proposal against global invariants, CGG splits responsibilities. The active session produces work and emits signals. The background assessor evaluates those signals with more time, a clean context, and less noise.
 
 ## 5. Tics, Zones, and System Conformation
 
@@ -101,6 +101,22 @@ The tic sequence makes conformations replayable and diffable. You can reconstruc
 The structural analogy is deliberate: the tic sequence is the primary structure. Signals, warrants, and CogPRs are the side chains. Bands are charge groups. Acoustic routing is the solvent environment. The conformation at any given tic is the folded shape of the system under the accumulated pressure of its entire history.
 
 This is the terminal abstraction rung. Everything below it — files, signals, rules, zones — is mechanism. The conformation is what those mechanisms produce: a shape, inspectable at any point in the sequence, that captures everything the system knows and everything it's doing about what it knows.
+
+## 6. Scaling Ceiling
+
+CGG's governance lifecycle is complete for individuals and small teams. The flat-file primitives — JSONL signal stores, CLAUDE.md rule tiers, append-only audit trails — are fast, portable, and auditable by default.
+
+But there is a ceiling. When the signal store grows past a few hundred entries, dedup-by-latest-entry-per-ID becomes a linear scan. When the lesson corpus spans dozens of CLAUDE.md files, finding the right lesson for the current context requires semantic understanding — grep matches keywords, not meaning. When epitaphs accumulate, the system needs to know which historical failure mode is closest to the current system shape, not just which one has the most string overlap.
+
+This is where CGG stops and deeper substrate begins:
+- Embedding-based semantic recall (vector similarity, not keyword matching)
+- Graph topology for relational memory (edges between related concepts, not flat lists)
+- Expression gating across timescales (methylation — some lessons are dormant until the system re-enters a specific failure shape)
+- Conformation-aware retrieval (match the system's current shape to historical failure modes)
+
+These require infrastructure — vector databases, embedding models, graph engines — that does not fit in a CLI framework. CGG gives you the governance lifecycle. The substrate that makes it scale at that level is a different engineering problem.
+
+The honest boundary: "CGG is the governance lifecycle. A substrate like Ubiquity is what makes governance meaningful at scale."
 
 <!-- --agnostic-candidate
   lesson: "System conformation — the total state at any tic boundary (signals, CogPRs, warrants, drift, zone, rules) — is the terminal abstraction rung. The tic sequence is the primary structure that makes conformations replayable. Mechanisms produce shape; shape is what you audit."
