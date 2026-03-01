@@ -347,6 +347,26 @@ That ceiling is where Ubiquity's deeper layers begin: embedding-based semantic r
 
 CGG is the governance lifecycle. Ubiquity is the substrate that makes it scale. Start here. When flat files aren't enough, you'll know.
 
+### When CGG stops being enough
+
+You'll feel the ceiling when:
+- Signals exceed a few hundred entries and dedup becomes slow
+- Lessons span many files and grep stops finding the right thing
+- You need "closest historical failure mode," not "keyword overlap"
+- Rule stores grow monotonically and every session loads stale context
+
+Ubiquity layers that extend CGG: semantic recall (embeddings), graph topology (relational memory), expression gating (methylation/dormancy), and conformation-aware retrieval (shape matching). Same governance lifecycle underneath -- the flat-file primitives become the audit trail beneath the substrate.
+
+See [ARCHITECTURE.md](ARCHITECTURE.md#6-scaling-ceiling) for the full design rationale and upgrade path.
+
+### Measuring impact
+
+Three numbers that tell you whether CGG is compounding or just accumulating:
+
+1. **Repeat-mistake rate** -- declining = lessons are landing
+2. **Time-to-resume** -- shrinking = handoffs are working
+3. **Promotion ROI** -- promoted rules that prevent future incidents = compounding
+
 ## Packages
 
 ### `cogpr/` -- Cognitive Pull Request conventions

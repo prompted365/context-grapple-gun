@@ -205,6 +205,16 @@ There's a ceiling. As signal stores grow, grep-based dedup becomes slow. As less
 
 Start here. When flat files aren't enough, you'll know.
 
+### Measuring impact
+
+Three numbers to track whether CGG is compounding:
+
+1. **Repeat-mistake rate** -- compare CogPR failure codes against subsequent session friction. Declining = lessons are landing.
+2. **Time-to-resume** -- time from session start to first productive tool call. Effective handoffs compress this.
+3. **Promotion ROI** -- how often a promoted rule prevents a future incident. A promoted rule that never fires again has infinite ROI.
+
+See [ARCHITECTURE.md](ARCHITECTURE.md#measuring-cggs-impact) for the full measurement rationale.
+
 ## Maintainers
 
 [Prompted](https://prompted.community) -- part of the Ubiquity OS ecosystem.

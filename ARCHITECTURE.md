@@ -116,7 +116,36 @@ This is where CGG stops and deeper substrate begins:
 
 These require infrastructure — vector databases, embedding models, graph engines — that does not fit in a CLI framework. CGG gives you the governance lifecycle. The substrate that makes it scale at that level is a different engineering problem.
 
-The honest boundary: "CGG is the governance lifecycle. A substrate like Ubiquity is what makes governance meaningful at scale."
+The honest boundary: **CGG is the governance lifecycle. Ubiquity is the substrate that makes governance meaningful at scale.**
+
+### When CGG stops being enough
+
+You'll feel the ceiling when:
+- Signals exceed a few hundred entries and dedup becomes slow
+- Lessons span many files and grep stops finding the right thing
+- You need "closest historical failure mode," not "keyword overlap"
+- Rule stores grow monotonically and every session loads stale context
+
+### Ubiquity layers that extend CGG
+
+| Layer | What it does | Why flat files can't |
+|-------|-------------|---------------------|
+| Semantic Recall | Embedding-based vector search across lessons | Grep matches keywords, not meaning |
+| Graph Topology | Relational edges between concepts, not flat lists | JSONL has no structure between entries |
+| Expression Gating | Methylation — lessons go dormant until the system re-enters a failure shape | Flat files are always fully loaded |
+| Conformation-Aware Retrieval | Match "system shape now" to "system shape at time of failure" | No mechanism to fingerprint system state |
+
+CGG is the governance lifecycle. Ubiquity layers compose on top — same signals, same tics, same human gates. The flat-file primitives become the audit trail beneath the substrate.
+
+### Measuring CGG's impact
+
+Three numbers that separate compounding governance from configuration drift:
+
+1. **Repeat-mistake rate** — How often does the same wrong-approach pattern recur after a lesson is captured? Track by comparing CogPR failure codes against subsequent session friction. A declining rate means lessons are landing.
+
+2. **Time-to-resume** — How long does a new session take to reach productive work after a handoff? Measure from session start to first meaningful tool call. Effective handoffs compress this. Poor handoffs produce "let me re-read everything" patterns.
+
+3. **Promotion ROI** — How often does a promoted rule prevent a future incident? Track by correlating promoted CogPR failure codes with subsequent signal manifold activity. A promoted rule that never fires again has infinite ROI. One that keeps generating the same signal hasn't landed.
 
 <!-- --agnostic-candidate
   lesson: "System conformation — the total state at any tic boundary (signals, CogPRs, warrants, drift, zone, rules) — is the terminal abstraction rung. The tic sequence is the primary structure that makes conformations replayable. Mechanisms produce shape; shape is what you audit."
