@@ -4,7 +4,7 @@
 
 # Start Here
 
-You opened the terminal for the first time because of Claude Code. You've been using it for a bit. It's incredible. But you've noticed something:
+You opened the terminal for the first time because of Claude Code. You've been using it for a bit. It's good. But you've noticed something:
 
 **Every time you start a new session, Claude forgets everything from the last one.**
 
@@ -120,8 +120,8 @@ CGG is a compact expression of the Ubiquity concurrent development methodology -
 
 ## Maintainers
 
-[Prompted](https://prompted.community) -- part of the Ubiquity OS ecosystem.
+**[Prompted LLC](https://promptedllc.com)** -- creators of the Ubiquity governance substrate.
 
-Breyden Taylor -- [LinkedIn](https://www.linkedin.com/in/breyden-taylor/) | breyden@prompted.community
+Breyden Taylor, Founder & Architect -- [LinkedIn](https://www.linkedin.com/in/breyden-taylor/) | breyden@prompted.community
 
 Contributions welcome.

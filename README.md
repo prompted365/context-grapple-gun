@@ -49,7 +49,7 @@ A lesson climbs when a CogPR is approved through `/review`. The ripple assessor 
 - Cross-validation where relevant -- does the lesson hold in other projects?
 - No schema churn that would invalidate it next week
 
-The governance invariant is this: the system must be willing to refuse premature promotion even when the lesson is accurate. An accurate lesson with immature validation stays at project scope until it earns its way up. The first test of whether the system actually governs is whether it can say "not yet."
+The governance invariant: the system must be willing to refuse premature promotion even when the lesson is accurate. An accurate lesson with immature validation stays at project scope until it earns its way up. The first test of whether the system actually governs is whether it can say "not yet."
 
 ### Descending: global to local
 
@@ -111,7 +111,7 @@ flowchart TB
 
 ### The unified flow: how knowledge survives context death
 
-The system runs three loops concurrently at different speeds. The **fast loop** is your working session -- implement, debug, verify. The **medium loop** is project memory, where validated lessons accumulate across sessions. The **slow loop** is global memory, where universal invariants settle after enough cross-project validation. The 100k token cycle destroys the local context window, but because the CogPR buffer feeds project and global memory asynchronously, knowledge arcs over the destruction event and cascades into the next session.
+The system runs three loops at different speeds. The **fast loop** is your working session -- implement, debug, verify. The **medium loop** is project memory, where validated lessons accumulate across sessions. The **slow loop** is global memory, where universal invariants settle after enough cross-project validation. The 100k token cycle destroys the local context window, but because the CogPR buffer feeds project and global memory asynchronously, knowledge arcs over the destruction event and cascades into the next session.
 
 ```mermaid
 graph TB
@@ -215,11 +215,11 @@ Alongside the lesson lifecycle, CGG runs a parallel signal system for runtime co
 
 **Whisper** -- a micro-correction injected at runtime to prevent immediate failure. Low-latency, local, ephemeral.
 
-**Siren** -- a continuous signal with volume that accrues over time. Same friction point appears across sessions, the signal gets louder. Propagation follows an acoustic model: volume at source minus distance-based muffling. Signals below a target's hearing threshold exist in the manifold but don't interrupt.
+**Siren** -- a continuous signal with volume that accrues over time. When the same friction point appears across sessions, the signal gets louder. Propagation follows an acoustic model: volume at source minus distance-based muffling. Signals below a target's hearing threshold exist in the manifold but don't interrupt.
 
 **Warrant** -- minted automatically when a signal's volume crosses threshold, or when three signal types converge within 24 hours. BEACON + LESSON + TENSION in the same window is a "harmonic triad" -- auto-escalation without volume accrual. Warrants are obligations, not suggestions.
 
-**CogPR** -- the lesson primitive. Discrete, reviewable, promotable. Covered in depth above.
+**CogPR** -- the lesson primitive. Discrete, reviewable, promotable. Covered above.
 
 **Chorus** -- post-failure compression into durable institutional memory. Slow, synthesizing. "Don't repeat this class of failure."
 
@@ -238,13 +238,13 @@ PRESTIGE exists to be blocked. Any signal that would accrue reputation or status
 
 Most of this runs silently. Signals accrue volume, assessors run between sessions, proposals queue up -- none of it interrupts the developer. You see the system only during `/review`. Everything else is auditable after the fact but invisible during work.
 
-Think of it less as an alert system and more as a geological survey: instruments always recording, data read when you choose to.
+Less an alert system than a geological survey: instruments always recording, data read when you choose to.
 
 ### Tic (canonical clock primitive)
 
-A tic is both a timestamp and a sequence number. This distinction matters.
+A tic is both a timestamp and a sequence number.
 
-A timestamp tells you *when* something happened. A monotonic counter tells you *in what order*. Tics provide both -- an ISO-8601 timestamp paired with project and global sequence counters. This gives you three audit capabilities simultaneously:
+A timestamp tells you *when* something happened. A monotonic counter tells you *in what order*. Tics provide both -- an ISO-8601 timestamp paired with project and global sequence counters. Three audit capabilities follow:
 
 - **Temporal**: "What did the system know at 2026-02-24T21:15:00?"
 - **Sequential**: "What happened between tic 42 and tic 47, regardless of wall-clock time?"
@@ -273,7 +273,7 @@ Tics are stored separately from signals (`audit-logs/tics/`, not `audit-logs/sig
 
 ### Tic-zone (acoustic region)
 
-A tic-zone is a named acoustic region defined by a `.ticzone` file (JSONC -- `//` comments and trailing commas accepted) at the zone root. It defines the acoustic space for banded communications. All systems within a zone share the tic primitive regardless of their cadence position.
+A tic-zone is a named acoustic region defined by a `.ticzone` file (JSONC -- `//` comments and trailing commas accepted) at the zone root. It defines the acoustic space for banded communications. All systems within a zone share the tic primitive regardless of cadence position.
 
 ```jsonc
 {
@@ -300,46 +300,37 @@ Zone nesting: a `.ticzone` in a subdirectory creates a nested zone inheriting th
 
 ### System conformation
 
-At any tic boundary, the total state of a CGG-governed system forms a conformation: which signals are active, which CogPRs are pending, which warrants are minted, what the drift measurements show, which zone you're in, what rules are in force at each scope tier.
+At any tic boundary, the total state of a CGG-governed system forms a conformation: active signals, pending CogPRs, minted warrants, drift measurements, zone membership, and rules in force at each scope tier.
 
-Between tic N and tic N+1, environmental pressure -- work, friction, discovery -- causes the conformation to shift. Most shifts are small: a local lesson captured, a signal volume incremented. Some are fold events: a warrant mints from a harmonic triad (three independent signal types converging), or a global rule gets promoted that reshapes how every downstream project operates.
+Between tic N and tic N+1, environmental pressure -- work, friction, discovery -- shifts the conformation. Most shifts are small: a local lesson captured, a signal volume incremented. Some are fold events: a warrant mints from a harmonic triad, or a promoted global rule reshapes how every downstream project operates.
 
-The tic sequence makes this replayable. You can reconstruct the system's exact conformation at any tic boundary, diff it against the previous one, and trace exactly what caused the transition. This audit primitive works at every abstraction level -- an engineer reads it as "what changed between sessions," a compliance officer reads it as "what rules were in force when this decision was made," and the system itself reads it as "what shape am I in."
+The tic sequence makes this replayable. Reconstruct the system's exact conformation at any tic boundary, diff it against the previous one, trace what caused the transition. An engineer reads this as "what changed between sessions." A compliance officer reads it as "what rules were in force when this decision was made." The system reads it as "what shape am I in."
 
-The sequence is the primary structure. The signals, warrants, and CogPRs are side chains. The bands are charge groups. The acoustic routing is the solvent. The conformation at any given tic is the folded shape of the system under accumulated pressure.
+The sequence is the primary structure. Signals, warrants, and CogPRs are side chains. Bands are charge groups. Acoustic routing is the solvent. The conformation at any given tic is the folded shape of the system under accumulated pressure.
 
 ## Applicability
 
-CGG is model-agnostic and host-agnostic. Claude Code is the current primary host, but the primitives -- flat-file signal stores, append-only JSONL, YAML/JSONC config, human-gated promotion -- are portable to any agent framework.
+CGG is model-agnostic and host-agnostic. Claude Code is the current primary host, but the primitives -- flat-file signal stores, append-only JSONL, YAML/JSONC config, human-gated promotion -- port to any agent framework.
 
 ### Engineering teams
 
-The CI/CD mental model is intentional. CogPRs are pull requests for agent behavior, not codebases. The ripple assessor is the CI runner. `/review` is code review. Engineers already know these workflows. CGG maps directly onto them.
+The CI/CD mental model is intentional. CogPRs are pull requests for agent behavior, not codebases. The ripple assessor is the CI runner. `/review` is code review. Engineers already know these workflows -- CGG maps directly onto them.
 
 ### Regulated industries
 
-For organizations where AI behavioral changes require documented approval chains -- fintech, healthcare, defense, legal -- CGG provides:
-
-- **Audit trail**: Every rule change is a CogPR with a reviewable diff, approval timestamp, and scope designation. Every epoch boundary emits a sequenced tic.
-- **Blast radius containment**: Scoped memory tiers ensure a lesson validated in one project cannot silently propagate to another without climbing the abstraction ladder through human gates.
-- **Jurisdictional mapping**: Tic-zones define which agents operate in which acoustic regions, which bands are active, and how signals attenuate across boundaries.
+In fintech, healthcare, defense, and legal, AI behavioral changes require documented approval chains. CGG gives you an audit trail where every rule change is a CogPR with a reviewable diff, approval timestamp, and scope designation, and every epoch boundary emits a sequenced tic. Scoped memory tiers contain blast radius -- a lesson validated in one project cannot silently propagate to another without climbing the abstraction ladder through human gates. Tic-zones map jurisdictions: which agents operate in which acoustic regions, which bands are active, how signals attenuate across boundaries.
 
 ### Public sector
 
-Government AI deployments have specific constraints that CGG addresses:
-
-- **FOIA readiness**: All state is in flat, human-readable files. No databases to subpoena, no APIs to query. `git log` is the audit tool.
-- **Administration epochs**: Tic counters and epoch boundaries map cleanly to fiscal years, legislative sessions, and administration changes. Rules can be version-controlled per epoch.
-- **Compartmentalization**: Tic-zones enforce that signals from one agency's agents cannot propagate into another agency's acoustic space without explicit zone inclusion.
-- **Constitutional gate**: The human approval requirement for rule promotion mirrors the principle that AI systems execute policy -- they do not make it.
+Government AI deployments face constraints around transparency, epoch management, and compartmentalization. All CGG state lives in flat, human-readable files -- no databases to subpoena, no APIs to query, `git log` as the audit tool. Tic counters and epoch boundaries map cleanly to fiscal years, legislative sessions, and administration changes, with rules version-controlled per epoch. Tic-zones enforce that signals from one agency's agents cannot propagate into another agency's acoustic space without explicit zone inclusion. The human approval requirement for rule promotion mirrors a basic principle: AI systems execute policy, they do not make it.
 
 ### Multi-agent coordination
 
-When multiple agents operate in the same domain with different cadences, CGG provides the shared clock (tics), shared jurisdiction (zones), and shared governance (the abstraction ladder) that prevent drift into incoherence. Each agent maintains its own rhythm. The tic sequence is how they stay synchronized without being coupled.
+When multiple agents operate in the same domain with different cadences, CGG provides the shared clock (tics), shared jurisdiction (zones), and shared governance (the abstraction ladder) that prevent drift into incoherence. Each agent keeps its own rhythm. The tic sequence keeps them synchronized without coupling them.
 
 ## Where CGG fits
 
-CGG is a compact, portable expression of principles from the Ubiquity concurrent development methodology. Install it in 30 seconds, get enormous value from session 1. Three commands. Zero dependencies.
+CGG is a compact, portable expression of principles from the Ubiquity concurrent development methodology. Install it in 30 seconds, get value from session 1. Three commands. Zero dependencies.
 
 It scales well for individuals and small teams. But there's a ceiling. As your signal store, lesson corpus, and memory files grow, flat-file governance starts to creak. Signals accumulate without semantic compression. Lessons pile up without topological organization. The system knows more and more, but finding the right knowledge at the right time gets harder -- grep doesn't understand meaning.
 
@@ -410,8 +401,8 @@ MIT
 
 ## Maintainers
 
-[Prompted](https://prompted.community) -- part of the Ubiquity OS ecosystem.
+**[Prompted LLC](https://promptedllc.com)** -- creators of the Ubiquity governance substrate.
 
-Breyden Taylor -- [LinkedIn](https://www.linkedin.com/in/breyden-taylor/) | breyden@prompted.community
+Breyden Taylor, Founder & Architect -- [LinkedIn](https://www.linkedin.com/in/breyden-taylor/) | breyden@prompted.community
 
 Contributions welcome.
