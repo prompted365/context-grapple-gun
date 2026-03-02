@@ -2,7 +2,7 @@
   <img src="assets/cgg-banner.jpeg" alt="Context Grapple Gun by Prompted LLC & Ubiquity OS" width="100%" />
 </p>
 
-> **New to the terminal?** Start with [`START-HERE.md`](START-HERE.md) -- plain language, four commands, 60-second install.
+> **New to the terminal?** Start with [`START-HERE.md`](START-HERE.md) -- plain language, three commands, 30-second install.
 > **Developer?** The practical guide is [`DEV-README.md`](DEV-README.md).
 > **Architect?** Read the [Architecture & Design Rationale](ARCHITECTURE.md).
 
@@ -43,7 +43,7 @@ Knowledge in CGG lives on a scope hierarchy. We call it the abstraction ladder b
 
 ### Climbing: local to global
 
-A lesson climbs when a CogPR is approved through `/grapple`. The ripple assessor checks scope correctness -- a Redis connection pattern specific to one project shouldn't become global law. Promotion requires evidence:
+A lesson climbs when a CogPR is approved through `/review`. The ripple assessor checks scope correctness -- a Redis connection pattern specific to one project shouldn't become global law. Promotion requires evidence:
 
 - At least 2 full pipeline cycles for global scope
 - Cross-validation where relevant -- does the lesson hold in other projects?
@@ -75,14 +75,14 @@ flowchart TB
         direction TB
         PA1["Project CLAUDE.md<br/>validated for this codebase"]
         PA2["Local CLAUDE.md<br/>born here, file-specific"]
-        PA2 -. "CogPR approved<br/>via /grapple" .-> PA1
+        PA2 -. "CogPR approved<br/>via /review" .-> PA1
     end
 
     subgraph PROJ_B["Project B"]
         direction TB
         PB1["Project CLAUDE.md<br/>validated for this codebase"]
         PB2["Local CLAUDE.md<br/>born here, file-specific"]
-        PB2 -. "CogPR approved<br/>via /grapple" .-> PB1
+        PB2 -. "CogPR approved<br/>via /review" .-> PB1
     end
 
     subgraph PROJ_C["Project C -- new repo"]
@@ -129,8 +129,8 @@ graph TB
     %% Session Controls
     T1["100k Token<br/>Manually Trigger"]:::trigger
     T2["100k Token<br/>Manually Trigger"]:::trigger
-    Cycle1["/cadence-downbeat"]:::trigger
-    Cycle2["/cadence-downbeat"]:::trigger
+    Cycle1["/cadence"]:::trigger
+    Cycle2["/cadence"]:::trigger
 
     %% CogPR Buffer - Continuous
     CogPR1["CogPR Buffer<br/>(Friction Detection)"]:::session
@@ -141,7 +141,7 @@ graph TB
     Assess2["Ripple Assessor<br/>(Background Eval)"]:::project
 
     %% Human Review
-    Review["/grapple<br/>Human Review"]:::human
+    Review["/review<br/>Human Review"]:::human
 
     %% Project Layer - Medium Loop
     ProjMem["Project Memory<br/>(Accumulated Primitives)"]:::project
@@ -192,7 +192,7 @@ graph TB
     CogPR2 -.->|Async| Assess2
 ```
 
-The `/grapple` human review isn't just a safety check -- it's the epoch boundary. It marks the moment where Session N's raw discoveries become Session N+1's upgraded starting state. The agent should have amnesia after the context flush. It doesn't, because the abstraction ladder carried the knowledge through.
+The `/review` human review isn't just a safety check -- it's the epoch boundary. It marks the moment where Session N's raw discoveries become Session N+1's upgraded starting state. The agent should have amnesia after the context flush. It doesn't, because the abstraction ladder carried the knowledge through.
 
 ### The 4/4 cadence
 
@@ -201,9 +201,9 @@ Four beats, steady time:
 | Beat | Action | What happens |
 |------|--------|-------------|
 | 1 | **Work** | Implement, debug, ship. Lessons are a side effect of real work. |
-| 2 | **Capture** | `/cadence-downbeat` at or before 100k tokens. Tic emitted, handoff written, CogPRs staged. |
+| 2 | **Capture** | `/cadence` at or before 100k tokens. Tic emitted, handoff written, CogPRs staged. |
 | 3 | **Evaluate** | Between sessions, ripple assessor runs automatically. No human involvement. |
-| 4 | **Review** | `/grapple` when the queue warrants it -- every 2-4 sessions, not every session. |
+| 4 | **Review** | `/review` when the queue warrants it -- every 2-4 sessions, not every session. |
 
 You might run beats 1 and 2 three times before doing beat 4. The review cadence is driven by proposal density, not a fixed schedule. The agent learns at project level on its own between beats 1 and 3. You shape what sticks and what climbs during beat 4.
 
@@ -236,7 +236,7 @@ PRESTIGE exists to be blocked. Any signal that would accrue reputation or status
 
 ### Quiet rail principle
 
-Most of this runs silently. Signals accrue volume, assessors run between sessions, proposals queue up -- none of it interrupts the developer. You see the system only during `/grapple` review. Everything else is auditable after the fact but invisible during work.
+Most of this runs silently. Signals accrue volume, assessors run between sessions, proposals queue up -- none of it interrupts the developer. You see the system only during `/review`. Everything else is auditable after the fact but invisible during work.
 
 Think of it less as an alert system and more as a geological survey: instruments always recording, data read when you choose to.
 
@@ -252,7 +252,7 @@ A timestamp tells you *when* something happened. A monotonic counter tells you *
 
 Different systems emit tics at different cadences. A Claude Code agent downbeats at the 100k token mark. An Agent Zero superintendent downbeats at monologue boundaries. A cron job downbeats on a fixed schedule. None share a rhythm, but they all share the tic sequence. The tic counter is the total ordering that makes syncopated cadences commensurable.
 
-Every `/cadence-downbeat` emits a tic. Tics accumulate at two scopes:
+Every `/cadence` emits a tic. Tics accumulate at two scopes:
 - **Project tic counter**: derived by counting `"type": "tic"` entries in `audit-logs/tics/*.jsonl`
 - **Global tic counter**: `~/.claude/cgg-tic-counter.json` -- simple `{"count": N, "last_tic": "ISO-8601"}`
 
@@ -314,7 +314,7 @@ CGG is model-agnostic and host-agnostic. Claude Code is the current primary host
 
 ### Engineering teams
 
-The CI/CD mental model is intentional. CogPRs are pull requests for agent behavior, not codebases. The ripple assessor is the CI runner. `/grapple` is code review. Engineers already know these workflows. CGG maps directly onto them.
+The CI/CD mental model is intentional. CogPRs are pull requests for agent behavior, not codebases. The ripple assessor is the CI runner. `/review` is code review. Engineers already know these workflows. CGG maps directly onto them.
 
 ### Regulated industries
 
@@ -339,7 +339,7 @@ When multiple agents operate in the same domain with different cadences, CGG pro
 
 ## Where CGG fits
 
-CGG is a compact, portable expression of principles from the Ubiquity concurrent development methodology. Install it in 30 seconds, get enormous value from session 1. Four commands. Zero dependencies.
+CGG is a compact, portable expression of principles from the Ubiquity concurrent development methodology. Install it in 30 seconds, get enormous value from session 1. Three commands. Zero dependencies.
 
 It scales well for individuals and small teams. But there's a ceiling. As your signal store, lesson corpus, and memory files grow, flat-file governance starts to creak. Signals accumulate without semantic compression. Lessons pile up without topological organization. The system knows more and more, but finding the right knowledge at the right time gets harder -- grep doesn't understand meaning.
 
@@ -388,26 +388,13 @@ Claude Code only. Automation connecting lesson capture to evaluation to review.
 | `hooks/cgg-gate.sh` | One-shot gate on first prompt |
 | `hooks/session-restore-patch.sh` | Plan discovery and trigger extraction |
 | `agents/ripple-assessor.md` | Fresh evaluator agent |
-| `skills/` | `/init-gun`, `/siren`, `/cadence-downbeat` |
+| `skills/` | `/cadence`, `/review`, `/siren` |
 
 ## Installation
 
 ### Claude Code -- full pipeline
 
-1. Add the submodule:
-   ```bash
-   git submodule add https://github.com/prompted365/context-grapple-gun.git vendor/context-grapple-gun
-   ```
-
-2. Copy both packages:
-   ```bash
-   cp -r vendor/context-grapple-gun/cogpr/claude-code/skills/* .claude/skills/
-   cp -r vendor/context-grapple-gun/cgg-runtime/hooks .claude/
-   cp -r vendor/context-grapple-gun/cgg-runtime/agents .claude/
-   cp -r vendor/context-grapple-gun/cgg-runtime/skills/* .claude/skills/
-   ```
-
-3. Wire hooks: `/init-gun` then `/init-cogpr`
+Paste the bootstrap prompt into Claude Code. It asks one question (install mode), then sets everything up -- submodule, skills, hooks, agents, wiring. See [INSTALL.md](INSTALL.md) for the exact prompt.
 
 ### Claude Desktop / Claude for Work
 
@@ -415,7 +402,7 @@ Copy `cogpr/claude-desktop/project-instructions.md` into your project's custom i
 
 ## Safety
 
-All promotions require human approval through `/grapple`. Protected files like `~/.claude/CLAUDE.md` require extra confirmation. Trigger blocks are structured data with whitelisted keys, not executable instructions. Each handoff is processed at most once. Project scoping prevents cross-project bleed.
+All promotions require human approval through `/review`. Protected files like `~/.claude/CLAUDE.md` require extra confirmation. Trigger blocks are structured data with whitelisted keys, not executable instructions. Each handoff is processed at most once. Project scoping prevents cross-project bleed.
 
 ## License
 

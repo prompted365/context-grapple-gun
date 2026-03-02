@@ -4,7 +4,7 @@
 
 # Context Grapple Gun -- Practical developer guide
 
-> **Just opened a terminal for the first time?** Start with [`START-HERE.md`](START-HERE.md) -- no jargon, four commands.
+> **Just opened a terminal for the first time?** Start with [`START-HERE.md`](START-HERE.md) -- no jargon, three commands.
 > **Want the theory?** See [`README.md`](README.md) for the abstraction ladder model and signal architecture.
 > **Want the deep physics?** Read the [Architecture & Design Rationale](ARCHITECTURE.md).
 
@@ -22,9 +22,9 @@ You already know these concepts under different names:
 |-----|---------------|
 | CogPR | Pull Request for your CLAUDE.md, not your codebase |
 | Ripple Assessor | CI test runner that checks proposed rules against existing prompts |
-| `/grapple` | Code review. You approve, reject, or edit the proposed changes |
+| `/review` | Code review. You approve, reject, or edit the proposed changes |
 | `/siren` | Datadog / PagerDuty. Tracks recurring friction, alerts on threshold breach |
-| `/cadence-downbeat` | Epoch boundary — emits tic, captures lessons, writes handoff |
+| `/cadence` | Epoch boundary — emits tic, captures lessons, writes handoff |
 
 ## How a session actually flows
 
@@ -39,7 +39,7 @@ flowchart TB
         D["Write lesson locally<br/>to nearest CLAUDE.md"]
         E["Flag as CogPR<br/>agnostic-candidate block"]
         F[/"Context near 100k tokens<br/>or natural stopping point"/]
-        G["Run /cadence-downbeat"]
+        G["Run /cadence"]
 
         A --> B
         B --> C
@@ -66,7 +66,7 @@ flowchart TB
 
     subgraph S2["Session N+1 -- review and promote"]
         direction TB
-        M["Run /grapple"]
+        M["Run /review"]
         N{"Review each proposal"}
         O["Approve -- lesson<br/>promoted to target scope"]
         P["Reject -- stays<br/>local, no side effects"]
@@ -100,26 +100,26 @@ flowchart TB
 
 Context windows are finite. Around 100k tokens, Claude Code starts losing grip on early-session context. CGG turns this constraint into a feature.
 
-Hit `/cadence-downbeat` at or before the 100k mark. The downbeat emits a canonical tic (a sequenced timestamp that provides total ordering across agents and cadences), writes a handoff file, captures pending lessons, and shuts down cleanly. Next session picks up where you left off, but the lessons from Session N are already evaluated and queued for review. The tic sequence means you can always reconstruct what the system knew at any point -- not just by clock time, but by ordinal position in the sequence.
+Hit `/cadence` at or before the 100k mark. The downbeat emits a canonical tic (a sequenced timestamp that provides total ordering across agents and cadences), writes a handoff file, captures pending lessons, and shuts down cleanly. Next session picks up where you left off, but the lessons from Session N are already evaluated and queued for review. The tic sequence means you can always reconstruct what the system knew at any point -- not just by clock time, but by ordinal position in the sequence.
 
 Over a multi-week roadmap, this creates a rhythm:
 
 **Session 1**: Implement auth middleware. Discover that your JWT library silently accepts expired tokens in test mode. Write lesson locally, flag CogPR.
 
-**Session 2**: `/grapple` surfaces the JWT lesson. You approve it to project scope. Now every future session in this repo knows about the test-mode footgun. Continue to rate limiting.
+**Session 2**: `/review` surfaces the JWT lesson. You approve it to project scope. Now every future session in this repo knows about the test-mode footgun. Continue to rate limiting.
 
 **Session 3**: Rate limiter work hits a Redis connection pooling issue. New lesson captured. Meanwhile, the JWT lesson is already paying off -- Claude avoids the test-mode trap without being told.
 
-**Session 4**: `/grapple` review. You've got 3-4 accumulated lessons. Some are project-specific. One about Redis connection semantics might be global -- it applies to your other repos too. You promote that one up the abstraction ladder.
+**Session 4**: `/review` review. You've got 3-4 accumulated lessons. Some are project-specific. One about Redis connection semantics might be global -- it applies to your other repos too. You promote that one up the abstraction ladder.
 
 This is the cadence. Four beats, steady time:
 
 1. **Work** -- implement, debug, ship
-2. **Capture** -- `/cadence-downbeat` before context degrades
+2. **Capture** -- `/cadence` before context degrades
 3. **Evaluate** -- ripple assessor runs between sessions, no human involvement
-4. **Review** -- `/grapple` to approve, reject, or promote
+4. **Review** -- `/review` to approve, reject, or promote
 
-Repeat. The agent compounds knowledge autonomously within each project. You review in cadence -- not every session, but every few sessions, whenever the `/grapple` queue has enough proposals to justify the context cost.
+Repeat. The agent compounds knowledge autonomously within each project. You review in cadence -- not every session, but every few sessions, whenever the `/review` queue has enough proposals to justify the context cost.
 
 After enough cycles, something interesting happens downstream. A global lesson like "always validate embedding dimensions before similarity computation" gets picked up by a new project. But that project uses Rust, not Python. The agent writes a local specialization -- same core signal, project-specific expression. The global lesson said *what* to check. The local expression knows *how* to check it in this codebase. The abstraction ladder works in both directions.
 
@@ -133,29 +133,7 @@ Claude Code only. Hooks into the session lifecycle to automate capture, evaluati
 
 ## Installation
 
-Install both packages in one pass:
-
-1. Add the submodule:
-   ```bash
-   git submodule add https://github.com/prompted365/context-grapple-gun.git vendor/context-grapple-gun
-   ```
-
-2. Copy into `.claude/`:
-   ```bash
-   # Skills
-   cp -r vendor/context-grapple-gun/cogpr/claude-code/skills/* .claude/skills/
-   cp -r vendor/context-grapple-gun/cgg-runtime/skills/* .claude/skills/
-
-   # Hooks and agents
-   cp -r vendor/context-grapple-gun/cgg-runtime/hooks .claude/
-   cp -r vendor/context-grapple-gun/cgg-runtime/agents .claude/
-   ```
-
-3. Wire the hooks:
-   ```
-   /init-gun
-   /init-cogpr
-   ```
+Paste the bootstrap prompt into Claude Code. It asks one question (install mode), then handles everything -- submodule, skills, hooks, agents, wiring. See [INSTALL.md](INSTALL.md) for the exact prompt.
 
 For Claude Desktop or Claude for Work, copy `cogpr/claude-desktop/project-instructions.md` into your project's custom instructions. You get the convention layer but not the automated pipeline.
 
@@ -169,21 +147,19 @@ For Claude Desktop or Claude for Work, copy `cogpr/claude-desktop/project-instru
 
 2. **Claude flags a lesson.** When it hits something durable -- a non-obvious API behavior, a deployment gotcha, an architectural constraint -- it drops a `<!-- --agnostic-candidate -->` CogPR flag in the local file.
 
-3. **End the session.** Run `/cadence-downbeat` before context degrades. This emits a tic, bundles everything into a handoff file, and stages the CogPRs.
+3. **End the session.** Run `/cadence` before context degrades. This emits a tic, bundles everything into a handoff file, and stages the CogPRs.
 
 4. **Between sessions.** The SessionStart hook fires automatically. A fresh agent evaluates the pending PRs without session bias.
 
-5. **Review.** Type `/grapple` when you're ready. Approve the lessons that matter, reject the noise.
+5. **Review.** Type `/review` when you're ready. Approve the lessons that matter, reject the noise.
 
 ## Commands
 
 | Command | What it does |
 |---------|-------------|
-| `/cadence-downbeat` | Epoch boundary. Emits tic, writes handoff, stages CogPRs, cleans context. |
-| `/grapple` | Review dashboard. Approve or reject proposed prompt changes. |
+| `/cadence` | Epoch boundary. Emits tic, writes handoff, stages CogPRs, cleans context. Use `/cadence double-time` for emergency mode. |
+| `/review` | Review dashboard. Approve or reject proposed prompt changes. |
 | `/siren` | Monitoring. View active friction signals and background alerts. |
-| `/init-gun` | One-time setup. Wires hooks and patches settings. |
-| `/init-cogpr` | One-time setup. Verifies convention layer is in place. |
 
 ## Deterministic assessor option
 
@@ -195,11 +171,11 @@ Simple installs get the agent. Mature installs get deterministic evaluation. The
 
 ## Safety
 
-CGG never modifies `CLAUDE.md` without your explicit approval through `/grapple`. Background triggers fire exactly once per handoff. Lessons learned in one project don't leak into another -- everything is scoped by `project_dir`.
+CGG never modifies `CLAUDE.md` without your explicit approval through `/review`. Background triggers fire exactly once per handoff. Lessons learned in one project don't leak into another -- everything is scoped by `project_dir`.
 
 ## Where CGG fits
 
-CGG is a compact expression of the Ubiquity concurrent development methodology. It gives you the governance lifecycle -- session boundaries, lesson promotion, signal monitoring, human review gates -- in four commands and flat files.
+CGG is a compact expression of the Ubiquity concurrent development methodology. It gives you the governance lifecycle -- session boundaries, lesson promotion, signal monitoring, human review gates -- in three commands and flat files.
 
 There's a ceiling. As signal stores grow, grep-based dedup becomes slow. As lesson corpora span dozens of files, finding the right lesson for the current context requires semantic understanding, not keyword matching. That ceiling is where Ubiquity's deeper layers begin: embedding-based recall, graph topology, expression gating, conformation-aware retrieval. Those require infrastructure CGG deliberately avoids.
 

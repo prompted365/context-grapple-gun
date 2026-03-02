@@ -146,7 +146,7 @@ Write your proposals to `~/.claude/grapple-proposals/latest.md` using this forma
 
 - **Total CPRs**: N evaluated (Promote: X, Skip: Y, Modify: Z)
 - **Signals**: S active, W warrants, T triads
-- **Docket priority**: <brief note on what /grapple should focus on first>
+- **Docket priority**: <brief note on what /review should focus on first>
 ```
 
 ## Hard Constraints

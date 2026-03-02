@@ -7,7 +7,7 @@ Automated between-session lesson evaluation and signal management for Claude Cod
 - **`/siren` skill**: Signal emission, tick advancement, warrant minting, triage dashboard
 - **Signal store**: `audit-logs/signals/*.jsonl` — append-only JSONL for signals and warrants
 - **Harmonic triad detection**: PRIMITIVE BEACON + COGNITIVE LESSON + TENSION = auto-warrant
-- **Unified docket**: `/grapple` now reviews both CogPR promotions AND warrant triage
+- **Unified docket**: `/review` reviews both CogPR promotions AND warrant triage
 - **Signal scanning hook**: SessionStart scans signal store, reports active signals in context
 - **v3 ripple-assessor**: Evaluates CPRs + scans signals + detects triads
 
@@ -18,17 +18,19 @@ Automated between-session lesson evaluation and signal management for Claude Cod
 | `hooks/cgg-gate.sh` | UserPromptSubmit one-shot gate (tries deterministic assessor first, falls back to LLM agent) |
 | `hooks/session-restore-patch.sh` | SessionStart plan discovery + signal scanning (single-pass Python dedup) |
 | `agents/ripple-assessor.md` | Fresh CPR + signal evaluator (sonnet, read-only) — used when no deterministic assessor exists |
-| `skills/init-gun/SKILL.md` | v3 master installer |
-| `skills/init-cogpr/SKILL.md` | v3 convention installer (overlap with cogpr package) |
-| `skills/grapple/SKILL.md` | v3 unified docket (overlap with cogpr package) |
+| `skills/cadence/SKILL.md` | Unified epoch boundary — downbeat (default) or double-time (emergency syncopate) |
+| `skills/review/SKILL.md` | Unified CogPR + Warrant docket reviewer |
 | `skills/siren/SKILL.md` | Signal emission + triage dashboard |
-| `skills/cadence-downbeat/SKILL.md` | Epoch boundary — emits tic, captures lessons, writes handoff |
-| `skills/cadence-syncopate/SKILL.md` | Emergency session turnaround — minimal tic + handoff in ≤5% context |
+| `skills/cadence-downbeat/SKILL.md` | [DEPRECATED] Redirects to `/cadence` |
+| `skills/cadence-syncopate/SKILL.md` | [DEPRECATED] Redirects to `/cadence double-time` |
+| `skills/grapple/SKILL.md` | [DEPRECATED] Redirects to `/review` |
+| `skills/init-gun/SKILL.md` | [DEPRECATED] Absorbed into bootstrap install flow |
+| `skills/init-cogpr/SKILL.md` | [DEPRECATED] Absorbed into bootstrap install flow |
 
 ## Requires
 
 - Claude Code CLI with hooks support
-- `cogpr` package (or at minimum the `/grapple` skill to consume proposals)
+- `cogpr` package (or at minimum the `/review` skill to consume proposals)
 
 ## How It Works
 
@@ -36,8 +38,8 @@ Automated between-session lesson evaluation and signal management for Claude Cod
 2. Next session starts -> SessionStart hook discovers plan + scans `audit-logs/signals/` for active signals
 3. First prompt -> UserPromptSubmit gate fires once, spawns ripple-assessor in background
 4. Assessor reads plan, evaluates CPRs + signals, writes proposals to `~/.claude/grapple-proposals/latest.md`
-5. User runs `/grapple` -> reviews unified docket (Warrants + CPRs), approves/rejects
-6. User runs `/siren` -> operational dashboard for signal management between `/grapple` reviews
+5. User runs `/review` -> reviews unified docket (Warrants + CPRs), approves/rejects
+6. User runs `/siren` -> operational dashboard for signal management between `/review` reviews
 
 ## Signal Lifecycle
 
@@ -46,7 +48,7 @@ Emit signal (/siren emit)
   -> volume accrues per tick (/siren tick)
   -> effective_volume computed per hearing target (distance model)
   -> volume crosses warrant_threshold -> warrant minted automatically
-  -> /grapple presents warrant in triage docket
+  -> /review presents warrant in triage docket
   -> human ACKNOWLEDGEs / DISMISSes / ESCALATEs
 ```
 
@@ -65,6 +67,6 @@ Everything runs inside Claude Code with zero external dependencies:
 - Idempotent: restart won't re-evaluate (handoff_id tracked)
 - Project-scoped: plan file `project_dir` must match current project
 - Read-only assessor: ripple-assessor can only write to proposals file
-- Human gate: all promotions and warrant verdicts require explicit approval via `/grapple`
+- Human gate: all promotions and warrant verdicts require explicit approval via `/review`
 - PRESTIGE band blocked: governance filter prevents emission
 - Append-only JSONL: signal history is never overwritten

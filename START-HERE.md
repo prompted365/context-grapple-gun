@@ -26,56 +26,39 @@ This is like hiring someone brilliant, working with them all day, then wiping th
 
 1. You work normally. Claude learns things as you go -- same as before.
 2. When Claude discovers something worth remembering (a gotcha, a pattern, a rule), it writes it down in a standard format called a **CogPR** (Cognitive Pull Request -- think of it as a sticky note that says "remember this").
-3. Before the session gets too long, you type `/cadence-downbeat`. This tells Claude: "wrap it up, save what you learned, and hand off to the next session."
+3. Before the session gets too long, you type `/cadence`. This tells Claude: "wrap it up, save what you learned, and hand off to the next session."
 4. Between sessions, a separate process reviews those sticky notes automatically.
 5. Next session, the reviewed lessons are already loaded. Claude remembers.
 
 That's the whole thing. Claude gets smarter over time instead of resetting to zero.
 
-## The four commands you need
+## The three commands you need
 
 | Command | When to use it | What it does |
 |---------|---------------|-------------|
-| `/cadence-downbeat` | When your session is getting long, or you're done for the day | Saves everything Claude learned and writes a clean handoff for next time |
-| `/grapple` | Every few sessions, when you want to review what Claude learned | Shows you the proposed lessons. You approve the good ones, reject the bad ones |
+| `/cadence` | When your session is getting long, or you're done for the day | Saves everything Claude learned and writes a clean handoff for next time |
+| `/review` | Every few sessions, when you want to review what Claude learned | Shows you the proposed lessons. You approve the good ones, reject the bad ones |
 | `/siren` | When you want to check on recurring issues | Shows signals -- things that keep coming up and might need attention |
-| `/init-gun` | Once, when you first set it up | Wires everything together |
 
-That's it. Four commands. Everything else is automatic.
+That's it. Three commands. Everything else is automatic.
 
 ## How to install it
 
-You need Claude Code already working. If you have that, this takes about 60 seconds.
+You need Claude Code already working. If you have that, this takes about 30 seconds.
 
 1. Open your terminal in your project folder.
 
-2. Add CGG to your project:
-   ```bash
-   git submodule add https://github.com/prompted365/context-grapple-gun.git vendor/context-grapple-gun
-   ```
+2. Paste the bootstrap prompt into Claude Code. It asks you one question (install mode), then sets everything up.
 
-3. Copy the pieces into place:
-   ```bash
-   cp -r vendor/context-grapple-gun/cogpr/claude-code/skills/* .claude/skills/
-   cp -r vendor/context-grapple-gun/cgg-runtime/hooks .claude/
-   cp -r vendor/context-grapple-gun/cgg-runtime/agents .claude/
-   cp -r vendor/context-grapple-gun/cgg-runtime/skills/* .claude/skills/
-   ```
-
-4. Start a Claude Code session and type:
-   ```
-   /init-gun
-   ```
-
-Done. CGG is running.
+See [INSTALL.md](INSTALL.md) for the exact prompt. One paste, one answer, done.
 
 ## What does a normal day look like?
 
-**Morning**: Start a Claude Code session. If there are lessons from yesterday waiting for review, you'll see a note. Type `/grapple` to review them, or ignore it and get to work.
+**Morning**: Start a Claude Code session. If there are lessons from yesterday waiting for review, you'll see a note. Type `/review` to review them, or ignore it and get to work.
 
 **During work**: Just work normally. Build features, fix bugs, ask questions. When Claude figures something out that seems important, it automatically writes a CogPR. You don't have to do anything.
 
-**End of day** (or when the session feels sluggish): Type `/cadence-downbeat`. Claude wraps up, saves its lessons, and writes a handoff file. Close the session.
+**End of day** (or when the session feels sluggish): Type `/cadence`. Claude wraps up, saves its lessons, and writes a handoff file. Close the session.
 
 **Next morning**: Start a new session. The lessons Claude learned yesterday are already loaded. It doesn't ask the same questions. It doesn't make the same mistakes. It just... knows.
 
@@ -83,7 +66,7 @@ Done. CGG is running.
 
 Lessons start local -- they're specific to the file or module where Claude discovered them.
 
-If a lesson keeps proving useful, you can promote it during `/grapple` review:
+If a lesson keeps proving useful, you can promote it during `/review`:
 
 - **Local** → only applies to one part of your project
 - **Project** → applies to your whole project
@@ -112,7 +95,7 @@ No.
 - **[README.md](README.md)** covers the full architecture -- scope hierarchies, signal types, frequency bands, jurisdictional zones.
 - **[ARCHITECTURE.md](ARCHITECTURE.md)** is the deep theory for people designing systems like this.
 
-You can read as deep as you want. But `/cadence-downbeat` at the end of the day and `/grapple` every few sessions is genuinely all you need.
+You can read as deep as you want. But `/cadence` at the end of the day and `/review` every few sessions is genuinely all you need.
 
 ## FAQ
 
@@ -123,17 +106,17 @@ The core ideas (CogPRs, lessons, signals) work anywhere. The automation (hooks, 
 No. Everything is stored in flat files in your project directory. No databases, no cloud services, no APIs. It's all just text files tracked by git.
 
 **Can Claude modify its own rules without my permission?**
-No. Every rule change requires your explicit approval through `/grapple`. Claude proposes. You decide.
+No. Every rule change requires your explicit approval through `/review`. Claude proposes. You decide.
 
-**What if I forget to run `/cadence-downbeat`?**
-The lessons Claude captured during the session are still written to your local files. You just won't get the clean handoff and automatic evaluation. Run `/cadence-downbeat` next time you remember -- the system picks up wherever you left off.
+**What if I forget to run `/cadence`?**
+The lessons Claude captured during the session are still written to your local files. You just won't get the clean handoff and automatic evaluation. Run `/cadence` next time you remember -- the system picks up wherever you left off.
 
 **Is this free?**
 Yes. CGG is open source (MIT license). You pay for Claude Code usage as normal -- CGG doesn't add any extra API costs.
 
 ## Where does CGG come from?
 
-CGG is a compact expression of the Ubiquity concurrent development methodology -- the governance lifecycle distilled into four commands and flat files. When flat files aren't enough, Ubiquity's deeper layers (semantic recall, graph topology, expression gating) pick up where CGG leaves off. But for most people, CGG is all you need.
+CGG is a compact expression of the Ubiquity concurrent development methodology -- the governance lifecycle distilled into three commands and flat files. When flat files aren't enough, Ubiquity's deeper layers (semantic recall, graph topology, expression gating) pick up where CGG leaves off. But for most people, CGG is all you need.
 
 ## Maintainers
 

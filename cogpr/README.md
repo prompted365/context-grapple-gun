@@ -13,19 +13,19 @@ Lesson flagging, signal emission, and cross-scope promotion conventions for Clau
 
 | Platform | Path | Install method |
 |----------|------|---------------|
-| Claude Code | `claude-code/` | Copy skills to `.claude/skills/`, run `/init-cogpr` |
+| Claude Code | `claude-code/` | Copy skills to `.claude/skills/` (absorbed into bootstrap) |
 | Claude Desktop | `claude-desktop/` | Paste `project-instructions.md` into Project custom instructions |
 | Claude for Work | `claude-work/` | Paste `project-instructions.md` into Project custom instructions |
 
 ## What's Included
 
 ### Claude Code
-- `/grapple` v3 skill — unified CogPR + Warrant docket with harmonic triad detection
-- `/init-cogpr` v3 skill — installs all 3 block formats + band budget + signal capture rules
+- `/review` v3 skill — unified CogPR + Warrant docket with harmonic triad detection
+- Bootstrap installs all 3 block formats + band budget + signal capture rules
 
 ### Claude Desktop / Claude for Work
 - Project instructions with v3 capture rules, all block formats, band budget, and review workflow
-- No slash commands — say "review my CPR flags" or "grapple" to trigger review
+- No slash commands — say "review my CPR flags" or "review" to trigger review
 
 ## Standalone Usage
 
@@ -39,9 +39,9 @@ CogPR works without the CGG runtime. Lessons and inline signals are evaluated ma
 
 | Primitive | Block tag | Purpose | Reviewed by |
 |-----------|-----------|---------|-------------|
-| CogPR | `<!-- --agnostic-candidate -->` | Durable lesson to promote | `/grapple` Section C |
-| Siren | `<!-- --signal -->` | Persistent condition to monitor | `/siren` + `/grapple` Section B |
-| Warrant | `<!-- --warrant -->` | Stress crystallized — action required | `/grapple` Section A+B |
+| CogPR | `<!-- --agnostic-candidate -->` | Durable lesson to promote | `/review` Section C |
+| Siren | `<!-- --signal -->` | Persistent condition to monitor | `/siren` + `/review` Section B |
+| Warrant | `<!-- --warrant -->` | Stress crystallized — action required | `/review` Section A+B |
 
 ## Band Budget
 

@@ -67,7 +67,7 @@ Signal kinds: BEACON (something IS wrong), LESSON (something was LEARNED), OPPOR
 
 ### Reviewing CPR Flags and Signals
 
-When the user says "review my CPR flags", "grapple", or "review pending lessons":
+When the user says "review my CPR flags", "review", "grapple", or "review pending lessons":
 
 1. Search all CLAUDE.md and MEMORY.md files for `<!-- --agnostic-candidate -->` blocks with `status: "pending"`
 2. Search for `<!-- --signal -->` blocks with `status: "active"`

@@ -40,7 +40,7 @@ Long agent sessions produce three predictable degradations:
 
 CGG treats the context window as a resource that must be rotated. You do not "power through" at 120k+ tokens. You end the epoch on purpose.
 
-The `/cadence-downbeat` command is the epoch boundary primitive. The downbeat emits a canonical tic — the cross-system timestamp primitive that unifies syncopated cadences. It converts "session entropy" into "structured evolution candidates" by:
+The `/cadence` command is the epoch boundary primitive. The downbeat emits a canonical tic — the cross-system timestamp primitive that unifies syncopated cadences. It converts "session entropy" into "structured evolution candidates" by:
 1. Stopping active work before degradation gets severe.
 2. Bundling pending CogPR proposals.
 3. Flushing the bloated session context.
@@ -53,7 +53,7 @@ CGG relies on repurposing existing agent UI patterns for novel architectural use
 
 Plan mode appears at three different points in the CGG pipeline, each doing a different job:
 1. **The Handoff Writer:** At the epoch boundary, Plan Mode writes the context-exit handoff payload.
-2. **The Review Surface:** When running `/grapple`, Plan Mode presents CogPR proposals to the human in a UI that supports approve/reject/edit actions.
+2. **The Review Surface:** When running `/review`, Plan Mode presents CogPR proposals to the human in a UI that supports approve/reject/edit actions.
 3. **The Scope Arbitrator:** It forces the human to decide if a lesson belongs at the Project or Global tier.
 
 What the human approves are laws, not tactics. You approve new primitives, scope promotions, and behavioral constraints. You do not approve one-off code fixes. This makes the human an editor of the agent's constitution, not a micromanager of its thoughts.
@@ -106,7 +106,7 @@ This is the terminal abstraction rung. Everything below it — files, signals, r
 
 CGG's governance lifecycle is complete for individuals and small teams. The flat-file primitives — JSONL signal stores, CLAUDE.md rule tiers, append-only audit trails — are fast, portable, and auditable by default.
 
-An important clarification: CGG runs inside an AI agent. The agent reading CLAUDE.md files has full semantic understanding — it connects "embedding API failures" to "infrastructure sovereignty" without keyword overlap. The agent can spawn subagents for deeper search and catch duplicates during `/grapple` review that no keyword matcher would flag. The retrieval surface is an LLM, not a grep index.
+An important clarification: CGG runs inside an AI agent. The agent reading CLAUDE.md files has full semantic understanding — it connects "embedding API failures" to "infrastructure sovereignty" without keyword overlap. The agent can spawn subagents for deeper search and catch duplicates during `/review` that no keyword matcher would flag. The retrieval surface is an LLM, not a grep index.
 
 But there is a ceiling, and it is the fundamental limit of text-as-governance. When the signal store grows past a few hundred entries, dedup-by-latest-entry-per-ID becomes a linear scan. When the lesson corpus spans dozens of CLAUDE.md files, every lesson loads into every session — consuming context window budget whether relevant or not. A governance file that was 50 lines and sharp becomes 500 lines and numbing. The agent reads it all. Reading and applying are different cognitive operations.
 

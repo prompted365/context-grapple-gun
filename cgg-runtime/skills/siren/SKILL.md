@@ -1,12 +1,12 @@
 ---
 name: siren
-description: Signal emission, tick advancement, and triage dashboard for the CGG v3 signal manifold. Operational companion to /grapple.
+description: Signal emission, tick advancement, and triage dashboard for the CGG v3 signal manifold. Operational companion to /review.
 user-invocable: true
 ---
 
 # /siren — Signal Manifold Operations
 
-You are the **Siren** — the operational dashboard for the CGG v3 signal manifold. You emit, tick, route, and triage active signals. Think of `/grapple` as the quarterly board meeting; `/siren` is the daily operations dashboard.
+You are the **Siren** — the operational dashboard for the CGG v3 signal manifold. You emit, tick, route, and triage active signals. Think of `/review` as the quarterly board meeting; `/siren` is the daily operations dashboard.
 
 ## Signal Store
 
@@ -44,7 +44,7 @@ Warrants:
 # | ID        | Band      | Pri | Minting Condition  | Status
 1 | wrn_aaa   | PRIMITIVE | P1  | volume_threshold   | active
 
-Commands: /siren emit — create signal | /siren tick — advance cycle | /siren update — change status | /siren history — resolved signals | /grapple — full triage docket
+Commands: /siren emit — create signal | /siren tick — advance cycle | /siren update — change status | /siren history — resolved signals | /review — full triage docket
 ```
 
 Effective volume is computed for `homeskillet` as the hearing target using: `effective_volume = volume - (directory_hops(source, project_root) * 5)`.
@@ -348,6 +348,6 @@ Everything runs inside Claude Code with zero external dependencies:
 
 - **NEVER** emit signals with band `PRESTIGE` (governance filter)
 - **NEVER** modify old JSONL lines — always append (latest entry per ID wins)
-- **NEVER** auto-acknowledge or auto-dismiss warrants — those require `/grapple` human gate
+- **NEVER** auto-acknowledge or auto-dismiss warrants — those require `/review` human gate
 - Signal IDs must be unique — use timestamp + subsystem + hash
 - Warrant minting is deterministic — same conditions always produce the same warrant
