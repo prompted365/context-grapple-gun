@@ -106,34 +106,39 @@ This is the terminal abstraction rung. Everything below it — files, signals, r
 
 CGG's governance lifecycle is complete for individuals and small teams. The flat-file primitives — JSONL signal stores, CLAUDE.md rule tiers, append-only audit trails — are fast, portable, and auditable by default.
 
-But there is a ceiling. When the signal store grows past a few hundred entries, dedup-by-latest-entry-per-ID becomes a linear scan. When the lesson corpus spans dozens of CLAUDE.md files, finding the right lesson for the current context requires semantic understanding — grep matches keywords, not meaning. When epitaphs accumulate, the system needs to know which historical failure mode is closest to the current system shape, not just which one has the most string overlap.
+An important clarification: CGG runs inside an AI agent. The agent reading CLAUDE.md files has full semantic understanding — it connects "embedding API failures" to "infrastructure sovereignty" without keyword overlap. The agent can spawn subagents for deeper search and catch duplicates during `/grapple` review that no keyword matcher would flag. The retrieval surface is an LLM, not a grep index.
+
+But there is a ceiling, and it is the fundamental limit of text-as-governance. When the signal store grows past a few hundred entries, dedup-by-latest-entry-per-ID becomes a linear scan. When the lesson corpus spans dozens of CLAUDE.md files, every lesson loads into every session — consuming context window budget whether relevant or not. A governance file that was 50 lines and sharp becomes 500 lines and numbing. The agent reads it all. Reading and applying are different cognitive operations.
 
 This is where CGG stops and deeper substrate begins:
-- Embedding-based semantic recall (vector similarity, not keyword matching)
+- Expression gating across timescales (methylation — lessons go dormant until the system re-enters a specific failure shape, instead of loading everything equally)
+- Conformation-aware retrieval (match the system's current shape to historical failure modes — load only what is relevant, not the full corpus)
 - Graph topology for relational memory (edges between related concepts, not flat lists)
-- Expression gating across timescales (methylation — some lessons are dormant until the system re-enters a specific failure shape)
-- Conformation-aware retrieval (match the system's current shape to historical failure modes)
+- Endogenous economics (cost model for governance operations — economic pressure to compress, curate, and expire)
+- Compiled constraints (execution-boundary enforcement that the agent cannot violate, not advisory text it may follow)
 
-These require infrastructure — vector databases, embedding models, graph engines — that does not fit in a CLI framework. CGG gives you the governance lifecycle. The substrate that makes it scale at that level is a different engineering problem.
+These require infrastructure — vector databases, embedding models, graph engines, economic engines — that does not fit in a CLI framework. CGG gives you the governance lifecycle. The substrate that makes it scale at that level is a different engineering problem.
 
 The honest boundary: **CGG is the governance lifecycle. Ubiquity is the substrate that makes governance meaningful at scale.**
 
 ### When CGG stops being enough
 
 You'll feel the ceiling when:
-- Signals exceed a few hundred entries and dedup becomes slow
-- Lessons span many files and grep stops finding the right thing
-- You need "closest historical failure mode," not "keyword overlap"
-- Rule stores grow monotonically and every session loads stale context
+- Governance text grows monotonically and every session loads stale context alongside sharp context
+- Lessons that were sharp when captured lose practical force buried in walls of text
+- You need "load only what matches the current failure shape," not "load everything"
+- Signals exceed a few hundred entries and dedup becomes a linear scan
+- You need compiled constraints the agent cannot violate, not advisory text it reads
 
 ### Ubiquity layers that extend CGG
 
 | Layer | What it does | Why flat files can't |
 |-------|-------------|---------------------|
-| Semantic Recall | Embedding-based vector search across lessons | Grep matches keywords, not meaning |
+| Expression Gating | Methylation — lessons go dormant until the system re-enters a failure shape | Flat files load everything equally; no mechanism to silence irrelevant lessons |
+| Conformation-Aware Retrieval | Match "system shape now" to "system shape at time of failure" | No mechanism to fingerprint system state or selectively load |
 | Graph Topology | Relational edges between concepts, not flat lists | JSONL has no structure between entries |
-| Expression Gating | Methylation — lessons go dormant until the system re-enters a failure shape | Flat files are always fully loaded |
-| Conformation-Aware Retrieval | Match "system shape now" to "system shape at time of failure" | No mechanism to fingerprint system state |
+| Endogenous Economics | Cost model for governance — pressure to compress, curate, expire | Governance text grows without bound; capturing and loading are free |
+| Compiled Constraints | Execution-boundary enforcement the agent cannot violate | Advisory text the agent reads and may follow |
 
 CGG is the governance lifecycle. Ubiquity layers compose on top — same signals, same tics, same human gates. The flat-file primitives become the audit trail beneath the substrate.
 
