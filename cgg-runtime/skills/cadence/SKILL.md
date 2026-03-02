@@ -55,6 +55,22 @@ Execute `/siren conformation` to capture the system's total state at this tic bo
 #### Step 2: Extract Lessons (CogPRs)
 Did we establish a new rule or optimize a workflow? If yes, IMMEDIATELY write the `<!-- --agnostic-candidate -->` block into the nearest CLAUDE.md or MEMORY.md. Use the COGNITIVE band.
 
+Include birth context when available:
+- `posture`: current session posture (e.g., "ENG/DIRECT", "OPS/META")
+- `cwd_context`: working directory relative to project root
+- `birth_tic`: the tic number from Step 0.5
+
+These fields are optional. Omit if posture is not in use.
+
+Write to the nearest governance file up the directory tree:
+1. Check CWD for CLAUDE.md — write there if found
+2. Walk up parent directories toward project root
+3. If no subdir CLAUDE.md exists — write to project root CLAUDE.md
+4. Operational memory (not law) — write to MEMORY.md instead
+
+When writing to a subdir CLAUDE.md, ensure the project root CLAUDE.md
+indexes it (add a reference in any existing "subdirectory guides" section).
+
 ### Phase 2: PLAN MODE — The Handoff (Steps 3-4)
 
 #### Step 3: Enter Plan Mode

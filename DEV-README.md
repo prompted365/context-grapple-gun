@@ -4,9 +4,7 @@
 
 # Context Grapple Gun -- Practical developer guide
 
-> **Just opened a terminal for the first time?** Start with [`START-HERE.md`](START-HERE.md) -- no jargon, three commands.
-> **Want the theory?** See [`README.md`](README.md) for the abstraction ladder model and signal architecture.
-> **Want the deep physics?** Read the [Architecture & Design Rationale](ARCHITECTURE.md).
+> **Just want the commands?** [START-HERE.md](START-HERE.md). **Full architecture and design rationale?** [README.md](README.md) and [ARCHITECTURE.md](ARCHITECTURE.md).
 
 **A CI/CD pipeline for your AI's memory and system prompts.**
 
@@ -96,11 +94,15 @@ flowchart TB
     class F trigger
 ```
 
-## The 100k rule and working across a roadmap
+## Session cadence and the 100k heuristic
 
-Context windows are finite. Around 100k tokens, Claude Code loses grip on early-session context. CGG turns this constraint into a feature.
+Context windows are finite. Around 100k tokens, early-session context starts getting stale -- this is a heuristic, not a hard wall. Some sessions run longer, some shorter. The point is: end the epoch before the agent's reasoning degrades. CGG turns this constraint into a feature.
 
-Hit `/cadence` at or before the 100k mark. The downbeat emits a canonical tic (a sequenced timestamp providing total ordering across agents and cadences), writes a handoff file, captures pending lessons, and shuts down cleanly. Next session picks up where you left off, with Session N's lessons already evaluated and queued for review. The tic sequence lets you reconstruct what the system knew at any point -- not just by clock time, but by ordinal position.
+Run `/cadence` when the session feels ready to wrap -- 100k tokens is a reasonable checkpoint, not a countdown timer. The downbeat emits a canonical tic (a sequenced timestamp providing total ordering across agents and cadences), writes a handoff file, captures pending lessons, and shuts down cleanly.
+
+If you've blown past the heuristic and context is visibly degrading (repetition, forgetting earlier decisions, slow responses), use `/cadence double-time`. It produces a valid handoff with minimal ceremony: tic + compact plan, no signal tick or conformation snapshot. The next session can run a full downbeat when context is fresh. Think of it as the emergency exit -- same building, different door.
+
+Next session picks up where you left off, with Session N's lessons already evaluated and queued for review. The tic sequence lets you reconstruct what the system knew at any point -- not just by clock time, but by ordinal position.
 
 Over a multi-week roadmap, this creates a rhythm:
 
@@ -121,6 +123,18 @@ The cadence. Four beats, steady time:
 
 Repeat. The agent compounds knowledge within each project. You review every few sessions, whenever the `/review` queue has enough proposals to justify the context cost.
 
+### Zone scanning and governance surface
+
+CGG scans specific files, not everything. The zone scan rule:
+
+1. Project root = directory containing `.ticzone` (or CWD if no zone file)
+2. Governance files = `**/CLAUDE.md` and `**/MEMORY.md` inside the zone
+3. Auto-memory (`~/.claude/projects/*/memory/MEMORY.md`) is always included
+4. `.ticignore` exclusions are applied (default: vendor/, node_modules/, .git/, .claude/skills/)
+5. Blocks with `status: "example"` are skipped (documentation templates)
+
+This prevents phantom counts from template files, vendor docs, and archived skill definitions. If your `/review` docket shows unexpected pending CPRs, check whether `.ticignore` covers the source directory.
+
 After enough cycles, the abstraction ladder pays off. A global lesson like "always validate embedding dimensions before similarity computation" gets picked up by a new project. That project uses Rust, not Python. The agent writes a local specialization -- same core signal, project-specific expression. The global lesson said *what* to check. The local expression knows *how* to check it in this codebase. The ladder works both directions.
 
 ## Packages
@@ -129,7 +143,7 @@ After enough cycles, the abstraction ladder pays off. A global lesson like "alwa
 Markdown standards that teach Claude how to flag lessons. Works in Claude Code, Claude Desktop, and Claude for Work. No infrastructure -- just conventions.
 
 ### 2. `cgg-runtime/` -- The automation engine
-Claude Code only. Hooks into the session lifecycle to automate capture, evaluation, and proposal generation. Turns conventions into a pipeline.
+Claude Code only. Hooks into the session lifecycle to automate capture, evaluation, and proposal generation. Turns conventions into a pipeline. The runtime assumes `.ticzone` and `.ticignore` at project root for scan boundary resolution. Install creates these if missing.
 
 ## Installation
 
@@ -177,7 +191,7 @@ CGG never modifies `CLAUDE.md` without your approval through `/review`. Backgrou
 
 CGG is a compact expression of the Ubiquity concurrent development methodology. Session boundaries, lesson promotion, signal monitoring, human review gates -- three commands and flat files.
 
-There's a ceiling. As signal stores grow, grep-based dedup slows down. As lesson corpora span dozens of files, finding the right lesson for the current context requires semantic understanding, not keyword matching. That ceiling is where Ubiquity's deeper layers begin: embedding-based recall, graph topology, expression gating, conformation-aware retrieval. Those need infrastructure CGG deliberately avoids.
+There's a ceiling. As signal stores grow, grep-based dedup slows down. As lesson corpora span dozens of files, finding the right lesson for the current context requires semantic understanding, not keyword matching. That ceiling is where deeper substrate layers begin -- embedding-based recall, graph topology, expression gating, conformation-aware retrieval. Those need infrastructure CGG deliberately avoids.
 
 Start here. When flat files aren't enough, you'll know.
 

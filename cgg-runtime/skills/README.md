@@ -2,6 +2,8 @@
 
 Automated between-session lesson evaluation and signal management for Claude Code.
 
+> Runtime pipeline reference. For the convention layer, see [cogpr/](../../cogpr/README.md). For daily usage, see [START-HERE.md](../../START-HERE.md).
+
 ## What's New in v3
 
 - **`/siren` skill**: Signal emission, tick advancement, warrant minting, triage dashboard
@@ -34,12 +36,16 @@ Automated between-session lesson evaluation and signal management for Claude Cod
 
 ## How It Works
 
-1. Session ends -> PreCompact writes plan file with `cgg-evaluate` trigger block
+1. Session ends -> `/cadence` writes handoff plan with `cgg-evaluate` trigger block
 2. Next session starts -> SessionStart hook discovers plan + scans `audit-logs/signals/` for active signals
 3. First prompt -> UserPromptSubmit gate fires once, spawns ripple-assessor in background
 4. Assessor reads plan, evaluates CPRs + signals, writes proposals to `~/.claude/grapple-proposals/latest.md`
 5. User runs `/review` -> reviews unified docket (Warrants + CPRs), approves/rejects
 6. User runs `/siren` -> operational dashboard for signal management between `/review` reviews
+
+For emergency exits, `/cadence double-time` writes a compact handoff (tic + plan, no signal tick or conformation) -- the pipeline still fires on next session start.
+
+**Zone scan rule**: SessionStart hook scans for pending CogPRs using the zone scan rule: `**/CLAUDE.md` + `**/MEMORY.md` only, `.ticignore` exclusions applied. See [DEV-README](../../DEV-README.md) for the full rule.
 
 ## Signal Lifecycle
 

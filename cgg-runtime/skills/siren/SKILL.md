@@ -231,7 +231,12 @@ Snapshot the current system conformation — the total state at the latest tic b
    Parse the output: count before `|` is the physical tic count, JSON after `|` is the last tic entry for zone/timestamp metadata.
 2. Read all signals from `audit-logs/signals/*.jsonl` — latest entry per ID, filter `status` in (`active`, `acknowledged`, `working`)
 3. Read all warrants from `audit-logs/signals/*.jsonl` — latest entry per ID where `type: "warrant"`, filter `status` in (`active`, `acknowledged`)
-4. Scan project `CLAUDE.md` and `MEMORY.md` for pending CogPR flags (`<!-- --agnostic-candidate -->` blocks with `status: "pending"`)
+4. Scan for pending CogPR flags using the zone scan rule:
+   - Glob `**/CLAUDE.md` and `**/MEMORY.md` (not all .md files)
+   - Also check `~/.claude/projects/*/memory/MEMORY.md`
+   - Exclude paths matching `.ticignore` (default: vendor/, node_modules/,
+     .git/, .claude/skills/)
+   - Skip blocks with `status: "example"`
 5. Read `.ticzone` for zone configuration
 6. Compute rule fingerprints: read `CLAUDE.md` and `~/.claude/CLAUDE.md`, record file size and line count as change indicators
 7. Create `audit-logs/conformations/` directory if absent

@@ -2,6 +2,8 @@
   <img src="assets/cgg-banner.jpeg" alt="Context Grapple Gun by Prompted LLC & Ubiquity OS" width="100%" />
 </p>
 
+> This is the user guide. Three commands, one install. For engineering details, see [DEV-README](DEV-README.md). For the architecture, see [README](README.md).
+
 # Start Here
 
 You opened the terminal for the first time because of Claude Code. You've been using it for a bit. It's good. But you've noticed something:
@@ -26,7 +28,7 @@ This is like hiring someone brilliant, working with them all day, then wiping th
 
 1. You work normally. Claude learns things as you go -- same as before.
 2. When Claude discovers something worth remembering (a gotcha, a pattern, a rule), it writes it down in a standard format called a **CogPR** (Cognitive Pull Request -- think of it as a sticky note that says "remember this").
-3. Before the session gets too long, you type `/cadence`. This tells Claude: "wrap it up, save what you learned, and hand off to the next session."
+3. When you've been working a while — around 100k tokens is a good rule of thumb — you type `/cadence`. This tells Claude: "wrap it up, save what you learned, and hand off to the next session."
 4. Between sessions, a separate process reviews those sticky notes automatically.
 5. Next session, the reviewed lessons are already loaded. Claude remembers.
 
@@ -36,7 +38,7 @@ That's the whole thing. Claude gets smarter over time instead of resetting to ze
 
 | Command | When to use it | What it does |
 |---------|---------------|-------------|
-| `/cadence` | When your session is getting long, or you're done for the day | Saves everything Claude learned and writes a clean handoff for next time |
+| `/cadence` | When you've been working a while (~100k tokens), or you're done for the day | Saves everything Claude learned and writes a clean handoff for next time |
 | `/review` | Every few sessions, when you want to review what Claude learned | Shows you the proposed lessons. You approve the good ones, reject the bad ones |
 | `/siren` | When you want to check on recurring issues | Shows signals -- things that keep coming up and might need attention |
 
@@ -58,7 +60,7 @@ See [INSTALL.md](INSTALL.md) for the exact prompt. One paste, one answer, done.
 
 **During work**: Just work normally. Build features, fix bugs, ask questions. When Claude figures something out that seems important, it automatically writes a CogPR. You don't have to do anything.
 
-**End of day** (or when the session feels sluggish): Type `/cadence`. Claude wraps up, saves its lessons, and writes a handoff file. Close the session.
+**End of day** (or when the session feels sluggish): Type `/cadence`. Claude wraps up, saves its lessons, and writes a handoff file. Close the session. (If you're really late and context is degrading, `/cadence double-time` does a quick exit instead of a full wrap-up.)
 
 **Next morning**: Start a new session. The lessons Claude learned yesterday are already loaded. It doesn't ask the same questions. It doesn't make the same mistakes. It just... knows.
 
@@ -95,7 +97,7 @@ No.
 - **[README.md](README.md)** covers the full architecture -- scope hierarchies, signal types, frequency bands, jurisdictional zones.
 - **[ARCHITECTURE.md](ARCHITECTURE.md)** is the deep theory for people designing systems like this.
 
-You can read as deep as you want. But `/cadence` at the end of the day and `/review` every few sessions is genuinely all you need.
+This file → DEV-README → README → ARCHITECTURE, each one deeper. You can read as deep as you want. But `/cadence` at the end of the day and `/review` every few sessions is genuinely all you need.
 
 ## FAQ
 
@@ -109,14 +111,14 @@ No. Everything is stored in flat files in your project directory. No databases, 
 No. Every rule change requires your explicit approval through `/review`. Claude proposes. You decide.
 
 **What if I forget to run `/cadence`?**
-The lessons Claude captured during the session are still written to your local files. You just won't get the clean handoff and automatic evaluation. Run `/cadence` next time you remember -- the system picks up wherever you left off.
+The lessons Claude captured during the session are still written to your local files. You just won't get the clean handoff and automatic evaluation. Run `/cadence` next time you remember -- the system picks up wherever you left off. If context is very low and you need to exit fast, `/cadence double-time` saves the minimum viable handoff without the full ceremony.
 
 **Is this free?**
 Yes. CGG is open source (MIT license). You pay for Claude Code usage as normal -- CGG doesn't add any extra API costs.
 
 ## Where does CGG come from?
 
-CGG is a compact expression of the Ubiquity concurrent development methodology -- the governance lifecycle distilled into three commands and flat files. When flat files aren't enough, Ubiquity's deeper layers (semantic recall, graph topology, expression gating) pick up where CGG leaves off. But for most people, CGG is all you need.
+CGG was extracted from a larger governance methodology. The governance lifecycle distilled into three commands and flat files. When flat files aren't enough, deeper substrate layers (semantic recall, graph topology, expression gating) pick up where CGG leaves off. But for most projects, CGG is all you need.
 
 ## Maintainers
 

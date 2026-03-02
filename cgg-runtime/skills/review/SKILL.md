@@ -27,11 +27,17 @@ If proposals don't exist or are stale, proceed to inline scanning.
 
 ### 2. Scan for Pending CPR Flags
 
-Search all CLAUDE.md and MEMORY.md files in the project for `<!-- --agnostic-candidate -->` blocks with `status: "pending"`:
+Search for `<!-- --agnostic-candidate -->` blocks with `status: "pending"`
+in governance files only:
 
-```
-Grep for "agnostic-candidate" in **/*.md
-```
+1. Glob for `**/CLAUDE.md` and `**/MEMORY.md` in the project
+2. Also check `~/.claude/projects/*/memory/MEMORY.md`
+   (auto-memory — gitignored but governance-visible)
+3. Exclude paths matching `.ticignore` patterns at project root.
+   Default exclusions (if no .ticignore): vendor/, node_modules/,
+   .git/, .claude/skills/
+4. Skip blocks where `status: "example"` — those are documentation
+   templates, not pending items
 
 For each pending CPR, read:
 - The lesson text (immediately above the flag)
@@ -100,6 +106,7 @@ Enter Plan Mode. Present the docket in three sections, ordered by priority:
 
 ### CPR-1: <lesson summary>
 - **Source**: file:line
+- **Birth**: ENG/META in crates/harpoon/ at tic #42 _(if birth context present)_
 - **Band**: COGNITIVE | **Motivation layer**: COGNITIVE
 - **Subsystem**: <subsystem>
 - **Recommended targets**: <scope list>

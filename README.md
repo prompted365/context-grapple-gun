@@ -2,9 +2,7 @@
   <img src="assets/cgg-banner.jpeg" alt="Context Grapple Gun by Prompted LLC & Ubiquity OS" width="100%" />
 </p>
 
-> **New to the terminal?** Start with [`START-HERE.md`](START-HERE.md) -- plain language, three commands, 30-second install.
-> **Developer?** The practical guide is [`DEV-README.md`](DEV-README.md).
-> **Architect?** Read the [Architecture & Design Rationale](ARCHITECTURE.md).
+> **Using CGG day-to-day?** Start with [START-HERE.md](START-HERE.md). **Installing or extending?** See [DEV-README.md](DEV-README.md). **Designing systems like this?** Read the [Architecture & Design Rationale](ARCHITECTURE.md).
 
 # Context Grapple Gun
 
@@ -127,8 +125,8 @@ graph TB
     S3["Session 3<br/>Design → Implement → Verify"]:::session
 
     %% Session Controls
-    T1["100k Token<br/>Manually Trigger"]:::trigger
-    T2["100k Token<br/>Manually Trigger"]:::trigger
+    T1["Session getting long<br/>~100k tokens"]:::trigger
+    T2["Session getting long<br/>~100k tokens"]:::trigger
     Cycle1["/cadence"]:::trigger
     Cycle2["/cadence"]:::trigger
 
@@ -155,7 +153,7 @@ graph TB
     %% Session 1 Flow
     S1 -->|Continuous| CogPR1
     S1 --> T1
-    T1 -->|>= 100k| Cycle1
+    T1 -->|"natural stopping point"| Cycle1
     Cycle1 --> Assess1
     Assess1 --> Review
 
@@ -163,7 +161,7 @@ graph TB
     Review -->|Approve & Merge| S2
     S2 -->|Continuous| CogPR2
     S2 --> T2
-    T2 -->|>= 100k| Cycle2
+    T2 -->|"natural stopping point"| Cycle2
     Cycle2 --> Assess2
     Assess2 --> Review
 
@@ -201,11 +199,13 @@ Four beats, steady time:
 | Beat | Action | What happens |
 |------|--------|-------------|
 | 1 | **Work** | Implement, debug, ship. Lessons are a side effect of real work. |
-| 2 | **Capture** | `/cadence` at or before 100k tokens. Tic emitted, handoff written, CogPRs staged. |
+| 2 | **Capture** | `/cadence` before context degrades -- 100k tokens is a good heuristic, not a hard boundary. Tic emitted, handoff written, CogPRs staged. |
 | 3 | **Evaluate** | Between sessions, ripple assessor runs automatically. No human involvement. |
 | 4 | **Review** | `/review` when the queue warrants it -- every 2-4 sessions, not every session. |
 
 You might run beats 1 and 2 three times before doing beat 4. The review cadence is driven by proposal density, not a fixed schedule. The agent learns at project level on its own between beats 1 and 3. You shape what sticks and what climbs during beat 4.
+
+If you're past the heuristic and the session feels sluggish, `/cadence double-time` produces a valid handoff with minimal ceremony -- tic + compact plan, no signal tick or conformation snapshot. Recovery: next session runs a full downbeat.
 
 ## Signal architecture
 
@@ -294,7 +294,19 @@ A tic-zone is a named acoustic region defined by a `.ticzone` file (JSONC -- `//
 - `bands`: Active frequency bands in this zone.
 - `muffling_per_hop`: Acoustic muffling constant for the zone's distance model.
 
-A `.ticignore` file (gitignore-style) excludes paths from the zone's acoustic space. Signals originating from ignored paths are not routed.
+#### `.ticignore` (exclusion filter)
+
+A `.ticignore` file at the zone root excludes paths from the governance surface. Gitignore-style directory patterns. v1 supports directory exclusions only -- no glob wildcards, no file-level patterns. This is a documented constraint, not a missing feature.
+
+Signals originating from ignored paths are not routed. CogPR scans skip ignored directories. The zone scan rule is: zone boundary first (`.ticzone` defines what's in), ignore second (`.ticignore` removes what's out).
+
+MEMORY.md files are gitignored but NOT ticignored -- they hold active governance data (pending CogPRs, operational memory).
+
+> **Zone scan rule** (shared across all scan points):
+> 1. Resolve project root via nearest `.ticzone`
+> 2. Governance surface = `**/CLAUDE.md` + `**/MEMORY.md` inside the zone + auto-memory
+> 3. Exclude paths matching `.ticignore` (default: vendor/, node_modules/, .git/, .claude/skills/)
+> 4. Skip `status: "example"` blocks (documentation templates)
 
 Zone nesting: a `.ticzone` in a subdirectory creates a nested zone inheriting the parent's `tz` and `bands` unless overridden. Muffling crosses zone boundaries at 2x the per-hop rate.
 
@@ -330,13 +342,23 @@ When multiple agents operate in the same domain with different cadences, CGG pro
 
 ## Where CGG fits
 
-CGG is a compact, portable expression of principles from the Ubiquity concurrent development methodology. Install it in 30 seconds, get value from session 1. Three commands. Zero dependencies.
+CGG is a compact, portable governance lifecycle. Install it in 30 seconds, get value from session 1. Three commands. Zero dependencies.
 
-It scales well for individuals and small teams. But there's a ceiling. As your signal store, lesson corpus, and memory files grow, flat-file governance starts to creak. Signals accumulate without semantic compression. Lessons pile up without topological organization. The system knows more and more, but finding the right knowledge at the right time gets harder -- grep doesn't understand meaning.
+CGG guarantees:
+- File-based governance lifecycle (capture, evaluate, promote, audit)
+- Human-gated rule promotion at every scope boundary
+- Auditable signal/tic trails with total ordering
+- Claude Code automation via hooks (when installed)
+- Jurisdictional scoping via zones and exclusion filters
 
-That ceiling is where Ubiquity's deeper layers begin: embedding-based semantic recall, graph topology for relational memory, methylation for expression gating across timescales, and conformation-aware retrieval that matches the system's current shape to its historical failure modes. These aren't introductory concepts, and they don't fit neatly into a Claude Code CLI framework. They require infrastructure -- vector databases, embedding models, graph engines.
+CGG does NOT provide (and deliberately avoids):
+- Conformation-aware retrieval engines (load only what matches current system shape)
+- Expression gating across timescales (silence irrelevant lessons based on context)
+- Graph topology for relational memory (edges between concepts, not flat lists)
+- Endogenous economics (cost models for governance operations)
+- Compiled execution-boundary enforcement (constraints the agent cannot violate)
 
-CGG is the governance lifecycle. Ubiquity is the substrate that makes it scale. Start here. When flat files aren't enough, you'll know.
+These are classes of capability that require infrastructure CGG deliberately avoids. When you hit the ceiling, you'll know -- the symptoms are described in [ARCHITECTURE.md](ARCHITECTURE.md#6-scaling-ceiling). No external repos required. The flat-file primitives become the audit trail beneath whatever substrate you adopt.
 
 ### When CGG stops being enough
 
@@ -346,7 +368,7 @@ You'll feel the ceiling when:
 - You need "closest historical failure mode," not "keyword overlap"
 - Rule stores grow monotonically and every session loads stale context
 
-Ubiquity layers that extend CGG: semantic recall (embeddings), graph topology (relational memory), expression gating (methylation/dormancy), and conformation-aware retrieval (shape matching). Same governance lifecycle underneath -- the flat-file primitives become the audit trail beneath the substrate.
+Deeper substrate layers that extend CGG: semantic recall (embeddings), graph topology (relational memory), expression gating (methylation/dormancy), and conformation-aware retrieval (shape matching). Same governance lifecycle underneath -- the flat-file primitives become the audit trail beneath the substrate.
 
 See [ARCHITECTURE.md](ARCHITECTURE.md#6-scaling-ceiling) for the full design rationale and upgrade path.
 

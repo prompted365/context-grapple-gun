@@ -58,16 +58,49 @@ if [ -n "$LATEST_PLAN" ] && [ -n "$HANDOFF_ID" ]; then
   fi
 fi
 
-# Count pending CPR flags
+# Block-aware CPR counter — parses <!-- --agnostic-candidate ... --> blocks,
+# counts those with status: "pending" (excludes status: "example").
+# Fixes: line-based grep undercounted (status on different line than block opener).
+count_pending_cprs() {
+  awk '
+    /<!-- --agnostic-candidate/ { in_block=1; pending=0; example=0 }
+    in_block && /status:[[:space:]]*"pending"/ { pending=1 }
+    in_block && /status:[[:space:]]*"example"/ { example=1 }
+    in_block && /-->/ { if (pending && !example) c++; in_block=0 }
+    END { print c+0 }
+  ' "$1"
+}
+
 CPR_COUNT=0
 if [ -d "$PROJECT_DIR" ]; then
-  _count=$(grep -r "agnostic-candidate" "$PROJECT_DIR" --include="*.md" 2>/dev/null | grep -c "status.*pending" 2>/dev/null) || true
-  CPR_COUNT=$(( ${_count:-0} ))
+  # Build find exclusions from .ticignore (always exclude .git)
+  FIND_EXCLUDES=(-not -path "*/.git/*")
+  TICIGNORE="$PROJECT_DIR/.ticignore"
+  if [ -f "$TICIGNORE" ]; then
+    while IFS= read -r pat; do
+      # Strip comments, whitespace, trailing slash (vendor and vendor/ both work)
+      pat=$(echo "$pat" | sed 's/#.*//;s/^[[:space:]]*//;s/[[:space:]]*$//;s|/$||')
+      [ -z "$pat" ] && continue
+      # Skip glob patterns (*.pyc etc) — only directory exclusions for governance scan
+      case "$pat" in *\**|*\?*) continue ;; esac
+      FIND_EXCLUDES+=(-not -path "*/$pat/*")
+    done < "$TICIGNORE"
+  else
+    # Default: exclude vendor, node_modules, .claude/skills (template CPR blocks)
+    FIND_EXCLUDES+=(-not -path "*/vendor/*" -not -path "*/node_modules/*" -not -path "*/.claude/skills/*")
+  fi
+
+  # Find governance files and sum per-file block counts
+  while IFS= read -r f; do
+    _c=$(count_pending_cprs "$f")
+    CPR_COUNT=$(( CPR_COUNT + _c ))
+  done < <(find "$PROJECT_DIR" \( -name "CLAUDE.md" -o -name "MEMORY.md" \) "${FIND_EXCLUDES[@]}" 2>/dev/null)
 fi
+# Auto-memory (gitignored but governance-visible)
 MEMORY_FILE="$HOME/.claude/projects/$PROJECT_KEY/memory/MEMORY.md"
 if [ -f "$MEMORY_FILE" ]; then
-  _mem_count=$(grep -c "agnostic-candidate" "$MEMORY_FILE" 2>/dev/null) || true
-  CPR_COUNT=$(( CPR_COUNT + ${_mem_count:-0} ))
+  _mem_count=$(count_pending_cprs "$MEMORY_FILE")
+  CPR_COUNT=$(( CPR_COUNT + _mem_count ))
 fi
 
 # Build CGG context message — extract Next Actions inline instead of forcing full plan re-read

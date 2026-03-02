@@ -2,6 +2,8 @@
 
 Lesson flagging, signal emission, and cross-scope promotion conventions for Claude.
 
+> Convention reference for CogPR/Signal/Warrant block formats. For the automation pipeline, see [cgg-runtime/](../cgg-runtime/skills/README.md). For the full architecture, see [README.md](../README.md).
+
 ## What's New in v3
 
 - **Unified signal schema**: All primitives (CogPR, Siren, Warrant) share `band`, `motivation_layer`, `subsystem`, `source`
@@ -51,3 +53,13 @@ CogPR works without the CGG runtime. Lessons and inline signals are evaluated ma
 | COGNITIVE | Midground (-6 dB) | Lessons/insights. Standard working level. |
 | SOCIAL | Background (-12 dB) | Collaboration. Use sparingly. |
 | PRESTIGE | Auto-muted | NEVER emit. Governance filter blocks this band. |
+
+## Optional birth context fields (v3.1)
+
+When capturing CogPRs during an active session with posture tracking, these optional fields provide richer context for `/review`:
+
+- `posture`: Agent posture at discovery (e.g., "ENG/META", "OPS/DIRECT")
+- `cwd_context`: Working directory relative to project root
+- `birth_tic`: Nearest tic count at discovery time
+
+Posture is advisory in CGG. Include it when available -- it helps `/review` weigh whether a lesson came from active implementation or analysis. See [INSTALL.md](../INSTALL.md) for the full posture convention.

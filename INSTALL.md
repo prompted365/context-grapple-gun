@@ -1,5 +1,7 @@
 # Installing CGG
 
+> This is the installer. If you just want to use CGG, see [START-HERE](START-HERE.md). For pipeline mechanics, see [DEV-README](DEV-README.md).
+
 One prompt. One question. Done.
 
 CGG installs by pasting a single prompt into Claude Code. Claude reads the prompt, asks which mode you want, and sets everything up. No manual file copying. No separate init commands. The installer is a prompt, not a script.
@@ -58,6 +60,38 @@ Copy deprecated init stubs (inform users they're absorbed into this bootstrap):
 - `mkdir -p audit-logs/tics`
 - `mkdir -p audit-logs/conformations`
 
+**Create `.ticzone`** at project root (if one doesn't exist):
+```json
+{
+  "name": "<project-name>",
+  "tz": "UTC",
+  "include": ["."],
+  "bands": ["PRIMITIVE", "COGNITIVE", "SOCIAL"],
+  "muffling_per_hop": 5
+}
+```
+Replace `<project-name>` with the actual project/repo name. Leave PRESTIGE
+out of the bands list — it's governance-blocked.
+
+**Create `.ticignore`** at project root (if one doesn't exist).
+Start with `.gitignore` patterns, then add CGG-specific exclusions:
+```
+# Inherit from .gitignore
+node_modules/
+dist/
+target/
+.git/
+
+# Vendor/upstream (read-only, not your governance surface)
+vendor/
+
+# Skill templates (contain example CPR blocks, not real items)
+.claude/skills/
+```
+
+Note: MEMORY.md files are gitignored but NOT ticignored — they hold
+active governance data (pending CPRs, operational memory).
+
 **Patch `.claude/settings.local.json`** — read the existing file (or create it if missing), and add these hook entries to the `hooks` object. Preserve any existing hooks. If hooks with the same event already exist, append these as additional entries (hooks is an object keyed by event name, where each value is an array of hook configs):
 
 ```json
@@ -92,6 +126,8 @@ Copy deprecated init stubs (inform users they're absorbed into this bootstrap):
 - `mkdir -p audit-logs/tics`
 - `mkdir -p audit-logs/conformations`
 
+**Create `.ticzone` and `.ticignore`** at project root (same as Full pipeline above — see those sections for templates).
+
 **Add Session Learning Protocol to CLAUDE.md** (same convention block as Full pipeline).
 
 Skip hooks, agents, and settings.local.json patching.
@@ -101,6 +137,8 @@ Skip hooks, agents, and settings.local.json patching.
 ### If C (Convention only):
 
 **Add Session Learning Protocol to CLAUDE.md** only. No files copied, no directories created.
+
+Optionally create `.ticzone` and `.ticignore` at project root (see Full pipeline section for templates). These improve CPR scanning accuracy but are not required for convention-only mode.
 
 ---
 
@@ -138,6 +176,24 @@ Write the lesson inline, then add this flag immediately after:
 | SOCIAL | Collaboration signals (use sparingly) |
 | PRESTIGE | Never. Governance-blocked. |
 
+Run `/cadence` when the session feels long — around 100k tokens is a good heuristic. If context is degrading, `/cadence double-time` does a minimal exit.
+
+### Posture (optional)
+
+Declare your working mode at session start:
+
+| | DIRECT (execute) | META (analyze) |
+|---|---|---|
+| **ENG** | Implement, fix, ship | Architect, plan, design |
+| **OPS** | Run pipelines, hit APIs | Audit, review, explore |
+
+When capturing a CogPR, include `posture: "ENG/META"` (or whichever
+mode applies). This helps `/review` weigh context — a lesson from active
+implementation carries different weight than one from analysis.
+
+Posture is advisory in CGG. Substrates that enforce posture constraints
+(META = read-only, etc.) use the same fields — zero migration on upgrade.
+
 ### Signal format
 
 For persistent conditions that need tracking, emit signals to `audit-logs/signals/YYYY-MM-DD.jsonl`. Use /siren for signal management if installed.
@@ -148,11 +204,12 @@ For persistent conditions that need tracking, emit signals to `audit-logs/signal
 4. AFTER INSTALLATION, print this:
 
 ```
-CGG installed. Three commands:
+CGG installed. Four commands:
 
-/cadence     — end of session. Saves lessons, writes handoff.
-/review      — every few sessions. Review proposed lessons.
-/siren       — check on recurring issues.
+/cadence             — end of session. Saves lessons, writes handoff.
+/cadence double-time — emergency exit. Minimal handoff when context is low.
+/review              — every few sessions. Review proposed lessons.
+/siren               — check on recurring issues.
 
 Start working. When you're done, type /cadence.
 ```
@@ -181,6 +238,10 @@ cp vendor/context-grapple-gun/cgg-runtime/agents/* .claude/agents/
 # 5. Create directories
 mkdir -p ~/.claude/grapple-proposals
 mkdir -p audit-logs/signals audit-logs/tics audit-logs/conformations
+
+# 5.5. Create .ticzone and .ticignore at project root (if missing)
+# Edit .ticzone: set "name" to your project name, adjust "tz" to your timezone
+# Edit .ticignore: add project-specific exclusions beyond the defaults
 
 # 6. Add hooks to .claude/settings.local.json (merge with existing content):
 # SessionStart  -> .claude/hooks/session-restore-patch.sh

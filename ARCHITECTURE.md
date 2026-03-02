@@ -1,5 +1,7 @@
 # Architecture & Design Rationale
 
+> This is the deep theory. For daily usage, see [START-HERE.md](START-HERE.md). For the practical developer guide, see [DEV-README.md](DEV-README.md). For the full reference, see [README.md](README.md).
+
 Context Grapple Gun (CGG) is a **human-gated self-evolving agent operating system** that turns development friction into durable improvements *without poisoning long-term memory with raw logs*.
 
 Three coupled systems:
@@ -38,7 +40,7 @@ Long agent sessions produce three predictable degradations:
 2. **Recall failures** (earlier context goes soft)
 3. **Cost blowups** (you pay more for worse behavior)
 
-CGG treats the context window as a resource that must be rotated. You do not "power through" at 120k+ tokens. You end the epoch on purpose.
+CGG treats the context window as a resource that must be rotated. You do not "power through" at 120k+ tokens. You end the epoch on purpose. 100k is a heuristic -- the real boundary is cognitive degradation, when the agent starts contradicting itself, forgetting earlier context, or producing low-quality output. When you're past it and haven't called `/cadence`, use `/cadence double-time` for a minimal viable exit: tic + compact plan, skip signal tick and conformation.
 
 `/cadence` is the epoch boundary primitive. The downbeat emits a canonical tic — the cross-system timestamp primitive that unifies syncopated cadences. It converts "session entropy" into "structured evolution candidates" by:
 1. Stopping active work before degradation gets severe.
@@ -84,6 +86,8 @@ The acoustic model routes signals based on directory distance and frequency band
 
 Zone nesting enables federation. A subdirectory can define a nested zone that inherits the parent's properties but overrides specific bands or muffling rates. Cross-zone signal propagation attenuates at double the intra-zone rate — inter-jurisdictional communication is possible but expensive. Structurally correct for compartmentalized environments.
 
+`.ticignore` complements the zone definition with exclusion filtering. Where `.ticzone` says "this is my jurisdiction," `.ticignore` says "except these paths." v1 supports directory-level exclusions only -- intentionally simple. The zone scan rule resolves in order: zone boundary first (what's in), exclusion filter second (what's out). Governance surface = CLAUDE.md + MEMORY.md files inside the zone minus excluded paths.
+
 ### System conformation
 
 At any tic boundary, the total state of a CGG-governed system forms a **conformation**: active signals, pending CogPRs, minted warrants, drift measurements, zone membership, and rules in force at each scope tier.
@@ -118,6 +122,8 @@ Where CGG stops and deeper substrate begins:
 - Compiled constraints (execution-boundary enforcement the agent cannot violate, not advisory text it may follow)
 
 These require infrastructure — vector databases, embedding models, graph engines, economic engines — that does not fit in a CLI framework. CGG provides the governance lifecycle. Scaling it is a different engineering problem.
+
+CGG's docs do not depend on the substrate's docs. The categories above describe classes of capability, not specific implementations. Any system providing these capabilities composes with CGG's governance lifecycle.
 
 **CGG is the governance lifecycle. Ubiquity is the substrate that makes governance meaningful at scale.**
 
