@@ -2,7 +2,7 @@
 
 **Time: ~10 min**
 
-You built the governance primitives from scratch across five chapters. Now install the real thing.
+You explored the governance primitives across five chapters. Now install the real thing.
 
 ---
 

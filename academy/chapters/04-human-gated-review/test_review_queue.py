@@ -28,7 +28,7 @@ def empty_store(store_path):
 
 
 class TestQueueProposal:
-    def test_queues_proposal(self, empty_store):
+    def test_engineer_submits_bridge_repair(self, empty_store):
         queue_proposal(empty_store, {
             "id": "cpr_001",
             "lesson": "Always validate inputs",
@@ -43,15 +43,15 @@ class TestQueueProposal:
         assert entry["status"] == "pending"
         assert "queued_at" in entry
 
-    def test_requires_id(self, empty_store):
+    def test_proposal_needs_an_id(self, empty_store):
         with pytest.raises(ValueError, match="id"):
             queue_proposal(empty_store, {"lesson": "something"})
 
-    def test_requires_lesson(self, empty_store):
+    def test_proposal_needs_a_lesson(self, empty_store):
         with pytest.raises(ValueError, match="lesson"):
             queue_proposal(empty_store, {"id": "cpr_001"})
 
-    def test_preserves_extra_fields(self, empty_store):
+    def test_proposal_metadata_preserved(self, empty_store):
         queue_proposal(empty_store, {
             "id": "cpr_001",
             "lesson": "test",
@@ -64,7 +64,7 @@ class TestQueueProposal:
         assert entry["band"] == "COGNITIVE"
         assert entry["subsystem"] == "auth"
 
-    def test_multiple_proposals(self, empty_store):
+    def test_five_proposals_arrive_week_one(self, empty_store):
         for i in range(5):
             queue_proposal(empty_store, {
                 "id": f"cpr_{i:03d}",
@@ -76,7 +76,7 @@ class TestQueueProposal:
 
 
 class TestGetPending:
-    def test_returns_pending(self, empty_store):
+    def test_unreviewed_proposals_in_inbox(self, empty_store):
         queue_proposal(empty_store, {
             "id": "cpr_001",
             "lesson": "pending lesson",
@@ -86,7 +86,7 @@ class TestGetPending:
         assert len(pending) == 1
         assert pending[0]["lesson"] == "pending lesson"
 
-    def test_excludes_reviewed(self, empty_store):
+    def test_approved_proposal_leaves_the_pile(self, empty_store):
         queue_proposal(empty_store, {"id": "cpr_001", "lesson": "will be approved"})
         queue_proposal(empty_store, {"id": "cpr_002", "lesson": "still pending"})
         record_verdict(empty_store, "cpr_001", "approved")
@@ -95,7 +95,7 @@ class TestGetPending:
         assert len(pending) == 1
         assert pending[0]["id"] == "cpr_002"
 
-    def test_latest_version_wins(self, empty_store):
+    def test_resubmission_replaces_original(self, empty_store):
         queue_proposal(empty_store, {"id": "cpr_001", "lesson": "v1"})
         queue_proposal(empty_store, {"id": "cpr_001", "lesson": "v2"})
 
@@ -103,15 +103,15 @@ class TestGetPending:
         assert len(pending) == 1
         assert pending[0]["lesson"] == "v2"
 
-    def test_empty_file(self, empty_store):
+    def test_empty_inbox_monday_morning(self, empty_store):
         assert get_pending(empty_store) == []
 
-    def test_missing_file(self, tmp_path):
+    def test_no_inbox_no_pending(self, tmp_path):
         assert get_pending(str(tmp_path / "nope.jsonl")) == []
 
 
 class TestRecordVerdict:
-    def test_approve(self, empty_store):
+    def test_inspector_approves_good_formula(self, empty_store):
         queue_proposal(empty_store, {"id": "cpr_001", "lesson": "test"})
         result = record_verdict(empty_store, "cpr_001", "approved", "LGTM")
 
@@ -119,35 +119,35 @@ class TestRecordVerdict:
         pending = get_pending(empty_store)
         assert len(pending) == 0
 
-    def test_reject(self, empty_store):
+    def test_inspector_rejects_bad_concrete_ratio(self, empty_store):
         queue_proposal(empty_store, {"id": "cpr_001", "lesson": "test"})
         result = record_verdict(empty_store, "cpr_001", "rejected", "Too narrow")
 
         assert result is True
 
-    def test_edit_requested(self, empty_store):
+    def test_inspector_requests_wind_loading_fix(self, empty_store):
         queue_proposal(empty_store, {"id": "cpr_001", "lesson": "test"})
         result = record_verdict(empty_store, "cpr_001", "edit_requested", "Needs examples")
 
         assert result is True
 
-    def test_invalid_verdict(self, empty_store):
+    def test_maybe_is_not_a_valid_verdict(self, empty_store):
         queue_proposal(empty_store, {"id": "cpr_001", "lesson": "test"})
         with pytest.raises(ValueError, match="Invalid verdict"):
             record_verdict(empty_store, "cpr_001", "maybe")
 
-    def test_verdict_not_found(self, empty_store):
+    def test_cant_review_nonexistent_proposal(self, empty_store):
         result = record_verdict(empty_store, "nonexistent", "approved")
         assert result is False
 
-    def test_cannot_verdict_twice(self, empty_store):
+    def test_one_verdict_per_proposal_no_retrial(self, empty_store):
         queue_proposal(empty_store, {"id": "cpr_001", "lesson": "test"})
         record_verdict(empty_store, "cpr_001", "approved")
         result = record_verdict(empty_store, "cpr_001", "rejected")
 
         assert result is False  # Already reviewed
 
-    def test_verdict_has_timestamp(self, empty_store):
+    def test_verdict_carries_annotation_and_time(self, empty_store):
         queue_proposal(empty_store, {"id": "cpr_001", "lesson": "test"})
         record_verdict(empty_store, "cpr_001", "approved", "good stuff")
 
@@ -155,13 +155,13 @@ class TestRecordVerdict:
         assert "verdict_at" in history[0]
         assert history[0]["verdict_notes"] == "good stuff"
 
-    def test_missing_file(self, tmp_path):
+    def test_no_inbox_no_verdict(self, tmp_path):
         result = record_verdict(str(tmp_path / "nope.jsonl"), "x", "approved")
         assert result is False
 
 
 class TestGetReviewHistory:
-    def test_returns_reviewed_only(self, empty_store):
+    def test_history_shows_reviewed_not_pending(self, empty_store):
         queue_proposal(empty_store, {"id": "cpr_001", "lesson": "approved"})
         queue_proposal(empty_store, {"id": "cpr_002", "lesson": "still pending"})
         record_verdict(empty_store, "cpr_001", "approved")
@@ -170,7 +170,7 @@ class TestGetReviewHistory:
         assert len(history) == 1
         assert history[0]["id"] == "cpr_001"
 
-    def test_includes_all_verdict_types(self, empty_store):
+    def test_approved_rejected_edit_all_in_history(self, empty_store):
         queue_proposal(empty_store, {"id": "cpr_001", "lesson": "a"})
         queue_proposal(empty_store, {"id": "cpr_002", "lesson": "b"})
         queue_proposal(empty_store, {"id": "cpr_003", "lesson": "c"})
@@ -183,7 +183,7 @@ class TestGetReviewHistory:
         statuses = {h["status"] for h in history}
         assert statuses == {"approved", "rejected", "edit_requested"}
 
-    def test_ordered_by_verdict_at(self, empty_store):
+    def test_review_history_in_chronological_order(self, empty_store):
         for i in range(3):
             queue_proposal(empty_store, {"id": f"cpr_{i}", "lesson": f"l{i}"})
         # Verdict in reverse order
@@ -195,8 +195,8 @@ class TestGetReviewHistory:
         times = [h["verdict_at"] for h in history]
         assert times == sorted(times)
 
-    def test_empty_file(self, empty_store):
+    def test_empty_inbox_no_history(self, empty_store):
         assert get_review_history(empty_store) == []
 
-    def test_missing_file(self, tmp_path):
+    def test_no_inbox_no_history(self, tmp_path):
         assert get_review_history(str(tmp_path / "nope.jsonl")) == []

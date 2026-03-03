@@ -26,7 +26,7 @@ def empty_store(store_path):
 
 
 class TestAppendEvent:
-    def test_append_single_event(self, empty_store):
+    def test_mom_adds_dentist_to_calendar(self, empty_store):
         event = {"id": "evt_001", "kind": "signal", "volume": 10}
         append_event(empty_store, event)
 
@@ -35,7 +35,7 @@ class TestAppendEvent:
         assert len(lines) == 1
         assert json.loads(lines[0])["id"] == "evt_001"
 
-    def test_append_preserves_existing(self, empty_store):
+    def test_dads_golf_doesnt_erase_moms_dentist(self, empty_store):
         append_event(empty_store, {"id": "evt_001", "volume": 10})
         append_event(empty_store, {"id": "evt_002", "volume": 20})
 
@@ -43,7 +43,7 @@ class TestAppendEvent:
             lines = f.readlines()
         assert len(lines) == 2
 
-    def test_append_same_id_creates_new_line(self, empty_store):
+    def test_rescheduled_soccer_keeps_both_entries(self, empty_store):
         append_event(empty_store, {"id": "evt_001", "status": "active"})
         append_event(empty_store, {"id": "evt_001", "status": "resolved"})
 
@@ -53,16 +53,16 @@ class TestAppendEvent:
         assert json.loads(lines[0])["status"] == "active"
         assert json.loads(lines[1])["status"] == "resolved"
 
-    def test_append_requires_id(self, empty_store):
+    def test_event_without_id_rejected(self, empty_store):
         with pytest.raises(ValueError, match="id"):
             append_event(empty_store, {"kind": "signal", "volume": 10})
 
-    def test_append_creates_file_if_missing(self, tmp_path):
+    def test_first_entry_creates_new_calendar(self, tmp_path):
         path = str(tmp_path / "new_store.jsonl")
         append_event(path, {"id": "evt_001", "data": "test"})
         assert os.path.exists(path)
 
-    def test_append_mode_is_atomic(self, empty_store):
+    def test_whole_family_writes_at_once(self, empty_store):
         """Append mode ensures no data loss on concurrent writes."""
         for i in range(100):
             append_event(empty_store, {"id": f"evt_{i:03d}", "seq": i})
@@ -73,7 +73,7 @@ class TestAppendEvent:
 
 
 class TestReadCurrentState:
-    def test_latest_entry_wins(self, empty_store):
+    def test_saturday_shows_latest_soccer_time(self, empty_store):
         append_event(empty_store, {"id": "evt_001", "status": "active", "v": 1})
         append_event(empty_store, {"id": "evt_001", "status": "resolved", "v": 2})
 
@@ -81,7 +81,7 @@ class TestReadCurrentState:
         assert state["evt_001"]["status"] == "resolved"
         assert state["evt_001"]["v"] == 2
 
-    def test_multiple_ids(self, empty_store):
+    def test_full_family_schedule_resolves(self, empty_store):
         append_event(empty_store, {"id": "a", "value": 1})
         append_event(empty_store, {"id": "b", "value": 2})
         append_event(empty_store, {"id": "a", "value": 3})
@@ -91,15 +91,15 @@ class TestReadCurrentState:
         assert state["a"]["value"] == 3
         assert state["b"]["value"] == 2
 
-    def test_empty_file(self, empty_store):
+    def test_empty_calendar_is_empty(self, empty_store):
         state = read_current_state(empty_store)
         assert state == {}
 
-    def test_missing_file(self, tmp_path):
+    def test_no_calendar_file_returns_empty(self, tmp_path):
         state = read_current_state(str(tmp_path / "nonexistent.jsonl"))
         assert state == {}
 
-    def test_skips_malformed_lines(self, empty_store):
+    def test_emmas_scribbles_dont_crash_calendar(self, empty_store):
         append_event(empty_store, {"id": "good", "data": "ok"})
         with open(empty_store, "a") as f:
             f.write("this is not json\n")
@@ -112,7 +112,7 @@ class TestReadCurrentState:
 
 
 class TestReadFullHistory:
-    def test_returns_all_lines(self, empty_store):
+    def test_every_scheduling_decision_preserved(self, empty_store):
         append_event(empty_store, {"id": "a", "v": 1})
         append_event(empty_store, {"id": "a", "v": 2})
         append_event(empty_store, {"id": "b", "v": 1})
@@ -122,7 +122,7 @@ class TestReadFullHistory:
         assert history[0]["v"] == 1
         assert history[1]["v"] == 2
 
-    def test_preserves_order(self, empty_store):
+    def test_history_in_chronological_order(self, empty_store):
         for i in range(10):
             append_event(empty_store, {"id": f"evt_{i}", "seq": i})
 
@@ -130,13 +130,13 @@ class TestReadFullHistory:
         seqs = [e["seq"] for e in history]
         assert seqs == list(range(10))
 
-    def test_empty_file(self, empty_store):
+    def test_no_history_for_empty_calendar(self, empty_store):
         assert read_full_history(empty_store) == []
 
-    def test_missing_file(self, tmp_path):
+    def test_no_history_for_missing_calendar(self, tmp_path):
         assert read_full_history(str(tmp_path / "nope.jsonl")) == []
 
-    def test_skips_malformed_lines(self, empty_store):
+    def test_bad_lines_skipped_good_ones_kept(self, empty_store):
         append_event(empty_store, {"id": "ok", "v": 1})
         with open(empty_store, "a") as f:
             f.write("broken\n")

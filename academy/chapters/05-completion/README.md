@@ -10,7 +10,7 @@
 
 ## The scenario
 
-You built four things. Now you wire them together and prove they work.
+You explored four governance primitives. Now you watch them work together.
 
 Chapter 1 gave you truth (append-only). Chapter 2 gave you identity (content hashing). Chapter 3 gave you pressure (signals and decay). Chapter 4 gave you judgment (human-gated review). Each one stood on its own. That was the point -- you needed to understand the pieces before assembling the machine.
 
@@ -61,7 +61,7 @@ The certificate names all three players (the goat, the signal, the human) and sh
 
 ## What you learned
 
-You built four governance primitives and wired them into a pipeline. Here is what each one teaches:
+You explored four governance primitives and watched them work as a pipeline. Here is what each one teaches:
 
 **Append-only truth** is the foundation. You cannot govern what you cannot audit. Every state change is preserved, every decision is traceable, every conflict is visible. This is not a database optimization -- it is a governance requirement. Systems that allow deletion allow deniability.
 

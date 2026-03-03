@@ -93,7 +93,7 @@ A warrant is not a suggestion. It's not an alert you can snooze. A warrant is a 
 
 The warrant says: *"PRIMITIVE signal sig_unknown_001 (BLEAT) exceeded escalation threshold. Trace origin. Identify handler gap."*
 
-Your exercise demands it.
+Claude will trace it live.
 
 ### Trace the provenance
 
@@ -106,7 +106,7 @@ Follow the chain:
 3. **Chapter 2** (Dedup): The same content hash kept appearing — `BLEAT` with the same payload, new timestamps. Your dedup scanner flagged it as a recurring duplicate. Same identity, new instances.
 4. **Chapter 1** (Append-Only): There it is. In the seed data. One line among the family calendar entries. An entry that didn't fit. `BLEAT`. The very first occurrence. This is where Mabel entered the system.
 
-Four chapters. One goat. A signal that was stored (Ch1), deduplicated (Ch2), routed (Ch3), and escalated (Ch4) — all by the systems you built.
+Four chapters. One goat. A signal that was stored (Ch1), deduplicated (Ch2), routed (Ch3), and escalated (Ch4) — all through the primitives you explored.
 
 ### The resolution
 
@@ -151,7 +151,7 @@ The tests prove each property. Claude runs them and walks you through the feedba
 
 ## What you're actually learning
 
-You built a **feedback-driven review queue with provenance tracing and handler registration**.
+You just saw a **feedback-driven review queue with provenance tracing and handler registration**.
 
 The pieces:
 
