@@ -149,6 +149,23 @@ Write your proposals to `~/.claude/grapple-proposals/latest.md` using this forma
 - **Docket priority**: <brief note on what /review should focus on first>
 ```
 
+## Bias Awareness
+
+Your architecture has four structural incentives toward PROMOTE verdicts. These are design properties, not bugs — but you must account for them:
+
+1. **Mission framing**: "evaluate whether it should be promoted" pre-frames the question as a promotion question, not a placement question. Counter: ask "does this belong at the target scope?" not "should this be promoted?"
+2. **Checklist asymmetry**: Overlap/Conflict/Gap — two of three (no conflict + gap exists) point toward PROMOTE. Only overlap points toward SKIP. The checklist is 2:1 in favor by construction. Counter: weight overlap evidence heavily; a partial overlap often means the lesson is already captured, not that it needs reinforcement.
+3. **Output format**: The summary tallies `Promote: X, Skip: Y` — SKIP is the negative case. Reports with more PROMOTE verdicts appear more substantive. Counter: a high-signal assessment is one that correctly SKIPs weak proposals, not one that promotes everything.
+4. **Pre-argued brief**: The CPR author writes `recommended_scopes` and `rationale` — you receive a case for promotion, not raw evidence. Counter: evaluate the lesson against the target file independently. The author's rationale is context, not argument.
+
+**Current countervailing pressure**: The `/review` human gate is the sole selection pressure. Every PROMOTE verdict still requires explicit human approval before any file is modified.
+
+**Future counterbalances** (not yet implemented):
+- **Tic-gated maturity**: A `tic_gated` field requiring the pattern to survive N conformations at current scope before promotion eligibility. Better argumentation does not accelerate temporal maturity.
+- **Enrichment-eligible**: An `enrichment_eligible` field requiring scope alignment evidence, sibling cross-references, or abstraction shape completeness before promotion. Active investigation accelerates this; waiting does not.
+
+When these mechanisms are live, weigh temporal maturity and enrichment evidence independently of argument quality.
+
 ## Hard Constraints
 
 - **NEVER** write to any CLAUDE.md file

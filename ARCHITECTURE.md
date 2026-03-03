@@ -201,7 +201,12 @@ The human `/review` gate is currently the only countervailing pressure. This is 
     - "vendor/context-grapple-gun/cgg-runtime/agents/ripple-assessor.md"
   rationale: "The bias is not a defect — it reflects the system's current architecture where the human gate is the only selection pressure. As trust-gated autonomy is introduced, the assessor needs counterbalancing mechanics (tic thresholds, enrichment requirements) to prevent unchecked promotion at lower tiers."
   review_hints: "Do not 'fix' the bias by adding SKIP incentives — that creates a different bias. Instead, introduce the two pending states (tic_gated, enrichment_eligible) so temporal and epistemic maturity gate promotion independently of the assessor's reasoning quality."
-  status: "pending"
+  status: "promoted"
+  promoted_date: "2026-03-03"
+  promoted_to:
+    - "vendor/context-grapple-gun/cgg-runtime/agents/ripple-assessor.md (Bias Awareness section)"
+    - ".claude/agents/ripple-assessor.md (synced copy)"
+  grapple_docket: "2026-03-03"
 -->
 
 ## 8. Bidirectional Abstraction Engine (Design Vision)
@@ -257,5 +262,92 @@ Beyond ~10 siblings, gradient-fit evaluation, and conformation-aware trust — h
     - "CLAUDE.md"
   rationale: "This is the architectural bridge between CGG-as-governance-lifecycle and Ubiquity-as-substrate. The design defines exactly where flat-file governance stops being sufficient and what the handoff looks like. Affects both CGG's roadmap and Ubiquity's intake surface."
   review_hints: "The two pending states and trust counter are implementable now (field additions to CPR format, meta-log query). Inversion angle and drift classification need the conformation diff tooling to be more mature. Validate the ~10 sibling threshold empirically before committing to it as the ceiling."
-  status: "pending"
+  status: "rejected"
+  rejected_date: "2026-03-03"
+  reason: "Design vision well-captured in ARCHITECTURE.md (its authoritative home). README describes current behavior and already references ARCHITECTURE.md. CLAUDE.md is operational instructions, not design vision. Re-evaluate when two pending states are implemented and the engine becomes operational."
+  grapple_docket: "2026-03-03"
 -->
+
+## 9. CPR Maturity Fields (Concrete Spec)
+
+Two new optional fields on `<!-- --agnostic-candidate -->` blocks gate promotion eligibility independently of argument quality.
+
+### Field Schema
+
+```yaml
+# Temporal maturity gate
+tic_gated:
+  birth_tic: <int>           # tic count when CPR was created (already exists as birth_tic)
+  maturity_tics: <int>       # minimum tic delta before eligible (default: 3)
+  matured_at_tic: <int|null> # tic count when threshold was met (null = immature)
+
+# Epistemic maturity gate
+enrichment:
+  status: "raw" | "investigated" | "cross_referenced" | "shaped"
+  evidence:                  # append-only log of enrichment events
+    - date: "YYYY-MM-DD"
+      kind: "sibling_match" | "inversion_test" | "scope_alignment" | "abstraction_fit"
+      detail: "free text — what was found"
+  eligible: <bool>           # true when status >= "investigated" AND evidence has ≥1 entry
+```
+
+### Status Lifecycle (extended)
+
+```
+pending → tic_gated → enrichment_eligible → promotable → promoted
+                                                       → rejected
+          (skip directly to promotable if both gates pass simultaneously)
+```
+
+- **pending**: CPR created, no maturity evaluation yet.
+- **tic_gated**: Birth tic recorded. Not eligible until `current_tic - birth_tic >= maturity_tics`. Assessor marks this on first evaluation if the CPR is too young.
+- **enrichment_eligible**: Temporal gate passed. Enrichment evidence still insufficient. Assessor or future sessions add evidence entries.
+- **promotable**: Both gates passed. Ready for assessor PROMOTE/SKIP verdict and human review.
+- **promoted** / **rejected**: Terminal states (unchanged from current spec).
+
+### Transition Rules
+
+| Gate | What advances it | What does NOT advance it |
+|------|-----------------|------------------------|
+| Temporal (`tic_gated`) | Tic counter advancing (time passing) | Better argumentation, more evidence |
+| Epistemic (`enrichment`) | Active investigation: sibling cross-reference, inversion test, scope alignment check | Waiting, re-stating the same rationale |
+
+### Assessor Behavior
+
+When the assessor encounters a CPR:
+1. Check `birth_tic` vs current tic count. If delta < `maturity_tics` (default 3), set status to `tic_gated` and SKIP with reason "temporal maturity insufficient."
+2. If temporal gate passes, check `enrichment.eligible`. If false, set status to `enrichment_eligible` and SKIP with reason "enrichment evidence insufficient."
+3. If both gates pass, evaluate normally (overlap/conflict/gap) and render PROMOTE/SKIP/MODIFY verdict.
+
+### Backward Compatibility
+
+Existing CPR blocks without these fields are treated as: `tic_gated.maturity_tics = 0` (no temporal gate), `enrichment.eligible = true` (no enrichment gate). All existing CPRs remain promotable under the current rules. The fields are opt-in — the assessor adds them on first encounter if `birth_tic` is present.
+
+### Trust Counter Schema (`~/.claude/cgg-trust-state.json`)
+
+```json
+{
+  "version": 1,
+  "assessor_id": "ripple-assessor",
+  "trust_level": 0,
+  "history": [
+    {
+      "docket_date": "2026-03-03",
+      "cprs_evaluated": 2,
+      "verdicts": {"promote": 1, "skip": 1, "modify": 0},
+      "human_overrides": 0,
+      "post_signal_activity": 0
+    }
+  ],
+  "thresholds": {
+    "tier_4_autonomous": 10,
+    "tier_5_autonomous": 50
+  },
+  "last_updated": "2026-03-03T00:00:00-05:00"
+}
+```
+
+- **trust_level**: Increments when human approves assessor verdict without override. Decrements on override. Resets to 0 if a promoted lesson generates a subsequent signal (the lesson didn't land).
+- **tier_4_autonomous**: Trust level at which Tier 4 (project scope) promotions bypass human gate.
+- **tier_5_autonomous**: Trust level at which Tier 5 (global scope) promotions bypass human gate. Intentionally high — global is a treaty.
+- **Voluntary contraction**: If drift classification returns "Drift" or "Decay" over a tic range, trust_level halves (rounded down). The system can lose autonomy when governance quality degrades.
