@@ -1,0 +1,6 @@
+# Academy workspace exclusions
+__pycache__/
+*.pyc
+.pytest_cache/
+exercises/
+vendor/

@@ -1,0 +1,7 @@
+{
+  "name": "cgg-academy",
+  "tz": "UTC",
+  "include": ["."],
+  "bands": ["PRIMITIVE", "COGNITIVE", "SOCIAL"],
+  "muffling_per_hop": 5
+}

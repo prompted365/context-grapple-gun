@@ -20,6 +20,22 @@ The plugin manifest (`.claude-plugin/plugin.json`) declares all skills, hooks, a
 
 After install, Claude will ask which mode you want (Full pipeline / Skills only / Convention only) and set up the remaining project files (`.ticzone`, `.ticignore`, CLAUDE.md convention block).
 
+## Learn first? Try the Academy
+
+Before diving into installation, you can learn CGG interactively:
+
+```
+/homeskillet-academy
+```
+
+**Homeskillet Academy** is a ~90 minute hands-on course that teaches CGG's governance primitives through narrative scenarios. Five chapters, real Python code, tests that tell you when you're done, and one very persistent goat.
+
+- **Recommended for first-timers** — understand the "why" before the "how"
+- **No CGG installation required** — you build the pieces from scratch
+- **Works standalone** — scaffold into any empty directory
+
+After completing the Academy, come back here for the real install. The [installing-cgg guide](academy/chapters/guides/installing-cgg.md) in Chapter 5 walks you through it as a graduation exercise.
+
 ## Bootstrap prompt (alternative)
 
 If your Claude Code version doesn't support plugins yet, paste this prompt into a session. One question, then it sets everything up:

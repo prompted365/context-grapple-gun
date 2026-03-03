@@ -1,0 +1,10 @@
+{"id": "mon_swim_sarah", "event": "Swim class signup", "who": "Jake", "day": "Monday", "time": "17:00", "source": "sarah", "email": "sarah.taylor@gmail.com", "ts": "2026-02-28T10:00:00Z"}
+{"id": "mon_swim_mike", "event": "Swim class signup", "who": "Jake", "day": "Monday", "time": "17:00", "source": "mike", "email": "mike.taylor@outlook.com", "ts": "2026-02-28T10:15:00Z"}
+{"id": "slip_sarah_1", "event": "Permission slip - Science Museum", "who": "Lily", "trip": "science_museum_mar5", "source": "sarah", "email": "sarah.taylor@gmail.com", "ts": "2026-02-28T14:00:00Z"}
+{"id": "slip_mike_1", "event": "Permission slip - Science Museum", "who": "Lily", "trip": "science_museum_mar5", "source": "mike", "email": "mike.taylor@outlook.com", "ts": "2026-02-28T16:30:00Z"}
+{"id": "slip_sarah_2", "event": "Permission slip - Science Museum", "who": "Lily", "trip": "science_museum_mar5", "source": "sarah", "email": "sarah.taylor@gmail.com", "ts": "2026-02-28T19:00:00Z"}
+{"id": "wed_piano_old", "event": "Piano lesson", "who": "Lily", "day": "Wednesday", "time": "16:00", "source": "sarah", "ts": "2026-02-25T20:05:00Z"}
+{"id": "wed_piano_new", "event": "Piano lesson", "who": "Lily", "day": "Wednesday", "time": "17:00", "source": "sarah", "ts": "2026-02-28T14:00:00Z"}
+{"id": "sat_soccer", "event": "Soccer practice", "who": "Jake", "day": "Saturday", "time": "14:00", "source": "sarah", "ts": "2026-02-27T07:30:00Z"}
+{"id": "sig_unknown_001", "type": "signal", "kind": "BEACON", "payload": "BLEAT", "band": "PRIMITIVE", "volume": 15, "volume_rate": 5, "source": "???", "ts": "2026-03-01T09:00:00Z"}
+{"id": "sig_unknown_001", "type": "signal", "kind": "BEACON", "payload": "BLEAT", "band": "PRIMITIVE", "volume": 20, "volume_rate": 5, "source": "???", "ts": "2026-03-01T10:00:00Z"}

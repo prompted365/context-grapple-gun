@@ -1,0 +1,28 @@
+{
+  "name": "Greenfield Zoo",
+  "pa_speaker_location": 0,
+  "muffling_per_hop": 5,
+  "enclosures": [
+    {"name": "lions", "location": 1, "listener_bands": ["PRIMITIVE"]},
+    {"name": "penguins", "location": 3, "listener_bands": ["PRIMITIVE"]},
+    {"name": "reptile_house", "location": 5, "listener_bands": ["PRIMITIVE"]},
+    {"name": "gift_shop", "location": 8, "listener_bands": ["PRIMITIVE", "SOCIAL"]}
+  ],
+  "keepers": [
+    {"name": "Sam", "role": "head_keeper", "location": 0, "listener_bands": ["PRIMITIVE", "COGNITIVE", "SOCIAL"]},
+    {"name": "Alex", "role": "assistant", "location": 2, "listener_bands": ["PRIMITIVE", "COGNITIVE"]},
+    {"name": "Jordan", "role": "assistant", "location": 4, "listener_bands": ["PRIMITIVE", "COGNITIVE"]}
+  ],
+  "goat": {
+    "name": "Mabel",
+    "location": 0,
+    "signal_type": "BLEAT",
+    "band": "PRIMITIVE",
+    "note": "Headbutts the PA microphone every tic. No handler configured for her signal type."
+  },
+  "signals": [
+    {"id": "sig_lion_feeding", "kind": "BEACON", "band": "COGNITIVE", "volume": 30, "source_location": 2, "payload": "Lion feeding at 2pm"},
+    {"id": "sig_visitor_announcement", "kind": "LESSON", "band": "SOCIAL", "volume": 25, "source_location": 0, "payload": "Penguin feeding show in 30 minutes"},
+    {"id": "sig_unknown_001", "kind": "BEACON", "band": "PRIMITIVE", "volume": 25, "volume_rate": 5, "source_location": 0, "payload": "BLEAT", "note": "Mabel. It was always Mabel."}
+  ]
+}

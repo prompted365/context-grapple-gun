@@ -1,0 +1,11 @@
+{"id": "tue_dentist", "event": "Dentist appointment - Emma", "who": "Emma", "day": "Tuesday", "time": "15:30", "source": "sarah", "ts": "2026-02-25T20:00:00Z"}
+{"id": "wed_piano", "event": "Piano lesson", "who": "Lily", "day": "Wednesday", "time": "16:00", "source": "sarah", "ts": "2026-02-25T20:05:00Z"}
+{"id": "sat_soccer", "event": "Soccer practice", "who": "Jake", "day": "Saturday", "time": "10:00", "source": "sarah", "ts": "2026-02-26T08:00:00Z"}
+{"id": "thu_grocery", "event": "Grocery run - Costco", "who": "Sarah", "day": "Thursday", "time": "11:00", "source": "sarah", "ts": "2026-02-26T12:00:00Z"}
+{"id": "sat_soccer", "event": "Soccer practice (moved)", "who": "Jake", "day": "Saturday", "time": "14:00", "source": "sarah", "ts": "2026-02-27T07:30:00Z"}
+{"id": "sat_golf", "event": "Golf tee time", "who": "Mike", "day": "Saturday", "time": "10:00", "source": "mike", "ts": "2026-02-27T09:00:00Z"}
+{"id": "fri_school_play", "event": "School play rehearsal", "who": "Lily", "day": "Friday", "time": "15:30", "source": "lily", "ts": "2026-02-27T15:00:00Z"}
+{"id": "sat_golf", "event": "Golf tee time (confirmed)", "who": "Mike", "day": "Saturday", "time": "10:00", "source": "mike", "ts": "2026-02-28T06:00:00Z"}
+{"id": "mon_swim", "event": "Swim class signup", "who": "Jake", "day": "Monday", "time": "17:00", "source": "sarah", "ts": "2026-02-28T10:00:00Z"}
+{"id": "wed_piano", "event": "Piano lesson (rescheduled)", "who": "Lily", "day": "Wednesday", "time": "17:00", "source": "lily", "ts": "2026-02-28T14:00:00Z"}
+{"id": "sig_unknown_001", "type": "signal", "kind": "BEACON", "payload": "BLEAT", "band": "PRIMITIVE", "volume": 10, "volume_rate": 5, "source": "???", "ts": "2026-03-01T08:00:00Z"}

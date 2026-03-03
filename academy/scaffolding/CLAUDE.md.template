@@ -1,0 +1,33 @@
+# CGG Academy Workspace
+
+This is your Homeskillet Academy workspace. You're learning CGG governance primitives by building them.
+
+## Current Chapter
+
+Start with Chapter 1: `chapters/01-append-only-truth/README.md`
+
+## Project Structure
+
+- `chapters/` — Chapter READMEs, tests, and fixtures (read these, don't modify)
+- `src/` — Your implementations go here
+- `exercises/` — Scratch space for experiments
+- `audit-logs/` — Signal store (created during exercises)
+
+## Working Posture
+
+Each chapter declares a posture. Follow it:
+
+| | DIRECT (execute) | META (analyze) |
+|---|---|---|
+| **ENG** | Implement, fix, ship | Architect, plan, design |
+| **OPS** | Run pipelines, hit APIs | Audit, review, explore |
+
+## Running Tests
+
+```bash
+# Single chapter
+python -m pytest chapters/01-append-only-truth/test_event_store.py -v
+
+# All chapters
+./test-harness/run-tests.sh all
+```

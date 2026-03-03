@@ -23,6 +23,11 @@
         "name": "siren",
         "path": "cgg-runtime/skills/siren/SKILL.md",
         "description": "Signal emission, tick advancement, and triage dashboard for the CGG signal manifold."
+      },
+      {
+        "name": "homeskillet-academy",
+        "path": "cgg-runtime/skills/homeskillet-academy/SKILL.md",
+        "description": "Interactive CGG tutorial — scaffold a workspace with 5 narrative chapters, tests, and fixtures."
       }
     ],
     "deprecated_skills": [
