@@ -16,7 +16,8 @@ import pytest
 # Import academy solutions for integration testing
 import sys
 REPO_ROOT = Path(__file__).parent.parent
-sys.path.insert(0, str(REPO_ROOT / "academy" / "src"))
+# Use solutions directory directly since src/ is scaffolded at runtime
+sys.path.insert(0, str(REPO_ROOT / "academy" / "solutions"))
 
 from event_store import append_event, read_current_state, read_full_history
 from dedup_scanner import compute_dedup_hash, scan_for_duplicates, append_if_unique

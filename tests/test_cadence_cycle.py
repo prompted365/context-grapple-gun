@@ -357,7 +357,7 @@ class TestEpochBoundaryInvariants:
 
         # Write some tics
         for i in range(5):
-            date = f"2026-03-0{i+1}"
+            date = f"2026-03-{i+1:02d}"
             tic_file = tic_dir / f"{date}.jsonl"
             tic_file.write_text(json.dumps({
                 "type": "tic",
