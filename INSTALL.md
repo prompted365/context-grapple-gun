@@ -2,11 +2,27 @@
 
 > This is the installer. If you just want to use CGG, see [START-HERE](START-HERE.md). For pipeline mechanics, see [DEV-README](DEV-README.md).
 
-One prompt. One question. Done.
+Two install paths. Same result.
 
-CGG installs by pasting a single prompt into Claude Code. Claude reads the prompt, asks which mode you want, and sets everything up. No manual file copying. No separate init commands. The installer is a prompt, not a script.
+## Plugin install (recommended)
 
-## Bootstrap prompt
+If your Claude Code version supports plugins:
+
+```bash
+# Add the submodule
+git submodule add https://github.com/prompted365/context-grapple-gun.git vendor/context-grapple-gun
+
+# Install the plugin
+claude plugin install vendor/context-grapple-gun
+```
+
+The plugin manifest (`.claude-plugin/plugin.json`) declares all skills, hooks, and agents. Claude Code registers them automatically — no manual file copying, no `settings.local.json` patching.
+
+After install, Claude will ask which mode you want (Full pipeline / Skills only / Convention only) and set up the remaining project files (`.ticzone`, `.ticignore`, CLAUDE.md convention block).
+
+## Bootstrap prompt (alternative)
+
+If your Claude Code version doesn't support plugins yet, paste this prompt into a session. One question, then it sets everything up:
 
 Copy this entire block and paste it into a Claude Code session in your project:
 
@@ -217,7 +233,7 @@ Start working. When you're done, type /cadence.
 
 ## Manual installation
 
-If you prefer to set things up by hand instead of using the bootstrap prompt:
+If you prefer to set things up by hand instead of using the plugin installer or bootstrap prompt:
 
 ```bash
 # 1. Add the submodule (if not already present)

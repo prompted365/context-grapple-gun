@@ -1,0 +1,100 @@
+{
+  "name": "context-grapple-gun",
+  "version": "4.0.0",
+  "description": "Session learning system for Claude Code. Captures lessons as CogPRs, tracks signals via acoustic routing, promotes knowledge across scopes with human-gated review.",
+  "repository": "https://github.com/prompted365/context-grapple-gun",
+  "license": "MIT",
+  "claude_code": {
+    "min_version": "1.0.0"
+  },
+  "components": {
+    "skills": [
+      {
+        "name": "cadence",
+        "path": "cgg-runtime/skills/cadence/SKILL.md",
+        "description": "Session epoch boundary — emits canonical tic, captures lessons, writes handoff."
+      },
+      {
+        "name": "review",
+        "path": "cgg-runtime/skills/review/SKILL.md",
+        "description": "Review and apply Cognitive Pull Request (CPR) promotions + Warrant triage across CLAUDE.md scopes."
+      },
+      {
+        "name": "siren",
+        "path": "cgg-runtime/skills/siren/SKILL.md",
+        "description": "Signal emission, tick advancement, and triage dashboard for the CGG signal manifold."
+      }
+    ],
+    "deprecated_skills": [
+      {
+        "name": "cadence-downbeat",
+        "path": "cgg-runtime/skills/cadence-downbeat/SKILL.md",
+        "redirect": "cadence"
+      },
+      {
+        "name": "cadence-syncopate",
+        "path": "cgg-runtime/skills/cadence-syncopate/SKILL.md",
+        "redirect": "cadence double-time"
+      },
+      {
+        "name": "grapple",
+        "path": "cgg-runtime/skills/grapple/SKILL.md",
+        "redirect": "review"
+      },
+      {
+        "name": "init-gun",
+        "path": "cgg-runtime/skills/init-gun/SKILL.md",
+        "redirect": null,
+        "note": "Absorbed into bootstrap prompt / plugin install"
+      },
+      {
+        "name": "init-cogpr",
+        "path": "cgg-runtime/skills/init-cogpr/SKILL.md",
+        "redirect": null,
+        "note": "Absorbed into bootstrap prompt / plugin install"
+      }
+    ],
+    "hooks": [
+      {
+        "event": "SessionStart",
+        "path": "cgg-runtime/hooks/session-restore-patch.sh",
+        "description": "Discovers latest handoff plan, extracts Next Actions, injects CPR queue status, detects parallel sessions."
+      },
+      {
+        "event": "UserPromptSubmit",
+        "path": "cgg-runtime/hooks/cgg-gate.sh",
+        "description": "One-shot trigger gate — spawns ripple-assessor on first prompt if handoff plan has pending CPRs."
+      }
+    ],
+    "agents": [
+      {
+        "name": "ripple-assessor",
+        "path": "cgg-runtime/agents/ripple-assessor.md",
+        "model": "sonnet",
+        "description": "Evaluates CPR flags and active signals/warrants from handoff plans. Writes promotion proposals."
+      }
+    ]
+  },
+  "install": {
+    "directories": [
+      "~/.claude/grapple-proposals",
+      "audit-logs/signals",
+      "audit-logs/tics",
+      "audit-logs/conformations"
+    ],
+    "project_files": [
+      {
+        "template": ".ticzone",
+        "condition": "not_exists",
+        "description": "Acoustic zone definition — set name to your project name, tz to your timezone."
+      },
+      {
+        "template": ".ticignore",
+        "condition": "not_exists",
+        "description": "Zone exclusion patterns — inherits from .gitignore, adds vendor/ and .claude/skills/."
+      }
+    ],
+    "claude_md_block": "convention-block.md",
+    "post_install_message": "CGG installed. Four commands:\n\n/cadence             — end of session. Saves lessons, writes handoff.\n/cadence double-time — emergency exit. Minimal handoff when context is low.\n/review              — every few sessions. Review proposed lessons.\n/siren               — check on recurring issues.\n\nStart working. When you're done, type /cadence."
+  }
+}
