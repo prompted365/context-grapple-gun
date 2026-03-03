@@ -2,7 +2,7 @@
   <img src="assets/cgg-banner.jpeg" alt="Context Grapple Gun by Prompted LLC & Ubiquity OS" width="100%" />
 </p>
 
-> This is the user guide. Three commands, one install. For engineering details, see [DEV-README](DEV-README.md). For the architecture, see [README](README.md).
+> This is the user guide. Three commands, one install. For engineering details, see [DEV-README](DEV-README.md). For the full reference, see [README](README.md).
 
 # Start Here
 
@@ -94,7 +94,7 @@ No.
 
 - **This file** is everything you need to use CGG day-to-day.
 - **[DEV-README.md](DEV-README.md)** explains the engineering details if you're curious about how the pipeline works.
-- **[README.md](README.md)** covers the full architecture -- scope hierarchies, signal types, frequency bands, jurisdictional zones.
+- **[README.md](README.md)** is the full reference -- scope hierarchies, signal types, frequency bands, jurisdictional zones.
 - **[ARCHITECTURE.md](ARCHITECTURE.md)** is the deep theory for people designing systems like this.
 
 This file → DEV-README → README → ARCHITECTURE, each one deeper. You can read as deep as you want. But `/cadence` at the end of the day and `/review` every few sessions is genuinely all you need.

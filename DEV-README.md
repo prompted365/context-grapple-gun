@@ -4,7 +4,7 @@
 
 # Context Grapple Gun -- Practical developer guide
 
-> **Just want the commands?** [START-HERE.md](START-HERE.md). **Full architecture and design rationale?** [README.md](README.md) and [ARCHITECTURE.md](ARCHITECTURE.md).
+> **Just want the commands?** [START-HERE.md](START-HERE.md). **Full reference?** [README.md](README.md). **Architecture and design rationale?** [ARCHITECTURE.md](ARCHITECTURE.md).
 
 **A CI/CD pipeline for your AI's memory and system prompts.**
 
@@ -177,11 +177,13 @@ For Claude Desktop or Claude for Work, copy `cogpr/claude-desktop/project-instru
 
 ## Deterministic assessor option
 
-The trigger gate spawns a fresh Claude agent (the ripple-assessor) to evaluate pending CogPRs between sessions. This works well for most installs.
+The trigger gate spawns a fresh Claude agent (the ripple-assessor) to evaluate pending CogPRs between sessions. No configuration needed — the default path is the LLM agent.
 
-For faster, cheaper, more predictable evaluation, drop a `scripts/ripple-assessor.py` into your project root. The gate hook checks for this file first -- if it exists, it runs the Python script directly instead of spawning an LLM agent. Same inputs, same output path (`~/.claude/grapple-proposals/latest.md`), no API cost.
+For faster, cheaper, more predictable evaluation, drop a `scripts/ripple-assessor.py` into your project root. The gate hook checks for this file first — if it exists, it runs the Python script directly instead of spawning an LLM agent. Same inputs, same output path (`~/.claude/grapple-proposals/latest.md`), no API cost.
 
 Simple installs get the agent. Mature installs get deterministic evaluation. The gate handles both.
+
+As the project matures and CPR volume grows, a deterministic script also lets you add the two maturity gates (temporal and epistemic) as cheap arithmetic checks rather than LLM reasoning — see [ARCHITECTURE.md](ARCHITECTURE.md#9-cpr-maturity-fields-concrete-spec) for the field spec.
 
 ## Safety
 

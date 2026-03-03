@@ -84,7 +84,7 @@ The acoustic model routes signals based on directory distance and frequency band
 
 **Tic-zones** add jurisdictional scoping. A `.ticzone` file at a directory root defines a named acoustic region with explicit path inclusion, timezone, optional coordinates, active bands, and a muffling constant. Zones answer "Which agents can hear which signals?" through configuration, not convention.
 
-Zone nesting enables federation. A subdirectory can define a nested zone that inherits the parent's properties but overrides specific bands or muffling rates. Cross-zone signal propagation attenuates at double the intra-zone rate — inter-jurisdictional communication is possible but expensive. Structurally correct for compartmentalized environments.
+Zone nesting enables federation. A subdirectory can define a nested zone that inherits the parent's properties but overrides specific bands or muffling rates. Cross-zone signal propagation attenuates at double the intra-zone rate — inter-jurisdictional communication is possible but expensive. The cost is structural: it models the real friction of information crossing organizational boundaries.
 
 `.ticignore` complements the zone definition with exclusion filtering. Where `.ticzone` says "this is my jurisdiction," `.ticignore` says "except these paths." v1 supports directory-level exclusions only -- intentionally simple. The zone scan rule resolves in order: zone boundary first (what's in), exclusion filter second (what's out). Governance surface = CLAUDE.md + MEMORY.md files inside the zone minus excluded paths.
 
@@ -186,7 +186,7 @@ The ripple assessor has a structural incentive toward PROMOTE verdicts, not by e
 3. **Output format**: the summary tallies `Promote: X, Skip: Y, Modify: Z` — SKIP is the negative case. Assessors producing useful-looking reports tend toward PROMOTE because it generates more content.
 4. **Pre-argued brief**: the cadence-level CPR author writes `recommended_scopes` and `rationale` — the assessor receives a case for promotion, not raw evidence to evaluate independently.
 
-The human `/review` gate is currently the only countervailing pressure. This is adequate for the current pipeline but becomes a bottleneck as proposal volume grows.
+The human `/review` gate is the only countervailing pressure — adequate for the current pipeline, but a bottleneck as proposal volume grows.
 
 <!-- --agnostic-candidate
   lesson: "Assessor promotion bias is structural (mission framing, checklist asymmetry, output format, pre-argued brief) — not a bug to fix but a design property to counterbalance with tic-gating, enrichment requirements, and trust-scaled autonomy"
@@ -270,9 +270,13 @@ Beyond ~10 siblings, gradient-fit evaluation, and conformation-aware trust — h
 
 ## 9. CPR Maturity Fields (Concrete Spec)
 
-Two new optional fields on `<!-- --agnostic-candidate -->` blocks gate promotion eligibility independently of argument quality.
+Section 8 described the *design* of bidirectional abstraction: two pending states, inversion angle, trust-gated autonomy. This section specifies the *implementation* — the exact fields, lifecycle transitions, and assessor behaviors that make those mechanics operational within CGG's flat-file constraints.
+
+The two gates are independent. A CPR can pass temporal maturity and still lack epistemic depth. It can carry rich enrichment evidence and still be too young. Both must clear before the assessor renders a verdict.
 
 ### Field Schema
+
+Two optional fields extend the existing `<!-- --agnostic-candidate -->` block:
 
 ```yaml
 # Temporal maturity gate
@@ -291,7 +295,9 @@ enrichment:
   eligible: <bool>           # true when status >= "investigated" AND evidence has ≥1 entry
 ```
 
-### Status Lifecycle (extended)
+### Status Lifecycle
+
+The existing `pending → promoted / rejected` path now has intermediate states:
 
 ```
 pending → tic_gated → enrichment_eligible → promotable → promoted
@@ -300,30 +306,37 @@ pending → tic_gated → enrichment_eligible → promotable → promoted
 ```
 
 - **pending**: CPR created, no maturity evaluation yet.
-- **tic_gated**: Birth tic recorded. Not eligible until `current_tic - birth_tic >= maturity_tics`. Assessor marks this on first evaluation if the CPR is too young.
-- **enrichment_eligible**: Temporal gate passed. Enrichment evidence still insufficient. Assessor or future sessions add evidence entries.
-- **promotable**: Both gates passed. Ready for assessor PROMOTE/SKIP verdict and human review.
-- **promoted** / **rejected**: Terminal states (unchanged from current spec).
+- **tic_gated**: Birth tic recorded. Not eligible until `current_tic - birth_tic >= maturity_tics`. The assessor marks this state on first evaluation when the CPR is too young — then stops. Argument cannot substitute for time.
+- **enrichment_eligible**: Temporal gate passed. Enrichment evidence still insufficient. The assessor or future sessions append evidence entries as investigation happens.
+- **promotable**: Both gates cleared. Ready for the full assessor evaluation — overlap/conflict/gap — and human review.
+- **promoted** / **rejected**: Terminal states, unchanged from the current spec.
 
-### Transition Rules
+### What Advances Each Gate
+
+The two gates advance through fundamentally different mechanisms, and conflating them is the failure mode:
 
 | Gate | What advances it | What does NOT advance it |
 |------|-----------------|------------------------|
-| Temporal (`tic_gated`) | Tic counter advancing (time passing) | Better argumentation, more evidence |
-| Epistemic (`enrichment`) | Active investigation: sibling cross-reference, inversion test, scope alignment check | Waiting, re-stating the same rationale |
+| Temporal (`tic_gated`) | Tic counter advancing — time passing | Better argumentation, more evidence |
+| Epistemic (`enrichment`) | Active investigation: sibling cross-reference, inversion test, scope alignment check | Waiting, restating the same rationale |
+
+A CPR that's logically sound but untested by time sits in `tic_gated`. A CPR that's survived multiple conformations but hasn't been stress-tested against siblings sits in `enrichment_eligible`. Neither state is a failure — they're explicit acknowledgments of what the proposal still owes.
 
 ### Assessor Behavior
 
-When the assessor encounters a CPR:
-1. Check `birth_tic` vs current tic count. If delta < `maturity_tics` (default 3), set status to `tic_gated` and SKIP with reason "temporal maturity insufficient."
-2. If temporal gate passes, check `enrichment.eligible`. If false, set status to `enrichment_eligible` and SKIP with reason "enrichment evidence insufficient."
-3. If both gates pass, evaluate normally (overlap/conflict/gap) and render PROMOTE/SKIP/MODIFY verdict.
+The gate sequence runs in order:
+
+1. Check `birth_tic` against the current tic count. If the delta is below `maturity_tics` (default: 3), set status to `tic_gated` and stop — reason: "temporal maturity insufficient."
+2. If the temporal gate passes, check `enrichment.eligible`. If false, set status to `enrichment_eligible` and stop — reason: "enrichment evidence insufficient."
+3. If both gates pass, evaluate normally — overlap/conflict/gap — and render a PROMOTE/SKIP/MODIFY verdict.
 
 ### Backward Compatibility
 
-Existing CPR blocks without these fields are treated as: `tic_gated.maturity_tics = 0` (no temporal gate), `enrichment.eligible = true` (no enrichment gate). All existing CPRs remain promotable under the current rules. The fields are opt-in — the assessor adds them on first encounter if `birth_tic` is present.
+CPR blocks without these fields default to `tic_gated.maturity_tics = 0` (no temporal gate) and `enrichment.eligible = true` (no enrichment gate). Every existing CPR remains promotable under the current rules. The fields are opt-in: the assessor adds them on first encounter when `birth_tic` is present, but never retroactively fails a CPR created before the gates existed. This is a design decision, not just a migration convenience — governance rules must not invalidate prior work.
 
 ### Trust Counter Schema (`~/.claude/cgg-trust-state.json`)
+
+The trust counter is a track record — the accumulation of assessor verdicts, human overrides, and post-promotion signal activity. It lives in a single file:
 
 ```json
 {
@@ -347,7 +360,7 @@ Existing CPR blocks without these fields are treated as: `tic_gated.maturity_tic
 }
 ```
 
-- **trust_level**: Increments when human approves assessor verdict without override. Decrements on override. Resets to 0 if a promoted lesson generates a subsequent signal (the lesson didn't land).
-- **tier_4_autonomous**: Trust level at which Tier 4 (project scope) promotions bypass human gate.
-- **tier_5_autonomous**: Trust level at which Tier 5 (global scope) promotions bypass human gate. Intentionally high — global is a treaty.
-- **Voluntary contraction**: If drift classification returns "Drift" or "Decay" over a tic range, trust_level halves (rounded down). The system can lose autonomy when governance quality degrades.
+- **trust_level**: Increments when the human approves an assessor verdict without override. Decrements on override. Resets to 0 if a promoted lesson generates a subsequent signal — the lesson didn't land, and the assessor's judgment was wrong in a way that mattered.
+- **tier_4_autonomous**: Trust level at which Tier 4 (project scope) promotions bypass the human gate. Reachable through consistent, accurate evaluation.
+- **tier_5_autonomous**: The threshold for Tier 5 (global scope) autonomy — intentionally high. Global is a treaty, and trust that scales to treaty-level governance is earned slowly.
+- **Voluntary contraction**: If drift classification returns "Drift" or "Decay" over a tic range, `trust_level` halves (rounded down). The system can lose autonomy when governance quality degrades — not as punishment, but because degraded governance requires more human oversight, not less.

@@ -49,6 +49,8 @@ A lesson climbs when a CogPR is approved through `/review`. The ripple assessor 
 
 The governance invariant: the system must be willing to refuse premature promotion even when the lesson is accurate. An accurate lesson with immature validation stays at project scope until it earns its way up. The first test of whether the system actually governs is whether it can say "not yet."
 
+Two maturity gates formalize this: a temporal gate (`tic_gated`) that holds a proposal until it has survived a minimum number of conformations, and an epistemic gate (`enrichment_eligible`) that holds it until sibling cross-reference or inversion testing has been done. See [ARCHITECTURE.md](ARCHITECTURE.md#9-cpr-maturity-fields-concrete-spec) for the field spec.
+
 ### Descending: global to local
 
 This is the less obvious direction, and it matters more than it appears.
