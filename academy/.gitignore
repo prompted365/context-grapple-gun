@@ -1,2 +1,5 @@
 __pycache__/
 *.pyc
+# src/ is scaffolded at runtime by /homeskillet-academy skill
+# not committed to repo
+src/
