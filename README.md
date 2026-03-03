@@ -209,6 +209,12 @@ You might run beats 1 and 2 three times before doing beat 4. The review cadence 
 
 If you're past the heuristic and the session feels sluggish, `/cadence double-time` produces a valid handoff with minimal ceremony -- tic + compact plan, no signal tick or conformation snapshot. Recovery: next session runs a full downbeat.
 
+## Governance truth surfaces
+
+**Tags are authoring. Queue is execution. Audit logs are history.**
+
+Tags (`<!-- --agnostic-candidate -->` blocks in CLAUDE.md/MEMORY.md) are the human-readable capture format. The CPR queue (`audit-logs/cprs/queue.jsonl`) is the machine-readable execution surface -- hooks extract tags into it, assessors advance entries through the lifecycle, `/review` applies verdicts from it. Audit logs (signals, tics, conformations, reviews) are append-only history. If a tag and a queue entry disagree, the queue wins. See [ARCHITECTURE.md §11](ARCHITECTURE.md) for the full data model.
+
 ## Signal architecture
 
 Alongside the lesson lifecycle, CGG runs a parallel signal system for runtime conditions. These aren't lessons to promote -- they're states to monitor.

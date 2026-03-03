@@ -24,6 +24,12 @@ You already know these concepts under different names:
 | `/siren` | Datadog / PagerDuty. Tracks recurring friction, alerts on threshold breach |
 | `/cadence` | Epoch boundary — emits tic, captures lessons, writes handoff |
 
+## Governance truth surfaces
+
+**Tags are authoring. Queue is execution. Audit logs are history.**
+
+Tags in CLAUDE.md/MEMORY.md are the capture format. The CPR queue (JSONL) drives automation. Audit logs are append-only history. Details in [ARCHITECTURE.md §11](ARCHITECTURE.md).
+
 ## How a session actually flows
 
 ```mermaid

@@ -364,3 +364,131 @@ The trust counter is a track record — the accumulation of assessor verdicts, h
 - **tier_4_autonomous**: Trust level at which Tier 4 (project scope) promotions bypass the human gate. Reachable through consistent, accurate evaluation.
 - **tier_5_autonomous**: The threshold for Tier 5 (global scope) autonomy — intentionally high. Global is a treaty, and trust that scales to treaty-level governance is earned slowly.
 - **Voluntary contraction**: If drift classification returns "Drift" or "Decay" over a tic range, `trust_level` halves (rounded down). The system can lose autonomy when governance quality degrades — not as punishment, but because degraded governance requires more human oversight, not less.
+
+## 10. Plugin Packaging Architecture
+
+CGG's `cgg-runtime/` directory structure maps 1:1 to Claude Code's plugin components schema. Packaging CGG as a plugin is a wrapping exercise, not restructuring.
+
+### Directory correspondence
+
+| `cgg-runtime/` | `plugin.json` component | What it contains |
+|-----------------|------------------------|------------------|
+| `skills/` | `components.skills[]` | Slash command SKILL.md files |
+| `hooks/` | `components.hooks[]` | SessionStart + UserPromptSubmit shell scripts |
+| `agents/` | `components.agents[]` | Ripple-assessor agent prompt |
+
+This correspondence is structural, not accidental. CGG was built using Claude Code's native conventions — same directory layout, same frontmatter format, same lifecycle hooks. The plugin manifest (`.claude-plugin/plugin.json`) declares these components; Claude Code registers them automatically.
+
+### Plugin manifest (`.claude-plugin/plugin.json`)
+
+The manifest declares three active skills, two hooks, one agent, and five deprecated skill aliases:
+
+**Active skills:**
+- `cadence` — session epoch boundary (tic + lessons + handoff)
+- `review` — CogPR promotion + warrant triage (human-gated)
+- `siren` — signal emission, tick advancement, triage dashboard
+
+**Deprecated aliases** (redirect to active skills):
+- `cadence-downbeat` → `cadence`
+- `cadence-syncopate` → `cadence double-time`
+- `grapple` → `review`
+- `init-gun`, `init-cogpr` → absorbed into bootstrap/plugin install
+
+**Hooks:**
+- `SessionStart` → `session-restore-patch.sh` (handoff discovery, CPR queue injection)
+- `UserPromptSubmit` → `cgg-gate.sh` (one-shot ripple-assessor trigger)
+
+**Agents:**
+- `ripple-assessor` (sonnet) — CPR evaluation + signal/warrant assessment
+
+### Install simplification
+
+The plugin path replaces manual file copying and `settings.local.json` patching:
+
+| Before (bootstrap) | After (plugin) |
+|---------------------|----------------|
+| Copy `cgg-runtime/skills/*` → `.claude/skills/` | Auto-registered from manifest |
+| Copy hooks + `chmod +x` | Auto-registered from manifest |
+| Patch `settings.local.json` hook entries | Auto-registered from manifest |
+| Copy agent prompt | Auto-registered from manifest |
+| Create directories manually | Declared in `install.directories[]` |
+
+The bootstrap prompt remains as a fallback for Claude Code versions that don't support plugins.
+
+### Namespacing
+
+If the plugin mechanism namespaces skills, CGG skills become `/cgg:cadence`, `/cgg:review`, `/cgg:siren`. If not namespaced, behavior matches bootstrap (skills register without prefix).
+
+**To verify when plugin spec ships:**
+- [ ] Whether namespacing is automatic, opt-in, or absent
+- [ ] Collision behavior between plugin skills and same-named local skills
+- [ ] Whether deprecated aliases survive namespacing or need explicit redirect entries
+- [ ] Whether hook auto-registration fully replaces `settings.local.json` patching or supplements it
+
+### What the plugin does NOT contain
+
+- **No MCP/LSP servers.** CGG's data stores (JSONL, SQLite, flat CLAUDE.md files) require no server processes.
+- **No runtime dependencies.** Shell scripts + the agent prompt. No package installs.
+- **No project-specific content.** `.ticzone`, `.ticignore`, and the CLAUDE.md convention block are generated at install time from templates, not shipped as static files.
+
+### Design implication
+
+The 1:1 mapping means CGG's evolution path is packaging, not migration. New skills, hooks, or agents added to `cgg-runtime/` become plugin components by adding a manifest entry. The cgg-runtime directory IS the plugin — the manifest is metadata about it.
+
+## 11. Governance Truth Surfaces
+
+**Tags are authoring. Queue is execution. Audit logs are history.**
+
+CGG governance state lives on three surfaces. Each has one job. Mixing jobs across surfaces causes duplicate processing, stale re-promotions, and unqueryable audit trails.
+
+| Surface | Job | Format | Who writes | Who reads |
+|---------|-----|--------|------------|-----------|
+| **Tags** (CLAUDE.md, MEMORY.md) | Authoring | `<!-- --agnostic-candidate -->` blocks | Agent during `/cadence` Step 2 | Humans. Backfill scan (safety net). |
+| **Queue** (`audit-logs/cprs/queue.jsonl`) | Execution | JSONL, latest-per-ID-wins | Extraction hook (fast path). SessionStart backfill (slow path). Assessor (state advancement). `/review` (verdicts). | Assessor. `/review`. SessionStart (counts). |
+| **Audit logs** (signals, tics, conformations, reviews) | History | JSONL, append-only | Skills, hooks, scripts at event time | Conformation snapshots. `/siren`. Drift analysis. Forensics. |
+
+### Flow direction
+
+```
+Agent discovers lesson
+  → writes tag to CLAUDE.md (authoring surface)
+  → /cadence writes plan containing tags
+  → PostToolUse hook extracts tags → queue.jsonl (execution surface)
+  → assessor advances queue entries through lifecycle
+  → /review applies verdicts from queue
+  → audit log records the decision (history surface)
+```
+
+Tags do not drive execution. The queue drives execution. Tags are the human-readable record of what was captured. If a tag and a queue entry disagree, the queue wins — it reflects the latest state machine position.
+
+### Recovery invariant
+
+The three extraction paths (PostToolUse fast path, SessionStart recovery, SessionStart backfill) all use the same dedup hash. Running all three on the same CPR produces exactly one queue entry. The queue is eventually consistent — the fast path is the normal case, the other two are safety nets.
+
+### Auto-promotion (self-referencing local scope)
+
+A CPR that recommends the same file it lives in is self-referencing. These may be auto-closed by the assessor WITHOUT human gate, subject to three hard limits:
+
+1. **Local scope only.** Target must be the same file or a file in the same directory. Never project or global scope.
+2. **Target == source.** The CPR's `recommended_scopes` must exactly match the file containing the tag. No "close enough" matching.
+3. **No shared invariants.** If the lesson text references a `[GLOBAL_INVARIANT]`-tagged section, or modifies a rule that other files depend on, auto-close is blocked. Route to `/review`.
+
+These limits prevent encoding "promote me" patterns. Self-referencing CPRs are a documentation housekeeping shortcut, not a governance bypass.
+
+<!-- --agnostic-candidate
+  lesson: "CGG cgg-runtime/ maps 1:1 to Claude Code plugin.json components — packaging as a plugin is wrapping, not restructuring"
+  source_date: "2026-03-03"
+  source: "vendor/context-grapple-gun/ARCHITECTURE.md:368"
+  band: "COGNITIVE"
+  motivation_layer: "COGNITIVE"
+  subsystem: "cgg"
+  recommended_scopes:
+    - "vendor/context-grapple-gun/ARCHITECTURE.md"
+  rationale: "Plugin marketplace is the next architectural milestone for CGG."
+  review_hints: "Verify against actual Claude Code plugin spec when it ships."
+  status: "promoted"
+  promoted_date: "2026-03-03"
+  promoted_to:
+    - "vendor/context-grapple-gun/ARCHITECTURE.md (Section 10: Plugin Packaging Architecture)"
+  grapple_docket: "2026-03-03"
+-->
