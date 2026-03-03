@@ -176,3 +176,86 @@ Three numbers that separate compounding governance from configuration drift:
     - "CLAUDE.md (Tic section — conformation terminal abstraction note)"
   grapple_docket: "2026-02-25"
 -->
+
+## 7. Assessor Promotion Bias (Structural Analysis)
+
+The ripple assessor has a structural incentive toward PROMOTE verdicts, not by explicit instruction but by architectural pressure:
+
+1. **Mission framing**: "evaluate whether it should be promoted to a broader scope" pre-frames the question as a promotion question, not a placement question.
+2. **Evaluation checklist asymmetry**: overlap/conflict/gap — two of three (no conflict + gap exists) point toward PROMOTE. Only overlap points toward SKIP. The checklist is 2:1 in favor of promotion by construction.
+3. **Output format**: the summary tallies `Promote: X, Skip: Y, Modify: Z` — SKIP is the negative case. Assessors producing useful-looking reports tend toward PROMOTE because it generates more content.
+4. **Pre-argued brief**: the cadence-level CPR author writes `recommended_scopes` and `rationale` — the assessor receives a case for promotion, not raw evidence to evaluate independently.
+
+The human `/review` gate is currently the only countervailing pressure. This is adequate for the current pipeline but becomes a bottleneck as proposal volume grows.
+
+<!-- --agnostic-candidate
+  lesson: "Assessor promotion bias is structural (mission framing, checklist asymmetry, output format, pre-argued brief) — not a bug to fix but a design property to counterbalance with tic-gating, enrichment requirements, and trust-scaled autonomy"
+  source_date: "2026-03-03"
+  source: "vendor/context-grapple-gun/ARCHITECTURE.md:181"
+  band: "COGNITIVE"
+  motivation_layer: "COGNITIVE"
+  subsystem: "cgg"
+  posture: "ENG/META"
+  birth_tic: 165
+  recommended_scopes:
+    - "vendor/context-grapple-gun/cgg-runtime/agents/ripple-assessor.md"
+  rationale: "The bias is not a defect — it reflects the system's current architecture where the human gate is the only selection pressure. As trust-gated autonomy is introduced, the assessor needs counterbalancing mechanics (tic thresholds, enrichment requirements) to prevent unchecked promotion at lower tiers."
+  review_hints: "Do not 'fix' the bias by adding SKIP incentives — that creates a different bias. Instead, introduce the two pending states (tic_gated, enrichment_eligible) so temporal and epistemic maturity gate promotion independently of the assessor's reasoning quality."
+  status: "pending"
+-->
+
+## 8. Bidirectional Abstraction Engine (Design Vision)
+
+CGG's next evolution: proposals earn their shape at the target tier before arriving there. Two mechanisms replace the current one-shot evaluation:
+
+### Two Pending States
+
+| State | Condition | What accelerates it | What doesn't |
+|-------|-----------|--------------------|----|
+| **Tic-gated** (temporal maturity) | Pattern must survive N conformations at current scope | Nothing — only time | Better argumentation |
+| **Enrichment-eligible** (epistemic insufficiency) | Scope alignment, sibling evidence, or abstraction shape is incomplete | Active investigation: inversion angle, sibling cross-reference | Waiting |
+
+The distinction prevents both premature promotion (sound argument, untested persistence) and stale pending queues (persistent pattern, unexplored implications).
+
+### Inversion Angle
+
+On a tic-ratio cadence, the assessor explores *downward* — takes a proposal targeting Tier N and tests its primitive application at Tier N-1 in sibling contexts. The output is enrichment (missing nuance, decomposition signals, sibling evidence), not a verdict.
+
+### Trust-Gated Autonomy
+
+The assessor accumulates a track record (meta-log: verdicts vs human overrides vs subsequent signal activity). As trust grows, lower-tier promotions become autonomous. The human gate concentrates at the highest tier where worldview shape is at stake. Trust can voluntarily contract when drift is detected.
+
+### Drift Classification
+
+Conformation diffs over tic ranges classify shape change:
+- **Growth**: gradient extending into new territory, existing cables holding
+- **Drift**: gradient rotating — old truths contradicted by new promotions
+- **Decay**: gradient flattening — governance pressure relaxed, promotions passing without real enrichment
+
+### CGG Boundary (Lexical Ceiling)
+
+These mechanics operate within CGG's flat-file constraints:
+- Two pending states = fields on CPR blocks
+- Tic thresholds = arithmetic on birth_tic vs current physical count
+- Enrichment history = append-only text in CPR blocks
+- Trust level = counter derived from meta-log
+- Drift classification = conformation diff comparison
+
+Beyond ~10 siblings, gradient-fit evaluation, and conformation-aware trust — hand off to Ubiquity's fusion engine. CGG produces the audit trail; the substrate fuses it into meaning-space.
+
+<!-- --agnostic-candidate
+  lesson: "CGG's bidirectional abstraction engine: two pending states (tic_gated/enrichment_eligible), inversion angle for sibling cross-reference, trust-gated autonomy with voluntary contraction, drift classification (growth/drift/decay). Lexical ceiling: ~10 siblings, arithmetic trust counters, flat-file enrichment logs. Beyond that → Ubiquity fusion engine."
+  source_date: "2026-03-03"
+  source: "vendor/context-grapple-gun/ARCHITECTURE.md:206"
+  band: "COGNITIVE"
+  motivation_layer: "COGNITIVE"
+  subsystem: "cgg"
+  posture: "ENG/META"
+  birth_tic: 165
+  recommended_scopes:
+    - "vendor/context-grapple-gun/README.md"
+    - "CLAUDE.md"
+  rationale: "This is the architectural bridge between CGG-as-governance-lifecycle and Ubiquity-as-substrate. The design defines exactly where flat-file governance stops being sufficient and what the handoff looks like. Affects both CGG's roadmap and Ubiquity's intake surface."
+  review_hints: "The two pending states and trust counter are implementable now (field additions to CPR format, meta-log query). Inversion angle and drift classification need the conformation diff tooling to be more mature. Validate the ~10 sibling threshold empirically before committing to it as the ceiling."
+  status: "pending"
+-->
