@@ -8,7 +8,7 @@
 
 CGG is a file-based governance layer for persistent AI systems. It locks in agent behavior through scoped rule promotion, epoch boundaries, canonical timestamping, and human constitutional review. No databases, no running services, no external dependencies -- flat files, git-tracked, auditable by default.
 
-It solves a hard problem: when an AI agent discovers something true during a work session -- a bug pattern, an API quirk, an architectural constraint -- that knowledge vanishes with the context window. The next session starts from zero. In multi-agent or multi-team deployments, there's no path for one agent's hard-won lesson to reach another without manually rewriting system prompts.
+It solves a hard problem: when an AI agent discovers something true during a work session -- a bug pattern, an API quirk, an architectural constraint -- that knowledge vanishes with the context window. The next session starts from the ability to review, but no inherent upgraded structured understanding of what is true and at what scope nor the rationale that properly holds that coherent understanding. In multi-agent or multi-team deployments, there's no path for one agent's hard-won lesson to reach another without manually rewriting system prompts.
 
 CGG gives knowledge a lifecycle. Lessons are captured locally, evaluated by a fresh agent between sessions, and promoted to broader scopes with human approval at every gate. Runtime conditions get monitored through a parallel signal system using acoustic routing, volume accrual, and automatic escalation. Every epoch boundary emits a canonical tic -- a sequentially numbered timestamp that provides total ordering across agents, cadences, and jurisdictions.
 
