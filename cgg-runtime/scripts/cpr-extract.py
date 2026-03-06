@@ -169,7 +169,7 @@ def get_tic_count(project_dir):
             try:
                 d = json.loads(line)
                 if d.get("type") == "tic":
-                    tic_count = max(tic_count, d.get("tic_count_project", 0))
+                    tic_count += 1
             except (json.JSONDecodeError, TypeError):
                 continue
     return tic_count
