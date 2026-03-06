@@ -39,8 +39,8 @@ while [ "$ZONE_ROOT" != "/" ] && [ ! -f "$ZONE_ROOT/.ticzone" ]; do ZONE_ROOT=$(
 **Counting rule (SUBSTRATE INVARIANT):** The canonical tic count is the physical number of `type=tic` entries across all `$ZONE_ROOT/audit-logs/tics/*.jsonl` files, determined by JSON-parsing — never by grep, never by reading an embedded `tic_count_project` field from a previous entry. The global counter file (`~/.claude/cgg-tic-counter.json`) is a cached mirror of this physical truth, not an independent state machine.
 
 1. Append tic record to `$ZONE_ROOT/audit-logs/tics/YYYY-MM-DD.jsonl`:
-   `{"type": "tic", "tic": "<ISO-8601 now>", "tic_zone": "<name from .ticzone>", "cadence_position": "downbeat", "scope": "project"}`
-   Note: `tic_count_project` and `tic_count_global` are omitted — they are advisory and the canonical count is physical truth.
+   `{"type": "tic", "tic": "<ISO-8601 now>", "tic_zone": "<name from .ticzone>", "cadence_position": "downbeat"}`
+   Note: `tic_count_project`, `tic_count_global`, and `scope` are omitted — counters are advisory (canonical count is physical truth) and scope is derived from the zone model, not a static label.
 2. Reconcile counters from physical truth:
    ```bash
    PHYS=$(python3 -c "import json,glob; print(sum(1 for f in glob.glob('$ZONE_ROOT/audit-logs/tics/*.jsonl') for l in open(f) if json.loads(l).get('type')=='tic'))")
@@ -54,7 +54,7 @@ while [ "$ZONE_ROOT" != "/" ] && [ ! -f "$ZONE_ROOT/.ticzone" ]; do ZONE_ROOT=$(
 4. Report: `Tic #PHYS (physical) at YYYY-MM-DDTHH:MM:SSZ`
 
 #### Step 1: Signal Manifold Hygiene
-Execute `/siren tick`. Ensure volume has accrued, TTLs are cleared, and thresholds are checked.
+Execute `/siren tick`. Ensure volume has accrued, decay has been applied, and thresholds are checked.
 
 #### Step 1.5: Snapshot Conformation
 Execute `/siren conformation` to capture the system's total state at this tic boundary.
@@ -89,7 +89,7 @@ indexes it (add a reference in any existing "subdirectory guides" section).
 Use the `EnterPlanMode` tool to switch to Claude Code's native plan mode. This is mandatory and mechanical — call the tool, do not just declare the shift.
 
 #### Step 4: Write the Handoff as the Plan
-Generate a NEW native plan. The plan content IS the handoff — this is the ONE AND ONLY place the handoff gets written. Claude Code auto-saves the plan to `~/.claude/plans/` when approved, and references it in the next session.
+Generate a NEW native plan. The plan content IS the handoff — a **bridge surface** carrying session state between contexts, not authoring truth or constitutional record. This is the ONE AND ONLY place the handoff gets written. Claude Code auto-saves the plan to `~/.claude/plans/` when approved, and references it in the next session.
 
 The plan must include:
 - `<!-- cgg-handoff -->` block with handoff_id, project_dir, trigger_version, generated_at
@@ -135,8 +135,8 @@ This buys headroom. The next session's SessionStart hook will reset it to 80%.
 **Zone root anchoring + Counting rule (SUBSTRATE INVARIANT):** Same as downbeat — resolve zone root from `.ticzone` walk-up, count tics physically from `$ZONE_ROOT/audit-logs/tics/*.jsonl`.
 
 1. Append tic record to `$ZONE_ROOT/audit-logs/tics/YYYY-MM-DD.jsonl`:
-   `{"type": "tic", "tic": "<ISO-8601 now>", "tic_zone": "<name from .ticzone>", "cadence_position": "syncopate", "scope": "project"}`
-   Note: `tic_count_project` and `tic_count_global` are omitted — they are advisory and the canonical count is physical truth.
+   `{"type": "tic", "tic": "<ISO-8601 now>", "tic_zone": "<name from .ticzone>", "cadence_position": "syncopate"}`
+   Note: `tic_count_project`, `tic_count_global`, and `scope` are omitted — counters are advisory (canonical count is physical truth) and scope is derived from the zone model, not a static label.
 2. Reconcile counters from physical truth:
    ```bash
    PHYS=$(python3 -c "import json,glob; print(sum(1 for f in glob.glob('$ZONE_ROOT/audit-logs/tics/*.jsonl') for l in open(f) if json.loads(l).get('type')=='tic'))")
@@ -159,7 +159,7 @@ Use the `EnterPlanMode` tool to switch to Claude Code's native plan mode. This i
 
 #### Step 4: Write the Handoff as the Plan
 
-Generate a NEW native plan. The plan content IS the handoff — this is the ONE AND ONLY place the handoff gets written. Claude Code auto-saves the plan to `~/.claude/plans/` when approved, and references it in the next session.
+Generate a NEW native plan. The plan content IS the handoff — a **bridge surface** carrying session state between contexts, not authoring truth or constitutional record. This is the ONE AND ONLY place the handoff gets written. Claude Code auto-saves the plan to `~/.claude/plans/` when approved, and references it in the next session.
 
 Keep it COMPACT (each section 5 lines max):
 

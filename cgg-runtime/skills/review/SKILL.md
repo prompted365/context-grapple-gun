@@ -148,7 +148,7 @@ For each DISMISS:
 2. Record justification in the meta-log entry
 
 For each ESCALATE:
-1. Bump the warrant's scope: `local -> domain -> estate -> global`
+1. Bump the warrant's scope: `site -> domain -> estate -> federation -> global`
 2. Re-emit the warrant with updated scope to today's JSONL
 3. If already at `global` scope, flag for user attention — cannot escalate further
 

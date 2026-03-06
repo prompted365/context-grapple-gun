@@ -284,7 +284,7 @@ Snapshot the current system conformation — the total state at the latest tic b
     }
   },
   "rules_in_force": {
-    "project": {"file": "CLAUDE.md", "lines": 450, "bytes": 28000},
+    "site": {"file": "CLAUDE.md", "lines": 450, "bytes": 28000},
     "global": {"file": "~/.claude/CLAUDE.md", "lines": 120, "bytes": 8000}
   },
   "counts": {
