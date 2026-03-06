@@ -82,6 +82,35 @@ CGG addresses these through five structural mechanisms: the abstraction ladder (
 
 A constitutional governance loop wraps the entire system: experience generates proposals, proposals require human review, review produces promotion or rejection, and the operating constitution updates accordingly. Humans author law. Agents execute within it.
 
+## Constitutional learning loops (Mermaid)
+
+```mermaid
+flowchart TB
+    subgraph Fast["Fast loop — active session"]
+        Work[Work session] --> Capture[Capture CogPR + signals]
+        Capture --> Cadence[/`/cadence` end-of-session/]
+    end
+
+    Cadence --> Plan[Plan with trigger]
+    Plan --> Assessor[Background ripple-assessor]
+    Assessor --> Proposals[Proposals file]
+
+    subgraph Gate["Human gate — constitutional review"]
+        Proposals --> Review[/`/review` docket/]
+        Review -->|approve| Promote[Promote scope (Local→Project→Global)]
+        Review -->|reject/modify| Iterate[Refine lesson or handler]
+    end
+
+    Promote --> Manifest[Manifest in CLAUDE.md + runtime hooks]
+    Manifest --> SessionRestore[Next session restore]
+    SessionRestore --> Work
+
+    Manifest --> Signals[Runtime signals]
+    Signals -->|threshold| Warrant[Warrant minted]
+    Warrant --> Review
+    Signals -.background pressure.- Cadence
+```
+
 ## The abstraction ladder
 
 Knowledge in CGG lives on a scope hierarchy. We call it the abstraction ladder because lessons climb it -- and sometimes descend it.

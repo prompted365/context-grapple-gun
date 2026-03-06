@@ -7,15 +7,22 @@ Automated between-session lesson evaluation and signal management for Claude Cod
 ## Runtime pipeline (Mermaid)
 
 ```mermaid
-flowchart TD
-    Cadence[/`/cadence` end session/] --> Plan[Plan written with trigger]
-    Plan --> SessionStart[SessionStart hook]
+flowchart TB
+    Cadence[/`/cadence` end of session/] --> Plan[Plan written with trigger]
+    Plan --> SessionStart[SessionStart hook<br/>restore + signal scan]
     SessionStart --> Assessor[Background ripple-assessor]
     Assessor --> Proposals[Proposals file<br/>~/.claude/grapple-proposals]
     Proposals --> Review[/`/review` docket/]
-    Review --> Decisions[Promote / reject / mint warrant]
-    Decisions --> Siren[/`/siren` dashboard/]
-    Siren --> Cadence
+
+    Review -->|CogPR approved| Promotion[Write CLAUDE.md updates]
+    Review -->|Warrant triage| Actions[ACK / DISMISS / ESCALATE]
+    Review -->|Needs edits| Iterate[Send back to buffer]
+
+    Promotion --> NextSession[Next session start state]
+    Actions --> Siren[/`/siren` dashboard/]
+    Siren --> Tick[/`/siren tick` volume accrual/]
+    Tick --> Review
+    NextSession --> Cadence
 ```
 
 ## What's New in v3

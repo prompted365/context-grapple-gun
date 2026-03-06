@@ -23,6 +23,25 @@ CGG captures two classes of governance artifacts:
 
 Both are valid CogPR candidates. Both can climb the abstraction ladder. Both are reviewed through the same constitutional gate. The academy teaches this through interactive narratives, not prose.
 
+## Learning path overview (Mermaid)
+
+```mermaid
+flowchart TB
+    Ch1["Ch1 Append-only truth"] --> Ch2["Ch2 Dedup & identity"]
+    Ch2 --> Ch3["Ch3 Signals & decay"]
+    Ch3 --> Ch4["Ch4 Human-gated review"]
+    Ch4 --> Ch5["Ch5 Full rotation"]
+
+    Ch1 -. foundation .-> Loop[Governance loop]
+    Ch2 -. fingerprints .-> Loop
+    Ch3 -. pressure .-> Loop
+    Ch4 -. judgment .-> Loop
+    Ch5 -. integrates .-> Loop
+
+    Loop --> Practice[Apply in real project]
+    Practice --> Ch1
+```
+
 ## About that goat
 
 You'll notice something odd in Chapter 1's data. An entry that doesn't fit. Don't worry about it.
