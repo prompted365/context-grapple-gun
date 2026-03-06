@@ -197,6 +197,8 @@ Questions Claude will explore with you:
 
 In CGG, `/grapple` is the human gate. It presents a docket of pending CogPRs and active warrants. The human reviews them. The verdicts flow back into the system as feedback. The quality of future proposals improves. The backlog stabilizes.
 
+**Both loops close here.** The review queue governs technical lessons (API quirks, architecture constraints) and collaboration lessons (effective prompting patterns, coordination structures). Both kinds of CogPRs arrive in the same docket, get reviewed through the same human gate, and promote through the same abstraction ladder.
+
 Sam would approve.
 
 Mabel doesn't care about approval. She just wanted someone to listen.

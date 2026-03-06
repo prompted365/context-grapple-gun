@@ -1,6 +1,6 @@
 # CGG Academy Workspace
 
-This is your Homeskillet Academy workspace. You're learning CGG governance primitives by building them.
+This is your Homeskillet Academy workspace. You're learning CGG governance primitives through narrative simulations.
 
 ## Current Chapter
 
@@ -9,9 +9,18 @@ Start with Chapter 1: `chapters/01-append-only-truth/README.md`
 ## Project Structure
 
 - `chapters/` — Chapter READMEs, tests, and fixtures (read these, don't modify)
-- `src/` — Your implementations go here
+- `src/` — Solution implementations (pre-installed for demonstrations)
 - `exercises/` — Scratch space for experiments
 - `audit-logs/` — Signal store (created during exercises)
+
+## What You're Learning
+
+CGG captures two kinds of lessons:
+
+- **Subject-matter lessons** — truths about the system being built (API quirks, architecture constraints)
+- **Collaboration lessons** — truths about effective human-agent coordination (prompting patterns, debugging rhythms)
+
+Both are valid CogPR candidates. Both can climb the abstraction ladder. Both are required for constitutional governance.
 
 ## Working Posture
 
@@ -21,6 +30,36 @@ Each chapter declares a posture. Follow it:
 |---|---|---|
 | **ENG** | Implement, fix, ship | Architect, plan, design |
 | **OPS** | Run pipelines, hit APIs | Audit, review, explore |
+
+## Session Learning Protocol (CGG)
+
+When you discover something during a session that constitutes a durable lesson, capture it as a CogPR (Cognitive Pull Request).
+
+Lessons may describe domain knowledge or collaboration patterns between the human and the agent. Both are valid CogPR candidates.
+
+### CogPR format
+
+<!-- --agnostic-candidate
+  lesson: "one-line lesson summary"
+  source_date: "YYYY-MM-DD"
+  source: "file:line"
+  band: "COGNITIVE"
+  motivation_layer: "COGNITIVE"
+  subsystem: "relevant_subsystem"
+  recommended_scopes:
+    - "path/to/broader/CLAUDE.md"
+  rationale: "why this is broader than local"
+  status: "pending"
+-->
+
+### Band budget
+
+| Band | Use for |
+|------|---------|
+| PRIMITIVE | Safety, data integrity |
+| COGNITIVE | Learning, discovery (default) |
+| SOCIAL | Collaboration (use sparingly) |
+| PRESTIGE | Never. Governance-blocked. |
 
 ## Running Tests
 

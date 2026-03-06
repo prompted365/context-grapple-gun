@@ -51,7 +51,7 @@ CHAPTER_TESTS[5]="test_completion.py"
 
 declare -A CHAPTER_NAMES
 CHAPTER_NAMES[1]="The Taylor Family Calendar"
-CHAPTER_NAMES[2]="Did We Already Sign Up For That?"
+CHAPTER_NAMES[2]="The Adjunct's Semester Project"
 CHAPTER_NAMES[3]="Zookeeper Radio"
 CHAPTER_NAMES[4]="Bridge Inspector"
 CHAPTER_NAMES[5]="Graduation"

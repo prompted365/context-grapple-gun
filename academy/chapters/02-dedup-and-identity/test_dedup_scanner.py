@@ -1,4 +1,9 @@
-"""Tests for Chapter 2: Content-Addressed Dedup Scanner."""
+"""Tests for Chapter 2: Collaboration Pattern Scanner.
+
+These tests demonstrate how recurring collaboration patterns can be identified,
+fingerprinted, and tracked -- the same dedup mechanics from Chapter 1, now
+applied to patterns of teamwork and coordination.
+"""
 import json
 import os
 import tempfile
@@ -23,128 +28,152 @@ def empty_store(store_path):
     return store_path
 
 
-class TestComputeDedupHash:
-    def test_same_signup_always_same_fingerprint(self):
-        event = {"source": "file.py:10", "lesson": "always check None"}
-        h1 = compute_dedup_hash(event, ["source", "lesson"])
-        h2 = compute_dedup_hash(event, ["source", "lesson"])
+class TestComputePatternHash:
+    """Pattern fingerprinting: how we identify recurring collaboration patterns."""
+
+    def test_same_pattern_always_same_fingerprint(self):
+        """Weekly standup pattern should hash identically regardless of metadata."""
+        event = {"pattern_type": "weekly_standup", "group": "team_a"}
+        h1 = compute_dedup_hash(event, ["pattern_type", "group"])
+        h2 = compute_dedup_hash(event, ["pattern_type", "group"])
         assert h1 == h2
 
     def test_fingerprint_is_16_chars(self):
+        """Pattern hashes are consistent 16-character fingerprints."""
         event = {"a": "hello", "b": "world"}
         h = compute_dedup_hash(event, ["a", "b"])
         assert len(h) == 16
 
-    def test_piano_reschedule_changes_fingerprint(self):
-        e1 = {"source": "file.py:10", "lesson": "check None"}
-        e2 = {"source": "file.py:10", "lesson": "check empty"}
-        h1 = compute_dedup_hash(e1, ["source", "lesson"])
-        h2 = compute_dedup_hash(e2, ["source", "lesson"])
+    def test_different_pattern_different_fingerprint(self):
+        """Weekly standup vs daily standup are distinct patterns."""
+        e1 = {"pattern_type": "weekly_standup", "group": "team_a"}
+        e2 = {"pattern_type": "daily_standup", "group": "team_a"}
+        h1 = compute_dedup_hash(e1, ["pattern_type", "group"])
+        h2 = compute_dedup_hash(e2, ["pattern_type", "group"])
         assert h1 != h2
 
     def test_field_order_doesnt_affect_hash(self):
-        event = {"b": "world", "a": "hello"}
-        h1 = compute_dedup_hash(event, ["a", "b"])
-        h2 = compute_dedup_hash(event, ["b", "a"])
+        """Pattern identity is content-based, not order-based."""
+        event = {"group": "team_a", "pattern_type": "escalation"}
+        h1 = compute_dedup_hash(event, ["pattern_type", "group"])
+        h2 = compute_dedup_hash(event, ["group", "pattern_type"])
         assert h1 == h2  # Keys are sorted internally
 
     def test_missing_fields_dont_crash(self):
-        event = {"a": "hello"}
-        h = compute_dedup_hash(event, ["a", "missing"])
+        """Partial pattern records still fingerprint cleanly."""
+        event = {"pattern_type": "role_assignment"}
+        h = compute_dedup_hash(event, ["pattern_type", "missing_field"])
         assert len(h) == 16  # Doesn't crash
 
-    def test_mikes_signup_matches_sarahs(self):
-        e1 = {"source": "x", "lesson": "y", "extra": "ignored"}
-        e2 = {"source": "x", "lesson": "y", "different": "also ignored"}
-        h1 = compute_dedup_hash(e1, ["source", "lesson"])
-        h2 = compute_dedup_hash(e2, ["source", "lesson"])
-        assert h1 == h2  # Only dedup keys matter
+    def test_same_pattern_different_teams_same_hash(self):
+        """The pattern itself is the identity, team is context."""
+        e1 = {"pattern_type": "early_escalation", "context": "team_a"}
+        e2 = {"pattern_type": "early_escalation", "context": "team_b"}
+        h1 = compute_dedup_hash(e1, ["pattern_type"])
+        h2 = compute_dedup_hash(e2, ["pattern_type"])
+        assert h1 == h2  # Only pattern_type matters for this hash
 
 
-class TestScanForDuplicates:
-    def test_two_unique_events_no_duplicates(self, empty_store):
+class TestScanForRecurringPatterns:
+    """Pattern recurrence: when the same collaboration pattern appears multiple times."""
+
+    def test_two_unique_patterns_no_recurrence(self, empty_store):
+        """Distinct patterns don't cluster."""
         with open(empty_store, "a") as f:
-            f.write(json.dumps({"source": "a.py:1", "lesson": "one"}) + "\n")
-            f.write(json.dumps({"source": "b.py:2", "lesson": "two"}) + "\n")
+            f.write(json.dumps({"pattern_type": "standup", "week": 1}) + "\n")
+            f.write(json.dumps({"pattern_type": "escalation", "week": 1}) + "\n")
 
-        groups = scan_for_duplicates(empty_store, ["source", "lesson"])
+        groups = scan_for_duplicates(empty_store, ["pattern_type"])
         assert groups == []
 
-    def test_catches_double_swim_signup(self, empty_store):
+    def test_catches_repeated_attendance_issue(self, empty_store):
+        """Same attendance problem recurring is flagged."""
         with open(empty_store, "a") as f:
-            f.write(json.dumps({"source": "a.py:1", "lesson": "same"}) + "\n")
-            f.write(json.dumps({"source": "b.py:2", "lesson": "different"}) + "\n")
-            f.write(json.dumps({"source": "a.py:1", "lesson": "same"}) + "\n")
+            f.write(json.dumps({"pattern_type": "missed_checkin", "member": "henry"}) + "\n")
+            f.write(json.dumps({"pattern_type": "role_conflict", "members": ["a", "b"]}) + "\n")
+            f.write(json.dumps({"pattern_type": "missed_checkin", "member": "henry"}) + "\n")
 
-        groups = scan_for_duplicates(empty_store, ["source", "lesson"])
+        groups = scan_for_duplicates(empty_store, ["pattern_type", "member"])
         assert len(groups) == 1
         assert len(groups[0]) == 2
 
-    def test_triple_permission_slip_and_double_swim(self, empty_store):
+    def test_multiple_recurring_issues_grouped_separately(self, empty_store):
+        """Each recurring pattern gets its own cluster."""
         with open(empty_store, "a") as f:
+            # Attendance issue recurs 3 times
             for _ in range(3):
-                f.write(json.dumps({"source": "a", "lesson": "x"}) + "\n")
+                f.write(json.dumps({"pattern_type": "missed_checkin", "member": "henry"}) + "\n")
+            # Ownership gap recurs 2 times
             for _ in range(2):
-                f.write(json.dumps({"source": "b", "lesson": "y"}) + "\n")
-            f.write(json.dumps({"source": "c", "lesson": "z"}) + "\n")  # unique
+                f.write(json.dumps({"pattern_type": "ownership_gap", "area": "database"}) + "\n")
+            # One-off escalation (not recurring)
+            f.write(json.dumps({"pattern_type": "escalation", "reason": "emergency"}) + "\n")
 
-        groups = scan_for_duplicates(empty_store, ["source", "lesson"])
+        groups = scan_for_duplicates(empty_store, ["pattern_type", "member", "area"])
         assert len(groups) == 2
 
-    def test_no_file_no_duplicates(self, tmp_path):
-        groups = scan_for_duplicates(str(tmp_path / "nope.jsonl"), ["a"])
+    def test_no_file_no_patterns(self, tmp_path):
+        """Missing log returns empty, not error."""
+        groups = scan_for_duplicates(str(tmp_path / "nope.jsonl"), ["pattern_type"])
         assert groups == []
 
-    def test_bad_lines_skipped_dupes_still_found(self, empty_store):
+    def test_bad_lines_skipped_patterns_still_found(self, empty_store):
+        """Malformed entries don't break pattern detection."""
         with open(empty_store, "a") as f:
-            f.write(json.dumps({"source": "a", "lesson": "x"}) + "\n")
-            f.write("not json\n")
-            f.write(json.dumps({"source": "a", "lesson": "x"}) + "\n")
+            f.write(json.dumps({"pattern_type": "standup", "week": 1}) + "\n")
+            f.write("corrupted line\n")
+            f.write(json.dumps({"pattern_type": "standup", "week": 2}) + "\n")
 
-        groups = scan_for_duplicates(empty_store, ["source", "lesson"])
+        groups = scan_for_duplicates(empty_store, ["pattern_type"])
         assert len(groups) == 1
 
 
-class TestAppendIfUnique:
-    def test_first_swim_signup_accepted(self, empty_store):
+class TestAppendPromotablePattern:
+    """Pattern promotion: collaboration patterns become governance candidates."""
+
+    def test_first_pattern_recorded(self, empty_store):
+        """New collaboration pattern is captured."""
         result = append_if_unique(
             empty_store,
-            {"source": "a.py:1", "lesson": "new thing"},
-            ["source", "lesson"],
+            {"pattern_type": "weekly_standup", "description": "consistent rhythm"},
+            ["pattern_type"],
         )
         assert result is True
         with open(empty_store) as f:
             assert len(f.readlines()) == 1
 
-    def test_mikes_second_signup_rejected(self, empty_store):
-        event = {"source": "a.py:1", "lesson": "same thing"}
-        append_if_unique(empty_store, event, ["source", "lesson"])
-        result = append_if_unique(empty_store, event, ["source", "lesson"])
+    def test_duplicate_pattern_not_re_recorded(self, empty_store):
+        """Same pattern appearing twice doesn't double-count."""
+        event = {"pattern_type": "weekly_standup", "description": "same pattern"}
+        append_if_unique(empty_store, event, ["pattern_type"])
+        result = append_if_unique(empty_store, event, ["pattern_type"])
         assert result is False
         with open(empty_store) as f:
-            assert len(f.readlines()) == 1  # Still just one line
+            assert len(f.readlines()) == 1
 
-    def test_piano_time_change_not_a_duplicate(self, empty_store):
+    def test_evolved_pattern_is_distinct(self, empty_store):
+        """Pattern refinement creates new entry."""
         append_if_unique(
             empty_store,
-            {"source": "a.py:1", "lesson": "first"},
-            ["source", "lesson"],
+            {"pattern_type": "standup", "frequency": "weekly"},
+            ["pattern_type", "frequency"],
         )
         result = append_if_unique(
             empty_store,
-            {"source": "a.py:1", "lesson": "second"},
-            ["source", "lesson"],
+            {"pattern_type": "standup", "frequency": "daily"},
+            ["pattern_type", "frequency"],
         )
         assert result is True
         with open(empty_store) as f:
             assert len(f.readlines()) == 2
 
-    def test_new_signup_sheet_created_on_first(self, tmp_path):
-        path = str(tmp_path / "new.jsonl")
+    def test_new_log_created_on_first_pattern(self, tmp_path):
+        """Pattern capture creates log file if needed."""
+        path = str(tmp_path / "patterns.jsonl")
         result = append_if_unique(
             path,
-            {"source": "a", "lesson": "b"},
-            ["source", "lesson"],
+            {"pattern_type": "escalation", "threshold": "48h"},
+            ["pattern_type"],
         )
         assert result is True
         assert os.path.exists(path)

@@ -3,7 +3,7 @@
 **Append-Only Truth**
 
 > Posture: `OPS/DIRECT`
-> Time: ~15 minutes
+> Time: ~20 minutes
 > Signal primitive: *Loud does not equal valid. Escalation does not equal understanding.*
 
 ---
@@ -46,6 +46,37 @@ Each line is a standalone JSON object. No commas between them. No wrapping array
 
 Same `id`, two entries. The second one has a later timestamp. **Latest entry per ID wins.** The 10am soccer was real, then it moved to 2pm. Both facts are preserved. The current truth is the second line.
 
+## Duplicate vs. recurrence: why history matters
+
+The append-only store preserves history for a reason deeper than audit trails. It lets you distinguish between fundamentally different situations:
+
+**Duplicate**: Two entries that mean the same thing. Sarah signed Jake up for swim class. Mike, not knowing Sarah already did it, signed Jake up from his phone using a different email. Two signups, same child, same class, same time slot. The rec center charged them twice.
+
+**Recurrence**: The same thing happening again. The dishwasher breaks on Monday. You fix it. The dishwasher breaks again on Thursday. That second report is not a duplicate of the first -- it is a recurrence. It means the problem was not actually fixed.
+
+Why does this distinction matter?
+
+- A **duplicate** is noise. You should collapse it.
+- A **recurrence** is signal. You should amplify it.
+
+If you delete history, you cannot tell the difference. You need both entries, with their timestamps, to know whether you are looking at redundant data or evidence of a persistent problem.
+
+The Taylors' calendar shows this naturally:
+
+```json
+{"id": "wed_piano", "event": "Piano lesson", "who": "Lily", "day": "Wednesday", "time": "16:00", "source": "sarah", "ts": "2026-02-25T20:05:00Z"}
+{"id": "wed_piano", "event": "Piano lesson (rescheduled)", "who": "Lily", "day": "Wednesday", "time": "17:00", "source": "lily", "ts": "2026-02-28T14:00:00Z"}
+```
+
+Same `id`, different content. That is an update -- the time changed from 4pm to 5pm. But what about this?
+
+```json
+{"id": "sig_unknown_001", "type": "signal", "payload": "BLEAT", "volume": 10, "ts": "2026-03-01T08:00:00Z"}
+{"id": "sig_unknown_001", "type": "signal", "payload": "BLEAT", "volume": 15, "ts": "2026-03-01T09:00:00Z"}
+```
+
+Same content fingerprint. Different timestamps. That is a recurrence. Something keeps happening. That is not noise -- it might be the most important signal in the file.
+
 ## See it in action
 
 Claude will run the simulation for this chapter live. Watch what happens:
@@ -53,6 +84,7 @@ Claude will run the simulation for this chapter live. Watch what happens:
 - When Dad appends his golf tee time, Mom's dentist appointment survives. Both entries coexist. That is append-only.
 - When you ask "what is the current Saturday plan?" -- the latest entry for that ID wins. The history stays, but the current truth is clear.
 - When two entries arrive at the same time from different sources, both land. No corruption, no conflict. POSIX append guarantees atomic writes below the pipe buffer size.
+- When the same content appears with different timestamps, the system can classify it as recurring -- a pattern worth attention.
 
 The tests prove each of these properties. Claude runs them and walks through what they demonstrate.
 
@@ -70,10 +102,11 @@ Why JSONL instead of a database?
 - **Concurrent-write safe.** Two agents (or two parents) appending to the same file never corrupt each other. POSIX guarantees that appends below the pipe buffer size are atomic.
 - **Zero dependencies.** No database server. No connection strings. No migrations. A text file and `json.loads`.
 - **Full provenance.** Every state a signal has ever been in is preserved. When you need to understand *why* a warrant was minted, you read the full trail, not just the current state.
+- **Recurrence detection.** With full history, you can distinguish "same thing submitted twice" from "same thing happening again." That distinction is the difference between deduplicating noise and amplifying signal.
 
 The Taylor family calendar is a governance signal store. The only difference is the payload.
 
-> **CGG connection:** The `latest_by_id` logic -- scan every line, keep only the last occurrence of each ID, operate on the resolved state -- is the same read semantics used by `/siren tick` when it processes signal state. Your family calendar resolves "which soccer time is current" the same way CGG resolves "which signal state is current."
+> **CGG connection:** The `latest_by_id` logic -- scan every line, keep only the last occurrence of each ID, operate on the resolved state -- is the same read semantics used by `/siren tick` when it processes signal state. Your family calendar resolves "which soccer time is current" the same way CGG resolves "which signal state is current." And the duplicate-vs-recurrence distinction maps directly to CGG's dedup engine, which collapses true duplicates while preserving recurrences as escalating signals.
 
 ---
 
@@ -96,7 +129,8 @@ A couple things to think about -- Claude will ask you about these:
 - If two people write to the same JSONL file at the exact same moment, what happens? (Hint: it is good news.)
 - Why keep the old entries around? Why not just update in place?
 - What is the difference between a database and a text file for governance signals?
+- If the same failure appears on Monday and again on Thursday, is the Thursday report a duplicate? Why does the answer matter?
 
 ---
 
-**Next:** [Chapter 2 -- Did We Already Sign Up For That?](../02-dedup-and-identity/README.md)
+**Next:** [Chapter 2 -- The Adjunct's Semester Project](../02-dedup-and-identity/README.md)
