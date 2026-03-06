@@ -1,20 +1,26 @@
 #!/bin/bash
-# CGG v3 — SessionStart hook PATCH
+# CGG v3.1 — SessionStart hook reference implementation
 # Add this logic to your existing SessionStart hook (session-restore.sh).
 # If you don't have one, use this as your complete SessionStart hook.
 #
-# This script discovers project-scoped plan files with CGG triggers,
-# extracts them to flag files for the UserPromptSubmit gate,
-# counts pending CogPR flags, and scans the signal store for active signals.
+# Features:
+# - Project-scoped plan discovery + trigger extraction
+# - Block-aware CogPR counter (inline tags + queue.jsonl)
+# - Signal store scanning (single-pass Python dedup, latest-entry-per-ID)
+# - Parallel session awareness
+# - CPR extract backfill + enrichment scanner (if scripts exist)
+# - Physical tic count anchoring
 #
-# Signal scanning uses single-pass Python for dedup (latest-entry-per-ID-wins)
-# instead of line-by-line bash parsing. Much faster on large signal stores.
+# Constitutional principles:
+# - Signals do not expire. Only resolved/dismissed are terminal.
+# - Tic count is the time authority. Timestamps are observability only.
+# - Warrant eligibility is kind-gated (configurable via .ticzone).
 cat > /dev/null
 
 PROJECT_DIR="${CLAUDE_PROJECT_DIR:-$(pwd)}"
 PROJECT_KEY=$(echo "$PROJECT_DIR" | sed 's|/|-|g')
 
-# --- CGG v2: Project-scoped plan discovery + trigger extraction ---
+# --- Plan discovery + trigger extraction ---
 PROCESSED_IDS="$HOME/.claude/cgg-processed-handoff-ids.txt"
 touch "$PROCESSED_IDS"
 FLAG_DIR="${TMPDIR:-/tmp}/claude_cgg/$PROJECT_KEY"
@@ -22,7 +28,6 @@ CGG_MSG=""
 HANDOFF_ID=""
 LATEST_PLAN=""
 
-# Search for plan files in the project's Claude directory
 PLAN_DIR="$HOME/.claude/projects/$PROJECT_KEY"
 
 if [ -d "$PLAN_DIR" ]; then
@@ -58,13 +63,13 @@ if [ -n "$LATEST_PLAN" ] && [ -n "$HANDOFF_ID" ]; then
   fi
 fi
 
-# Block-aware CogPR counter — parses <!-- --agnostic-candidate ... --> blocks,
-# counts those with status: "pending" (excludes status: "example").
-# Fixes: line-based grep undercounted (status on different line than block opener).
+# --- CogPR counting: inline blocks + queue.jsonl ---
+# Block-aware CogPR counter for inline <!-- --agnostic-candidate --> blocks
 count_pending_cprs() {
   awk '
     /<!-- --agnostic-candidate/ { in_block=1; pending=0; example=0 }
     in_block && /status:[[:space:]]*"pending"/ { pending=1 }
+    in_block && /status:[[:space:]]*"enrichment_eligible"/ { pending=1 }
     in_block && /status:[[:space:]]*"example"/ { example=1 }
     in_block && /-->/ { if (pending && !example) c++; in_block=0 }
     END { print c+0 }
@@ -78,24 +83,21 @@ if [ -d "$PROJECT_DIR" ]; then
   TICIGNORE="$PROJECT_DIR/.ticignore"
   if [ -f "$TICIGNORE" ]; then
     while IFS= read -r pat; do
-      # Strip comments, whitespace, trailing slash (vendor and vendor/ both work)
       pat=$(echo "$pat" | sed 's/#.*//;s/^[[:space:]]*//;s/[[:space:]]*$//;s|/$||')
       [ -z "$pat" ] && continue
-      # Skip glob patterns (*.pyc etc) — only directory exclusions for governance scan
       case "$pat" in *\**|*\?*) continue ;; esac
       FIND_EXCLUDES+=(-not -path "*/$pat/*")
     done < "$TICIGNORE"
   else
-    # Default: exclude vendor, node_modules, .claude/skills (template CogPR blocks)
     FIND_EXCLUDES+=(-not -path "*/vendor/*" -not -path "*/node_modules/*" -not -path "*/.claude/skills/*")
   fi
 
-  # Find governance files and sum per-file block counts
   while IFS= read -r f; do
     _c=$(count_pending_cprs "$f")
     CPR_COUNT=$(( CPR_COUNT + _c ))
   done < <(find "$PROJECT_DIR" \( -name "CLAUDE.md" -o -name "MEMORY.md" \) "${FIND_EXCLUDES[@]}" 2>/dev/null)
 fi
+
 # Auto-memory (gitignored but governance-visible)
 MEMORY_FILE="$HOME/.claude/projects/$PROJECT_KEY/memory/MEMORY.md"
 if [ -f "$MEMORY_FILE" ]; then
@@ -103,14 +105,95 @@ if [ -f "$MEMORY_FILE" ]; then
   CPR_COUNT=$(( CPR_COUNT + _mem_count ))
 fi
 
-# Build CGG context message — extract Next Actions inline instead of forcing full plan re-read
+# Queue.jsonl counting (latest-entry-per-ID, non-terminal statuses)
+QUEUE_FILE="$PROJECT_DIR/audit-logs/cprs/queue.jsonl"
+QUEUE_COUNT=0
+if [ -f "$QUEUE_FILE" ]; then
+  QUEUE_COUNT=$(python3 -c "
+import json
+entries = {}
+for line in open('$QUEUE_FILE'):
+    try:
+        d = json.loads(line.strip())
+        eid = d.get('id','')
+        if eid: entries[eid] = d
+    except: pass
+pending = [e for e in entries.values()
+           if e.get('status','') in ('extracted','tic_gated','enrichment_needed',
+                                      'enrichment_in_progress','enrichment_eligible','promotable')]
+print(len(pending))
+" 2>/dev/null || echo "0")
+fi
+
+TOTAL_CPRS=$(( CPR_COUNT + QUEUE_COUNT ))
+
+# --- CPR extract backfill ---
+# Look for cpr-extract.py: project scripts first, then CGG runtime bundled copy
+CPR_EXTRACT=""
+if [ -f "$PROJECT_DIR/scripts/cpr-extract.py" ]; then
+  CPR_EXTRACT="$PROJECT_DIR/scripts/cpr-extract.py"
+else
+  # Search for CGG runtime bundled copy (vendor submodule or direct install)
+  for candidate in \
+    "$PROJECT_DIR/vendor/context-grapple-gun/cgg-runtime/scripts/cpr-extract.py" \
+    "$HOME/.claude/cgg-runtime/scripts/cpr-extract.py"; do
+    if [ -f "$candidate" ]; then
+      CPR_EXTRACT="$candidate"
+      break
+    fi
+  done
+fi
+if [ -n "$CPR_EXTRACT" ] && [ "$TOTAL_CPRS" -gt 0 ]; then
+  python3 "$CPR_EXTRACT" --project-dir "$PROJECT_DIR" 2>/dev/null || true
+fi
+
+# --- Enrichment scanner (background, nonblocking) ---
+ENRICHMENT_SCANNER="$PROJECT_DIR/scripts/cpr-enrichment-scanner.py"
+HOLDING_CPRS=0
+if [ -f "$QUEUE_FILE" ]; then
+  HOLDING_CPRS=$(python3 -c "
+import json
+entries = {}
+for line in open('$QUEUE_FILE'):
+    try:
+        d = json.loads(line.strip())
+        eid = d.get('id','')
+        if eid: entries[eid] = d
+    except: pass
+holding = [e for e in entries.values()
+           if e.get('status','') in ('enrichment_needed','enrichment_eligible')]
+print(len(holding))
+" 2>/dev/null || echo "0")
+fi
+
+ENRICHMENT_MSG=""
+if [ -f "$ENRICHMENT_SCANNER" ] && [ "$HOLDING_CPRS" -gt 0 ]; then
+  python3 "$ENRICHMENT_SCANNER" > /dev/null 2>&1 &
+  ENRICHMENT_MSG="[ENRICHMENT: scanning $HOLDING_CPRS holding CogPRs in background]"
+fi
+
+# --- Physical tic count ---
+TIC_DIR="$PROJECT_DIR/audit-logs/tics"
+TIC_COUNT=0
+if [ -d "$TIC_DIR" ]; then
+  TIC_COUNT=$(python3 -c "
+import json, glob
+count = 0
+for f in sorted(glob.glob('$TIC_DIR/*.jsonl')):
+    for line in open(f):
+        try:
+            if json.loads(line).get('type') == 'tic': count += 1
+        except: pass
+print(count)
+" 2>/dev/null || echo "0")
+fi
+
+# --- Build handoff context ---
 if [ -n "$LATEST_PLAN" ]; then
-  # Extract ## Next Actions section (lighter than full plan read)
   NEXT_ACTIONS=$(awk '/^## Next Actions/,/^## [^N]/' "$LATEST_PLAN" 2>/dev/null | head -20 | sed 's/"/\\"/g' | tr '\n' ' ')
   if [ -n "$NEXT_ACTIONS" ] && [ ${#NEXT_ACTIONS} -gt 20 ]; then
     CGG_MSG="[CGG HANDOFF NEXT ACTIONS: $NEXT_ACTIONS] [Full plan if needed: $LATEST_PLAN]"
   else
-    # Fallback: try ## Not Started or ## Working State for compact context
     WORKING=$(awk '/^### Not Started/,/^### [^N]/' "$LATEST_PLAN" 2>/dev/null | head -15 | sed 's/"/\\"/g' | tr '\n' ' ')
     if [ -n "$WORKING" ] && [ ${#WORKING} -gt 20 ]; then
       CGG_MSG="[CGG HANDOFF REMAINING: $WORKING] [Full plan if needed: $LATEST_PLAN]"
@@ -122,11 +205,14 @@ fi
 if [ -n "$TRIGGER_MSG" ]; then
   CGG_MSG="$CGG_MSG $TRIGGER_MSG"
 fi
-if [ "$CPR_COUNT" -gt 0 ]; then
-  CGG_MSG="$CGG_MSG [CogPR QUEUE: $CPR_COUNT pending flags. /grapple when ready.]"
+if [ "$TOTAL_CPRS" -gt 0 ]; then
+  CGG_MSG="$CGG_MSG [CPR QUEUE: $TOTAL_CPRS pending ($CPR_COUNT inline + $QUEUE_COUNT in queue.jsonl). /review when ready.]"
+fi
+if [ -n "$ENRICHMENT_MSG" ]; then
+  CGG_MSG="$CGG_MSG $ENRICHMENT_MSG"
 fi
 
-# --- CGG v3: Signal Scanning (single-pass Python dedup) ---
+# --- Signal store scanning (single-pass Python dedup) ---
 SIGNAL_DIR="$PROJECT_DIR/audit-logs/signals"
 SIREN_MSG=""
 if [ -d "$SIGNAL_DIR" ]; then
@@ -145,6 +231,7 @@ for f in sorted(glob.glob('$SIGNAL_DIR/*.jsonl')):
             elif d.get('type') == 'warrant':
                 warrants[eid] = d
         except: pass
+# Signals never expire — only count active/acknowledged/working
 active_sigs = [s for s in signals.values() if s.get('status') in ('active','acknowledged','working')]
 active_wrns = [w for w in warrants.values() if w.get('status') in ('active','acknowledged')]
 if not active_sigs and not active_wrns:
@@ -158,7 +245,7 @@ print(' '.join(parts))
 " 2>/dev/null || true)
 fi
 
-# --- Parallel context awareness (project-filtered) ---
+# --- Parallel session awareness ---
 SESSION_META="$HOME/.claude/usage-data/session-meta"
 PARALLEL_MSG=""
 if [ -d "$SESSION_META" ]; then
@@ -181,27 +268,13 @@ print(count)
   fi
 fi
 
-# Combine all context messages
+# --- Combine all context ---
 FULL_MSG=""
-if [ -n "$CGG_MSG" ]; then
-  FULL_MSG="$CGG_MSG"
-fi
-if [ -n "$SIREN_MSG" ]; then
-  if [ -n "$FULL_MSG" ]; then
-    FULL_MSG="$FULL_MSG $SIREN_MSG"
-  else
-    FULL_MSG="$SIREN_MSG"
-  fi
-fi
-if [ -n "$PARALLEL_MSG" ]; then
-  if [ -n "$FULL_MSG" ]; then
-    FULL_MSG="$FULL_MSG $PARALLEL_MSG"
-  else
-    FULL_MSG="$PARALLEL_MSG"
-  fi
-fi
+[ -n "$CGG_MSG" ] && FULL_MSG="$CGG_MSG"
+[ -n "$SIREN_MSG" ] && FULL_MSG="${FULL_MSG:+$FULL_MSG }$SIREN_MSG"
+[ -n "$PARALLEL_MSG" ] && FULL_MSG="${FULL_MSG:+$FULL_MSG }$PARALLEL_MSG"
+[ "$TIC_COUNT" -gt 0 ] && FULL_MSG="${FULL_MSG:+$FULL_MSG }[TIC: #$TIC_COUNT]"
 
-# Output (append to your existing SessionStart output)
 if [ -n "$FULL_MSG" ]; then
   echo "{\"hookSpecificOutput\":{\"hookEventName\":\"SessionStart\",\"additionalContext\":\"$FULL_MSG\"}}"
 fi
