@@ -110,6 +110,43 @@ if [ -n "$DETERMINISTIC_ASSESSOR" ]; then
   exit 0
 fi
 
+# ============================================================================
+# Mogul mandate spawn path — if mandate present and due, spawn non-blocking
+# ============================================================================
+
+MANDATE_FILE="$ZONE_ROOT/${AUDIT_LOGS_REL:-audit-logs}/mogul/mandates/current.json"
+if [ -f "$MANDATE_FILE" ]; then
+  MOGUL_CYCLES=$(python3 -c "
+import json, sys
+try:
+    m = json.load(open('$MANDATE_FILE'))
+    cycles = m.get('cycle_request', {}).get('run_now', [])
+    # Filter out queue_refresh and signal_scan — those are lightweight, not spawn-worthy
+    heavy = [c for c in cycles if c not in ('queue_refresh', 'signal_scan')]
+    if heavy:
+        print(','.join(heavy))
+except: pass
+" 2>/dev/null)
+
+  if [ -n "$MOGUL_CYCLES" ]; then
+    echo "{\"timestamp\":\"$TIMESTAMP\",\"action\":\"mogul_mandate_detected\",\"cycles\":\"$MOGUL_CYCLES\"}" >> "$META_LOG"
+    # Emit instruction to spawn Mogul non-blocking for mandated heavy cycles
+    echo "{\"hookSpecificOutput\":{\"hookEventName\":\"UserPromptSubmit\",\"additionalContext\":\"[MOGUL MANDATE PENDING] Heavy governance cycles due: $MOGUL_CYCLES. Spawn Mogul agent (Task tool, subagent_type: mogul, run_in_background: true) to execute mandated cycles. Mandate at: $MANDATE_FILE. Non-blocking — proceed with user work.\"}}"
+    # Do NOT exit — still check for ripple-assessor trigger below
+  fi
+fi
+
+# Audit-logs relative path for mandate (need to resolve before assessor section)
+if [ -z "${AUDIT_LOGS_REL:-}" ]; then
+  AUDIT_LOGS_REL=$(python3 -c "
+import json
+try:
+    tz = json.load(open('$ZONE_ROOT/.ticzone'))
+    print(tz.get('audit_logs_path', 'audit-logs'))
+except: print('audit-logs')
+" 2>/dev/null || echo "audit-logs")
+fi
+
 # Fall back to LLM agent spawn (original behavior)
 PLAN_REF=""
 if [ -n "$PLAN_PATH" ]; then

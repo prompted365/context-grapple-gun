@@ -109,6 +109,43 @@ The plan must include:
 - Cadence due markers (see below)
 - `<!-- cgg-evaluate -->` trigger block at the very bottom — `pending_cprs_expected` must match the exact number of CogPRs from Step 2
 
+#### Mogul Mandate Cascade
+
+After computing due markers (below), write a Mogul activation mandate for any newly-due cycles. This is the primary clock trigger for governance maintenance — /cadence computes what became due, writes the mandate, and lets the next session's activation fabric consume it.
+
+**Do NOT spawn Mogul during /cadence.** /cadence runs during session flush/exit. Spawning heavy maintenance here risks context exhaustion. The mandate is consumed by SessionStart or first-prompt in the next session.
+
+**Do NOT run governance maintenance inline.** /cadence is the clock, not the worker.
+
+Steps:
+1. Compute which cycles are newly due at CURRENT_TIC (see due marker formulas below)
+2. Build `cycle_request.run_now` array from due cycles
+3. Write mandate to `$ZONE_ROOT/audit-logs/mogul/mandates/current.json`:
+   ```json
+   {
+     "actor": {"office": "mogul", "embodiment": "cgg_runtime"},
+     "trigger": {"kind": "cadence", "source_ref": ".claude/skills/cadence/SKILL.md"},
+     "tic_context": {
+       "current_tic": CURRENT_TIC,
+       "review_due_tic": ...,
+       "memory_mining_due_tic": ...,
+       "ladder_audit_due_tic": ...,
+       "deep_audit_due_tic": ...
+     },
+     "cycle_request": {
+       "run_now": ["queue_refresh", ...],
+       "reason": "Tic CURRENT_TIC — cycles due: ..."
+     },
+     "conformation_ref": "<path to latest conformation or null>",
+     "mode": {"blocking_to_homeskillet": false, "allow_subdelegation": true},
+     "runtime_truth": {"canonical_vs_installed_verified": false},
+     "created_at": "ISO-8601 now"
+   }
+   ```
+4. Append the mandate to `$ZONE_ROOT/audit-logs/mogul/mandates/history/YYYY-MM-DD.jsonl`
+5. Create the directories if they don't exist (`audit-logs/mogul/mandates/history/`)
+6. Note in the handoff: "Mogul mandate written for cycles: [list]"
+
 #### Cadence Due Markers
 
 Include a `## Cadence Due` section in the handoff with tic-sum-derived operational due markers. These are not hard deadlines — they are audit cadence hints tied to the current tic count (`CURRENT_TIC` from Step 0.5):

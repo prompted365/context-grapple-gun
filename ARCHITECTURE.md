@@ -350,6 +350,123 @@ Due markers are deterministic from the current tic count:
 
 SessionStart hooks may check these markers against the current tic to determine which cycles are due.
 
+## Dimensional Separation
+
+Five independent dimensions describe governance participants. Conflating them produces role collapse, copy-state confusion, and trigger/surface misidentification.
+
+### Dimension 1: Office/Actor
+
+An **office** is a named governance role with defined responsibilities, constraints, and delegation authority. Each office has exactly one occupant at any time.
+
+| Office | Role | Mode |
+|--------|------|------|
+| Homeskillet | Interactive orchestrator | Blocking, user-facing |
+| Mogul | Estate operations governor | Headless by default |
+| Swann | Economic governor | Headless by default |
+
+Subordinate roles (Ripple Assessor, Pattern Curator, Ladder Auditor, etc.) are delegation targets, not offices. They operate under Mogul's synthesis authority.
+
+### Dimension 2: Runtime Embodiment
+
+An office may have multiple **embodiments** — runtime environments where the office can execute. Embodiments describe capability, not identity.
+
+| Embodiment | Environment | Capabilities |
+|------------|-------------|-------------|
+| `cgg_runtime` | Claude Code agent process | Host filesystem, git, codebase, governance surfaces, subagent delegation |
+| `estate_runtime` | External supervised process | Container filesystem, memory systems, web intelligence, compliance tools |
+
+One office, multiple possible embodiments. The embodiment determines what tools are available, not what the office is responsible for. CGG canonical docs describe embodiments abstractly — convergence-specific mappings (Docker, A0, etc.) belong in local project documentation.
+
+### Dimension 3: Source/Install State
+
+Governance artifacts exist in three states:
+
+| State | Location | Authority |
+|-------|----------|-----------|
+| **Canonical source** | `vendor/context-grapple-gun/cgg-runtime/` | Design intent |
+| **Installed copy** | `.claude/skills/`, `.claude/agents/`, `.claude/hooks/` | Operational convenience |
+| **Loaded runtime** | Agent process memory | Behavioral truth |
+
+Loaded runtime wins. Canonical source is intent until sync + verify completes. Source copies are not actors. Installed copies are not actors. Only the loaded runtime in an embodiment is an actor.
+
+### Dimension 4: Governance Surface
+
+| Surface | Job | Examples |
+|---------|-----|---------|
+| **Authoring** | Capture lessons | MEMORY.md, CLAUDE.md candidate blocks |
+| **Execution** | Drive lifecycle | queue.jsonl, mandate payloads, enrichment records, bench packets |
+| **Constitutional** | Human law | /review docket, approved CLAUDE.md inscriptions |
+| **Bridge** | Carry state between contexts | Handoff/plan files |
+| **History** | Audit trail | signals, tics, conformations, reviews |
+
+### Dimension 5: Trigger/Cycle
+
+Triggers activate governance work. They are not surfaces.
+
+| Trigger | When | What it does |
+|---------|------|-------------|
+| `session_start` | SessionStart hook | Restore bridge, detect overdue cycles, write Mogul mandate |
+| `first_prompt` | UserPromptSubmit hook | Non-blocking spawn point for background Mogul runs |
+| `cadence` | `/cadence` skill | Emit tic, compute newly-due cycles, write Mogul mandate |
+| `review` | `/review` skill | Require fresh bench packet, consume Mogul outputs, issue review-close mandate |
+| `siren` | `/siren` skill | Expose signal state, optionally trigger neighborhood audit mandates |
+| `init_governance` | `/init-governance` skill | Install/sync surfaces, initialize baseline due markers |
+| `explicit` | Human direct invocation | Override trigger for manual cycle execution |
+
+### Ownership Invariant
+
+**Due governance work may be triggered from the user-facing layer, but it must be owned by the proper governor.** Homeskillet may notice due-ness, trigger Mogul, and present results. Homeskillet should not routinely perform Mogul's maintenance work. When Mogul's activation fabric is absent, manual execution by another actor must be recorded as wrong-owner override.
+
+## Mogul Activation Contract
+
+### Mandate model
+
+Mogul is always activated with an explicit **mandate** — a machine-checkable execution-surface artifact describing the activation context. Mogul reads the mandate and decides subdelegation within bounds. Mogul does not invent its own trigger reason.
+
+Mandate schema: `cgg-runtime/config/mogul-mandate.schema.json`
+
+### Mandate storage
+
+The mandate is an execution-surface artifact, not a bridge or ephemeral transport:
+
+| Path | Role |
+|------|------|
+| `audit-logs/mogul/mandates/current.json` | Active mandate (latest, authoritative) |
+| `audit-logs/mogul/mandates/history/YYYY-MM-DD.jsonl` | Append-only mandate history |
+
+Optional: `/tmp/claude_cgg/.../mogul-mandate.json` as transport cache. The audit-logs path is the execution-surface authority.
+
+### Trigger → mandate flow
+
+1. Trigger fires (SessionStart, /cadence, /review, explicit)
+2. Trigger computes due cycles from tic-derived markers
+3. Trigger writes mandate to `audit-logs/mogul/mandates/current.json`
+4. Trigger appends mandate to `audit-logs/mogul/mandates/history/YYYY-MM-DD.jsonl`
+5. If spawn-worthy: trigger schedules Mogul activation at appropriate spawn point
+6. Mogul reads mandate, executes mandated cycles, produces execution artifacts
+7. Mogul does NOT invent additional trigger reasons beyond the mandate
+
+### Blocking vs non-blocking
+
+| Mode | When | Examples |
+|------|------|---------|
+| **Non-blocking** (default) | Standard maintenance | 1-tic refresh, 3-tic memory mining, 5-tic drift check, 8-tic deep audit |
+| **Blocking** | Constitutional or dependency-critical | Pre-review bench packet (stale), review-close consistency, explicit deep audit, runtime-drift when constitutional decisions pending |
+
+### Governance maintenance lanes (Mogul-owned)
+
+These lanes are Mogul's responsibility. Other actors may trigger them but should not routinely perform them:
+
+1. Memory mining (3-tic cycle)
+2. Pattern curation (delegated to Pattern Curator)
+3. Enrichment scanning (delegated to Ripple Assessor)
+4. Ladder coherence audit (5-tic cycle, delegated to Ladder Auditor)
+5. Manifestation scan (8-tic deep audit)
+6. Runtime drift audit (5-tic cycle)
+7. Prompt-stack audit (5-tic cycle)
+8. Review-close consistency (post-/review)
+9. Bench packet preparation (pre-/review)
+
 ---
 
 ### Part II — Advanced / boundary-to-substrate (Sections 7–11)

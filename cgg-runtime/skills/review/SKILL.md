@@ -63,6 +63,38 @@ Check the current 24h signal window for:
 
 If all three are present -> mint a warrant with `minting_condition: "harmonic_triad"`, promote to top of docket.
 
+### 5.5. Pre-Review Bench Packet Freshness Check (Blocking)
+
+Before presenting the docket, verify that Section C (CogPR Review) has fresh Mogul-prepared context:
+
+1. Check for a bench packet at `audit-logs/mogul/bench-packets/latest.json` or the most recent `audit-logs/mogul/bench-packets/YYYY-MM-DD.json`
+2. If a bench packet exists and its `created_at` is within the last 2 tics of the current tic count, proceed — it is fresh enough
+3. If the bench packet is stale or missing:
+   a. Write a **blocking** Mogul mandate for `bench_packet_prep`:
+      ```json
+      {
+        "actor": {"office": "mogul", "embodiment": "cgg_runtime"},
+        "trigger": {"kind": "review", "source_ref": ".claude/skills/review/SKILL.md"},
+        "tic_context": {"current_tic": <current>, ...},
+        "cycle_request": {
+          "run_now": ["bench_packet_prep"],
+          "reason": "/review requires fresh bench context for Section C"
+        },
+        "conformation_ref": null,
+        "mode": {"blocking_to_homeskillet": true, "allow_subdelegation": true},
+        "runtime_truth": {"canonical_vs_installed_verified": false},
+        "created_at": "ISO-8601 now"
+      }
+      ```
+   b. Write mandate to `audit-logs/mogul/mandates/current.json` and append to history
+   c. Spawn Mogul bench-prep (blocking — wait for completion)
+   d. After completion, re-check for fresh bench packet
+
+**Degraded mode:** If bench-prep cannot complete (Mogul unavailable, timeout, missing infrastructure), /review may proceed WITHOUT Section C bench context ONLY if:
+- The operator explicitly acknowledges degraded mode
+- The docket header includes: `**DEGRADED: Section C presented without Mogul bench packet. Estate assessment is inline/ad-hoc, not constitutionally prepared.**`
+- This is a constitutional degradation — not a normal operating mode
+
 ### 6. Present Unified Docket (Plan Mode)
 
 Enter Plan Mode. Present the docket in three sections, ordered by priority:
@@ -177,6 +209,34 @@ Consistency check: N promotions verified, M rejections verified, K warrant trans
 ```
 
 If any check fails, surface it as a governance hazard — do not silently proceed.
+
+### 8.5. Review-Close Mogul Mandate
+
+After applying all approved actions and verifying consistency (Step 8), write a **non-blocking** Mogul mandate for review-close follow-up:
+
+```json
+{
+  "actor": {"office": "mogul", "embodiment": "cgg_runtime"},
+  "trigger": {"kind": "review", "source_ref": ".claude/skills/review/SKILL.md"},
+  "tic_context": {"current_tic": <current>, ...},
+  "cycle_request": {
+    "run_now": ["review_close_check"],
+    "reason": "/review verdicts applied — review-close consistency cycle due"
+  },
+  "conformation_ref": null,
+  "mode": {"blocking_to_homeskillet": false, "allow_subdelegation": true},
+  "runtime_truth": {"canonical_vs_installed_verified": false},
+  "created_at": "ISO-8601 now"
+}
+```
+
+Write to `audit-logs/mogul/mandates/current.json` and append to history. This mandate is consumed by the next session's activation fabric — it does not block the current /review session.
+
+The review-close mandate ensures Mogul verifies:
+- Inscription consistency (promoted lessons actually landed)
+- Follow-on specialization targets
+- Queue state coherence
+- Any runtime sync required for install-owned surfaces
 
 ### 9. Log and Clean Up
 

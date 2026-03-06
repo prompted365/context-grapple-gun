@@ -1,0 +1,144 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "mogul-mandate.schema.json",
+  "title": "Mogul Activation Mandate",
+  "description": "Machine-checkable schema for Mogul activation mandates. Written by triggers (SessionStart, /cadence, /review, explicit), read by Mogul to determine execution scope.",
+  "type": "object",
+  "required": ["actor", "trigger", "tic_context", "cycle_request", "mode"],
+  "properties": {
+    "actor": {
+      "type": "object",
+      "description": "The governance office being activated and its runtime embodiment.",
+      "required": ["office", "embodiment"],
+      "properties": {
+        "office": {
+          "type": "string",
+          "const": "mogul",
+          "description": "The governance office. Always 'mogul' for this schema."
+        },
+        "embodiment": {
+          "type": "string",
+          "enum": ["cgg_runtime", "estate_runtime"],
+          "description": "The runtime embodiment executing this mandate. cgg_runtime = Claude Code agent process. estate_runtime = external supervised process."
+        }
+      },
+      "additionalProperties": false
+    },
+    "trigger": {
+      "type": "object",
+      "description": "What caused this mandate to be written.",
+      "required": ["kind", "source_ref"],
+      "properties": {
+        "kind": {
+          "type": "string",
+          "enum": ["session_start", "first_prompt", "cadence", "review", "siren", "init_governance", "explicit"],
+          "description": "The trigger type that generated this mandate."
+        },
+        "source_ref": {
+          "type": "string",
+          "description": "Path or identifier of the hook/skill/command that wrote this mandate."
+        }
+      },
+      "additionalProperties": false
+    },
+    "tic_context": {
+      "type": "object",
+      "description": "Tic-derived scheduling context at mandate creation time.",
+      "required": ["current_tic"],
+      "properties": {
+        "current_tic": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Physical tic count at mandate creation."
+        },
+        "review_due_tic": {
+          "type": ["integer", "null"],
+          "description": "Next tic at which queue + signal scan is due."
+        },
+        "memory_mining_due_tic": {
+          "type": ["integer", "null"],
+          "description": "Next tic at which memory mining cycle is due."
+        },
+        "ladder_audit_due_tic": {
+          "type": ["integer", "null"],
+          "description": "Next tic at which ladder coherence audit is due."
+        },
+        "deep_audit_due_tic": {
+          "type": ["integer", "null"],
+          "description": "Next tic at which deep audit cycle is due."
+        }
+      },
+      "additionalProperties": false
+    },
+    "cycle_request": {
+      "type": "object",
+      "description": "Which governance cycles Mogul should execute.",
+      "required": ["run_now", "reason"],
+      "properties": {
+        "run_now": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": [
+              "queue_refresh",
+              "signal_scan",
+              "memory_mining",
+              "pattern_curation",
+              "enrichment_scan",
+              "ladder_audit",
+              "runtime_drift_check",
+              "prompt_stack_audit",
+              "deep_audit",
+              "bench_packet_prep",
+              "review_close_check",
+              "drift_check"
+            ]
+          },
+          "description": "List of governance cycles to execute in this activation."
+        },
+        "reason": {
+          "type": "string",
+          "description": "Human-readable explanation of why these cycles are due or required."
+        }
+      },
+      "additionalProperties": false
+    },
+    "conformation_ref": {
+      "type": ["string", "null"],
+      "description": "Path to the most recent conformation snapshot, or null if unavailable."
+    },
+    "mode": {
+      "type": "object",
+      "description": "Execution mode constraints.",
+      "required": ["blocking_to_homeskillet", "allow_subdelegation"],
+      "properties": {
+        "blocking_to_homeskillet": {
+          "type": "boolean",
+          "description": "If true, Homeskillet waits for Mogul to complete before proceeding."
+        },
+        "allow_subdelegation": {
+          "type": "boolean",
+          "description": "If true, Mogul may delegate to subordinate agents."
+        }
+      },
+      "additionalProperties": false
+    },
+    "runtime_truth": {
+      "type": "object",
+      "description": "Runtime sync state at mandate creation time.",
+      "properties": {
+        "canonical_vs_installed_verified": {
+          "type": "boolean",
+          "description": "Whether canonical source and installed copies were verified as in-sync before this mandate was written."
+        }
+      },
+      "additionalProperties": false
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO-8601 timestamp when this mandate was created."
+    }
+  },
+  "additionalProperties": false
+}
