@@ -94,11 +94,11 @@ cgg-runtime/
     cadence/SKILL.md          (PRIMARY)
     review/SKILL.md           (PRIMARY)
     siren/SKILL.md            (PRIMARY)
-    cadence-downbeat/SKILL.md (DEPRECATED redirect)
-    cadence-syncopate/SKILL.md(DEPRECATED redirect)
-    grapple/SKILL.md          (DEPRECATED redirect)
-    init-gun/SKILL.md         (DEPRECATED redirect)
-    init-cogpr/SKILL.md       (DEPRECATED redirect)
+    cadence-downbeat/SKILL.md (LEGACY redirect)
+    cadence-syncopate/SKILL.md(LEGACY redirect)
+    grapple/SKILL.md          (LEGACY redirect)
+    init-gun/SKILL.md         (DEPRECATED — absorbed)
+    init-cogpr/SKILL.md       (DEPRECATED — absorbed)
 ```
 
 Only the 3 primary skills + 2 hooks + 1 agent are copied during install. Deprecated skills are NOT installed.

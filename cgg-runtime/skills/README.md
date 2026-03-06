@@ -44,9 +44,9 @@ flowchart TB
 | `skills/cadence/SKILL.md` | Unified epoch boundary — downbeat (default) or double-time (emergency syncopate) |
 | `skills/review/SKILL.md` | Unified CogPR + Warrant docket reviewer |
 | `skills/siren/SKILL.md` | Signal emission + triage dashboard |
-| `skills/cadence-downbeat/SKILL.md` | [DEPRECATED] Redirects to `/cadence` |
-| `skills/cadence-syncopate/SKILL.md` | [DEPRECATED] Redirects to `/cadence double-time` |
-| `skills/grapple/SKILL.md` | [DEPRECATED] Redirects to `/review` |
+| `skills/cadence-downbeat/SKILL.md` | [LEGACY] Redirects to `/cadence` |
+| `skills/cadence-syncopate/SKILL.md` | [LEGACY] Redirects to `/cadence double-time` |
+| `skills/grapple/SKILL.md` | [LEGACY] Redirects to `/review` |
 | `skills/init-gun/SKILL.md` | [DEPRECATED] Absorbed into bootstrap install flow |
 | `skills/init-cogpr/SKILL.md` | [DEPRECATED] Absorbed into bootstrap install flow |
 
