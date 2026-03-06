@@ -6,9 +6,12 @@
 
 ## How to read this document
 
-**Sections 1–6** describe CGG's operational architecture — the mechanisms that run today in the governance lifecycle.
+**Reading map**
 
-**Sections 7–11** describe CGG's complexity awareness — architectural concerns CGG is designed to address, including where its flat-file scope ends and where substrate capabilities begin. These aren't promises of future features; they're deliberate boundary decisions. Ubiquity (the substrate) provides these capabilities as working production code. CGG's job is to stay within its lexical ceiling and hand off cleanly.
+- **Current CGG (Sections 1–6)** — operational architecture running today: core objects, the 100k token cycle, plan mode, ripple assessor, tics/zones/conformations, lexical ceiling.
+- **Advanced / boundary to substrate (Sections 7–11)** — design edges and handoff shape. Not required to use CGG today; clarifies limits and how Ubiquity (the substrate) extends beyond flat files.
+
+Read Sections 1–6 to operate CGG. Consult Sections 7–11 when evaluating ceiling/hand-off decisions.
 
 ---
 
@@ -18,6 +21,8 @@ Three coupled systems:
 1. **A token-aware session execution loop** (keeps the agent sharp and cheap)
 2. **A promotion pipeline for knowledge** (keeps memory high-signal)
 3. **A bidirectional projection mechanism** (lets abstract truths become concrete code again)
+
+### Part I — Current CGG (Sections 1–6)
 
 ## 1. Core Objects (The Ephemeral vs. The Durable)
 
@@ -203,6 +208,10 @@ Three numbers that separate compounding governance from configuration drift:
 -->
 
 ---
+
+### Part II — Advanced / boundary-to-substrate (Sections 7–11)
+
+Not required to run CGG today. These sections explain design limits, failure modes as scale grows, and how the substrate extends beyond flat files.
 
 ## Complexity Awareness (Sections 7–11)
 
