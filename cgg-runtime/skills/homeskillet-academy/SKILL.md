@@ -196,10 +196,10 @@ If the student isn't engaged: offer to show the key takeaway and skip ahead. "Wa
 Each chapter advances Mabel's story. Make sure the student notices:
 
 - Ch1: "There's something weird at the bottom of the seed data. A BLEAT. We'll come back to that. Also notice the duplicate-vs-recurrence distinction — that's key for understanding signals."
-- Ch2: "The BLEAT is back. Same content, new timestamp. It's recurring, not duplicate. And notice what the successful student groups have in common — patterns of coordination that could become governance rules."
+- Ch2: "The BLEAT is back. Same content, new timestamp. It's recurring, not duplicate. And notice what the successful student groups have in common — patterns of coordination that can become governance rules."
 - Ch3: "It's Mabel. She's a goat. She's been headbutting the PA microphone on PRIMITIVE. And nobody built a handler for BLEAT."
-- Ch4: "Mabel's signal just crossed the escalation threshold. A warrant fired. Now someone HAS to deal with it. Notice that both technical lessons and collaboration lessons arrive in the same review queue."
-- Ch5: "Trace the thread. Ch1 stored it and taught you to tell duplicates from recurrences. Ch2 showed that collaboration patterns are governance material. Ch3 routed it. Ch4 escalated it. That's both halves of governance in one goat."
+- Ch4: "Mabel's signal just crossed the escalation threshold. A warrant fired. Now someone HAS to deal with it. Notice that both subject-matter and collaboration lessons arrive in the same review docket."
+- Ch5: "Trace the thread. Ch1 stored it and taught you to tell duplicates from recurrences. Ch2 showed that collaboration patterns are governance artifacts. Ch3 routed it. Ch4 escalated it. Both halves of governance in one goat."
 
 ### 6. Transition
 

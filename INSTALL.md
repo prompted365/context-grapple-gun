@@ -119,7 +119,7 @@ target/
 # Vendor/upstream (read-only, not your governance surface)
 vendor/
 
-# Skill templates (contain example CPR blocks, not real items)
+# Skill templates (contain example CogPR blocks, not real items)
 .claude/skills/
 ```
 
@@ -172,7 +172,7 @@ Skip hooks, agents, and settings.local.json patching.
 
 **Add Session Learning Protocol to CLAUDE.md** only. No files copied, no directories created.
 
-Optionally create `.ticzone` and `.ticignore` at project root (see Full pipeline section for templates). These improve CPR scanning accuracy but are not required for convention-only mode.
+Optionally create `.ticzone` and `.ticignore` at project root (see Full pipeline section for templates). These improve CogPR scanning accuracy but are not required for convention-only mode.
 
 ---
 

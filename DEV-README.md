@@ -28,7 +28,7 @@ You already know these concepts under different names:
 
 **Tags are authoring. Queue is execution. Audit logs are history.**
 
-Tags in CLAUDE.md/MEMORY.md are the capture format. The CPR queue (JSONL) drives automation. Audit logs are append-only history. Details in [ARCHITECTURE.md §11](ARCHITECTURE.md).
+Tags in CLAUDE.md/MEMORY.md are the capture format. The CogPR queue (JSONL) drives automation. Audit logs are append-only history. Details in [ARCHITECTURE.md §11](ARCHITECTURE.md).
 
 ## How a session actually flows
 
@@ -122,19 +122,19 @@ Over a multi-week roadmap, this creates a rhythm:
 
 ### Two kinds of lessons
 
-CogPRs capture two distinct kinds of rationale:
+CogPRs capture two distinct classes of rationale:
 
-**Technical lessons** -- what's true about the system:
+**Subject-matter lessons** — what's true about the system:
 - "This API returns 204 on success, not 200"
-- "Redis connections use a shared pool -- never open individual connections in handlers"
+- "Redis connections use a shared pool — never open individual connections in handlers"
 - "LiteLLM embedding calls require the provider prefix on model name"
 
-**Collaboration lessons** -- what's true about how you and the agent work effectively:
+**Collaboration lessons** — what's true about effective coordination:
 - "When constructing subagent prompts, include a theory-of-mind preface describing the agent's strengths and limitations"
 - "Prefer structured validation messages over implicit corrections"
 - "Run tests after each small change rather than batching"
 
-Both are valid CogPR candidates. Both can climb the abstraction ladder. Both become governance material.
+Both are valid CogPR candidates. Both climb the abstraction ladder. Both pass through the same constitutional gate.
 
 The runtime is harvesting lessons from subject work AND working method. A technique you develop for briefing subagents -- structuring prompts to account for conceptual drift, providing explicit context the agent tends to assume -- can legitimately surface as a promotion candidate after it proves valuable across sessions.
 
@@ -209,7 +209,7 @@ For faster, cheaper, more predictable evaluation, drop a `scripts/ripple-assesso
 
 Simple installs get the agent. Mature installs get deterministic evaluation. The gate handles both.
 
-As the project matures and CPR volume grows, a deterministic script also lets you add the two maturity gates (temporal and epistemic) as cheap arithmetic checks rather than LLM reasoning — see [ARCHITECTURE.md](ARCHITECTURE.md#9-cpr-maturity-fields-concrete-spec) for the field spec.
+As the project matures and CogPR volume grows, a deterministic script also lets you add the two maturity gates (temporal and epistemic) as cheap arithmetic checks rather than LLM reasoning — see [ARCHITECTURE.md](ARCHITECTURE.md#9-cpr-maturity-fields-concrete-spec) for the field spec.
 
 ## Safety
 

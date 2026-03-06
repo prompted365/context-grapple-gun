@@ -11,7 +11,7 @@ Automated between-session lesson evaluation and signal management for Claude Cod
 - **Harmonic triad detection**: PRIMITIVE BEACON + COGNITIVE LESSON + TENSION = auto-warrant
 - **Unified docket**: `/review` reviews both CogPR promotions AND warrant triage
 - **Signal scanning hook**: SessionStart scans signal store, reports active signals in context
-- **v3 ripple-assessor**: Evaluates CPRs + scans signals + detects triads
+- **v3 ripple-assessor**: Evaluates CogPRs + scans signals + detects triads
 
 ## Components
 
@@ -19,7 +19,7 @@ Automated between-session lesson evaluation and signal management for Claude Cod
 |------|---------|
 | `hooks/cgg-gate.sh` | UserPromptSubmit one-shot gate (tries deterministic assessor first, falls back to LLM agent) |
 | `hooks/session-restore-patch.sh` | SessionStart plan discovery + signal scanning (single-pass Python dedup) |
-| `agents/ripple-assessor.md` | Fresh CPR + signal evaluator (sonnet, read-only) — used when no deterministic assessor exists |
+| `agents/ripple-assessor.md` | Fresh CogPR + signal evaluator (sonnet, read-only) — used when no deterministic assessor exists |
 | `skills/cadence/SKILL.md` | Unified epoch boundary — downbeat (default) or double-time (emergency syncopate) |
 | `skills/review/SKILL.md` | Unified CogPR + Warrant docket reviewer |
 | `skills/siren/SKILL.md` | Signal emission + triage dashboard |
@@ -39,11 +39,11 @@ Automated between-session lesson evaluation and signal management for Claude Cod
 1. Session ends -> `/cadence` writes handoff plan with `cgg-evaluate` trigger block
 2. Next session starts -> SessionStart hook discovers plan + scans `audit-logs/signals/` for active signals
 3. First prompt -> UserPromptSubmit gate fires once, spawns ripple-assessor in background
-4. Assessor reads plan, evaluates CPRs + signals, writes proposals to `~/.claude/grapple-proposals/latest.md`
-5. User runs `/review` -> reviews unified docket (Warrants + CPRs), approves/rejects
+4. Assessor reads plan, evaluates CogPRs + signals, writes proposals to `~/.claude/grapple-proposals/latest.md`
+5. User runs `/review` -> reviews unified docket (Warrants + CogPRs), approves/rejects
 6. User runs `/siren` -> operational dashboard for signal management between `/review` reviews
 
-For emergency exits, `/cadence double-time` writes a compact handoff (tic + plan, no signal tick or conformation) -- the pipeline still fires on next session start.
+For emergency exits, `/cadence double-time` writes a compact handoff (tic + plan, no signal tick or conformation) — the pipeline still fires on next session start.
 
 **Zone scan rule**: SessionStart hook scans for pending CogPRs using the zone scan rule: `**/CLAUDE.md` + `**/MEMORY.md` only, `.ticignore` exclusions applied. See [DEV-README](../../DEV-README.md) for the full rule.
 

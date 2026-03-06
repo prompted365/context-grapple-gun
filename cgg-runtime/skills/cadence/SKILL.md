@@ -190,7 +190,7 @@ This is the constitutional gate — no context clear without human sign-off via 
 |---------|-----|---------------|
 | Signal tick (`/siren tick`) | Too expensive at 5% | Next downbeat or manual `/siren tick` |
 | Conformation snapshot | Depends on tick | Next downbeat |
-| CPR extraction (Step 2 of downbeat) | Requires reading full context | Lessons stay inline, picked up next `/review` |
+| CogPR extraction (Step 2 of downbeat) | Requires reading full context | Lessons stay inline, picked up next `/review` |
 | Ripple assessor | Runs headless on next session start | cgg-gate.sh triggers it |
 
 The double-time is a valid handoff — the next session gets Next Actions via the plan and can run a full downbeat when context is fresh.

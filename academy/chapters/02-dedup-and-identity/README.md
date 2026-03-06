@@ -4,7 +4,7 @@
 
 > Posture: `ENG/META`
 > Time: ~20 minutes
-> Signal primitive: *Patterns of coordination are identity-bearing and governance-bearing. They are not soft extras.*
+> Signal primitive: *Patterns of coordination are governance-bearing. They are not soft extras.*
 
 ---
 
@@ -82,11 +82,18 @@ Watch for:
 
 ## What you are actually learning
 
-You just saw **meta-learning** -- learning about the conditions that make learning possible.
+You just saw **meta-learning** — learning about the conditions that make learning possible.
 
-In Chapter 1, you learned to store truths about events. In this chapter, you're learning that truths about collaboration are just as storable, just as promotable, and just as valuable.
+In Chapter 1, you learned to store truths about events. In this chapter, you learned that truths about collaboration are just as storable, just as promotable, and just as valuable.
 
-Consider the parallel with the Homeskillet theory-of-mind example from the root documentation:
+CGG captures two classes of governance artifacts:
+
+1. **Subject-matter lessons** — truths about the system being built
+2. **Collaboration lessons** — truths about effective human-agent coordination
+
+Both are valid CogPR candidates. Both can climb the abstraction ladder. Both are reviewed through the same constitutional gate.
+
+Consider the theory-of-mind example from the root documentation:
 
 An operator observed:
 - Homeskillet was strong at structural reasoning
@@ -116,11 +123,9 @@ That is the same class of lesson as "hold standing weekly check-ins." Both are c
 | Promotable team practice | CogPR candidate | `<!-- --agnostic-candidate -->` |
 | Theory-of-mind preface | Collaboration lesson | Abstraction ladder |
 
-**The key insight:** Collaboration patterns are first-class governance artifacts.
+**The key insight:** Collaboration patterns are governance artifacts.
 
-Some groups succeed not because they know more, but because they govern coordination better. Successful collaboration structures can be recognized as recurring patterns. Those patterns can be promoted as broader conventions.
-
-Just as an operator can improve an agent by acknowledging its strengths and limitations, a team can improve group outcomes by explicitly accounting for member strengths, weaknesses, accountability, and escalation triggers.
+Some groups succeed not because they know more, but because they govern coordination better. Successful collaboration structures can be recognized, captured, and promoted. They climb the same abstraction ladder as technical lessons.
 
 ---
 

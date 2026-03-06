@@ -78,7 +78,7 @@ A lesson about "this API returns 204, not 200" stays local. A lesson about "alwa
 
 Over weeks and months, your projects accumulate real operational knowledge from actual work. Not documentation someone wrote once and forgot about -- living rules that came from real mistakes and real discoveries.
 
-CGG may also remember how you and the agent work best together -- effective prompting patterns, debugging rhythms, or coordination techniques that consistently improve outcomes. These collaboration lessons are just as valid as technical discoveries.
+CGG may also capture how you and the agent work best together — effective prompting patterns, debugging rhythms, or coordination techniques that consistently improve outcomes. These collaboration lessons are valid governance artifacts alongside technical discoveries.
 
 ## What are the signals and warrants about?
 
