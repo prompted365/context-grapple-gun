@@ -225,6 +225,10 @@ Optionally create `.ticzone` and `.ticignore` at project root (see Full pipeline
 
 When you discover something during a session that constitutes a durable lesson — a friction point resolved, a non-obvious behavior confirmed, a workflow correction — capture it as a CogPR (Cognitive Pull Request).
 
+### Write rule (born truth vs in-force truth)
+
+Write lessons to MEMORY.md by default (born truth). Only write to CLAUDE.md when the lesson IS a law change (in-force truth). If no subsystem MEMORY.md exists, write to the project's auto-memory (`~/.claude/projects/*/memory/MEMORY.md`).
+
 ### CogPR format
 
 Write the lesson inline, then add this flag immediately after:

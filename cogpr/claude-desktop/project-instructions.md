@@ -19,7 +19,7 @@ When you discover something during a session that constitutes a durable lesson â
 
 ### Capture Rules
 
-1. **Write at your operational level.** Write the lesson to the nearest existing CLAUDE.md up the tree from where you're working. If working at project root, write to that file. If in a subsystem, write to that subsystem's CLAUDE.md. If no subsystem CLAUDE.md exists, write to MEMORY.md.
+1. **Write at your operational level.** Write born truth (lessons, observations, CogPR candidates) to MEMORY.md. Write in-force truth (law changes, constitutional corrections) to CLAUDE.md. If no subsystem MEMORY.md exists, write to the project's auto-memory (`~/.claude/projects/*/memory/MEMORY.md`).
 
 2. **Match the existing format.** Use the heading style, bullet format, and tone already present in the target file.
 

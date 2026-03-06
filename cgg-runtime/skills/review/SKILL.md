@@ -48,10 +48,11 @@ Read all `audit-logs/signals/*.jsonl` files. For each line, parse the JSON objec
 
 For each active signal:
 1. `volume = min(volume + volume_rate, max_volume)` — accrue since last tick
-2. Check TTL expiry: if `ttl_hours > 0` and signal age exceeds TTL -> mark `status: "expired"`
-3. Compute `effective_volume` per hearing target: `effective_volume = volume - (directory_hops(source, target) * 5)`
-4. Check warrant minting: if `volume >= escalation.warrant_threshold` AND no warrant minted yet -> mint warrant
-5. Write updated state to today's `audit-logs/signals/YYYY-MM-DD.jsonl`
+2. Compute `effective_volume` per hearing target: `effective_volume = volume - (directory_hops(source, target) * 5)`
+3. Check warrant minting: if `volume >= escalation.warrant_threshold` AND no warrant minted yet -> mint warrant
+4. Write updated state to today's `audit-logs/signals/YYYY-MM-DD.jsonl`
+
+Note: Signals do not expire. Valid terminal states are `resolved` (with evidence) and `dismissed` (with human rationale). There is no TTL-based forgetting path.
 
 ### 5. Detect Harmonic Triads
 

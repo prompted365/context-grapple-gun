@@ -60,7 +60,7 @@ Execute `/siren tick`. Ensure volume has accrued, TTLs are cleared, and threshol
 Execute `/siren conformation` to capture the system's total state at this tic boundary.
 
 #### Step 2: Extract Lessons (CogPRs)
-Did we establish a new rule or optimize a workflow? If yes, IMMEDIATELY write the `<!-- --agnostic-candidate -->` block into the nearest CLAUDE.md or MEMORY.md. Use the COGNITIVE band.
+Did we establish a new rule or optimize a workflow? If yes, capture it as a `<!-- --agnostic-candidate -->` block using the COGNITIVE band. Route based on truth-state (see write rule below).
 
 Include birth context when available:
 - `posture`: current session posture (e.g., "ENG/DIRECT", "OPS/META")
@@ -69,11 +69,16 @@ Include birth context when available:
 
 These fields are optional. Omit if posture is not in use.
 
-Write to the nearest governance file up the directory tree:
-1. Check CWD for CLAUDE.md — write there if found
-2. Walk up parent directories toward project root
-3. If no subdir CLAUDE.md exists — write to project root CLAUDE.md
-4. Operational memory (not law) — write to MEMORY.md instead
+Write to the nearest governance file based on truth-state:
+1. **Born truth** (new lesson, observation, CogPR candidate) → write to MEMORY.md
+   - Check CWD for MEMORY.md — write there if found
+   - Walk up parent directories toward project root
+   - Fall back to auto-memory (`~/.claude/projects/*/memory/MEMORY.md`)
+2. **In-force truth** (constitutional correction, rule amendment) → write to CLAUDE.md
+   - Only when the lesson IS a law change, not when it might become one
+3. **Housekeeping exception** — if the lesson corrects an already-local CLAUDE.md entry
+   (e.g., fixing a methylated block, updating a line reference), write the correction
+   in-place to that same CLAUDE.md
 
 When writing to a subdir CLAUDE.md, ensure the project root CLAUDE.md
 indexes it (add a reference in any existing "subdirectory guides" section).
