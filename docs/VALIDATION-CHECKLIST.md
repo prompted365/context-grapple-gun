@@ -14,8 +14,8 @@ First-contact surfaces (README.md top section, START-HERE.md, INSTALL.md main pa
 
 ```bash
 # Check for deprecated command names in first-contact surfaces
-grep -n "cadence-downbeat\|cadence-syncopate\|/grapple\|/init-gun\|/init-cogpr" \
-  README.md START-HERE.md INSTALL.md | grep -v "backward\|deprecated\|redirect"
+grep -En "cadence-downbeat|cadence-syncopate|/grapple|/init-gun|/init-cogpr" \
+  README.md START-HERE.md INSTALL.md | grep -Ev "backward|deprecated|redirect"
 ```
 
 Hits here (outside backward-compatibility sections) indicate presentation drift.
@@ -26,7 +26,7 @@ README.md should define core terms with neutral aliases near the top:
 
 ```bash
 # Should find aliased definitions for these terms:
-grep -n "CogPR\|tic-zone\|siren\|warrant\|conformation\|abstraction ladder" README.md | head -20
+grep -En "CogPR|tic-zone|siren|warrant|conformation|abstraction ladder" README.md | head -20
 ```
 
 Check that each term has a neutral systems equivalent in parentheses or a table on first mention.
@@ -52,7 +52,7 @@ Three files must agree on chapter titles and sequence:
 
 ```bash
 # Compare chapter tables
-grep -A 5 "Taylor Family\|Adjunct\|Zookeeper\|Bridge Inspector\|Graduation" \
+grep -EA 5 "Taylor Family|Adjunct|Zookeeper|Bridge Inspector|Graduation" \
   academy/README.md academy/course.json cgg-runtime/skills/homeskillet-academy/SKILL.md
 ```
 
@@ -64,7 +64,7 @@ README and ARCHITECTURE should explain CGG's lexical ceiling without external do
 
 ```bash
 # Check for scope boundary framing
-grep -n "lexical ceiling\|out of scope\|scope boundary" README.md ARCHITECTURE.md
+grep -En "lexical ceiling|out of scope|scope boundary" README.md ARCHITECTURE.md
 ```
 
 The boundary should be framed as a deliberate design decision, not a roadmap promise.
@@ -91,7 +91,7 @@ Docs should preserve access for operators, technical evaluators, AND narrative-f
 
 ```bash
 # Academy should appear as legitimate entry path, not afterthought
-grep -n "academy\|Academy\|story\|stories\|narrative" README.md START-HERE.md INSTALL.md
+grep -En "academy|Academy|story|stories|narrative" README.md START-HERE.md INSTALL.md
 ```
 
 The Academy should be mentioned as a core onboarding path, not just technical reference.

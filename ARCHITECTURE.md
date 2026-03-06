@@ -126,6 +126,8 @@ Everything below conformation — files, signals, rules, zones — is mechanism.
 
 CGG's governance lifecycle is complete for individuals and small teams. The flat-file primitives — JSONL signal stores, CLAUDE.md rule tiers, append-only audit trails — are fast, portable, and auditable by default.
 
+**CGG expands lexical capabilities further than most approaches** by treating governance, storage, knowledge, and memory as separate concerns — not conflating them into a single "AI memory" abstraction. This separation is what makes flat-file governance viable at meaningful scale.
+
 CGG runs inside an AI agent. The agent reading CLAUDE.md files has full semantic understanding — it connects "embedding API failures" to "infrastructure sovereignty" without keyword overlap. It spawns subagents for deeper search and catches duplicates during `/review` that no keyword matcher would flag. The retrieval surface is an LLM, not a grep index.
 
 But there is a ceiling: **the fundamental limit of lexical meaning**. Text-as-governance degrades at scale:
@@ -136,7 +138,7 @@ But there is a ceiling: **the fundamental limit of lexical meaning**. Text-as-go
 
 ### Mitigations and limits
 
-There are methods for mitigating lexical limits within CGG:
+CGG supports methods for mitigating lexical limits:
 - Zone scoping (`.ticzone`, `.ticignore`) to bound the governance surface
 - Scope hierarchy to keep lessons at appropriate levels
 - Signal TTLs to expire stale friction

@@ -100,6 +100,8 @@ What to look for: Does the captured lesson match what you learned? Did the hando
 - Auditable signal/tic trails with total ordering
 - Jurisdictional scoping via zones and exclusion filters
 
+**CGG expands lexical capabilities further than most approaches** by treating governance, storage, knowledge, and memory as separate concerns — not conflating them into a single "AI memory" abstraction. This separation is what makes flat-file governance viable at meaningful scale.
+
 **CGG has a ceiling:** the fundamental limit of lexical meaning. Text-as-governance degrades at scale — governance files grow monotonically, deeply nested projects accumulate heavy lesson loads, lessons lose force buried in walls of text.
 
 **CGG supports methods for mitigating these limits:**
