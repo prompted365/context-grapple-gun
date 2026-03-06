@@ -130,6 +130,8 @@ Compute each marker deterministically:
 
 These markers make governance pressure visible and auditable. SessionStart hooks may reference them to determine which audit cycles are due.
 
+**Deep audit due marker**: When `deep_audit_due_tic` equals the current tic, Mogul should be delegated a deep audit cycle: multi-rung ladder coherence scan (via ladder-auditor), manifestation pressure scan (via manifestation-tracker), sibling duplication check, overbroad abstraction detection, demotion pressure review. The deep audit produces an execution artifact packet and stages review material if intervention is needed.
+
 The user sees this plan in Claude Code's native plan UI with approve/edit/reject/clear options. When approved and context cleared, the plan persists and becomes the active state for the next session.
 
 The session does NOT end until the human acts on the plan. The human may:
