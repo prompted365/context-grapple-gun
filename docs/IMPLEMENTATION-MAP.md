@@ -17,17 +17,24 @@ Every documented behavior mapped to its authoritative code file. When a doc clai
 | Review (docket) | `cgg-runtime/skills/review/SKILL.md` | Human-gated CogPR promotion + warrant triage | 8-step workflow (lines 13-165). Protected files (line 167). Safety rules (line 175) |
 | Siren (signal ops) | `cgg-runtime/skills/siren/SKILL.md` | Signal emit/tick/update/history/conformation/diff | Sub-commands: status (line 21), tick (line 54), emit (line 114), update (line 168), history (line 193), conformation (line 215), conformation diff (line 292) |
 
-### Deprecated Skills (redirect-only)
+### Legacy Skills (redirect, still supported)
 
-| Deprecated Skill | Redirects To | Code File |
-|-----------------|-------------|-----------|
+| Legacy Skill | Redirects To | Code File |
+|--------------|-------------|-----------|
 | `/cadence-downbeat` | `/cadence` (full downbeat) | `cgg-runtime/skills/cadence-downbeat/SKILL.md` |
 | `/cadence-syncopate` | `/cadence double-time` | `cgg-runtime/skills/cadence-syncopate/SKILL.md` |
 | `/grapple` | `/review` | `cgg-runtime/skills/grapple/SKILL.md` |
-| `/init-gun` | Bootstrap install | `cgg-runtime/skills/init-gun/SKILL.md` |
-| `/init-cogpr` | Bootstrap install | `cgg-runtime/skills/init-cogpr/SKILL.md` |
 
-All deprecated skills contain only a redirect message — no duplicate logic. `init-gun` and `init-cogpr` have `disable-model-invocation: true`.
+Legacy skills are supported alternate entrypoints — use them when the alternate command surface makes sense for your workflow.
+
+### Deprecated Skills (absorbed into bootstrap)
+
+| Deprecated Skill | Status | Code File |
+|-----------------|--------|-----------|
+| `/init-gun` | Absorbed into bootstrap install | `cgg-runtime/skills/init-gun/SKILL.md` |
+| `/init-cogpr` | Absorbed into bootstrap install | `cgg-runtime/skills/init-cogpr/SKILL.md` |
+
+Deprecated skills have `disable-model-invocation: true` and are not installed.
 
 ---
 
@@ -174,7 +181,7 @@ Source `cgg-runtime/` directories → target project locations:
 | `skills/review/` | `.claude/skills/review/` | Docket reviewer |
 | `skills/siren/` | `.claude/skills/siren/` | Signal operations |
 
-Deprecated skills are NOT copied during install.
+Legacy and deprecated skills are NOT copied during install (projects invoke them via the primary skills).
 
 ### Zone/ignore creation
 - `.ticzone` — JSONC zone definition at project root. Fields: `name`, `tz`, `lat`, `lon`, `include`, `bands`, `muffling_per_hop`
@@ -222,17 +229,28 @@ Always written to `~/.claude/grapple-proposals/latest.md`. Consumed and deleted 
 
 ---
 
-## 9. Deprecated Skills
+## 9. Legacy and Deprecated Skills
+
+### Legacy Skills (supported, redirect to canonical)
 
 | Old Command | New Command | Migration |
 |------------|-------------|-----------|
-| `/cadence-downbeat` | `/cadence` | Automatic redirect — old skill announces rename and executes downbeat |
-| `/cadence-syncopate` | `/cadence double-time` | Automatic redirect — old skill announces rename and executes double-time |
-| `/grapple` | `/review` | Automatic redirect — old skill announces rename and executes review |
-| `/init-gun` | Bootstrap install (INSTALL.md) | Describes bootstrap, offers to run it |
-| `/init-cogpr` | Bootstrap install (INSTALL.md) | Describes bootstrap, exits |
+| `/cadence-downbeat` | `/cadence` | Automatic redirect — old skill announces legacy status and executes downbeat |
+| `/cadence-syncopate` | `/cadence double-time` | Automatic redirect — old skill announces legacy status and executes double-time |
+| `/grapple` | `/review` | Automatic redirect — old skill announces legacy status and executes review |
 
-Deprecated skills also exist at `cogpr/claude-code/skills/` (convention layer copies). These are identical redirects for projects that installed from the old cogpr-only package.
+Legacy skills are supported alternate entrypoints. Use them when the alternate command surface makes sense for your workflow.
+
+### Deprecated Skills (absorbed into bootstrap)
+
+| Old Command | Status |
+|------------|--------|
+| `/init-gun` | Absorbed into bootstrap install (INSTALL.md) |
+| `/init-cogpr` | Absorbed into bootstrap install (INSTALL.md) |
+
+Deprecated skills describe bootstrap but do not execute any action. They are not installed by default.
+
+Legacy and deprecated skills also exist at `cogpr/claude-code/skills/` (convention layer copies). These are identical for projects that installed from the old cogpr-only package.
 
 ---
 

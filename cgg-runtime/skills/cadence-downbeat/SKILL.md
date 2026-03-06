@@ -1,15 +1,17 @@
 ---
 name: cadence-downbeat
-description: "[DEPRECATED — use /cadence] Session epoch boundary. This command now redirects to /cadence."
+description: "[LEGACY — prefer /cadence] Session epoch boundary. Redirects to /cadence."
 user-invocable: true
 ---
 
-# /cadence-downbeat (deprecated)
+# /cadence-downbeat (legacy)
 
-**This command has been renamed to `/cadence`.**
+**This command redirects to `/cadence`.**
+
+`/cadence-downbeat` is a supported legacy entrypoint for the full epoch boundary flow. Use it when the alternate command surface makes sense for your workflow.
 
 When the user invokes `/cadence-downbeat`, inform them:
 
-> `/cadence-downbeat` has been renamed to `/cadence`. Running the full downbeat sequence now. In the future, use `/cadence` (or `/cadence double-time` for the emergency syncopate).
+> Running `/cadence` (full downbeat). Note: `/cadence-downbeat` is a legacy alias — prefer `/cadence` (or `/cadence double-time` for emergency syncopate) in future sessions.
 
 Then execute the full downbeat sequence exactly as `/cadence` with no arguments.

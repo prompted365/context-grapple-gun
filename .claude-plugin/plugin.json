@@ -30,22 +30,27 @@
         "description": "Interactive CGG tutorial — scaffold a workspace with 5 narrative chapters, tests, and fixtures."
       }
     ],
-    "deprecated_skills": [
+    "legacy_skills": [
       {
         "name": "cadence-downbeat",
         "path": "cgg-runtime/skills/cadence-downbeat/SKILL.md",
-        "redirect": "cadence"
+        "redirect": "cadence",
+        "note": "Supported legacy alias — use when the alternate entrypoint makes sense"
       },
       {
         "name": "cadence-syncopate",
         "path": "cgg-runtime/skills/cadence-syncopate/SKILL.md",
-        "redirect": "cadence double-time"
+        "redirect": "cadence double-time",
+        "note": "Supported legacy alias — use when the alternate entrypoint makes sense"
       },
       {
         "name": "grapple",
         "path": "cgg-runtime/skills/grapple/SKILL.md",
-        "redirect": "review"
-      },
+        "redirect": "review",
+        "note": "Supported legacy alias — use when the alternate entrypoint makes sense"
+      }
+    ],
+    "deprecated_skills": [
       {
         "name": "init-gun",
         "path": "cgg-runtime/skills/init-gun/SKILL.md",

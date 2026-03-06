@@ -1,15 +1,17 @@
 ---
 name: cadence-syncopate
-description: "[DEPRECATED — use /cadence double-time] Emergency session turnaround. This command now redirects to /cadence double-time."
+description: "[LEGACY — prefer /cadence double-time] Emergency session turnaround. Redirects to /cadence double-time."
 user-invocable: true
 ---
 
-# /cadence-syncopate (deprecated)
+# /cadence-syncopate (legacy)
 
-**This command has been renamed to `/cadence double-time`.**
+**This command redirects to `/cadence double-time`.**
+
+`/cadence-syncopate` is a supported legacy entrypoint for the emergency exit flow. Use it when the alternate command surface makes sense for your workflow.
 
 When the user invokes `/cadence-syncopate`, inform them:
 
-> `/cadence-syncopate` has been renamed to `/cadence double-time`. Running the emergency syncopate sequence now. In the future, use `/cadence double-time`.
+> Running `/cadence double-time` (emergency syncopate). Note: `/cadence-syncopate` is a legacy alias — prefer `/cadence double-time` in future sessions.
 
 Then execute the double-time syncopate sequence exactly as `/cadence double-time`.

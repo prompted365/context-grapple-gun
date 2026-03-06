@@ -1,15 +1,17 @@
 ---
 name: grapple
-description: "[DEPRECATED — use /review] CogPR + Warrant review. This command now redirects to /review."
+description: "[LEGACY — prefer /review] CogPR + Warrant review. Redirects to /review."
 user-invocable: true
 ---
 
-# /grapple (deprecated)
+# /grapple (legacy)
 
-**This command has been renamed to `/review`.**
+**This command redirects to `/review`.**
+
+`/grapple` is a supported legacy entrypoint for the CogPR + Warrant review flow. Use it when the alternate command surface makes sense for your workflow.
 
 When the user invokes `/grapple`, inform them:
 
-> `/grapple` has been renamed to `/review`. Running the review docket now. In the future, use `/review`.
+> Running `/review` (CogPR + Warrant docket). Note: `/grapple` is a legacy alias — prefer `/review` in future sessions.
 
 Then execute the full review workflow exactly as `/review`.
