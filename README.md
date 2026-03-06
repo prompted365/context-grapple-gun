@@ -440,10 +440,7 @@ Tic record format (appended to `audit-logs/tics/YYYY-MM-DD.jsonl`):
   "type": "tic",
   "tic": "2026-02-24T21:15:00-05:00",
   "tic_zone": "operationTorque-estate",
-  "cadence_position": "downbeat",
-  "scope": "project",
-  "tic_count_project": 42,
-  "tic_count_global": 137
+  "cadence_position": "downbeat"
 }
 ```
 

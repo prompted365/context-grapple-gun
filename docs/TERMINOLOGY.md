@@ -11,7 +11,7 @@
 | **CogPR** | Behavior pull request | A lesson flagged for review and potential promotion to broader scope | **Yes** |
 | **tic** | Sequenced timestamp | Canonical clock primitive — ISO-8601 timestamp + monotonic counter. Emitted at every `/cadence`. | **Yes** |
 | **tic-zone** | Jurisdiction boundary | Named acoustic region defined by `.ticzone` file; scopes signal routing and governance surface | Later |
-| **siren** | Friction signal | Continuous signal with volume that accrues across sessions. Tracks recurring problems. | **Yes** |
+| **siren** | Escalating friction signal | Something that gets louder until handled — continuous signal with volume that accrues across sessions. Acoustic metaphor: a siren you can't ignore once it crosses threshold. | **Yes** |
 | **warrant** | Escalation obligation | Auto-minted when a signal crosses threshold. Demands resolution — not a suggestion. | Later |
 | **conformation** | System state snapshot | Total state at any tic boundary — signals, rules, pending proposals, zone membership | Later |
 | **abstraction ladder** | Scope hierarchy | Site → Domain → Estate → Federation → Global. Lessons climb through review; descend as specialized expressions. | **Yes** |

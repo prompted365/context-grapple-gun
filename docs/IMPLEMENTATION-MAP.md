@@ -108,8 +108,8 @@ Advisory fields `tic_count_project` and `tic_count_global` are deliberately omit
 
 ### Volume accrual
 - Per tick: `volume = min(volume + volume_rate, max_volume)` — `siren/SKILL.md` line 61
-- Only ticks `active` or `acknowledged` signals (NOT `working`/`resolved`/`expired`/`warranted`) — `siren/SKILL.md` line 59
-- TTL expiry check on every tick — `siren/SKILL.md` line 64
+- Only ticks `active` or `acknowledged` signals (NOT `working`/`resolved`/`warranted`) — `siren/SKILL.md` line 59
+- Acoustic decay: unreinforced signals lose volume per tick (`decay_rate_per_tic`, default 2) but never disappear — `siren/SKILL.md` line 64
 
 ### Effective volume (acoustic routing)
 - `effective_volume = volume - (directory_hops(source, target) * 5)` — `siren/SKILL.md` line 50
@@ -122,7 +122,7 @@ Advisory fields `tic_count_project` and `tic_count_global` are deliberately omit
 - Source signal updated to `status: "warranted"` on mint — `siren/SKILL.md` line 110
 
 ### Status transitions
-- Valid statuses: `active`, `acknowledged`, `working`, `resolved`, `expired`, `warranted` — `siren/SKILL.md` line 174
+- Valid statuses: `active`, `acknowledged`, `working`, `resolved`, `warranted` — `siren/SKILL.md` line 174
 - `working` sets `working_since` (optimistic lock) — `siren/SKILL.md` line 179
 - `resolved` sets `resolved_at` + `resolution_note` — `siren/SKILL.md` line 180
 
@@ -250,7 +250,7 @@ Legacy skills are supported alternate entrypoints. Use them when the alternate c
 
 Deprecated skills describe bootstrap but do not execute any action. They are not installed by default.
 
-Legacy and deprecated skills also exist at `cogpr/claude-code/skills/` (convention layer copies). These are identical for projects that installed from the old cogpr-only package.
+Legacy and deprecated skills previously existed at `cogpr/claude-code/skills/` (convention layer copies). That directory was removed in Phase 6 cleanup — the canonical copies live in `cgg-runtime/skills/`.
 
 ---
 

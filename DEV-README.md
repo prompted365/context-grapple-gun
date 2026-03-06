@@ -246,6 +246,19 @@ Simple installs get the agent. Mature installs get deterministic evaluation. The
 
 As the project matures and CogPR volume grows, a deterministic script also lets you add the two maturity gates (temporal and epistemic) as cheap arithmetic checks rather than LLM reasoning — see [ARCHITECTURE.md](ARCHITECTURE.md#9-cpr-maturity-fields-concrete-spec) for the field spec.
 
+## CogPR Extraction Pipeline
+
+The CogPR queue (`audit-logs/cprs/queue.jsonl`) is populated by a **PostToolUse hook on ExitPlanMode**. This is a deliberate design choice:
+
+- **Why ExitPlanMode, not SessionEnd**: SessionEnd is unreliable — sessions crash, context expires, users close terminals. ExitPlanMode fires deterministically at every `/cadence` and `/review` boundary because both use Plan Mode as their governance gate.
+- **Synchronous, not background**: The extraction runs inline during the hook, not as a background agent. No race conditions, no missed extractions.
+- **Three extraction paths** (all use the same dedup hash):
+  1. **PostToolUse fast path** — fires on ExitPlanMode, the normal case
+  2. **SessionStart recovery** — discovers handoff plans from crashed sessions
+  3. **SessionStart backfill** — scans CLAUDE.md/MEMORY.md tags as safety net
+
+Running all three on the same CogPR produces exactly one queue entry. The queue is eventually consistent.
+
 ## Safety
 
 CGG never modifies `CLAUDE.md` without your approval through `/review`. Background triggers fire exactly once per handoff. Lessons from one project don't leak into another -- everything is scoped by `project_dir`.

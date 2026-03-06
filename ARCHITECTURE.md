@@ -312,6 +312,16 @@ If signals cluster around agent behavior, Mogul must expand the audit surface to
 
 A lesson repeatedly compensating for agent drift may indicate prompt-stack interference rather than missing governance law.
 
+## Warrant Completeness Invariant (Trip Hazard)
+
+A detected runtime hazard that cannot mint a warrant is a broken governance loop. A siren that never mints a warrant is just noise.
+
+**Formal statement**: Runtime drift that the system detects but does not escalate is equivalent to a siren blaring without ever minting a warrant — pressure exists but never becomes unavoidable. That is a governance failure.
+
+**Operational rule**: Detected hazards must have a path to warrant. If a condition is detectable (e.g., `canonical != installed`), the detection must emit a signal of warrant-eligible kind (BEACON or TENSION, not LESSON), so volume accrual can force resolution.
+
+**Kind-gated implication**: Only BEACON and TENSION are warrant-eligible by default (Section 5 warrant recognition). A hazard detected but emitted as a LESSON signal will accrue volume but never warrant — the governance loop is broken by kind classification, not by missing infrastructure. Emitters must choose the correct kind at emission time.
+
 ## Audit Cycles
 
 Governance audits run on tic-sum-derived cadence. These are interim cycles — sufficient for flat-file governance. Each cycle is a check, not a full session.
@@ -536,7 +546,7 @@ The trust counter is a track record — the accumulation of assessor verdicts, h
 ```
 
 - **trust_level**: Increments when the human approves an assessor verdict without override. Decrements on override. Resets to 0 if a promoted lesson generates a subsequent signal — the lesson didn't land, and the assessor's judgment was wrong in a way that mattered.
-- **tier_4_autonomous**: Trust level at which Tier 4 (project scope) promotions bypass the human gate. Reachable through consistent, accurate evaluation.
+- **tier_4_autonomous**: Trust level at which Tier 4 (site scope) promotions bypass the human gate. Reachable through consistent, accurate evaluation.
 - **tier_5_autonomous**: The threshold for Tier 5 (global scope) autonomy — intentionally high. Global is a treaty, and trust that scales to treaty-level governance is earned slowly.
 - **Voluntary contraction**: If drift classification returns "Drift" or "Decay" over a tic range, `trust_level` halves (rounded down). The system can lose autonomy when governance quality degrades — not as punishment, but because degraded governance requires more human oversight, not less.
 
