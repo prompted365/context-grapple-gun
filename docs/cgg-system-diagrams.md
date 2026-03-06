@@ -165,51 +165,51 @@ erDiagram
 ```mermaid
 graph TB
     subgraph PhysicsLayer["Physics Layer (deterministic enforcement)"]
-        H1[cgg-bash-policy.py<br/>PreToolUse]
-        H2[cgg-completion-gate.py<br/>Stop]
-        H3[cgg-session-reinjection.sh<br/>SessionStart/compact]
-        H4[cgg-precompact-guard.sh<br/>PreCompact]
-        H5[cgg-subagent-provenance.py<br/>SubagentStart/Stop]
-        H6[cgg-config-audit.py<br/>PostToolUse Write/Edit]
+        H1[cgg-bash-policy.py / PreToolUse]
+        H2[cgg-completion-gate.py / Stop]
+        H3[cgg-session-reinjection.sh / SessionStart or compact]
+        H4[cgg-precompact-guard.sh / PreCompact]
+        H5[cgg-subagent-provenance.py / SubagentStart or Stop]
+        H6[cgg-config-audit.py / PostToolUse Write or Edit]
     end
 
     subgraph ScriptLayer["Script Layer (operational primitives)"]
-        S1[signal-audit.py<br/>--json metrics/view/audit]
-        S2[runtime-sync.py<br/>--json check/diff/sync]
-        S3[burst-governor.py<br/>tic emission + economy]
-        S4[governance-router.py<br/>signal→action routing]
-        S5[zone_root.py<br/>path resolution primitive]
+        S1[signal-audit.py / --json metrics or view or audit]
+        S2[runtime-sync.py / --json check or diff or sync]
+        S3[burst-governor.py / tic emission plus economy]
+        S4[governance-router.py / signal to action routing]
+        S5[zone_root.py / path resolution primitive]
     end
 
     subgraph SkillLayer["Skill Layer (workflow payloads)"]
-        SK1[/cadence<br/>session epoch boundary]
-        SK2[/review<br/>constitutional bench]
-        SK3[/siren<br/>signal emission + triage]
-        SK4[/telos-springboard<br/>paper patching]
+        SK1[/cadence / session epoch boundary]
+        SK2[/review / constitutional bench]
+        SK3[/siren / signal emission & triage]
+        SK4[/telos-springboard / paper patching]
     end
 
     subgraph AgentLayer["Agent Layer (bounded judgment)"]
-        MG[Mogul<br/>governance suborchestrator]
-        RA[Ripple Assessor<br/>CPR evaluation]
-        LA[Ladder Auditor<br/>coherence audit]
-        PC[Pattern Curator<br/>MEMORY mining]
+        MG[Mogul / governance suborchestrator]
+        RA[Ripple Assessor / CPR evaluation]
+        LA[Ladder Auditor / coherence audit]
+        PC[Pattern Curator / MEMORY mining]
     end
 
     subgraph DataStores["Data Stores"]
-        DS1[(audit-logs/signals/<br/>JSONL append-only)]
-        DS2[(audit-logs/cprs/<br/>queue.jsonl)]
-        DS3[(audit-logs/tics/<br/>JSONL per day)]
-        DS4[(audit-logs/mogul/<br/>mandates + reports)]
-        DS5[(audit-logs/conformations/<br/>tic-N.json snapshots)]
-        DS6[(.ticzone<br/>acoustic region config)]
+        DS1[(audit-logs/signals/ JSONL append-only)]
+        DS2[(audit-logs/cprs/ queue.jsonl)]
+        DS3[(audit-logs/tics/ JSONL per day)]
+        DS4[(audit-logs/mogul/ mandates and reports)]
+        DS5[(audit-logs/conformations/ tic-N.json snapshots)]
+        DS6[(.ticzone acoustic region config)]
     end
 
     subgraph UXLayer["UX + Synthesis"]
-        HS[Homeskillet<br/>Opus 4.6]
+        HS[Homeskillet Opus 4.6]
     end
 
     subgraph ClockLayer["Clock Authority"]
-        SW[Swann Governor<br/>Source-of-Clock sovereign]
+        SW[Swann Governor Source-of-Clock sovereign]
     end
 
     %% Relationships
