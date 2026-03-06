@@ -30,6 +30,8 @@ Before diving into installation, you can learn CGG interactively:
 
 **Homeskillet Academy** is a ~90 minute hands-on course that teaches CGG's governance primitives through narrative scenarios. Five chapters, real Python code, tests that tell you when you're done, and one very persistent goat.
 
+The course teaches both technical governance (append-only truth, signal routing, human-gated review) and collaboration governance (how patterns of effective coordination become promotable lessons).
+
 - **Recommended for first-timers** — understand the "why" before the "how"
 - **No CGG installation required** — you build the pieces from scratch
 - **Works standalone** — scaffold into any empty directory

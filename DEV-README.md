@@ -120,6 +120,26 @@ Over a multi-week roadmap, this creates a rhythm:
 
 **Session 4**: `/review` again. 3-4 accumulated lessons. Some are project-specific. One about Redis connection semantics applies to your other repos too. Promote that one up the abstraction ladder.
 
+### Two kinds of lessons
+
+CogPRs capture two distinct kinds of rationale:
+
+**Technical lessons** -- what's true about the system:
+- "This API returns 204 on success, not 200"
+- "Redis connections use a shared pool -- never open individual connections in handlers"
+- "LiteLLM embedding calls require the provider prefix on model name"
+
+**Collaboration lessons** -- what's true about how you and the agent work effectively:
+- "When constructing subagent prompts, include a theory-of-mind preface describing the agent's strengths and limitations"
+- "Prefer structured validation messages over implicit corrections"
+- "Run tests after each small change rather than batching"
+
+Both are valid CogPR candidates. Both can climb the abstraction ladder. Both become governance material.
+
+The runtime is harvesting lessons from subject work AND working method. A technique you develop for briefing subagents -- structuring prompts to account for conceptual drift, providing explicit context the agent tends to assume -- can legitimately surface as a promotion candidate after it proves valuable across sessions.
+
+Example: You notice the agent drifts when prompts don't explicitly scope the abstraction level. You start adding a one-line context preface. After several sessions, the system surfaces this as a candidate: "When delegating multi-step tasks, include explicit abstraction-level scoping to prevent conceptual drift." That's a collaboration lesson, and it's just as promotable as any API quirk.
+
 The cadence. Four beats, steady time:
 
 1. **Work** -- implement, debug, ship

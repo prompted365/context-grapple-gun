@@ -14,6 +14,59 @@ CGG gives knowledge a lifecycle. Lessons are captured locally, evaluated by a fr
 
 Over time, the project's operating rules grow from real work, not from someone sitting down to write documentation. The system extracts what actually mattered.
 
+## Two types of lessons
+
+CGG does not only capture rules about the work. It captures the patterns that make the work possible.
+
+Human rationale is expensive, partial, and interruption-heavy. AI systems do not inherit that rationale automatically. So CGG is designed to harvest rationale from real work, batch it into governance candidates, and promote validated lessons over time. But the rationale being harvested exists at two layers:
+
+**Subject-matter lessons** -- rationale about the system being built:
+- Bug patterns
+- API quirks
+- Architecture constraints
+- System invariants
+- Policy rules
+
+**Collaboration lessons** -- rationale about how humans and agents work effectively together:
+- Theory-of-mind prompt scaffolds
+- Subagent briefing patterns
+- Debugging rhythms
+- TDD work loops
+- Escalation protocols
+- Human-agent coordination methods
+
+Both subject-matter lessons and collaboration lessons are first-class governance artifacts. Both are valid CogPR candidates. Both can climb the abstraction ladder. Both are required for actual constitutional governance.
+
+Why? Because constitutional governance fails if it governs only facts but not the process that generated them. And it also fails if it governs only collaboration while leaving the technical environment unstable. The system must preserve both:
+- Compounding operational advantage
+- Meaningful human participation
+
+That tension is not a bug. That tension is the engine of constitutional governance. CGG holds it deliberately.
+
+### A real collaboration example
+
+A human operator used theory-of-mind reasoning to work more effectively with an agent called Homeskillet.
+
+The operator observed:
+- Homeskillet was strong at structural reasoning
+- Weaker when instructions depended on implicit assumptions
+- Vulnerable to conceptual drift when prompts were under-scoped
+
+So the operator started prompting with a short theory-of-mind preface:
+- What the agent is strong at
+- Where the agent tends to drift
+- Which assumptions must be explicit
+- What abstraction level the task requires
+
+That improved performance.
+
+After several cadence cycles, the system itself surfaced the technique as a governance candidate:
+
+> "When constructing subagent prompts, include a short theory-of-mind preface describing the agent's inferred strengths and limitations. This reduces conceptual drift and improves task alignment."
+
+That lesson later appeared in how Homeskillet and related agents wrote and used subagent prompts -- including warnings about pitfalls according to inferred conceptual strengths and limits.
+
+This is not a rule about the codebase. It is a rule about effective human-agent cognition in context. And it is just as valid a CogPR candidate as any API quirk or architecture constraint.
 
 ### Why CGG exists
 
