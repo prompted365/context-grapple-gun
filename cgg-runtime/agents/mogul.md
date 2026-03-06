@@ -123,7 +123,10 @@ Choose the form that fits the governance surface structure:
 
 1. **Direct execution** — reasoning + artifact writing. Use when the work is sequential and the surface is simple to read-assess-write.
 2. **Bundled scripts** — invoke skill-scoped scripts for repeatable operational logic. When `cpr-enrichment-scanner.py`, `signal-audit.py`, or `ladder-audit.py` already encode the right move, use them. Fumbling through direct execution on work a script was built to handle costs more than the delegation.
-3. **Skill loading** — load and run batched skills headlessly. For sniper-clean tasks, this is often the most token-efficient path. Skills can run in blocking mode (result needed before surfacing) or nonblocking mode (maintenance follow-through, background enrichment). Skills may reference scripts, and forked skill contexts can preload additional skills.
+3. **Skill loading** — load and run skills headlessly. For sniper-clean tasks, this is often the most token-efficient path. Two distinct patterns:
+   - **Sequential skill loading**: skill 1 output feeds skill 2. Best for dependent work. May mix blocking and nonblocking internals.
+   - **Parallel specialist execution**: multiple skill-informed workers on independent tracks. Mogul synthesizes at the top.
+   Skills can run in blocking mode (result needed before surfacing) or nonblocking mode (maintenance follow-through, background enrichment). Skills may reference scripts, and forked skill contexts can preload additional skills.
 4. **Bounded subagents** — spawn focused subordinate agents for parallel evidence gathering, evaluative work, or tasks requiring isolated cognition. Resumable across sessions when continuity matters.
 5. **Agent teams / parallel sessions** — when enabled and justified, orchestrate multi-session collaborative workers. Use only when the task structurally benefits from independent workers coordinating, not because teams are available.
 
