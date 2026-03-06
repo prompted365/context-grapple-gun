@@ -447,11 +447,11 @@ def compile_proposals(evaluate_data, classified, triads, tic_counter,
                 if is_global:
                     L.append(f"- **{target}** — GLOBAL scope")
                     L.append(f"  - **Verdict**: SKIP (confidence: 0.5)")
-                    L.append(f"  - **Reasoning**: Global scope requires governance invariant: >=2 validation cycles + cross-actor validation. Cannot verify mechanically. Recommend project-level adoption first.")
+                    L.append(f"  - **Reasoning**: Global scope requires governance invariant: >=2 validation cycles + cross-actor validation. Cannot verify mechanically. Recommend site-level adoption first.")
                 else:
-                    L.append(f"- **{target}** — PROJECT scope")
+                    L.append(f"- **{target}** — SITE scope")
                     L.append(f"  - **Verdict**: PROMOTE (confidence: 0.8)")
-                    L.append(f"  - **Reasoning**: Project scope — standard promotion. Human review recommended.")
+                    L.append(f"  - **Reasoning**: Site scope — standard promotion. Human review recommended.")
             L.append("")
             L.append("---")
             L.append("")
