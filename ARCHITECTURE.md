@@ -209,6 +209,111 @@ Three numbers that separate compounding governance from configuration drift:
 
 ---
 
+## Actor Model
+
+### Actor hierarchy
+
+```
+Human
+  ↓
+Homeskillet (interactive orchestrator)
+  ↓
+Estate orchestrators
+  ├─ Mogul (operations)
+  └─ Swann (economy)
+```
+
+### Homeskillet
+
+Role: interactive orchestrator
+Mode: blocking / user-facing
+
+Responsibilities:
+- run sessions
+- delegate agents
+- present governance artifacts
+- invoke /cadence /review /siren
+- route work to orchestrators
+
+Cannot:
+- silently promote law
+- bypass constitutional review
+
+### Mogul
+
+Role: estate operations governor
+Mode: headless by default
+
+Responsibilities:
+- governance CI
+- candidate assessment
+- MEMORY mining
+- ladder coherence audits
+- runtime drift detection
+- prompt-stack audits
+- review staging
+- deliverable-team orchestration
+
+Cannot:
+- promote law
+- mutate CLAUDE.md
+- assume Swann's role
+
+### Swann
+
+Role: economic governor
+
+Responsibilities:
+- exchange behavior
+- mint/burn policy
+- treasury reporting
+- liquidity monitoring
+- economic pressure signals
+
+Swann must never run operational governance.
+
+### Subordinate assessors
+
+- Ripple Assessor
+- Scope Resolver
+- Ladder Auditor
+- Prompt Stack Auditor
+- Signal Neighborhood Auditor
+- Repo Map Assessor
+- Manifestation Evidence Gatherer
+
+Key rule:
+- subagents produce evidence
+- Mogul produces synthesis
+- humans produce law
+
+## Behavior-Bearing Surfaces
+
+All surfaces capable of affecting agent behavior are auditable governance targets.
+
+These include:
+- CLAUDE.md chain
+- MEMORY.md chain
+- SKILL.md files
+- agent prompts
+- project instruction files
+- convention blocks
+- hooks
+- runtime scripts
+- installed runtime copies
+- bridge prompts
+- handoff triggers
+
+### Audit expansion rule
+
+If signals cluster around agent behavior, Mogul must expand the audit surface to include all nearby behavior-bearing prompts and runtime layers.
+
+### Example failure case
+
+A lesson repeatedly compensating for agent drift may indicate prompt-stack interference rather than missing governance law.
+
+---
+
 ### Part II — Advanced / boundary-to-substrate (Sections 7–11)
 
 Not required to run CGG today. These sections explain design limits, failure modes as scale grows, and how the substrate extends beyond flat files.

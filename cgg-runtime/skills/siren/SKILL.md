@@ -68,14 +68,19 @@ Warrants:
 Commands: /siren emit | /siren tick | /siren update | /siren history | /review
 ```
 
-Effective volume is computed for `homeskillet` as the hearing target:
+Effective volume is computed per hearing target from zone configuration:
+
+1. Read `.ticzone` for `governance_actors` — each entry has `role` and `threshold`
+2. If `governance_actors` is absent, use safe defaults: `{"homeskillet": {"role": "interactive_orchestrator", "threshold": 40}}`
+3. For each actor, compute:
 ```
 effective_volume = volume - (directory_hops(source, project_root) * muffling_per_hop)
 if band == "PRIMITIVE":
-    effective_volume = max(effective_volume, hearing_threshold + 1)
+    effective_volume = max(effective_volume, actor_threshold + 1)
 ```
+4. Dashboard displays effective volume for the primary actor (first entry or interactive_orchestrator role)
 
-The `hearing_threshold` for homeskillet defaults to 40. The PRIMITIVE floor ensures safety signals are never topologically muffled into inaudibility.
+Actor targets must be read from zone configuration. Hardcoded actor lists are invalid outside development environments. If `governance_actors` is absent, use the safe default above and emit a warning: "No governance_actors in .ticzone — using development defaults."
 
 ---
 
@@ -140,10 +145,7 @@ Create a new signal from arguments:
      "volume": 30,
      "volume_rate": 10,
      "max_volume": 100,
-     "hearing_targets": [
-       {"actor": "homeskillet", "threshold": 40},
-       {"actor": "mogul", "threshold": 50}
-     ],
+     "hearing_targets": "__read from .ticzone governance_actors — see zone config__",
      "escalation": {
        "warrant_threshold": 80,
        "warrant_id": ""
