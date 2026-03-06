@@ -24,6 +24,7 @@ Three commands. Five structural mechanisms. One scale boundary.
 |----------------|------------|
 | **Use it now** | [START-HERE.md](START-HERE.md) — the three commands, a normal day, install in 30 seconds |
 | **Evaluate the architecture** | This file (keep reading) → [DEV-README.md](DEV-README.md) → [ARCHITECTURE.md](ARCHITECTURE.md) |
+| **Audit recent changes** | [docs/COMMIT-HISTORY-CHEATSHEET.md](docs/COMMIT-HISTORY-CHEATSHEET.md) — why each commit happened and what it fixed or left open |
 | **Learn through story** | [academy/README.md](academy/README.md) — five chapters, real simulations, one very persistent goat |
 | **Install and extend** | [INSTALL.md](INSTALL.md) — plugin path, bootstrap fallback, install modes |
 
