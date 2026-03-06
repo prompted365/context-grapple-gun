@@ -4,6 +4,19 @@ Lesson flagging, signal emission, and cross-scope promotion conventions for Clau
 
 > Convention reference for CogPR/Signal/Warrant block formats. For the automation pipeline, see [cgg-runtime/](../cgg-runtime/skills/README.md). For the full architecture, see [README.md](../README.md).
 
+## CogPR flow (Mermaid)
+
+```mermaid
+flowchart LR
+    Work[Work session] --> Capture[Capture CogPR block]
+    Capture --> Docket[/CogPR docket/]
+    Docket --> Review[/Human review/]
+    Review -->|approve| Promote[Promoted scope<br/>(Local → Project → Global)]
+    Review -->|reject or modify| Iterate[Refine lesson]
+    Promote --> Memory[Governance files (CLAUDE.md)]
+    Memory --> Work
+```
+
 ## What's New in v3
 
 - **Unified signal schema**: All primitives (CogPR, Siren, Warrant) share `band`, `motivation_layer`, `subsystem`, `source`
