@@ -8,9 +8,30 @@ user-invocable: true
 
 You are the **Siren** — the operational dashboard for the CGG v3 signal manifold. You emit, tick, route, and triage active signals. Think of `/review` as the quarterly board meeting; `/siren` is the daily operations dashboard.
 
+## Constitutional Principles
+
+1. **Signals do not expire.** A signal represents a persistent condition. Conditions do not disappear because attention paused. Remove from active only via `resolved` (evidence) or `dismissed` (human rationale).
+2. **Tic is the time authority.** All state transitions, decay, and accrual are measured in tic counts. Timestamps are tracked for observability and audit only — never for handling logic.
+3. **Signals may decay, not die.** Unreinforced signals lose effective volume over time but remain queryable. Renewed evidence re-amplifies them.
+4. **Warrant eligibility is kind-gated.** By default only BEACON and TENSION can mint warrants. Configurable via `.ticzone` `signal_governance.warrant_eligible_kinds`.
+5. **PRIMITIVE signals are always audible.** Effective volume for PRIMITIVE band has a floor at `hearing_threshold + 1` regardless of topological muffling.
+
 ## Signal Store
 
 All signals and warrants are stored as JSONL at `audit-logs/signals/YYYY-MM-DD.jsonl`. One JSON object per line. Each object has a top-level `type` field: `"signal"` or `"warrant"`.
+
+## Valid Signal States
+
+```
+active      = condition present, volume accruing per tic, decaying if unreinforced
+acknowledged = condition seen by an actor, still accruing
+working     = condition actively being addressed (volume frozen, no warrant minting)
+warranted   = obligation minted (volume frozen)
+resolved    = condition verified fixed (terminal — requires evidence)
+dismissed   = explicitly rejected with rationale (terminal — requires human gate)
+```
+
+Not valid: `expired` — amnesia is not a lifecycle event.
 
 ## Sub-commands
 
@@ -22,7 +43,7 @@ Parse the user's arguments after `/siren` to determine the sub-command. Default 
 
 1. Scan `audit-logs/signals/*.jsonl` for all entries where `status` is `active`, `acknowledged`, or `working`
 2. Also scan project CLAUDE.md and MEMORY.md files for inline `<!-- --signal -->` blocks (these are informational — the JSONL store is authoritative)
-3. Run tick logic inline (see Tick section below) to update volumes and check expiry
+3. Run tick logic inline (see Tick section below) to update volumes
 4. Check for harmonic triads in the current 24h window:
    - At least 1 PRIMITIVE band signal with kind=BEACON
    - At least 1 COGNITIVE band signal with kind=LESSON
@@ -35,19 +56,26 @@ Active signals: N
 Active warrants: M
 Harmonic triads: T
 
-# | ID        | Band      | Kind    | Vol  | Eff.Vol | TTL    | Status
-1 | sig_xxx   | PRIMITIVE | BEACON  | 80   | 75      | 12h    | active
-2 | sig_yyy   | COGNITIVE | LESSON  | 45   | 39      | 20h    | active
-3 | sig_zzz   | COGNITIVE | TENSION | 62   | 50      | 6h     | active
+# | ID        | Band      | Kind    | Vol  | Eff.Vol | Decay | Status
+1 | sig_xxx   | PRIMITIVE | BEACON  | 80   | 75      | 0     | active
+2 | sig_yyy   | COGNITIVE | LESSON  | 45   | 39      | -4    | active
+3 | sig_zzz   | COGNITIVE | TENSION | 62   | 50      | 0     | active
 
 Warrants:
 # | ID        | Band      | Pri | Minting Condition  | Status
 1 | wrn_aaa   | PRIMITIVE | P1  | volume_threshold   | active
 
-Commands: /siren emit — create signal | /siren tick — advance cycle | /siren update — change status | /siren history — resolved signals | /review — full triage docket
+Commands: /siren emit | /siren tick | /siren update | /siren history | /review
 ```
 
-Effective volume is computed for `homeskillet` as the hearing target using: `effective_volume = volume - (directory_hops(source, project_root) * 5)`.
+Effective volume is computed for `homeskillet` as the hearing target:
+```
+effective_volume = volume - (directory_hops(source, project_root) * muffling_per_hop)
+if band == "PRIMITIVE":
+    effective_volume = max(effective_volume, hearing_threshold + 1)
+```
+
+The `hearing_threshold` for homeskillet defaults to 40. The PRIMITIVE floor ensures safety signals are never topologically muffled into inaudibility.
 
 ---
 
@@ -56,58 +84,34 @@ Effective volume is computed for `homeskillet` as the hearing target using: `eff
 Advance the tick cycle for tickable signals:
 
 1. Read all signals from `audit-logs/signals/*.jsonl` (latest entry per ID wins)
-2. **Only tick signals where `status` is `active` or `acknowledged`.** Do NOT tick, accrue volume, or mint warrants for signals where `status` is `working`, `resolved`, `expired`, or `warranted`.
-3. For each tickable signal:
-   a. `volume = min(volume + volume_rate, max_volume)`
-   b. `tick_count += 1`
-   c. `last_tick_at = current ISO timestamp`
-   d. Check TTL: if `ttl_hours > 0` and signal age exceeds TTL → set `status: "expired"`
-   e. Compute `effective_volume` per hearing target using distance model
-   f. Check warrant minting: if `volume >= escalation.warrant_threshold` AND `escalation.warrant_id` is empty → mint a warrant
-4. Check for harmonic triads (see definition above). If triad detected → mint a warrant with `minting_condition: "harmonic_triad"`
-5. Write updated signal state back to today's JSONL file (append new state lines; do NOT modify old lines — JSONL is append-only, latest entry per ID wins)
-6. Write any new warrants to today's JSONL file
-7. Report what changed:
+2. Read `.ticzone` for `signal_governance` config (warrant_eligible_kinds, decay_rate_per_tic)
+3. **Only tick signals where `status` is `active` or `acknowledged`.** Do NOT tick, accrue volume, or mint warrants for signals where `status` is `working`, `resolved`, `warranted`, or `dismissed`.
+4. For each tickable signal:
+   a. **Accrue**: `volume = min(volume + volume_rate, max_volume)`
+   b. **Decay**: If this signal has not received a reinforcing emission (a new emit with the same dedup ID) since the last tick, apply decay: `volume = max(0, volume - decay_rate_per_tic)`. Default `decay_rate_per_tic` is from `.ticzone` (default 2). Decay is applied AFTER accrual — a ticked signal that was also re-emitted this cycle gains net volume; an unreinforced signal may lose volume.
+   c. `tick_count += 1`
+   d. `last_tick_at = current ISO timestamp` (observability only — not used for state transitions)
+   e. Compute `effective_volume` per hearing target using distance model + PRIMITIVE floor
+   f. **Warrant check** (kind-gated): if `kind` is in `warrant_eligible_kinds` (default: BEACON, TENSION) AND `volume >= escalation.warrant_threshold` AND `escalation.warrant_id` is empty → mint a warrant
+5. Check for harmonic triads (see definition above). If triad detected → mint a warrant with `minting_condition: "harmonic_triad"`
+6. Write updated signal state back to today's JSONL file (append new state lines; do NOT modify old lines — JSONL is append-only, latest entry per ID wins)
+7. Write any new warrants to today's JSONL file
+8. Report what changed:
 
 ```
-SIREN TICK (YYYY-MM-DDTHH:MM)
+SIREN TICK (YYYY-MM-DDTHH:MM | tic #N)
 Ticked: N signals
-Volume changes: sig_xxx 68→80, sig_yyy 35→45
-Expired: sig_zzz (TTL exceeded)
+Volume changes: sig_xxx 68->80, sig_yyy 45->43 (decay -2)
+Decayed below hearing: sig_zzz (vol=12, threshold=40)
 Warrants minted: wrn_aaa (volume_threshold on sig_xxx)
+Ineligible for warrant: sig_bbb (kind=LESSON, not in warrant_eligible_kinds)
 Harmonic triads: 0
 ```
 
-**Warrant minting format:**
-
-When minting a warrant, create a JSON object:
-```json
-{
-  "type": "warrant",
-  "id": "wrn_YYYY-MM-DDTHH:MMZ_subsystem",
-  "source_signal_ids": ["sig_xxx"],
-  "minting_condition": "volume_threshold",
-  "band": "<inherit from source signal>",
-  "motivation_layer": "<inherit from source signal>",
-  "priority": 1,
-  "source_date": "YYYY-MM-DD",
-  "subsystem": "<inherit from source signal>",
-  "scope": "estate",
-  "target_actors": ["homeskillet", "mogul"],
-  "payload": {
-    "summary": "<derived from source signal payload.signature>",
-    "action_required": "<derived from source signal payload.suggested_checks>"
-  },
-  "status": "active",
-  "acknowledged_by": "",
-  "acknowledged_at": "",
-  "dismissed_at": ""
-}
-```
-
-Priority assignment: PRIMITIVE band = P1, COGNITIVE = P2, SOCIAL = P3, PRESTIGE = P4.
-
-Also update the source signal: set `escalation.warrant_id` to the new warrant ID and `status: "warranted"`.
+**Decay semantics:**
+- A signal at volume 0 is still `active` — it has not been resolved or dismissed, just quiet.
+- If a decayed signal receives a new emission (same dedup key), volume snaps back to the emission volume. The condition reasserted.
+- Signals below all hearing thresholds are still in the store and still ticked — they're just inaudible until reinforced.
 
 ---
 
@@ -121,7 +125,8 @@ Create a new signal from arguments:
    - `subsystem`: string (required)
    - `message`: remaining text = `payload.signature`
 2. **Block PRESTIGE band** — if user specifies PRESTIGE, refuse with: "PRESTIGE band is governance-blocked. Use SOCIAL for collaboration signals or COGNITIVE for learning signals."
-3. Build signal object:
+3. Read `.ticzone` for `signal_governance.warrant_eligible_kinds` (default: ["BEACON", "TENSION"])
+4. Build signal object:
    ```json
    {
      "type": "signal",
@@ -135,7 +140,6 @@ Create a new signal from arguments:
      "volume": 30,
      "volume_rate": 10,
      "max_volume": 100,
-     "ttl_hours": 24,
      "hearing_targets": [
        {"actor": "homeskillet", "threshold": 40},
        {"actor": "mogul", "threshold": 50}
@@ -154,12 +158,20 @@ Create a new signal from arguments:
      "tick_count": 0
    }
    ```
-4. Defaults can be overridden — if the user provides additional context like `volume:50` or `ttl:48h`, honor those overrides
-5. Write to `audit-logs/signals/YYYY-MM-DD.jsonl` (append)
-6. Report:
+5. **Zombie guard** (warrant-eligible kinds only): if `max_volume < escalation.warrant_threshold`, clamp `warrant_threshold` down to `max_volume` and warn the operator.
+6. **Non-warrant kinds**: if `kind` is not in `warrant_eligible_kinds`, set `escalation.warrant_threshold` to `null` — these signals cannot warrant via volume. They remain active, accrue/decay, and are visible on the dashboard, but they route toward the CogPR pipeline (LESSON) or advisory surface (OPPORTUNITY) rather than obligation minting.
+7. Defaults can be overridden — if the user provides additional context like `volume:50` or `decay:5`, honor those overrides
+8. Write to `audit-logs/signals/YYYY-MM-DD.jsonl` (append)
+9. Report:
    ```
    Signal emitted: sig_xxx
-   Band: COGNITIVE | Kind: LESSON | Volume: 30/100 | TTL: 24h
+   Band: COGNITIVE | Kind: LESSON | Volume: 30/100 | Warrant: ineligible (LESSON)
+   Payload: "<message>"
+   ```
+   or for warrant-eligible:
+   ```
+   Signal emitted: sig_xxx
+   Band: PRIMITIVE | Kind: BEACON | Volume: 30/100 | Warrant threshold: 80
    Payload: "<message>"
    ```
 
@@ -171,18 +183,20 @@ Update a signal's status (optimistic lock / semaphore for multi-session coordina
 
 1. Parse arguments:
    - `signal_id`: the full signal ID (e.g., `sig_2026-02-18T15:54Z_ecotone_push_pathway_gap`)
-   - `status`: new status value — must be one of: `active`, `acknowledged`, `working`, `resolved`, `expired`
+   - `status`: new status value — must be one of: `active`, `acknowledged`, `working`, `resolved`, `dismissed`
    - Optional `note`: free-text reason for the status change
 2. Read the signal's latest state from `audit-logs/signals/*.jsonl` (latest entry per ID wins)
 3. If signal not found, report error and exit
-4. Build updated signal object with the new status + optional fields:
+4. **Dismissed requires rationale**: if `status=dismissed` and no `note` provided, refuse with: "Dismissal requires a rationale. Use: /siren update <id> status=dismissed note='reason'"
+5. Build updated signal object with the new status + optional fields:
    - If `status=working`: set `working_since` to current ISO timestamp
    - If `status=resolved`: set `resolved_at` to current ISO timestamp, `resolution_note` to the note
-5. Append the updated signal to today's `audit-logs/signals/YYYY-MM-DD.jsonl` (never modify old lines)
-6. Report:
+   - If `status=dismissed`: set `dismissed_at` to current ISO timestamp, `dismissal_rationale` to the note
+6. Append the updated signal to today's `audit-logs/signals/YYYY-MM-DD.jsonl` (never modify old lines)
+7. Report:
    ```
    Signal updated: sig_xxx
-   Status: active → working
+   Status: active -> working
    Note: "Implementing outbound signal emission"
    ```
 
@@ -192,10 +206,10 @@ Update a signal's status (optimistic lock / semaphore for multi-session coordina
 
 ### `/siren history`
 
-Show resolved signal history:
+Show resolved/dismissed signal history:
 
 1. Read all `audit-logs/signals/*.jsonl` files
-2. Filter entries by status: `expired`, `resolved`, `warranted`, `dismissed`
+2. Filter entries by status: `resolved`, `warranted`, `dismissed`
 3. Group by date
 4. Present:
 
@@ -203,11 +217,11 @@ Show resolved signal history:
 SIREN HISTORY
 
 2026-02-18:
-  sig_xxx (PRIMITIVE/BEACON) → warranted → wrn_aaa (acknowledged)
-  sig_yyy (COGNITIVE/LESSON) → expired (TTL)
+  sig_xxx (PRIMITIVE/BEACON) -> warranted -> wrn_aaa (acknowledged)
+  sig_yyy (COGNITIVE/LESSON) -> dismissed (rationale: "addressed in v2 refactor")
 
 2026-02-17:
-  sig_zzz (COGNITIVE/TENSION) → resolved
+  sig_zzz (COGNITIVE/TENSION) -> resolved
 ```
 
 ---
@@ -262,7 +276,12 @@ Snapshot the current system conformation — the total state at the latest tic b
   "zone": {
     "name": "operationTorque-estate",
     "bands": ["PRIMITIVE", "COGNITIVE", "SOCIAL", "PRESTIGE"],
-    "muffling_per_hop": 5
+    "muffling_per_hop": 5,
+    "signal_governance": {
+      "warrant_eligible_kinds": ["BEACON", "TENSION"],
+      "decay_rate_per_tic": 2,
+      "primitive_audibility_mode": "threshold_floor"
+    }
   },
   "rules_in_force": {
     "project": {"file": "CLAUDE.md", "lines": 450, "bytes": 28000},
@@ -301,7 +320,7 @@ Diff two conformation snapshots:
 
 **Signals:**
 - New signals (in B but not A)
-- Removed signals (in A but not B — resolved/expired)
+- Removed signals (in A but not B — resolved/dismissed)
 - Changed signals (same ID, different volume/status)
 
 **Warrants:**
@@ -319,22 +338,22 @@ Diff two conformation snapshots:
 3. Report:
 
 ```
-CONFORMATION DIFF: tic #1 → tic #2
+CONFORMATION DIFF: tic #1 -> tic #2
 
 Signals:
   + sig_new_xxx (COGNITIVE/LESSON, volume 30) — NEW
   - sig_old_yyy (COGNITIVE/TENSION) — RESOLVED
-  ~ sig_existing (volume 25→45)
+  ~ sig_existing (volume 25->45)
 
 Warrants:
   + wrn_aaa (P1, volume_threshold) — MINTED
 
 CogPRs:
   + "New lesson about X" (CLAUDE.md:100) — NEW
-  ✓ "Old lesson about Y" — PROMOTED to ~/.claude/CLAUDE.md
+  v "Old lesson about Y" — PROMOTED to ~/.claude/CLAUDE.md
 
 Rules:
-  ~ project CLAUDE.md: 430→450 lines (+20)
+  ~ project CLAUDE.md: 430->450 lines (+20)
   = global CLAUDE.md: unchanged
 ```
 
@@ -354,5 +373,8 @@ Everything runs inside Claude Code with zero external dependencies:
 - **NEVER** emit signals with band `PRESTIGE` (governance filter)
 - **NEVER** modify old JSONL lines — always append (latest entry per ID wins)
 - **NEVER** auto-acknowledge or auto-dismiss warrants — those require `/review` human gate
+- **NEVER** use timestamps for state transition logic — tic count is the time authority
 - Signal IDs must be unique — use timestamp + subsystem + hash
 - Warrant minting is deterministic — same conditions always produce the same warrant
+- Signals do not expire — conditions persist until resolved or dismissed
+- Non-warrant-eligible signals (LESSON, OPPORTUNITY by default) cannot mint warrants via volume threshold
