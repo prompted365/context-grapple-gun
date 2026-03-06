@@ -4,6 +4,27 @@ Automated between-session lesson evaluation and signal management for Claude Cod
 
 > Runtime pipeline reference. For the convention layer, see [cogpr/](../../cogpr/README.md). For daily usage, see [START-HERE.md](../../START-HERE.md).
 
+## Runtime pipeline (Mermaid)
+
+```mermaid
+flowchart TB
+    Cadence[/`/cadence` end of session/] --> Plan[Plan written with trigger]
+    Plan --> SessionStart[SessionStart hook<br/>restore + signal scan]
+    SessionStart --> Assessor[Background ripple-assessor]
+    Assessor --> Proposals[Proposals file<br/>~/.claude/grapple-proposals]
+    Proposals --> Review[/`/review` docket/]
+
+    Review -->|CogPR approved| Promotion[Write CLAUDE.md updates]
+    Review -->|Warrant triage| Actions[ACK / DISMISS / ESCALATE]
+    Review -->|Needs edits| Iterate[Send back to buffer]
+
+    Promotion --> NextSession[Next session start state]
+    Actions --> Siren[/`/siren` dashboard/]
+    Siren --> Tick[/`/siren tick` volume accrual/]
+    Tick --> Review
+    NextSession --> Cadence
+```
+
 ## What's New in v3
 
 - **`/siren` skill**: Signal emission, tick advancement, warrant minting, triage dashboard
