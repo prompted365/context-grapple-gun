@@ -1,0 +1,12 @@
+{
+  "subsystems": {
+    "core": ["src/core/"],
+    "api": ["src/api/", "routes/"],
+    "auth": ["src/auth/"]
+  },
+  "test_paths": {
+    "core": ["tests/core/**/*.test.*"],
+    "api": ["tests/api/**/*.test.*"],
+    "auth": ["tests/auth/**/*.test.*"]
+  }
+}

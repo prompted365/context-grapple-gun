@@ -19,6 +19,10 @@ import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
+# Allow importing zone_root from same directory
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from zone_root import resolve_zone_root, load_ticzone, audit_logs_path
+
 
 BLOCK_RE = re.compile(
     r"<!-- --agnostic-candidate\s*\n(.*?)\n\s*-->",
@@ -152,7 +156,9 @@ def find_governance_files(project_dir, excludes):
 def get_tic_count(project_dir):
     """Get current project tic count from audit-logs/tics/*.jsonl."""
     tic_count = 0
-    tic_dir = os.path.join(project_dir, "audit-logs", "tics")
+    tz_config = load_ticzone(project_dir)
+    al_path = audit_logs_path(project_dir, tz_config)
+    tic_dir = os.path.join(al_path, "tics")
     if not os.path.isdir(tic_dir):
         return tic_count
     for f in sorted(Path(tic_dir).glob("*.jsonl")):
@@ -172,7 +178,9 @@ def get_tic_count(project_dir):
 def extract_cprs(project_dir, dry_run=False):
     """Main extraction: scan governance files, dedup, append to queue."""
     project_dir = os.path.abspath(project_dir)
-    queue_file = os.path.join(project_dir, "audit-logs", "cprs", "queue.jsonl")
+    tz_config = load_ticzone(project_dir)
+    al_path = audit_logs_path(project_dir, tz_config)
+    queue_file = os.path.join(al_path, "cprs", "queue.jsonl")
     excludes = load_ticignore(project_dir)
     existing_hashes = load_existing_hashes(queue_file)
     gov_files = find_governance_files(project_dir, excludes)
@@ -249,13 +257,14 @@ def main():
     )
     parser.add_argument(
         "--project-dir",
-        default=os.environ.get("CLAUDE_PROJECT_DIR", os.getcwd()),
+        default=None,
     )
     parser.add_argument("--dry-run", action="store_true")
     parser.add_argument("--verbose", action="store_true")
     args = parser.parse_args()
 
-    new_entries = extract_cprs(args.project_dir, dry_run=args.dry_run)
+    project_dir = args.project_dir or resolve_zone_root()
+    new_entries = extract_cprs(project_dir, dry_run=args.dry_run)
 
     if args.verbose:
         for e in new_entries:

@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "CGG Subsystems Config",
+  "description": "Project-specific subsystem-to-path mappings for CGG governance scripts. Lives at .cgg/subsystems.json in the zone root.",
+  "type": "object",
+  "properties": {
+    "subsystems": {
+      "type": "object",
+      "description": "Map of subsystem name to array of relative directory paths (from zone root).",
+      "additionalProperties": {
+        "type": "array",
+        "items": { "type": "string" }
+      }
+    },
+    "test_paths": {
+      "type": "object",
+      "description": "Map of subsystem name to array of glob patterns for test files (relative to zone root).",
+      "additionalProperties": {
+        "type": "array",
+        "items": { "type": "string" }
+      }
+    }
+  },
+  "required": ["subsystems"],
+  "additionalProperties": false
+}

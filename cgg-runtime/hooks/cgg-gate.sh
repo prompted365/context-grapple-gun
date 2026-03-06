@@ -1,14 +1,39 @@
 #!/bin/bash
-# CGG v3 — UserPromptSubmit one-shot trigger gate
+# CGG v4 — UserPromptSubmit one-shot trigger gate
 # Fires ONCE per handoff: runs ripple-assessor evaluation, then self-disarms.
 # Called by UserPromptSubmit hook. Reads stdin (prompt JSON) but ignores content.
 #
 # Assessment strategy (deterministic first, LLM fallback):
-#   1. If scripts/ripple-assessor.py exists → run it directly (fast, deterministic)
+#   1. If ripple-assessor.py exists → run it directly (fast, deterministic)
 #   2. Otherwise → instruct Claude to spawn the ripple-assessor agent (original behavior)
+#
+# Script resolution order:
+#   1. $ZONE_ROOT/scripts/<name>.py (project override)
+#   2. $CGG_SCRIPTS_DIR/<name>.py (plugin-root-anchored bundled script)
+#   3. $HOME/.claude/cgg-runtime/scripts/<name>.py (global install fallback)
 cat > /dev/null
 
-PROJECT_DIR="${CLAUDE_PROJECT_DIR:-$(pwd)}"
+# ============================================================================
+# Root Anchoring
+# ============================================================================
+
+# Plugin-root anchor: canonical for finding bundled runtime assets
+CGG_PLUGIN_ROOT="${CLAUDE_PLUGIN_ROOT:-$(cd "$(dirname "$0")/../.." && pwd)}"
+CGG_SCRIPTS_DIR="$CGG_PLUGIN_ROOT/cgg-runtime/scripts"
+
+# Zone-root anchor: canonical for all governance data IO
+resolve_zone_root() {
+  local dir="${CLAUDE_PROJECT_DIR:-$(pwd)}"
+  while [ "$dir" != "/" ]; do
+    [ -f "$dir/.ticzone" ] && echo "$dir" && return 0
+    dir=$(dirname "$dir")
+  done
+  git rev-parse --show-toplevel 2>/dev/null && return 0
+  echo "$(pwd)" && echo "[CGG WARNING] No .ticzone found — falling back to cwd" >&2
+}
+ZONE_ROOT=$(resolve_zone_root)
+
+PROJECT_DIR="$ZONE_ROOT"
 PROJECT_KEY=$(echo "$PROJECT_DIR" | sed 's|/|-|g')
 FLAG_DIR="${TMPDIR:-/tmp}/claude_cgg/$PROJECT_KEY"
 TRIGGER_FILE="$FLAG_DIR/pending-trigger.txt"
@@ -50,11 +75,30 @@ fi
 TIMESTAMP=$(date -Iseconds)
 echo "{\"timestamp\":\"$TIMESTAMP\",\"action\":\"trigger_fired\",\"handoff_id\":\"$HANDOFF_ID\",\"expected_cprs\":$EXPECTED_CPRS,\"plan_path\":\"$PLAN_PATH\",\"project\":\"$PROJECT_DIR\"}" >> "$META_LOG"
 
-# --- Assessment strategy ---
-# Try deterministic assessor first (faster, no LLM cost)
-DETERMINISTIC_ASSESSOR="$PROJECT_DIR/scripts/ripple-assessor.py"
-if [ -f "$DETERMINISTIC_ASSESSOR" ]; then
-  # Run deterministic assessor directly — it reads the plan and writes proposals
+# ============================================================================
+# Script resolution
+# ============================================================================
+
+resolve_script() {
+  local name="$1"
+  for candidate in \
+    "$ZONE_ROOT/scripts/$name" \
+    "$CGG_SCRIPTS_DIR/$name" \
+    "$HOME/.claude/cgg-runtime/scripts/$name"; do
+    if [ -f "$candidate" ]; then
+      echo "$candidate"
+      return 0
+    fi
+  done
+  return 1
+}
+
+# ============================================================================
+# Assessment strategy — deterministic assessor first
+# ============================================================================
+
+DETERMINISTIC_ASSESSOR=$(resolve_script "ripple-assessor.py")
+if [ -n "$DETERMINISTIC_ASSESSOR" ]; then
   python3 "$DETERMINISTIC_ASSESSOR" \
     --plan "$PLAN_PATH" \
     --project "$PROJECT_DIR" \
@@ -62,7 +106,7 @@ if [ -f "$DETERMINISTIC_ASSESSOR" ]; then
     2>/dev/null &
 
   echo "{\"timestamp\":\"$TIMESTAMP\",\"action\":\"deterministic_assessor_spawned\",\"handoff_id\":\"$HANDOFF_ID\",\"assessor\":\"$DETERMINISTIC_ASSESSOR\"}" >> "$META_LOG"
-  echo "{\"hookSpecificOutput\":{\"hookEventName\":\"UserPromptSubmit\",\"additionalContext\":\"[CGG TRIGGER FIRED] Deterministic ripple-assessor running in background. Proposals will appear at ~/.claude/grapple-proposals/latest.md. /grapple when ready.\"}}"
+  echo "{\"hookSpecificOutput\":{\"hookEventName\":\"UserPromptSubmit\",\"additionalContext\":\"[CGG TRIGGER FIRED] Deterministic ripple-assessor running in background. Proposals will appear at ~/.claude/grapple-proposals/latest.md. /review when ready.\"}}"
   exit 0
 fi
 

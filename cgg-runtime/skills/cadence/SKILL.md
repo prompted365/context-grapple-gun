@@ -29,14 +29,21 @@ Locate the active plan file in `~/.claude/plans/`. Evaluate its status based on 
 #### Step 0.5: Emit Tic
 Record the canonical downbeat timestamp.
 
-**Counting rule (SUBSTRATE INVARIANT):** The canonical tic count is the physical number of `type=tic` entries across all `audit-logs/tics/*.jsonl` files, determined by JSON-parsing — never by grep, never by reading an embedded `tic_count_project` field from a previous entry. The global counter file (`~/.claude/cgg-tic-counter.json`) is a cached mirror of this physical truth, not an independent state machine.
+**Zone root anchoring (SUBSTRATE INVARIANT):** All audit-store paths MUST resolve from the zone root (the directory containing `.ticzone`), never from cwd. Determine the zone root first:
+```bash
+ZONE_ROOT="${CLAUDE_PROJECT_DIR:-$(pwd)}"
+# Walk up to find .ticzone if CLAUDE_PROJECT_DIR is not set
+while [ "$ZONE_ROOT" != "/" ] && [ ! -f "$ZONE_ROOT/.ticzone" ]; do ZONE_ROOT=$(dirname "$ZONE_ROOT"); done
+```
 
-1. Append tic record to `audit-logs/tics/YYYY-MM-DD.jsonl`:
+**Counting rule (SUBSTRATE INVARIANT):** The canonical tic count is the physical number of `type=tic` entries across all `$ZONE_ROOT/audit-logs/tics/*.jsonl` files, determined by JSON-parsing — never by grep, never by reading an embedded `tic_count_project` field from a previous entry. The global counter file (`~/.claude/cgg-tic-counter.json`) is a cached mirror of this physical truth, not an independent state machine.
+
+1. Append tic record to `$ZONE_ROOT/audit-logs/tics/YYYY-MM-DD.jsonl`:
    `{"type": "tic", "tic": "<ISO-8601 now>", "tic_zone": "<name from .ticzone>", "cadence_position": "downbeat", "scope": "project"}`
    Note: `tic_count_project` and `tic_count_global` are omitted — they are advisory and the canonical count is physical truth.
 2. Reconcile counters from physical truth:
    ```bash
-   PHYS=$(python3 -c "import json,glob; print(sum(1 for f in glob.glob('audit-logs/tics/*.jsonl') for l in open(f) if json.loads(l).get('type')=='tic'))")
+   PHYS=$(python3 -c "import json,glob; print(sum(1 for f in glob.glob('$ZONE_ROOT/audit-logs/tics/*.jsonl') for l in open(f) if json.loads(l).get('type')=='tic'))")
    ```
 3. Write global counter atomically (cached mirror of physical truth):
    ```bash
@@ -120,14 +127,14 @@ This buys headroom. The next session's SessionStart hook will reset it to 80%.
 
 #### Step 2: Emit Tic (lightweight)
 
-**Counting rule (SUBSTRATE INVARIANT):** The canonical tic count is the physical number of `type=tic` entries across all `audit-logs/tics/*.jsonl` files, determined by JSON-parsing — never by grep, never by reading an embedded `tic_count_project` field from a previous entry. The global counter file (`~/.claude/cgg-tic-counter.json`) is a cached mirror of this physical truth, not an independent state machine.
+**Zone root anchoring + Counting rule (SUBSTRATE INVARIANT):** Same as downbeat — resolve zone root from `.ticzone` walk-up, count tics physically from `$ZONE_ROOT/audit-logs/tics/*.jsonl`.
 
-1. Append tic record to `audit-logs/tics/YYYY-MM-DD.jsonl`:
+1. Append tic record to `$ZONE_ROOT/audit-logs/tics/YYYY-MM-DD.jsonl`:
    `{"type": "tic", "tic": "<ISO-8601 now>", "tic_zone": "<name from .ticzone>", "cadence_position": "syncopate", "scope": "project"}`
    Note: `tic_count_project` and `tic_count_global` are omitted — they are advisory and the canonical count is physical truth.
 2. Reconcile counters from physical truth:
    ```bash
-   PHYS=$(python3 -c "import json,glob; print(sum(1 for f in glob.glob('audit-logs/tics/*.jsonl') for l in open(f) if json.loads(l).get('type')=='tic'))")
+   PHYS=$(python3 -c "import json,glob; print(sum(1 for f in glob.glob('$ZONE_ROOT/audit-logs/tics/*.jsonl') for l in open(f) if json.loads(l).get('type')=='tic'))")
    ```
 3. Write global counter atomically (cached mirror of physical truth):
    ```bash
