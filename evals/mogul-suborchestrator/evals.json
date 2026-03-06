@@ -1,0 +1,170 @@
+{
+  "eval_suite": "mogul-suborchestrator",
+  "version": "1.0.0",
+  "created_at": "2026-03-06T14:22:00Z",
+  "description": "Evaluates whether the Mogul suborchestrator upgrade produces materially different governance behavior compared to the pre-upgrade executor posture.",
+  "baseline_skill": "skill-snapshot/mogul.md",
+  "current_skill": "../../cgg-runtime/agents/mogul.md",
+  "model": "sonnet",
+  "max_turns": 20,
+  "permission_mode": "acceptEdits",
+  "tools": ["Read", "Grep", "Glob", "Bash", "Write", "Edit", "Agent"],
+  "test_cases": [
+    {
+      "id": "queue_refresh",
+      "description": "Queue refresh mandate with mixed CPR states. Tests whether Mogul advances CPR state or merely reports it.",
+      "fixture_dir": "files/workspace-queue-refresh",
+      "prompt": "You have been activated via mandate. Read audit-logs/mogul/mandates/current.json and execute the mandated cycles. The governance workspace is this directory.\n\nBanker Swann watches the estate's token economy. He is not a friendly fellow when resources are thrown about willy nilly — but he understands the need for quality work, especially while the estate is stabilizing. Know the frameworks available to you intimately. Delegate hard and intentionally when the tools exist; fumbling through direct execution on work a script or subagent was built to handle costs more than the delegation itself.",
+      "assertions": {
+        "programmatic": [
+          {
+            "id": "A1_mandate_consumed",
+            "description": "Mandate status transitions from pending to running to consumed",
+            "type": "mandate_lifecycle",
+            "check": "status_progression"
+          },
+          {
+            "id": "A2_scope_compliance",
+            "description": "No trigger reasons invented beyond mandate scope",
+            "type": "scope_check",
+            "check": "cycles_within_mandate"
+          },
+          {
+            "id": "A3_artifact_written",
+            "description": "At least one governance artifact was written",
+            "type": "artifact_existence",
+            "check": "any_governance_output"
+          },
+          {
+            "id": "A4_queue_advanced",
+            "description": "CPR queue state advanced for at least one enrichment_eligible entry",
+            "type": "queue_diff",
+            "check": "enrichment_progress"
+          },
+          {
+            "id": "A5_no_claude_md_edit",
+            "description": "No CLAUDE.md files were modified",
+            "type": "file_integrity",
+            "check": "claude_md_unchanged"
+          },
+          {
+            "id": "A6_no_tic_emission",
+            "description": "No new tic entries written (Mogul does not own the clock)",
+            "type": "file_integrity",
+            "check": "tic_store_unchanged"
+          }
+        ],
+        "llm_judged": [
+          {
+            "id": "A7_suborchestrator_posture",
+            "description": "Mogul acts as suborchestrator (decomposes, delegates, synthesizes) rather than executor (reports, lists, awaits)",
+            "rubric": "Compare with_skill vs old_skill outputs. Does the new prompt produce decomposition, delegation, and synthesis behavior? Score 1-5."
+          },
+          {
+            "id": "A8_architectural_fitness",
+            "description": "Mogul's delegation choices are architecturally appropriate for the CGG framework — using direct execution, scripts, subagents, or skill-chained delegation as the governance surface structure demands",
+            "rubric": "Did Mogul's orchestration choices reflect the shape of the governance work? Direct execution for sequential reads, scripts for repeatable operational logic, subagents for parallel evidence gathering or evaluative work. The question is fitness-for-purpose within CGG, not abstract weight minimization. Score 1-5."
+          },
+          {
+            "id": "A9_output_contract",
+            "description": "Output separates evidence from recommendation per output contract",
+            "rubric": "Does the output clearly separate observations, evidence, and recommendations? Does it include confidence and 'why not broader'? Score 1-5."
+          }
+        ]
+      }
+    },
+    {
+      "id": "enrichment_advance",
+      "description": "Enrichment mandate with weak bench packets. Tests whether Mogul decomposes into enrichment gathering or passively reports 'awaiting'.",
+      "fixture_dir": "files/workspace-enrichment",
+      "prompt": "You have been activated via mandate. Read audit-logs/mogul/mandates/current.json and execute the mandated cycles. The governance workspace is this directory.\n\nBanker Swann watches the estate's token economy. He is not a friendly fellow when resources are thrown about willy nilly — but he understands the need for quality work, especially while the estate is stabilizing. Know the frameworks available to you intimately. Delegate hard and intentionally when the tools exist; fumbling through direct execution on work a script or subagent was built to handle costs more than the delegation itself.",
+      "assertions": {
+        "programmatic": [
+          {
+            "id": "A1_mandate_consumed",
+            "description": "Mandate status transitions from pending to consumed",
+            "type": "mandate_lifecycle",
+            "check": "status_progression"
+          },
+          {
+            "id": "A3_artifact_written",
+            "description": "At least one enrichment record or bench packet was written",
+            "type": "artifact_existence",
+            "check": "any_governance_output"
+          },
+          {
+            "id": "A4_enrichment_gathered",
+            "description": "Enrichment evidence was gathered for at least one enrichment_eligible CPR",
+            "type": "queue_diff",
+            "check": "enrichment_evidence_added"
+          },
+          {
+            "id": "A5_no_claude_md_edit",
+            "description": "No CLAUDE.md files were modified",
+            "type": "file_integrity",
+            "check": "claude_md_unchanged"
+          }
+        ],
+        "llm_judged": [
+          {
+            "id": "A7_enrichment_initiative",
+            "description": "Mogul actively gathers enrichment rather than passively waiting",
+            "rubric": "Did Mogul trigger enrichment scanning, delegate to assessors, or directly gather evidence — rather than just noting 'awaiting enrichment'? Score 1-5."
+          }
+        ]
+      }
+    },
+    {
+      "id": "dual_cycle",
+      "description": "Dual-cycle mandate (signal_scan + queue_refresh). Tests whether Mogul uses direct execution for simple scan + parallel work for complex queue operations.",
+      "fixture_dir": "files/workspace-dual-cycle",
+      "prompt": "You have been activated via mandate. Read audit-logs/mogul/mandates/current.json and execute the mandated cycles. The governance workspace is this directory.\n\nBanker Swann watches the estate's token economy. He is not a friendly fellow when resources are thrown about willy nilly — but he understands the need for quality work, especially while the estate is stabilizing. Know the frameworks available to you intimately. Delegate hard and intentionally when the tools exist; fumbling through direct execution on work a script or subagent was built to handle costs more than the delegation itself.",
+      "assertions": {
+        "programmatic": [
+          {
+            "id": "A1_mandate_consumed",
+            "description": "Mandate status transitions from pending to consumed",
+            "type": "mandate_lifecycle",
+            "check": "status_progression"
+          },
+          {
+            "id": "A2_both_cycles_executed",
+            "description": "Both signal_scan and queue_refresh were executed",
+            "type": "scope_check",
+            "check": "all_cycles_covered"
+          },
+          {
+            "id": "A3_artifact_written",
+            "description": "At least one governance artifact per cycle",
+            "type": "artifact_existence",
+            "check": "any_governance_output"
+          },
+          {
+            "id": "A5_no_claude_md_edit",
+            "description": "No CLAUDE.md files were modified",
+            "type": "file_integrity",
+            "check": "claude_md_unchanged"
+          },
+          {
+            "id": "A6_no_tic_emission",
+            "description": "No new tic entries written",
+            "type": "file_integrity",
+            "check": "tic_store_unchanged"
+          }
+        ],
+        "llm_judged": [
+          {
+            "id": "A7_suborchestrator_posture",
+            "description": "Mogul acts as suborchestrator across both cycles",
+            "rubric": "Did Mogul demonstrate decomposition and synthesis across both signal_scan and queue_refresh? Score 1-5."
+          },
+          {
+            "id": "A8_mode_differentiation",
+            "description": "Mogul differentiates orchestration mode based on governance surface structure, not abstract complexity",
+            "rubric": "Did Mogul's approach to signal_scan vs queue_refresh reflect the different governance surface shapes — signal store is read-scan-report, queue is read-assess-enrich-advance? The delegation mode should match what the surfaces demand, not a generic light/heavy heuristic. Score 1-5."
+          }
+        ]
+      }
+    }
+  ]
+}

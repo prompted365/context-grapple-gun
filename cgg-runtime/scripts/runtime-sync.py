@@ -10,9 +10,11 @@ On drift detection: emits TENSION signal (warrant-eligible) to signal store.
 Invariant: loaded runtime wins — this tool reports drift, does not silently
 pretend canonical is active.
 
+Exit codes: 0=success, 1=validation error, 2=IO error, 3=data error.
+
 Usage:
-    python3 runtime-sync.py check  [--project-dir PATH]
-    python3 runtime-sync.py diff   [--project-dir PATH]
+    python3 runtime-sync.py check  [--project-dir PATH] [--json]
+    python3 runtime-sync.py diff   [--project-dir PATH] [--json]
     python3 runtime-sync.py sync   [--project-dir PATH]
 """
 
@@ -212,12 +214,41 @@ def emit_drift_signal(zone_root, drifted_surfaces, severity="detected_drift"):
 # Commands
 # ---------------------------------------------------------------------------
 
-def cmd_check(surfaces, zone_root):
+def cmd_check(surfaces, zone_root, output_json=False):
     """Report sync status for all surfaces. Emits drift hazard on detection."""
     results = [compare_surface(s) for s in surfaces]
     drifted = [r for r in results if r["status"] == "drifted"]
     missing = [r for r in results if r["status"] == "missing_installed"]
     synced = [r for r in results if r["status"] == "synced"]
+
+    # Drift detection itself is a governance hazard — emit on detection,
+    # not only on failed sync. The Trip Hazard Invariant requires it.
+    signal_id = None
+    if drifted:
+        signal_id = emit_drift_signal(zone_root, drifted, severity="detected_drift")
+
+    if output_json:
+        result = {
+            "command": "check",
+            "surfaces": [
+                {
+                    "name": r["name"],
+                    "type": r["type"],
+                    "status": r["status"],
+                    "canonical_hash": r["canonical_hash"],
+                    "installed_hash": r["installed_hash"],
+                }
+                for r in results
+            ],
+            "summary": {
+                "synced": len(synced),
+                "drifted": len(drifted),
+                "missing": len(missing),
+            },
+            "signal_emitted": signal_id,
+        }
+        print(json.dumps(result, indent=2))
+        return results
 
     print("=" * 60)
     print("RUNTIME SYNC CHECK")
@@ -236,22 +267,38 @@ def cmd_check(surfaces, zone_root):
     print()
     print(f"  Synced: {len(synced)}  |  Drifted: {len(drifted)}  |  Missing: {len(missing)}")
 
-    # Drift detection itself is a governance hazard — emit on detection,
-    # not only on failed sync. The Trip Hazard Invariant requires it.
-    if drifted:
-        signal_id = emit_drift_signal(zone_root, drifted, severity="detected_drift")
+    if signal_id:
         print(f"  TENSION signal emitted (detected_drift): {signal_id}")
 
     return results
 
 
-def cmd_diff(surfaces):
+def cmd_diff(surfaces, output_json=False):
     """Show diffs for drifted surfaces."""
     results = [compare_surface(s) for s in surfaces]
     drifted = [r for r in results if r["status"] == "drifted"]
 
     if not drifted:
-        print("All surfaces are in sync. No diffs to show.")
+        if output_json:
+            print(json.dumps({"command": "diff", "drifted": []}))
+        else:
+            print("All surfaces are in sync. No diffs to show.")
+        return results
+
+    if output_json:
+        diffs = []
+        for r in drifted:
+            diff_info = file_diff(r["canonical"], r["installed"])
+            diffs.append({
+                "name": r["name"],
+                "type": r["type"],
+                "canonical": r["canonical"],
+                "installed": r["installed"],
+                "canonical_hash": r["canonical_hash"],
+                "installed_hash": r["installed_hash"],
+                **diff_info,
+            })
+        print(json.dumps({"command": "diff", "drifted": diffs}, indent=2))
         return results
 
     print("=" * 60)
@@ -334,26 +381,40 @@ def main():
                         help="Operation: check (report), diff (show diffs), sync (copy canonical to installed)")
     parser.add_argument("--project-dir", default=None,
                         help="Zone root (auto-resolved if omitted)")
+    parser.add_argument("--json", action="store_true", dest="output_json",
+                        help="Output structured JSON drift report (check/diff)")
     args = parser.parse_args()
 
-    zone_root = args.project_dir or resolve_zone_root()
+    try:
+        zone_root = args.project_dir or resolve_zone_root()
+    except Exception as e:
+        if args.output_json:
+            print(json.dumps({"error": str(e), "exit_code": 2}))
+        else:
+            print(f"ERROR: {e}", file=sys.stderr)
+        sys.exit(2)
+
     plugin_root = find_plugin_root(zone_root)
 
     if not plugin_root:
-        print("ERROR: CGG plugin root not found. Checked:")
-        print(f"  {zone_root}/vendor/context-grapple-gun/")
-        print(f"  {zone_root}/.claude/cgg/")
-        print(f"  ~/.claude/cgg/")
-        sys.exit(1)
+        msg = f"CGG plugin root not found. Checked: {zone_root}/vendor/context-grapple-gun/, {zone_root}/.claude/cgg/, ~/.claude/cgg/"
+        if args.output_json:
+            print(json.dumps({"error": msg, "exit_code": 2}))
+        else:
+            print("ERROR: CGG plugin root not found. Checked:")
+            print(f"  {zone_root}/vendor/context-grapple-gun/")
+            print(f"  {zone_root}/.claude/cgg/")
+            print(f"  ~/.claude/cgg/")
+        sys.exit(2)
 
     surfaces = build_surface_map(plugin_root, zone_root)
 
     if args.command == "check":
-        results = cmd_check(surfaces, zone_root)
+        results = cmd_check(surfaces, zone_root, output_json=args.output_json)
         drifted = [r for r in results if r["status"] in ("drifted", "missing_installed")]
         sys.exit(1 if drifted else 0)
     elif args.command == "diff":
-        cmd_diff(surfaces)
+        cmd_diff(surfaces, output_json=args.output_json)
     elif args.command == "sync":
         cmd_sync(surfaces, zone_root)
 

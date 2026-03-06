@@ -1,0 +1,35 @@
+{
+  "name": "eval-fixture",
+  "tz": "America/Toronto",
+  "lat": 43.65,
+  "lon": -79.38,
+  "include": [
+    "**"
+  ],
+  "bands": {
+    "PRIMITIVE": {
+      "db_equiv": 0,
+      "muffling_immune": true
+    },
+    "COGNITIVE": {
+      "db_equiv": -6
+    },
+    "SOCIAL": {
+      "db_equiv": -12
+    },
+    "PRESTIGE": {
+      "db_equiv": -999,
+      "auto_muted": true
+    }
+  },
+  "muffling_per_hop": 5,
+  "signal_governance": {
+    "warrant_eligible_kinds": [
+      "BEACON",
+      "TENSION"
+    ],
+    "decay_rate_per_tic": 2,
+    "primitive_audibility_mode": "floor",
+    "zombie_guard_mode": "clamp"
+  }
+}

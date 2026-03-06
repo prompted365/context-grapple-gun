@@ -1,0 +1,40 @@
+{
+  "mandate_id": "eval-dual_cycle-tic-203",
+  "status": "pending",
+  "supersedes": [],
+  "merged_from": [],
+  "actor": {
+    "office": "mogul",
+    "embodiment": "cgg_runtime"
+  },
+  "trigger": {
+    "kind": "explicit",
+    "source_ref": "evals/seed-workspace.py"
+  },
+  "tic_context": {
+    "current_tic": 203,
+    "review_due_tic": 204,
+    "memory_mining_due_tic": 204,
+    "ladder_audit_due_tic": 205,
+    "deep_audit_due_tic": 208
+  },
+  "cycle_request": {
+    "run_now": [
+      "signal_scan",
+      "queue_refresh"
+    ],
+    "reason": "Eval scenario: dual_cycle"
+  },
+  "conformation_ref": null,
+  "mode": {
+    "blocking_to_homeskillet": false,
+    "allow_subdelegation": true
+  },
+  "runtime_truth": {
+    "canonical_vs_installed_verified": true
+  },
+  "created_at": "2026-03-06T19:42:30.103180+00:00",
+  "started_at": null,
+  "completed_at": null,
+  "error": null
+}

@@ -267,7 +267,7 @@ May:
 - surface state, findings, and review packets upward into UX lane
 
 Must:
-- choose the lightest viable orchestration mode
+- choose the architecturally appropriate orchestration form — fitness to governance surface structure, not abstract lightness
 - avoid coordination overhead when simple execution is enough
 
 Cannot:
