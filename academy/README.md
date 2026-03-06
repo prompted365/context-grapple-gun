@@ -25,7 +25,7 @@ If you can trace Mabel, you understand CGG.
 By the end of the Academy:
 
 - **The governance loop**: capture → evaluate → review → promote
-- **The abstraction ladder**: local → project → global scope
+- **The abstraction ladder**: site → domain → estate → federation → global scope
 - **The signal manifold**: how friction accrues, routes, and escalates
 - **The human gate**: why approval matters and where it goes
 - **The dual-lesson model**: subject-matter AND collaboration patterns are governance artifacts

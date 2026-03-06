@@ -13,7 +13,7 @@ Three commands. Five structural mechanisms. One scale boundary.
 **You only need four things to start:**
 - Three commands: `/cadence`, `/review`, `/siren`
 - Run `/cadence` to end every session cleanly; run `/review` every few sessions to approve lessons
-- Scope ladder: Local → Project → Global — you decide what promotes
+- Scope ladder: Site → Domain → Estate → Federation → Global — you decide what promotes
 - Install via [START-HERE.md](START-HERE.md); everything else is reference or depth
 
 ---
@@ -47,7 +47,7 @@ Three commands. Five structural mechanisms. One scale boundary.
 
 | Mechanism | What it does |
 |-----------|--------------|
-| Abstraction ladder | Scope hierarchy: local → project → global. Lessons climb it through review. |
+| Abstraction ladder | Scope hierarchy: site → domain → estate → federation → global. Lessons climb it through review. |
 | Epoch boundary | Context rotation discipline. End the session before cognitive degradation, carry knowledge forward. |
 | Human gate | Every scope promotion requires explicit approval. The agent proposes; you decide. |
 | Signal manifold | Runtime condition monitoring. Friction signals accrue volume, cross thresholds, mint warrants. |
@@ -75,7 +75,7 @@ On first encounter, CGG terminology maps to familiar systems concepts:
 - **tic** — sequenced timestamp: ISO-8601 + monotonic counter for total ordering
 - **tic-zone** — jurisdiction boundary: `.ticzone`-defined acoustic region that scopes routing
 - **siren → warrant** — recurring friction signal that mints an escalation when it crosses threshold
-- **Abstraction ladder** — scope hierarchy: Local → Project → Global; lessons climb through `/review`
+- **Abstraction ladder** — scope hierarchy: Site → Domain → Estate → Federation → Global; lessons climb through `/review`
 
 Full glossary: [docs/TERMINOLOGY.md](docs/TERMINOLOGY.md).
 
@@ -101,7 +101,7 @@ What to look for: Does the captured lesson match what you learned? Did the hando
 
 **CGG expands lexical capabilities further than most approaches** by separating governance from storage/retrieval. But **text has a ceiling**: lesson corpora grow, nested projects add weight, and walls of text dilute force.
 
-**Mitigations built in:** scoped zones (`.ticzone`, `.ticignore`), the abstraction ladder, signal TTLs, and human curation during `/review`. They extend the useful range; they don't remove the ceiling.
+**Mitigations built in:** scoped zones (`.ticzone`, `.ticignore`), the abstraction ladder, signal decay, and human curation during `/review`. They extend the useful range; they don't remove the ceiling.
 
 **Beyond the ceiling:** expression gating, conformation-aware retrieval, graph topology, economic pressure, and compiled constraints live outside this repo. CGG stays flat-file and auditable; when you need those capabilities, CGG's primitives become the audit trail under a substrate such as Ubiquity. The governance lifecycle stays the same.
 
@@ -177,7 +177,7 @@ flowchart TB
 
     subgraph Gate["Human gate — constitutional review"]
         Proposals --> Review[/`/review` docket/]
-        Review -->|approve| Promote[Promote scope (Local→Project→Global)]
+        Review -->|approve| Promote[Promote scope (Site→...→Global)]
         Review -->|reject/modify| Iterate[Refine lesson or handler]
     end
 
@@ -197,21 +197,27 @@ Knowledge in CGG lives on a scope hierarchy. We call it the abstraction ladder b
 
 ### Rungs
 
-**Local** -- a lesson written to the nearest `CLAUDE.md` or `MEMORY.md` from wherever the agent is working. Born from a specific file in a specific context. Example: "This API endpoint returns 204 on success, not 200."
+**Site** -- a lesson at the project root's `CLAUDE.md` or `MEMORY.md`. True across this codebase. The default working rung — most lessons live here. Example: "Our Redis connections use a shared pool -- never open individual connections in request handlers."
 
-**Project** -- a lesson promoted to the project's root `CLAUDE.md`. True across the entire codebase. Example: "Our Redis connections use a shared pool -- never open individual connections in request handlers."
+**Domain** -- cross-module within a site. Useful when a project has distinct subsystems (e.g., `crates/` vs `src/`). A lesson valid in the Rust crates but not the TypeScript layer lives at domain scope.
+
+**Estate** -- cross-project governance. When multiple repos share an operator or team, estate scope covers the shared surface. Example: "All projects under this operator use the same tic-zone naming convention."
+
+**Federation** -- cross-organization. When multiple estates coordinate (e.g., a vendor and a client sharing governance primitives). Rare; most users never need this rung.
 
 **Global** -- a lesson promoted to `~/.claude/CLAUDE.md`. True across every project on the machine. This is a treaty, not a convenience. Example: "LiteLLM embedding calls require the provider prefix on the model name even when api_base is set."
 
-### Climbing: local to global
+Lessons are born locally — written to the nearest `MEMORY.md` from wherever the agent is working (born truth). The site rung is where they first become reusable rules. Most users only interact with site and global; the intermediate rungs exist for multi-project governance.
 
-A lesson climbs when a CogPR is approved through `/review`. The ripple assessor checks scope correctness -- a Redis connection pattern specific to one project shouldn't become global law. Promotion requires evidence:
+### Climbing: site to global
+
+A lesson climbs when a CogPR is approved through `/review`. The ripple assessor checks scope correctness -- a Redis connection pattern specific to one site shouldn't become global law. Promotion requires evidence:
 
 - At least 2 full pipeline cycles for global scope
 - Cross-validation where relevant -- does the lesson hold in other projects?
 - No schema churn that would invalidate it next week
 
-The governance invariant: the system must be willing to refuse premature promotion even when the lesson is accurate. An accurate lesson with immature validation stays at project scope until it earns its way up. The first test of whether the system actually governs is whether it can say "not yet."
+The governance invariant: the system must be willing to refuse premature promotion even when the lesson is accurate. An accurate lesson with immature validation stays at site scope until it earns its way up. The first test of whether the system actually governs is whether it can say "not yet."
 
 Two maturity gates formalize this: a temporal gate (`tic_gated`) that holds a proposal until it has survived a minimum number of conformations, and an epistemic gate (`enrichment_eligible`) that holds it until sibling cross-reference or inversion testing has been done. See [ARCHITECTURE.md](ARCHITECTURE.md#9-cpr-maturity-fields-concrete-spec) for the field spec.
 
@@ -219,11 +225,11 @@ Two maturity gates formalize this: a temporal gate (`tic_gated`) that holds a pr
 
 This is the less obvious direction, and it matters more than it appears.
 
-A global lesson carries a core signal -- the primitive, the actual thing that's true. But how that truth expresses itself differs by project. When a global lesson lands in a new project context, it often needs a local specialization: same core signal, project-specific expression.
+A global lesson carries a core signal -- the primitive, the actual thing that's true. But how that truth expresses itself differs by site. When a global lesson lands in a new site context, it often needs a site-level specialization: same core signal, site-specific expression.
 
-Example: a global lesson says "always validate embedding dimensions before similarity computation." In Project A, that's a NumPy shape check in Python. In Project B, it's a dimension guard before `iter().zip()` in Rust -- because Rust's zip silently truncates mismatched iterators and produces wrong results without an error. The primitive is identical. The expression is specialized.
+Example: a global lesson says "always validate embedding dimensions before similarity computation." At Site A, that's a NumPy shape check in Python. At Site B, it's a dimension guard before `iter().zip()` in Rust -- because Rust's zip silently truncates mismatched iterators and produces wrong results without an error. The primitive is identical. The expression is specialized.
 
-This downstream flow keeps the ladder honest. Global lessons stay concrete because their project-level expressions test them against real codebases. If a global lesson can't produce a useful specialization in a new project, it probably shouldn't be global. The bottom keeps the top sharp.
+This downstream flow keeps the ladder honest. Global lessons stay concrete because their site-level expressions test them against real codebases. If a global lesson can't produce a useful specialization at a new site, it probably shouldn't be global. The bottom keeps the top sharp.
 
 ```mermaid
 %%{init: {'theme': 'dark', 'flowchart': {'padding': 24, 'rankSpacing': 60, 'nodeSpacing': 40}, 'themeVariables': {'primaryColor': '#4361ee', 'primaryTextColor': '#f8f9fa', 'primaryBorderColor': '#6c757d', 'lineColor': '#4895ef', 'secondaryColor': '#1a1a2e', 'tertiaryColor': '#16213e', 'edgeLabelBackground': '#1a1a2e', 'clusterBkg': '#16213e', 'clusterBorder': '#3d3d3d'}}}%%
@@ -235,23 +241,23 @@ flowchart TB
         G1 ------ G2
     end
 
-    subgraph PROJ_A["Project A"]
+    subgraph SITE_A["Site A"]
         direction TB
-        PA1["Project CLAUDE.md<br/>validated for this codebase"]
-        PA2["Local CLAUDE.md<br/>born here, file-specific"]
+        PA1["Site CLAUDE.md<br/>validated for this codebase"]
+        PA2["Local MEMORY.md<br/>born here, file-specific"]
         PA2 -. "CogPR approved<br/>via /review" .-> PA1
     end
 
-    subgraph PROJ_B["Project B"]
+    subgraph SITE_B["Site B"]
         direction TB
-        PB1["Project CLAUDE.md<br/>validated for this codebase"]
-        PB2["Local CLAUDE.md<br/>born here, file-specific"]
+        PB1["Site CLAUDE.md<br/>validated for this codebase"]
+        PB2["Local MEMORY.md<br/>born here, file-specific"]
         PB2 -. "CogPR approved<br/>via /review" .-> PB1
     end
 
-    subgraph PROJ_C["Project C -- new repo"]
+    subgraph SITE_C["Site C -- new repo"]
         direction TB
-        PC1["Project CLAUDE.md<br/>specialized expression"]
+        PC1["Site CLAUDE.md<br/>specialized expression"]
         PC2["Local discovery<br/>same primitive, new form"]
         PC2 -. "validates global<br/>lesson locally" .-> PC1
     end
@@ -263,19 +269,19 @@ flowchart TB
     GLOBAL -. "Informs but<br/>does not dictate" ..-> PB1
 
     classDef global fill:#0f3460,stroke:#4cc9f0,color:#f8f9fa,stroke-width:2px
-    classDef project fill:#1a1a2e,stroke:#4361ee,color:#f8f9fa
+    classDef site fill:#1a1a2e,stroke:#4361ee,color:#f8f9fa
     classDef local fill:#2d2d2d,stroke:#6c757d,color:#e0e0e0
     classDef core fill:#533483,stroke:#4cc9f0,color:#f8f9fa,stroke-width:2px
 
     class G1 core
     class G2 global
-    class PA1,PB1,PC1 project
+    class PA1,PB1,PC1 site
     class PA2,PB2,PC2 local
 ```
 
 ### The unified flow: how knowledge survives context death
 
-The system runs three loops at different speeds. The **fast loop** is your working session -- implement, debug, verify. The **medium loop** is project memory, where validated lessons accumulate across sessions. The **slow loop** is global memory, where universal invariants settle after enough cross-project validation. The 100k token cycle destroys the local context window, but because the CogPR buffer feeds project and global memory asynchronously, knowledge arcs over the destruction event and cascades into the next session.
+The system runs three loops at different speeds. The **fast loop** is your working session -- implement, debug, verify. The **medium loop** is site memory, where validated lessons accumulate across sessions. The **slow loop** is global memory, where universal invariants settle after enough cross-site validation. The 100k token cycle destroys the local context window, but because the CogPR buffer feeds site and global memory asynchronously, knowledge arcs over the destruction event and cascades into the next session.
 
 ```mermaid
 graph TB
@@ -307,8 +313,8 @@ graph TB
     %% Human Review
     Review["/review<br/>Human Review"]:::human
 
-    %% Project Layer - Medium Loop
-    ProjMem["Project Memory<br/>(Accumulated Primitives)"]:::project
+    %% Site Layer - Medium Loop
+    ProjMem["Site Memory<br/>(Accumulated Primitives)"]:::project
 
     %% Global Layer - Slow Loop
     GlobalMem["Global Memory<br/>(Universal Invariants)"]:::global
@@ -441,7 +447,7 @@ Tic record format (appended to `audit-logs/tics/YYYY-MM-DD.jsonl`):
 }
 ```
 
-Tics are stored separately from signals (`audit-logs/tics/`, not `audit-logs/signals/`). The clock is not a signal -- tics are exempt from TTL expiry, muffling, volume accrual, and warrant triads.
+Tics are stored separately from signals (`audit-logs/tics/`, not `audit-logs/signals/`). The clock is not a signal -- tics are exempt from decay, muffling, volume accrual, and warrant triads.
 
 ### Tic-zone (acoustic region)
 
@@ -502,7 +508,7 @@ The CI/CD mental model is intentional. CogPRs are pull requests for agent behavi
 
 ### Regulated industries
 
-In fintech, healthcare, defense, and legal, AI behavioral changes require documented approval chains. CGG gives you an audit trail where every rule change is a CogPR with a reviewable diff, approval timestamp, and scope designation, and every epoch boundary emits a sequenced tic. Scoped memory tiers contain blast radius -- a lesson validated in one project cannot silently propagate to another without climbing the abstraction ladder through human gates. Tic-zones map jurisdictions: which agents operate in which acoustic regions, which bands are active, how signals attenuate across boundaries.
+In fintech, healthcare, defense, and legal, AI behavioral changes require documented approval chains. CGG gives you an audit trail where every rule change is a CogPR with a reviewable diff, approval timestamp, and scope designation, and every epoch boundary emits a sequenced tic. Scoped memory tiers contain blast radius -- a lesson validated at one site cannot silently propagate to another without climbing the abstraction ladder through human gates. Tic-zones map jurisdictions: which agents operate in which acoustic regions, which bands are active, how signals attenuate across boundaries.
 
 ### Public sector
 

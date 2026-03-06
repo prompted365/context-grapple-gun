@@ -38,7 +38,7 @@ That's the daily interface. Everything else is automatic.
 
 ## How it works (one paragraph)
 
-Lessons get captured locally as you work. When you run `/cadence`, CGG bundles them with a handoff plan and a sequenced timestamp. Between sessions, a background evaluator checks the proposals. Next session, `/review` surfaces them in a docket. You approve the good ones to broader scope (local → project → global), reject the noise. Over weeks, the project accumulates real operational knowledge from real work — not documentation someone wrote once, but living rules from actual mistakes and discoveries.
+Lessons get captured locally as you work. When you run `/cadence`, CGG bundles them with a handoff plan and a sequenced timestamp. Between sessions, a background evaluator checks the proposals. Next session, `/review` surfaces them in a docket. You approve the good ones to broader scope (site → global), reject the noise. Over weeks, the project accumulates real operational knowledge from real work — not documentation someone wrote once, but living rules from actual mistakes and discoveries.
 
 ---
 
@@ -48,7 +48,7 @@ Lessons get captured locally as you work. When you run `/cadence`, CGG bundles t
 - `/cadence` — run this when the session ends
 - `/review` — run this every few sessions to approve or reject proposed lessons
 - **CogPR** — what Claude flags as "remember this" (behavior pull request)
-- **Local / Project / Global** — where lessons live (narrow → broad scope)
+- **Site / Global** — where lessons live (narrow → broad scope). Intermediate rungs (domain, estate, federation) exist for multi-project governance.
 
 **What can wait:**
 - Signals, warrants, bands — the friction monitoring system. Works quietly in background.
@@ -64,7 +64,7 @@ See [docs/TERMINOLOGY.md](docs/TERMINOLOGY.md) for the full glossary with neutra
 | Term | What it means |
 |------|---------------|
 | **CogPR** | A proposed lesson flagged for review (like a pull request, but for behavior rules) |
-| **Abstraction ladder** | Local → Project → Global scope hierarchy. Lessons climb through `/review`. |
+| **Abstraction ladder** | Site → Domain → Estate → Federation → Global scope hierarchy. Lessons climb through `/review`. |
 | **Epoch boundary** | The session rotation point. `/cadence` ends an epoch cleanly. |
 | **Signal** | Recurring friction that accrues volume across sessions |
 | **Warrant** | Auto-escalation when a signal crosses threshold — demands resolution |
@@ -97,15 +97,17 @@ Most projects never hit that ceiling.
 
 ## The scope ladder
 
-Lessons start local. Promotion through `/review` moves them up:
+Lessons are born locally in `MEMORY.md` (born truth). Promotion through `/review` moves them up:
 
 | Scope | Where it lives | What it means |
 |-------|----------------|---------------|
-| **Local** | Nearest `CLAUDE.md` to where it was discovered | Applies to one file or module |
-| **Project** | Project root `CLAUDE.md` | Applies across the whole codebase |
+| **Site** | Project root `CLAUDE.md` | Applies across this codebase |
+| **Domain** | Subsystem `CLAUDE.md` (e.g., `crates/CLAUDE.md`) | Applies to one module or subsystem |
+| **Estate** | Cross-project governance surface | Applies across multiple repos under one operator |
+| **Federation** | Cross-organization surface | Applies across multiple estates (rare) |
 | **Global** | `~/.claude/CLAUDE.md` | Applies to everything you build, all projects |
 
-A lesson about "this API returns 204" stays local. A lesson about "always validate embedding dimensions" might go global. You decide.
+Most users only interact with **site** and **global**. A lesson about "this API returns 204" stays at site scope. A lesson about "always validate embedding dimensions" might go global. You decide.
 
 ---
 

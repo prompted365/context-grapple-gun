@@ -14,7 +14,7 @@ flowchart TD
     Cadence --> Assessor[Background ripple-assessor]
     Assessor --> Docket[/`/review` docket/]
 
-    Docket -->|approve| Promote[Promote scope<br/>(Local → Project → Global)]
+    Docket -->|approve| Promote[Promote scope<br/>(Site → ... → Global)]
     Docket -->|reject| Iterate[Refine lesson or handler]
     Docket -->|mint warrant| Warrant[Warrant triage]
 

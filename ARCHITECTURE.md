@@ -48,7 +48,7 @@ CogPRs capture two kinds of rationale:
 
 Both are valid promotion units. Both can climb the abstraction ladder. Constitutional governance requires governing both the technical environment and the process that operates within it.
 
-### Tier 4: Project Memory (Reusable Rules)
+### Tier 4: Site Memory (Reusable Rules)
 Lessons proven useful multiple times in one repository. Tied to a specific stack (e.g., "In this Rust workspace, errors must implement `thiserror::Error`") but not yet universal.
 
 ### Tier 5: Global Memory (Universal Invariants)
@@ -97,7 +97,7 @@ The **tic** solves this. Every epoch boundary emits a tic record containing both
 - **Sequential auditability**: reconstruct system state at any point in the sequence, regardless of clock skew or cadence differences.
 - **Cross-cadence mapping**: relate events from systems with incompatible rhythms through a shared total ordering.
 
-Tics are not signals. They do not accrue volume, expire via TTL, trigger warrants, or propagate through the acoustic model. They are the clock. Stored separately from the signal manifold (`audit-logs/tics/`, not `audit-logs/signals/`).
+Tics are not signals. They do not accrue volume, decay, trigger warrants, or propagate through the acoustic model. They are the clock. Stored separately from the signal manifold (`audit-logs/tics/`, not `audit-logs/signals/`).
 
 ### Jurisdictional scoping
 
@@ -146,7 +146,7 @@ But there is a ceiling: **the fundamental limit of lexical meaning**. Text-as-go
 CGG supports methods for mitigating lexical limits:
 - Zone scoping (`.ticzone`, `.ticignore`) to bound the governance surface
 - Scope hierarchy to keep lessons at appropriate levels
-- Signal TTLs to expire stale friction
+- Signal decay to quiet stale friction
 - Human curation during `/review` to prune noise
 
 These extend the useful range of flat-file governance. But ultimately, the solution to lexical limits lies in fusion of capabilities outside this repo's scope — semantic retrieval, graph topology, expression gating, economic pressure. CGG is designed to be **aware of this boundary** and **transparent about it**.
@@ -479,15 +479,16 @@ The 1:1 mapping means CGG's evolution path is packaging, not migration. New skil
 
 ## 11. Governance Truth Surfaces
 
-**Tags are authoring. Queue is execution. Audit logs are history.**
+**Tags are authoring. Queue is execution. Plans are bridges. Audit logs are history.**
 
-CGG governance state lives on three surfaces. Each has one job. Mixing jobs across surfaces causes duplicate processing, stale re-promotions, and unqueryable audit trails.
+CGG governance state lives on four surfaces. Each has one job. Mixing jobs across surfaces causes duplicate processing, stale re-promotions, and unqueryable audit trails.
 
 | Surface | Job | Format | Who writes | Who reads |
 |---------|-----|--------|------------|-----------|
-| **Tags** (CLAUDE.md, MEMORY.md) | Authoring | `<!-- --agnostic-candidate -->` blocks | Agent during `/cadence` Step 2 | Humans. Backfill scan (safety net). |
-| **Queue** (`audit-logs/cprs/queue.jsonl`) | Execution | JSONL, latest-per-ID-wins | Extraction hook (fast path). SessionStart backfill (slow path). Assessor (state advancement). `/review` (verdicts). | Assessor. `/review`. SessionStart (counts). |
-| **Audit logs** (signals, tics, conformations, reviews) | History | JSONL, append-only | Skills, hooks, scripts at event time | Conformation snapshots. `/siren`. Drift analysis. Forensics. |
+| **Authoring** (CLAUDE.md, MEMORY.md) | Capture lessons | `<!-- --agnostic-candidate -->` blocks | Agent during `/cadence` Step 2 | Humans. Backfill scan (safety net). |
+| **Execution** (`audit-logs/cprs/queue.jsonl`) | Drive lifecycle | JSONL, latest-per-ID-wins | Extraction hook (fast path). SessionStart backfill (slow path). Assessor (state advancement). `/review` (verdicts). | Assessor. `/review`. SessionStart (counts). |
+| **Bridge** (plan/handoff files) | Carry state between contexts | Markdown with trigger blocks | `/cadence` at session end | Next session's restore hook. Ripple assessor. |
+| **History** (signals, tics, conformations, reviews) | Audit trail | JSONL, append-only | Skills, hooks, scripts at event time | Conformation snapshots. `/siren`. Drift analysis. Forensics. |
 
 ### Flow direction
 
@@ -511,7 +512,7 @@ The three extraction paths (PostToolUse fast path, SessionStart recovery, Sessio
 
 A CogPR that recommends the same file it lives in is self-referencing. These may be auto-closed by the assessor WITHOUT human gate, subject to three hard limits:
 
-1. **Local scope only.** Target must be the same file or a file in the same directory. Never project or global scope.
+1. **Site scope only.** Target must be the same file or a file in the same directory. Never beyond site scope.
 2. **Target == source.** The CogPR's `recommended_scopes` must exactly match the file containing the tag. No "close enough" matching.
 3. **No shared invariants.** If the lesson text references a `[GLOBAL_INVARIANT]`-tagged section, or modifies a rule that other files depend on, auto-close is blocked. Route to `/review`.
 

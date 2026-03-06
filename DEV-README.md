@@ -17,7 +17,7 @@ CGG captures lessons as the agent works, queues them for review, and promotes ap
 | Concept | What it means | DevOps equivalent |
 |---------|---------------|-------------------|
 | **CogPR** | A proposed lesson flagged for review and potential promotion | Pull request (for behavior rules, not code) |
-| **Abstraction ladder** | Scope hierarchy: Local → Project → Global | Environment promotion (dev → staging → prod) |
+| **Abstraction ladder** | Scope hierarchy: Site → Domain → Estate → Federation → Global | Environment promotion (dev → staging → prod) |
 | **Epoch boundary** | End of session via `/cadence`. Emits tic, bundles lessons, writes handoff. | Deploy boundary |
 | **Human gate** | Every scope promotion requires `/review` approval | Code review |
 | **Signal** | Recurring friction that accrues volume across sessions | PagerDuty alert |
@@ -196,7 +196,7 @@ CGG scans specific files, not everything. The zone scan rule:
 
 This prevents phantom counts from template files, vendor docs, and archived skill definitions. If your `/review` docket shows unexpected pending CPRs, check whether `.ticignore` covers the source directory.
 
-After enough cycles, the abstraction ladder pays off. A global lesson like "always validate embedding dimensions before similarity computation" gets picked up by a new project. That project uses Rust, not Python. The agent writes a local specialization -- same core signal, project-specific expression. The global lesson said *what* to check. The local expression knows *how* to check it in this codebase. The ladder works both directions.
+After enough cycles, the abstraction ladder pays off. A global lesson like "always validate embedding dimensions before similarity computation" gets picked up at a new site. That site uses Rust, not Python. The agent writes a site-level specialization -- same core signal, site-specific expression. The global lesson said *what* to check. The site expression knows *how* to check it in this codebase. The ladder works both directions.
 
 ## Packages
 

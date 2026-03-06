@@ -14,7 +14,7 @@
 | **siren** | Friction signal | Continuous signal with volume that accrues across sessions. Tracks recurring problems. | **Yes** |
 | **warrant** | Escalation obligation | Auto-minted when a signal crosses threshold. Demands resolution — not a suggestion. | Later |
 | **conformation** | System state snapshot | Total state at any tic boundary — signals, rules, pending proposals, zone membership | Later |
-| **abstraction ladder** | Scope hierarchy | Local → Project → Global. Lessons climb through review; descend as specialized expressions. | **Yes** |
+| **abstraction ladder** | Scope hierarchy | Site → Domain → Estate → Federation → Global. Lessons climb through review; descend as specialized expressions. | **Yes** |
 | **epoch boundary** | Context rotation point | The moment you end a session (via `/cadence`) before cognitive degradation. Carries knowledge forward. | **Yes** |
 | **human gate** | Approval checkpoint | Every scope promotion requires explicit human approval. Agents propose; you decide. | **Yes** |
 
@@ -43,7 +43,7 @@
 | **downbeat** | Full session close | Full `/cadence` — tic + signal tick + conformation + lessons + handoff | **Yes** |
 | **double-time** | Emergency exit | `/cadence double-time` — minimal handoff when context is degraded. Tic + compact plan only. | Later |
 | **handoff** | Session transfer | File written at `/cadence` that the next session uses to restore context and trigger evaluation | Later |
-| **promotion** | Scope escalation | Moving a lesson from local → project → global through `/review` approval | **Yes** |
+| **promotion** | Scope escalation | Moving a lesson up the scope ladder (site → domain → estate → federation → global) through `/review` approval | **Yes** |
 
 ---
 
@@ -79,7 +79,7 @@ If you already know CI/CD, these mappings help:
 **Day 1 (use CGG now):**
 - `/cadence`, `/review`, `/siren` — the three commands
 - CogPR — what gets captured
-- Abstraction ladder — local/project/global
+- Abstraction ladder — site/domain/estate/federation/global
 - Epoch boundary — why you run `/cadence`
 
 **Week 1 (understand the system):**
