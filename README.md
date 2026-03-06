@@ -35,7 +35,7 @@ Human rationale is expensive, partial, and interruption-heavy. AI systems do not
 - Escalation protocols
 - Human-agent coordination methods
 
-Both subject-matter lessons and collaboration lessons are first-class governance artifacts. Both are valid CogPR candidates. Both can climb the abstraction ladder. Both are required for actual constitutional governance.
+Both subject-matter lessons and collaboration lessons are governance artifacts. Both are valid CogPR candidates. Both can climb the abstraction ladder. Both pass through the same constitutional gate.
 
 Why? Because constitutional governance fails if it governs only facts but not the process that generated them. And it also fails if it governs only collaboration while leaving the technical environment unstable. The system must preserve both:
 - Compounding operational advantage

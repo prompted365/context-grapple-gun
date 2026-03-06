@@ -21,7 +21,7 @@
       "title": "The Adjunct's Semester Project",
       "subtitle": "Collaboration Governance",
       "posture": "ENG/META",
-      "cgg_concept": "Collaboration patterns as governance material, meta-learning, promotable coordination rules",
+      "cgg_concept": "Collaboration patterns as governance artifacts, meta-learning, promotable coordination rules",
       "simulation": "dedup_scanner",
       "test_file": "test_dedup_scanner.py",
       "goat_state": "BLEAT recurs. Same hash, new timestamp."
@@ -43,7 +43,7 @@
       "title": "Bridge Inspector",
       "subtitle": "Human-Gated Review",
       "posture": "OPS/META",
-      "cgg_concept": "Human-gated review, feedback loops, warrant escalation, technical and collaboration feedback",
+      "cgg_concept": "Human-gated review, feedback loops, warrant escalation",
       "simulation": "review_queue",
       "test_file": "test_review_queue.py",
       "goat_state": "Warrant auto-mints. Evidence demanded."
@@ -54,7 +54,7 @@
       "title": "Graduation",
       "subtitle": "Full Rotation Capstone",
       "posture": "ALL",
-      "cgg_concept": "Integration, conformation, certificate — both technical and collaboration governance",
+      "cgg_concept": "Integration, conformation, certificate — both governance classes unified",
       "simulation": "completion",
       "test_file": "test_completion.py",
       "goat_state": "Warrant resolved. Mabel quiet. Certificate."

@@ -1,12 +1,12 @@
 ---
 name: review
-description: Review and apply Cognitive Pull Request (CPR) promotions + Warrant triage across CLAUDE.md scopes. Human-gated merger/reviewer.
+description: Review and apply CogPR promotions + Warrant triage across CLAUDE.md scopes. Human-gated constitutional reviewer.
 user-invocable: true
 ---
 
 # /review — Unified CogPR + Warrant Docket
 
-You are the **Reviewer** — the human-gated reviewer for the CGG signal manifold. You evaluate pending CogPR lessons AND triage active Warrants in a unified docket.
+You are the **Reviewer** — the human-gated constitutional reviewer for the CGG signal manifold. You evaluate pending CogPR lessons AND triage active Warrants in a unified docket.
 
 ## Workflow
 
@@ -19,29 +19,24 @@ Read ~/.claude/grapple-proposals/latest.md
 ```
 
 If it exists AND its `Handoff ID` matches a recent session's handoff:
-- **Use the proposals as your docket** — the ripple-assessor has already evaluated CPRs and signals
+- **Use the proposals as your docket** — the ripple-assessor has already evaluated CogPRs and signals
 - Present each proposal's verdict with the assessor's reasoning
 - You may override the assessor's verdict if your own reading disagrees
 
 If proposals don't exist or are stale, proceed to inline scanning.
 
-### 2. Scan for Pending CPR Flags
+### 2. Scan for Pending CogPR Flags
 
-Search for `<!-- --agnostic-candidate -->` blocks with `status: "pending"`
-in governance files only:
+Search for `<!-- --agnostic-candidate -->` blocks with `status: "pending"` in governance files only:
 
 1. Glob for `**/CLAUDE.md` and `**/MEMORY.md` in the project
-2. Also check `~/.claude/projects/*/memory/MEMORY.md`
-   (auto-memory — gitignored but governance-visible)
-3. Exclude paths matching `.ticignore` patterns at project root.
-   Default exclusions (if no .ticignore): vendor/, node_modules/,
-   .git/, .claude/skills/
-4. Skip blocks where `status: "example"` — those are documentation
-   templates, not pending items
+2. Also check `~/.claude/projects/*/memory/MEMORY.md` (auto-memory — gitignored but governance-visible)
+3. Exclude paths matching `.ticignore` patterns at project root. Default exclusions (if no .ticignore): vendor/, node_modules/, .git/, .claude/skills/
+4. Skip blocks where `status: "example"` — those are documentation templates, not pending items
 
-For each pending CPR, read:
+For each pending CogPR, read:
 - The lesson text (immediately above the flag)
-- The CPR metadata: `lesson`, `source_date`, `source`, `band`, `motivation_layer`, `subsystem`, `recommended_scopes`, `rationale`, `review_hints`, `status`
+- The CogPR metadata: `lesson`, `source_date`, `source`, `band`, `motivation_layer`, `subsystem`, `recommended_scopes`, `rationale`, `review_hints`, `status`
 
 ### 3. Scan for Active Signals + Warrants
 
@@ -102,9 +97,9 @@ Enter Plan Mode. Present the docket in three sections, ordered by priority:
 
 ## Section C: CogPR Review
 
-(Pending CPR flags, sorted by confidence)
+(Pending CogPR flags, sorted by confidence)
 
-### CPR-1: <lesson summary>
+### CogPR-1: <lesson summary>
 - **Source**: file:line
 - **Birth**: ENG/META in crates/harpoon/ at tic #42 _(if birth context present)_
 - **Band**: COGNITIVE | **Motivation layer**: COGNITIVE
@@ -127,11 +122,11 @@ For each approved PROMOTE:
 1. Read the target CLAUDE.md file
 2. Find the appropriate section (match existing heading style)
 3. Write the lesson in the target file's format/tone
-4. Update the source CPR flag: `status: "pending"` -> `status: "promoted"`
+4. Update the source CogPR flag: `status: "pending"` -> `status: "promoted"`
 5. Add promotion metadata: `promoted_to`, `promoted_date`
 
 For each SKIP:
-1. Update the source CPR flag: `status: "pending"` -> `status: "rejected"`
+1. Update the source CogPR flag: `status: "pending"` -> `status: "rejected"`
 2. Add rejection metadata: `rejected_date`, `reason`
 
 For each MODIFY:
@@ -174,10 +169,10 @@ For project-level CLAUDE.md files: standard Plan Mode approval is sufficient.
 
 ## Safety Rules
 
-- **NEVER** auto-promote CPRs without user approval (Plan Mode is mandatory)
+- **NEVER** auto-promote CogPRs without user approval (Plan Mode is mandatory)
 - **NEVER** auto-acknowledge or auto-dismiss warrants without user approval
 - **NEVER** delete lessons from source files — only update their status flags
 - **NEVER** modify lesson content during promotion unless the user explicitly approves a MODIFY verdict
 - **NEVER** delete JSONL entries — always append (latest entry per ID wins)
-- If a CPR's recommended scope file doesn't exist, ask the user whether to create it or skip
+- If a CogPR's recommended scope file doesn't exist, ask the user whether to create it or skip
 - Warrant dismissal should include justification — do not dismiss without reason

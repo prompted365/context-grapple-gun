@@ -183,25 +183,17 @@ Questions Claude will explore with you:
 | Bridge/Zoo concept | CGG primitive | Where it lives |
 |---|---|---|
 | Proposal queue | CogPR (Cognitive Pull Request) | `<!-- --agnostic-candidate -->` tags |
-| Review verdict (approve/reject/edit) | `/grapple` docket review | Plan Mode governance gate |
-| Annotation feedback | CogPR `review_hints` + `rationale` | CPR metadata fields |
-| Backlog pressure | Pending CPR count | `audit-logs/cprs/queue.jsonl` |
+| Review verdict (approve/reject/edit) | `/review` docket review | Human-gated constitutional gate |
+| Annotation feedback | CogPR `review_hints` + `rationale` | CogPR metadata fields |
+| Backlog pressure | Pending CogPR count | `audit-logs/cprs/queue.jsonl` |
 | Warrant auto-minting | Signal volume crosses `escalation_threshold` | `/siren tick` engine |
 | `trace_warrant()` | Provenance chain via `source_signal_ids` | Warrant recognition engine |
 | Handler registration | Signal processing pipeline | Handler configuration |
 | Suppression vs resolution | Constraint resolution > silencing | Governance invariant |
-| One-verdict-per-proposal | Idempotent review — same proposal reviewed once | Dedup on CPR lifecycle |
-| Compounding feedback returns | Each `/grapple` review shapes future proposal quality | Human-gated review loop |
+| One-verdict-per-proposal | Idempotent review — same proposal reviewed once | Dedup on CogPR lifecycle |
+| Compounding feedback returns | Each `/review` shapes future proposal quality | Human-gated review loop |
 
-**The human gate is the value.** Automated systems can detect, route, escalate, and mint warrants. But the verdict — approve, reject, edit — is human. That's not a bottleneck. That's the design. The human doesn't review everything (that doesn't scale). The human reviews what the system *escalates* (that scales perfectly, because escalation is governed by volume thresholds and harmonic triads).
-
-In CGG, `/grapple` is the human gate. It presents a docket of pending CogPRs and active warrants. The human reviews them. The verdicts flow back into the system as feedback. The quality of future proposals improves. The backlog stabilizes.
-
-**Both loops close here.** The review queue governs technical lessons (API quirks, architecture constraints) and collaboration lessons (effective prompting patterns, coordination structures). Both kinds of CogPRs arrive in the same docket, get reviewed through the same human gate, and promote through the same abstraction ladder.
-
-Sam would approve.
-
-Mabel doesn't care about approval. She just wanted someone to listen.
+**The human gate is the value.** Automated systems detect, route, escalate, and mint warrants. But the verdict — approve, reject, edit — is human. That's the design. The human reviews what the system escalates. Both subject-matter and collaboration lessons arrive in the same docket, pass through the same gate, and promote through the same ladder.
 
 ---
 

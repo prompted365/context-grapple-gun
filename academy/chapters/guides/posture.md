@@ -82,10 +82,10 @@ Mixed verbs in a single request (e.g. "take a look and fix") default to META. An
 | Chapter | Posture | Why |
 |---------|---------|-----|
 | 1 -- Taylor Family Calendar | **OPS/DIRECT** | You ran code against a JSONL file. Appending entries, reading state. Direct operations. |
-| 2 -- Did We Already Sign Up? | **ENG/META** | You designed a hashing algorithm and classification scheme. Thinking about identity before writing the scanner. |
+| 2 -- Adjunct's Semester Project | **ENG/META** | You analyzed collaboration patterns and designed classification schemes. Thinking about governance before implementing. |
 | 3 -- Zookeeper Radio | **OPS/DIRECT + ENG/META** | Mixed mode. You designed the acoustic model (META), then implemented routing functions and ran tick simulations (DIRECT). |
 | 4 -- Bridge Inspector | **OPS/META** | You audited warrants, reviewed proposals, inspected evidence chains. Read-only judgment. |
-| 5 -- Graduation | **ALL** | Full rotation. Phase 1 read back your code (ENG/META). Phase 2 wired the integration (ENG/DIRECT). Phase 3 ran the pipeline (OPS/DIRECT). Phase 4 audited the output (OPS/META). |
+| 5 -- Graduation | **ALL** | Full rotation. Phase 1 reviewed architecture (ENG/META). Phase 2 ran integration (ENG/DIRECT). Phase 3 executed the pipeline (OPS/DIRECT). Phase 4 audited output (OPS/META). |
 
 The course was designed to rotate through all four quadrants so that by Chapter 5 you had worked in each one.
 

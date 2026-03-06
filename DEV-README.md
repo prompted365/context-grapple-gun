@@ -122,19 +122,19 @@ Over a multi-week roadmap, this creates a rhythm:
 
 ### Two kinds of lessons
 
-CogPRs capture two distinct kinds of rationale:
+CogPRs capture two distinct classes of rationale:
 
-**Technical lessons** -- what's true about the system:
+**Subject-matter lessons** — what's true about the system:
 - "This API returns 204 on success, not 200"
-- "Redis connections use a shared pool -- never open individual connections in handlers"
+- "Redis connections use a shared pool — never open individual connections in handlers"
 - "LiteLLM embedding calls require the provider prefix on model name"
 
-**Collaboration lessons** -- what's true about how you and the agent work effectively:
+**Collaboration lessons** — what's true about effective coordination:
 - "When constructing subagent prompts, include a theory-of-mind preface describing the agent's strengths and limitations"
 - "Prefer structured validation messages over implicit corrections"
 - "Run tests after each small change rather than batching"
 
-Both are valid CogPR candidates. Both can climb the abstraction ladder. Both become governance material.
+Both are valid CogPR candidates. Both climb the abstraction ladder. Both pass through the same constitutional gate.
 
 The runtime is harvesting lessons from subject work AND working method. A technique you develop for briefing subagents -- structuring prompts to account for conceptual drift, providing explicit context the agent tends to assume -- can legitimately surface as a promotion candidate after it proves valuable across sessions.
 
