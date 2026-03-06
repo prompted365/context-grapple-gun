@@ -1,8 +1,100 @@
 # CGG Validation Checklist
 
-Post-change QA runbook. Run these after modifying scan behavior, zone handling, install flow, skill definitions, or hook logic.
+Post-change QA runbook. Run these after modifying scan behavior, zone handling, install flow, skill definitions, hook logic, or documentation.
 
 All commands assume you are at the CGG repo root (`vendor/context-grapple-gun/` or wherever the repo is checked out).
+
+---
+
+## Presentation QA (First-Contact Clarity)
+
+### P1. First-contact docs use only current command names
+
+First-contact surfaces (README.md top section, START-HERE.md, INSTALL.md main paths) should use `/cadence`, `/review`, `/siren` — not deprecated names.
+
+```bash
+# Check for deprecated command names in first-contact surfaces
+grep -En "cadence-downbeat|cadence-syncopate|/grapple|/init-gun|/init-cogpr" \
+  README.md START-HERE.md INSTALL.md | grep -Ev "backward|deprecated|redirect"
+```
+
+Hits here (outside backward-compatibility sections) indicate presentation drift.
+
+### P2. Core terms are aliased on first use
+
+README.md should define core terms with neutral aliases near the top:
+
+```bash
+# Should find aliased definitions for these terms:
+grep -En "CogPR|tic-zone|siren|warrant|conformation|abstraction ladder" README.md | head -20
+```
+
+Check that each term has a neutral systems equivalent in parentheses or a table on first mention.
+
+### P3. README top section answers core questions
+
+Verify the README top section (before first Mermaid diagram) addresses:
+- What CGG is
+- What problem it solves
+- The three commands
+- The five mechanisms
+- The lexical ceiling / scope boundary
+- Read paths by intent
+
+```bash
+# Quick structural check — these sections should exist near the top
+grep -n "## Read this first\|## 90-second\|## What CGG is not\|## Core terms\|## Skeptic\|## The lexical ceiling" README.md
+```
+
+### P4. Academy chapter names are consistent across surfaces
+
+Three files must agree on chapter titles and sequence:
+
+```bash
+# Compare chapter tables
+grep -EA 5 "Taylor Family|Adjunct|Zookeeper|Bridge Inspector|Graduation" \
+  academy/README.md academy/course.json cgg-runtime/skills/homeskillet-academy/SKILL.md
+```
+
+Any title drift between these files breaks the Academy's coherence.
+
+### P5. Scope boundary is stated clearly and early
+
+README and ARCHITECTURE should explain CGG's lexical ceiling without external doc dependencies:
+
+```bash
+# Check for scope boundary framing
+grep -En "lexical ceiling|out of scope|scope boundary" README.md ARCHITECTURE.md
+```
+
+The boundary should be framed as a deliberate design decision, not a roadmap promise.
+
+### P6. Links between doc ladder resolve
+
+All cross-doc links should resolve:
+
+```bash
+# Check for broken markdown links
+for f in README.md START-HERE.md INSTALL.md DEV-README.md ARCHITECTURE.md academy/README.md; do
+  echo "=== $f ==="
+  grep -oP '\[.*?\]\(\K[^)]+' "$f" | while read link; do
+    if [[ "$link" != http* ]] && [[ ! -e "$link" ]] && [[ ! -e "${f%/*}/$link" ]]; then
+      echo "  BROKEN: $link"
+    fi
+  done
+done
+```
+
+### P7. Three-audience fidelity
+
+Docs should preserve access for operators, technical evaluators, AND narrative-first learners:
+
+```bash
+# Academy should appear as legitimate entry path, not afterthought
+grep -En "academy|Academy|story|stories|narrative" README.md START-HERE.md INSTALL.md
+```
+
+The Academy should be mentioned as a core onboarding path, not just technical reference.
 
 ---
 
@@ -139,11 +231,14 @@ When you change something in CGG, which checks apply?
 |-------------|----------------|
 | Zone scan logic (find/glob targets) | 1, 4 |
 | `.ticignore` handling | 1, 4 |
-| Skill rename or deprecation | 2, 5 |
+| Skill rename or deprecation | 2, 5, P1 |
 | Proposals path | 3 |
 | Double-time behavior | 6 |
 | `.ticzone` schema | 7 |
-| Install bootstrap prompt | 2 |
+| Install bootstrap prompt | 2, P1 |
 | Hook shell logic | 9 |
-| Any doc edit | 6, 8 |
+| Any doc edit | 6, 8, P1-P7 |
 | New skill added | 2, 5 |
+| First-contact doc changes | P1, P2, P3, P5, P6 |
+| Academy changes | P4, P7 |
+| Terminology changes | P2, P4 |

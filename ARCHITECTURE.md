@@ -1,6 +1,16 @@
 # Architecture & Design Rationale
 
-> This is the deep theory. For daily usage, see [START-HERE.md](START-HERE.md). For the practical developer guide, see [DEV-README.md](DEV-README.md). For the full reference, see [README.md](README.md).
+> This is the deep theory. For daily usage, see [START-HERE.md](START-HERE.md). For the practical developer guide, see [DEV-README.md](DEV-README.md). For the full reference, see [README.md](README.md). To learn through story, see the [Academy](academy/README.md).
+
+---
+
+## How to read this document
+
+**Sections 1–6** describe CGG's operational architecture — the mechanisms that run today in the governance lifecycle.
+
+**Sections 7–11** describe CGG's complexity awareness — architectural concerns CGG is designed to address, including where its flat-file scope ends and where substrate capabilities begin. These aren't promises of future features; they're deliberate boundary decisions. Ubiquity (the substrate) provides these capabilities as working production code. CGG's job is to stay within its lexical ceiling and hand off cleanly.
+
+---
 
 Context Grapple Gun (CGG) is a **human-gated self-evolving agent operating system** that turns development friction into durable improvements *without poisoning long-term memory with raw logs*.
 
@@ -112,47 +122,56 @@ The structural analogy is deliberate: the tic sequence is the primary structure.
 
 Everything below conformation — files, signals, rules, zones — is mechanism. Conformation is what those mechanisms produce: a shape, inspectable at any point in the sequence, that captures everything the system knows and everything it's doing about what it knows.
 
-## 6. Scaling Ceiling
+## 6. Lexical Ceiling (Scope Boundary)
 
 CGG's governance lifecycle is complete for individuals and small teams. The flat-file primitives — JSONL signal stores, CLAUDE.md rule tiers, append-only audit trails — are fast, portable, and auditable by default.
 
+**CGG expands lexical capabilities further than most approaches** by treating governance, storage, knowledge, and memory as separate concerns — not conflating them into a single "AI memory" abstraction. This separation is what makes flat-file governance viable at meaningful scale.
+
 CGG runs inside an AI agent. The agent reading CLAUDE.md files has full semantic understanding — it connects "embedding API failures" to "infrastructure sovereignty" without keyword overlap. It spawns subagents for deeper search and catches duplicates during `/review` that no keyword matcher would flag. The retrieval surface is an LLM, not a grep index.
 
-But there is a ceiling: the fundamental limit of text-as-governance. When the signal store grows past a few hundred entries, dedup-by-latest-entry-per-ID becomes a linear scan. When the lesson corpus spans dozens of CLAUDE.md files, every lesson loads into every session — consuming context window budget whether relevant or not. A governance file that was 50 lines and sharp becomes 500 lines and numbing. The agent reads it all. Reading and applying are different cognitive operations.
+But there is a ceiling: **the fundamental limit of lexical meaning**. Text-as-governance degrades at scale:
 
-Where CGG stops and deeper substrate begins:
-- Expression gating across timescales (methylation — lessons go dormant until the system re-enters a specific failure shape, instead of loading everything equally)
-- Conformation-aware retrieval (match the system's current shape to historical failure modes — load only what is relevant, not the full corpus)
-- Graph topology for relational memory (edges between related concepts, not flat lists)
-- Endogenous economics (cost model for governance operations — economic pressure to compress, curate, and expire)
-- Compiled constraints (execution-boundary enforcement the agent cannot violate, not advisory text it may follow)
+- When the signal store grows past a few hundred entries, dedup-by-latest-entry-per-ID becomes a linear scan.
+- When the lesson corpus spans dozens of CLAUDE.md files across deeply nested projects or subprojects, governance load grows heavy — consuming context window budget disproportionately.
+- A governance file that was 50 lines and sharp becomes 500 lines and numbing. The agent reads it all. Reading and applying are different cognitive operations.
 
-These require infrastructure — vector databases, embedding models, graph engines, economic engines — that does not fit in a CLI framework. CGG provides the governance lifecycle. Scaling it is a different engineering problem.
+### Mitigations and limits
 
-CGG's docs do not depend on the substrate's docs. The categories above describe classes of capability, not specific implementations. Any system providing these capabilities composes with CGG's governance lifecycle.
+CGG supports methods for mitigating lexical limits:
+- Zone scoping (`.ticzone`, `.ticignore`) to bound the governance surface
+- Scope hierarchy to keep lessons at appropriate levels
+- Signal TTLs to expire stale friction
+- Human curation during `/review` to prune noise
 
-**CGG is the governance lifecycle. Ubiquity is the substrate that makes governance meaningful at scale.**
+These extend the useful range of flat-file governance. But ultimately, the solution to lexical limits lies in fusion of capabilities outside this repo's scope — semantic retrieval, graph topology, expression gating, economic pressure. CGG is designed to be **aware of this boundary** and **transparent about it**.
+
+### Out of scope for this repo
+
+The following capabilities require infrastructure CGG deliberately avoids. They are **out of scope** — not roadmap items, but boundary decisions:
+
+| Capability | What it addresses | Why it's out of scope |
+|------------|-------------------|----------------------|
+| Expression gating | Lessons go dormant until the system re-enters a specific failure shape | Requires state beyond flat files; selective loading needs retrieval infrastructure |
+| Conformation-aware retrieval | Load only what matches current system shape | Requires fingerprinting system state; flat files have no selection mechanism |
+| Graph topology | Relational edges between concepts | JSONL has no structure between entries |
+| Endogenous economics | Cost pressure to compress, curate, expire | Flat-file governance grows without bound; capturing is free |
+| Compiled constraints | Execution-boundary enforcement | Advisory text the agent reads ≠ constraints it cannot violate |
+
+These require vector databases, embedding models, graph engines, or economic engines — infrastructure that does not fit in a CLI framework. CGG provides the governance lifecycle. Fusion of these capabilities is a different engineering problem, addressed by infrastructure outside this repo.
+
+**CGG's docs do not depend on external docs.** The categories above describe classes of capability, not specific implementations. Any system providing these capabilities can compose with CGG's governance primitives.
 
 ### When CGG stops being enough
 
 The ceiling shows up when:
-- Governance text grows monotonically and every session loads stale context alongside sharp context
+- Governance text grows monotonically and deeply nested projects accumulate heavy lesson loads
 - Lessons that were sharp when captured lose force buried in walls of text
 - You need "load only what matches the current failure shape," not "load everything"
-- Signals exceed a few hundred entries and dedup becomes a linear scan
+- Signals exceed a few hundred entries and dedup becomes slow
 - You need compiled constraints the agent cannot violate, not advisory text it reads
 
-### Ubiquity layers that extend CGG
-
-| Layer | What it does | Why flat files can't |
-|-------|-------------|---------------------|
-| Expression Gating | Methylation — lessons go dormant until the system re-enters a failure shape | Flat files load everything equally; no mechanism to silence irrelevant lessons |
-| Conformation-Aware Retrieval | Match "system shape now" to "system shape at time of failure" | No mechanism to fingerprint system state or selectively load |
-| Graph Topology | Relational edges between concepts, not flat lists | JSONL has no structure between entries |
-| Endogenous Economics | Cost model for governance — pressure to compress, curate, expire | Governance text grows without bound; capturing and loading are free |
-| Compiled Constraints | Execution-boundary enforcement the agent cannot violate | Advisory text the agent reads and may follow |
-
-CGG is the governance lifecycle. Ubiquity layers compose on top — same signals, same tics, same human gates. The flat-file primitives become the audit trail beneath the substrate.
+At that point, CGG's flat-file primitives become the audit trail beneath whatever infrastructure you adopt. The governance lifecycle stays the same — capture, evaluate, promote, audit — but the storage and retrieval layer changes.
 
 ### Measuring CGG's impact
 
@@ -182,6 +201,14 @@ Three numbers that separate compounding governance from configuration drift:
     - "CLAUDE.md (Tic section — conformation terminal abstraction note)"
   grapple_docket: "2026-02-25"
 -->
+
+---
+
+## Complexity Awareness (Sections 7–11)
+
+*The following sections describe architectural concerns CGG addresses through deliberate boundary decisions. These are not roadmap items — they're scope boundaries. Where CGG's flat-file governance stops being sufficient, Ubiquity (production substrate) provides the deeper capabilities.*
+
+---
 
 ## 7. Assessor Promotion Bias (Structural Analysis)
 
@@ -215,9 +242,9 @@ The human `/review` gate is the only countervailing pressure — adequate for th
   grapple_docket: "2026-03-03"
 -->
 
-## 8. Bidirectional Abstraction Engine (Design Vision)
+## 8. Bidirectional Abstraction Engine (Scope Boundary)
 
-CGG's next evolution: proposals earn their shape at the target tier before arriving there. Two mechanisms replace the current one-shot evaluation:
+CGG is aware of the need for proposals to earn their shape at the target tier before arriving there. Two mechanisms address this within CGG's flat-file constraints:
 
 ### Two Pending States
 

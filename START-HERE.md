@@ -2,130 +2,174 @@
   <img src="assets/cgg-banner.jpeg" alt="Context Grapple Gun by Prompted LLC & Ubiquity OS" width="100%" />
 </p>
 
-> This is the user guide. Three commands, one install. For engineering details, see [DEV-README](DEV-README.md). For the full reference, see [README](README.md).
+> **This is the user guide.** Three commands, 30-second install. For engineering details, see [DEV-README](DEV-README.md). For the full reference, see [README](README.md). To learn through story, see the [Academy](academy/README.md).
 
 # Start Here
 
-You opened the terminal for the first time because of Claude Code. You've been using it for a bit. It's good. But you've noticed something:
+**The problem you already know:** Every time you start a new session, Claude forgets everything from the last one. That bug it figured out yesterday? Gone. That pattern it discovered? Gone. You re-explain the same things, watch the same mistakes, train from zero every morning.
 
-**Every time you start a new session, Claude forgets everything from the last one.**
+**CGG fixes this.** Three commands. Flat files. Human approval at every gate.
 
-That bug it figured out yesterday? Gone. That shortcut it discovered for your project? Gone. You end up re-explaining the same things, watching it make the same mistakes, and feeling like you're training a goldfish with a PhD.
+---
 
-CGG fixes this. Here's how.
+## The three commands
 
-## What actually happens without CGG
+| Command | When | What it does |
+|---------|------|--------------|
+| `/cadence` | End of session, or when context feels long (~100k tokens) | Saves lessons, emits a timestamp, writes a handoff for the next session |
+| `/review` | Every few sessions | Shows proposed lessons. You approve, reject, or modify before they stick. |
+| `/siren` | When you want to check recurring issues | Shows friction signals — things that keep coming up and might need attention |
 
-1. You start a session. Claude learns things about your project as you work together.
-2. The session gets long. Claude starts getting confused, slow, or expensive.
-3. You close the session (or it closes itself).
-4. Everything Claude learned is gone forever.
-5. Next session, you start from scratch.
+That's the daily interface. Everything else is automatic.
 
-This is like hiring someone brilliant, working with them all day, then wiping their memory at 5pm. Every morning is their first day. Forever.
+---
 
-## What happens with CGG
+## What a normal day looks like
 
-1. You work normally. Claude learns things as you go -- same as before.
-2. When Claude discovers something worth remembering (a gotcha, a pattern, a rule), it writes it down in a standard format called a **CogPR** (Cognitive Pull Request -- think of it as a sticky note that says "remember this").
-3. When you've been working a while — around 100k tokens is a good rule of thumb — you type `/cadence`. This tells Claude: "wrap it up, save what you learned, and hand off to the next session."
-4. Between sessions, a separate process reviews those sticky notes automatically.
-5. Next session, the reviewed lessons are already loaded. Claude remembers.
+**Start a session.** If lessons from yesterday are waiting for review, you'll see a note. Run `/review` to handle them, or ignore it and get to work.
 
-That's the whole thing. Claude gets smarter over time instead of resetting to zero.
+**Work normally.** Build features, fix bugs, ask questions. When Claude discovers something worth keeping — a gotcha, a pattern, a coordination technique that works — it flags it as a **CogPR** (behavior pull request).
 
-## The three commands you need
+**End the session.** When you're done or when things feel sluggish, run `/cadence`. Claude wraps up, saves lessons, and writes a handoff. Close the session.
 
-| Command | When to use it | What it does |
-|---------|---------------|-------------|
-| `/cadence` | When you've been working a while (~100k tokens), or you're done for the day | Saves everything Claude learned and writes a clean handoff for next time |
-| `/review` | Every few sessions, when you want to review what Claude learned | Shows you the proposed lessons. You approve the good ones, reject the bad ones |
-| `/siren` | When you want to check on recurring issues | Shows signals -- things that keep coming up and might need attention |
+**Next session.** Start fresh. Yesterday's lessons are already loaded. Claude doesn't ask the same questions. It doesn't make the same mistakes. It compounds.
 
-That's it. Three commands. Everything else is automatic.
+---
 
-## How to install it
+## How it works (one paragraph)
 
-You need Claude Code already working. If you have that, this takes about 30 seconds.
+Lessons get captured locally as you work. When you run `/cadence`, CGG bundles them with a handoff plan and a sequenced timestamp. Between sessions, a background evaluator checks the proposals. Next session, `/review` surfaces them in a docket. You approve the good ones to broader scope (local → project → global), reject the noise. Over weeks, the project accumulates real operational knowledge from real work — not documentation someone wrote once, but living rules from actual mistakes and discoveries.
 
-1. Open your terminal in your project folder.
+---
 
-2. Paste the bootstrap prompt into Claude Code. It asks you one question (install mode), then sets everything up.
+## What you need to learn right now
 
-See [INSTALL.md](INSTALL.md) for the exact prompt. One paste, one answer, done.
+**Day 1 essentials:**
+- `/cadence` — run this when the session ends
+- `/review` — run this every few sessions to approve or reject proposed lessons
+- **CogPR** — what Claude flags as "remember this" (behavior pull request)
+- **Local / Project / Global** — where lessons live (narrow → broad scope)
 
-## What does a normal day look like?
+**What can wait:**
+- Signals, warrants, bands — the friction monitoring system. Works quietly in background.
+- Tics, zones, conformations — canonical timestamps and jurisdictional scoping. Advanced.
+- Ripple assessor — the background evaluator. You don't interact with it directly.
 
-**Morning**: Start a Claude Code session. If there are lessons from yesterday waiting for review, you'll see a note. Type `/review` to review them, or ignore it and get to work.
+See [docs/TERMINOLOGY.md](docs/TERMINOLOGY.md) for the full glossary with neutral aliases.
 
-**During work**: Just work normally. Build features, fix bugs, ask questions. When Claude figures something out that seems important, it automatically writes a CogPR. You don't have to do anything.
+---
 
-**End of day** (or when the session feels sluggish): Type `/cadence`. Claude wraps up, saves its lessons, and writes a handoff file. Close the session. (If you're really late and context is degrading, `/cadence double-time` does a quick exit instead of a full wrap-up.)
+## Quick glossary
 
-**Next morning**: Start a new session. The lessons Claude learned yesterday are already loaded. It doesn't ask the same questions. It doesn't make the same mistakes. It just... knows.
+| Term | What it means |
+|------|---------------|
+| **CogPR** | A proposed lesson flagged for review (like a pull request, but for behavior rules) |
+| **Abstraction ladder** | Local → Project → Global scope hierarchy. Lessons climb through `/review`. |
+| **Epoch boundary** | The session rotation point. `/cadence` ends an epoch cleanly. |
+| **Signal** | Recurring friction that accrues volume across sessions |
+| **Warrant** | Auto-escalation when a signal crosses threshold — demands resolution |
 
-## How it gets smarter over time
+---
 
-Lessons start local -- they're specific to the file or module where Claude discovered them.
+## Install (30 seconds)
 
-If a lesson keeps proving useful, you can promote it during `/review`:
+**Plugin path (recommended):**
+```bash
+git submodule add https://github.com/prompted365/context-grapple-gun.git vendor/context-grapple-gun
+claude plugin install vendor/context-grapple-gun
+```
 
-- **Local** → only applies to one part of your project
-- **Project** → applies to your whole project
-- **Global** → applies to everything you build, across all your projects
+**Or paste the bootstrap prompt** from [INSTALL.md](INSTALL.md) into Claude Code. One question, then done.
 
-A lesson about "this API returns 204, not 200" stays local. A lesson about "always validate input at the API boundary" might go global. You decide. Claude proposes, you approve.
+See [INSTALL.md](INSTALL.md) for full details and install modes.
 
-Over weeks and months, your projects accumulate real operational knowledge from actual work. Not documentation someone wrote once and forgot about -- living rules that came from real mistakes and real discoveries.
+---
 
-CGG may also capture how you and the agent work best together — effective prompting patterns, debugging rhythms, or coordination techniques that consistently improve outcomes. These collaboration lessons are valid governance artifacts alongside technical discoveries.
+## What about scale?
 
-## What are the signals and warrants about?
+**CGG is complete for individuals and small teams.** You don't need anything else.
 
-Sometimes Claude notices the same problem repeatedly across sessions. Instead of just writing a lesson, it tracks the problem as a **signal** -- a friction point that keeps showing up.
+CGG has a lexical ceiling — the point where flat-file governance stops being sufficient. When that happens (signals in the hundreds, lessons spanning dozens of files), CGG's primitives become the audit trail beneath whatever infrastructure you adopt. Same governance lifecycle, different storage layer.
 
-Signals get louder over time. If the same issue comes up in session after session, the signal's volume increases. When it gets loud enough, it automatically creates a **warrant** -- basically a formal "hey, someone really needs to deal with this."
+Most projects never hit that ceiling.
 
-You can see all of this with `/siren`. Think of it as a dashboard for recurring problems.
+---
 
-If you never type `/siren`, that's fine. The system tracks everything quietly in the background. It's there when you need it.
+## The scope ladder
 
-## Do I need to understand the rest of the docs?
+Lessons start local. Promotion through `/review` moves them up:
 
-No.
+| Scope | Where it lives | What it means |
+|-------|----------------|---------------|
+| **Local** | Nearest `CLAUDE.md` to where it was discovered | Applies to one file or module |
+| **Project** | Project root `CLAUDE.md` | Applies across the whole codebase |
+| **Global** | `~/.claude/CLAUDE.md` | Applies to everything you build, all projects |
 
-- **This file** is everything you need to use CGG day-to-day.
-- **[DEV-README.md](DEV-README.md)** explains the engineering details if you're curious about how the pipeline works.
-- **[README.md](README.md)** is the full reference -- scope hierarchies, signal types, frequency bands, jurisdictional zones.
-- **[ARCHITECTURE.md](ARCHITECTURE.md)** is the deep theory for people designing systems like this.
+A lesson about "this API returns 204" stays local. A lesson about "always validate embedding dimensions" might go global. You decide.
 
-This file → DEV-README → README → ARCHITECTURE, each one deeper. You can read as deep as you want. But `/cadence` at the end of the day and `/review` every few sessions is genuinely all you need.
+---
+
+## Two kinds of lessons
+
+CGG captures both:
+
+**Subject-matter lessons** — truths about the system:
+- "This endpoint returns null sometimes"
+- "Redis connections use a shared pool"
+
+**Collaboration lessons** — truths about working effectively:
+- "Include explicit abstraction-level scoping when delegating tasks"
+- "Run tests after each small change, not in batches"
+
+Both are valid. Both can climb the ladder. Both pass through the same human gate.
+
+---
+
+## Signals and warrants (optional depth)
+
+Sometimes the same friction appears across multiple sessions. Instead of a lesson, CGG tracks it as a **signal** — a problem that keeps showing up.
+
+Signals accrue **volume** over time. When volume crosses a threshold, CGG mints a **warrant** — a formal escalation that demands resolution.
+
+Run `/siren` to see the dashboard. Or don't — it works quietly in background.
+
+---
 
 ## FAQ
 
-**Does this work with other AI tools besides Claude Code?**
-The core ideas (CogPRs, lessons, signals) work anywhere. The automation (hooks, triggers, background evaluation) currently requires Claude Code's CLI. The convention layer works in Claude Desktop and Claude for Work too -- you just run the reviews manually.
+**Does this work outside Claude Code?**
+The convention layer (CogPR format, manual review) works in Claude Desktop and Claude for Work. The automation (hooks, background evaluation) requires Claude Code.
 
-**Does this send my data anywhere?**
-No. Everything is stored in flat files in your project directory. No databases, no cloud services, no APIs. It's all just text files tracked by git.
+**Does this send data anywhere?**
+No. Everything is flat files in your project directory. No databases, no APIs, no cloud.
 
-**Can Claude modify its own rules without my permission?**
-No. Every rule change requires your explicit approval through `/review`. Claude proposes. You decide.
+**Can Claude modify rules without approval?**
+No. Every promotion requires `/review` approval. Claude proposes. You decide.
 
-**What if I forget to run `/cadence`?**
-The lessons Claude captured during the session are still written to your local files. You just won't get the clean handoff and automatic evaluation. Run `/cadence` next time you remember -- the system picks up wherever you left off. If context is very low and you need to exit fast, `/cadence double-time` saves the minimum viable handoff without the full ceremony.
+**What if I forget `/cadence`?**
+Lessons are still in local files. You miss the handoff and automatic evaluation. Run `/cadence` next time — the system picks up.
 
-**Is this free?**
-Yes. CGG is open source (MIT license). You pay for Claude Code usage as normal -- CGG doesn't add any extra API costs.
+**What about `/cadence double-time`?**
+Emergency exit. Minimal handoff when context is degraded. Use when you're past the comfortable token range and need to get out fast.
 
-## Where does CGG come from?
+---
 
-CGG was extracted from a larger governance methodology. The governance lifecycle distilled into three commands and flat files. When flat files aren't enough, deeper substrate layers (semantic recall, graph topology, expression gating) pick up where CGG leaves off. But for most projects, CGG is all you need.
+## Reading path
+
+| You want... | Read |
+|-------------|------|
+| Just use it | This file. You're done. |
+| Understand the pipeline | [DEV-README.md](DEV-README.md) |
+| Evaluate the architecture | [README.md](README.md) |
+| Deep theory | [ARCHITECTURE.md](ARCHITECTURE.md) |
+| Learn through story | [academy/README.md](academy/README.md) |
+
+---
 
 ## Maintainers
 
-**[Prompted LLC](https://promptedllc.com)** -- creators of the Ubiquity governance substrate.
+**[Prompted LLC](https://promptedllc.com)** — creators of the Ubiquity governance substrate.
 
-Breyden Taylor, Founder & Architect -- [LinkedIn](https://www.linkedin.com/in/breyden-taylor/) | breyden@prompted.community
+Breyden Taylor, Founder & Architect — [LinkedIn](https://www.linkedin.com/in/breyden-taylor/) | breyden@prompted.community
 
 Contributions welcome.
