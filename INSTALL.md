@@ -20,13 +20,13 @@ git submodule add https://github.com/prompted365/context-grapple-gun.git vendor/
 claude plugin install vendor/context-grapple-gun
 ```
 
-The plugin manifest registers skills, hooks, and agents automatically. Claude will ask which mode you want, then set up the remaining project files.
+The plugin manifest registers skills, hooks, and agents automatically. Claude will ask which mode you want, then set up the remaining project governance files.
 
 **When install finishes, you have:**
-- Three commands: `/cadence`, `/review`, `/siren`
-- Session hooks for automatic handoff and evaluation
-- Zone configuration (`.ticzone`, `.ticignore`) for governance boundaries
-- Audit directories for signals, tics, and conformations
+- `/cadence`, `/review`, `/siren`
+- the selected level of automation for session boundaries and review flow
+- `.ticzone` and `.ticignore` for governance scoping
+- audit paths for signals, tics, and conformations
 
 Start a session, do some work, run `/cadence` when you're done.
 
@@ -79,7 +79,7 @@ If your Claude Code version doesn't support plugins yet, paste this into a sessi
 Copy this entire block and paste it into a Claude Code session in your project:
 
 ````
-I want to install Context Grapple Gun (CGG) into this project. CGG is a session learning system — it helps you remember what you learn across sessions instead of starting from scratch every time.
+I want to install Context Grapple Gun (CGG) into this project. CGG is a file-based governance lifecycle for persistent AI systems. It captures durable lessons discovered during work, carries them across session boundaries, and routes them through review so the project's operating rules can compound instead of resetting every session.
 
 Here's what to do:
 
@@ -90,9 +90,9 @@ Here's what to do:
    Then I can re-run this prompt.
 
 2. ASK ME ONE QUESTION: "How do you want to install CGG?" with these options:
-   - **A) Full pipeline (recommended)** — hooks, agents, skills, session restore. Lessons are captured, evaluated, and promoted automatically between sessions.
-   - **B) Skills only** — just the slash commands (/cadence, /review, /siren). No hooks. You run everything manually.
-   - **C) Convention only** — just the CogPR and signal capture rules added to CLAUDE.md. No slash commands, no files copied. You write CogPRs by hand and review them yourself.
+   - **A) Full pipeline (recommended)** — hooks, ripple-assessor, skills, session restore, and automatic between-session evaluation. Best when you want the full governance loop running.
+   - **B) Skills only** — just `/cadence`, `/review`, and `/siren`, plus the local governance files they depend on. No hooks. You drive the lifecycle manually.
+   - **C) Convention only** — only the CogPR protocol added to `CLAUDE.md`. No commands, no hooks, no copied runtime files. Manual capture and manual review.
 
 3. BASED ON MY ANSWER, do the following:
 
@@ -100,17 +100,17 @@ Here's what to do:
 
 ### If A (Full pipeline):
 
-**Copy skills** (create `.claude/skills/` dirs as needed):
+**Copy primary skills** (create `.claude/skills/` dirs as needed):
 - `vendor/context-grapple-gun/cgg-runtime/skills/cadence/` -> `.claude/skills/cadence/`
 - `vendor/context-grapple-gun/cgg-runtime/skills/review/` -> `.claude/skills/review/`
 - `vendor/context-grapple-gun/cgg-runtime/skills/siren/` -> `.claude/skills/siren/`
 
-**Copy backward-compatibility wrappers** (optional — only if you have existing scripts using old command names):
-- `vendor/context-grapple-gun/cgg-runtime/skills/cadence-downbeat/` -> `.claude/skills/cadence-downbeat/` *(redirects to `/cadence`)*
-- `vendor/context-grapple-gun/cgg-runtime/skills/cadence-syncopate/` -> `.claude/skills/cadence-syncopate/` *(redirects to `/cadence double-time`)*
-- `vendor/context-grapple-gun/cgg-runtime/skills/grapple/` -> `.claude/skills/grapple/` *(redirects to `/review`)*
-- `vendor/context-grapple-gun/cgg-runtime/skills/init-gun/` -> `.claude/skills/init-gun/` *(absorbed into bootstrap)*
-- `vendor/context-grapple-gun/cgg-runtime/skills/init-cogpr/` -> `.claude/skills/init-cogpr/` *(absorbed into bootstrap)*
+**Copy compatibility / alternate command wrappers** (these are valid command surfaces, not deprecated):
+- `vendor/context-grapple-gun/cgg-runtime/skills/cadence-downbeat/` -> `.claude/skills/cadence-downbeat/`
+- `vendor/context-grapple-gun/cgg-runtime/skills/cadence-syncopate/` -> `.claude/skills/cadence-syncopate/`
+- `vendor/context-grapple-gun/cgg-runtime/skills/grapple/` -> `.claude/skills/grapple/`
+
+Do not copy `init-gun` or `init-cogpr` unless I explicitly ask for legacy bootstrap compatibility. Those are absorbed into the install flow and should not be surfaced as first-contact commands.
 
 **Copy hooks:**
 - `vendor/context-grapple-gun/cgg-runtime/hooks/cgg-gate.sh` -> `.claude/hooks/cgg-gate.sh`
@@ -185,7 +185,17 @@ active governance data (pending CPRs, operational memory).
 
 ### If B (Skills only):
 
-**Copy skills** (same as Full pipeline — all skill dirs listed above).
+**Copy primary skills** (create `.claude/skills/` dirs as needed):
+- `vendor/context-grapple-gun/cgg-runtime/skills/cadence/` -> `.claude/skills/cadence/`
+- `vendor/context-grapple-gun/cgg-runtime/skills/review/` -> `.claude/skills/review/`
+- `vendor/context-grapple-gun/cgg-runtime/skills/siren/` -> `.claude/skills/siren/`
+
+**Copy compatibility / alternate command wrappers** (these are valid command surfaces, not deprecated):
+- `vendor/context-grapple-gun/cgg-runtime/skills/cadence-downbeat/` -> `.claude/skills/cadence-downbeat/`
+- `vendor/context-grapple-gun/cgg-runtime/skills/cadence-syncopate/` -> `.claude/skills/cadence-syncopate/`
+- `vendor/context-grapple-gun/cgg-runtime/skills/grapple/` -> `.claude/skills/grapple/`
+
+Do not copy `init-gun` or `init-cogpr` unless I explicitly ask for legacy bootstrap compatibility.
 
 **Create directories:**
 - `mkdir -p audit-logs/signals`
@@ -242,7 +252,7 @@ Write the lesson inline, then add this flag immediately after:
 | SOCIAL | Collaboration signals (use sparingly) |
 | PRESTIGE | Never. Governance-blocked. |
 
-Run `/cadence` when the session feels long — around 100k tokens is a good heuristic. If context is degrading, `/cadence double-time` does a minimal exit.
+Run `/cadence` when the session feels long — around 100k tokens is a good heuristic. If context is degrading, `/cadence double-time` does a minimal exit. The `cadence-syncopate` command surface remains valid and supported.
 
 ### Posture (optional)
 
@@ -267,18 +277,110 @@ For persistent conditions that need tracking, emit signals to `audit-logs/signal
 
 ---
 
-4. AFTER INSTALLATION, print this:
+4. AFTER INSTALLATION, print a mode-specific summary.
+
+**If I chose A) Full pipeline**, print:
 
 ```
-CGG installed. Four commands:
+CGG installed — Full pipeline mode.
 
-/cadence             — end of session. Saves lessons, writes handoff.
-/cadence double-time — emergency exit. Minimal handoff when context is low.
-/review              — every few sessions. Review proposed lessons.
-/siren               — check on recurring issues.
+What was installed:
+- Skills: /cadence, /review, /siren
+- Compatibility / alternate command wrappers: cadence-downbeat, cadence-syncopate, grapple
+- Hooks:
+  - SessionStart -> .claude/hooks/session-restore-patch.sh
+  - UserPromptSubmit -> .claude/hooks/cgg-gate.sh
+- Agent: ripple-assessor
+- Governance files: .ticzone, .ticignore
+- Audit paths:
+  - audit-logs/signals
+  - audit-logs/tics
+  - audit-logs/conformations
+- Proposals path: ~/.claude/grapple-proposals/latest.md
 
-Start working. When you're done, type /cadence.
+What this means operationally:
+1. You work normally.
+2. You end a real session with /cadence.
+3. CGG writes a handoff / plan, emits a tic, and stages lesson capture.
+4. On the next session start, the SessionStart hook detects the handoff and restores relevant context.
+5. On the first prompt of that session, the UserPromptSubmit gate fires once and launches the ripple-assessor in the background.
+6. The assessor evaluates pending CogPRs and writes proposals to ~/.claude/grapple-proposals/latest.md.
+7. You run /review to approve, reject, or edit what should persist.
+8. You run /siren when you want signal visibility or recurring-friction triage.
+
+What you may see in console:
+- After /cadence: a handoff / plan confirmation
+- On next session start: handoff discovery / restored context / possible active signal summary
+- On first prompt of that session: a CGG trigger message indicating the assessor was spawned in the background
+- Later: proposals available for /review
+
+Primary commands:
+/cadence             — normal session close. Writes tic, handoff, and lesson capture.
+cadence-syncopate    — compact / emergency exit command surface still supported.
+/review              — constitutional review docket for proposed lessons.
+/siren               — signal dashboard and recurring-friction triage.
+
+Start working normally. End each real session with /cadence.
 ```
+
+**If I chose B) Skills only**, print:
+
+```
+CGG installed — Skills only mode.
+
+What was installed:
+- Skills: /cadence, /review, /siren
+- Compatibility / alternate command wrappers: cadence-downbeat, cadence-syncopate, grapple
+- Governance files: .ticzone, .ticignore
+- Audit paths:
+  - audit-logs/signals
+  - audit-logs/tics
+  - audit-logs/conformations
+
+What this means operationally:
+- No hooks
+- No automatic session restore
+- No background assessor trigger
+- You drive the lifecycle manually
+
+Manual rhythm:
+1. Work normally
+2. End sessions with /cadence
+3. Use cadence-syncopate if you need the compact / emergency exit surface
+4. Run /review every few sessions
+5. Run /siren when you want signal visibility
+
+Primary commands:
+/cadence             — normal session close. Writes tic, handoff, and lesson capture.
+cadence-syncopate    — compact / emergency exit command surface still supported.
+/review              — review proposed lessons.
+/siren               — signal dashboard and recurring-friction triage.
+
+Start working normally. End each real session with /cadence.
+```
+
+**If I chose C) Convention only**, print:
+
+```
+CGG installed — Convention only mode.
+
+What was installed:
+- Session Learning Protocol block added to CLAUDE.md
+
+What this means operationally:
+- No skills
+- No hooks
+- No agent
+- No automated pipeline
+- CogPR capture and review remain manual
+
+What to do next:
+- Work normally
+- When you discover a durable lesson, record it in CogPR form in the relevant governance surface
+- Add automation later if you want command-driven cadence, review, and signal management
+```
+
+If anything requested was skipped, already present, failed, or could not be merged safely, say so explicitly in the final summary instead of pretending it was freshly installed.
 ````
 
 ## Manual installation
@@ -332,14 +434,25 @@ mkdir -p audit-logs/signals audit-logs/tics audit-logs/conformations
 
 ## Backward compatibility
 
-Old command names are supported via redirect wrappers:
+### Compatibility wrappers (still valid command surfaces)
 
-| Old command | Redirects to |
-|-------------|--------------|
+These alternate command surfaces are installed by default and remain fully supported:
+
+| Command | Equivalent to |
+|---------|---------------|
 | `/cadence-downbeat` | `/cadence` |
 | `/cadence-syncopate` | `/cadence double-time` |
 | `/grapple` | `/review` |
-| `/init-gun` | Bootstrap install (this file) |
-| `/init-cogpr` | Bootstrap install (this file) |
 
-These wrappers exist for projects that used earlier CGG versions. New installations should use the current command names: `/cadence`, `/review`, `/siren`.
+`cadence-syncopate` is a valid command surface for compact / emergency exits. It is not deprecated — use it when the alternate entrypoint makes sense for your workflow.
+
+### Deprecated wrappers (absorbed into install flow)
+
+These commands have been absorbed into the bootstrap install and are not installed by default:
+
+| Old command | Status |
+|-------------|--------|
+| `/init-gun` | Absorbed into bootstrap install (this file) |
+| `/init-cogpr` | Absorbed into bootstrap install (this file) |
+
+Only install `init-gun` or `init-cogpr` if you explicitly need legacy bootstrap compatibility.
