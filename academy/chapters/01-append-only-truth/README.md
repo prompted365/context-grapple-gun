@@ -106,7 +106,7 @@ Why JSONL instead of a database?
 
 The Taylor family calendar is a governance signal store. The only difference is the payload.
 
-> **CGG connection:** The `latest_by_id` logic -- scan every line, keep only the last occurrence of each ID, operate on the resolved state -- is the same read semantics used by `/siren tick` when it processes signal state. Your family calendar resolves "which soccer time is current" the same way CGG resolves "which signal state is current." And the duplicate-vs-recurrence distinction maps directly to CGG's dedup engine, which collapses true duplicates while preserving recurrences as escalating signals.
+> **CGG connection:** The `latest_by_id` logic -- scan every line, keep only the last occurrence of each ID, operate on the resolved state -- is the same read semantics used by `/siren tick` when it processes signal state. Your family calendar resolves "which soccer time is current" the same way CGG resolves "which signal state is current." And the duplicate-vs-recurrence distinction maps directly to CGG's pattern engine, which collapses true duplicates while preserving recurrences as escalating signals.
 
 ---
 

@@ -1,22 +1,25 @@
 """
-Chapter 2: Content-Addressed Dedup Scanner
+Chapter 2: Collaboration Pattern Scanner
 
-Deterministic hash-based identity for events. Prevents duplicate entries
-by computing a dedup hash from selected content fields.
+Deterministic hash-based identity for collaboration patterns. Identifies
+recurring coordination structures by computing a content fingerprint from
+selected fields.
 
-This is the same pattern CGG uses in scripts/cpr-extract.py to prevent
-duplicate CPR queue entries — sha256(source:lesson)[:16].
+This is the same pattern CGG uses to prevent duplicate CogPR queue entries
+— sha256(source:lesson)[:16]. Here it's applied to teamwork patterns:
+standups, role assignments, escalation protocols, attendance tracking.
 """
 import hashlib
 import json
 import os
 
 
-def compute_dedup_hash(content: dict, keys: list[str]) -> str:
-    """Compute a deterministic dedup hash from selected fields.
+def compute_pattern_hash(content: dict, keys: list[str]) -> str:
+    """Compute a deterministic fingerprint from selected fields.
 
     Concatenates the values of the specified keys (sorted, colon-separated)
-    and returns the first 16 chars of the SHA-256 hex digest.
+    and returns the first 16 chars of the SHA-256 hex digest. Used to
+    identify recurring collaboration patterns.
     """
     parts = []
     for k in sorted(keys):
@@ -26,11 +29,12 @@ def compute_dedup_hash(content: dict, keys: list[str]) -> str:
     return hashlib.sha256(raw.encode("utf-8")).hexdigest()[:16]
 
 
-def scan_for_duplicates(filepath: str, keys: list[str]) -> list[list[dict]]:
-    """Find groups of events that share the same dedup hash.
+def scan_for_patterns(filepath: str, keys: list[str]) -> list[list[dict]]:
+    """Find groups of events that share the same pattern fingerprint.
 
     Returns a list of groups, where each group is a list of events
-    with the same hash. Only groups with 2+ entries are returned.
+    with the same hash. Only groups with 2+ entries (recurring patterns)
+    are returned.
     """
     if not os.path.exists(filepath):
         return []
@@ -45,18 +49,19 @@ def scan_for_duplicates(filepath: str, keys: list[str]) -> list[list[dict]]:
                 event = json.loads(line)
             except json.JSONDecodeError:
                 continue
-            h = compute_dedup_hash(event, keys)
+            h = compute_pattern_hash(event, keys)
             groups.setdefault(h, []).append(event)
 
     return [g for g in groups.values() if len(g) >= 2]
 
 
-def append_if_unique(filepath: str, event: dict, dedup_keys: list[str]) -> bool:
-    """Append event only if its dedup hash is not already in the file.
+def append_if_unique(filepath: str, event: dict, pattern_keys: list[str]) -> bool:
+    """Append event only if its pattern fingerprint is not already in the file.
 
-    Returns True if the event was appended, False if it was a duplicate.
+    Returns True if the event was appended (new pattern), False if the
+    pattern was already recorded.
     """
-    h = compute_dedup_hash(event, dedup_keys)
+    h = compute_pattern_hash(event, pattern_keys)
 
     # Load existing hashes
     existing = set()
@@ -68,7 +73,7 @@ def append_if_unique(filepath: str, event: dict, dedup_keys: list[str]) -> bool:
                     continue
                 try:
                     existing_event = json.loads(line)
-                    existing.add(compute_dedup_hash(existing_event, dedup_keys))
+                    existing.add(compute_pattern_hash(existing_event, pattern_keys))
                 except json.JSONDecodeError:
                     continue
 

@@ -8,7 +8,7 @@ All commands assume you are at the CGG repo root (`vendor/context-grapple-gun/` 
 
 ## Checks
 
-### 1. CPR count accuracy (ticignore filtering)
+### 1. CogPR count accuracy (ticignore filtering)
 
 Raw count should be >= filtered count. If equal, `.ticignore` isn't excluding anything (may be expected).
 
@@ -52,7 +52,7 @@ Expected path everywhere: `~/.claude/grapple-proposals/latest.md`
 
 ### 4. `.ticignore` behavior
 
-Create a test CPR block in an ignored directory, verify it is excluded from counts.
+Create a test CogPR block in an ignored directory, verify it is excluded from counts.
 
 ```bash
 # In a project using CGG:

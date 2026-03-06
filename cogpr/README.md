@@ -27,7 +27,7 @@ Lesson flagging, signal emission, and cross-scope promotion conventions for Clau
 
 ### Claude Desktop / Claude for Work
 - Project instructions with v3 capture rules, all block formats, band budget, and review workflow
-- No slash commands — say "review my CPR flags" or "review" to trigger review
+- No slash commands — say "review my CogPR flags" or "review" to trigger review
 
 ## Standalone Usage
 

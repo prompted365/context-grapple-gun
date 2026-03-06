@@ -57,8 +57,8 @@ class TestDesktopEnvironmentSimulation:
 
     def test_desktop_cpr_flag_structure(self, desktop_workspace):
         """Validate CogPR flag structure for desktop environment."""
-        # Append a CPR flag to CLAUDE.md
-        cpr_flag = """
+        # Append a CogPR flag to CLAUDE.md
+        cogpr_flag = """
 <!-- --agnostic-candidate
   lesson: "Always validate inputs before processing"
   source_date: "2026-03-03"
@@ -73,7 +73,7 @@ class TestDesktopEnvironmentSimulation:
 -->
 """
         claude_md = desktop_workspace / "CLAUDE.md"
-        claude_md.write_text(claude_md.read_text() + cpr_flag)
+        claude_md.write_text(claude_md.read_text() + cogpr_flag)
 
         content = claude_md.read_text()
         assert "agnostic-candidate" in content

@@ -37,7 +37,7 @@ Claude runs the full test suite across all chapters. Every simulation from every
 
 ### Phase 3: OPS/DIRECT -- Trace the goat
 
-Follow Mabel's signal from the moment she appeared in the seed data all the way through to a resolved warrant. Claude demonstrates each step live -- the append, the dedup classification, the acoustic routing, the warrant firing, the handler registration. One thread, four governance primitives.
+Follow Mabel's signal from the moment she appeared in the seed data all the way through to a resolved warrant. Claude demonstrates each step live -- the append, the pattern classification, the acoustic routing, the warrant firing, the handler registration. One thread, four governance primitives.
 
 ### Phase 4: OPS/META -- Your certificate
 
@@ -49,7 +49,7 @@ Your certificate tells the story of three entities who appeared across all four 
 
 1. **Escalation (Chapter 1)** -- Mabel's BLEAT arrived uninvited in the Taylor family calendar. An unknown signal in a system that wasn't designed for it. The append-only store preserved it without understanding it.
 
-2. **Stewardship (Chapter 2)** -- The BLEAT recurred. Same payload hash, different timestamps. The dedup scanner classified it as "recurring" -- not a duplicate, not noise. Something persistent.
+2. **Stewardship (Chapter 2)** -- The BLEAT recurred. Same payload hash, different timestamps. The pattern scanner classified it as "recurring" -- not a duplicate, not noise. Something persistent.
 
 3. **Signal discipline (Chapter 3)** -- The BLEAT became a PRIMITIVE BEACON. It routed through the zoo's acoustic model. It could not be muffled. Every enclosure heard it.
 

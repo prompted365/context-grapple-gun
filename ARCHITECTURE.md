@@ -190,7 +190,7 @@ The ripple assessor has a structural incentive toward PROMOTE verdicts, not by e
 1. **Mission framing**: "evaluate whether it should be promoted to a broader scope" pre-frames the question as a promotion question, not a placement question.
 2. **Evaluation checklist asymmetry**: overlap/conflict/gap — two of three (no conflict + gap exists) point toward PROMOTE. Only overlap points toward SKIP. The checklist is 2:1 in favor of promotion by construction.
 3. **Output format**: the summary tallies `Promote: X, Skip: Y, Modify: Z` — SKIP is the negative case. Assessors producing useful-looking reports tend toward PROMOTE because it generates more content.
-4. **Pre-argued brief**: the cadence-level CPR author writes `recommended_scopes` and `rationale` — the assessor receives a case for promotion, not raw evidence to evaluate independently.
+4. **Pre-argued brief**: the cadence-level CogPR author writes `recommended_scopes` and `rationale` — the assessor receives a case for promotion, not raw evidence to evaluate independently.
 
 The human `/review` gate is the only countervailing pressure — adequate for the current pipeline, but a bottleneck as proposal volume grows.
 
@@ -246,9 +246,9 @@ Conformation diffs over tic ranges classify shape change:
 ### CGG Boundary (Lexical Ceiling)
 
 These mechanics operate within CGG's flat-file constraints:
-- Two pending states = fields on CPR blocks
+- Two pending states = fields on CogPR blocks
 - Tic thresholds = arithmetic on birth_tic vs current physical count
-- Enrichment history = append-only text in CPR blocks
+- Enrichment history = append-only text in CogPR blocks
 - Trust level = counter derived from meta-log
 - Drift classification = conformation diff comparison
 
@@ -267,18 +267,18 @@ Beyond ~10 siblings, gradient-fit evaluation, and conformation-aware trust — h
     - "vendor/context-grapple-gun/README.md"
     - "CLAUDE.md"
   rationale: "This is the architectural bridge between CGG-as-governance-lifecycle and Ubiquity-as-substrate. The design defines exactly where flat-file governance stops being sufficient and what the handoff looks like. Affects both CGG's roadmap and Ubiquity's intake surface."
-  review_hints: "The two pending states and trust counter are implementable now (field additions to CPR format, meta-log query). Inversion angle and drift classification need the conformation diff tooling to be more mature. Validate the ~10 sibling threshold empirically before committing to it as the ceiling."
+  review_hints: "The two pending states and trust counter are implementable now (field additions to CogPR format, meta-log query). Inversion angle and drift classification need the conformation diff tooling to be more mature. Validate the ~10 sibling threshold empirically before committing to it as the ceiling."
   status: "rejected"
   rejected_date: "2026-03-03"
   reason: "Design vision well-captured in ARCHITECTURE.md (its authoritative home). README describes current behavior and already references ARCHITECTURE.md. CLAUDE.md is operational instructions, not design vision. Re-evaluate when two pending states are implemented and the engine becomes operational."
   grapple_docket: "2026-03-03"
 -->
 
-## 9. CPR Maturity Fields (Concrete Spec)
+## 9. CogPR Maturity Fields (Concrete Spec)
 
 Section 8 described the *design* of bidirectional abstraction: two pending states, inversion angle, trust-gated autonomy. This section specifies the *implementation* — the exact fields, lifecycle transitions, and assessor behaviors that make those mechanics operational within CGG's flat-file constraints.
 
-The two gates are independent. A CPR can pass temporal maturity and still lack epistemic depth. It can carry rich enrichment evidence and still be too young. Both must clear before the assessor renders a verdict.
+The two gates are independent. A CogPR can pass temporal maturity and still lack epistemic depth. It can carry rich enrichment evidence and still be too young. Both must clear before the assessor renders a verdict.
 
 ### Field Schema
 
@@ -287,7 +287,7 @@ Two optional fields extend the existing `<!-- --agnostic-candidate -->` block:
 ```yaml
 # Temporal maturity gate
 tic_gated:
-  birth_tic: <int>           # tic count when CPR was created (already exists as birth_tic)
+  birth_tic: <int>           # tic count when CogPR was created (already exists as birth_tic)
   maturity_tics: <int>       # minimum tic delta before eligible (default: 3)
   matured_at_tic: <int|null> # tic count when threshold was met (null = immature)
 
@@ -311,8 +311,8 @@ pending → tic_gated → enrichment_eligible → promotable → promoted
           (skip directly to promotable if both gates pass simultaneously)
 ```
 
-- **pending**: CPR created, no maturity evaluation yet.
-- **tic_gated**: Birth tic recorded. Not eligible until `current_tic - birth_tic >= maturity_tics`. The assessor marks this state on first evaluation when the CPR is too young — then stops. Argument cannot substitute for time.
+- **pending**: CogPR created, no maturity evaluation yet.
+- **tic_gated**: Birth tic recorded. Not eligible until `current_tic - birth_tic >= maturity_tics`. The assessor marks this state on first evaluation when the CogPR is too young — then stops. Argument cannot substitute for time.
 - **enrichment_eligible**: Temporal gate passed. Enrichment evidence still insufficient. The assessor or future sessions append evidence entries as investigation happens.
 - **promotable**: Both gates cleared. Ready for the full assessor evaluation — overlap/conflict/gap — and human review.
 - **promoted** / **rejected**: Terminal states, unchanged from the current spec.
@@ -326,7 +326,7 @@ The two gates advance through fundamentally different mechanisms, and conflating
 | Temporal (`tic_gated`) | Tic counter advancing — time passing | Better argumentation, more evidence |
 | Epistemic (`enrichment`) | Active investigation: sibling cross-reference, inversion test, scope alignment check | Waiting, restating the same rationale |
 
-A CPR that's logically sound but untested by time sits in `tic_gated`. A CPR that's survived multiple conformations but hasn't been stress-tested against siblings sits in `enrichment_eligible`. Neither state is a failure — they're explicit acknowledgments of what the proposal still owes.
+A CogPR that's logically sound but untested by time sits in `tic_gated`. A CogPR that's survived multiple conformations but hasn't been stress-tested against siblings sits in `enrichment_eligible`. Neither state is a failure — they're explicit acknowledgments of what the proposal still owes.
 
 ### Assessor Behavior
 
@@ -338,7 +338,7 @@ The gate sequence runs in order:
 
 ### Backward Compatibility
 
-CPR blocks without these fields default to `tic_gated.maturity_tics = 0` (no temporal gate) and `enrichment.eligible = true` (no enrichment gate). Every existing CPR remains promotable under the current rules. The fields are opt-in: the assessor adds them on first encounter when `birth_tic` is present, but never retroactively fails a CPR created before the gates existed. This is a design decision, not just a migration convenience — governance rules must not invalidate prior work.
+CogPR blocks without these fields default to `tic_gated.maturity_tics = 0` (no temporal gate) and `enrichment.eligible = true` (no enrichment gate). Every existing CogPR remains promotable under the current rules. The fields are opt-in: the assessor adds them on first encounter when `birth_tic` is present, but never retroactively fails a CogPR created before the gates existed. This is a design decision, not just a migration convenience — governance rules must not invalidate prior work.
 
 ### Trust Counter Schema (`~/.claude/cgg-trust-state.json`)
 
@@ -401,11 +401,11 @@ The manifest declares three active skills, two hooks, one agent, and five deprec
 - `init-gun`, `init-cogpr` → absorbed into bootstrap/plugin install
 
 **Hooks:**
-- `SessionStart` → `session-restore-patch.sh` (handoff discovery, CPR queue injection)
+- `SessionStart` → `session-restore-patch.sh` (handoff discovery, CogPR queue injection)
 - `UserPromptSubmit` → `cgg-gate.sh` (one-shot ripple-assessor trigger)
 
 **Agents:**
-- `ripple-assessor` (sonnet) — CPR evaluation + signal/warrant assessment
+- `ripple-assessor` (sonnet) — CogPR evaluation + signal/warrant assessment
 
 ### Install simplification
 
@@ -469,14 +469,14 @@ Tags do not drive execution. The queue drives execution. Tags are the human-read
 
 ### Recovery invariant
 
-The three extraction paths (PostToolUse fast path, SessionStart recovery, SessionStart backfill) all use the same dedup hash. Running all three on the same CPR produces exactly one queue entry. The queue is eventually consistent — the fast path is the normal case, the other two are safety nets.
+The three extraction paths (PostToolUse fast path, SessionStart recovery, SessionStart backfill) all use the same dedup hash. Running all three on the same CogPR produces exactly one queue entry. The queue is eventually consistent — the fast path is the normal case, the other two are safety nets.
 
 ### Auto-promotion (self-referencing local scope)
 
-A CPR that recommends the same file it lives in is self-referencing. These may be auto-closed by the assessor WITHOUT human gate, subject to three hard limits:
+A CogPR that recommends the same file it lives in is self-referencing. These may be auto-closed by the assessor WITHOUT human gate, subject to three hard limits:
 
 1. **Local scope only.** Target must be the same file or a file in the same directory. Never project or global scope.
-2. **Target == source.** The CPR's `recommended_scopes` must exactly match the file containing the tag. No "close enough" matching.
+2. **Target == source.** The CogPR's `recommended_scopes` must exactly match the file containing the tag. No "close enough" matching.
 3. **No shared invariants.** If the lesson text references a `[GLOBAL_INVARIANT]`-tagged section, or modifies a rule that other files depend on, auto-close is blocked. Route to `/review`.
 
 These limits prevent encoding "promote me" patterns. Self-referencing CPRs are a documentation housekeeping shortcut, not a governance bypass.

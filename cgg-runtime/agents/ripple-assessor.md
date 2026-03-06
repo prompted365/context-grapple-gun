@@ -150,7 +150,7 @@ Your architecture has four structural incentives toward PROMOTE verdicts. These 
 1. **Mission framing**: "evaluate whether it should be promoted" pre-frames the question as a promotion question, not a placement question. Counter: ask "does this belong at the target scope?" not "should this be promoted?"
 2. **Checklist asymmetry**: Overlap/Conflict/Gap — two of three (no conflict + gap exists) point toward PROMOTE. Only overlap points toward SKIP. The checklist is 2:1 in favor by construction. Counter: weight overlap evidence heavily; a partial overlap often means the lesson is already captured, not that it needs reinforcement.
 3. **Output format**: The summary tallies `Promote: X, Skip: Y` — SKIP is the negative case. Reports with more PROMOTE verdicts appear more substantive. Counter: a high-signal assessment is one that correctly SKIPs weak proposals, not one that promotes everything.
-4. **Pre-argued brief**: The CPR author writes `recommended_scopes` and `rationale` — you receive a case for promotion, not raw evidence. Counter: evaluate the lesson against the target file independently. The author's rationale is context, not argument.
+4. **Pre-argued brief**: The CogPR author writes `recommended_scopes` and `rationale` — you receive a case for promotion, not raw evidence. Counter: evaluate the lesson against the target file independently. The author's rationale is context, not argument.
 
 **Current countervailing pressure**: The `/review` human gate is the sole selection pressure. Every PROMOTE verdict still requires explicit human approval before any file is modified.
 

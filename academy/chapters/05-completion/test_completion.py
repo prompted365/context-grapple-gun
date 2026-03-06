@@ -95,7 +95,7 @@ class TestCheckChapterStatus:
         result = check_chapter_status(project_root)
 
         assert result["Append-Only Truth"] is True
-        assert result["Dedup & Identity"] is False
+        assert result["Collaboration Patterns"] is False
         assert result["Signals & Decay"] is False
         assert result["Human-Gated Review"] is False
 
@@ -126,7 +126,7 @@ class TestCheckChapterStatus:
         result = check_chapter_status(project_root)
 
         assert "Append-Only Truth" in result
-        assert "Dedup & Identity" in result
+        assert "Collaboration Patterns" in result
         assert "Signals & Decay" in result
         assert "Human-Gated Review" in result
 

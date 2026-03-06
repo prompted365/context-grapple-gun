@@ -131,7 +131,7 @@ class TestCadenceDownbeat:
             "muffling_per_hop": 5
         }))
 
-        # Create CLAUDE.md with pending CPRs
+        # Create CLAUDE.md with pending CogPRs
         (workspace / "CLAUDE.md").write_text("""# Test Project
 
 ## Lessons
@@ -177,11 +177,11 @@ class TestCadenceDownbeat:
         assert last_tic["cadence_position"] == "downbeat"
 
     def test_downbeat_extracts_cprs(self, cadence_workspace):
-        """Downbeat should identify pending CPR flags."""
+        """Downbeat should identify pending CogPR flags."""
         claude_md = cadence_workspace / "CLAUDE.md"
         content = claude_md.read_text()
 
-        # Count pending CPRs
+        # Count pending CogPRs
         pending_count = content.count('status: "pending"')
         assert pending_count >= 1
 

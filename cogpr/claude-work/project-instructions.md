@@ -23,7 +23,7 @@ When you discover something during a session that constitutes a durable lesson â
 
 2. **Match the existing format.** Use the heading style, bullet format, and tone already present in the target file.
 
-3. **Flag Cognitive Pull Requests (CPRs).** If the lesson might apply beyond the current file's scope, add a CPR flag immediately after the lesson:
+3. **Flag Cognitive Pull Requests (CogPRs).** If the lesson might apply beyond the current file's scope, add a CogPR flag immediately after the lesson:
 
 ```html
 <!-- --agnostic-candidate
@@ -65,13 +65,13 @@ Signal kinds: BEACON (something IS wrong), LESSON (something was LEARNED), OPPOR
    - `~/.claude/CLAUDE.md` (global root)
    - Any file tagged `[GLOBAL_INVARIANT]`
 
-### Reviewing CPR Flags and Signals
+### Reviewing CogPR Flags and Signals
 
-When the user says "review my CPR flags", "review", "grapple", or "review pending lessons":
+When the user says "review my CogPR flags", "review", "grapple", or "review pending lessons":
 
 1. Search all CLAUDE.md and MEMORY.md files for `<!-- --agnostic-candidate -->` blocks with `status: "pending"`
 2. Search for `<!-- --signal -->` blocks with `status: "active"`
-3. For each pending CPR:
+3. For each pending CogPR:
    - Read the lesson text and source context
    - Read each recommended target scope file
    - Check for overlap, conflict, or gaps
@@ -82,5 +82,5 @@ When the user says "review my CPR flags", "review", "grapple", or "review pendin
 5. Present your assessment and wait for approval before making any changes
 6. For approved promotions:
    - Write the lesson to the target file in its existing format
-   - Update the source CPR flag status to `promoted` or `rejected`
+   - Update the source CogPR flag status to `promoted` or `rejected`
 7. Never auto-promote â€” always get explicit approval first

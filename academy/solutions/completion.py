@@ -17,7 +17,7 @@ from datetime import datetime, timezone
 # Chapter directory names mapped to human-readable labels
 CHAPTERS = {
     "01-append-only-truth": "Append-Only Truth",
-    "02-dedup-and-identity": "Dedup & Identity",
+    "02-dedup-and-identity": "Collaboration Patterns",
     "03-signals-and-decay": "Signals & Decay",
     "04-human-gated-review": "Human-Gated Review",
 }

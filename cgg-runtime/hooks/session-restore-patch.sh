@@ -5,7 +5,7 @@
 #
 # This script discovers project-scoped plan files with CGG triggers,
 # extracts them to flag files for the UserPromptSubmit gate,
-# counts pending CPR flags, and scans the signal store for active signals.
+# counts pending CogPR flags, and scans the signal store for active signals.
 #
 # Signal scanning uses single-pass Python for dedup (latest-entry-per-ID-wins)
 # instead of line-by-line bash parsing. Much faster on large signal stores.
@@ -54,11 +54,11 @@ if [ -n "$LATEST_PLAN" ] && [ -n "$HANDOFF_ID" ]; then
     mkdir -p "$FLAG_DIR"
     echo "$TRIGGER_BLOCK" > "$FLAG_DIR/pending-trigger.txt"
     echo "$HANDOFF_ID" > "$FLAG_DIR/pending-handoff-id.txt"
-    TRIGGER_MSG="[CGG EVALUATION PENDING: $EXPECTED CPR flags extracted from handoff $HANDOFF_ID]"
+    TRIGGER_MSG="[CGG EVALUATION PENDING: $EXPECTED CogPR flags extracted from handoff $HANDOFF_ID]"
   fi
 fi
 
-# Block-aware CPR counter — parses <!-- --agnostic-candidate ... --> blocks,
+# Block-aware CogPR counter — parses <!-- --agnostic-candidate ... --> blocks,
 # counts those with status: "pending" (excludes status: "example").
 # Fixes: line-based grep undercounted (status on different line than block opener).
 count_pending_cprs() {
@@ -86,7 +86,7 @@ if [ -d "$PROJECT_DIR" ]; then
       FIND_EXCLUDES+=(-not -path "*/$pat/*")
     done < "$TICIGNORE"
   else
-    # Default: exclude vendor, node_modules, .claude/skills (template CPR blocks)
+    # Default: exclude vendor, node_modules, .claude/skills (template CogPR blocks)
     FIND_EXCLUDES+=(-not -path "*/vendor/*" -not -path "*/node_modules/*" -not -path "*/.claude/skills/*")
   fi
 
@@ -123,7 +123,7 @@ if [ -n "$TRIGGER_MSG" ]; then
   CGG_MSG="$CGG_MSG $TRIGGER_MSG"
 fi
 if [ "$CPR_COUNT" -gt 0 ]; then
-  CGG_MSG="$CGG_MSG [CPR QUEUE: $CPR_COUNT pending flags. /grapple when ready.]"
+  CGG_MSG="$CGG_MSG [CogPR QUEUE: $CPR_COUNT pending flags. /grapple when ready.]"
 fi
 
 # --- CGG v3: Signal Scanning (single-pass Python dedup) ---

@@ -22,8 +22,8 @@
       "subtitle": "Collaboration Governance",
       "posture": "ENG/META",
       "cgg_concept": "Collaboration patterns as governance artifacts, meta-learning, promotable coordination rules",
-      "simulation": "dedup_scanner",
-      "test_file": "test_dedup_scanner.py",
+      "simulation": "pattern_scanner",
+      "test_file": "test_pattern_scanner.py",
       "goat_state": "BLEAT recurs. Same hash, new timestamp."
     },
     {
