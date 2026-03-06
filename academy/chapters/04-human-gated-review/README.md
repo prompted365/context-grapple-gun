@@ -26,7 +26,7 @@ Week 1: five proposals. You review all five. Two approved, two rejected, one sen
 
 Week 2: eight proposals. Three of them are resubmissions of last week's rejections — same firms, same bad load-bearing formulas, same wrong concrete ratios. You reject them again. Same reasons. Same annotations. Five new ones to review on top.
 
-Week 3: fifteen proposals. Six of them are repeats. You start recognizing the handwriting. Engineering Firm A really believes in steel reinforcement for spans over 50 meters, and they will not stop proposing it no matter how many times you write "load formula incorrect for cantilever spans" in red ink.
+Week 3: fifteen proposals. Six of them are repeats. You start recognizing the handwriting. Engineering Firm A really believes in steel reinforcement for spans over 50 meters, and they will not stop proposing it no matter how many times you mutter out loud to yourself as you stamp the form... "load formula incorrect for cantilever spans" in red ink.
 
 Week 4: twenty-three proposals.
 
@@ -67,7 +67,7 @@ But the math works in your favor. One annotation now prevents three resubmission
 Without feedback: O(n) growing pile, where n increases every week.
 With feedback: O(1) steady state, where quality improves every cycle.
 
-The bottleneck was never the volume of proposals. It was the absence of feedback. Remove the constraint, and the pressure resolves itself.
+The bottleneck had a root cause - or at least, could be mititgated by a solution you have the expertise to handle, even if taxing. It was the absence of feedback. Remove the constraint, and the pressure resolves itself.
 
 ---
 
@@ -112,7 +112,7 @@ Four chapters. One goat. A signal that was stored (Ch1), pattern-matched (Ch2), 
 
 Here's the question the warrant forces you to answer: **what do you do about Mabel?**
 
-Option A: Suppress the signal. Mark `sig_unknown_001` as expired. Set volume to zero. Mabel's BLEAT disappears from the system. The warrant clears. Your queue is clean.
+Option A: This one technically grinds the domain to a halt in the wider substrate. Technically one could supress the signal. Mark `sig_unknown_001` as expired. Set volume to zero. Mabel's BLEAT disappears from the system. The warrant clears. Your queue is clean.
 
 Option B: Trace the root cause.
 
@@ -193,7 +193,7 @@ Questions Claude will explore with you:
 | One-verdict-per-proposal | Idempotent review — same proposal reviewed once | Dedup on CogPR lifecycle |
 | Compounding feedback returns | Each `/review` shapes future proposal quality | Human-gated review loop |
 
-**The human gate is the value.** Automated systems detect, route, escalate, and mint warrants. But the verdict — approve, reject, edit — is human. That's the design. The human reviews what the system escalates. Both subject-matter and collaboration lessons arrive in the same docket, pass through the same gate, and promote through the same ladder.
+**The human gate is the value.** Automated systems detect, route, escalate, and mint warrants. But the verdict — approve or reject, binary with the choice to give feedback, or let the system learn from a "no" and deliver feedback for you, is human. That's the design. The human reviews what the system escalates - and the system is motivated to propose well and to reject poorly defended proposals. Both subject-matter and collaboration lessons arrive in the same docket, pass through the same gate, and promote through the same ladder.
 
 ---
 
