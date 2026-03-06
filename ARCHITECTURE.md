@@ -27,6 +27,12 @@ Within an active session, the agent accumulates temporary "working theories" abo
 ### Tier 3: CogPRs (The Promotion Buffer)
 A Cognitive Pull Request (CogPR) is the unit of proposed evolution. It strips variables (file paths, one-off IDs), extracts the invariant lesson, and proposes a target scope. The signal hygiene layer.
 
+CogPRs capture two kinds of rationale:
+- **Subject-matter lessons** -- truths about the system being built (API behaviors, architecture constraints, bug patterns)
+- **Collaboration lessons** -- truths about effective human-agent coordination (prompting patterns, debugging rhythms, escalation protocols)
+
+Both are valid promotion units. Both can climb the abstraction ladder. Constitutional governance requires governing both the technical environment and the process that operates within it.
+
 ### Tier 4: Project Memory (Reusable Rules)
 Lessons proven useful multiple times in one repository. Tied to a specific stack (e.g., "In this Rust workspace, errors must implement `thiserror::Error`") but not yet universal.
 

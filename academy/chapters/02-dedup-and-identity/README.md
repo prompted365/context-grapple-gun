@@ -1,104 +1,152 @@
-# Chapter 2: Did We Already Sign Up For That?
+# Chapter 2: The Adjunct's Semester Project
 
-**Dedup & Identity**
+**Collaboration Governance**
 
 > Posture: `ENG/META`
-> Time: ~15 minutes
-> Signal primitive: *Stewardship without root-cause mapping leaves latent instability.*
+> Time: ~20 minutes
+> Signal primitive: *Patterns of coordination are identity-bearing and governance-bearing. They are not soft extras.*
 
 ---
 
 ## The scenario
 
-The Taylors have a new problem. The append-only calendar from Chapter 1 is working -- nobody can silently overwrite anyone else's entries. But now they are drowning in duplicates.
+Professor Reyes teaches Introduction to Computer Science at Clearwater Community College. She uses the university's Anthropic instance for course administration, operating within university policy. Her students work in groups of four on semester-long projects -- this semester, they're building simple web applications.
 
-Here is what happened this week:
+The first round of group check-ins just happened. Reyes reviews the logs and notices a familiar pattern: some groups are thriving, others are struggling, and the differences have almost nothing to do with technical skill.
 
-**Monday:** Sarah signed Jake up for swim class via the rec center website. Mike, not knowing Sarah already did it, signed Jake up from his phone using a different email. Two signups, same child, same class, same time slot. The rec center charged them twice.
+**Group A (The Clockwork Team)**:
+- Weekly Wednesday standups, same time every week
+- Clear role assignments: Alex handles frontend, Bailey does backend, Casey manages deployment, Dana writes documentation
+- Attendance is tracked -- if someone misses, the others note it explicitly
+- When Casey had a personal emergency week 3, they escalated to Reyes immediately
+- Progress is steady. Everyone knows what everyone else is doing.
 
-**Tuesday:** Lily's school sent home a permission slip for the science museum field trip. Sarah signed it and emailed it back. Mike found the paper copy in Lily's backpack and also signed and emailed it. Then Lily's teacher, not seeing either response, sent a reminder -- and Sarah submitted a third time. Three permission slips. One field trip.
+**Group B (The Chaos Team)**:
+- "We'll meet when we need to" -- no fixed schedule
+- No explicit roles -- everyone does everything, or tries to
+- Two members haven't attended the last three ad-hoc meetings
+- One member is doing 80% of the work and getting frustrated
+- The others don't know about the frustration because nobody escalated anything
+- They're technically on schedule, but barely, and it's fragile.
 
-**Wednesday:** Sarah scheduled piano for Lily at 4pm. Then on Thursday, she rescheduled it to 5pm. That is NOT a duplicate -- it is a legitimate update. Same `id`, different content.
+**Group C (The Silent Majority)**:
+- They meet, but nobody takes notes
+- They divide work, but nobody confirms who's doing what
+- When someone falls behind, the others assume someone else will pick it up
+- By week 6, three people thought someone else was handling the database layer
+- Nobody was handling the database layer.
 
-The problem is clear: the Taylors need to know when two entries *mean the same thing* even if they came from different sources. But they also need to tell the difference between "this is the same event submitted twice" and "this is the same event updated to a new time."
+## What makes the difference?
 
-## Content-addressed hashing
+Group A is not succeeding because they know more computer science. They're succeeding because they govern collaboration well.
 
-The solution is older than computers. Instead of comparing entries field-by-field, you compute a fingerprint from the *content that matters*. If two entries produce the same fingerprint, they are semantically identical -- regardless of who submitted them, when, or from which email.
+They have:
+- **Standing accountability structures** -- weekly check-ins that happen regardless of whether there's a crisis
+- **Explicit role identity** -- clear ownership that prevents diffusion of responsibility
+- **Attendance tracking** -- visible participation records so absence is noticed early
+- **Early escalation protocols** -- a clear path to involve the professor before problems compound
+- **Shared visibility** -- everyone knows the plan and the progress
 
-```python
-import hashlib, json
+These are not personality traits. These are patterns. And patterns can be learned, named, and taught.
 
-def content_hash(event, keys):
-    """Hash only the fields that define identity."""
-    parts = [str(event.get(k, "")) for k in sorted(keys)]
-    raw = "|".join(parts)
-    return hashlib.sha256(raw.encode()).hexdigest()[:16]
-```
+## Collaboration patterns as governance material
 
-For the swim class, the identity keys might be `["event", "who", "day", "time"]`. Sarah's signup and Mike's signup produce the same hash because the content is identical -- only `source` and `ts` differ.
+Here is the key insight: **successful collaboration patterns are promotable governance artifacts**.
 
-For the piano rescheduling, the hash changes because `time` changed from `"16:00"` to `"17:00"`. Same `id`, different content hash. That is an update, not a duplicate.
+Group A's weekly standup habit is a pattern that could become a rule:
+> "Hold a standing weekly check-in at a fixed time, regardless of perceived urgency. Consistent rhythm prevents invisible drift."
 
-## Duplicate vs. recurring
+Group A's escalation protocol is a pattern that could become a rule:
+> "Escalate to the project owner when a blocker persists more than 48 hours. Early escalation is cheaper than late recovery."
 
-Now here is a subtlety that matters more than it seems.
+Group A's role clarity is a pattern that could become a rule:
+> "At project start, assign explicit ownership of each major deliverable. Document assignments visibly."
 
-Two entries with the same content hash and the same timestamp? **Duplicate.** Somebody submitted the same thing twice.
+These rules are not about web development. They are about how groups of humans (and agents) coordinate effectively. And they are just as valid as any technical rule about API design or database constraints.
 
-Two entries with the same content hash but *different* timestamps? **Recurring.** The same thing happened again. That is not noise -- it might be a signal.
+## The scanner in action
 
-Think about it: if the dishwasher breaks on Monday and again on Thursday, the second report is not a duplicate of the first. It is a recurrence. A recurrence means the problem was not actually fixed. Dedup scanners that collapse recurrences into duplicates destroy information.
+Claude will demonstrate the collaboration pattern scanner:
 
-This distinction -- duplicate vs. recurring -- is one of the most important concepts in signal processing. Getting it wrong means either drowning in noise (treating recurrences as new) or losing signal (treating recurrences as duplicates).
+- Review the group check-in log (`fixtures/group_checkins.jsonl`)
+- Identify recurring patterns: attendance, role assignment, escalation events, milestone tracking
+- Flag collaboration risks: silent members, diffused ownership, missed check-ins without escalation
+- Surface promotable patterns: structures that appear in successful groups and could apply elsewhere
 
-## See it in action
-
-Claude will demonstrate the dedup logic on the Taylor family data:
-
-- Sarah and Mike's swim class signups produce the **same content hash** on identity keys -- same child, same class, same time slot. The system catches the double-booking.
-- All three permission slip submissions hash identically. Three emails, one trip.
-- Lily's piano reschedule produces a **different hash** because the time changed. That is an update, not a duplicate. The dedup scanner knows the difference.
-- And those BLEATs? Same payload hash, different timestamps. The scanner classifies them as **recurring** -- not a duplicate. Something keeps happening.
-
-The tests prove each distinction. Claude runs them and shows you the output.
+Watch for:
+- How the scanner distinguishes healthy recurrence (regular check-ins) from problematic recurrence (repeated missed meetings)
+- How patterns of coordination get fingerprinted and tracked
+- How successful team structures become abstraction-ladder candidates
 
 ---
 
 ## What you are actually learning
 
-You just saw CGG's dedup engine in action.
+You just saw **meta-learning** -- learning about the conditions that make learning possible.
 
-When CGG processes signals, it uses content-addressed hashing to prevent the same insight from being recorded as multiple independent events. A CogPR (Cognitive Pull Request) discovered in one session should not generate a second CogPR if the same insight is discovered again in a later session.
+In Chapter 1, you learned to store truths about events. In this chapter, you're learning that truths about collaboration are just as storable, just as promotable, and just as valuable.
 
-But there is a critical wrinkle: **recurrence is not duplication.** If the same failure mode appears three weeks apart, that is not noise -- it is evidence that the root cause was never addressed. CGG's dedup logic preserves recurrences while collapsing true duplicates. The `classify_recurrence` logic is the core of that decision.
+Consider the parallel with the Homeskillet theory-of-mind example from the root documentation:
 
-> **CGG connection:** The `content_hash` function mirrors `make_dedup_signal_id()` in CGG's signal emission pipeline. It takes a date, subsystem, and content hash to produce a deterministic signal ID. Same failure on the same day from the same subsystem produces the same ID -- preventing spam from repeated extension firings. But a new day means a new ID, allowing the signal to recur without being collapsed.
+An operator observed:
+- Homeskillet was strong at structural reasoning
+- Weaker when instructions depended on implicit assumptions
+- Vulnerable to conceptual drift when prompts were under-scoped
+
+So the operator started prompting with a theory-of-mind preface:
+- What the agent is strong at
+- Where the agent tends to drift
+- Which assumptions must be explicit
+
+That improved performance. After several cycles, the system surfaced it as a governance candidate:
+
+> "When constructing subagent prompts, include a short theory-of-mind preface describing the agent's inferred strengths and limitations. This reduces conceptual drift and improves task alignment."
+
+That is the same class of lesson as "hold standing weekly check-ins." Both are collaboration patterns. Both improve outcomes. Both are promotable.
+
+## CGG connection
+
+| Group project concept | CGG primitive | Where it lives |
+|---|---|---|
+| Weekly standup | Recurring cadence | Governance rhythm |
+| Attendance tracking | Signal store | `audit-logs/signals/*.jsonl` |
+| Role assignment | Ownership scope | CLAUDE.md jurisdiction |
+| Escalation threshold | Warrant minting | Volume-triggered escalation |
+| Missing member pattern | Recurring signal | Recurrence detection from Ch1 |
+| Promotable team practice | CogPR candidate | `<!-- --agnostic-candidate -->` |
+| Theory-of-mind preface | Collaboration lesson | Abstraction ladder |
+
+**The key insight:** Collaboration patterns are first-class governance artifacts.
+
+Some groups succeed not because they know more, but because they govern coordination better. Successful collaboration structures can be recognized as recurring patterns. Those patterns can be promoted as broader conventions.
+
+Just as an operator can improve an agent by acknowledging its strengths and limitations, a team can improve group outcomes by explicitly accounting for member strengths, weaknesses, accountability, and escalation triggers.
 
 ---
 
-## That BLEAT again
+## The BLEAT continues
 
-Check the bottom of `fixtures/duplicate_events.jsonl`. Our mysterious friend is back:
+Check the bottom of `fixtures/group_checkins.jsonl`. Something familiar:
 
 ```json
-{"id": "sig_unknown_001", "type": "signal", "kind": "BEACON", "payload": "BLEAT", "band": "PRIMITIVE", "volume": 15, "volume_rate": 5, "source": "???", "ts": "2026-03-01T09:00:00Z"}
-{"id": "sig_unknown_001", "type": "signal", "kind": "BEACON", "payload": "BLEAT", "band": "PRIMITIVE", "volume": 20, "volume_rate": 5, "source": "???", "ts": "2026-03-01T10:00:00Z"}
+{"id": "sig_unknown_001", "type": "signal", "kind": "BEACON", "payload": "BLEAT", "band": "PRIMITIVE", "volume": 15, "source": "???", "ts": "2026-03-01T09:00:00Z"}
+{"id": "sig_unknown_001", "type": "signal", "kind": "BEACON", "payload": "BLEAT", "band": "PRIMITIVE", "volume": 20, "source": "???", "ts": "2026-03-01T10:00:00Z"}
 ```
 
-Different timestamps. Same content hash (on the identity keys). The dedup scanner classifies this as **recurring**, not a duplicate.
+Same content fingerprint. Different timestamps. Your scanner from Chapter 1 would classify this as **recurring** -- not duplicate.
 
-Something out there really wants to be heard.
+Something keeps happening. We still don't know what. But it's not noise.
 
 ---
 
 ## Understanding check
 
-A couple things Claude will explore with you:
+A few things Claude will explore with you:
 
-- If the same system failure happens on Monday and again on Thursday, is the Thursday report a duplicate? Why does the answer matter?
-- What fields would you hash on to detect "same event, different source"? What about "same source, different event"?
-- The BLEAT keeps recurring. What does that tell you about the underlying cause?
+- What's the difference between a personality trait and a learnable pattern?
+- If "hold weekly standups" works for Group A, why might it fail for a different group? (Hint: patterns need context.)
+- The theory-of-mind example describes adapting prompts to an agent's strengths. How would you apply that to briefing a new team member?
+- Can a collaboration pattern ever be "wrong"? What would that look like?
 
 ---
 

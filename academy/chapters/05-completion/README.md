@@ -61,19 +61,19 @@ The certificate names all three players (the goat, the signal, the human) and sh
 
 ## What you learned
 
-You explored four governance primitives and watched them work as a pipeline. Here is what each one teaches:
+You explored governance primitives and watched them work as a pipeline. Here is what each chapter teaches:
 
-**Append-only truth** is the foundation. You cannot govern what you cannot audit. Every state change is preserved, every decision is traceable, every conflict is visible. This is not a database optimization -- it is a governance requirement. Systems that allow deletion allow deniability.
+**Append-only truth** (Chapter 1) is the foundation. You cannot govern what you cannot audit. Every state change is preserved, every decision is traceable, every conflict is visible. The duplicate-vs-recurrence distinction lives here: you need full history to tell "same thing submitted twice" from "same thing happening again."
 
-**Content-addressed identity** separates "same content" from "same event." Two entries can be identical in payload and still be distinct in time. Dedup without timestamps catches duplicates. Dedup with timestamps catches recurrence. The difference matters: a duplicate is noise, a recurrence is signal.
+**Collaboration governance** (Chapter 2) shows that patterns of coordination are just as storable, just as promotable, and just as valuable as technical facts. A team's weekly standup habit can become a governance rule. A prompting technique that reduces agent drift can climb the abstraction ladder. Both subject-matter lessons and collaboration lessons are first-class governance artifacts.
 
-**Acoustic routing** ensures that the right signals reach the right listeners at the right volume. Not every signal is for every listener. PRIMITIVE signals cannot be silenced. PRESTIGE signals are auto-muted. The band hierarchy is a frequency-domain governance model -- it determines who hears what, not through access control, but through physics.
+**Acoustic routing** (Chapter 3) ensures that the right signals reach the right listeners at the right volume. Not every signal is for every listener. PRIMITIVE signals cannot be silenced. PRESTIGE signals are auto-muted. The band hierarchy is a frequency-domain governance model -- it determines who hears what, not through access control, but through physics.
 
-**Human-gated review** is the irreducible checkpoint. Automation detects. Humans decide. A warrant is not an error -- it is an obligation. A proposal is not an order -- it is a request. The human approves laws, not tactics.
+**Human-gated review** (Chapter 4) is the irreducible checkpoint. Automation detects. Humans decide. A warrant is not an error -- it is an obligation. A proposal is not an order -- it is a request. The human approves laws, not tactics. Both technical and collaboration lessons arrive in the same docket, get reviewed through the same gate, and promote through the same ladder.
 
-And the **full rotation** proves that governance is not any single primitive. It is the composition. Truth without identity is noisy. Identity without signals is silent. Signals without review are unaccountable. Review without truth is theatre.
+And the **full rotation** proves that governance is not any single primitive. It is the composition. Truth without coordination patterns is incomplete. Coordination without signals is silent. Signals without review are unaccountable. Review without truth is theatre.
 
-The certificate is proof that you traced a signal through every layer. Mabel started it. You finished it.
+The certificate is proof that you understand both halves of governance: what's true about the system, and what's true about how intelligence collaborates effectively within the system.
 
 ---
 

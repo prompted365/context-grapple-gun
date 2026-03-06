@@ -78,6 +78,8 @@ A lesson about "this API returns 204, not 200" stays local. A lesson about "alwa
 
 Over weeks and months, your projects accumulate real operational knowledge from actual work. Not documentation someone wrote once and forgot about -- living rules that came from real mistakes and real discoveries.
 
+CGG may also remember how you and the agent work best together -- effective prompting patterns, debugging rhythms, or coordination techniques that consistently improve outcomes. These collaboration lessons are just as valid as technical discoveries.
+
 ## What are the signals and warrants about?
 
 Sometimes Claude notices the same problem repeatedly across sessions. Instead of just writing a lesson, it tracks the problem as a **signal** -- a friction point that keeps showing up.
