@@ -92,7 +92,7 @@ What to look for: Does the captured lesson match what you learned? Did the hando
 
 ---
 
-## The CGG → Ubiquity boundary
+## The lexical ceiling (scope boundary)
 
 **CGG is the portable lexical governance layer.** It provides:
 - File-based governance lifecycle (capture, evaluate, promote, audit)
@@ -100,14 +100,18 @@ What to look for: Does the captured lesson match what you learned? Did the hando
 - Auditable signal/tic trails with total ordering
 - Jurisdictional scoping via zones and exclusion filters
 
-**Ubiquity is the substrate at scale.** It provides capabilities CGG deliberately avoids:
+**CGG has a ceiling:** the fundamental limit of lexical meaning. Text-as-governance degrades at scale — governance files grow monotonically, deeply nested projects accumulate heavy lesson loads, lessons lose force buried in walls of text.
+
+**Out of scope for this repo:**
 - Conformation-aware retrieval (load only what matches current system shape)
 - Expression gating (silence irrelevant lessons based on context)
 - Graph topology (relational edges between concepts, not flat lists)
-- Endogenous economics (cost models for governance operations)
+- Endogenous economics (cost pressure to compress, curate, expire)
 - Compiled constraints (enforcement the agent cannot violate)
 
-**You don't need Ubiquity to use CGG.** CGG is complete for individuals and small teams. The flat-file primitives are fast, portable, and auditable by default. When you hit the ceiling — signals in the hundreds, lessons spanning dozens of files, grep not finding the right thing — that's when deeper substrate begins. CGG becomes the audit trail beneath whatever substrate you adopt.
+These require infrastructure CGG deliberately avoids. They are boundary decisions, not roadmap items.
+
+**CGG is complete for individuals and small teams.** The flat-file primitives are fast, portable, and auditable by default. When you hit the ceiling — signals in the hundreds, lessons spanning dozens of files — CGG's primitives become the audit trail beneath whatever infrastructure you adopt. The governance lifecycle stays the same.
 
 ---
 
@@ -542,7 +546,7 @@ You'll feel the ceiling when:
 - Signals exceed a few hundred entries and dedup becomes slow
 - Lessons span many files and grep stops finding the right thing
 - You need "closest historical failure mode," not "keyword overlap"
-- Rule stores grow monotonically and every session loads stale context
+- Rule stores grow monotonically and deeply nested projects accumulate heavy lesson loads
 
 Deeper substrate layers that extend CGG: semantic recall (embeddings), graph topology (relational memory), expression gating (methylation/dormancy), and conformation-aware retrieval (shape matching). Same governance lifecycle underneath -- the flat-file primitives become the audit trail beneath the substrate.
 

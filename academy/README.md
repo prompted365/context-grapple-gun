@@ -2,6 +2,38 @@
 
 **Learn CGG through stories.** Five chapters. Three worlds. One very persistent goat.
 
+---
+
+## Why stories?
+
+Governance concepts are abstract. Abstract concepts taught abstractly produce surface understanding — you can recite the definition but not apply it under pressure.
+
+The Academy teaches through *narrative simulations*: real scenarios with real data, real conflicts, and real resolutions. When you understand why the Taylor family calendar can't just delete events, you understand append-only truth stores. When you feel the frustration of the bridge inspector's growing pile, you understand why human-gated review needs feedback loops.
+
+Stories produce intuition. Intuition survives context pressure.
+
+## Why the goat?
+
+Mabel is not decoration. She's the thread that connects all five chapters.
+
+In Chapter 1, she appears as an unexplained anomaly. By Chapter 5, you'll understand how signals route, why warrants mint, and what it means to resolve escalated friction. Mabel is the worked example of the entire governance lifecycle — from first appearance to final resolution.
+
+If you can trace Mabel, you understand CGG.
+
+## What you will understand
+
+By the end of the Academy:
+
+- **The governance loop**: capture → evaluate → review → promote
+- **The abstraction ladder**: local → project → global scope
+- **The signal manifold**: how friction accrues, routes, and escalates
+- **The human gate**: why approval matters and where it goes
+- **The dual-lesson model**: subject-matter AND collaboration patterns are governance artifacts
+
+These are the same primitives the CGG runtime uses. The Academy teaches them through narrative; the runtime applies them through automation.
+
+---
+
 ## How it works
 
 Claude walks you through each chapter — telling the story, running live simulations, and checking that the concepts land. No coding required. If something isn't clicking, Claude re-explains. If a chapter doesn't grab you, Claude shows the key insight and moves on.

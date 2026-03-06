@@ -85,13 +85,13 @@ See [INSTALL.md](INSTALL.md) for full details and install modes.
 
 ---
 
-## Do I need Ubiquity?
+## What about scale?
 
-**No.** CGG is complete without it.
+**CGG is complete for individuals and small teams.** You don't need anything else.
 
-CGG is the governance lifecycle — flat files, git-tracked, auditable. Ubiquity is the substrate at scale — semantic recall, graph topology, expression gating. When flat files aren't enough (signals in the hundreds, lessons spanning dozens of files), the substrate extends CGG. But most projects never hit that ceiling.
+CGG has a lexical ceiling — the point where flat-file governance stops being sufficient. When that happens (signals in the hundreds, lessons spanning dozens of files), CGG's primitives become the audit trail beneath whatever infrastructure you adopt. Same governance lifecycle, different storage layer.
 
-**What happens at scale?** CGG's flat-file primitives become the audit trail beneath whatever substrate you adopt. Same governance lifecycle, deeper infrastructure. No migration — composition.
+Most projects never hit that ceiling.
 
 ---
 
