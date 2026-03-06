@@ -133,7 +133,42 @@ case "$FINDING_TYPE" in
     # Check if this is an installed copy (not canonical)
     case "$FILE_PATH" in
       */.claude/skills/*|*/.claude/agents/*|*/.claude/hooks/*)
-        EMIT_SIGNAL=1
+        # Only emit if canonical counterpart exists AND content now differs.
+        # This prevents noise from intentional syncs or repairs.
+        CANONICAL=""
+        CGG_RT=""
+        for candidate in \
+          "$ZONE_ROOT/vendor/context-grapple-gun/cgg-runtime" \
+          "$HOME/.claude/cgg/cgg-runtime"; do
+          [ -d "$candidate" ] && CGG_RT="$candidate" && break
+        done
+
+        if [ -n "$CGG_RT" ]; then
+          # Map installed path back to canonical
+          case "$FILE_PATH" in
+            */.claude/skills/*)
+              REL_SKILL=$(echo "$FILE_PATH" | sed 's|.*/.claude/skills/||')
+              CANONICAL="$CGG_RT/skills/$REL_SKILL"
+              ;;
+            */.claude/agents/*)
+              REL_AGENT=$(basename "$FILE_PATH")
+              CANONICAL="$CGG_RT/agents/$REL_AGENT"
+              ;;
+            */.claude/hooks/*)
+              REL_HOOK=$(basename "$FILE_PATH")
+              CANONICAL="$CGG_RT/hooks/$REL_HOOK"
+              ;;
+          esac
+
+          if [ -n "$CANONICAL" ] && [ -f "$CANONICAL" ]; then
+            # Compare content hashes — only emit if they actually differ
+            HASH_INSTALLED=$(shasum -a 256 "$FILE_PATH" 2>/dev/null | cut -d' ' -f1)
+            HASH_CANONICAL=$(shasum -a 256 "$CANONICAL" 2>/dev/null | cut -d' ' -f1)
+            if [ "$HASH_INSTALLED" != "$HASH_CANONICAL" ]; then
+              EMIT_SIGNAL=1
+            fi
+          fi
+        fi
         ;;
     esac
     ;;
@@ -147,7 +182,7 @@ if [ "$EMIT_SIGNAL" -eq 1 ]; then
 
   SIGNAL_ID="sig_${TIMESTAMP}_microscan_drift_${BASENAME}"
 
-  printf '{"type":"signal","id":"%s","kind":"TENSION","band":"COGNITIVE","status":"active","volume":30,"max_volume":100,"tick_count":0,"subsystem":"cgg","source":"posttool-microscan.sh","source_date":"%s","created_at":"%s","payload":{"summary":"Installed runtime surface modified directly: %s","file":"%s"},"escalation":{"warrant_threshold":70},"origin":"deterministic"}\n' \
+  printf '{"type":"signal","id":"%s","kind":"TENSION","band":"COGNITIVE","status":"active","volume":30,"max_volume":100,"tick_count":0,"subsystem":"cgg","source":"posttool-microscan.sh","source_date":"%s","created_at":"%s","payload":{"summary":"Installed runtime surface drifted from canonical: %s","file":"%s"},"escalation":{"warrant_threshold":70},"origin":"deterministic"}\n' \
     "$SIGNAL_ID" "$DATE_STR" "$TIMESTAMP" "$BASENAME" "$FILE_PATH" >> "$SIGNAL_FILE" 2>/dev/null
 fi
 

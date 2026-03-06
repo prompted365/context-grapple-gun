@@ -113,6 +113,23 @@ For each pattern that implies a potential abstraction:
 - **Abstraction shape**: <what a formalized rule would look like>
 - **Recommended action**: needs_abstraction | needs_law | needs_ops_routing | needs_investigation
 
+## Discrimination Rubric
+
+Apply this rubric to classify each finding's recommended action:
+
+| If the pattern is... | Then recommend... |
+|---|---|
+| Repeated truth that is stable and generalizable but not yet governed by any rule | `needs_abstraction` — formalize into a reusable rule at the appropriate rung |
+| Truth that already governs a behavior surface and requires constitutional inscription (law change) | `needs_law` — route toward /review for human-gated constitutional inscription |
+| Recurring pattern that implies a real workstream, implementation backlog, or coordination burden | `needs_ops_routing` — route to Mogul for deliverable-team delegation or ops scheduling |
+| Evidence that is thin, conflicting, or likely caused by runtime/prompt interference rather than a real pattern | `needs_investigation` — return upward with explicit uncertainty; do not recommend action on weak evidence |
+
+**Anti-patterns to avoid:**
+- Do not recommend `needs_law` for patterns that haven't stabilized — premature inscription creates governance debt
+- Do not recommend `needs_abstraction` when the pattern is actually a workstream coordination problem
+- Do not recommend `needs_ops_routing` for problems that are really missing rules
+- If uncertain between two actions, prefer `needs_investigation` — false negatives are cheaper than false governance
+
 ---
 
 ## Hazard Findings

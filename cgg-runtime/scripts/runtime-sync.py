@@ -156,8 +156,13 @@ def file_diff(path_a, path_b):
 # Signal emission
 # ---------------------------------------------------------------------------
 
-def emit_drift_signal(zone_root, drifted_surfaces):
-    """Emit a TENSION signal for runtime drift."""
+def emit_drift_signal(zone_root, drifted_surfaces, severity="detected_drift"):
+    """Emit a TENSION signal for runtime drift.
+
+    Severity levels:
+      detected_drift — drift was found (check mode or pre-sync)
+      unresolved_drift — drift remains after sync attempt (escalated)
+    """
     tz_config = load_ticzone(zone_root)
     al_path = audit_logs_path(zone_root, tz_config)
     signal_dir = os.path.join(al_path, "signals")
@@ -168,7 +173,10 @@ def emit_drift_signal(zone_root, drifted_surfaces):
     signal_file = os.path.join(signal_dir, f"{date_str}.jsonl")
 
     surface_names = [s["name"] for s in drifted_surfaces]
-    signal_id = f"sig_{now.strftime('%Y-%m-%dT%H:%MZ')}_runtime_drift_{len(drifted_surfaces)}"
+    signal_id = f"sig_{now.strftime('%Y-%m-%dT%H:%MZ')}_{severity}_{len(drifted_surfaces)}"
+
+    # Unresolved drift after sync is more severe
+    volume = 60 if severity == "unresolved_drift" else 45
 
     signal = {
         "type": "signal",
@@ -176,7 +184,7 @@ def emit_drift_signal(zone_root, drifted_surfaces):
         "kind": "TENSION",
         "band": "COGNITIVE",
         "status": "active",
-        "volume": 50,
+        "volume": volume,
         "max_volume": 100,
         "tick_count": 0,
         "subsystem": "cgg",
@@ -184,7 +192,8 @@ def emit_drift_signal(zone_root, drifted_surfaces):
         "source_date": date_str,
         "created_at": now.isoformat(),
         "payload": {
-            "summary": f"Runtime drift detected: {len(drifted_surfaces)} surfaces out of sync",
+            "summary": f"Runtime {severity.replace('_', ' ')}: {len(drifted_surfaces)} surfaces",
+            "severity": severity,
             "surfaces": surface_names,
         },
         "escalation": {
@@ -203,8 +212,8 @@ def emit_drift_signal(zone_root, drifted_surfaces):
 # Commands
 # ---------------------------------------------------------------------------
 
-def cmd_check(surfaces):
-    """Report sync status for all surfaces."""
+def cmd_check(surfaces, zone_root):
+    """Report sync status for all surfaces. Emits drift hazard on detection."""
     results = [compare_surface(s) for s in surfaces]
     drifted = [r for r in results if r["status"] == "drifted"]
     missing = [r for r in results if r["status"] == "missing_installed"]
@@ -226,6 +235,12 @@ def cmd_check(surfaces):
 
     print()
     print(f"  Synced: {len(synced)}  |  Drifted: {len(drifted)}  |  Missing: {len(missing)}")
+
+    # Drift detection itself is a governance hazard — emit on detection,
+    # not only on failed sync. The Trip Hazard Invariant requires it.
+    if drifted:
+        signal_id = emit_drift_signal(zone_root, drifted, severity="detected_drift")
+        print(f"  TENSION signal emitted (detected_drift): {signal_id}")
 
     return results
 
@@ -265,6 +280,10 @@ def cmd_sync(surfaces, zone_root):
         print("All surfaces are in sync. Nothing to do.")
         return results
 
+    # Record that drift was detected BEFORE sync — the detection event
+    # itself is a governance hazard per Trip Hazard Invariant
+    emit_drift_signal(zone_root, needs_sync, severity="detected_drift")
+
     print("=" * 60)
     print("RUNTIME SYNC")
     print("=" * 60)
@@ -292,13 +311,13 @@ def cmd_sync(surfaces, zone_root):
     print()
     print(f"  Synced {synced_count}/{len(needs_sync)} surfaces")
 
-    # Re-check for any remaining drift
+    # Re-check for any remaining drift — escalated severity
     post_results = [compare_surface(s) for s in surfaces]
     still_drifted = [r for r in post_results if r["status"] == "drifted"]
     if still_drifted:
-        signal_id = emit_drift_signal(zone_root, still_drifted)
+        signal_id = emit_drift_signal(zone_root, still_drifted, severity="unresolved_drift")
         print(f"  WARNING: {len(still_drifted)} surfaces still drifted after sync")
-        print(f"  TENSION signal emitted: {signal_id}")
+        print(f"  TENSION signal emitted (unresolved_drift): {signal_id}")
 
     return post_results
 
@@ -330,17 +349,13 @@ def main():
     surfaces = build_surface_map(plugin_root, zone_root)
 
     if args.command == "check":
-        results = cmd_check(surfaces)
+        results = cmd_check(surfaces, zone_root)
         drifted = [r for r in results if r["status"] in ("drifted", "missing_installed")]
         sys.exit(1 if drifted else 0)
     elif args.command == "diff":
         cmd_diff(surfaces)
     elif args.command == "sync":
-        results = cmd_sync(surfaces, zone_root)
-        # Emit drift signal if any surfaces were out of sync
-        pre_drifted = [r for r in [compare_surface(s) for s in surfaces]
-                       if r["status"] in ("drifted", "missing_installed")]
-        # Signal already emitted in cmd_sync if post-sync drift remains
+        cmd_sync(surfaces, zone_root)
 
 
 if __name__ == "__main__":

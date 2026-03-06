@@ -14,6 +14,38 @@ Single bootstrap command for CGG governance surface creation, repair, and sync v
 - **`/init-governance --dry-run`** — report what would be created/synced without modifying anything.
 - **`/init-governance --tic`** — after install, emit an initial tic.
 
+## Ownership Model
+
+This skill owns **installed runtime copies** only. It may freely create or overwrite:
+- `.claude/skills/{cadence,review,siren,init-governance}/SKILL.md`
+- `.claude/agents/{mogul,ripple-assessor,pattern-curator,ladder-auditor}.md`
+- `.claude/hooks/{session-restore-patch,cgg-gate,posttool-microscan}.sh`
+- `.ticzone` (only if it does not already exist)
+- `.ticignore` (only if it does not already exist)
+- `audit-logs/` subdirectories (create only, never delete)
+
+This skill must NEVER overwrite:
+- User-authored `CLAUDE.md` or `MEMORY.md` at any rung
+- Existing `.ticzone` (report it, do not replace — user may have customized it)
+- Existing `audit-logs/*.jsonl` files (append-only history)
+- Any file outside the zone root
+
+**Overwrite refusal rule**: If an installed surface has been locally modified (content hash differs from both canonical AND the last known synced hash), report the conflict and ask the user whether to overwrite or keep the local version. Do not silently overwrite user customizations.
+
+## Dry-Run Reporting Format
+
+In `--dry-run` mode, report each action that WOULD be taken:
+```
+[would create]  .ticzone (from template)
+[would create]  audit-logs/tics/
+[would install] .claude/skills/cadence/SKILL.md
+[would resync]  .claude/agents/mogul.md (canonical != installed)
+[exists]        .claude/skills/review/SKILL.md (in sync)
+[CONFLICT]      .claude/agents/ripple-assessor.md (locally modified)
+```
+
+Exit without modifying anything. Exit code 0.
+
 ## Execution Steps
 
 ### Step 1: Resolve Roots

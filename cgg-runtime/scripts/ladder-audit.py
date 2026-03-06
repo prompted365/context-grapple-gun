@@ -30,17 +30,43 @@ from zone_root import resolve_zone_root, load_ticzone, audit_logs_path
 # ---------------------------------------------------------------------------
 
 def discover_claude_mds(zone_root):
-    """Walk from zone root downward, find all CLAUDE.md files."""
+    """Walk from zone root downward, find all CLAUDE.md files.
+
+    Aggressively skips vendor submodule internals and nested repos to avoid
+    polluting the governance chain with files outside the zone's authority.
+    """
     found = []
     root = Path(zone_root)
+
+    # Directories to skip entirely — nested repos, vendor internals, build artifacts
+    skip_dirs = {
+        "node_modules", "__pycache__", ".git", "dist", "build", "target",
+    }
+
     for md in sorted(root.rglob("CLAUDE.md")):
-        # Skip .git, node_modules, __pycache__, vendor submodule internals
         rel = str(md.relative_to(root))
         parts = rel.split(os.sep)
+
+        # Skip hidden directories (except .claude)
         if any(p.startswith(".") and p != ".claude" for p in parts):
             continue
-        if "node_modules" in parts or "__pycache__" in parts:
+
+        # Skip known noise directories
+        if any(p in skip_dirs for p in parts):
             continue
+
+        # Skip deep vendor nesting (vendor/X/Y/CLAUDE.md is fine,
+        # vendor/X/Y/Z/W/CLAUDE.md is probably a nested repo's own governance)
+        vendor_idx = next((i for i, p in enumerate(parts) if p == "vendor"), -1)
+        if vendor_idx >= 0:
+            depth_in_vendor = len(parts) - vendor_idx - 1  # depth below vendor/
+            if depth_in_vendor > 3:
+                continue
+
+        # Skip if the directory contains its own .git (nested repo)
+        if (md.parent / ".git").exists() and md.parent != root:
+            continue
+
         found.append(md)
     return found
 
@@ -328,6 +354,14 @@ def run_audit(zone_root, verbose=False):
     result = {
         "audited_at": datetime.now(timezone.utc).isoformat(),
         "zone_root": zone_root,
+        "confidence": "preliminary",
+        "confidence_note": (
+            "This is a heuristic scan based on path nesting and lexical "
+            "matching. Parent/child relationships are inferred from directory "
+            "structure, not explicit governance linkage. Findings are suitable "
+            "for surfacing potential issues, not for authoritative constitutional "
+            "judgment. False positives are expected in vendor/nested-repo areas."
+        ),
         "claude_md_count": len(md_paths),
         "rules_audited": len(rule_classifications),
         "chain_map": chain_map,
@@ -374,12 +408,16 @@ def format_human_readable(result):
     """Format audit result as human-readable text."""
     lines = []
     lines.append("=" * 60)
-    lines.append("LADDER COHERENCE AUDIT")
+    lines.append("LADDER COHERENCE AUDIT (preliminary / heuristic)")
     lines.append("=" * 60)
     lines.append(f"  Audited at:      {result.get('audited_at', '?')}")
     lines.append(f"  Zone root:       {result.get('zone_root', '?')}")
+    lines.append(f"  Confidence:      {result.get('confidence', 'preliminary')}")
     lines.append(f"  CLAUDE.md files: {result.get('claude_md_count', 0)}")
     lines.append(f"  Rules audited:   {result.get('rules_audited', 0)}")
+    lines.append("")
+    lines.append("  NOTE: Parent/child inferred from path nesting, not explicit")
+    lines.append("  governance linkage. Not authoritative constitutional judgment.")
     lines.append("")
 
     # Chain map
