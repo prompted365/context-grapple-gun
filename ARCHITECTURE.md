@@ -1,6 +1,16 @@
 # Architecture & Design Rationale
 
-> This is the deep theory. For daily usage, see [START-HERE.md](START-HERE.md). For the practical developer guide, see [DEV-README.md](DEV-README.md). For the full reference, see [README.md](README.md).
+> This is the deep theory. For daily usage, see [START-HERE.md](START-HERE.md). For the practical developer guide, see [DEV-README.md](DEV-README.md). For the full reference, see [README.md](README.md). To learn through story, see the [Academy](academy/README.md).
+
+---
+
+## How to read this document
+
+**Sections 1–6** describe CGG's operational architecture — the mechanisms that run today in the governance lifecycle.
+
+**Sections 7–11** describe CGG's complexity awareness — architectural concerns CGG is designed to address, including where its flat-file scope ends and where substrate capabilities begin. These aren't promises of future features; they're deliberate boundary decisions. Ubiquity (the substrate) provides these capabilities as working production code. CGG's job is to stay within its lexical ceiling and hand off cleanly.
+
+---
 
 Context Grapple Gun (CGG) is a **human-gated self-evolving agent operating system** that turns development friction into durable improvements *without poisoning long-term memory with raw logs*.
 
@@ -183,6 +193,14 @@ Three numbers that separate compounding governance from configuration drift:
   grapple_docket: "2026-02-25"
 -->
 
+---
+
+## Complexity Awareness (Sections 7–11)
+
+*The following sections describe architectural concerns CGG addresses through deliberate boundary decisions. These are not roadmap items — they're scope boundaries. Where CGG's flat-file governance stops being sufficient, Ubiquity (production substrate) provides the deeper capabilities.*
+
+---
+
 ## 7. Assessor Promotion Bias (Structural Analysis)
 
 The ripple assessor has a structural incentive toward PROMOTE verdicts, not by explicit instruction but by architectural pressure:
@@ -215,9 +233,9 @@ The human `/review` gate is the only countervailing pressure — adequate for th
   grapple_docket: "2026-03-03"
 -->
 
-## 8. Bidirectional Abstraction Engine (Design Vision)
+## 8. Bidirectional Abstraction Engine (Scope Boundary)
 
-CGG's next evolution: proposals earn their shape at the target tier before arriving there. Two mechanisms replace the current one-shot evaluation:
+CGG is aware of the need for proposals to earn their shape at the target tier before arriving there. Two mechanisms address this within CGG's flat-file constraints:
 
 ### Two Pending States
 

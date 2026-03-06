@@ -2,15 +2,29 @@
   <img src="assets/cgg-banner.jpeg" alt="Context Grapple Gun by Prompted LLC & Ubiquity OS" width="100%" />
 </p>
 
-# Context Grapple Gun -- Practical developer guide
+# Context Grapple Gun — Developer Guide
 
-> **Just want the commands?** [START-HERE.md](START-HERE.md). **Full reference?** [README.md](README.md). **Architecture and design rationale?** [ARCHITECTURE.md](ARCHITECTURE.md).
+> **Just want the commands?** [START-HERE.md](START-HERE.md). **Full reference?** [README.md](README.md). **Architecture and design rationale?** [ARCHITECTURE.md](ARCHITECTURE.md). **Learn through story?** [academy/README.md](academy/README.md).
 
 **A CI/CD pipeline for your AI's memory and system prompts.**
 
-You've been here: Claude Code solves a gnarly race condition at 2am. You close the session. Tomorrow, same agent, same repo -- it has no idea what it learned last night. You re-explain the fix, or worse, watch it make the same mistake again.
+CGG captures lessons as the agent works, queues them for review, and promotes approved lessons to broader scope. The agent compounds instead of resetting to zero.
 
-CGG fixes this. The agent captures lessons as it works, drafts them as "Cognitive Pull Requests," and queues them for your review. You approve the ones worth keeping. Next session, those lessons load automatically. The agent compounds instead of resetting to zero.
+---
+
+## If you only learn five concepts
+
+| Concept | What it means | DevOps equivalent |
+|---------|---------------|-------------------|
+| **CogPR** | A proposed lesson flagged for review and potential promotion | Pull request (for behavior rules, not code) |
+| **Abstraction ladder** | Scope hierarchy: Local → Project → Global | Environment promotion (dev → staging → prod) |
+| **Epoch boundary** | End of session via `/cadence`. Emits tic, bundles lessons, writes handoff. | Deploy boundary |
+| **Human gate** | Every scope promotion requires `/review` approval | Code review |
+| **Signal** | Recurring friction that accrues volume across sessions | PagerDuty alert |
+
+Once you have these, everything else is detail.
+
+---
 
 ## The DevOps mapping
 
@@ -22,13 +36,34 @@ You already know these concepts under different names:
 | Ripple Assessor | CI test runner that checks proposed rules against existing prompts |
 | `/review` | Code review. You approve, reject, or edit the proposed changes |
 | `/siren` | Datadog / PagerDuty. Tracks recurring friction, alerts on threshold breach |
-| `/cadence` | Epoch boundary — emits tic, captures lessons, writes handoff |
+| `/cadence` | Deploy/release boundary — emits tic, captures lessons, writes handoff |
+| Abstraction ladder | Environment promotion (dev → staging → prod) |
+| Warrant | Pager alert — auto-escalation when signal crosses threshold |
+
+---
+
+## Core terms with neutral aliases
+
+| CGG term | Neutral systems term | What it means |
+|----------|---------------------|---------------|
+| **tic** | Sequenced timestamp | ISO-8601 timestamp + monotonic counter. Emitted at every `/cadence`. |
+| **tic-zone** | Jurisdiction boundary | Named acoustic region defined by `.ticzone`; scopes signal routing |
+| **siren** | Friction signal | Continuous signal with volume that accrues across sessions |
+| **warrant** | Escalation obligation | Auto-minted when signal crosses threshold; demands resolution |
+| **conformation** | System state snapshot | Total state at any tic boundary |
+| **chorus** | Failure synthesis | Post-failure compression into institutional memory |
+
+For the full glossary, see [docs/TERMINOLOGY.md](docs/TERMINOLOGY.md).
+
+---
 
 ## Governance truth surfaces
 
 **Tags are authoring. Queue is execution. Audit logs are history.**
 
 Tags in CLAUDE.md/MEMORY.md are the capture format. The CogPR queue (JSONL) drives automation. Audit logs are append-only history. Details in [ARCHITECTURE.md §11](ARCHITECTURE.md).
+
+---
 
 ## How a session actually flows
 

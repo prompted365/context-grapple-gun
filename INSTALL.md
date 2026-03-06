@@ -1,12 +1,16 @@
 # Installing CGG
 
-> This is the installer. If you just want to use CGG, see [START-HERE](START-HERE.md). For pipeline mechanics, see [DEV-README](DEV-README.md).
+> **Just want to use CGG?** See [START-HERE](START-HERE.md). **Pipeline mechanics?** See [DEV-README](DEV-README.md).
 
-Two install paths. Same result.
+Two paths. Pick one.
 
-## Plugin install (recommended)
+---
 
-If your Claude Code version supports plugins:
+## Path A: Install now (30 seconds)
+
+You already know you want CGG. Get it running.
+
+### Plugin install (recommended)
 
 ```bash
 # Add the submodule
@@ -16,31 +20,59 @@ git submodule add https://github.com/prompted365/context-grapple-gun.git vendor/
 claude plugin install vendor/context-grapple-gun
 ```
 
-The plugin manifest (`.claude-plugin/plugin.json`) declares all skills, hooks, and agents. Claude Code registers them automatically — no manual file copying, no `settings.local.json` patching.
+The plugin manifest registers skills, hooks, and agents automatically. Claude will ask which mode you want, then set up the remaining project files.
 
-After install, Claude will ask which mode you want (Full pipeline / Skills only / Convention only) and set up the remaining project files (`.ticzone`, `.ticignore`, CLAUDE.md convention block).
+**When install finishes, you have:**
+- Three commands: `/cadence`, `/review`, `/siren`
+- Session hooks for automatic handoff and evaluation
+- Zone configuration (`.ticzone`, `.ticignore`) for governance boundaries
+- Audit directories for signals, tics, and conformations
 
-## Learn first? Try the Academy
+Start a session, do some work, run `/cadence` when you're done.
 
-Before diving into installation, you can learn CGG interactively:
+---
+
+## Path B: Learn first (Academy)
+
+You want to understand the governance model before installing. Good choice.
 
 ```
 /homeskillet-academy
 ```
 
-**Homeskillet Academy** is a ~90 minute hands-on course that teaches CGG's governance primitives through narrative scenarios. Five chapters, real Python code, tests that tell you when you're done, and one very persistent goat.
+**Homeskillet Academy** is a ~90-minute interactive course. Claude teaches CGG primitives through stories:
 
-The course teaches both technical governance (append-only truth, signal routing, human-gated review) and collaboration governance (how patterns of effective coordination become promotable lessons).
+| Chapter | Story | What it teaches |
+|---------|-------|-----------------|
+| 1 | The Taylor Family Calendar | Append-only truth stores |
+| 2 | The Adjunct's Semester Project | Collaboration patterns as governance |
+| 3 | Zookeeper Radio | Signals, bands, acoustic routing |
+| 4 | Bridge Inspector | Human-gated review |
+| 5 | Graduation | Full pipeline integration |
 
-- **Recommended for first-timers** — understand the "why" before the "how"
-- **No CGG installation required** — you build the pieces from scratch
-- **Works standalone** — scaffold into any empty directory
+No CGG installation required for the Academy — you build the pieces from scratch. After completing it, come back here for the real install.
 
-After completing the Academy, come back here for the real install. The [installing-cgg guide](academy/chapters/guides/installing-cgg.md) in Chapter 5 walks you through it as a graduation exercise.
+See [academy/README.md](academy/README.md) for details.
+
+---
+
+## Install modes explained
+
+When installing, Claude asks which mode you want:
+
+| Mode | What you get | Best for |
+|------|--------------|----------|
+| **Full pipeline** | Hooks + skills + background evaluation | Most users. Automatic capture, evaluation, and handoff. |
+| **Skills only** | Just `/cadence`, `/review`, `/siren` | Manual control. You decide when to run things. |
+| **Convention only** | Just the CogPR writing format | Minimal. No slash commands. You flag and review lessons by hand. |
+
+If unsure, choose **Full pipeline**.
+
+---
 
 ## Bootstrap prompt (alternative)
 
-If your Claude Code version doesn't support plugins yet, paste this prompt into a session. One question, then it sets everything up:
+If your Claude Code version doesn't support plugins yet, paste this into a session:
 
 Copy this entire block and paste it into a Claude Code session in your project:
 
@@ -71,14 +103,12 @@ Here's what to do:
 - `vendor/context-grapple-gun/cgg-runtime/skills/review/` -> `.claude/skills/review/`
 - `vendor/context-grapple-gun/cgg-runtime/skills/siren/` -> `.claude/skills/siren/`
 
-Copy deprecated wrappers (so old command names still work):
-- `vendor/context-grapple-gun/cgg-runtime/skills/cadence-downbeat/` -> `.claude/skills/cadence-downbeat/`
-- `vendor/context-grapple-gun/cgg-runtime/skills/cadence-syncopate/` -> `.claude/skills/cadence-syncopate/`
-- `vendor/context-grapple-gun/cgg-runtime/skills/grapple/` -> `.claude/skills/grapple/`
-
-Copy deprecated init stubs (inform users they're absorbed into this bootstrap):
-- `vendor/context-grapple-gun/cgg-runtime/skills/init-gun/` -> `.claude/skills/init-gun/`
-- `vendor/context-grapple-gun/cgg-runtime/skills/init-cogpr/` -> `.claude/skills/init-cogpr/`
+**Copy backward-compatibility wrappers** (optional — only if you have existing scripts using old command names):
+- `vendor/context-grapple-gun/cgg-runtime/skills/cadence-downbeat/` -> `.claude/skills/cadence-downbeat/` *(redirects to `/cadence`)*
+- `vendor/context-grapple-gun/cgg-runtime/skills/cadence-syncopate/` -> `.claude/skills/cadence-syncopate/` *(redirects to `/cadence double-time`)*
+- `vendor/context-grapple-gun/cgg-runtime/skills/grapple/` -> `.claude/skills/grapple/` *(redirects to `/review`)*
+- `vendor/context-grapple-gun/cgg-runtime/skills/init-gun/` -> `.claude/skills/init-gun/` *(absorbed into bootstrap)*
+- `vendor/context-grapple-gun/cgg-runtime/skills/init-cogpr/` -> `.claude/skills/init-cogpr/` *(absorbed into bootstrap)*
 
 **Copy hooks:**
 - `vendor/context-grapple-gun/cgg-runtime/hooks/cgg-gate.sh` -> `.claude/hooks/cgg-gate.sh`
@@ -291,4 +321,23 @@ mkdir -p audit-logs/signals audit-logs/tics audit-logs/conformations
 |-----|----------------|
 | [START-HERE.md](START-HERE.md) | Day-to-day usage. The three commands. What a normal day looks like. |
 | [DEV-README.md](DEV-README.md) | Engineering details. How the pipeline works. Hook lifecycle. |
+| [README.md](README.md) | Full reference. Scope hierarchies, signal types, applicability. |
 | [ARCHITECTURE.md](ARCHITECTURE.md) | Deep theory. Signal manifold, acoustic model, governance layers. |
+| [academy/README.md](academy/README.md) | Learn through story. Five chapters, real simulations, one goat. |
+| [docs/TERMINOLOGY.md](docs/TERMINOLOGY.md) | Glossary with neutral aliases. What to learn when. |
+
+---
+
+## Backward compatibility
+
+Old command names are supported via redirect wrappers:
+
+| Old command | Redirects to |
+|-------------|--------------|
+| `/cadence-downbeat` | `/cadence` |
+| `/cadence-syncopate` | `/cadence double-time` |
+| `/grapple` | `/review` |
+| `/init-gun` | Bootstrap install (this file) |
+| `/init-cogpr` | Bootstrap install (this file) |
+
+These wrappers exist for projects that used earlier CGG versions. New installations should use the current command names: `/cadence`, `/review`, `/siren`.

@@ -2,46 +2,130 @@
   <img src="assets/cgg-banner.jpeg" alt="Context Grapple Gun by Prompted LLC & Ubiquity OS" width="100%" />
 </p>
 
-> **Using CGG day-to-day?** Start with [START-HERE.md](START-HERE.md). **Installing or extending?** See [DEV-README.md](DEV-README.md). **Designing systems like this?** Read the [Architecture & Design Rationale](ARCHITECTURE.md).
-
 # Context Grapple Gun
 
-CGG is a file-based governance layer for persistent AI systems. It locks in agent behavior through scoped rule promotion, epoch boundaries, canonical timestamping, and human constitutional review. No databases, no running services, no external dependencies -- flat files, git-tracked, auditable by default.
+**A file-based governance lifecycle for persistent AI systems.**
 
-It solves a hard problem: when an AI agent discovers something true during a work session -- a bug pattern, an API quirk, an architectural constraint -- that knowledge vanishes with the context window. The next session starts from the ability to review, but no inherent upgraded structured understanding of what is true and at what scope nor the rationale that properly holds that coherent understanding. In multi-agent or multi-team deployments, there's no path for one agent's hard-won lesson to reach another without manually rewriting system prompts.
+Three commands. Five structural mechanisms. One scale boundary.
 
-CGG gives knowledge a lifecycle. Lessons are captured locally, evaluated by a fresh agent between sessions, and promoted to broader scopes with human approval at every gate. Runtime conditions get monitored through a parallel signal system using acoustic routing, volume accrual, and automatic escalation. Every epoch boundary emits a canonical tic -- a sequentially numbered timestamp that provides total ordering across agents, cadences, and jurisdictions.
+---
 
-Over time, the project's operating rules grow from real work, not from someone sitting down to write documentation. The system extracts what actually mattered.
+## Read this first (by intent)
+
+| You want to... | Start here |
+|----------------|------------|
+| **Use it now** | [START-HERE.md](START-HERE.md) — the three commands, a normal day, install in 30 seconds |
+| **Evaluate the architecture** | This file (keep reading) → [DEV-README.md](DEV-README.md) → [ARCHITECTURE.md](ARCHITECTURE.md) |
+| **Learn through story** | [academy/README.md](academy/README.md) — five chapters, real simulations, one very persistent goat |
+| **Install and extend** | [INSTALL.md](INSTALL.md) — plugin path, bootstrap fallback, install modes |
+
+---
+
+## 90-second mental model
+
+**The problem:** AI agents discover truths during work — bug patterns, API quirks, coordination techniques that work. When the session ends, that knowledge vanishes. Next session: same agent, same repo, zero memory of what it learned.
+
+**The CGG answer:** Lessons get captured as they happen, reviewed between sessions, and promoted to broader scopes with human approval at every gate. The project's operating rules grow from real work, not from someone writing documentation.
+
+**Three commands run the lifecycle:**
+
+| Command | What it does |
+|---------|--------------|
+| `/cadence` | End of session. Saves lessons, emits a tic (sequenced timestamp), writes a handoff for the next session. |
+| `/review` | Review proposed lessons. Approve, reject, or modify before promotion. |
+| `/siren` | Check on recurring friction. See what signals are building, what warrants have minted. |
+
+**Five structural mechanisms make it work:**
+
+| Mechanism | What it does |
+|-----------|--------------|
+| Abstraction ladder | Scope hierarchy: local → project → global. Lessons climb it through review. |
+| Epoch boundary | Context rotation discipline. End the session before cognitive degradation, carry knowledge forward. |
+| Human gate | Every scope promotion requires explicit approval. The agent proposes; you decide. |
+| Signal manifold | Runtime condition monitoring. Friction signals accrue volume, cross thresholds, mint warrants. |
+| Tic / tic-zone | Canonical timestamping and jurisdictional scoping. Total ordering across agents and cadences. |
+
+**One scale boundary:**
+
+CGG is the governance lifecycle. It uses flat files, git-tracked, auditable by default. When flat files aren't enough — when you need semantic recall, graph topology, or conformation-aware retrieval — the substrate layer (Ubiquity) picks up where CGG leaves off. Same governance primitives, deeper infrastructure. CGG is complete without Ubiquity. Ubiquity composes on top when scale demands it.
+
+---
+
+## What CGG is not
+
+- **Not a vector database.** No embeddings, no semantic search. Flat files and grep.
+- **Not a magical memory layer.** Lessons require human review to promote. Nothing persists without approval.
+- **Not a full substrate.** CGG handles governance lifecycle. Substrate capabilities (expression gating, graph topology, compiled constraints) require infrastructure CGG deliberately avoids.
+- **Not a hosted platform.** Everything runs locally. No APIs, no services, no cloud dependencies.
+
+---
+
+## Core terms (with neutral aliases)
+
+On first encounter, CGG terminology maps to familiar systems concepts:
+
+| CGG term | Neutral systems term | What it means |
+|----------|---------------------|---------------|
+| **CogPR** | Behavior pull request | A proposed lesson flagged for review and potential promotion |
+| **tic** | Sequenced timestamp | Canonical clock primitive — ISO-8601 timestamp + monotonic counter |
+| **tic-zone** | Jurisdiction boundary | Named acoustic region defined by `.ticzone` file; scopes signal routing |
+| **siren** | Friction signal | Continuous signal with volume that accrues over time across sessions |
+| **warrant** | Escalation obligation | Auto-minted when a signal crosses threshold; demands resolution |
+| **conformation** | System state snapshot | Total state at any tic boundary — signals, rules, pending proposals |
+| **abstraction ladder** | Scope hierarchy | Local → Project → Global; lessons climb through review |
+
+For the full terminology reference, see [docs/TERMINOLOGY.md](docs/TERMINOLOGY.md).
+
+---
+
+## Skeptic's evaluation path
+
+**~20 minutes to informed judgment.**
+
+1. **Read:** This section + [START-HERE.md](START-HERE.md) (~5 min)
+2. **Install:** Plugin path or bootstrap — 30 seconds
+3. **Run:** Start a session, do some work, run `/cadence` at the end
+4. **Inspect:** Look at `audit-logs/` — see the tic records, signal files, CogPR blocks
+5. **Review:** Next session, run `/review` — see the docket, the verdicts, the scope assignments
+
+What to look for: Does the captured lesson match what you learned? Did the handoff preserve context? Is the review gate actually human-controlled?
+
+---
+
+## The CGG → Ubiquity boundary
+
+**CGG is the portable lexical governance layer.** It provides:
+- File-based governance lifecycle (capture, evaluate, promote, audit)
+- Human-gated rule promotion at every scope boundary
+- Auditable signal/tic trails with total ordering
+- Jurisdictional scoping via zones and exclusion filters
+
+**Ubiquity is the substrate at scale.** It provides capabilities CGG deliberately avoids:
+- Conformation-aware retrieval (load only what matches current system shape)
+- Expression gating (silence irrelevant lessons based on context)
+- Graph topology (relational edges between concepts, not flat lists)
+- Endogenous economics (cost models for governance operations)
+- Compiled constraints (enforcement the agent cannot violate)
+
+**You don't need Ubiquity to use CGG.** CGG is complete for individuals and small teams. The flat-file primitives are fast, portable, and auditable by default. When you hit the ceiling — signals in the hundreds, lessons spanning dozens of files, grep not finding the right thing — that's when deeper substrate begins. CGG becomes the audit trail beneath whatever substrate you adopt.
+
+---
 
 ## Two types of lessons
 
-CGG does not only capture rules about the work. It captures the patterns that make the work possible.
+CGG captures rationale at two layers — both are valid governance artifacts:
 
-Human rationale is expensive, partial, and interruption-heavy. AI systems do not inherit that rationale automatically. So CGG is designed to harvest rationale from real work, batch it into governance candidates, and promote validated lessons over time. But the rationale being harvested exists at two layers:
+**Subject-matter lessons** — truths about the system being built:
+- Bug patterns, API quirks, architecture constraints
+- System invariants, policy rules
+- "This API returns 204 on success, not 200"
 
-**Subject-matter lessons** -- rationale about the system being built:
-- Bug patterns
-- API quirks
-- Architecture constraints
-- System invariants
-- Policy rules
+**Collaboration lessons** — truths about effective human-agent coordination:
+- Prompting patterns that reduce drift
+- Debugging rhythms, TDD work loops
+- "When delegating multi-step tasks, include explicit abstraction-level scoping"
 
-**Collaboration lessons** -- rationale about how humans and agents work effectively together:
-- Theory-of-mind prompt scaffolds
-- Subagent briefing patterns
-- Debugging rhythms
-- TDD work loops
-- Escalation protocols
-- Human-agent coordination methods
-
-Both subject-matter lessons and collaboration lessons are governance artifacts. Both are valid CogPR candidates. Both can climb the abstraction ladder. Both pass through the same constitutional gate.
-
-Why? Because constitutional governance fails if it governs only facts but not the process that generated them. And it also fails if it governs only collaboration while leaving the technical environment unstable. The system must preserve both:
-- Compounding operational advantage
-- Meaningful human participation
-
-That tension is not a bug. That tension is the engine of constitutional governance. CGG holds it deliberately.
+Both climb the abstraction ladder. Both pass through the same human gate. Constitutional governance must govern both the technical environment and the process that operates within it.
 
 ### A real collaboration example
 
