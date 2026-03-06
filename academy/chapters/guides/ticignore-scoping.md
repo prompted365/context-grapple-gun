@@ -102,7 +102,7 @@ __pycache__/
 # Git internals
 .git/
 
-# Skill templates -- contain example CPR blocks, not real items
+# Skill templates — contain example CogPR blocks, not real items
 .claude/skills/
 
 # Large binaries

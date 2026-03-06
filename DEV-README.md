@@ -28,7 +28,7 @@ You already know these concepts under different names:
 
 **Tags are authoring. Queue is execution. Audit logs are history.**
 
-Tags in CLAUDE.md/MEMORY.md are the capture format. The CPR queue (JSONL) drives automation. Audit logs are append-only history. Details in [ARCHITECTURE.md §11](ARCHITECTURE.md).
+Tags in CLAUDE.md/MEMORY.md are the capture format. The CogPR queue (JSONL) drives automation. Audit logs are append-only history. Details in [ARCHITECTURE.md §11](ARCHITECTURE.md).
 
 ## How a session actually flows
 
@@ -209,7 +209,7 @@ For faster, cheaper, more predictable evaluation, drop a `scripts/ripple-assesso
 
 Simple installs get the agent. Mature installs get deterministic evaluation. The gate handles both.
 
-As the project matures and CPR volume grows, a deterministic script also lets you add the two maturity gates (temporal and epistemic) as cheap arithmetic checks rather than LLM reasoning — see [ARCHITECTURE.md](ARCHITECTURE.md#9-cpr-maturity-fields-concrete-spec) for the field spec.
+As the project matures and CogPR volume grows, a deterministic script also lets you add the two maturity gates (temporal and epistemic) as cheap arithmetic checks rather than LLM reasoning — see [ARCHITECTURE.md](ARCHITECTURE.md#9-cpr-maturity-fields-concrete-spec) for the field spec.
 
 ## Safety
 

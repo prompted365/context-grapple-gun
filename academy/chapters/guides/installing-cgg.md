@@ -137,7 +137,7 @@ __pycache__/
 # Git internals
 .git/
 
-# Skill templates (contain example CPR blocks, not real items)
+# Skill templates (contain example CogPR blocks, not real items)
 .claude/skills/
 ```
 
@@ -171,7 +171,7 @@ Create or update `.claude/settings.local.json`. If the file already exists, merg
 ```
 
 - **SessionStart** fires `session-restore-patch.sh` -- discovers the latest handoff plan, extracts Next Actions, injects session context.
-- **UserPromptSubmit** fires `cgg-gate.sh` on the first prompt -- triggers the ripple-assessor agent in the background to evaluate pending CPRs and signals.
+- **UserPromptSubmit** fires `cgg-gate.sh` on the first prompt — triggers the ripple-assessor agent in the background to evaluate pending CogPRs and signals.
 
 ---
 
@@ -263,7 +263,7 @@ Start working normally. When you are done with a session, type `/cadence`. That 
 
 ## What happens next
 
-The first time you use `/cadence`, CGG writes a handoff plan with any lessons discovered during the session. On the next session start (if you installed hooks), the session-restore hook discovers the plan, extracts your Next Actions, and injects them as context. The ripple-assessor evaluates any pending CPRs in the background.
+The first time you use `/cadence`, CGG writes a handoff plan with any lessons discovered during the session. On the next session start (if you installed hooks), the session-restore hook discovers the plan, extracts your Next Actions, and injects them as context. The ripple-assessor evaluates any pending CogPRs in the background.
 
 Every few sessions, run `/review` to review the proposals the assessor has queued up. You approve or reject each one. Approved lessons get promoted to the target CLAUDE.md scope. Rejected ones are discarded.
 

@@ -80,6 +80,8 @@ Organizations running persistent AI systems hit a specific set of problems that 
 
 CGG addresses these through five structural mechanisms: the abstraction ladder (scoped rule tiers), the epoch boundary (context rotation discipline), the human constitutional gate (approval-gated promotion), the signal manifold (runtime condition monitoring), and the tic/tic-zone system (canonical ordering and jurisdictional scoping).
 
+A constitutional governance loop wraps the entire system: experience generates proposals, proposals require human review, review produces promotion or rejection, and the operating constitution updates accordingly. Humans author law. Agents execute within it.
+
 ## The abstraction ladder
 
 Knowledge in CGG lives on a scope hierarchy. We call it the abstraction ladder because lessons climb it -- and sometimes descend it.
@@ -266,7 +268,7 @@ If you're past the heuristic and the session feels sluggish, `/cadence double-ti
 
 **Tags are authoring. Queue is execution. Audit logs are history.**
 
-Tags (`<!-- --agnostic-candidate -->` blocks in CLAUDE.md/MEMORY.md) are the human-readable capture format. The CPR queue (`audit-logs/cprs/queue.jsonl`) is the machine-readable execution surface -- hooks extract tags into it, assessors advance entries through the lifecycle, `/review` applies verdicts from it. Audit logs (signals, tics, conformations, reviews) are append-only history. If a tag and a queue entry disagree, the queue wins. See [ARCHITECTURE.md §11](ARCHITECTURE.md) for the full data model.
+Tags (`<!-- --agnostic-candidate -->` blocks in CLAUDE.md/MEMORY.md) are the human-readable capture format. The CogPR queue (`audit-logs/cprs/queue.jsonl`) is the machine-readable execution surface -- hooks extract tags into it, assessors advance entries through the lifecycle, `/review` applies verdicts from it. Audit logs (signals, tics, conformations, reviews) are append-only history. If a tag and a queue entry disagree, the queue wins. See [ARCHITECTURE.md §11](ARCHITECTURE.md) for the full data model.
 
 ## Signal architecture
 
