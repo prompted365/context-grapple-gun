@@ -1,6 +1,6 @@
 # Chapter 2: The Adjunct's Semester Project
 
-**Collaboration Governance**
+**Collaboration governance — promotable coordination patterns**
 
 > Posture: `ENG/META`
 > Time: ~20 minutes
@@ -49,7 +49,7 @@ They have:
 
 These are not personality traits. These are patterns. And patterns can be learned, named, and taught.
 
-## Collaboration patterns as governance material
+## Collaboration governance: patterns as promotable artifacts
 
 Here is the key insight: **successful collaboration patterns are promotable governance artifacts**.
 

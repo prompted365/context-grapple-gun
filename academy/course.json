@@ -19,9 +19,9 @@
       "number": 2,
       "slug": "02-dedup-and-identity",
       "title": "The Adjunct's Semester Project",
-      "subtitle": "Collaboration Governance",
+      "subtitle": "Collaboration Governance — Promotable Coordination Patterns",
       "posture": "ENG/META",
-      "cgg_concept": "Collaboration patterns as governance artifacts, meta-learning, promotable coordination rules",
+      "cgg_concept": "Collaboration governance — promotable coordination patterns and meta-learning",
       "simulation": "pattern_scanner",
       "test_file": "test_pattern_scanner.py",
       "goat_state": "BLEAT recurs. Same hash, new timestamp."

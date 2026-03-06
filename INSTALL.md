@@ -30,6 +30,8 @@ The plugin manifest registers skills, hooks, and agents automatically. Claude wi
 
 Start a session, do some work, run `/cadence` when you're done.
 
+**Most users stop here.** The bootstrap prompt below is for environments without plugin support or for manual installs.
+
 ---
 
 ## Path B: Learn first (Academy)
@@ -45,7 +47,7 @@ You want to understand the governance model before installing. Good choice.
 | Chapter | Story | What it teaches |
 |---------|-------|-----------------|
 | 1 | The Taylor Family Calendar | Append-only truth stores |
-| 2 | The Adjunct's Semester Project | Collaboration patterns as governance |
+| 2 | The Adjunct's Semester Project | Collaboration governance — promotable coordination patterns |
 | 3 | Zookeeper Radio | Signals, bands, acoustic routing |
 | 4 | Bridge Inspector | Human-gated review |
 | 5 | Graduation | Full pipeline integration |

@@ -10,6 +10,14 @@ Three commands. Five structural mechanisms. One scale boundary.
 
 ---
 
+**You only need four things to start:**
+- Three commands: `/cadence`, `/review`, `/siren`
+- Run `/cadence` to end every session cleanly; run `/review` every few sessions to approve lessons
+- Scope ladder: Local → Project → Global — you decide what promotes
+- Install via [START-HERE.md](START-HERE.md); everything else is reference or depth
+
+---
+
 ## Read this first (by intent)
 
 | You want to... | Start here |
@@ -63,18 +71,13 @@ CGG is the governance lifecycle. It uses flat files, git-tracked, auditable by d
 ## Core terms (with neutral aliases)
 
 On first encounter, CGG terminology maps to familiar systems concepts:
+- **CogPR** — behavior pull request: a proposed lesson flagged for review and promotion
+- **tic** — sequenced timestamp: ISO-8601 + monotonic counter for total ordering
+- **tic-zone** — jurisdiction boundary: `.ticzone`-defined acoustic region that scopes routing
+- **siren → warrant** — recurring friction signal that mints an escalation when it crosses threshold
+- **Abstraction ladder** — scope hierarchy: Local → Project → Global; lessons climb through `/review`
 
-| CGG term | Neutral systems term | What it means |
-|----------|---------------------|---------------|
-| **CogPR** | Behavior pull request | A proposed lesson flagged for review and potential promotion |
-| **tic** | Sequenced timestamp | Canonical clock primitive — ISO-8601 timestamp + monotonic counter |
-| **tic-zone** | Jurisdiction boundary | Named acoustic region defined by `.ticzone` file; scopes signal routing |
-| **siren** | Friction signal | Continuous signal with volume that accrues over time across sessions |
-| **warrant** | Escalation obligation | Auto-minted when a signal crosses threshold; demands resolution |
-| **conformation** | System state snapshot | Total state at any tic boundary — signals, rules, pending proposals |
-| **abstraction ladder** | Scope hierarchy | Local → Project → Global; lessons climb through review |
-
-For the full terminology reference, see [docs/TERMINOLOGY.md](docs/TERMINOLOGY.md).
+Full glossary: [docs/TERMINOLOGY.md](docs/TERMINOLOGY.md).
 
 ---
 
@@ -94,34 +97,13 @@ What to look for: Does the captured lesson match what you learned? Did the hando
 
 ## The lexical ceiling (scope boundary)
 
-**CGG is the portable lexical governance layer.** It provides:
-- File-based governance lifecycle (capture, evaluate, promote, audit)
-- Human-gated rule promotion at every scope boundary
-- Auditable signal/tic trails with total ordering
-- Jurisdictional scoping via zones and exclusion filters
+**CGG is the portable lexical governance layer.** File-based lifecycle, human-gated promotion, auditable tic/signal trails, and jurisdictional scoping via zones.
 
-**CGG expands lexical capabilities further than most approaches** by treating governance, storage, knowledge, and memory as separate concerns — not conflating them into a single "AI memory" abstraction. This separation is what makes flat-file governance viable at meaningful scale.
+**CGG expands lexical capabilities further than most approaches** by separating governance from storage/retrieval. But **text has a ceiling**: lesson corpora grow, nested projects add weight, and walls of text dilute force.
 
-**CGG has a ceiling:** the fundamental limit of lexical meaning. Text-as-governance degrades at scale — governance files grow monotonically, deeply nested projects accumulate heavy lesson loads, lessons lose force buried in walls of text.
+**Mitigations built in:** scoped zones (`.ticzone`, `.ticignore`), the abstraction ladder, signal TTLs, and human curation during `/review`. They extend the useful range; they don't remove the ceiling.
 
-**CGG supports methods for mitigating these limits:**
-- Zone scoping (`.ticzone`, `.ticignore`) to bound the governance surface
-- Scope hierarchy to keep lessons at appropriate levels
-- Signal TTLs to expire stale friction
-- Human curation during `/review` to prune noise
-
-These extend the useful range of flat-file governance. But ultimately, the solution to lexical limits lies in fusion of capabilities outside this repo's scope. CGG is designed to be aware of this boundary and transparent about it.
-
-**Out of scope for this repo:**
-- Conformation-aware retrieval (load only what matches current system shape)
-- Expression gating (silence irrelevant lessons based on context)
-- Graph topology (relational edges between concepts, not flat lists)
-- Endogenous economics (cost pressure to compress, curate, expire)
-- Compiled constraints (enforcement the agent cannot violate)
-
-These require infrastructure CGG deliberately avoids — boundary decisions, not roadmap items. Any system providing these capabilities can compose with CGG's governance primitives.
-
-**CGG is complete for individuals and small teams.** The flat-file primitives are fast, portable, and auditable by default. When you hit the ceiling, CGG's primitives become the audit trail beneath whatever infrastructure you adopt. The governance lifecycle stays the same.
+**Beyond the ceiling:** expression gating, conformation-aware retrieval, graph topology, economic pressure, and compiled constraints live outside this repo. CGG stays flat-file and auditable; when you need those capabilities, CGG's primitives become the audit trail under a substrate such as Ubiquity. The governance lifecycle stays the same.
 
 ---
 

@@ -6,7 +6,7 @@
 
 > **Just want the commands?** [START-HERE.md](START-HERE.md). **Full reference?** [README.md](README.md). **Architecture and design rationale?** [ARCHITECTURE.md](ARCHITECTURE.md). **Learn through story?** [academy/README.md](academy/README.md).
 
-**A CI/CD pipeline for your AI's memory and system prompts.**
+**A CI/CD-style review and promotion pipeline for durable agent lessons and operating rules.**
 
 CGG captures lessons as the agent works, queues them for review, and promotes approved lessons to broader scope. The agent compounds instead of resetting to zero.
 

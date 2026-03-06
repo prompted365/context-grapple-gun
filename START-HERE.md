@@ -6,9 +6,9 @@
 
 # Start Here
 
-**The problem you already know:** Every time you start a new session, Claude forgets everything from the last one. That bug it figured out yesterday? Gone. That pattern it discovered? Gone. You re-explain the same things, watch the same mistakes, train from zero every morning.
+**The problem you already know:** Sessions keep rediscovering the same lessons. Decisions drift, fixes repeat, and there's no audited path for what should persist. Claude forgetting is a symptom; governance gaps are the cause.
 
-**CGG fixes this.** Three commands. Flat files. Human approval at every gate.
+**CGG fixes the governance gap.** Three commands. Flat files. Human approval at every gate. Lessons become durable, reviewed operating rules instead of anecdotes.
 
 ---
 
