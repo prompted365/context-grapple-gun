@@ -312,6 +312,44 @@ def load_tic_counter(path):
         return {"count": 0, "last_tic": "unknown"}
 
 
+# ---------------------------------------------------------------------------
+# Maturity gates
+# ---------------------------------------------------------------------------
+
+DEFAULT_MATURITY_TICS = 3
+
+
+def classify_cpr_readiness(cpr, current_tic_count):
+    """Apply temporal maturity gate then epistemic enrichment gate.
+
+    Returns (state, reason) where state is one of:
+      tic_gated, enrichment_needed, enrichment_eligible, promotable
+    """
+    birth_tic = cpr.get("birth_tic", 0)
+    maturity_tics = cpr.get("maturity_tics", DEFAULT_MATURITY_TICS)
+
+    # --- Gate 1: Temporal maturity ---
+    if birth_tic > 0 and (current_tic_count - birth_tic) < maturity_tics:
+        remaining = maturity_tics - (current_tic_count - birth_tic)
+        return "tic_gated", f"temporal maturity insufficient ({remaining} tics remaining)"
+
+    # --- Gate 2: Epistemic enrichment ---
+    queue_status = cpr.get("queue_status", "")
+    enrichment = cpr.get("enrichment", [])
+    has_evidence = len(enrichment) > 0 if isinstance(enrichment, list) else bool(enrichment)
+
+    # If queue already marked as needing enrichment and no evidence yet
+    if queue_status in ("enrichment_needed",) and not has_evidence:
+        return "enrichment_needed", "enrichment evidence insufficient"
+
+    # If queue marked as enrichment_eligible, evidence gathering is in progress
+    if queue_status == "enrichment_eligible" and not has_evidence:
+        return "enrichment_eligible", "enrichment gathering in progress, no evidence yet"
+
+    # Both gates clear
+    return "promotable", "both gates cleared"
+
+
 def _band_counts(signals):
     c = {}
     for s in signals.values():
@@ -349,6 +387,7 @@ def _fmt_counts(c):
 def compile_proposals(evaluate_data, classified, triads, tic_counter,
                       plan_path, inline_cpr_count):
     now = datetime.now(timezone.utc).isoformat()
+    current_tic = tic_counter.get("count", 0)
 
     handoff_id = ""
     expected_cprs = 0
@@ -358,6 +397,22 @@ def compile_proposals(evaluate_data, classified, triads, tic_counter,
         expected_cprs = evaluate_data.get("pending_cprs_expected", 0)
         cprs = evaluate_data.get("pending_cprs") or []
     found_cprs = len(cprs)
+
+    # Classify each CPR through maturity gates
+    gated = []      # tic_gated
+    enriching = []   # enrichment_needed or enrichment_eligible
+    reviewable = []  # promotable
+
+    for cpr in cprs:
+        state, reason = classify_cpr_readiness(cpr, current_tic)
+        cpr["_gate_state"] = state
+        cpr["_gate_reason"] = reason
+        if state == "tic_gated":
+            gated.append(cpr)
+        elif state in ("enrichment_needed", "enrichment_eligible"):
+            enriching.append(cpr)
+        else:
+            reviewable.append(cpr)
 
     asig = classified["active_signals"]
     wsig = classified["working_signals"]
@@ -372,13 +427,14 @@ def compile_proposals(evaluate_data, classified, triads, tic_counter,
     L.append(f"- **Handoff ID**: {handoff_id or 'none'}")
     L.append(f"- **Assessed at**: {now}")
     L.append(f"- **Plan file**: {plan_path or 'none'}")
-    L.append(f"- **Tic counter**: {tic_counter.get('count', 0)} (last: {tic_counter.get('last_tic', 'unknown')})")
+    L.append(f"- **Tic counter**: {current_tic} (last: {tic_counter.get('last_tic', 'unknown')})")
     L.append(f"- **Expected CPRs**: {expected_cprs}")
     L.append(f"- **Found CPRs**: {found_cprs}")
     L.append(f"- **Inline pending CPRs**: {inline_cpr_count}")
     L.append(f"- **Active signals**: {len(asig)} (+ {len(wsig)} working)")
     L.append(f"- **Active warrants**: {len(all_warrants)}")
     L.append(f"- **Harmonic triads**: {len(triads)}")
+    L.append(f"- **Gate summary**: {len(reviewable)} reviewable, {len(gated)} tic-gated, {len(enriching)} enriching")
 
     if evaluate_data and expected_cprs != found_cprs:
         L.append("")
@@ -427,8 +483,42 @@ def compile_proposals(evaluate_data, classified, triads, tic_counter,
     L.append("---")
     L.append("")
 
-    if cprs:
-        for i, cpr in enumerate(cprs, 1):
+    # --- Tic-gated CPRs (not ready: too young) ---
+    if gated:
+        L.append("## Tic-Gated CPRs (not ready — too young)")
+        L.append("")
+        for cpr in gated:
+            lesson = cpr.get("lesson", "unknown")
+            birth = cpr.get("birth_tic", 0)
+            L.append(f"- **{lesson[:80]}**")
+            L.append(f"  - Source: {cpr.get('source', 'unknown')}")
+            L.append(f"  - Birth tic: {birth} | Current tic: {current_tic} | Required delta: {cpr.get('maturity_tics', DEFAULT_MATURITY_TICS)}")
+            L.append(f"  - Reason: {cpr.get('_gate_reason', '')}")
+            L.append("")
+        L.append("---")
+        L.append("")
+
+    # --- Enrichment-pending CPRs (not ready: under-enriched) ---
+    if enriching:
+        L.append("## Enrichment-Pending CPRs (not ready — under-enriched)")
+        L.append("")
+        for cpr in enriching:
+            lesson = cpr.get("lesson", "unknown")
+            state = cpr.get("_gate_state", "")
+            L.append(f"- **{lesson[:80]}**")
+            L.append(f"  - Source: {cpr.get('source', 'unknown')}")
+            L.append(f"  - State: {state}")
+            L.append(f"  - Reason: {cpr.get('_gate_reason', '')}")
+            enrichment = cpr.get("enrichment", [])
+            if enrichment:
+                L.append(f"  - Evidence gathered: {len(enrichment)} entries")
+            L.append("")
+        L.append("---")
+        L.append("")
+
+    # --- Reviewable CPRs (both gates cleared) ---
+    if reviewable:
+        for i, cpr in enumerate(reviewable, 1):
             source = cpr.get("source", "unknown")
             lesson = cpr.get("lesson", "unknown")
             recommended = cpr.get("recommended", [])
@@ -438,6 +528,7 @@ def compile_proposals(evaluate_data, classified, triads, tic_counter,
             L.append(f"- **Source**: {source}")
             L.append(f"- **Lesson**: {lesson}")
             L.append(f"- **Recommended targets**: {', '.join(recommended) if recommended else 'none'}")
+            L.append(f"- **Gate state**: promotable (both gates cleared)")
             L.append("")
 
             L.append("### Treaty Verdict")
@@ -455,7 +546,7 @@ def compile_proposals(evaluate_data, classified, triads, tic_counter,
             L.append("")
             L.append("---")
             L.append("")
-    else:
+    elif not gated and not enriching:
         L.append("## CPR Review")
         L.append("")
         L.append("No pending CPRs in evaluate block.")
@@ -465,15 +556,17 @@ def compile_proposals(evaluate_data, classified, triads, tic_counter,
 
     L.append("## Summary")
     L.append("")
-    L.append(f"- **Total CPRs**: {found_cprs} compiled")
+    L.append(f"- **Total CPRs**: {found_cprs} ({len(reviewable)} reviewable, {len(gated)} tic-gated, {len(enriching)} enriching)")
     L.append(f"- **Signals**: {len(asig)} active, {len(wsig)} working, {len(all_warrants)} warrants, {len(triads)} triads")
 
     if triads:
         focus = "Harmonic triad alert — immediate attention"
     elif all_warrants:
         focus = "Warrant triage first"
-    elif cprs:
+    elif reviewable:
         focus = "CPR review"
+    elif gated or enriching:
+        focus = "No reviewable CPRs — all holding (tic-gated or enriching)"
     else:
         focus = "Signal review only"
     L.append(f"- **Docket priority**: {focus}")

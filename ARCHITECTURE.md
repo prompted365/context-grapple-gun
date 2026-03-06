@@ -312,6 +312,34 @@ If signals cluster around agent behavior, Mogul must expand the audit surface to
 
 A lesson repeatedly compensating for agent drift may indicate prompt-stack interference rather than missing governance law.
 
+## Audit Cycles
+
+Governance audits run on tic-sum-derived cadence. These are interim cycles — sufficient for flat-file governance. Each cycle is a check, not a full session.
+
+| Cycle | Frequency | What it checks | Execution surface |
+|-------|-----------|---------------|-------------------|
+| **Queue + signal scan** | Every 1 tic | Active CPR queue state, signal volume, warrant thresholds | SessionStart hook, `/siren tick` |
+| **MEMORY mining** | Every 3 tics | Recurring patterns, abstraction opportunities, stabilized workarounds | Mogul (future) |
+| **Ladder audit** | Every 5 tics | Parent/child CLAUDE coherence, installed/source drift | Mogul (future) |
+| **Deep audit** | Every 8 tics | Multi-rung coherence, sibling duplication, manifestation pressure, demotion candidates | Mogul (future) |
+
+### Active cycles (implemented)
+
+- `session_start_restore` — SessionStart hook discovers handoff plans, injects CPR queue, runs enrichment scanner
+- `first_prompt_assessment` — UserPromptSubmit hook triggers one-shot ripple-assessor (background)
+- `review_close_consistency_check` — post-`/review` verification that constitutional changes landed coherently
+- `cadence_due_stamp` — `/cadence` writes tic-sum-derived due markers into handoff bridge
+
+### Due marker computation
+
+Due markers are deterministic from the current tic count:
+- `review_due_tic = current_tic + 1`
+- `memory_mining_due_tic = current_tic + (3 - current_tic % 3)` (next multiple of 3)
+- `ladder_audit_due_tic = current_tic + (5 - current_tic % 5)` (next multiple of 5)
+- `deep_audit_due_tic = current_tic + (8 - current_tic % 8)` (next multiple of 8)
+
+SessionStart hooks may check these markers against the current tic to determine which cycles are due.
+
 ---
 
 ### Part II — Advanced / boundary-to-substrate (Sections 7–11)

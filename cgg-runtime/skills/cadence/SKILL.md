@@ -38,20 +38,27 @@ while [ "$ZONE_ROOT" != "/" ] && [ ! -f "$ZONE_ROOT/.ticzone" ]; do ZONE_ROOT=$(
 
 **Counting rule (SUBSTRATE INVARIANT):** The canonical tic count is the physical number of `type=tic` entries across all `$ZONE_ROOT/audit-logs/tics/*.jsonl` files, determined by JSON-parsing — never by grep, never by reading an embedded `tic_count_project` field from a previous entry. The global counter file (`~/.claude/cgg-tic-counter.json`) is a cached mirror of this physical truth, not an independent state machine.
 
-1. Append tic record to `$ZONE_ROOT/audit-logs/tics/YYYY-MM-DD.jsonl`:
-   `{"type": "tic", "tic": "<ISO-8601 now>", "tic_zone": "<name from .ticzone>", "cadence_position": "downbeat"}`
-   Note: `tic_count_project`, `tic_count_global`, and `scope` are omitted — counters are advisory (canonical count is physical truth) and scope is derived from the zone model, not a static label.
-2. Reconcile counters from physical truth:
+1. Count tics physically BEFORE appending (this gives the pre-append count):
+   ```bash
+   PHYS_BEFORE=$(python3 -c "import json,glob; print(sum(1 for f in glob.glob('$ZONE_ROOT/audit-logs/tics/*.jsonl') for l in open(f) if json.loads(l).get('type')=='tic'))")
+   ```
+2. Append tic record to `$ZONE_ROOT/audit-logs/tics/YYYY-MM-DD.jsonl`:
+   `{"type": "tic", "tic": "<ISO-8601 now>", "tic_zone": "<name from .ticzone>", "cadence_position": "downbeat", "domain_counter": <PHYS_BEFORE + 1>, "global_counter": <PHYS_BEFORE + 1>}`
+
+   **Counter fields are mirrors, not authority.** `domain_counter` and `global_counter` are convenience snapshots written into the record for observability. The canonical count is always the physical count of `type=tic` entries. No code may read these fields as authoritative ordering — they exist for audit trail readability only.
+
+   Note: `tic_count_project`, `scope` are NOT included. The stale `scope: "project"` label is replaced by zone-derived jurisdiction. The stale `tic_count_project` / `tic_count_global` fields are replaced by the mirrored counters above.
+3. Verify physical count matches:
    ```bash
    PHYS=$(python3 -c "import json,glob; print(sum(1 for f in glob.glob('$ZONE_ROOT/audit-logs/tics/*.jsonl') for l in open(f) if json.loads(l).get('type')=='tic'))")
    ```
-3. Write global counter atomically (cached mirror of physical truth):
+4. Write global counter atomically (cached mirror of physical truth):
    ```bash
    TMP="$HOME/.claude/cgg-tic-counter.json.tmp.$$"
    printf '{"count": %d, "last_tic": "%s"}\n' "$PHYS" "$NOW" > "$TMP"
    mv "$TMP" "$HOME/.claude/cgg-tic-counter.json"
    ```
-4. Report: `Tic #PHYS (physical) at YYYY-MM-DDTHH:MM:SSZ`
+5. Report: `Tic #PHYS (physical) at YYYY-MM-DDTHH:MM:SSZ`
 
 #### Step 1: Signal Manifold Hygiene
 Execute `/siren tick`. Ensure volume has accrued, decay has been applied, and thresholds are checked.
@@ -99,7 +106,29 @@ The plan must include:
 - Friction (Signals): any new `<!-- --signal -->` blocks for unresolved technical debt
 - Next Actions (concrete, numbered)
 - Conformation summary
+- Cadence due markers (see below)
 - `<!-- cgg-evaluate -->` trigger block at the very bottom — `pending_cprs_expected` must match the exact number of CogPRs from Step 2
+
+#### Cadence Due Markers
+
+Include a `## Cadence Due` section in the handoff with tic-sum-derived operational due markers. These are not hard deadlines — they are audit cadence hints tied to the current tic count (`CURRENT_TIC` from Step 0.5):
+
+```markdown
+## Cadence Due
+
+- **review_due_tic**: <CURRENT_TIC + 1> (queue + signal scan)
+- **memory_mining_due_tic**: <next multiple of 3 after CURRENT_TIC>
+- **ladder_audit_due_tic**: <next multiple of 5 after CURRENT_TIC>
+- **deep_audit_due_tic**: <next multiple of 8 after CURRENT_TIC>
+```
+
+Compute each marker deterministically:
+- `review_due_tic = current_tic + 1` (every tic)
+- `memory_mining_due_tic = current_tic + (3 - current_tic % 3)` if `current_tic % 3 != 0`, else `current_tic + 3`
+- `ladder_audit_due_tic = current_tic + (5 - current_tic % 5)` if `current_tic % 5 != 0`, else `current_tic + 5`
+- `deep_audit_due_tic = current_tic + (8 - current_tic % 8)` if `current_tic % 8 != 0`, else `current_tic + 8`
+
+These markers make governance pressure visible and auditable. SessionStart hooks may reference them to determine which audit cycles are due.
 
 The user sees this plan in Claude Code's native plan UI with approve/edit/reject/clear options. When approved and context cleared, the plan persists and becomes the active state for the next session.
 
@@ -134,20 +163,25 @@ This buys headroom. The next session's SessionStart hook will reset it to 80%.
 
 **Zone root anchoring + Counting rule (SUBSTRATE INVARIANT):** Same as downbeat — resolve zone root from `.ticzone` walk-up, count tics physically from `$ZONE_ROOT/audit-logs/tics/*.jsonl`.
 
-1. Append tic record to `$ZONE_ROOT/audit-logs/tics/YYYY-MM-DD.jsonl`:
-   `{"type": "tic", "tic": "<ISO-8601 now>", "tic_zone": "<name from .ticzone>", "cadence_position": "syncopate"}`
-   Note: `tic_count_project`, `tic_count_global`, and `scope` are omitted — counters are advisory (canonical count is physical truth) and scope is derived from the zone model, not a static label.
-2. Reconcile counters from physical truth:
+1. Count tics physically BEFORE appending:
+   ```bash
+   PHYS_BEFORE=$(python3 -c "import json,glob; print(sum(1 for f in glob.glob('$ZONE_ROOT/audit-logs/tics/*.jsonl') for l in open(f) if json.loads(l).get('type')=='tic'))")
+   ```
+2. Append tic record to `$ZONE_ROOT/audit-logs/tics/YYYY-MM-DD.jsonl`:
+   `{"type": "tic", "tic": "<ISO-8601 now>", "tic_zone": "<name from .ticzone>", "cadence_position": "syncopate", "domain_counter": <PHYS_BEFORE + 1>, "global_counter": <PHYS_BEFORE + 1>}`
+
+   Counter fields are mirrors, not authority (same rule as downbeat).
+3. Verify physical count:
    ```bash
    PHYS=$(python3 -c "import json,glob; print(sum(1 for f in glob.glob('$ZONE_ROOT/audit-logs/tics/*.jsonl') for l in open(f) if json.loads(l).get('type')=='tic'))")
    ```
-3. Write global counter atomically (cached mirror of physical truth):
+4. Write global counter atomically (cached mirror of physical truth):
    ```bash
    TMP="$HOME/.claude/cgg-tic-counter.json.tmp.$$"
    printf '{"count": %d, "last_tic": "%s"}\n' "$PHYS" "$NOW" > "$TMP"
    mv "$TMP" "$HOME/.claude/cgg-tic-counter.json"
    ```
-4. Report: `Tic #PHYS (physical) at YYYY-MM-DDTHH:MM:SSZ [syncopate]`
+5. Report: `Tic #PHYS (physical) at YYYY-MM-DDTHH:MM:SSZ [syncopate]`
 
 Note: `cadence_position` is `"syncopate"`, not `"downbeat"`. This distinguishes emergency exits from planned epoch boundaries.
 

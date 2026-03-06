@@ -152,7 +152,33 @@ For each ESCALATE:
 2. Re-emit the warrant with updated scope to today's JSONL
 3. If already at `global` scope, flag for user attention — cannot escalate further
 
-### 8. Log and Clean Up
+### 8. Review-Close Consistency Check
+
+After applying all approved actions, verify constitutional changes landed coherently. This is mandatory — do not skip.
+
+**For each approved PROMOTE:**
+- Verify the target CLAUDE.md/MEMORY.md was actually updated (read the file, confirm lesson text is present)
+- Verify the source CogPR flag status was updated to `promoted`
+- If the target is an install-owned surface (`.claude/skills/`, `.claude/agents/`), flag that runtime sync may be required
+
+**For each SKIP/REJECT:**
+- Verify queue state reflects rejection (status updated in queue.jsonl)
+
+**For each warrant triage:**
+- Verify warrant state transition was recorded in signal JSONL
+
+**Cross-checks:**
+- No duplicate queue entries for the same CogPR (same lesson hash at same scope)
+- No contradictory post-review states (promoted in queue but missing from target, or rejected but still showing as pending)
+
+**Output:** Report the consistency result explicitly:
+```
+Consistency check: N promotions verified, M rejections verified, K warrant transitions verified. [PASS|FAIL: <details>]
+```
+
+If any check fails, surface it as a governance hazard — do not silently proceed.
+
+### 9. Log and Clean Up
 
 - Log each decision to `~/.claude/grapple-meta-log.jsonl`:
   ```json
