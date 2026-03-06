@@ -182,10 +182,10 @@ graph TB
     end
 
     subgraph SkillLayer["Skill Layer (workflow payloads)"]
-        SK1[/cadence / session epoch boundary]
-        SK2[/review / constitutional bench]
-        SK3[/siren / signal emission & triage]
-        SK4[/telos-springboard / paper patching]
+        SK1["/cadence / session epoch boundary"]
+        SK2["/review / constitutional bench"]
+        SK3["/siren / signal emission & triage"]
+        SK4["/telos-springboard / paper patching"]
     end
 
     subgraph AgentLayer["Agent Layer (bounded judgment)"]
