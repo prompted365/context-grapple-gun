@@ -129,9 +129,33 @@ except: pass
 " 2>/dev/null)
 
   if [ -n "$MOGUL_CYCLES" ]; then
-    echo "{\"timestamp\":\"$TIMESTAMP\",\"action\":\"mogul_mandate_detected\",\"cycles\":\"$MOGUL_CYCLES\"}" >> "$META_LOG"
-    # Emit instruction to spawn Mogul non-blocking for mandated heavy cycles
-    echo "{\"hookSpecificOutput\":{\"hookEventName\":\"UserPromptSubmit\",\"additionalContext\":\"[MOGUL MANDATE PENDING] Heavy governance cycles due: $MOGUL_CYCLES. Spawn Mogul agent (Task tool, subagent_type: mogul, run_in_background: true) to execute mandated cycles. Mandate at: $MANDATE_FILE. Non-blocking — proceed with user work.\"}}"
+    # Check mandate status — only spawn if pending (lifecycle-aware)
+    MANDATE_STATUS=$(python3 -c "
+import json
+try:
+    m = json.load(open('$MANDATE_FILE'))
+    print(m.get('status', 'pending'))
+except: print('pending')
+" 2>/dev/null)
+
+    if [ "$MANDATE_STATUS" = "pending" ]; then
+      echo "{\"timestamp\":\"$TIMESTAMP\",\"action\":\"mogul_mandate_detected\",\"cycles\":\"$MOGUL_CYCLES\",\"status\":\"$MANDATE_STATUS\"}" >> "$META_LOG"
+
+      # Look for estate-local runner (operationTorque override); fallback to LLM instruction
+      MOGUL_RUNNER="$ZONE_ROOT/scripts/mogul-runner.sh"
+      if [ -x "$MOGUL_RUNNER" ]; then
+        MOGUL_LOG_DIR="$ZONE_ROOT/${AUDIT_LOGS_REL:-audit-logs}/mogul/cycle-reports"
+        mkdir -p "$MOGUL_LOG_DIR"
+        "$MOGUL_RUNNER" > "$MOGUL_LOG_DIR/$(date +%Y-%m-%dT%H%M%S)-runner-log.txt" 2>&1 &
+        echo "{\"timestamp\":\"$TIMESTAMP\",\"action\":\"mogul_runner_spawned\",\"cycles\":\"$MOGUL_CYCLES\",\"pid\":$!}" >> "$META_LOG"
+        echo "{\"hookSpecificOutput\":{\"hookEventName\":\"UserPromptSubmit\",\"additionalContext\":\"[MOGUL MANDATE: runner spawn] mogul-runner.sh executing governance cycles ($MOGUL_CYCLES) in background (PID $!). Non-blocking — proceed with user work.\"}}"
+      else
+        # Canonical portable fallback: instruct LLM to spawn agent
+        echo "{\"hookSpecificOutput\":{\"hookEventName\":\"UserPromptSubmit\",\"additionalContext\":\"[MOGUL MANDATE PENDING] Heavy governance cycles due: $MOGUL_CYCLES. Spawn Mogul agent (Task tool, subagent_type: mogul, run_in_background: true) to execute mandated cycles. Mandate at: $MANDATE_FILE. Non-blocking — proceed with user work.\"}}"
+      fi
+    else
+      echo "{\"timestamp\":\"$TIMESTAMP\",\"action\":\"mogul_mandate_skipped\",\"status\":\"$MANDATE_STATUS\",\"cycles\":\"$MOGUL_CYCLES\"}" >> "$META_LOG"
+    fi
     # Do NOT exit — still check for ripple-assessor trigger below
   fi
 fi

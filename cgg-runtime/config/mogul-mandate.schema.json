@@ -2,10 +2,31 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "mogul-mandate.schema.json",
   "title": "Mogul Activation Mandate",
-  "description": "Machine-checkable schema for Mogul activation mandates. Written by triggers (SessionStart, /cadence, /review, explicit), read by Mogul to determine execution scope.",
+  "description": "Machine-checkable schema for Mogul activation mandates. Written by triggers (SessionStart, /cadence, /review, explicit), read by Mogul to determine execution scope. Non-lossy: unconsumed mandates are merged, never overwritten.",
   "type": "object",
-  "required": ["actor", "trigger", "tic_context", "cycle_request", "mode"],
+  "required": ["mandate_id", "status", "actor", "trigger", "tic_context", "cycle_request", "mode", "created_at"],
   "properties": {
+    "mandate_id": {
+      "type": "string",
+      "description": "Unique identifier: tic-N-YYYYMMDDTHHMMSS format."
+    },
+    "status": {
+      "type": "string",
+      "enum": ["pending", "running", "consumed", "failed", "superseded"],
+      "description": "Lifecycle state. pending: awaiting consumption. running: execution in progress. consumed: successfully completed. failed: execution error. superseded: replaced by merge."
+    },
+    "supersedes": {
+      "type": "array",
+      "items": { "type": "string" },
+      "default": [],
+      "description": "mandate_ids this mandate replaces (prior mandate was terminal)."
+    },
+    "merged_from": {
+      "type": "array",
+      "items": { "type": "string" },
+      "default": [],
+      "description": "mandate_ids whose cycles were absorbed into this mandate (prior was pending/running)."
+    },
     "actor": {
       "type": "object",
       "description": "The governance office being activated and its runtime embodiment.",
@@ -138,6 +159,20 @@
       "type": "string",
       "format": "date-time",
       "description": "ISO-8601 timestamp when this mandate was created."
+    },
+    "started_at": {
+      "type": ["string", "null"],
+      "format": "date-time",
+      "description": "Set when status transitions to running."
+    },
+    "completed_at": {
+      "type": ["string", "null"],
+      "format": "date-time",
+      "description": "Set when status transitions to consumed or failed."
+    },
+    "error": {
+      "type": ["string", "null"],
+      "description": "Error message if status is failed."
     }
   },
   "additionalProperties": false

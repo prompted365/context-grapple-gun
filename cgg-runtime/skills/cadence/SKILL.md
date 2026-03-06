@@ -113,6 +113,8 @@ The plan must include:
 
 After computing due markers (below), write a Mogul activation mandate for any newly-due cycles. This is the primary clock trigger for governance maintenance — /cadence computes what became due, writes the mandate, and lets the next session's activation fabric consume it.
 
+**Mandate operator semantics:** Due cycles in `run_now` are not merely report tasks. The mandate authorizes Mogul to materially advance the governance pipeline within mandate bounds — decomposing cycles into subordinate work, spawning bounded subagents, advancing enrichment when evidence supports it, and synthesizing results. /cadence remains the clock; Mogul is the operator.
+
 **Do NOT spawn Mogul during /cadence.** /cadence runs during session flush/exit. Spawning heavy maintenance here risks context exhaustion. The mandate is consumed by SessionStart or first-prompt in the next session.
 
 **Do NOT run governance maintenance inline.** /cadence is the clock, not the worker.
@@ -120,9 +122,20 @@ After computing due markers (below), write a Mogul activation mandate for any ne
 Steps:
 1. Compute which cycles are newly due at CURRENT_TIC (see due marker formulas below)
 2. Build `cycle_request.run_now` array from due cycles
-3. Write mandate to `$ZONE_ROOT/audit-logs/mogul/mandates/current.json`:
+3. **Merge-before-write** (non-lossy mandate lifecycle):
+   - If `mandate-write.py` is available (via resolve_script), call it — it handles merge semantics automatically
+   - If not available, apply merge inline:
+     - Read existing mandate at `$ZONE_ROOT/audit-logs/mogul/mandates/current.json`
+     - If existing status is `pending` or `running`: **merge** — absorb existing `run_now` cycles, record old `mandate_id` in `merged_from`
+     - If existing status is `consumed`, `failed`, or `superseded`: safe to write fresh, record old `mandate_id` in `supersedes`
+     - If no existing mandate: write fresh
+4. Write mandate to `$ZONE_ROOT/audit-logs/mogul/mandates/current.json`:
    ```json
    {
+     "mandate_id": "tic-CURRENT_TIC-YYYYMMDDTHHMMSS",
+     "status": "pending",
+     "supersedes": [],
+     "merged_from": [],
      "actor": {"office": "mogul", "embodiment": "cgg_runtime"},
      "trigger": {"kind": "cadence", "source_ref": ".claude/skills/cadence/SKILL.md"},
      "tic_context": {
@@ -139,12 +152,15 @@ Steps:
      "conformation_ref": "<path to latest conformation or null>",
      "mode": {"blocking_to_homeskillet": false, "allow_subdelegation": true},
      "runtime_truth": {"canonical_vs_installed_verified": false},
-     "created_at": "ISO-8601 now"
+     "created_at": "ISO-8601 now",
+     "started_at": null,
+     "completed_at": null,
+     "error": null
    }
    ```
-4. Append the mandate to `$ZONE_ROOT/audit-logs/mogul/mandates/history/YYYY-MM-DD.jsonl`
-5. Create the directories if they don't exist (`audit-logs/mogul/mandates/history/`)
-6. Note in the handoff: "Mogul mandate written for cycles: [list]"
+5. Append the mandate to `$ZONE_ROOT/audit-logs/mogul/mandates/history/YYYY-MM-DD.jsonl`
+6. Create the directories if they don't exist (`audit-logs/mogul/mandates/history/`)
+7. Note in the handoff: "Mogul mandate written for cycles: [list]"
 
 #### Cadence Due Markers
 

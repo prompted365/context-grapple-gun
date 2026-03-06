@@ -67,6 +67,8 @@ If all three are present -> mint a warrant with `minting_condition: "harmonic_tr
 
 Before presenting the docket, verify that Section C (CogPR Review) has fresh Mogul-prepared context:
 
+**Upstream enrichment expectation:** Bench prep is the minimum preparation threshold, not the full expectation. Mogul's regular governance cycles (signal_scan, queue_refresh) should have already assessed enrichment_eligible CPRs for rejection-pressure weakness and triggered enrichment gathering when justified. By the time /review fires, Mogul should have already strengthened weak packets through its normal operational flow. If this hasn't happened (Mogul unavailable, activation fabric absent, insufficient cycles since last review), /review compensates with blocking bench-prep — but this is a fallback, not the designed operating mode.
+
 1. Check for a bench packet at `audit-logs/mogul/bench-packets/latest.json` or the most recent `audit-logs/mogul/bench-packets/YYYY-MM-DD.json`
 2. If a bench packet exists and its `created_at` is within the last 2 tics of the current tic count, proceed — it is fresh enough
 3. If the bench packet is stale or missing:

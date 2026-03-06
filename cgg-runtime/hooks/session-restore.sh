@@ -249,81 +249,81 @@ MOGUL_MANDATE_MSG=""
 
 if [ "$TIC_COUNT" -gt 0 ]; then
   # Compute due cycles from tic-derived markers
-  MANDATE_JSON=$(python3 -c "
-import json, os, math
-from datetime import datetime, timezone
-
+  DUE_CYCLES_CSV=$(python3 -c "
 tic = $TIC_COUNT
-
-# Due marker computation (same formulas as /cadence)
-review_due = tic + 1
+cycles = ['queue_refresh', 'signal_scan']
 mem_mining_due = tic + (3 - tic % 3) if tic % 3 != 0 else tic + 3
 ladder_due = tic + (5 - tic % 5) if tic % 5 != 0 else tic + 5
 deep_due = tic + (8 - tic % 8) if tic % 8 != 0 else tic + 8
-
-# Check handoff due markers if they exist
-due_cycles = []
-# Every session: queue_refresh + signal_scan are always due
-due_cycles.extend(['queue_refresh', 'signal_scan'])
-
-# Check if higher cycles are overdue (current tic >= due marker)
-if tic >= mem_mining_due or tic % 3 == 0:
-    due_cycles.append('memory_mining')
-if tic >= ladder_due or tic % 5 == 0:
-    due_cycles.extend(['ladder_audit', 'runtime_drift_check'])
-if tic >= deep_due or tic % 8 == 0:
-    due_cycles.append('deep_audit')
-
-# Read previous mandate's handoff due markers if available
-prev_mandate = '$MANDATE_FILE'
-if os.path.isfile(prev_mandate):
+if tic >= mem_mining_due or tic % 3 == 0: cycles.append('memory_mining')
+if tic >= ladder_due or tic % 5 == 0: cycles.extend(['ladder_audit', 'runtime_drift_check'])
+if tic >= deep_due or tic % 8 == 0: cycles.append('deep_audit')
+import json, os
+prev = '$MANDATE_FILE'
+if os.path.isfile(prev):
     try:
-        prev = json.load(open(prev_mandate))
-        tc = prev.get('tic_context', {})
-        if tc.get('memory_mining_due_tic') and tic >= tc['memory_mining_due_tic']:
-            if 'memory_mining' not in due_cycles:
-                due_cycles.append('memory_mining')
+        p = json.load(open(prev))
+        tc = p.get('tic_context', {})
+        if tc.get('memory_mining_due_tic') and tic >= tc['memory_mining_due_tic'] and 'memory_mining' not in cycles: cycles.append('memory_mining')
         if tc.get('ladder_audit_due_tic') and tic >= tc['ladder_audit_due_tic']:
-            if 'ladder_audit' not in due_cycles:
-                due_cycles.append('ladder_audit')
-            if 'runtime_drift_check' not in due_cycles:
-                due_cycles.append('runtime_drift_check')
-        if tc.get('deep_audit_due_tic') and tic >= tc['deep_audit_due_tic']:
-            if 'deep_audit' not in due_cycles:
-                due_cycles.append('deep_audit')
+            if 'ladder_audit' not in cycles: cycles.append('ladder_audit')
+            if 'runtime_drift_check' not in cycles: cycles.append('runtime_drift_check')
+        if tc.get('deep_audit_due_tic') and tic >= tc['deep_audit_due_tic'] and 'deep_audit' not in cycles: cycles.append('deep_audit')
     except: pass
+print(','.join(set(cycles)))
+" 2>/dev/null)
 
-# Build mandate
+  # Use centralized mandate writer (merge-before-write semantics)
+  MANDATE_WRITER=$(resolve_script "mandate-write.py")
+  if [ -n "$MANDATE_WRITER" ] && [ -n "$DUE_CYCLES_CSV" ]; then
+    MANDATE_JSON=$(python3 "$MANDATE_WRITER" \
+      --zone-root "$ZONE_ROOT" \
+      --trigger-kind session_start \
+      --trigger-source "cgg-runtime/hooks/session-restore.sh" \
+      --tic "$TIC_COUNT" \
+      --cycles "$DUE_CYCLES_CSV" \
+      --audit-logs-rel "$AUDIT_LOGS_REL" \
+      2>/dev/null)
+
+    if [ -n "$MANDATE_JSON" ]; then
+      DUE_CYCLES=$(echo "$MANDATE_JSON" | python3 -c "import json,sys; m=json.load(sys.stdin); print(', '.join(m['cycle_request']['run_now']))" 2>/dev/null)
+      MOGUL_MANDATE_MSG="[MOGUL MANDATE: due cycles=$DUE_CYCLES]"
+    fi
+  elif [ -n "$DUE_CYCLES_CSV" ]; then
+    # Fallback: inline mandate write (no centralized writer available)
+    MANDATE_JSON=$(python3 -c "
+import json
+from datetime import datetime, timezone
+now = datetime.now(timezone.utc)
+tic = $TIC_COUNT
+cycles = '$DUE_CYCLES_CSV'.split(',')
 mandate = {
+    'mandate_id': f'tic-{tic}-{now.strftime(\"%Y%m%dT%H%M%S\")}',
+    'status': 'pending',
+    'supersedes': [], 'merged_from': [],
     'actor': {'office': 'mogul', 'embodiment': 'cgg_runtime'},
     'trigger': {'kind': 'session_start', 'source_ref': 'cgg-runtime/hooks/session-restore.sh'},
-    'tic_context': {
-        'current_tic': tic,
-        'review_due_tic': review_due,
-        'memory_mining_due_tic': mem_mining_due if tic % 3 != 0 else tic + 3,
-        'ladder_audit_due_tic': ladder_due if tic % 5 != 0 else tic + 5,
-        'deep_audit_due_tic': deep_due if tic % 8 != 0 else tic + 8
-    },
-    'cycle_request': {
-        'run_now': list(set(due_cycles)),
-        'reason': f'SessionStart at tic {tic} — overdue cycles detected'
-    },
+    'tic_context': {'current_tic': tic, 'review_due_tic': tic+1,
+        'memory_mining_due_tic': tic+(3-tic%3) if tic%3!=0 else tic+3,
+        'ladder_audit_due_tic': tic+(5-tic%5) if tic%5!=0 else tic+5,
+        'deep_audit_due_tic': tic+(8-tic%8) if tic%8!=0 else tic+8},
+    'cycle_request': {'run_now': list(set(cycles)), 'reason': f'SessionStart at tic {tic}'},
     'conformation_ref': None,
     'mode': {'blocking_to_homeskillet': False, 'allow_subdelegation': True},
     'runtime_truth': {'canonical_vs_installed_verified': False},
-    'created_at': datetime.now(timezone.utc).isoformat()
+    'created_at': now.isoformat(), 'started_at': None, 'completed_at': None, 'error': None
 }
-
 print(json.dumps(mandate, indent=2))
 " 2>/dev/null)
 
-  if [ -n "$MANDATE_JSON" ]; then
-    mkdir -p "$MANDATE_DIR" "$MANDATE_HISTORY_DIR"
-    echo "$MANDATE_JSON" > "$MANDATE_FILE"
-    TODAY=$(date +%Y-%m-%d)
-    echo "$MANDATE_JSON" >> "$MANDATE_HISTORY_DIR/$TODAY.jsonl"
-    DUE_CYCLES=$(echo "$MANDATE_JSON" | python3 -c "import json,sys; m=json.load(sys.stdin); print(', '.join(m['cycle_request']['run_now']))" 2>/dev/null)
-    MOGUL_MANDATE_MSG="[MOGUL MANDATE: due cycles=$DUE_CYCLES]"
+    if [ -n "$MANDATE_JSON" ]; then
+      mkdir -p "$MANDATE_DIR" "$MANDATE_HISTORY_DIR"
+      echo "$MANDATE_JSON" > "$MANDATE_FILE"
+      TODAY=$(date +%Y-%m-%d)
+      echo "$MANDATE_JSON" >> "$MANDATE_HISTORY_DIR/$TODAY.jsonl"
+      DUE_CYCLES=$(echo "$MANDATE_JSON" | python3 -c "import json,sys; m=json.load(sys.stdin); print(', '.join(m['cycle_request']['run_now']))" 2>/dev/null)
+      MOGUL_MANDATE_MSG="[MOGUL MANDATE: due cycles=$DUE_CYCLES]"
+    fi
   fi
 fi
 

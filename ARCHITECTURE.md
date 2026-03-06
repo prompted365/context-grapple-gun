@@ -216,43 +216,59 @@ Three numbers that separate compounding governance from configuration drift:
 ```
 Human
   ↓
-Homeskillet (interactive orchestrator)
+Homeskillet (primary UX / control plane)
   ↓
-Estate orchestrators
-  ├─ Mogul (operations)
+Estate governance orchestrators
+  ├─ Mogul (governance-operational heavy lift)
   └─ Swann (economy)
 ```
 
 ### Homeskillet
 
-Role: interactive orchestrator
+Role: primary UX and control plane
 Mode: blocking / user-facing
 
 Responsibilities:
 - run sessions
-- delegate agents
-- present governance artifacts
+- present governance artifacts and synthesized insights
 - invoke /cadence /review /siren
-- route work to orchestrators
+- steer Mogul through conversation, cadence, and hook-mediated prompts
+- receive summaries, escalations, and decision points from Mogul
 
 Cannot:
 - silently promote law
 - bypass constitutional review
+- routinely perform governance maintenance (that's Mogul's lane)
 
 ### Mogul
 
-Role: estate operations governor
+Role: default governance-operational suborchestrator
 Mode: headless by default
 
 Responsibilities:
 - governance CI
-- candidate assessment
+- candidate assessment and enrichment advancement
 - MEMORY mining
 - ladder coherence audits
 - runtime drift detection
 - prompt-stack audits
-- review staging
+- review staging and packet strengthening
 - deliverable-team orchestration
+- subordinate delegation and decomposition
+- operational pressure routing
+
+May:
+- decompose due governance work into bounded subordinate tasks
+- invoke bundled scripts and skill-scoped execution logic
+- spawn bounded subagents for focused work
+- when enabled and justified, orchestrate agent teams / parallel Claude Code sessions
+- choose blocking vs nonblocking handling by criticality, dependency structure, and cost
+- advance queue/enrichment state when evidence thresholds justify it
+- surface state, findings, and review packets upward into UX lane
+
+Must:
+- choose the lightest viable orchestration mode
+- avoid coordination overhead when simple execution is enough
 
 Cannot:
 - promote law
@@ -360,8 +376,8 @@ An **office** is a named governance role with defined responsibilities, constrai
 
 | Office | Role | Mode |
 |--------|------|------|
-| Homeskillet | Interactive orchestrator | Blocking, user-facing |
-| Mogul | Estate operations governor | Headless by default |
+| Homeskillet | Primary UX / control plane | Blocking, user-facing |
+| Mogul | Governance-operational suborchestrator | Headless by default |
 | Swann | Economic governor | Headless by default |
 
 Subordinate roles (Ripple Assessor, Pattern Curator, Ladder Auditor, etc.) are delegation targets, not offices. They operate under Mogul's synthesis authority.
@@ -416,6 +432,10 @@ Triggers activate governance work. They are not surfaces.
 ### Ownership Invariant
 
 **Due governance work may be triggered from the user-facing layer, but it must be owned by the proper governor.** Homeskillet may notice due-ness, trigger Mogul, and present results. Homeskillet should not routinely perform Mogul's maintenance work. When Mogul's activation fabric is absent, manual execution by another actor must be recorded as wrong-owner override.
+
+**Heavy governance lifting stays out of the UX lane by default.** Maintenance execution, queue advancement, enrichment gathering, signal scanning, and subordinate orchestration default downward into Mogul. Homeskillet receives summaries, escalations, and decision points — not the heavy lifting itself.
+
+Mogul may surface state upward. Homeskillet may steer Mogul downward. Hooks and cadence may manage Mogul by proxy through the UX lane. These interactions do not transfer default operational ownership. Visibility and steerability are not the same as ops ownership. The goal: Mogul stays busy so Homeskillet does not have to.
 
 ## Mogul Activation Contract
 
