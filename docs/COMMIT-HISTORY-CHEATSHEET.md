@@ -1,6 +1,6 @@
-# Commit History Cheat Sheet (c283b14 → 98c28d6)
+# Commit History Cheat Sheet (c283b14 → e6beba1)
 
-Scope: ordered summary of the mainline commits from **c283b14** (first-contact clarity) through **98c28d6** (Mogul suborchestrator) plus the current planning commit. Each entry notes intent, what changed, what remained open, and how the next commit moved the state forward.
+Scope: ordered summary of the mainline commits from **c283b14** (first-contact clarity) through **e6beba1** (cheat sheet publication). Each entry notes intent, what changed, what remained open, and how the next commit moved the state forward.
 
 ## c283b14 — Restructure README/START-HERE/INSTALL/DEV-README/ARCHITECTURE (2026-03-06)
 - **Purpose:** Make first-contact onboarding coherent across entrypoints.
@@ -174,10 +174,16 @@ Scope: ordered summary of the mainline commits from **c283b14** (first-contact c
 - **Purpose:** Elevate Mogul from executor to suborchestrator with mandate lifecycle.
 - **Changed:** Expanded mogul.md posture, orchestration ladder, mandate handling; added mandate-write script and schema updates; refreshed hooks/skills and architecture ownership invariant.
 - **Gaps:** Ongoing validation and usage guidance (this cheat sheet) pending.
-- **Next:** `58b1079` recorded the plan for documenting history (this file).
+- **Next:** `58b1079` recorded the plan for documenting history.
 
 ## 58b1079 — Initial plan (2026-03-06)
 - **Purpose:** Planning stub for the commit-history cheat sheet.
 - **Changed:** None; sets intent for this documentation update.
-- **Gaps:** Needed the actual cheat sheet (fulfilled by the current commit).
-- **Next:** Current change adds this cheat sheet and README link.
+- **Gaps:** Needed the actual cheat sheet.
+- **Next:** `e6beba1` added the cheat sheet and surfaced it in README.
+
+## e6beba1 — Add commit history cheat sheet and surface it in README (2026-03-06)
+- **Purpose:** Publish the commit-history cheat sheet and make it discoverable.
+- **Changed:** Added `docs/COMMIT-HISTORY-CHEATSHEET.md` covering c283b14→98c28d6 plus planning, linked from README’s “Audit recent changes.”
+- **Gaps:** Future commits after this point should extend this sheet to keep the audit trail current.
+- **Next:** Extend with subsequent commits as they land.
