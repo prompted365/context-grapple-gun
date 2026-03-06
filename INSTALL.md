@@ -316,7 +316,7 @@ What you may see in console:
 
 Primary commands:
 /cadence             — normal session close. Writes tic, handoff, and lesson capture.
-cadence-syncopate    — compact / emergency exit command surface still supported.
+/cadence-syncopate   — compact / emergency exit command surface still supported.
 /review              — constitutional review docket for proposed lessons.
 /siren               — signal dashboard and recurring-friction triage.
 
@@ -352,7 +352,7 @@ Manual rhythm:
 
 Primary commands:
 /cadence             — normal session close. Writes tic, handoff, and lesson capture.
-cadence-syncopate    — compact / emergency exit command surface still supported.
+/cadence-syncopate   — compact / emergency exit command surface still supported.
 /review              — review proposed lessons.
 /siren               — signal dashboard and recurring-friction triage.
 
