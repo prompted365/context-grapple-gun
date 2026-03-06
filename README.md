@@ -102,6 +102,14 @@ What to look for: Does the captured lesson match what you learned? Did the hando
 
 **CGG has a ceiling:** the fundamental limit of lexical meaning. Text-as-governance degrades at scale — governance files grow monotonically, deeply nested projects accumulate heavy lesson loads, lessons lose force buried in walls of text.
 
+**CGG supports methods for mitigating these limits:**
+- Zone scoping (`.ticzone`, `.ticignore`) to bound the governance surface
+- Scope hierarchy to keep lessons at appropriate levels
+- Signal TTLs to expire stale friction
+- Human curation during `/review` to prune noise
+
+These extend the useful range of flat-file governance. But ultimately, the solution to lexical limits lies in fusion of capabilities outside this repo's scope. CGG is designed to be aware of this boundary and transparent about it.
+
 **Out of scope for this repo:**
 - Conformation-aware retrieval (load only what matches current system shape)
 - Expression gating (silence irrelevant lessons based on context)
@@ -109,9 +117,9 @@ What to look for: Does the captured lesson match what you learned? Did the hando
 - Endogenous economics (cost pressure to compress, curate, expire)
 - Compiled constraints (enforcement the agent cannot violate)
 
-These require infrastructure CGG deliberately avoids. They are boundary decisions, not roadmap items.
+These require infrastructure CGG deliberately avoids — boundary decisions, not roadmap items. Any system providing these capabilities can compose with CGG's governance primitives.
 
-**CGG is complete for individuals and small teams.** The flat-file primitives are fast, portable, and auditable by default. When you hit the ceiling — signals in the hundreds, lessons spanning dozens of files — CGG's primitives become the audit trail beneath whatever infrastructure you adopt. The governance lifecycle stays the same.
+**CGG is complete for individuals and small teams.** The flat-file primitives are fast, portable, and auditable by default. When you hit the ceiling, CGG's primitives become the audit trail beneath whatever infrastructure you adopt. The governance lifecycle stays the same.
 
 ---
 

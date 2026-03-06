@@ -134,6 +134,16 @@ But there is a ceiling: **the fundamental limit of lexical meaning**. Text-as-go
 - When the lesson corpus spans dozens of CLAUDE.md files across deeply nested projects or subprojects, governance load grows heavy — consuming context window budget disproportionately.
 - A governance file that was 50 lines and sharp becomes 500 lines and numbing. The agent reads it all. Reading and applying are different cognitive operations.
 
+### Mitigations and limits
+
+There are methods for mitigating lexical limits within CGG:
+- Zone scoping (`.ticzone`, `.ticignore`) to bound the governance surface
+- Scope hierarchy to keep lessons at appropriate levels
+- Signal TTLs to expire stale friction
+- Human curation during `/review` to prune noise
+
+These extend the useful range of flat-file governance. But ultimately, the solution to lexical limits lies in fusion of capabilities outside this repo's scope — semantic retrieval, graph topology, expression gating, economic pressure. CGG is designed to be **aware of this boundary** and **transparent about it**.
+
 ### Out of scope for this repo
 
 The following capabilities require infrastructure CGG deliberately avoids. They are **out of scope** — not roadmap items, but boundary decisions:
@@ -146,9 +156,9 @@ The following capabilities require infrastructure CGG deliberately avoids. They 
 | Endogenous economics | Cost pressure to compress, curate, expire | Flat-file governance grows without bound; capturing is free |
 | Compiled constraints | Execution-boundary enforcement | Advisory text the agent reads ≠ constraints it cannot violate |
 
-These require vector databases, embedding models, graph engines, or economic engines — infrastructure that does not fit in a CLI framework. CGG provides the governance lifecycle. Scaling beyond the lexical ceiling is a different engineering problem.
+These require vector databases, embedding models, graph engines, or economic engines — infrastructure that does not fit in a CLI framework. CGG provides the governance lifecycle. Fusion of these capabilities is a different engineering problem, addressed by infrastructure outside this repo.
 
-**CGG's docs do not depend on external substrate docs.** The categories above describe classes of capability, not specific implementations. Any system providing these capabilities can compose with CGG's governance primitives.
+**CGG's docs do not depend on external docs.** The categories above describe classes of capability, not specific implementations. Any system providing these capabilities can compose with CGG's governance primitives.
 
 ### When CGG stops being enough
 
