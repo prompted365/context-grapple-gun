@@ -44,7 +44,7 @@ CHAPTER_SLUGS[5]="05-completion"
 
 declare -A CHAPTER_TESTS
 CHAPTER_TESTS[1]="test_event_store.py"
-CHAPTER_TESTS[2]="test_dedup_scanner.py"
+CHAPTER_TESTS[2]="test_pattern_scanner.py"
 CHAPTER_TESTS[3]="test_signal_manager.py"
 CHAPTER_TESTS[4]="test_review_queue.py"
 CHAPTER_TESTS[5]="test_completion.py"

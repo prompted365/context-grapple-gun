@@ -74,5 +74,5 @@ else
   PLAN_REF="Plan file: not located (assessor should search for handoff_id: $HANDOFF_ID)"
 fi
 
-echo "{\"hookSpecificOutput\":{\"hookEventName\":\"UserPromptSubmit\",\"additionalContext\":\"[CGG TRIGGER FIRED] Spawn ripple-assessor agent (Task tool, subagent_type: ripple-assessor) BEFORE starting user work. $PLAN_REF. Expected CPR count: $EXPECTED_CPRS. Handoff ID: $HANDOFF_ID. The assessor will read the plan, evaluate pending CPR flags and active signals, and write proposals to ~/.claude/grapple-proposals/latest.md. Run it in the background so you can proceed with the user's request.\"}}"
+echo "{\"hookSpecificOutput\":{\"hookEventName\":\"UserPromptSubmit\",\"additionalContext\":\"[CGG TRIGGER FIRED] Spawn ripple-assessor agent (Task tool, subagent_type: ripple-assessor) BEFORE starting user work. $PLAN_REF. Expected CogPR count: $EXPECTED_CPRS. Handoff ID: $HANDOFF_ID. The assessor will read the plan, evaluate pending CogPR flags and active signals, and write proposals to ~/.claude/grapple-proposals/latest.md. Run it in the background so you can proceed with the user's request.\"}}"
 exit 0

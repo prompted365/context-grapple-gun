@@ -10,11 +10,11 @@ Every documented behavior mapped to its authoritative code file. When a doc clai
 
 | Component | Code File | Purpose | Key Identifiers |
 |-----------|-----------|---------|-----------------|
-| SessionStart hook | `cgg-runtime/hooks/session-restore-patch.sh` | Plan discovery, trigger extraction, CPR counting, signal scanning, parallel session detection | `count_pending_cprs()` (line 64), `FIND_EXCLUDES` (line 77), inline Python signal dedup (line 133) |
+| SessionStart hook | `cgg-runtime/hooks/session-restore-patch.sh` | Plan discovery, trigger extraction, CogPR counting, signal scanning, parallel session detection | `count_pending_cprs()` (line 64), `FIND_EXCLUDES` (line 77), inline Python signal dedup (line 133) |
 | UserPromptSubmit gate | `cgg-runtime/hooks/cgg-gate.sh` | One-shot trigger — fires ripple-assessor then self-disarms | `TRIGGER_FILE` fast exit (line 20), deterministic assessor path (line 56), LLM fallback (line 69) |
-| Ripple assessor | `cgg-runtime/agents/ripple-assessor.md` | Headless CPR evaluator + signal scanner | Frontmatter: `model: sonnet`, `tools: Read, Grep, Glob` (line 4-6). Output: `~/.claude/grapple-proposals/latest.md` (line 77) |
+| Ripple assessor | `cgg-runtime/agents/ripple-assessor.md` | Headless CogPR evaluator + signal scanner | Frontmatter: `model: sonnet`, `tools: Read, Grep, Glob` (line 4-6). Output: `~/.claude/grapple-proposals/latest.md` (line 77) |
 | Cadence (epoch boundary) | `cgg-runtime/skills/cadence/SKILL.md` | Tic emission, signal tick, conformation, lessons, handoff | Downbeat: Steps 0-4 (lines 26-99). Double-time: Steps 1-4 (lines 111-196) |
-| Review (docket) | `cgg-runtime/skills/review/SKILL.md` | Human-gated CPR promotion + warrant triage | 8-step workflow (lines 13-165). Protected files (line 167). Safety rules (line 175) |
+| Review (docket) | `cgg-runtime/skills/review/SKILL.md` | Human-gated CogPR promotion + warrant triage | 8-step workflow (lines 13-165). Protected files (line 167). Safety rules (line 175) |
 | Siren (signal ops) | `cgg-runtime/skills/siren/SKILL.md` | Signal emit/tick/update/history/conformation/diff | Sub-commands: status (line 21), tick (line 54), emit (line 114), update (line 168), history (line 193), conformation (line 215), conformation diff (line 292) |
 
 ### Deprecated Skills (redirect-only)
@@ -73,7 +73,7 @@ The canonical tic count is the **physical number** of `type=tic` entries across 
 | `cadence_position` | `"downbeat"` | `"syncopate"` |
 | Signal tick | Yes (Step 1) | Skipped |
 | Conformation | Yes (Step 1.5) | Skipped |
-| CPR extraction | Yes (Step 2) | Skipped |
+| CogPR extraction | Yes (Step 2) | Skipped |
 | Handoff format | Full (cgg-evaluate block) | Compact (5 lines/section, no cgg-evaluate) |
 
 ### Global counter cache
@@ -212,7 +212,7 @@ Always written to `~/.claude/grapple-proposals/latest.md`. Consumed and deleted 
 | `audit-logs/signals/YYYY-MM-DD.jsonl` | Append-only JSONL | `/siren`, `/review` | Signals + warrants. Latest entry per ID wins. |
 | `audit-logs/tics/YYYY-MM-DD.jsonl` | Append-only JSONL | `/cadence` | Tic records. Physical count = canonical truth. |
 | `audit-logs/conformations/tic-N.json` | JSON snapshot | `/siren conformation` | System state at tic boundary. |
-| `~/.claude/grapple-proposals/latest.md` | Markdown | `ripple-assessor` → `/review` | CPR verdicts + signal assessment. Deleted after consumption. |
+| `~/.claude/grapple-proposals/latest.md` | Markdown | `ripple-assessor` → `/review` | CogPR verdicts + signal assessment. Deleted after consumption. |
 | `~/.claude/grapple-meta-log.jsonl` | Append-only JSONL | `cgg-gate.sh`, `/review` | Trigger fires, promotion decisions, warrant verdicts. |
 | `~/.claude/cgg-tic-counter.json` | JSON | `/cadence` | Cached mirror of physical tic count. `{"count": N, "last_tic": "ISO-8601"}` |
 | `~/.claude/cgg-processed-handoff-ids.txt` | Plain text (one ID per line) | `cgg-gate.sh` | Idempotency ledger — prevents re-evaluation. |

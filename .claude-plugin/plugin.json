@@ -17,7 +17,7 @@
       {
         "name": "review",
         "path": "cgg-runtime/skills/review/SKILL.md",
-        "description": "Review and apply Cognitive Pull Request (CPR) promotions + Warrant triage across CLAUDE.md scopes."
+        "description": "Review and apply Cognitive Pull Request (CogPR) promotions + Warrant triage across CLAUDE.md scopes."
       },
       {
         "name": "siren",
@@ -63,12 +63,12 @@
       {
         "event": "SessionStart",
         "path": "cgg-runtime/hooks/session-restore-patch.sh",
-        "description": "Discovers latest handoff plan, extracts Next Actions, injects CPR queue status, detects parallel sessions."
+        "description": "Discovers latest handoff plan, extracts Next Actions, injects CogPR queue status, detects parallel sessions."
       },
       {
         "event": "UserPromptSubmit",
         "path": "cgg-runtime/hooks/cgg-gate.sh",
-        "description": "One-shot trigger gate — spawns ripple-assessor on first prompt if handoff plan has pending CPRs."
+        "description": "One-shot trigger gate — spawns ripple-assessor on first prompt if handoff plan has pending CogPRs."
       }
     ],
     "agents": [
@@ -76,7 +76,7 @@
         "name": "ripple-assessor",
         "path": "cgg-runtime/agents/ripple-assessor.md",
         "model": "sonnet",
-        "description": "Evaluates CPR flags and active signals/warrants from handoff plans. Writes promotion proposals."
+        "description": "Evaluates CogPR flags and active signals/warrants from handoff plans. Writes promotion proposals."
       }
     ]
   },

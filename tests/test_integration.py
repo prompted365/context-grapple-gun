@@ -20,7 +20,7 @@ REPO_ROOT = Path(__file__).parent.parent
 sys.path.insert(0, str(REPO_ROOT / "academy" / "solutions"))
 
 from event_store import append_event, read_current_state, read_full_history
-from dedup_scanner import compute_dedup_hash, scan_for_duplicates, append_if_unique
+from pattern_scanner import compute_pattern_hash, scan_for_patterns, append_if_unique
 from signal_manager import create_signal, tick_signals, get_active_signals, resolve_signal
 from review_queue import queue_proposal, get_pending, record_verdict, get_review_history
 from completion import check_chapter_status, generate_certificate_svg, generate_badge_svg
@@ -142,7 +142,7 @@ node_modules/
         assert len(active) == 0
 
     def test_cpr_lifecycle(self, cgg_project):
-        """Test complete CPR lifecycle: queue -> review -> verdict."""
+        """Test complete CogPR lifecycle: queue -> review -> verdict."""
         queue_file = cgg_project / "audit-logs" / "cpr-queue.jsonl"
 
         # 1. Queue a proposal
@@ -219,7 +219,7 @@ node_modules/
         with open(signal_file, "a") as f:
             f.write(json.dumps(sig) + "\n")
 
-        # Add a CPR to CLAUDE.md
+        # Add a CogPR to CLAUDE.md
         claude_md = cgg_project / "CLAUDE.md"
         claude_md.write_text(claude_md.read_text() + """
 
@@ -269,13 +269,13 @@ node_modules/
 
 ## Working State
 - Tested signal lifecycle
-- Added CPR for signal ordering
+- Added CogPR for signal ordering
 
 ## Session Learning & ROI
 - Signal ordering matters for causality
 
 ## Next Actions
-1. Review pending CPR
+1. Review pending CogPR
 2. Continue integration testing
 
 ## Carried Signals

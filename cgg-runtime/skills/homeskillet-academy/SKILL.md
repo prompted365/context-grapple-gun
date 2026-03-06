@@ -55,7 +55,7 @@ Copy these (preserve directory structure):
 
 Copy all files from `academy/solutions/` into `src/`:
 - `solutions/event_store.py` -> `src/event_store.py`
-- `solutions/dedup_scanner.py` -> `src/dedup_scanner.py`
+- `solutions/pattern_scanner.py` -> `src/pattern_scanner.py`
 - `solutions/signal_manager.py` -> `src/signal_manager.py`
 - `solutions/review_queue.py` -> `src/review_queue.py`
 - `solutions/completion.py` -> `src/completion.py`

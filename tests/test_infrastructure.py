@@ -155,7 +155,7 @@ class TestDoubletimeConsistency:
         content = cadence_skill.read_text()
 
         # Should document what is skipped
-        skipped_items = ["signal tick", "conformation", "CPR extraction"]
+        skipped_items = ["signal tick", "conformation", "CogPR extraction"]
         content_lower = content.lower()
 
         # At least some skip documentation should exist
@@ -254,7 +254,7 @@ class TestAcademyIntegration:
         solutions_dir = REPO_ROOT / "academy" / "solutions"
         expected_solutions = [
             "event_store.py",
-            "dedup_scanner.py",
+            "pattern_scanner.py",
             "signal_manager.py",
             "review_queue.py",
             "completion.py"

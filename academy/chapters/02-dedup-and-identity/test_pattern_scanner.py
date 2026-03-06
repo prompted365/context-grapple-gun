@@ -1,7 +1,7 @@
 """Tests for Chapter 2: Collaboration Pattern Scanner.
 
 These tests demonstrate how recurring collaboration patterns can be identified,
-fingerprinted, and tracked -- the same dedup mechanics from Chapter 1, now
+fingerprinted, and tracked -- the same mechanics from Chapter 1, now
 applied to patterns of teamwork and coordination.
 """
 import json
@@ -10,7 +10,7 @@ import tempfile
 
 import pytest
 
-from src.dedup_scanner import append_if_unique, compute_dedup_hash, scan_for_duplicates
+from src.pattern_scanner import append_if_unique, compute_pattern_hash, scan_for_patterns
 
 
 @pytest.fixture
@@ -34,43 +34,43 @@ class TestComputePatternHash:
     def test_same_pattern_always_same_fingerprint(self):
         """Weekly standup pattern should hash identically regardless of metadata."""
         event = {"pattern_type": "weekly_standup", "group": "team_a"}
-        h1 = compute_dedup_hash(event, ["pattern_type", "group"])
-        h2 = compute_dedup_hash(event, ["pattern_type", "group"])
+        h1 = compute_pattern_hash(event, ["pattern_type", "group"])
+        h2 = compute_pattern_hash(event, ["pattern_type", "group"])
         assert h1 == h2
 
     def test_fingerprint_is_16_chars(self):
         """Pattern hashes are consistent 16-character fingerprints."""
         event = {"a": "hello", "b": "world"}
-        h = compute_dedup_hash(event, ["a", "b"])
+        h = compute_pattern_hash(event, ["a", "b"])
         assert len(h) == 16
 
     def test_different_pattern_different_fingerprint(self):
         """Weekly standup vs daily standup are distinct patterns."""
         e1 = {"pattern_type": "weekly_standup", "group": "team_a"}
         e2 = {"pattern_type": "daily_standup", "group": "team_a"}
-        h1 = compute_dedup_hash(e1, ["pattern_type", "group"])
-        h2 = compute_dedup_hash(e2, ["pattern_type", "group"])
+        h1 = compute_pattern_hash(e1, ["pattern_type", "group"])
+        h2 = compute_pattern_hash(e2, ["pattern_type", "group"])
         assert h1 != h2
 
     def test_field_order_doesnt_affect_hash(self):
         """Pattern identity is content-based, not order-based."""
         event = {"group": "team_a", "pattern_type": "escalation"}
-        h1 = compute_dedup_hash(event, ["pattern_type", "group"])
-        h2 = compute_dedup_hash(event, ["group", "pattern_type"])
+        h1 = compute_pattern_hash(event, ["pattern_type", "group"])
+        h2 = compute_pattern_hash(event, ["group", "pattern_type"])
         assert h1 == h2  # Keys are sorted internally
 
     def test_missing_fields_dont_crash(self):
         """Partial pattern records still fingerprint cleanly."""
         event = {"pattern_type": "role_assignment"}
-        h = compute_dedup_hash(event, ["pattern_type", "missing_field"])
+        h = compute_pattern_hash(event, ["pattern_type", "missing_field"])
         assert len(h) == 16  # Doesn't crash
 
     def test_same_pattern_different_teams_same_hash(self):
         """The pattern itself is the identity, team is context."""
         e1 = {"pattern_type": "early_escalation", "context": "team_a"}
         e2 = {"pattern_type": "early_escalation", "context": "team_b"}
-        h1 = compute_dedup_hash(e1, ["pattern_type"])
-        h2 = compute_dedup_hash(e2, ["pattern_type"])
+        h1 = compute_pattern_hash(e1, ["pattern_type"])
+        h2 = compute_pattern_hash(e2, ["pattern_type"])
         assert h1 == h2  # Only pattern_type matters for this hash
 
 
@@ -83,7 +83,7 @@ class TestScanForRecurringPatterns:
             f.write(json.dumps({"pattern_type": "standup", "week": 1}) + "\n")
             f.write(json.dumps({"pattern_type": "escalation", "week": 1}) + "\n")
 
-        groups = scan_for_duplicates(empty_store, ["pattern_type"])
+        groups = scan_for_patterns(empty_store, ["pattern_type"])
         assert groups == []
 
     def test_catches_repeated_attendance_issue(self, empty_store):
@@ -93,7 +93,7 @@ class TestScanForRecurringPatterns:
             f.write(json.dumps({"pattern_type": "role_conflict", "members": ["a", "b"]}) + "\n")
             f.write(json.dumps({"pattern_type": "missed_checkin", "member": "henry"}) + "\n")
 
-        groups = scan_for_duplicates(empty_store, ["pattern_type", "member"])
+        groups = scan_for_patterns(empty_store, ["pattern_type", "member"])
         assert len(groups) == 1
         assert len(groups[0]) == 2
 
@@ -109,12 +109,12 @@ class TestScanForRecurringPatterns:
             # One-off escalation (not recurring)
             f.write(json.dumps({"pattern_type": "escalation", "reason": "emergency"}) + "\n")
 
-        groups = scan_for_duplicates(empty_store, ["pattern_type", "member", "area"])
+        groups = scan_for_patterns(empty_store, ["pattern_type", "member", "area"])
         assert len(groups) == 2
 
     def test_no_file_no_patterns(self, tmp_path):
         """Missing log returns empty, not error."""
-        groups = scan_for_duplicates(str(tmp_path / "nope.jsonl"), ["pattern_type"])
+        groups = scan_for_patterns(str(tmp_path / "nope.jsonl"), ["pattern_type"])
         assert groups == []
 
     def test_bad_lines_skipped_patterns_still_found(self, empty_store):
@@ -124,7 +124,7 @@ class TestScanForRecurringPatterns:
             f.write("corrupted line\n")
             f.write(json.dumps({"pattern_type": "standup", "week": 2}) + "\n")
 
-        groups = scan_for_duplicates(empty_store, ["pattern_type"])
+        groups = scan_for_patterns(empty_store, ["pattern_type"])
         assert len(groups) == 1
 
 

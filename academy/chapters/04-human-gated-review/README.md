@@ -103,10 +103,10 @@ Follow the chain:
 
 1. **This chapter** (Ch4): `wrn_mabel_001` was minted because `sig_unknown_001` crossed volume 80. Minting condition: `volume_threshold`. The warrant points at the signal.
 2. **Chapter 3** (Zookeeper Radio): `sig_unknown_001` was revealed as Mabel's BLEAT. Band: PRIMITIVE. Source location: 0 (the PA speaker). Volume rate: 5 per tick. No handler configured for signal type BLEAT. She was received everywhere and processed nowhere.
-3. **Chapter 2** (Dedup): The same content hash kept appearing — `BLEAT` with the same payload, new timestamps. Your dedup scanner flagged it as a recurring duplicate. Same identity, new instances.
+3. **Chapter 2** (Collaboration Patterns): The same content hash kept appearing — `BLEAT` with the same payload, new timestamps. Your pattern scanner flagged it as a recurring pattern. Same identity, new instances.
 4. **Chapter 1** (Append-Only): There it is. In the seed data. One line among the family calendar entries. An entry that didn't fit. `BLEAT`. The very first occurrence. This is where Mabel entered the system.
 
-Four chapters. One goat. A signal that was stored (Ch1), deduplicated (Ch2), routed (Ch3), and escalated (Ch4) — all through the primitives you explored.
+Four chapters. One goat. A signal that was stored (Ch1), pattern-matched (Ch2), routed (Ch3), and escalated (Ch4) — all through the primitives you explored.
 
 ### The resolution
 
