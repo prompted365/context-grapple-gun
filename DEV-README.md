@@ -196,7 +196,9 @@ CGG scans specific files, not everything. The zone scan rule:
 
 This prevents phantom counts from template files, vendor docs, and archived skill definitions. If your `/review` docket shows unexpected pending CPRs, check whether `.ticignore` covers the source directory.
 
-After enough cycles, the abstraction ladder pays off. A global lesson like "always validate embedding dimensions before similarity computation" gets picked up at a new site. That site uses Rust, not Python. The agent writes a site-level specialization -- same core signal, site-specific expression. The global lesson said *what* to check. The site expression knows *how* to check it in this codebase. The ladder works both directions.
+After enough cycles, the abstraction ladder pays off. A global lesson like "always validate embedding dimensions before similarity computation" reaches a new site. That site uses Rust, not Python. The site interprets the global law in its local context — same core signal, situated validation. The global lesson said *what* to check. The local interpretation knows *how* to validate it in this codebase.
+
+The ladder works in both directions. Upward: extract → generalize → canonicalize. Downward: apply → interpret → audit → validate. Higher-scope law descends by applicability claim and runtime interpretation, not by automatic lower-scope inscription. Lower scopes validate whether broader law carries load in context. If it fails there, the canonical law is amended, narrowed, split, or demoted at its own rung. Lower-scope writing occurs only for local origin, explicit exception, or explicitly reviewed boundary.
 
 ## Packages
 
@@ -264,11 +266,11 @@ CGG never modifies `CLAUDE.md` without your approval through `/review`. Backgrou
 
 ## Where CGG fits
 
-CGG is a compact expression of the Ubiquity concurrent development methodology. Session boundaries, lesson promotion, signal monitoring, human review gates -- three commands and flat files.
+CGG is a scalable lexical governance layer for human rationale. Session boundaries, lesson promotion, signal monitoring, human review gates — three commands and flat files.
 
-There's a ceiling. As signal stores grow, grep-based dedup slows down. As lesson corpora span dozens of files, finding the right lesson for the current context requires semantic understanding, not keyword matching. That ceiling is where deeper substrate layers begin -- embedding-based recall, graph topology, expression gating, conformation-aware retrieval. Those need infrastructure CGG deliberately avoids.
+Human rationale is the scarce substrate AI governance is trying to encode. CGG changes the economics of that encoding by distinguishing direct learning (task/domain truths), indirect learning (process/tooling/coordination truths), and meta learning (truths about learning, review, and governance themselves). The tiers answer where a lesson is allowed to matter. The abstraction ladder answers at what level of generality it should be expressed. Neither conflates with the other.
 
-Start here. When flat files aren't enough, you'll know.
+There's a ceiling. As signal stores grow, grep-based dedup slows down. As lesson corpora span dozens of files, finding the right lesson for the current context requires semantic understanding, not keyword matching. The abstraction ladder delays that ceiling; pattern mining delays it further; but neither abolishes it. When flat files aren't enough, you'll know — and CGG's primitives become the audit trail beneath whatever substrate you adopt.
 
 ### Measuring impact
 

@@ -100,11 +100,19 @@ What to look for: Does the captured lesson match what you learned? Did the hando
 
 **CGG is the portable lexical governance layer.** File-based lifecycle, human-gated promotion, auditable tic/signal trails, and jurisdictional scoping via zones.
 
-**CGG expands lexical capabilities further than most approaches** by separating governance from storage/retrieval. But **text has a ceiling**: lesson corpora grow, nested projects add weight, and walls of text dilute force.
+Human rationale is the scarce substrate AI governance is trying to encode. CGG changes the economics of that encoding by making rationale compound in governed form. It distinguishes direct learning (task/domain truths), indirect learning (process/tooling/coordination truths), and meta learning (truths about learning, review, promotion, scope, and governance themselves). It also mines recurring patterns across prior sessions, queues, mandates, and artifacts, so governance is not limited to manually surfaced lessons.
 
-**Mitigations built in:** scoped zones (`.ticzone`, `.ticignore`), the abstraction ladder, signal decay, and human curation during `/review`. They extend the useful range; they don't remove the ceiling.
+The ladder and the tier system answer different questions. Tiers answer where a lesson is allowed to matter: site → domain → estate → federation → global. The abstraction ladder answers at what level of generality it should be expressed. A lesson may rise in abstraction without rising in jurisdiction, and it may rise in jurisdiction only if it survives abstraction without semantic drift.
 
-**Beyond the ceiling:** expression gating, conformation-aware retrieval, graph topology, economic pressure, and compiled constraints live outside this repo. CGG stays flat-file and auditable; when you need those capabilities, CGG's primitives become the audit trail under a substrate such as Ubiquity. The governance lifecycle stays the same.
+CGG therefore stands on its own as a scalable lexical governance layer for human rationale. It captures explicit lessons, mines implicit recurring patterns, batches review, preserves refusal logic, and compounds validated learning across tiers without forcing premature universalization.
+
+**But text has a ceiling.** Lesson corpora grow, nested projects add weight, and walls of text dilute force.
+
+**Mitigations built in:** scoped zones (`.ticzone`, `.ticignore`), the abstraction ladder, signal decay, and human curation during `/review`. The ladder delays the ceiling by preserving controlled movement between local specificity and broader principle. Mining delays it further by surfacing cross-session recurrence. But neither abolishes it.
+
+**Beyond the ceiling:** expression gating, conformation-aware retrieval, graph topology, economic pressure, and compiled constraints live outside this repo. CGG stays flat-file and auditable; when you need those capabilities, CGG's primitives become the audit trail under whatever substrate you adopt. The governance lifecycle stays the same.
+
+Lexical governance still has a ceiling. Beyond that lexical regime, a deeper substrate may become relevant: one that preserves natural-language flexibility at the interaction layer while compiling governance into more deterministic constitutional structure. In that sense, Ubiquity is not the justification for CGG. It is the next substrate class for conditions that outrun lexical governance alone.
 
 ---
 
@@ -194,7 +202,7 @@ flowchart TB
 
 ## The abstraction ladder
 
-Knowledge in CGG lives on a scope hierarchy. We call it the abstraction ladder because lessons climb it -- and sometimes descend it.
+Knowledge in CGG lives on a scope hierarchy — the abstraction ladder. Lessons move in both directions: upward through extract → generalize → canonicalize, and downward through apply → interpret → audit → validate.
 
 ### Rungs
 
@@ -222,15 +230,17 @@ The governance invariant: the system must be willing to refuse premature promoti
 
 Two maturity gates formalize this: a temporal gate (`tic_gated`) that holds a proposal until it has survived a minimum number of conformations, and an epistemic gate (`enrichment_eligible`) that holds it until sibling cross-reference or inversion testing has been done. See [ARCHITECTURE.md](ARCHITECTURE.md#9-cpr-maturity-fields-concrete-spec) for the field spec.
 
-### Descending: global to local
+### Descending: apply → interpret → audit → validate
 
 This is the less obvious direction, and it matters more than it appears.
 
-A global lesson carries a core signal -- the primitive, the actual thing that's true. But how that truth expresses itself differs by site. When a global lesson lands in a new site context, it often needs a site-level specialization: same core signal, site-specific expression.
+Higher-scope law descends by applicability claim and runtime interpretation, not by automatic lower-scope inscription. A global lesson carries a core signal — the primitive, the actual thing that's true. When that truth reaches a new site context, the site validates whether the broader law carries load in its specific environment.
 
-Example: a global lesson says "always validate embedding dimensions before similarity computation." At Site A, that's a NumPy shape check in Python. At Site B, it's a dimension guard before `iter().zip()` in Rust -- because Rust's zip silently truncates mismatched iterators and produces wrong results without an error. The primitive is identical. The expression is specialized.
+Example: a global lesson says "always validate embedding dimensions before similarity computation." At Site A, that's a NumPy shape check in Python. At Site B, it's a dimension guard before `iter().zip()` in Rust — because Rust's zip silently truncates mismatched iterators and produces wrong results without an error. The primitive is identical. The situated interpretation differs.
 
-This downstream flow keeps the ladder honest. Global lessons stay concrete because their site-level expressions test them against real codebases. If a global lesson can't produce a useful specialization at a new site, it probably shouldn't be global. The bottom keeps the top sharp.
+Lower scopes act as validation surfaces. If a broader law does not carry load there, the remedy is to amend, narrow, split, or demote the canonical law at its own rung — not to proliferate lower-scope restatements. Lower-scope writing is reserved for local origin, explicit exception, or explicitly reviewed boundary.
+
+This downward flow keeps the ladder honest. If a global lesson cannot survive interpretation at a new site, it probably should not be global. The bottom validates the top.
 
 ```mermaid
 %%{init: {'theme': 'dark', 'flowchart': {'padding': 24, 'rankSpacing': 60, 'nodeSpacing': 40}, 'themeVariables': {'primaryColor': '#4361ee', 'primaryTextColor': '#f8f9fa', 'primaryBorderColor': '#6c757d', 'lineColor': '#4895ef', 'secondaryColor': '#1a1a2e', 'tertiaryColor': '#16213e', 'edgeLabelBackground': '#1a1a2e', 'clusterBkg': '#16213e', 'clusterBorder': '#3d3d3d'}}}%%
@@ -258,14 +268,14 @@ flowchart TB
 
     subgraph SITE_C["Site C -- new repo"]
         direction TB
-        PC1["Site CLAUDE.md<br/>specialized expression"]
+        PC1["Site CLAUDE.md<br/>local interpretation"]
         PC2["Local discovery<br/>same primitive, new form"]
         PC2 -. "validates global<br/>lesson locally" .-> PC1
     end
 
     PA1 == "Promotion<br/>2+ cycles validated" ===> GLOBAL
     PB1 -. "Candidate<br/>pending validation" ..-> GLOBAL
-    GLOBAL == "Specialization<br/>core signal descends" ===> PC1
+    GLOBAL == "Application<br/>interpret &amp; validate locally" ===> PC1
     GLOBAL -. "Informs but<br/>does not dictate" ..-> PA1
     GLOBAL -. "Informs but<br/>does not dictate" ..-> PB1
 
@@ -346,10 +356,10 @@ graph TB
     CogPR2 -->|Extract Patterns| ProjMem
     ProjMem -->|Validate Universality| GlobalMem
 
-    %% Downward Specialization
-    GlobalMem -.->|Cascade Truths| ProjMem
-    ProjMem -.->|Specialize Rules| S2
-    ProjMem -.->|Specialize Rules| S3
+    %% Downward Application
+    GlobalMem -.->|Apply &amp; Validate| ProjMem
+    ProjMem -.->|Interpret Locally| S2
+    ProjMem -.->|Interpret Locally| S3
 
     %% Continuous Feedback
     S1 -->|New Discoveries| LocalObs
@@ -486,7 +496,7 @@ MEMORY.md files are gitignored but NOT ticignored -- they hold active governance
 > 3. Exclude paths matching `.ticignore` (default: vendor/, node_modules/, .git/, .claude/skills/)
 > 4. Skip `status: "example"` blocks (documentation templates)
 
-Zone nesting: a `.ticzone` in a subdirectory creates a nested zone inheriting the parent's `tz` and `bands` unless overridden. Muffling crosses zone boundaries at 2x the per-hop rate.
+Zone nesting: a `.ticzone` in a subdirectory creates a nested zone. The nearest `.ticzone` establishes the current jurisdictional position — there is no automatic parent/child field merge. A nested zone must define its own fields or fall back to code defaults. Muffling crosses zone boundaries at 2x the per-hop rate.
 
 ### System conformation
 

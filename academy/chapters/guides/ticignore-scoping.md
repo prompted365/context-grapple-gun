@@ -138,7 +138,7 @@ This is the default and works for most repositories.
 
 ### Nested zones (large projects)
 
-A `.ticzone` in a subdirectory creates a nested zone. The inner zone inherits the parent's `tz` and `bands` unless overridden. Cross-zone signals pay the 2x muffling penalty.
+A `.ticzone` in a subdirectory creates a nested zone. The nearest `.ticzone` establishes the current jurisdictional position — there is no automatic parent/child field merge. The inner zone must define its own `tz`, `bands`, and other fields, or fall back to code defaults. Cross-zone signals pay the 2x muffling penalty.
 
 ```
 my-monorepo/

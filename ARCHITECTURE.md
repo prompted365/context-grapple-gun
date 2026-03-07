@@ -105,7 +105,7 @@ The acoustic model routes signals based on directory distance and frequency band
 
 **Tic-zones** add jurisdictional scoping. A `.ticzone` file at a directory root defines a named acoustic region with explicit path inclusion, timezone, optional coordinates, active bands, and a muffling constant. Zones answer "Which agents can hear which signals?" through configuration, not convention.
 
-Zone nesting enables federation. A subdirectory can define a nested zone that inherits the parent's properties but overrides specific bands or muffling rates. Cross-zone signal propagation attenuates at double the intra-zone rate — inter-jurisdictional communication is possible but expensive. The cost is structural: it models the real friction of information crossing organizational boundaries.
+Zone nesting enables federation. A subdirectory can define a nested zone with its own `.ticzone` file. The nearest `.ticzone` establishes the current jurisdictional position — there is no automatic parent/child field merge. A nested zone must define its own fields or fall back to code defaults. Cross-zone signal propagation attenuates at double the intra-zone rate — inter-jurisdictional communication is possible but expensive. The cost is structural: it models the real friction of information crossing organizational boundaries.
 
 `.ticignore` complements the zone definition with exclusion filtering. Where `.ticzone` says "this is my jurisdiction," `.ticignore` says "except these paths." v1 supports directory-level exclusions only -- intentionally simple. The zone scan rule resolves in order: zone boundary first (what's in), exclusion filter second (what's out). Governance surface = CLAUDE.md + MEMORY.md files inside the zone minus excluded paths.
 
@@ -159,6 +159,47 @@ CGG's governance lifecycle is complete for individuals and small teams. The flat
 
 CGG runs inside an AI agent. The agent reading CLAUDE.md files has full semantic understanding — it connects "embedding API failures" to "infrastructure sovereignty" without keyword overlap. It spawns subagents for deeper search and catches duplicates during `/review` that no keyword matcher would flag. The retrieval surface is an LLM, not a grep index.
 
+### Design rationale: why rationale compounds
+
+Human rationale is the scarce substrate AI governance is trying to encode.
+
+Most existing approaches fail economically because they force humans to keep re-paying rationale cost through repeated review, repeated explanation, repeated exception handling, and repeated reconstruction of why a decision was made.
+
+CGG/CogPR changes that cost structure by giving rationale a governed compounding path.
+
+It does this by distinguishing three kinds of learning:
+- **Direct learning**: truths about the task, domain object, or subject matter itself
+- **Indirect learning**: truths about process, tooling, coordination, and interaction patterns discovered while doing the work
+- **Meta learning**: truths about how learning, review, promotion, scope, and governance themselves should operate
+
+That separation matters because it prevents learning from collapsing into an undifferentiated memory heap. It preserves not only what was learned, but how it was learned and how that learning should itself be governed.
+
+CGG also introduces a **bidirectional abstraction ladder**.
+
+That ladder allows learning to move upward into more general principle and downward into more situated use without flattening the distinction between the two. Governance is not only about promoting local truths upward toward broader scope. It is also about returning broader truths into concrete operational contact so they can be interpreted, audited, and validated under real conditions.
+
+That downward movement must be stated precisely: it is **not** automatic lower-scope inscription by default. Higher-scope law descends by applicability claim and runtime interpretation, not by being mechanically rewritten into lower-scope constitutional text. Lower scopes act as validation surfaces. If a broader law does not carry load there, the remedy is to amend, narrow, split, or demote the canonical law at its own rung — not to proliferate default lower-tier restatements. Lower-scope writing is reserved for local origin, explicit exception, or explicit reviewed boundary.
+
+The ladder therefore works like this:
+- **Upward**: extract → generalize → canonicalize
+- **Downward**: apply → interpret → audit → validate
+
+This matters because direct, indirect, and meta learning differ not only by type but by their proper altitude on the ladder. Some truths belong close to the work. Some belong one rung higher as reusable coordination patterns. Some belong higher still as governance guidance. The ladder allows movement between specificity and generality without losing lineage, context, or legitimacy.
+
+CGG is also not limited to explicit lesson capture. It includes periodic mining of recurring patterns across accumulated interaction history — prior sessions, queues, mandates, artifacts, and refusals. That means the system does not wait only for manually surfaced insight. It can also detect repeat structures, latent indirect lessons, and emerging meta-governance signals that no single interaction would have made fully visible.
+
+Its gate is not merely binary UI. It is a compressed interaction surface over a deeper tree of rationale, references, rework history, refusal logic, and justification lanes. A "yes" is not merely approval; it is promotion with lineage. A "no" is not merely rejection; it is preserved refusal logic and future signal.
+
+Those gates operate across explicit governance tiers:
+
+**site → domain → estate → federation → global**
+
+The tiers answer a different question than the ladder. The ladder answers at what level of generality a lesson should be expressed. The tiers answer where it is allowed to matter. A lesson may rise in abstraction without rising in jurisdiction. It may rise in jurisdiction only if it survives abstraction without semantic drift. Likewise, a broader truth must be able to re-enter situated operational use and survive local interpretation or it becomes decorative doctrine rather than living governance.
+
+Because learning is typed, abstraction is laddered, promotion is tiered, and mining is periodic, rationale compounds without collapsing into semantic sludge. CGG gives teams a practical way to accumulate validated learning from the site level upward without pretending that every insight should immediately become global law.
+
+That makes CGG broadly applicable wherever humans and agents are still coordinating through language. It is a lexical governance system, and within that regime it is not a placeholder. It is the first scalable encoding layer for human rationale.
+
 But there is a ceiling: **the fundamental limit of lexical meaning**. Text-as-governance degrades at scale:
 
 - When the signal store grows past a few hundred entries, dedup-by-latest-entry-per-ID becomes a linear scan.
@@ -201,6 +242,10 @@ The ceiling shows up when:
 - You need compiled constraints the agent cannot violate, not advisory text it reads
 
 At that point, CGG's flat-file primitives become the audit trail beneath whatever infrastructure you adopt. The governance lifecycle stays the same — capture, evaluate, promote, audit — but the storage and retrieval layer changes.
+
+The abstraction ladder delays the ceiling by preserving controlled movement between local specificity and broader principle. Pattern mining delays it further by surfacing cross-session recurrence that would otherwise stay buried. But neither abolishes the ceiling. They make lexical governance more coherent and more powerful within its legitimate regime; they do not claim that lexicon alone can indefinitely carry every tier of reality.
+
+Beyond that lexical regime, a deeper substrate may be needed: one that preserves natural-language flexibility at the interaction layer while compiling governance into more deterministic structure at the constitutional layer. In that sense, Ubiquity is not the justification for CGG. It is the next substrate class for conditions that outrun lexical governance alone.
 
 ### Measuring CGG's impact
 
@@ -489,6 +534,19 @@ The mandate is an execution-surface artifact, not a bridge or ephemeral transpor
 
 Optional: `/tmp/claude_cgg/.../mogul-mandate.json` as transport cache. The audit-logs path is the execution-surface authority.
 
+### Mandate lifecycle
+
+Mandates track explicit state transitions:
+
+| Status | Meaning | Set by |
+|--------|---------|--------|
+| `pending` | Written, awaiting activation | Trigger (SessionStart, /cadence, /review) |
+| `running` | Activation in progress | cgg-gate.sh on spawn |
+| `consumed` | Successfully completed | Mogul on completion |
+| `failed` | Execution failed | Mogul or runner on error |
+
+Pending mandates are eligible for **repeated activation opportunities** independent of handoff-trigger state. The UserPromptSubmit gate checks mandate existence and status on every prompt, not only when a trigger file is present. This prevents silent mandate loss when handoff state is stale or absent.
+
 ### Trigger → mandate flow
 
 1. Trigger fires (SessionStart, /cadence, /review, explicit)
@@ -496,8 +554,23 @@ Optional: `/tmp/claude_cgg/.../mogul-mandate.json` as transport cache. The audit
 3. Trigger writes mandate to `audit-logs/mogul/mandates/current.json`
 4. Trigger appends mandate to `audit-logs/mogul/mandates/history/YYYY-MM-DD.jsonl`
 5. If spawn-worthy: trigger schedules Mogul activation at appropriate spawn point
-6. Mogul reads mandate, executes mandated cycles, produces execution artifacts
-7. Mogul does NOT invent additional trigger reasons beyond the mandate
+6. Gate marks mandate `running` before spawn
+7. Mogul reads mandate, executes mandated cycles, produces execution artifacts
+8. Mogul marks mandate `consumed` on success or `failed` on error
+9. Mogul does NOT invent additional trigger reasons beyond the mandate
+
+### Activation decoupling
+
+`/cadence` and SessionStart are **clocks**, not workers. They write or merge due work into a mandate. Mogul is the operator. Kickoff stays non-blocking.
+
+The UserPromptSubmit gate (`cgg-gate.sh`) runs two independent branches:
+
+| Branch | Trigger | Purpose |
+|--------|---------|---------|
+| **Mandate** | Mandate file exists with `status: pending` | Surface and activate pending governance work |
+| **Assessor** | Trigger file from SessionStart exists | Spawn ripple-assessor for CogPR evaluation |
+
+Neither branch depends on the other. A mandate can activate without a trigger file. An assessor can spawn without a mandate. Both can fire in the same prompt. Merge preserves due work across rapid cadences.
 
 ### Blocking vs non-blocking
 
