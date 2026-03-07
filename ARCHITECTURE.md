@@ -109,6 +109,10 @@ Zone nesting enables federation. A subdirectory can define a nested zone that in
 
 `.ticignore` complements the zone definition with exclusion filtering. Where `.ticzone` says "this is my jurisdiction," `.ticignore` says "except these paths." v1 supports directory-level exclusions only -- intentionally simple. The zone scan rule resolves in order: zone boundary first (what's in), exclusion filter second (what's out). Governance surface = CLAUDE.md + MEMORY.md files inside the zone minus excluded paths.
 
+### Signal birth provenance
+
+A federated signal must carry birth provenance. Hearing a signal locally does not make it locally born. When signals propagate across zone boundaries, the receiving zone must distinguish imported pressure from locally-originated claims. Local law (CLAUDE.md rules, promoted lessons) should not mutate from imported signal pressure alone — local corroboration is required before an imported signal drives governance changes. Birth provenance is tracked as metadata on the signal: `birth_zone`, `birth_tic`, and the originating emission context.
+
 ### System conformation
 
 At any tic boundary, the total state of a CGG-governed system forms a **conformation**: active signals, pending CogPRs, minted warrants, drift measurements, zone membership, and rules in force at each scope tier.
@@ -327,6 +331,10 @@ If signals cluster around agent behavior, Mogul must expand the audit surface to
 ### Example failure case
 
 A lesson repeatedly compensating for agent drift may indicate prompt-stack interference rather than missing governance law.
+
+### Executable substrate design principle
+
+When the governance infrastructure can execute demonstrations live (e.g., Academy SKILL.md running real tic emissions, signal routing, and warrant minting), tutorial design shifts from student-written exercises to Claude-narrated demonstrations. The student's job becomes understanding, not implementing. This is not a pedagogical preference — it's a structural consequence of executable behavior-bearing surfaces.
 
 ## Warrant Completeness Invariant (Trip Hazard)
 

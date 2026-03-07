@@ -116,11 +116,24 @@ else
   printf '%s' "$TIC_COUNT" > "$TIC_CACHE"
 fi
 
+# --- ANSI color palette (Persian fire) ---
+C_RESET='\033[0m'
+C_AMBER='\033[38;5;214m'    # amber/gold — model, tic
+C_FLAME='\033[38;5;202m'    # orange-red — project name
+C_EMBER='\033[38;5;167m'    # warm red — branch
+C_ASH='\033[38;5;245m'      # dim gray — separators, duration
+C_GREEN='\033[32m'           # green — clean/zero counts
+C_RED='\033[31m'             # red — active/nonzero warnings
+C_YELLOW='\033[33m'          # yellow — nonzero cprs, cost
+# Background colors for conformation status badge
+C_BG_GREEN='\033[42;30m'    # green bg, black text
+C_BG_RED='\033[41;97m'      # red bg, bright white text
+
 # --- LITE mode output ---
-LITE_LINE="[$MODEL] $PROJ_NAME ${GIT_INFO:+$GIT_INFO }| tic ${TIC_COUNT}"
+LITE_LINE="${C_AMBER}[${MODEL}]${C_RESET} ${C_FLAME}${PROJ_NAME}${C_RESET} ${C_EMBER}${GIT_INFO:+$GIT_INFO }${C_RESET}${C_ASH}|${C_RESET} ${C_AMBER}tic ${TIC_COUNT}${C_RESET}"
 
 if [ "$MODE" = "LITE" ]; then
-  printf '%s' "$LITE_LINE"
+  printf '%b' "$LITE_LINE"
   exit 0
 fi
 
@@ -185,21 +198,36 @@ else
     fi
   fi
 
-  # Build conformation radar line
+  # Build conformation radar line with colors
   # Fallback ladder: conformation summary > tic-only > model+project+branch
   if [ -n "$CONF_STATUS" ]; then
-    CONF_LINE="conformation: ${CONF_STATUS} | sig ${SIG_COUNT} | wrn ${WRN_COUNT} | cpr ${CPR_COUNT}"
+    # Background-color badge for conformation status
+    if [ "$CONF_STATUS" = "clean" ]; then
+      C_BADGE="$C_BG_GREEN"
+    else
+      C_BADGE="$C_BG_RED"
+    fi
+    # Color counts: green if 0, red/yellow if nonzero
+    C_SIG="$C_GREEN"; [ "${SIG_COUNT:-0}" != "0" ] && C_SIG="$C_RED"
+    C_WRN="$C_GREEN"; [ "${WRN_COUNT:-0}" != "0" ] && C_WRN="$C_RED"
+    C_CPR="$C_GREEN"; [ "${CPR_COUNT:-0}" != "0" ] && C_CPR="$C_YELLOW"
+
+    CONF_LINE="${C_BADGE} ${CONF_STATUS} ${C_RESET} ${C_SIG}sig ${SIG_COUNT}${C_RESET} ${C_ASH}|${C_RESET} ${C_WRN}wrn ${WRN_COUNT}${C_RESET} ${C_ASH}|${C_RESET} ${C_CPR}cpr ${CPR_COUNT}${C_RESET}"
   fi
-  [ -n "$COST_STR" ] && CONF_LINE="${CONF_LINE:+$CONF_LINE | }${COST_STR}"
-  [ -n "$DUR_STR" ] && CONF_LINE="${CONF_LINE:+$CONF_LINE | }${DUR_STR}"
+  if [ -n "$COST_STR" ]; then
+    CONF_LINE="${CONF_LINE:+$CONF_LINE ${C_ASH}|${C_RESET} }${C_YELLOW}${COST_STR}${C_RESET}"
+  fi
+  if [ -n "$DUR_STR" ]; then
+    CONF_LINE="${CONF_LINE:+$CONF_LINE ${C_ASH}|${C_RESET} }${C_ASH}${DUR_STR}${C_RESET}"
+  fi
 
   printf '%s' "$CONF_LINE" > "$CONF_CACHE"
 fi
 
 # --- FULL mode output ---
 if [ -n "$CONF_LINE" ]; then
-  printf '%s\n%s' "$LITE_LINE" "$CONF_LINE"
+  printf '%b\n%b' "$LITE_LINE" "$CONF_LINE"
 else
   # No conformation data available — degrade to LITE
-  printf '%s' "$LITE_LINE"
+  printf '%b' "$LITE_LINE"
 fi
