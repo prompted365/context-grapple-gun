@@ -131,6 +131,26 @@ The structural analogy is deliberate: the tic sequence is the primary structure.
 
 Everything below conformation — files, signals, rules, zones — is mechanism. Conformation is what those mechanisms produce: a shape, inspectable at any point in the sequence, that captures everything the system knows and everything it's doing about what it knows.
 
+### Mandate execution atomicity
+
+A mandate is a governance instruction consumed by a runner (Mogul, a headless agent, a hook-triggered script). The runner reads the mandate, executes against it, and validates the result against the mandate's identity. The concurrency invariant:
+
+**Mandate identity must be atomically bound at read time.** The runner must validate against the ID it consumed, not the current file state, because concurrent hooks can regenerate the mandate mid-execution.
+
+The failure mode: a hook fires during mandate execution, rewrites the mandate file with a new ID, and the runner's post-execution validation reads the *new* file — passing validation against a mandate it never executed. The fix is either file-level locking during execution or snapshot-and-compare: capture the mandate ID at read time and validate against that snapshot, never against the live file.
+
+This is a general concurrency invariant for any system where governance instructions are file-backed and multiple writers share the filesystem.
+
+### Observability / governance separation
+
+Observability surfaces (statuslines, dashboards, conformation summaries) and governance surfaces (signal emission, warrant minting, CogPR advancement) must remain structurally separated:
+
+**Observability surfaces must never reconstruct governance truth from raw event ledgers.** They read pre-computed canonical summaries only, degrading gracefully when summaries are absent rather than compensating with raw-ledger scanning.
+
+The failure mode: an observability surface scans `signals/*.jsonl` or `cprs/queue.jsonl` directly to render current state. This makes the read path a governance surface — it must now understand latest-entry-per-ID-wins semantics, signal state resolution, decay computation, and warrant eligibility. The observability surface silently becomes a second governance engine, with its own bugs and its own version of truth.
+
+The architectural invariant: governance produces canonical summaries (conformation snapshots at `audit-logs/conformations/tic-N.json`, cached scalar counters). Observability consumes those summaries. When summaries are absent, observability degrades (shows less data), never compensates (scans raw ledgers). The fallback ladder: conformation summary → cached counters → static metadata (model, project, branch).
+
 ## 6. Lexical Ceiling (Scope Boundary)
 
 CGG's governance lifecycle is complete for individuals and small teams. The flat-file primitives — JSONL signal stores, CLAUDE.md rule tiers, append-only audit trails — are fast, portable, and auditable by default.
@@ -220,14 +240,16 @@ Three numbers that separate compounding governance from configuration drift:
 ```
 Human
   ↓
-Homeskillet (primary UX / control plane)
+Interactive orchestrator (primary UX / control plane)
   ↓
 Estate governance orchestrators
   ├─ Mogul (governance-operational heavy lift)
-  └─ Swann (economy)
+  └─ Economic governor (optional)
 ```
 
-### Homeskillet
+> **Persona names**: Estates may assign persona names to offices (e.g., "Homeskillet" for the interactive orchestrator, "Swann" for the economic governor) via `.ticzone` `governance_actors`. These docs use role descriptions for portability.
+
+### Interactive orchestrator
 
 Role: primary UX and control plane
 Mode: blocking / user-facing
@@ -277,9 +299,9 @@ Must:
 Cannot:
 - promote law
 - mutate CLAUDE.md
-- assume Swann's role
+- assume the economic governor's role
 
-### Swann
+### Economic governor (optional)
 
 Role: economic governor
 
@@ -290,7 +312,7 @@ Responsibilities:
 - liquidity monitoring
 - economic pressure signals
 
-Swann must never run operational governance.
+The economic governor must never run operational governance. Not all CGG installs require an economic governor — it is configured via `.ticzone` `governance_actors` when token economy constraints are desired.
 
 ### Subordinate assessors
 
@@ -361,6 +383,7 @@ Governance audits run on tic-sum-derived cadence. These are interim cycles — s
 
 - `session_start_restore` — SessionStart hook discovers handoff plans, injects CPR queue, runs enrichment scanner
 - `first_prompt_assessment` — UserPromptSubmit hook triggers one-shot ripple-assessor (background)
+- `posttool_microscan` — PostToolUse hook detects runtime drift when governance files are modified (Write/Edit on CLAUDE.md, SKILL.md, agent prompts, hooks). Emits TENSION signal if installed copy drifts from canonical source.
 - `review_close_consistency_check` — post-`/review` verification that constitutional changes landed coherently
 - `cadence_due_stamp` — `/cadence` writes tic-sum-derived due markers into handoff bridge
 
@@ -384,9 +407,11 @@ An **office** is a named governance role with defined responsibilities, constrai
 
 | Office | Role | Mode |
 |--------|------|------|
-| Homeskillet | Primary UX / control plane | Blocking, user-facing |
+| Interactive orchestrator | Primary UX / control plane | Blocking, user-facing |
 | Mogul | Governance-operational suborchestrator | Headless by default |
-| Swann | Economic governor | Headless by default |
+| Economic governor (optional) | Token economy, cost constraints | Headless by default |
+
+> **Estate customization**: Offices can be given persona names via `.ticzone` `governance_actors` (e.g., "Homeskillet" for the interactive orchestrator, "Swann" for the economic governor). CGG canonical docs use role descriptions, not persona names.
 
 Subordinate roles (Ripple Assessor, Pattern Curator, Ladder Auditor, etc.) are delegation targets, not offices. They operate under Mogul's synthesis authority.
 
@@ -439,11 +464,11 @@ Triggers activate governance work. They are not surfaces.
 
 ### Ownership Invariant
 
-**Due governance work may be triggered from the user-facing layer, but it must be owned by the proper governor.** Homeskillet may notice due-ness, trigger Mogul, and present results. Homeskillet should not routinely perform Mogul's maintenance work. When Mogul's activation fabric is absent, manual execution by another actor must be recorded as wrong-owner override.
+**Due governance work may be triggered from the user-facing layer, but it must be owned by the proper governor.** The interactive orchestrator may notice due-ness, trigger Mogul, and present results. The interactive orchestrator should not routinely perform Mogul's maintenance work. When Mogul's activation fabric is absent, manual execution by another actor must be recorded as wrong-owner override.
 
-**Heavy governance lifting stays out of the UX lane by default.** Maintenance execution, queue advancement, enrichment gathering, signal scanning, and subordinate orchestration default downward into Mogul. Homeskillet receives summaries, escalations, and decision points — not the heavy lifting itself.
+**Heavy governance lifting stays out of the UX lane by default.** Maintenance execution, queue advancement, enrichment gathering, signal scanning, and subordinate orchestration default downward into Mogul. The interactive orchestrator receives summaries, escalations, and decision points — not the heavy lifting itself.
 
-Mogul may surface state upward. Homeskillet may steer Mogul downward. Hooks and cadence may manage Mogul by proxy through the UX lane. These interactions do not transfer default operational ownership. Visibility and steerability are not the same as ops ownership. The goal: Mogul stays busy so Homeskillet does not have to.
+Mogul may surface state upward. The interactive orchestrator may steer Mogul downward. Hooks and cadence may manage Mogul by proxy through the UX lane. These interactions do not transfer default operational ownership. Visibility and steerability are not the same as ops ownership. The goal: Mogul stays busy so the interactive orchestrator does not have to.
 
 ## Mogul Activation Contract
 

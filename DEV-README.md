@@ -240,7 +240,7 @@ For Claude Desktop or Claude for Work, copy `cogpr/claude-desktop/project-instru
 
 The trigger gate spawns a fresh Claude agent (the ripple-assessor) to evaluate pending CogPRs between sessions. No configuration needed — the default path is the LLM agent.
 
-For faster, cheaper, more predictable evaluation, drop a `scripts/ripple-assessor.py` into your project root. The gate hook checks for this file first — if it exists, it runs the Python script directly instead of spawning an LLM agent. Same inputs, same output path (`~/.claude/grapple-proposals/latest.md`), no API cost.
+For faster, cheaper, more predictable evaluation, the gate hook checks for a deterministic assessor script via a 3-path resolution chain: (1) `$ZONE_ROOT/scripts/ripple-assessor.py` (project override), (2) `$CGG_SCRIPTS_DIR/ripple-assessor.py` (plugin-root-anchored bundled script at `cgg-runtime/scripts/`), (3) `$HOME/.claude/cgg-runtime/scripts/ripple-assessor.py` (global fallback). If found, it runs the Python script directly instead of spawning an LLM agent. Same inputs, same output path (`~/.claude/grapple-proposals/latest.md`), no API cost.
 
 Simple installs get the agent. Mature installs get deterministic evaluation. The gate handles both.
 
@@ -248,16 +248,15 @@ As the project matures and CogPR volume grows, a deterministic script also lets 
 
 ## CogPR Extraction Pipeline
 
-The CogPR queue (`audit-logs/cprs/queue.jsonl`) is populated by a **PostToolUse hook on ExitPlanMode**. This is a deliberate design choice:
+The CogPR queue (`audit-logs/cprs/queue.jsonl`) is populated by `cpr-extract.py`, called from the **SessionStart hook** (`session-restore.sh`). This is a deliberate design choice:
 
-- **Why ExitPlanMode, not SessionEnd**: SessionEnd is unreliable — sessions crash, context expires, users close terminals. ExitPlanMode fires deterministically at every `/cadence` and `/review` boundary because both use Plan Mode as their governance gate.
-- **Synchronous, not background**: The extraction runs inline during the hook, not as a background agent. No race conditions, no missed extractions.
-- **Three extraction paths** (all use the same dedup hash):
-  1. **PostToolUse fast path** — fires on ExitPlanMode, the normal case
-  2. **SessionStart recovery** — discovers handoff plans from crashed sessions
-  3. **SessionStart backfill** — scans CLAUDE.md/MEMORY.md tags as safety net
+- **Why SessionStart, not PostToolUse**: CogPR extraction scans CLAUDE.md and MEMORY.md for `<!-- --agnostic-candidate -->` blocks. The SessionStart hook has access to the full governance surface and runs deterministically at every session boundary.
+- **Synchronous extraction**: `cpr-extract.py` runs inline during SessionStart, scanning the CLAUDE.md/MEMORY.md chain for tagged blocks and populating `queue.jsonl` via dedup hash (`sha256(source:lesson)[:16]`).
+- **Two extraction paths** (both use the same dedup hash):
+  1. **SessionStart primary** — `cpr-extract.py` scans governance surfaces for `--agnostic-candidate` blocks
+  2. **SessionStart backfill** — inline block counting in `session-restore.sh` as a safety net for queue integrity
 
-Running all three on the same CogPR produces exactly one queue entry. The queue is eventually consistent.
+Running both on the same CogPR produces exactly one queue entry. The queue is eventually consistent.
 
 ## Safety
 

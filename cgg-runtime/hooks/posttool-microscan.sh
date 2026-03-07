@@ -137,10 +137,14 @@ case "$FINDING_TYPE" in
         # This prevents noise from intentional syncs or repairs.
         CANONICAL=""
         CGG_RT=""
+        # Plugin root first (works for marketplace + submodule installs),
+        # then submodule fallback, then global fallback
+        CGG_PLUGIN_ROOT="${CLAUDE_PLUGIN_ROOT:-}"
         for candidate in \
+          "${CGG_PLUGIN_ROOT:+$CGG_PLUGIN_ROOT/cgg-runtime}" \
           "$ZONE_ROOT/vendor/context-grapple-gun/cgg-runtime" \
           "$HOME/.claude/cgg/cgg-runtime"; do
-          [ -d "$candidate" ] && CGG_RT="$candidate" && break
+          [ -n "$candidate" ] && [ -d "$candidate" ] && CGG_RT="$candidate" && break
         done
 
         if [ -n "$CGG_RT" ]; then

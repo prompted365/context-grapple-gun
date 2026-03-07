@@ -24,8 +24,12 @@ This skill owns **installed runtime copies** only. It may freely create or overw
 - `.ticignore` (only if it does not already exist)
 - `audit-logs/` subdirectories (create only, never delete)
 
+This skill may **append** to (never overwrite):
+- `CLAUDE.md` — convention block only (appended if Session Learning Protocol section is absent)
+- `.claude/settings.local.json` — hook registrations only (merged into existing, never replacing)
+
 This skill must NEVER overwrite:
-- User-authored `CLAUDE.md` or `MEMORY.md` at any rung
+- User-authored `CLAUDE.md` or `MEMORY.md` content at any rung
 - Existing `.ticzone` (report it, do not replace — user may have customized it)
 - Existing `audit-logs/*.jsonl` files (append-only history)
 - Any file outside the zone root
@@ -146,6 +150,52 @@ For each surface:
    - If identical: report `[synced]`
    - If different: report `[DRIFTED]` and show brief diff summary. Copy canonical to installed, report `[resynced]`
 
+### Step 4.5: Convention Block (CLAUDE.md)
+
+Check if the project's `CLAUDE.md` contains the CGG Session Learning Protocol block.
+
+**Detection**: Search for `## Session Learning Protocol` in `$ZONE_ROOT/CLAUDE.md`.
+
+**If missing**: Read the canonical convention block from `$CGG_PLUGIN_ROOT/convention-block.md`. Append it to the end of `$ZONE_ROOT/CLAUDE.md` (create the file if it doesn't exist). Report `[installed] convention block in CLAUDE.md`.
+
+**If present**: Report `[exists] convention block in CLAUDE.md` and do not modify.
+
+**Safety**: This step appends only. It never overwrites existing CLAUDE.md content. If the block exists but differs from canonical, report `[drifted] convention block — manual review recommended` but do not overwrite.
+
+### Step 4.6: Settings Registration (settings.local.json)
+
+Check if hooks are registered in `.claude/settings.local.json`.
+
+**Detection**: Read `$ZONE_ROOT/.claude/settings.local.json` (or create it if missing). Check whether `hooks` entries exist for:
+- `SessionStart` → `.claude/hooks/session-restore-patch.sh` (or `session-restore.sh`)
+- `UserPromptSubmit` → `.claude/hooks/cgg-gate.sh`
+
+**If missing entries**: Add the missing hook registrations to the `hooks` object. Preserve all existing settings — merge, do not replace.
+
+**Expected format** (merged into existing):
+```json
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "type": "command",
+        "command": ".claude/hooks/session-restore-patch.sh"
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "type": "command",
+        "command": ".claude/hooks/cgg-gate.sh"
+      }
+    ]
+  }
+}
+```
+
+**If already registered**: Report `[exists] hooks in settings.local.json` and do not modify.
+
+**Safety**: This step merges into existing JSON. It never deletes existing settings entries.
+
 ### Step 5: Validate
 
 After install/sync:
@@ -190,6 +240,8 @@ Runtime:
   hooks/restore     [installed|synced|resynced]
   hooks/gate        [installed|synced|resynced]
 
+Convention: [installed|exists|drifted]
+Settings:   [installed|exists] (hooks in settings.local.json)
 Drift:      0 surfaces drifted (or N surfaces resynced)
 Initial tic: emitted | skipped (use --tic)
 ```

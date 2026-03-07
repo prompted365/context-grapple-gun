@@ -28,6 +28,16 @@
         "name": "homeskillet-academy",
         "path": "cgg-runtime/skills/homeskillet-academy/SKILL.md",
         "description": "Interactive CGG tutorial — scaffold a workspace with 5 narrative chapters, tests, and fixtures."
+      },
+      {
+        "name": "statusline",
+        "path": "cgg-runtime/skills/statusline/SKILL.md",
+        "description": "Configure the CGG acoustic statusline — read-only conformation radar with soft-toggle modes."
+      },
+      {
+        "name": "init-governance",
+        "path": "cgg-runtime/skills/init-governance/SKILL.md",
+        "description": "Bootstrap or repair CGG governance surfaces — creates .ticzone, audit directories, installs runtime, validates sync."
       }
     ],
     "legacy_skills": [
@@ -71,9 +81,19 @@
         "description": "Canonical governance runtime entrypoint — zone-root-anchored plan discovery, CogPR queue, signal scanning, parallel session awareness."
       },
       {
+        "event": "SessionStart",
+        "path": "cgg-runtime/hooks/session-restore-patch.sh",
+        "description": "Compatibility shim — delegates to session-restore.sh."
+      },
+      {
         "event": "UserPromptSubmit",
         "path": "cgg-runtime/hooks/cgg-gate.sh",
         "description": "One-shot trigger gate — zone-root-anchored, spawns ripple-assessor on first prompt if handoff plan has pending CogPRs."
+      },
+      {
+        "event": "PostToolUse",
+        "path": "cgg-runtime/hooks/posttool-microscan.sh",
+        "description": "Lightweight runtime drift detection — fires after Write/Edit on governance files, records signal seed if installed surface drifted from canonical."
       }
     ],
     "agents": [
@@ -82,6 +102,24 @@
         "path": "cgg-runtime/agents/ripple-assessor.md",
         "model": "sonnet",
         "description": "Evaluates CogPR flags and active signals/warrants from handoff plans. Writes promotion proposals."
+      },
+      {
+        "name": "mogul",
+        "path": "cgg-runtime/agents/mogul.md",
+        "model": "sonnet",
+        "description": "Governance operations lead — orchestrates queue refresh, signal scanning, memory mining, ladder audits, and runtime drift detection."
+      },
+      {
+        "name": "ladder-auditor",
+        "path": "cgg-runtime/agents/ladder-auditor.md",
+        "model": "sonnet",
+        "description": "Subordinate ladder coherence auditor — scans parent/child CLAUDE.md governance chain for coherence, strain, and demotion pressure. Read-only."
+      },
+      {
+        "name": "pattern-curator",
+        "path": "cgg-runtime/agents/pattern-curator.md",
+        "model": "sonnet",
+        "description": "Subordinate pattern-mining agent — mines authoring surfaces for recurring patterns, workarounds, and candidate seeds. Read-only."
       }
     ]
   },

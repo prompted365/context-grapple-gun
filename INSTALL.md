@@ -395,21 +395,30 @@ If you prefer to set things up by hand instead of using the plugin installer or 
 # 1. Add the submodule (if not already present)
 git submodule add https://github.com/prompted365/context-grapple-gun.git vendor/context-grapple-gun
 
-# 2. Copy skills
-cp -r vendor/context-grapple-gun/cgg-runtime/skills/* .claude/skills/
+# 2. Copy active skills (not deprecated ones)
+mkdir -p .claude/skills/{cadence,review,siren,init-governance,statusline,homeskillet-academy}
+for skill in cadence review siren init-governance statusline homeskillet-academy; do
+  cp vendor/context-grapple-gun/cgg-runtime/skills/$skill/SKILL.md .claude/skills/$skill/
+done
 
 # 3. Copy hooks
 mkdir -p .claude/hooks
-cp vendor/context-grapple-gun/cgg-runtime/hooks/* .claude/hooks/
+cp vendor/context-grapple-gun/cgg-runtime/hooks/session-restore.sh .claude/hooks/
+cp vendor/context-grapple-gun/cgg-runtime/hooks/session-restore-patch.sh .claude/hooks/
+cp vendor/context-grapple-gun/cgg-runtime/hooks/cgg-gate.sh .claude/hooks/
+cp vendor/context-grapple-gun/cgg-runtime/hooks/posttool-microscan.sh .claude/hooks/
 chmod +x .claude/hooks/*.sh
 
 # 4. Copy agents
 mkdir -p .claude/agents
-cp vendor/context-grapple-gun/cgg-runtime/agents/* .claude/agents/
+cp vendor/context-grapple-gun/cgg-runtime/agents/ripple-assessor.md .claude/agents/
+cp vendor/context-grapple-gun/cgg-runtime/agents/mogul.md .claude/agents/
+cp vendor/context-grapple-gun/cgg-runtime/agents/ladder-auditor.md .claude/agents/
+cp vendor/context-grapple-gun/cgg-runtime/agents/pattern-curator.md .claude/agents/
 
 # 5. Create directories
 mkdir -p ~/.claude/grapple-proposals
-mkdir -p audit-logs/signals audit-logs/tics audit-logs/conformations
+mkdir -p audit-logs/{signals,tics,conformations,cprs,economy,provenance}
 
 # 5.5. Create .ticzone and .ticignore at project root (if missing)
 # Edit .ticzone: set "name" to your project name, adjust "tz" to your timezone
@@ -418,9 +427,10 @@ mkdir -p audit-logs/signals audit-logs/tics audit-logs/conformations
 # 6. Add hooks to .claude/settings.local.json (merge with existing content):
 # SessionStart  -> .claude/hooks/session-restore-patch.sh
 # UserPromptSubmit -> .claude/hooks/cgg-gate.sh
+# PostToolUse   -> .claude/hooks/posttool-microscan.sh
 
 # 7. Add the Session Learning Protocol block to your project's CLAUDE.md
-#    (see "Convention block" in the bootstrap prompt above)
+#    (see "Convention block" above, or copy from convention-block.md)
 ```
 
 ## Reference docs

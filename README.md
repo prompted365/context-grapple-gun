@@ -441,7 +441,9 @@ Tic record format (appended to `audit-logs/tics/YYYY-MM-DD.jsonl`):
   "type": "tic",
   "tic": "2026-02-24T21:15:00-05:00",
   "tic_zone": "operationTorque-estate",
-  "cadence_position": "downbeat"
+  "cadence_position": "downbeat",
+  "domain_counter": 42,
+  "global_counter": 42
 }
 ```
 
@@ -574,16 +576,25 @@ Claude Code only. Automation connecting lesson capture to evaluation to review.
 
 | Component | Purpose |
 |-----------|---------|
-| `hooks/cgg-gate.sh` | One-shot gate on first prompt |
-| `hooks/session-restore-patch.sh` | Plan discovery and trigger extraction |
-| `agents/ripple-assessor.md` | Fresh evaluator agent |
-| `skills/` | `/cadence`, `/review`, `/siren` |
+| `hooks/session-restore.sh` | Canonical governance entrypoint — plan discovery, CogPR queue, signal scanning, tic counting |
+| `hooks/session-restore-patch.sh` | Compatibility shim (delegates to session-restore.sh) |
+| `hooks/cgg-gate.sh` | One-shot trigger gate on first prompt — spawns ripple-assessor, activates Mogul mandate |
+| `hooks/posttool-microscan.sh` | Lightweight runtime drift detection after Write/Edit on governance files |
+| `agents/ripple-assessor.md` | Bounded CogPR evaluator + signal scanner |
+| `agents/mogul.md` | Governance operations lead — queue refresh, signal scan, memory mining, ladder audit |
+| `agents/ladder-auditor.md` | CLAUDE.md chain coherence auditor (read-only) |
+| `agents/pattern-curator.md` | Authoring surface pattern miner (read-only) |
+| `skills/` | `/cadence`, `/review`, `/siren`, `/statusline`, `/init-governance`, `/homeskillet-academy` |
 
 ## Installation
 
 ### Claude Code -- full pipeline
 
-Paste the bootstrap prompt into Claude Code. It asks one question (install mode), then sets everything up -- submodule, skills, hooks, agents, wiring. See [INSTALL.md](INSTALL.md) for the exact prompt.
+Three install paths (see [INSTALL.md](INSTALL.md) for details):
+
+1. **Bootstrap prompt** -- paste into Claude Code, answers one question, sets up everything (submodule, skills, hooks, agents, convention block, settings). Most complete for first install.
+2. **`/init-governance`** -- run after submodule is present. Installs runtime surfaces, convention block, settings registration. Best for repair/resync.
+3. **Manual** -- copy files by hand. See INSTALL.md for step-by-step.
 
 ### Claude Desktop / Claude for Work
 
