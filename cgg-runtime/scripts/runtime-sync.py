@@ -70,6 +70,18 @@ def build_surface_map(plugin_root, zone_root):
             "type": "PROMPT_CODE",
         })
 
+    # Scripts (zone-root-resolved runtime scripts)
+    scripts = [
+        "expression-tracker.py",
+    ]
+    for script_file in scripts:
+        surfaces.append({
+            "name": f"script:{script_file.replace('.py', '')}",
+            "canonical": os.path.join(plugin_root, "cgg-runtime", "scripts", script_file),
+            "installed": os.path.join(zone_root, "scripts", script_file),
+            "type": "SCRIPT_CODE",
+        })
+
     # Hooks
     hooks = [
         "session-restore-patch.sh",
