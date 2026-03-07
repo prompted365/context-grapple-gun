@@ -45,6 +45,7 @@ def build_surface_map(plugin_root, zone_root):
         ("review/SKILL.md", "skills/review/SKILL.md"),
         ("siren/SKILL.md", "skills/siren/SKILL.md"),
         ("init-governance/SKILL.md", "skills/init-governance/SKILL.md"),
+        ("statusline/SKILL.md", "skills/statusline/SKILL.md"),
     ]
     for canonical_rel, installed_rel in skills:
         surfaces.append({
