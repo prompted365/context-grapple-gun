@@ -290,6 +290,134 @@ def gather_cross_references(cpr, project_dir):
     return evidence
 
 
+def gather_recurrence_count(cpr, queue_entries):
+    """Count how many other CPRs share the same subsystem + similar lesson.
+
+    Recurrence indicates the pattern keeps surfacing — stronger promotion signal.
+    Compares lesson text via 3-word overlap (cheap, no embedding needed).
+    """
+    evidence = []
+    lesson = cpr.get("lesson", "")
+    subsystem = cpr.get("subsystem", "")
+    cpr_id = cpr.get("id", "")
+
+    if not lesson or not subsystem:
+        return evidence
+
+    lesson_words = set(lesson.lower().split())
+    if len(lesson_words) < 3:
+        return evidence
+
+    recurrence = 0
+    similar_ids = []
+    for eid, entry in queue_entries.items():
+        if eid == cpr_id:
+            continue
+        if entry.get("subsystem") != subsystem:
+            continue
+        other_lesson = entry.get("lesson", "")
+        if not other_lesson:
+            continue
+        other_words = set(other_lesson.lower().split())
+        overlap = len(lesson_words & other_words)
+        total = len(lesson_words | other_words)
+        if total > 0 and overlap / total >= 0.3:
+            recurrence += 1
+            similar_ids.append(eid)
+
+    if recurrence > 0:
+        evidence.append({
+            "evidence_type": "recurrence_count",
+            "value": f"{recurrence} similar CPRs in same subsystem",
+            "detail": similar_ids[:5],
+        })
+
+    return evidence
+
+
+def gather_target_absence(cpr, project_dir):
+    """Check if recommended_scopes targets lack the lesson content.
+
+    Confirms the promotion target actually needs the lesson — prevents
+    promoting content that's already been absorbed.
+    """
+    evidence = []
+    lesson = cpr.get("lesson", "")
+    scopes = cpr.get("recommended_scopes", [])
+
+    if not lesson or not scopes:
+        return evidence
+
+    snippet = lesson[:50]
+    absent_targets = []
+    present_targets = []
+
+    for scope in scopes:
+        scope_path = Path(project_dir) / scope
+        if scope.startswith("~"):
+            scope_path = Path(os.path.expanduser(scope))
+
+        if not scope_path.exists():
+            absent_targets.append(f"{scope} (file missing)")
+            continue
+
+        try:
+            content = scope_path.read_text(encoding="utf-8")
+            if snippet in content:
+                present_targets.append(scope)
+            else:
+                absent_targets.append(scope)
+        except (OSError, UnicodeDecodeError):
+            absent_targets.append(f"{scope} (unreadable)")
+
+    if absent_targets:
+        evidence.append({
+            "evidence_type": "target_absence_confirmed",
+            "value": f"{len(absent_targets)}/{len(scopes)} targets lack lesson content",
+            "detail": absent_targets[:5],
+        })
+    elif present_targets:
+        evidence.append({
+            "evidence_type": "target_already_present",
+            "value": f"Lesson already present in all {len(present_targets)} targets",
+            "detail": present_targets[:5],
+        })
+
+    return evidence
+
+
+def compute_enrichment_confidence(enrichment_list):
+    """Compute composite confidence score from gathered evidence.
+
+    Weights by evidence type reliability. Returns float in [0.0, 1.0].
+    """
+    weights = {
+        "source_stable": 0.20,
+        "commits_since_birth": 0.15,
+        "test_files_modified": 0.15,
+        "test_files_exist": 0.05,
+        "signal_correlation": 0.10,
+        "cross_reference": 0.15,
+        "recurrence_count": 0.10,
+        "target_absence_confirmed": 0.15,
+    }
+    penalties = {
+        "source_missing": -0.30,
+        "source_diverged": -0.15,
+        "target_already_present": -0.20,
+    }
+
+    score = 0.0
+    for ev in enrichment_list:
+        et = ev.get("evidence_type", "")
+        if et in weights:
+            score += weights[et]
+        elif et in penalties:
+            score += penalties[et]
+
+    return max(0.0, min(1.0, score))
+
+
 # ---------------------------------------------------------------------------
 # Main pipeline
 # ---------------------------------------------------------------------------
@@ -323,6 +451,8 @@ def scan_and_enrich(project_dir, dry_run=False, quiet=False):
         all_evidence.extend(gather_signal_evidence(cpr, signal_dir))
         all_evidence.extend(gather_source_stability(cpr, project_dir))
         all_evidence.extend(gather_cross_references(cpr, project_dir))
+        all_evidence.extend(gather_recurrence_count(cpr, queue))
+        all_evidence.extend(gather_target_absence(cpr, project_dir))
 
         if not all_evidence:
             continue
@@ -345,6 +475,9 @@ def scan_and_enrich(project_dir, dry_run=False, quiet=False):
         updated_entry = {**cpr, "enrichment": merged_enrichment}
         updated_entry["enrichment_scanned_at"] = now
         updated_entry["enrichment_scan_count"] = cpr.get("enrichment_scan_count", 0) + 1
+        updated_entry["enrichment_confidence"] = round(
+            compute_enrichment_confidence(merged_enrichment), 4
+        )
 
         entries_to_append.append(updated_entry)
         updated_count += 1
