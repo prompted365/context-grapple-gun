@@ -264,7 +264,7 @@ Snapshot the current system conformation — the total state at the latest tic b
   "type": "conformation",
   "tic_count_physical": 1,
   "tic": "2026-02-25T03:33:00Z",
-  "tic_zone": "operationTorque-estate",
+  "tic_zone": "my-project",
   "snapshot_at": "2026-02-25T04:00:00Z",
   "active_signals": [
     {"id": "sig_xxx", "kind": "BEACON", "band": "PRIMITIVE", "volume": 80, "status": "active", "subsystem": "ruvector"}
@@ -276,7 +276,7 @@ Snapshot the current system conformation — the total state at the latest tic b
     {"source": "CLAUDE.md:283", "lesson": "one-line summary", "band": "COGNITIVE", "subsystem": "cgg", "recommended_scopes": ["~/.claude/CLAUDE.md"]}
   ],
   "zone": {
-    "name": "operationTorque-estate",
+    "name": "my-project",
     "bands": ["PRIMITIVE", "COGNITIVE", "SOCIAL", "PRESTIGE"],
     "muffling_per_hop": 5,
     "signal_governance": {
@@ -302,7 +302,7 @@ Snapshot the current system conformation — the total state at the latest tic b
 
 ```
 CONFORMATION at tic #1 (physical count)
-Zone: operationTorque-estate
+Zone: my-project
 Active signals: 1 | Active warrants: 0 | Pending CogPRs: 3
 Rules: project CLAUDE.md (450 lines) | global CLAUDE.md (120 lines)
 Snapshot written: audit-logs/conformations/tic-1.json

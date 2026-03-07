@@ -150,7 +150,7 @@ Steps:
        "reason": "Tic CURRENT_TIC — cycles due: ..."
      },
      "conformation_ref": "<path to latest conformation or null>",
-     "mode": {"blocking_to_homeskillet": false, "allow_subdelegation": true},
+     "mode": {"blocking_to_orchestrator": false, "allow_subdelegation": true},
      "runtime_truth": {"canonical_vs_installed_verified": false},
      "created_at": "ISO-8601 now",
      "started_at": null,

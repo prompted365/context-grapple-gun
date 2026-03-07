@@ -449,8 +449,8 @@ Tic record format (appended to `audit-logs/tics/YYYY-MM-DD.jsonl`):
 ```json
 {
   "type": "tic",
-  "tic": "2026-02-24T21:15:00-05:00",
-  "tic_zone": "operationTorque-estate",
+  "tic": "2026-02-24T21:15:00Z",
+  "tic_zone": "my-project",
   "cadence_position": "downbeat",
   "domain_counter": 42,
   "global_counter": 42
@@ -465,11 +465,11 @@ A tic-zone is a named acoustic region defined by a `.ticzone` file (JSONC -- `//
 
 ```jsonc
 {
-  "name": "operationTorque-estate",
-  "tz": "America/Toronto",
-  "lat": 43.6532,
-  "lon": -79.3832,
-  "include": [".", "~/.claude"],
+  "name": "my-project",
+  "tz": "UTC",
+  "lat": 0.0,
+  "lon": 0.0,
+  "include": ["."],
   "bands": ["PRIMITIVE", "COGNITIVE", "SOCIAL", "PRESTIGE"],
   "muffling_per_hop": 5
 }

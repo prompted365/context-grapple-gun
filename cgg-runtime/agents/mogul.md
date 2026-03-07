@@ -100,7 +100,7 @@ When activated:
 1. Read `audit-logs/mogul/mandates/current.json`
 2. Validate the mandate against `cgg-runtime/config/mogul-mandate.schema.json`
 3. Begin from the cycles listed in `cycle_request.run_now`
-4. Respect `mode.blocking_to_homeskillet` — if true, complete before returning control
+4. Respect `mode.blocking_to_orchestrator` — if true, complete before returning control
 5. If `mode.allow_subdelegation` is true, delegate to subordinate agents as appropriate
 6. Produce execution artifacts (bench packets, audit findings, enrichment records)
 7. Do not invent additional trigger reasons, but you may decompose listed cycles into bounded subordinate work and advance pipeline state within mandate scope
@@ -413,7 +413,7 @@ Until micro-tics are formalized, use tic-sum-derived cycles:
 
 - every review close:
   - inscription consistency check
-  - follow-on specialization target check
+  - follow-on interpretation target check
 
 If explicitly asked to run only one cycle, state which cycle you are running.
 

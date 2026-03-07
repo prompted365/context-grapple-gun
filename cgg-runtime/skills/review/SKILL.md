@@ -83,7 +83,7 @@ Before presenting the docket, verify that Section C (CogPR Review) has fresh Mog
           "reason": "/review requires fresh bench context for Section C"
         },
         "conformation_ref": null,
-        "mode": {"blocking_to_homeskillet": true, "allow_subdelegation": true},
+        "mode": {"blocking_to_orchestrator": true, "allow_subdelegation": true},
         "runtime_truth": {"canonical_vs_installed_verified": false},
         "created_at": "ISO-8601 now"
       }
@@ -226,7 +226,7 @@ After applying all approved actions and verifying consistency (Step 8), write a 
     "reason": "/review verdicts applied — review-close consistency cycle due"
   },
   "conformation_ref": null,
-  "mode": {"blocking_to_homeskillet": false, "allow_subdelegation": true},
+  "mode": {"blocking_to_orchestrator": false, "allow_subdelegation": true},
   "runtime_truth": {"canonical_vs_installed_verified": false},
   "created_at": "ISO-8601 now"
 }
@@ -236,7 +236,7 @@ Write to `audit-logs/mogul/mandates/current.json` and append to history. This ma
 
 The review-close mandate ensures Mogul verifies:
 - Inscription consistency (promoted lessons actually landed)
-- Follow-on specialization targets
+- Follow-on interpretation targets
 - Queue state coherence
 - Any runtime sync required for install-owned surfaces
 

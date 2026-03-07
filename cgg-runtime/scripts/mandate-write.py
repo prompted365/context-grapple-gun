@@ -116,7 +116,7 @@ def build_mandate(
             "reason": _build_reason(tic, trigger_kind, cycles, merged_from),
         },
         "conformation_ref": conformation_ref,
-        "mode": {"blocking_to_homeskillet": False, "allow_subdelegation": True},
+        "mode": {"blocking_to_orchestrator": False, "allow_subdelegation": True},
         "runtime_truth": {"canonical_vs_installed_verified": runtime_verified},
         "created_at": now.isoformat(),
         "started_at": None,

@@ -106,27 +106,30 @@ except: print('error|||')
 
   if [ "$MANDATE_STATUS" = "pending" ]; then
     if [ -n "$HEAVY_CYCLES" ]; then
-      # Heavy cycles due — mark running and spawn
-      python3 -c "
+      # Look for estate-local runner; fallback to LLM instruction
+      MOGUL_RUNNER="$ZONE_ROOT/scripts/mogul-runner.sh"
+      if [ -x "$MOGUL_RUNNER" ]; then
+        # Runner exists — mark running and spawn
+        python3 -c "
 import json
 try:
     m = json.load(open('$MANDATE_FILE'))
     m['status'] = 'running'
+    m['started_at'] = '$TIMESTAMP'
     json.dump(m, open('$MANDATE_FILE', 'w'), indent=2)
 except: pass
 " 2>/dev/null
 
-      echo "{\"timestamp\":\"$TIMESTAMP\",\"action\":\"mogul_mandate_activated\",\"mandate_id\":\"$MANDATE_ID\",\"cycles\":\"$HEAVY_CYCLES\",\"status\":\"running\"}" >> "$META_LOG"
+        echo "{\"timestamp\":\"$TIMESTAMP\",\"action\":\"mogul_mandate_activated\",\"mandate_id\":\"$MANDATE_ID\",\"cycles\":\"$HEAVY_CYCLES\",\"status\":\"running\"}" >> "$META_LOG"
 
-      # Look for estate-local runner; fallback to LLM instruction
-      MOGUL_RUNNER="$ZONE_ROOT/scripts/mogul-runner.sh"
-      if [ -x "$MOGUL_RUNNER" ]; then
         MOGUL_LOG_DIR="$ZONE_ROOT/$AUDIT_LOGS_REL/mogul/cycle-reports"
         mkdir -p "$MOGUL_LOG_DIR"
         "$MOGUL_RUNNER" > "$MOGUL_LOG_DIR/$(date +%Y-%m-%dT%H%M%S)-runner-log.txt" 2>&1 &
         echo "{\"timestamp\":\"$TIMESTAMP\",\"action\":\"mogul_runner_spawned\",\"mandate_id\":\"$MANDATE_ID\",\"cycles\":\"$HEAVY_CYCLES\",\"pid\":$!}" >> "$META_LOG"
         MANDATE_OUTPUT="[MOGUL MANDATE: runner spawn] mogul-runner.sh executing governance cycles ($HEAVY_CYCLES) in background (PID $!). Non-blocking."
       else
+        # No runner — leave status pending, surface for LLM/manual execution
+        echo "{\"timestamp\":\"$TIMESTAMP\",\"action\":\"mogul_mandate_surfaced\",\"mandate_id\":\"$MANDATE_ID\",\"cycles\":\"$HEAVY_CYCLES\",\"status\":\"pending\"}" >> "$META_LOG"
         MANDATE_OUTPUT="[MOGUL MANDATE PENDING] Heavy governance cycles due: $HEAVY_CYCLES. Spawn Mogul agent (Task tool, subagent_type: mogul, run_in_background: true) to execute mandated cycles. Mandate at: $MANDATE_FILE. Mandate ID: $MANDATE_ID. Non-blocking."
       fi
     elif [ -n "$ALL_CYCLES" ]; then

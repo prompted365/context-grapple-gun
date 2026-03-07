@@ -49,15 +49,7 @@ cp -r vendor/context-grapple-gun/cgg-runtime/skills/review/ .claude/skills/revie
 cp -r vendor/context-grapple-gun/cgg-runtime/skills/siren/ .claude/skills/siren/
 ```
 
-Optional -- deprecated wrappers so old command names still work:
-
-```bash
-cp -r vendor/context-grapple-gun/cgg-runtime/skills/cadence-downbeat/ .claude/skills/cadence-downbeat/
-cp -r vendor/context-grapple-gun/cgg-runtime/skills/cadence-syncopate/ .claude/skills/cadence-syncopate/
-cp -r vendor/context-grapple-gun/cgg-runtime/skills/grapple/ .claude/skills/grapple/
-cp -r vendor/context-grapple-gun/cgg-runtime/skills/init-gun/ .claude/skills/init-gun/
-cp -r vendor/context-grapple-gun/cgg-runtime/skills/init-cogpr/ .claude/skills/init-cogpr/
-```
+**Note:** Legacy redirect shims (`cadence-downbeat`, `cadence-syncopate`, `grapple`, `init-gun`, `init-cogpr`) exist in the CGG runtime for backward compatibility but are not needed for new installs.
 
 ---
 

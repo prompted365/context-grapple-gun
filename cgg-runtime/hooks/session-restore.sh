@@ -309,7 +309,7 @@ mandate = {
         'deep_audit_due_tic': tic+(8-tic%8) if tic%8!=0 else tic+8},
     'cycle_request': {'run_now': list(set(cycles)), 'reason': f'SessionStart at tic {tic}'},
     'conformation_ref': None,
-    'mode': {'blocking_to_homeskillet': False, 'allow_subdelegation': True},
+    'mode': {'blocking_to_orchestrator': False, 'allow_subdelegation': True},
     'runtime_truth': {'canonical_vs_installed_verified': False},
     'created_at': now.isoformat(), 'started_at': None, 'completed_at': None, 'error': None
 }

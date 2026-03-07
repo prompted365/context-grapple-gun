@@ -131,11 +131,11 @@
     "mode": {
       "type": "object",
       "description": "Execution mode constraints.",
-      "required": ["blocking_to_homeskillet", "allow_subdelegation"],
+      "required": ["blocking_to_orchestrator", "allow_subdelegation"],
       "properties": {
-        "blocking_to_homeskillet": {
+        "blocking_to_orchestrator": {
           "type": "boolean",
-          "description": "If true, Homeskillet waits for Mogul to complete before proceeding."
+          "description": "If true, the interactive orchestrator waits for Mogul to complete before proceeding."
         },
         "allow_subdelegation": {
           "type": "boolean",

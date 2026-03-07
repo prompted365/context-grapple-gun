@@ -26,7 +26,7 @@ It does NOT:
 | Mode | Output | Performance |
 |------|--------|-------------|
 | OFF  | Nothing | Zero cost |
-| LITE | `[Opus] operationTorque (main) \| tic 208` | ~5ms (cached) |
+| LITE | `[Opus] my-project (main) \| tic 208` | ~5ms (cached) |
 | FULL | Line 1: same as LITE | ~10ms cached |
 |      | Line 2: `conformation: clean \| sig 0 \| wrn 0 \| cpr 2 \| $0.47 \| 12m` | |
 

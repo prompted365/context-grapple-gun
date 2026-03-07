@@ -14,7 +14,7 @@
 | **siren** | Escalating friction signal | Something that gets louder until handled — continuous signal with volume that accrues across sessions. Acoustic metaphor: a siren you can't ignore once it crosses threshold. | **Yes** |
 | **warrant** | Escalation obligation | Auto-minted when a signal crosses threshold. Demands resolution — not a suggestion. | Later |
 | **conformation** | System state snapshot | Total state at any tic boundary — signals, rules, pending proposals, zone membership | Later |
-| **abstraction ladder** | Scope hierarchy | Site → Domain → Estate → Federation → Global. Lessons climb through review; descend as specialized expressions. | **Yes** |
+| **abstraction ladder** | Scope hierarchy | Site → Domain → Estate → Federation → Global. Lessons move upward through review (extract → generalize → canonicalize) and are validated downward (apply → interpret → audit → validate). | **Yes** |
 | **epoch boundary** | Context rotation point | The moment you end a session (via `/cadence`) before cognitive degradation. Carries knowledge forward. | **Yes** |
 | **human gate** | Approval checkpoint | Every scope promotion requires explicit human approval. Agents propose; you decide. | **Yes** |
 
