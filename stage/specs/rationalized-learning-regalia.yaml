@@ -1,0 +1,41 @@
+# Show specification: Rationalized Learning Regalia
+# First validated arena run (2026-03-07).
+# This spec defines what gets pulled into the generated show surface.
+
+id: rationalized-learning-regalia
+title: Rationalized Learning Regalia
+arena: governed-triangulation
+status: completed
+
+agents:
+  - name: EXPRESSION-TRACKER
+    position: "Phase 3 — Expression Tracking"
+    bracket: 1
+  - name: CORRECTION-CATCHER
+    position: "Phase 4 — Correction-Event Extraction"
+    bracket: 1
+  - name: MINING-ARCHITECT
+    position: "Phase 5 — Deterministic Mining"
+    bracket: 1
+
+outcome:
+  build_order: "3 -> (4 || 5)"
+  corrected_from: "3 -> 4 -> 5"
+  key_discovery: "Phase 5 dependency on 3+4 is softer than documented"
+  convergent_signal: "expression_factor: 0.615 placeholder found by independent agents"
+
+sources:
+  plans:
+    - docs/plans/rationalized-learning-build.md
+  logs:
+    - audit-logs/teams/rationalized-learning-regalia.md
+  memory_sections:
+    - "Rationalized Learning Build"
+    - "Agent Team Patterns"
+  mandates:
+    - audit-logs/mogul/mandates/current.json
+  conformations:
+    - audit-logs/conformations/tic-212.json
+
+output:
+  path: stage/shows/rationalized-learning-regalia

@@ -1,0 +1,26 @@
+# Governed Triangulation Scoring Rubric
+# Applied during defense, rebuttal, and synthesis phases.
+
+points:
+  factual_insight: 1
+  strategic_relevance: 2
+  steelman_of_rival: 3
+  structural_weakness_identified: 4
+  architectural_reframe: 5
+
+penalties:
+  shallow_claim: -2
+  unsupported_assertion: -3
+  hallucinated_fact: -5
+
+evaluation_factors:
+  - dependency_correctness
+  - engineering_leverage
+  - signal_availability
+  - implementation_cost
+  - observability_impact
+
+convergence_rule: |
+  When multiple independent agents with opposed incentives
+  discover the same structural fact, treat it as high-confidence signal.
+  Independent discovery + opposed incentives + same conclusion = high confidence.

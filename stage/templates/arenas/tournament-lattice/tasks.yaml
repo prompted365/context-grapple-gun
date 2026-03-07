@@ -1,0 +1,103 @@
+# Tournament Lattice Task Templates
+# Three configurations: 5-agent, 6-agent, 7-agent with wildcard.
+
+# ============================================================
+# 5-AGENT CONFIGURATION
+# Bracket 1: A, B, C (triangulation)
+# Bracket 2: D, E (dyadic)
+# ============================================================
+five_agent:
+  agents:
+    - { name: AGENT-A, bracket: 1, role: "advocate for Position A" }
+    - { name: AGENT-B, bracket: 1, role: "advocate for Position B" }
+    - { name: AGENT-C, bracket: 1, role: "advocate for Position C" }
+    - { name: AGENT-D, bracket: 2, role: "advocate for Position D" }
+    - { name: AGENT-E, bracket: 2, role: "advocate for Position E" }
+    - { name: LEAD, bracket: null, role: "orchestrator and synthesizer" }
+
+  tasks:
+    # --- Local context ---
+    - { id: 1,  agent: AGENT-A, action: "Study B+C", blocked_by: [] }
+    - { id: 2,  agent: AGENT-B, action: "Study A+C", blocked_by: [] }
+    - { id: 3,  agent: AGENT-C, action: "Study A+B", blocked_by: [] }
+    - { id: 4,  agent: AGENT-D, action: "Study E",   blocked_by: [] }
+    - { id: 5,  agent: AGENT-E, action: "Study D",   blocked_by: [] }
+    # --- Local defense ---
+    - { id: 6,  agent: AGENT-A, action: "Defend A",   blocked_by: [1,2,3] }
+    - { id: 7,  agent: AGENT-B, action: "Defend B",   blocked_by: [1,2,3] }
+    - { id: 8,  agent: AGENT-C, action: "Defend C",   blocked_by: [1,2,3] }
+    - { id: 9,  agent: AGENT-D, action: "Defend D",   blocked_by: [4,5] }
+    - { id: 10, agent: AGENT-E, action: "Defend E",   blocked_by: [4,5] }
+    # --- Local rebuttal ---
+    - { id: 11, agent: AGENT-A, action: "Rebut attacks", blocked_by: [6,7,8] }
+    - { id: 12, agent: AGENT-B, action: "Rebut attacks", blocked_by: [6,7,8] }
+    - { id: 13, agent: AGENT-C, action: "Rebut attacks", blocked_by: [6,7,8] }
+    - { id: 14, agent: AGENT-D, action: "Rebut attacks", blocked_by: [9,10] }
+    - { id: 15, agent: AGENT-E, action: "Rebut attacks", blocked_by: [9,10] }
+    # --- Local synthesis ---
+    - { id: 16, agent: LEAD, action: "Synthesize Bracket 1", blocked_by: [11,12,13] }
+    - { id: 17, agent: LEAD, action: "Synthesize Bracket 2", blocked_by: [14,15] }
+    # --- Cross-bracket ---
+    - { id: 18, agent: LEAD, action: "Bracket 1 output challenges Bracket 2", blocked_by: [16,17] }
+    - { id: 19, agent: LEAD, action: "Bracket 2 output challenges Bracket 1", blocked_by: [16,17] }
+    # --- Final synthesis ---
+    - { id: 20, agent: LEAD, action: "Final synthesis", blocked_by: [18,19] }
+
+# ============================================================
+# 7-AGENT CONFIGURATION WITH WILDCARD
+# Bracket 1: A, B, C (triangulation)
+# Bracket 2: D, E, F (triangulation)
+# Wildcard:  G (adversarial auditor)
+# ============================================================
+seven_agent_wildcard:
+  agents:
+    - { name: AGENT-A, bracket: 1, role: "advocate for Position A" }
+    - { name: AGENT-B, bracket: 1, role: "advocate for Position B" }
+    - { name: AGENT-C, bracket: 1, role: "advocate for Position C" }
+    - { name: AGENT-D, bracket: 2, role: "advocate for Position D" }
+    - { name: AGENT-E, bracket: 2, role: "advocate for Position E" }
+    - { name: AGENT-F, bracket: 2, role: "advocate for Position F" }
+    - { name: WILDCARD-G, bracket: null, role: "adversarial auditor" }
+    - { name: LEAD, bracket: null, role: "orchestrator and synthesizer" }
+
+  tasks:
+    # --- Local context ---
+    - { id: 1,  agent: AGENT-A, action: "Study B+C",   blocked_by: [] }
+    - { id: 2,  agent: AGENT-B, action: "Study A+C",   blocked_by: [] }
+    - { id: 3,  agent: AGENT-C, action: "Study A+B",   blocked_by: [] }
+    - { id: 4,  agent: AGENT-D, action: "Study E+F",   blocked_by: [] }
+    - { id: 5,  agent: AGENT-E, action: "Study D+F",   blocked_by: [] }
+    - { id: 6,  agent: AGENT-F, action: "Study D+E",   blocked_by: [] }
+    # --- Local defense ---
+    - { id: 7,  agent: AGENT-A, action: "Defend A",    blocked_by: [1,2,3] }
+    - { id: 8,  agent: AGENT-B, action: "Defend B",    blocked_by: [1,2,3] }
+    - { id: 9,  agent: AGENT-C, action: "Defend C",    blocked_by: [1,2,3] }
+    - { id: 10, agent: AGENT-D, action: "Defend D",    blocked_by: [4,5,6] }
+    - { id: 11, agent: AGENT-E, action: "Defend E",    blocked_by: [4,5,6] }
+    - { id: 12, agent: AGENT-F, action: "Defend F",    blocked_by: [4,5,6] }
+    # --- Local rebuttal ---
+    - { id: 13, agent: AGENT-A, action: "Rebut attacks", blocked_by: [7,8,9] }
+    - { id: 14, agent: AGENT-B, action: "Rebut attacks", blocked_by: [7,8,9] }
+    - { id: 15, agent: AGENT-C, action: "Rebut attacks", blocked_by: [7,8,9] }
+    - { id: 16, agent: AGENT-D, action: "Rebut attacks", blocked_by: [10,11,12] }
+    - { id: 17, agent: AGENT-E, action: "Rebut attacks", blocked_by: [10,11,12] }
+    - { id: 18, agent: AGENT-F, action: "Rebut attacks", blocked_by: [10,11,12] }
+    # --- Local synthesis ---
+    - { id: 19, agent: LEAD, action: "Synthesize Bracket 1", blocked_by: [13,14,15] }
+    - { id: 20, agent: LEAD, action: "Synthesize Bracket 2", blocked_by: [16,17,18] }
+    # --- Wildcard audit ---
+    - { id: 21, agent: WILDCARD-G, action: "Study both bracket syntheses", blocked_by: [19,20] }
+    - { id: 22, agent: WILDCARD-G, action: "Attack false convergence and hidden assumptions", blocked_by: [21] }
+    # --- Cross-bracket response to wildcard ---
+    - { id: 23, agent: LEAD, action: "Bracket 1 responds to wildcard", blocked_by: [22] }
+    - { id: 24, agent: LEAD, action: "Bracket 2 responds to wildcard", blocked_by: [22] }
+    # --- Final synthesis ---
+    - { id: 25, agent: LEAD, action: "Final synthesis", blocked_by: [23,24] }
+
+dependency_rule: |
+  context -> defense -> rebuttal -> local synthesis
+  -> [wildcard audit] -> cross-bracket response -> final synthesis
+
+  No phase may start until its predecessors complete.
+  The lead must not synthesize early.
+  The wildcard must not advocate.

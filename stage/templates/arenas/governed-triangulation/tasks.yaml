@@ -1,0 +1,74 @@
+# Governed Triangulation Task Template
+# 10 tasks, 3 phases, strict dependency gating.
+
+agents:
+  - name: ADVOCATE-A
+    role: partisan advocate for Position A
+  - name: ADVOCATE-B
+    role: partisan advocate for Position B
+  - name: ADVOCATE-C
+    role: partisan advocate for Position C
+  - name: LEAD
+    role: orchestrator and synthesizer (does not advocate)
+
+phases:
+  context:
+    description: Each agent studies the other two positions. No self-defense.
+    tasks:
+      - id: 1
+        agent: ADVOCATE-A
+        action: "Gather context on Positions B and C"
+        blocked_by: []
+      - id: 2
+        agent: ADVOCATE-B
+        action: "Gather context on Positions A and C"
+        blocked_by: []
+      - id: 3
+        agent: ADVOCATE-C
+        action: "Gather context on Positions A and B"
+        blocked_by: []
+
+  defense:
+    description: Each agent defends its own position and challenges rivals.
+    tasks:
+      - id: 4
+        agent: ADVOCATE-A
+        action: "Defend Position A, challenge B and C"
+        blocked_by: [1, 2, 3]
+      - id: 5
+        agent: ADVOCATE-B
+        action: "Defend Position B, challenge A and C"
+        blocked_by: [1, 2, 3]
+      - id: 6
+        agent: ADVOCATE-C
+        action: "Defend Position C, challenge A and B"
+        blocked_by: [1, 2, 3]
+
+  rebuttal:
+    description: Each agent responds to attacks against its position.
+    tasks:
+      - id: 7
+        agent: ADVOCATE-A
+        action: "Rebut attacks on Position A"
+        blocked_by: [4, 5, 6]
+      - id: 8
+        agent: ADVOCATE-B
+        action: "Rebut attacks on Position B"
+        blocked_by: [4, 5, 6]
+      - id: 9
+        agent: ADVOCATE-C
+        action: "Rebut attacks on Position C"
+        blocked_by: [4, 5, 6]
+
+  synthesis:
+    description: Lead extracts surviving structure. Must not advocate.
+    tasks:
+      - id: 10
+        agent: LEAD
+        action: "Synthesize final plan from all arena evidence"
+        blocked_by: [7, 8, 9]
+
+dependency_rule: |
+  context -> defense -> rebuttal -> synthesis
+  No phase may start until its predecessors complete.
+  The lead must not synthesize early.

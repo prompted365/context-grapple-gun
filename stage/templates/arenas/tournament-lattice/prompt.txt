@@ -1,0 +1,113 @@
+Create an agent team using the tournament lattice pattern.
+
+Structure:
+- 1 Lead (orchestrator / synthesizer)
+- N Teammates (5-7 agents in independent contexts)
+
+[REPLACE: Define N, bracket assignments, and position names.]
+
+Bracket assignments:
+  Bracket 1: AGENT-A, AGENT-B, AGENT-C
+  Bracket 2: AGENT-D, AGENT-E [, AGENT-F]
+  [Optional] Wildcard: AGENT-G (adversarial auditor, not advocate)
+
+[REPLACE: Assign each agent a position and bracket.]
+
+Mission:
+Determine the correct structure / decision through bracketed governed disagreement.
+
+Rules:
+
+RULE 1 — Bracket-Local Opponent Context
+Within each bracket, agents study their LOCAL rivals before defending.
+
+Bracket 1:
+  A studies B+C
+  B studies A+C
+  C studies A+B
+
+Bracket 2 (3-agent):
+  D studies E+F
+  E studies D+F
+  F studies D+E
+
+Bracket 2 (2-agent):
+  D studies E
+  E studies D
+
+Context reports must include:
+- strengths, weaknesses, dependencies, risks, structural role
+
+No self-defense in this stage.
+
+RULE 2 — Local Defense
+After context, each agent defends its own position within its bracket.
+Must address criticisms and challenge local rivals.
+
+RULE 3 — Local Rebuttal (non-optional at scale)
+Each bracket has a rebuttal round.
+Without rebuttal at scale, selection favors presentation speed over structural strength.
+
+RULE 4 — Local Synthesis
+After each bracket completes, the lead extracts:
+- Option A (competitive): select winning position
+- Option B (structural): extract strongest surviving structure
+
+For architecture work, Option B is usually better.
+
+RULE 5 — Cross-Bracket Challenge
+Bracket outputs challenge each other.
+
+If wildcard agent exists:
+- Wildcard studies both bracket outputs
+- Wildcard attacks hidden assumptions, false convergence, untested dependencies
+- Both bracket outputs must respond to wildcard attacks
+
+RULE 6 — Scoring Rubric
+
+Local bracket scoring:
++1 factual insight
++2 strategic relevance
++3 steelman of rival
++4 structural weakness identified
++5 architectural reframe
+
+Penalties:
+-2 shallow claim
+-3 unsupported assertion
+-5 hallucinated fact
+
+Cross-bracket scoring (adds):
++6 exposes hidden dependency
++7 survives wildcard attack
+
+RULE 7 — Final Synthesis
+The lead waits until ALL of these complete:
+- all bracket outputs
+- all cross-bracket challenges
+- wildcard review (if applicable)
+
+Then synthesizes:
+- best surviving architecture / decision
+- dependency graph
+- implementation order if relevant
+- discoveries worth recording to memory
+
+RULE 8 — Lead Behavior
+The lead must NOT advocate or debate.
+The lead extracts signal: convergent discoveries, surviving arguments.
+
+RULE 9 — Institutional Memory
+After synthesis, record:
+- structural discoveries
+- process lessons
+- corrected decisions
+
+Operational constraints:
+- Group brackets by semantic adjacency, not randomly.
+- Agents must cite concrete evidence where possible.
+- Prefer architectural reasoning over preference.
+- The wildcard agent's job is auditing, not advocating.
+
+Goal:
+Produce the strongest surviving structure or decision with full governance traceability.

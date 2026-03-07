@@ -1,0 +1,118 @@
+Create an agent team for a governed-disagreement arena.
+
+Structure:
+- Lead: this session (orchestrator / synthesizer).
+- Teammates: exactly 3 agents, each in its own independent context window.
+
+Teammates and allegiances:
+1. ADVOCATE-A — partisan advocate for Position A
+2. ADVOCATE-B — partisan advocate for Position B
+3. ADVOCATE-C — partisan advocate for Position C
+
+[REPLACE: Name each advocate and position for your specific decision.]
+
+Mission:
+Determine the correct structure / decision through governed disagreement.
+
+Arena rules:
+
+RULE 1 — Opponent Context First
+Each agent must begin by gathering strategic context on the OTHER two positions.
+No self-defense allowed in this stage.
+
+Context reports must include:
+- real strengths
+- real weaknesses
+- structural dependencies
+- implementation risks
+- architectural role
+
+RULE 2 — Defense Round
+After context reports, each agent defends its own position.
+Each defense must:
+- address weaknesses discovered earlier
+- explain dependencies
+- directly challenge the other two positions
+
+RULE 3 — Rebuttal Round
+Agents respond to the attacks against their position.
+Rebuttals must:
+- resolve contradictions
+- counter structural attacks
+- identify flawed assumptions in rival critiques
+
+RULE 4 — Scoring Rubric
++1 factual insight
++2 strategic relevance
++3 steelman of rival argument
++4 structural weakness identified
++5 architectural reframe
+
+Penalties:
+-2 shallow claim
+-3 unsupported assertion
+-5 hallucinated fact
+
+RULE 5 — Dependency Gating
+Task order is enforced. No skipping stages.
+context -> defense -> rebuttal -> synthesis
+
+RULE 6 — Lead Behavior
+The lead must NOT debate or advocate.
+The lead must:
+- wait for ALL agents to finish ALL rounds
+- extract convergent discoveries
+- identify surviving arguments
+- produce final synthesis
+
+RULE 7 — Convergent Discovery Rule
+If multiple independent agents with opposed incentives discover the same
+structural fact, treat it as HIGH-CONFIDENCE signal.
+
+RULE 8 — Synthesis Output
+The lead must produce:
+- corrected decision or architecture
+- dependency graph
+- implementation order (if applicable)
+- key discoveries from the arena
+
+RULE 9 — Institutional Memory
+After synthesis, record:
+- structural discoveries
+- process lessons
+- corrected decisions
+
+Task structure (enforce dependencies):
+
+Context tasks:
+[1] ADVOCATE-A gathers context on Positions B and C
+[2] ADVOCATE-B gathers context on Positions A and C
+[3] ADVOCATE-C gathers context on Positions A and B
+
+Defense tasks (blocked until context complete):
+[4] ADVOCATE-A defends Position A    (blockedBy: 1,2,3)
+[5] ADVOCATE-B defends Position B    (blockedBy: 1,2,3)
+[6] ADVOCATE-C defends Position C    (blockedBy: 1,2,3)
+
+Rebuttal tasks (blocked until defenses complete):
+[7] ADVOCATE-A rebuts attacks        (blockedBy: 4,5,6)
+[8] ADVOCATE-B rebuts attacks        (blockedBy: 4,5,6)
+[9] ADVOCATE-C rebuts attacks        (blockedBy: 4,5,6)
+
+Synthesis task (blocked until rebuttals complete):
+[10] Lead synthesizes final plan     (blockedBy: 7,8,9)
+
+Operational constraints:
+- Agents must cite concrete evidence where possible.
+- Prioritize structural analysis over speculation.
+- Prefer architectural reasoning over preference.
+
+Key evaluation factors:
+- dependency correctness
+- engineering leverage
+- signal availability
+- implementation cost
+- observability impact
+
+Goal:
+Produce a corrected decision and concrete implementation plan.

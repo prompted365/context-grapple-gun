@@ -1,0 +1,41 @@
+# Tournament Lattice Scoring Rubric
+# Two-stage scoring: local brackets + cross-bracket.
+
+local_bracket:
+  points:
+    factual_insight: 1
+    strategic_relevance: 2
+    steelman_of_rival: 3
+    structural_weakness_identified: 4
+    architectural_reframe: 5
+  penalties:
+    shallow_claim: -2
+    unsupported_assertion: -3
+    hallucinated_fact: -5
+
+cross_bracket:
+  points:
+    # In addition to local scoring:
+    hidden_dependency_exposed: 6
+    survives_wildcard_attack: 7
+  penalties:
+    false_convergence: -4
+    untested_assumption: -3
+
+evaluation_factors:
+  - dependency_correctness
+  - engineering_leverage
+  - signal_availability
+  - implementation_cost
+  - observability_impact
+  - cross_bracket_coherence
+
+convergence_rule: |
+  Independent discovery across brackets with opposed incentives
+  and the same conclusion = high confidence signal.
+  Cross-bracket convergence is stronger than within-bracket convergence.
+
+grouping_rule: |
+  Group brackets by semantic adjacency.
+  Similar positions compete locally first.
+  Cross-bracket compares synthesized category outputs.
