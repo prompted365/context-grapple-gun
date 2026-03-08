@@ -106,6 +106,10 @@ node_modules/
 __pycache__/
 *.pyc
 vendor/*/node_modules/
+
+# Stage artifacts — ticignored (no tics/signals/warrants) but learning-eligible.
+# Arena templates are readable reference material for pattern mining and retrieval.
+stage/
 ```
 
 ### Step 3: Create Audit Directory Tree

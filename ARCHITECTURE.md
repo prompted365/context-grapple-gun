@@ -109,6 +109,8 @@ Zone nesting enables federation. A subdirectory can define a nested zone with it
 
 `.ticignore` complements the zone definition with exclusion filtering. Where `.ticzone` says "this is my jurisdiction," `.ticignore` says "except these paths." v1 supports directory-level exclusions only -- intentionally simple. The zone scan rule resolves in order: zone boundary first (what's in), exclusion filter second (what's out). Governance surface = CLAUDE.md + MEMORY.md files inside the zone minus excluded paths.
 
+**Acoustic exclusion vs learning eligibility.** `.ticignore` governs the acoustic manifold — ticignored paths produce no tics, signals, or warrants. It does NOT exclude paths from the learning lineup. Pattern miners, memory scanners, and retrieval agents may read ticignored content as reference material. The distinction: governance exclusion (no acoustic events) vs learning inclusion (readable for pattern mining, expression tracking, and institutional memory). Example: `stage/` is ticignored by default (arena templates don't produce governance artifacts by presence) but its arena primitives are learning-eligible reference material.
+
 ### Signal birth provenance
 
 A federated signal must carry birth provenance. Hearing a signal locally does not make it locally born. When signals propagate across zone boundaries, the receiving zone must distinguish imported pressure from locally-originated claims. Local law (CLAUDE.md rules, promoted lessons) should not mutate from imported signal pressure alone — local corroboration is required before an imported signal drives governance changes. Birth provenance is tracked as metadata on the signal: `birth_zone`, `birth_tic`, and the originating emission context.
@@ -888,6 +890,24 @@ If the plugin mechanism namespaces skills, CGG skills become `/cgg:cadence`, `/c
 - [ ] Collision behavior between plugin skills and same-named local skills
 - [ ] Whether deprecated aliases survive namespacing or need explicit redirect entries
 - [ ] Whether hook auto-registration fully replaces `settings.local.json` patching or supplements it
+
+### Stage: arena primitives
+
+The `stage/` directory ships with the CGG repo and contains arena reasoning primitives — governed disagreement protocols that produce governance-grade findings.
+
+**Shipped (tracked in git):**
+- `stage/templates/arenas/governed-triangulation/` — 3-agent triangulation (spec, tasks, scoring, prompt)
+- `stage/templates/arenas/tournament-lattice/` — 5-7 agent bracketed tournament (spec, tasks, scoring, prompt)
+- `stage/specs/rationalized-learning-regalia.yaml` — reference implementation spec (first validated arena run)
+- `stage/README.md` — lifecycle, invariants, generation
+
+**Not shipped (gitignored):**
+- `stage/shows/` — generated per-show projections (disposable, regenerated from runtime truth)
+- `stage/specs/franchise-triangulation-demo.yaml` — theatrical/demo specs (example content, not primitives)
+
+**Governance posture:** ticignored by default (no tics, signals, or warrants born from stage content). But learning-eligible — pattern miners and retrieval agents may read arena templates as reference material. Arena RUNS produce governance artifacts; arena TEMPLATES do not.
+
+**Lifecycle:** staged (inert, reference-only) → armed (selected for a run) → live (promoted into runtime). Nothing in `stage/` executes by presence; everything executes by reference.
 
 ### What the plugin does NOT contain
 

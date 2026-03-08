@@ -121,6 +121,18 @@
         "model": "sonnet",
         "description": "Subordinate pattern-mining agent — mines authoring surfaces for recurring patterns, workarounds, and candidate seeds. Read-only."
       }
+    ],
+    "stage": [
+      {
+        "name": "governed-triangulation",
+        "path": "stage/templates/arenas/governed-triangulation/",
+        "description": "3-agent governed disagreement arena — full pairwise triangulation with opponent-context, defense, rebuttal, synthesis, and pressure extraction."
+      },
+      {
+        "name": "tournament-lattice",
+        "path": "stage/templates/arenas/tournament-lattice/",
+        "description": "5-7 agent bracketed tournament — scales governed triangulation via bracket partitioning, cross-bracket challenge, and optional wildcard auditor."
+      }
     ]
   },
   "install": {
