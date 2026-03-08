@@ -131,9 +131,10 @@ Determine three anchors:
 ZONE_ROOT="${CLAUDE_PROJECT_DIR:-$(pwd)}"
 while [ "$ZONE_ROOT" != "/" ] && [ ! -f "$ZONE_ROOT/.ticzone" ]; do ZONE_ROOT=$(dirname "$ZONE_ROOT"); done
 
-# Plugin root — search common locations
+# Plugin root — search common locations (federation estates, vendor, .claude/cgg)
 for candidate in \
   "$ZONE_ROOT/vendor/context-grapple-gun" \
+  "$ZONE_ROOT/canonical_developer/context-grapple-gun" \
   "$ZONE_ROOT/.claude/cgg" \
   "$HOME/.claude/cgg"; do
   [ -d "$candidate/cgg-runtime" ] && CGG_PLUGIN_ROOT="$candidate" && break
@@ -240,6 +241,11 @@ audit-logs/
 
 Report each: `[created]` or `[exists]`.
 
+Also create the shared runtime support path for proposal staging:
+```
+$INSTALL_ROOT/grapple-proposals/
+```
+
 ### Step 4: Install Runtime Surfaces
 
 Copy from CGG plugin root canonical sources to `$INSTALL_ROOT` (scope-dependent).
@@ -274,7 +280,12 @@ Check if the project's `CLAUDE.md` contains the CGG Session Learning Protocol bl
 
 **Detection**: Search for `## Session Learning Protocol` in `$ZONE_ROOT/CLAUDE.md`.
 
-**If missing**: Read the canonical convention block from `$CGG_PLUGIN_ROOT/convention-block.md`. Append it to the end of `$ZONE_ROOT/CLAUDE.md` (create the file if it doesn't exist). Report `[installed] convention block in CLAUDE.md`.
+**If missing**: Locate the canonical convention block. Search these paths in order:
+1. `$CGG_PLUGIN_ROOT/convention-block.md`
+2. `$ZONE_ROOT/vendor/context-grapple-gun/convention-block.md`
+3. `$ZONE_ROOT/canonical_developer/context-grapple-gun/convention-block.md`
+
+Read the first match and append it to the end of `$ZONE_ROOT/CLAUDE.md` (create the file if it doesn't exist). Report `[installed] convention block in CLAUDE.md`. If no convention block source is found, report `[MISSING] convention-block.md not found — convention block not installed`.
 
 **If present**: Report `[exists] convention block in CLAUDE.md` and do not modify.
 
