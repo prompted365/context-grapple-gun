@@ -58,3 +58,8 @@ For persistent conditions that need tracking, emit signals to `audit-logs/signal
 ### Topology
 
 Run `cgg-doctor.sh` from your project root to see your governance topology.
+
+### Install note
+
+This protocol block belongs to the project governance zone.
+It is project-local even when CGG runtime surfaces are installed to `~/.claude/...`.

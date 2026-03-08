@@ -20,7 +20,23 @@ git submodule add https://github.com/prompted365/context-grapple-gun.git vendor/
 claude plugin install vendor/context-grapple-gun
 ```
 
-The plugin manifest registers skills, hooks, and agents automatically. Claude will ask which mode you want, then set up the remaining project governance files.
+The plugin manifest registers skills, hooks, and agents automatically.
+
+Claude should ask two things:
+1. install mode
+2. install scope
+
+Install mode decides how much automation you want.
+Install scope decides where runtime surfaces live.
+
+Default scope is user/global (`~/.claude/...`).
+Project scope (`$ZONE_ROOT/.claude/...`) is opt-in only.
+
+Project governance zone surfaces still live at the project root either way:
+- `.ticzone`
+- `.ticignore`
+- `audit-logs/`
+- project `CLAUDE.md` / `MEMORY.md`
 
 **When install finishes, you have:**
 - `/cadence`, `/review`, `/siren`
@@ -72,6 +88,35 @@ If unsure, choose **Full pipeline**.
 
 ---
 
+## Install scopes explained
+
+Install scope is separate from install mode.
+
+| Scope | Runtime surfaces go to | Use when |
+|------|-------------------------|----------|
+| **User / Global** | `~/.claude/...` | Default. Best for federation, multi-project, and canonical validation workflows. |
+| **Project** | `$ZONE_ROOT/.claude/...` | Use only when you explicitly want project-local embodiment. |
+| **Enterprise** | Managed policy surface | Not a normal install target. Detect and respect managed policy constraints. |
+
+### Important distinction
+
+Scope only changes **runtime surface placement**.
+
+These remain project-local:
+- `.ticzone`
+- `.ticignore`
+- `audit-logs/`
+- governance files in the project zone
+
+So a user/global install still governs a project zone.
+It does not move the zone into `~/.claude`.
+
+Runtime scope and governance scope are different things.
+Default runtime scope is user/global.
+Default governance scope remains project-local unless promoted through the ladder.
+
+---
+
 ## Bootstrap prompt (alternative)
 
 If your Claude Code version doesn't support plugins yet, paste this into a session:
@@ -79,7 +124,14 @@ If your Claude Code version doesn't support plugins yet, paste this into a sessi
 Copy this entire block and paste it into a Claude Code session in your project:
 
 ````
-I want to install Context Grapple Gun (CGG) into this project. CGG is a file-based governance lifecycle for persistent AI systems. It captures durable lessons discovered during work, carries them across session boundaries, and routes them through review so the project's operating rules can compound instead of resetting every session.
+I want to install Context Grapple Gun (CGG) for this project's governance zone.
+
+Important distinction:
+- governance zone surfaces stay project-local
+- runtime surfaces default to user/global (`~/.claude/...`)
+- project runtime scope is opt-in only
+
+CGG is a file-based governance lifecycle for persistent AI systems. It captures durable lessons discovered during work, carries them across session boundaries, and routes them through review so the project's operating rules can compound instead of resetting every session.
 
 Here's what to do:
 
@@ -89,42 +141,88 @@ Here's what to do:
    ```
    Then I can re-run this prompt.
 
-2. ASK ME ONE QUESTION: "How do you want to install CGG?" with these options:
-   - **A) Full pipeline (recommended)** — hooks, ripple-assessor, skills, session restore, and automatic between-session evaluation. Best when you want the full governance loop running.
-   - **B) Skills only** — just `/cadence`, `/review`, and `/siren`, plus the local governance files they depend on. No hooks. You drive the lifecycle manually.
-   - **C) Convention only** — only the CogPR protocol added to `CLAUDE.md`. No commands, no hooks, no copied runtime files. Manual capture and manual review.
+2. ASK ME TWO QUESTIONS, in this order:
+
+   First:
+   "Which install mode do you want?"
+   - **A) Full pipeline (recommended)** — hooks, ripple-assessor, skills, session restore, and automatic between-session evaluation.
+   - **B) Skills only** — just `/cadence`, `/review`, and `/siren`, plus the local governance files they depend on.
+   - **C) Convention only** — only the CogPR protocol added to `CLAUDE.md`.
+
+   Second:
+   "Which install scope do you want for runtime surfaces?"
+   - **1) User / global (recommended)** — install runtime surfaces to `~/.claude/...`
+   - **2) Project** — install runtime surfaces to `$ZONE_ROOT/.claude/...`
+   - **3) Enterprise managed policy detected** — report constraints; do not treat this as a normal target
+
+   If I do not explicitly choose project scope, default to user/global.
 
 3. BASED ON MY ANSWER, do the following:
+
+Resolve these variables first:
+
+- `ZONE_ROOT` = project root / governance zone root
+- `INSTALL_SCOPE` = `user` by default, or `project` only if explicitly chosen
+- `INSTALL_ROOT` =
+  - `~/.claude` if `INSTALL_SCOPE=user`
+  - `$ZONE_ROOT/.claude` if `INSTALL_SCOPE=project`
+- `SETTINGS_FILE` =
+  - `~/.claude/settings.json` if `INSTALL_SCOPE=user`
+  - `$ZONE_ROOT/.claude/settings.local.json` if `INSTALL_SCOPE=project`
+
+Enterprise:
+- if managed policy is detected, report it
+- do not silently override or bypass it
 
 ---
 
 ### If A (Full pipeline):
 
-**Copy primary skills** (create `.claude/skills/` dirs as needed):
-- `vendor/context-grapple-gun/cgg-runtime/skills/cadence/` -> `.claude/skills/cadence/`
-- `vendor/context-grapple-gun/cgg-runtime/skills/review/` -> `.claude/skills/review/`
-- `vendor/context-grapple-gun/cgg-runtime/skills/siren/` -> `.claude/skills/siren/`
+Create runtime surface directories under `$INSTALL_ROOT` as needed.
 
-**Copy compatibility / alternate command wrappers** (these are valid command surfaces, not deprecated):
-- `vendor/context-grapple-gun/cgg-runtime/skills/cadence-downbeat/` -> `.claude/skills/cadence-downbeat/`
-- `vendor/context-grapple-gun/cgg-runtime/skills/cadence-syncopate/` -> `.claude/skills/cadence-syncopate/`
-- `vendor/context-grapple-gun/cgg-runtime/skills/grapple/` -> `.claude/skills/grapple/`
+**Copy primary skills:**
+- `vendor/context-grapple-gun/cgg-runtime/skills/cadence/` -> `$INSTALL_ROOT/skills/cadence/`
+- `vendor/context-grapple-gun/cgg-runtime/skills/review/` -> `$INSTALL_ROOT/skills/review/`
+- `vendor/context-grapple-gun/cgg-runtime/skills/siren/` -> `$INSTALL_ROOT/skills/siren/`
+- `vendor/context-grapple-gun/cgg-runtime/skills/init-governance/` -> `$INSTALL_ROOT/skills/init-governance/`
+- `vendor/context-grapple-gun/cgg-runtime/skills/statusline/` -> `$INSTALL_ROOT/skills/statusline/`
+- `vendor/context-grapple-gun/cgg-runtime/skills/homeskillet-academy/` -> `$INSTALL_ROOT/skills/homeskillet-academy/`
 
-Do not copy `init-gun` or `init-cogpr` unless I explicitly ask for legacy bootstrap compatibility. Those are absorbed into the install flow and should not be surfaced as first-contact commands.
+**Copy compatibility / alternate command wrappers:**
+- `vendor/context-grapple-gun/cgg-runtime/skills/cadence-downbeat/` -> `$INSTALL_ROOT/skills/cadence-downbeat/`
+- `vendor/context-grapple-gun/cgg-runtime/skills/cadence-syncopate/` -> `$INSTALL_ROOT/skills/cadence-syncopate/`
+- `vendor/context-grapple-gun/cgg-runtime/skills/grapple/` -> `$INSTALL_ROOT/skills/grapple/`
+
+Do not copy `init-gun` or `init-cogpr` unless explicitly requested for legacy compatibility.
 
 **Copy hooks:**
-- `vendor/context-grapple-gun/cgg-runtime/hooks/cgg-gate.sh` -> `.claude/hooks/cgg-gate.sh`
-- `vendor/context-grapple-gun/cgg-runtime/hooks/session-restore-patch.sh` -> `.claude/hooks/session-restore-patch.sh`
-- Make both executable: `chmod +x .claude/hooks/cgg-gate.sh .claude/hooks/session-restore-patch.sh`
+- `vendor/context-grapple-gun/cgg-runtime/hooks/session-restore.sh` -> `$INSTALL_ROOT/hooks/session-restore.sh`
+- `vendor/context-grapple-gun/cgg-runtime/hooks/session-restore-patch.sh` -> `$INSTALL_ROOT/hooks/session-restore-patch.sh`
+- `vendor/context-grapple-gun/cgg-runtime/hooks/cgg-gate.sh` -> `$INSTALL_ROOT/hooks/cgg-gate.sh`
+- `vendor/context-grapple-gun/cgg-runtime/hooks/posttool-microscan.sh` -> `$INSTALL_ROOT/hooks/posttool-microscan.sh`
+
+Make copied hooks executable.
 
 **Copy agents:**
-- `vendor/context-grapple-gun/cgg-runtime/agents/ripple-assessor.md` -> `.claude/agents/ripple-assessor.md`
+- `vendor/context-grapple-gun/cgg-runtime/agents/ripple-assessor.md` -> `$INSTALL_ROOT/agents/ripple-assessor.md`
+- `vendor/context-grapple-gun/cgg-runtime/agents/mogul.md` -> `$INSTALL_ROOT/agents/mogul.md`
+- `vendor/context-grapple-gun/cgg-runtime/agents/ladder-auditor.md` -> `$INSTALL_ROOT/agents/ladder-auditor.md`
+- `vendor/context-grapple-gun/cgg-runtime/agents/pattern-curator.md` -> `$INSTALL_ROOT/agents/pattern-curator.md`
 
-**Create directories:**
+**Create project-local governance zone surfaces at `ZONE_ROOT`:**
+- `.ticzone` (if missing)
+- `.ticignore` (if missing)
+- `audit-logs/signals`
+- `audit-logs/tics`
+- `audit-logs/conformations`
+- `audit-logs/cprs`
+- `audit-logs/economy`
+- `audit-logs/provenance`
+
+These are always zone-local, regardless of install scope.
+
+**Create global/shared runtime support path:**
 - `mkdir -p ~/.claude/grapple-proposals`
-- `mkdir -p audit-logs/signals`
-- `mkdir -p audit-logs/tics`
-- `mkdir -p audit-logs/conformations`
 
 **Create `.ticzone`** at project root (if one doesn't exist):
 ```json
@@ -158,7 +256,42 @@ vendor/
 Note: MEMORY.md files are gitignored but NOT ticignored — they hold
 active governance data (pending CPRs, operational memory).
 
-**Patch `.claude/settings.local.json`** — read the existing file (or create it if missing), and add these hook entries to the `hooks` object. Preserve any existing hooks. If hooks with the same event already exist, append these as additional entries (hooks is an object keyed by event name, where each value is an array of hook configs):
+**Patch the settings file at `$SETTINGS_FILE`.**
+
+- If `INSTALL_SCOPE=user`, patch `~/.claude/settings.json`
+- If `INSTALL_SCOPE=project`, patch `$ZONE_ROOT/.claude/settings.local.json`
+
+Preserve existing hooks. Append new hook commands rather than overwriting matching events.
+If enterprise-managed policy is detected, report any constraints before writing.
+
+Example for user scope (merged into `~/.claude/settings.json`):
+
+```json
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "type": "command",
+        "command": "~/.claude/hooks/session-restore-patch.sh"
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "type": "command",
+        "command": "~/.claude/hooks/cgg-gate.sh"
+      }
+    ],
+    "PostToolUse": [
+      {
+        "type": "command",
+        "command": "~/.claude/hooks/posttool-microscan.sh"
+      }
+    ]
+  }
+}
+```
+
+Example for project scope (merged into `$ZONE_ROOT/.claude/settings.local.json`):
 
 ```json
 {
@@ -174,6 +307,12 @@ active governance data (pending CPRs, operational memory).
         "type": "command",
         "command": ".claude/hooks/cgg-gate.sh"
       }
+    ],
+    "PostToolUse": [
+      {
+        "type": "command",
+        "command": ".claude/hooks/posttool-microscan.sh"
+      }
     ]
   }
 }
@@ -185,28 +324,28 @@ active governance data (pending CPRs, operational memory).
 
 ### If B (Skills only):
 
-**Copy primary skills** (create `.claude/skills/` dirs as needed):
-- `vendor/context-grapple-gun/cgg-runtime/skills/cadence/` -> `.claude/skills/cadence/`
-- `vendor/context-grapple-gun/cgg-runtime/skills/review/` -> `.claude/skills/review/`
-- `vendor/context-grapple-gun/cgg-runtime/skills/siren/` -> `.claude/skills/siren/`
+**Copy primary skills** to `$INSTALL_ROOT/skills/`:
+- `vendor/context-grapple-gun/cgg-runtime/skills/cadence/` -> `$INSTALL_ROOT/skills/cadence/`
+- `vendor/context-grapple-gun/cgg-runtime/skills/review/` -> `$INSTALL_ROOT/skills/review/`
+- `vendor/context-grapple-gun/cgg-runtime/skills/siren/` -> `$INSTALL_ROOT/skills/siren/`
 
-**Copy compatibility / alternate command wrappers** (these are valid command surfaces, not deprecated):
-- `vendor/context-grapple-gun/cgg-runtime/skills/cadence-downbeat/` -> `.claude/skills/cadence-downbeat/`
-- `vendor/context-grapple-gun/cgg-runtime/skills/cadence-syncopate/` -> `.claude/skills/cadence-syncopate/`
-- `vendor/context-grapple-gun/cgg-runtime/skills/grapple/` -> `.claude/skills/grapple/`
+**Copy compatibility / alternate command wrappers:**
+- `vendor/context-grapple-gun/cgg-runtime/skills/cadence-downbeat/` -> `$INSTALL_ROOT/skills/cadence-downbeat/`
+- `vendor/context-grapple-gun/cgg-runtime/skills/cadence-syncopate/` -> `$INSTALL_ROOT/skills/cadence-syncopate/`
+- `vendor/context-grapple-gun/cgg-runtime/skills/grapple/` -> `$INSTALL_ROOT/skills/grapple/`
 
-Do not copy `init-gun` or `init-cogpr` unless I explicitly ask for legacy bootstrap compatibility.
+Do not copy `init-gun` or `init-cogpr` unless explicitly requested for legacy compatibility.
 
-**Create directories:**
-- `mkdir -p audit-logs/signals`
-- `mkdir -p audit-logs/tics`
-- `mkdir -p audit-logs/conformations`
+**Create project-local governance zone surfaces at `ZONE_ROOT`:**
+- `audit-logs/signals`
+- `audit-logs/tics`
+- `audit-logs/conformations`
 
 **Create `.ticzone` and `.ticignore`** at project root (same as Full pipeline above — see those sections for templates).
 
 **Add Session Learning Protocol to CLAUDE.md** (same convention block as Full pipeline).
 
-Skip hooks, agents, and settings.local.json patching.
+Skip hooks, agents, and settings patching.
 
 ---
 
@@ -288,19 +427,30 @@ For persistent conditions that need tracking, emit signals to `audit-logs/signal
 ```
 CGG installed — Full pipeline mode.
 
+Install scope:
+- user/global (~/.claude)
+or
+- project ($ZONE_ROOT/.claude)
+
+Settings file:
+- `~/.claude/settings.json`
+or
+- `$ZONE_ROOT/.claude/settings.local.json`
+
 What was installed:
-- Skills: /cadence, /review, /siren
+- Skills: /cadence, /review, /siren, /init-governance, /statusline, /homeskillet-academy
 - Compatibility / alternate command wrappers: cadence-downbeat, cadence-syncopate, grapple
 - Hooks:
-  - SessionStart -> .claude/hooks/session-restore-patch.sh
-  - UserPromptSubmit -> .claude/hooks/cgg-gate.sh
-- Agent: ripple-assessor
-- Governance files: .ticzone, .ticignore
-- Audit paths:
-  - audit-logs/signals
-  - audit-logs/tics
-  - audit-logs/conformations
+  - SessionStart -> $INSTALL_ROOT/hooks/session-restore-patch.sh
+  - UserPromptSubmit -> $INSTALL_ROOT/hooks/cgg-gate.sh
+  - PostToolUse -> $INSTALL_ROOT/hooks/posttool-microscan.sh
+- Agents: ripple-assessor, mogul, ladder-auditor, pattern-curator
 - Proposals path: ~/.claude/grapple-proposals/latest.md
+
+Zone-local governance surfaces remain at project root:
+- `.ticzone`
+- `.ticignore`
+- `audit-logs/...`
 
 What this means operationally:
 1. You work normally.
@@ -332,14 +482,19 @@ Start working normally. End each real session with /cadence.
 ```
 CGG installed — Skills only mode.
 
+Install scope:
+- user/global (~/.claude)
+or
+- project ($ZONE_ROOT/.claude)
+
 What was installed:
 - Skills: /cadence, /review, /siren
 - Compatibility / alternate command wrappers: cadence-downbeat, cadence-syncopate, grapple
-- Governance files: .ticzone, .ticignore
-- Audit paths:
-  - audit-logs/signals
-  - audit-logs/tics
-  - audit-logs/conformations
+
+Zone-local governance surfaces remain at project root:
+- `.ticzone`
+- `.ticignore`
+- `audit-logs/...`
 
 What this means operationally:
 - No hooks
@@ -395,41 +550,53 @@ If you prefer to set things up by hand instead of using the plugin installer or 
 # 1. Add the submodule (if not already present)
 git submodule add https://github.com/prompted365/context-grapple-gun.git vendor/context-grapple-gun
 
-# 2. Copy active skills (not deprecated ones)
-mkdir -p .claude/skills/{cadence,review,siren,init-governance,statusline,homeskillet-academy}
-for skill in cadence review siren init-governance statusline homeskillet-academy; do
-  cp vendor/context-grapple-gun/cgg-runtime/skills/$skill/SKILL.md .claude/skills/$skill/
+# 2. Choose install scope
+# Default:
+INSTALL_ROOT="$HOME/.claude"
+SETTINGS_FILE="$HOME/.claude/settings.json"
+
+# Optional project-local override:
+# INSTALL_ROOT="$PWD/.claude"
+# SETTINGS_FILE="$PWD/.claude/settings.local.json"
+
+# 3. Copy active skills
+mkdir -p "$INSTALL_ROOT"/skills/{cadence,review,siren,init-governance,statusline,homeskillet-academy,cadence-downbeat,cadence-syncopate,grapple}
+for skill in cadence review siren init-governance statusline homeskillet-academy cadence-downbeat cadence-syncopate grapple; do
+  cp vendor/context-grapple-gun/cgg-runtime/skills/$skill/SKILL.md "$INSTALL_ROOT/skills/$skill/"
 done
 
-# 3. Copy hooks
-mkdir -p .claude/hooks
-cp vendor/context-grapple-gun/cgg-runtime/hooks/session-restore.sh .claude/hooks/
-cp vendor/context-grapple-gun/cgg-runtime/hooks/session-restore-patch.sh .claude/hooks/
-cp vendor/context-grapple-gun/cgg-runtime/hooks/cgg-gate.sh .claude/hooks/
-cp vendor/context-grapple-gun/cgg-runtime/hooks/posttool-microscan.sh .claude/hooks/
-chmod +x .claude/hooks/*.sh
+# 4. Copy hooks
+mkdir -p "$INSTALL_ROOT/hooks"
+cp vendor/context-grapple-gun/cgg-runtime/hooks/session-restore.sh "$INSTALL_ROOT/hooks/"
+cp vendor/context-grapple-gun/cgg-runtime/hooks/session-restore-patch.sh "$INSTALL_ROOT/hooks/"
+cp vendor/context-grapple-gun/cgg-runtime/hooks/cgg-gate.sh "$INSTALL_ROOT/hooks/"
+cp vendor/context-grapple-gun/cgg-runtime/hooks/posttool-microscan.sh "$INSTALL_ROOT/hooks/"
+chmod +x "$INSTALL_ROOT"/hooks/*.sh
 
-# 4. Copy agents
-mkdir -p .claude/agents
-cp vendor/context-grapple-gun/cgg-runtime/agents/ripple-assessor.md .claude/agents/
-cp vendor/context-grapple-gun/cgg-runtime/agents/mogul.md .claude/agents/
-cp vendor/context-grapple-gun/cgg-runtime/agents/ladder-auditor.md .claude/agents/
-cp vendor/context-grapple-gun/cgg-runtime/agents/pattern-curator.md .claude/agents/
+# 5. Copy agents
+mkdir -p "$INSTALL_ROOT/agents"
+cp vendor/context-grapple-gun/cgg-runtime/agents/ripple-assessor.md "$INSTALL_ROOT/agents/"
+cp vendor/context-grapple-gun/cgg-runtime/agents/mogul.md "$INSTALL_ROOT/agents/"
+cp vendor/context-grapple-gun/cgg-runtime/agents/ladder-auditor.md "$INSTALL_ROOT/agents/"
+cp vendor/context-grapple-gun/cgg-runtime/agents/pattern-curator.md "$INSTALL_ROOT/agents/"
 
-# 5. Create directories
-mkdir -p ~/.claude/grapple-proposals
+# 6. Create global/shared runtime support path
+mkdir -p "$HOME/.claude/grapple-proposals"
+
+# 7. Create project-local governance zone surfaces
 mkdir -p audit-logs/{signals,tics,conformations,cprs,economy,provenance}
 
-# 5.5. Create .ticzone and .ticignore at project root (if missing)
-# Edit .ticzone: set "name" to your project name, adjust "tz" to your timezone
-# Edit .ticignore: add project-specific exclusions beyond the defaults
+# 8. Create .ticzone and .ticignore at project root if missing
+# Edit .ticzone: set "name" and "tz"
+# Edit .ticignore: add project-specific exclusions
 
-# 6. Add hooks to .claude/settings.local.json (merge with existing content):
-# SessionStart  -> .claude/hooks/session-restore-patch.sh
-# UserPromptSubmit -> .claude/hooks/cgg-gate.sh
-# PostToolUse   -> .claude/hooks/posttool-microscan.sh
+# 9. Merge hooks into $SETTINGS_FILE
+# SessionStart   -> $INSTALL_ROOT/hooks/session-restore-patch.sh
+# UserPromptSubmit -> $INSTALL_ROOT/hooks/cgg-gate.sh
+# PostToolUse -> $INSTALL_ROOT/hooks/posttool-microscan.sh
 
-# 7. Add the Session Learning Protocol block to your project's CLAUDE.md
+# 10. Add the Session Learning Protocol block to project CLAUDE.md
+#     (see convention-block.md)
 #    (see "Convention block" above, or copy from convention-block.md)
 ```
 

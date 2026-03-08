@@ -210,9 +210,40 @@ Claude Code only. Hooks into the session lifecycle to automate capture, evaluati
 
 **Topology awareness**: The runtime includes rung resolution (`zone_root.resolve_rung_position()`) that detects topology markers (`.domain-root`, `.estate-root`, `.federation-root`) above the site. Run `cgg-doctor.sh` to see your current topology. Higher-rung markers are optional — site-only is the default and fully functional.
 
+### Runtime install scope
+
+The automation engine has two distinct surface classes:
+
+#### Runtime surfaces
+Installed to one of:
+- `~/.claude/...` (default, user/global)
+- `$ZONE_ROOT/.claude/...` (project override only)
+
+These include:
+- skills
+- hooks
+- agents
+- settings registration
+
+#### Zone-local governance surfaces
+Always remain at project zone root:
+- `.ticzone`
+- `.ticignore`
+- `audit-logs/`
+- project governance files
+
+This distinction matters:
+runtime embodiment may be global while governance jurisdiction remains project-local.
+
+Runtime scope and governance scope are different things.
+Default runtime scope is user/global.
+Default governance scope remains project-local unless promoted through the ladder.
+
 ## Installation
 
-Paste the bootstrap prompt into Claude Code. It asks one question (install mode), then handles everything -- submodule, skills, hooks, agents, wiring. See [INSTALL.md](INSTALL.md) for the exact prompt.
+Paste the bootstrap prompt into Claude Code. It asks two questions (install mode and install scope), then handles everything — submodule, skills, hooks, agents, wiring. See [INSTALL.md](INSTALL.md) for the exact prompt.
+
+Default runtime scope is **user/global** (`~/.claude/...`). Project-local runtime scope is opt-in only.
 
 For Claude Desktop or Claude for Work, copy `cogpr/claude-desktop/project-instructions.md` into your project's custom instructions. You get the convention layer but not the automated pipeline.
 

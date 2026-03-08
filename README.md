@@ -600,21 +600,46 @@ Claude Code only. Automation connecting lesson capture to evaluation to review.
 
 ## Installation
 
-### Claude Code -- full pipeline
+### Claude Code — full pipeline
 
 Three install paths (see [INSTALL.md](INSTALL.md) for details):
 
-1. **Bootstrap prompt** -- paste into Claude Code, answers one question, sets up everything (submodule, skills, hooks, agents, convention block, settings). Most complete for first install.
-2. **`/init-governance`** -- run after submodule is present. Installs runtime surfaces, convention block, settings registration. Best for repair/resync.
-3. **Manual** -- copy files by hand. See INSTALL.md for step-by-step.
+1. **Plugin install** — recommended. Installs runtime surfaces and then sets up project governance zone surfaces.
+2. **`/init-governance`** — fresh install, repair, or resync. Default runtime scope is **user/global**.
+3. **Manual** — copy runtime surfaces by hand and create project governance zone surfaces explicitly.
+
+### Install scope policy
+
+Runtime surfaces and governance zone surfaces are distinct.
+
+Default runtime scope:
+- `~/.claude/...` (user/global)
+
+Optional runtime scope override:
+- project-local `$ZONE_ROOT/.claude/...`
+
+Project governance zone surfaces remain local either way:
+- `.ticzone`
+- `.ticignore`
+- `audit-logs/`
+- project governance files
+
+Runtime scope and governance scope are different things.
+Default runtime scope is user/global.
+Default governance scope remains project-local unless promoted through the ladder.
 
 ### Claude Desktop / Claude for Work
 
-Copy `cogpr/claude-desktop/project-instructions.md` into your project's custom instructions. Convention layer only -- CogPR flagging and manual review, no automated pipeline.
+Copy `cogpr/claude-desktop/project-instructions.md` into your project's custom instructions.
+Convention layer only — no automated runtime pipeline.
 
 ## Safety
 
-All promotions require human approval through `/review`. Protected files like `~/.claude/CLAUDE.md` require extra confirmation. Trigger blocks are structured data with whitelisted keys, not executable instructions. Each handoff is processed at most once. Project scoping prevents cross-project bleed.
+All promotions require human approval through `/review`. Protected files like `~/.claude/CLAUDE.md` require extra confirmation. Trigger blocks are structured data with whitelisted keys, not executable instructions. Each handoff is processed at most once.
+
+Zone-local governance scoping prevents cross-project bleed.
+Global runtime installation does not make project governance global.
+Rules still route through the project's zone boundary and ladder.
 
 ## License
 

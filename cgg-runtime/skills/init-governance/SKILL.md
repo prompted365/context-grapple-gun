@@ -53,6 +53,29 @@ Zone configuration, audit data, and convention blocks are always project-local r
 - Continue with non-conflicting surfaces only
 - Never offer enterprise as an install destination
 
+### Scope invariant
+
+Install scope controls **runtime surface placement only**.
+
+It does **not** change the location of the project's governance zone surfaces.
+
+Always keep these at the zone root:
+- `.ticzone`
+- `.ticignore`
+- `audit-logs/`
+- project governance files (`CLAUDE.md`, `MEMORY.md`)
+
+So:
+
+- `--scope user` installs runtime surfaces to `~/.claude/...`
+- `--scope project` installs runtime surfaces to `$ZONE_ROOT/.claude/...`
+
+But both scopes still use the same project zone root for governance scanning, tic emission, and audit history.
+
+Runtime scope and governance scope are different things.
+Default runtime scope is user/global.
+Default governance scope remains project-local unless promoted through the ladder.
+
 ## Ownership Model
 
 This skill owns **installed runtime copies** only. Install root is scope-dependent:
@@ -384,3 +407,14 @@ For nested site/domain surfaces: the user may specify `--target <subdir>` to ins
 
 This skill copies canonical to installed. After sync, installed IS runtime truth.
 Canonical source is intent until this skill completes sync + verify.
+
+### Federation install note
+
+In canonical federation workflows, the default install policy is `--scope user`.
+
+Reason:
+- `canonical/` is doctrine, not runtime
+- `canonical_user/` is validation, not runtime host
+- user/global scope is the preferred embodiment for federation-level validation
+
+Project scope is allowed only as an explicit override.
