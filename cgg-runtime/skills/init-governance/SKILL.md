@@ -401,6 +401,7 @@ Runtime (at $INSTALL_ROOT):
   agents/ripple     [installed|synced|resynced]
   agents/pattern    [installed|synced|resynced]
   agents/ladder     [installed|synced|resynced]
+  agents/cpr-step   [installed|synced|resynced]
   hooks/restore     [installed|synced|resynced]
   hooks/gate        [installed|synced|resynced]
 

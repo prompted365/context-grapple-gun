@@ -1,0 +1,39 @@
+{
+  "description": "CGG governance hooks — session restore, gate trigger, and runtime drift detection",
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/cgg-runtime/hooks/session-restore-patch.sh",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/cgg-runtime/hooks/cgg-gate.sh",
+            "timeout": 15
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/cgg-runtime/hooks/posttool-microscan.sh",
+            "timeout": 10
+          }
+        ]
+      }
+    ]
+  }
+}

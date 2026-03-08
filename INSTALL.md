@@ -245,12 +245,18 @@ node_modules/
 dist/
 target/
 .git/
+__pycache__/
+*.pyc
 
 # Vendor/upstream (read-only, not your governance surface)
 vendor/
 
 # Skill templates (contain example CogPR blocks, not real items)
 .claude/skills/
+
+# Stage artifacts — ticignored (no tics/signals/warrants) but learning-eligible.
+# Arena templates are readable reference material for pattern mining and retrieval.
+stage/
 ```
 
 Note: MEMORY.md files are gitignored but NOT ticignored — they hold
