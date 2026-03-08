@@ -208,6 +208,8 @@ Markdown standards that teach Claude how to flag lessons. Works in Claude Code, 
 ### 2. `cgg-runtime/` -- The automation engine
 Claude Code only. Hooks into the session lifecycle to automate capture, evaluation, and proposal generation. Turns conventions into a pipeline. The runtime assumes `.ticzone` and `.ticignore` at project root for scan boundary resolution. Install creates these if missing.
 
+**Topology awareness**: The runtime includes rung resolution (`zone_root.resolve_rung_position()`) that detects topology markers (`.domain-root`, `.estate-root`, `.federation-root`) above the site. Run `cgg-doctor.sh` to see your current topology. Higher-rung markers are optional — site-only is the default and fully functional.
+
 ## Installation
 
 Paste the bootstrap prompt into Claude Code. It asks one question (install mode), then handles everything -- submodule, skills, hooks, agents, wiring. See [INSTALL.md](INSTALL.md) for the exact prompt.

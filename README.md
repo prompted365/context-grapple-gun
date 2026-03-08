@@ -218,6 +218,8 @@ Knowledge in CGG lives on a scope hierarchy — the abstraction ladder. Lessons 
 
 Lessons are born locally — written to the nearest `MEMORY.md` from wherever the agent is working (born truth). The site rung is where they first become reusable rules. Most users only interact with site and global; the intermediate rungs exist for multi-project governance.
 
+Site-level governance is fully bootstrapped via `/init-governance`. Domain/estate/federation markers (`.domain-root`, `.estate-root`, `.federation-root`) are supported for topology growth — create them as plain empty files above your site root to declare higher-rung boundaries. Run `cgg-doctor.sh` to see your current topology.
+
 ### Climbing: site to global
 
 A lesson climbs when a CogPR is approved through `/review`. The ripple assessor checks scope correctness -- a Redis connection pattern specific to one site shouldn't become global law. Promotion requires evidence:

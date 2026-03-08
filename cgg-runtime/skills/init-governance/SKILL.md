@@ -13,6 +13,7 @@ Single bootstrap command for CGG governance surface creation, repair, and sync v
 - **`/init-governance`** (no args) — fresh install or repair. Creates missing surfaces, syncs drifted ones.
 - **`/init-governance --dry-run`** — report what would be created/synced without modifying anything.
 - **`/init-governance --tic`** — after install, emit an initial tic.
+- **`/init-governance --rung domain|estate|federation`** — after install, create the specified rung marker at zone root.
 
 ## Ownership Model
 
@@ -111,6 +112,24 @@ vendor/*/node_modules/
 # Arena templates are readable reference material for pattern mining and retrieval.
 stage/
 ```
+
+### Step 2.5: Rung Marker (optional)
+
+If `--rung domain|estate|federation` was **explicitly passed**, create the appropriate marker at zone root.
+
+Rung markers are independent of governance zones. A marker can exist without `.ticzone` and vice versa. This step never runs implicitly — site bootstrap is the unchanged default.
+
+| Flag | Marker created |
+|------|---------------|
+| `--rung domain` | `.domain-root` |
+| `--rung estate` | `.estate-root` |
+| `--rung federation` | `.federation-root` |
+
+**If marker already exists**: report `[exists] .domain-root` and continue.
+
+**If created**: report `[created] .domain-root (topology: domain)`.
+
+**Never create rung markers implicitly.** Rung declaration is strictly opt-in.
 
 ### Step 3: Create Audit Directory Tree
 
@@ -248,6 +267,8 @@ Convention: [installed|exists|drifted]
 Settings:   [installed|exists] (hooks in settings.local.json)
 Drift:      0 surfaces drifted (or N surfaces resynced)
 Initial tic: emitted | skipped (use --tic)
+Rung:       site (default) | domain | estate | federation
+Topology:   site only | domain > site | estate > domain > site | ...
 ```
 
 ## Nested Surface Support

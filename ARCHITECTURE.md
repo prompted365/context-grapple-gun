@@ -111,6 +111,38 @@ Zone nesting enables federation. A subdirectory can define a nested zone with it
 
 **Acoustic exclusion vs learning eligibility.** `.ticignore` governs the acoustic manifold — ticignored paths produce no tics, signals, or warrants. It does NOT exclude paths from the learning lineup. Pattern miners, memory scanners, and retrieval agents may read ticignored content as reference material. The distinction: governance exclusion (no acoustic events) vs learning inclusion (readable for pattern mining, expression tracking, and institutional memory). Example: `stage/` is ticignored by default (arena templates don't produce governance artifacts by presence) but its arena primitives are learning-eligible reference material.
 
+### Rung resolution
+
+The abstraction ladder defines five governance scopes: site → domain → estate → federation → global. CGG currently provides site-level governance bootstrap through `.ticzone` and `/init-governance`. Federation/estate/domain awareness is a supported topology model — add markers above the site to grow topology without reinstalling.
+
+**Marker convention** (plain sentinel files — bootstrap first, metadata later):
+
+| Marker | Rung | Meaning |
+|--------|------|---------|
+| `.ticzone` | site | Governance zone boundary (already exists, carries zone config) |
+| `.domain-root` | domain | Cross-module boundary within a project |
+| `.estate-root` | estate | Cross-project boundary under one operator |
+| `.federation-root` | federation | Cross-organization boundary |
+| *(none)* | global | External Claude scope (`~/.claude/CLAUDE.md`) |
+
+Markers are plain empty files by default. `.ticzone` is the exception — it carries zone configuration as JSON. Higher-rung markers may carry a name as plain-text content; if empty, the directory name is used.
+
+**Resolution algorithm** (`zone_root.resolve_rung_position()`):
+1. Start at cwd (or `$CLAUDE_PROJECT_DIR`)
+2. Walk upward, record each marker found
+3. Stop at filesystem root
+4. `current_rung` = LOWEST (nearest) marker found — not highest. An agent inside a site with `.ticzone` resolves as `site`, even if `.federation-root` exists far above.
+5. Produce full `topology` dict with all markers found (the chain)
+6. Each rung entry: `{"path": abs_path, "name": dirname_or_marker_content}`
+
+Missing markers are normal. A `.estate-root` without `.domain-root` is valid — the topology chain has a gap, not an error. No markers at all resolves to `current_rung: "global"`.
+
+**`SYSTEM_MAP.md`** is an optional descriptive atlas at the federation root. It describes the topology for humans but is not required for rung resolution to function.
+
+**Topology growth model**: install a site via `/init-governance` → later create `.domain-root` or `.estate-root` above → rerun `cgg-doctor.sh` to verify → no reinstall required. Higher-rung awareness is incremental.
+
+**Independence from governance zones**: Rung markers and governance zones are independent primitives. A `.domain-root` can exist without `.ticzone`. A `.ticzone` creates a governance zone; a `.domain-root` declares a topology position. The two bootstraps serve different purposes and neither requires the other.
+
 ### Signal birth provenance
 
 A federated signal must carry birth provenance. Hearing a signal locally does not make it locally born. When signals propagate across zone boundaries, the receiving zone must distinguish imported pressure from locally-originated claims. Local law (CLAUDE.md rules, promoted lessons) should not mutate from imported signal pressure alone — local corroboration is required before an imported signal drives governance changes. Birth provenance is tracked as metadata on the signal: `birth_zone`, `birth_tic`, and the originating emission context.

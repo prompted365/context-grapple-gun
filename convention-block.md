@@ -54,3 +54,7 @@ Posture is advisory in CGG. Substrates that enforce posture constraints
 ### Signal format
 
 For persistent conditions that need tracking, emit signals to `audit-logs/signals/YYYY-MM-DD.jsonl`. Use /siren for signal management if installed.
+
+### Topology
+
+Run `cgg-doctor.sh` from your project root to see your governance topology.

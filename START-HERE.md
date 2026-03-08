@@ -109,6 +109,8 @@ Lessons are born locally in `MEMORY.md` (born truth). Promotion through `/review
 
 Most users only interact with **site** and **global**. A lesson about "this API returns 204" stays at site scope. A lesson about "always validate embedding dimensions" might go global. You decide.
 
+Site-level governance is fully bootstrapped via `/init-governance`. Domain/estate/federation are supported topology markers for multi-project governance — most users don't need them. Run `cgg-doctor.sh` to see your current topology.
+
 ---
 
 ## Two kinds of lessons

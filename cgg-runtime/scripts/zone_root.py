@@ -99,3 +99,83 @@ def signal_governance(ticzone_config):
         "primitive_audibility_mode": sg.get("primitive_audibility_mode", "threshold_floor"),
         "zombie_guard_mode": sg.get("zombie_guard_mode", "clamp_and_warn"),
     }
+
+
+# Rung topology markers — ordered from lowest (nearest) to highest
+RUNG_MARKERS = {
+    ".ticzone": "site",
+    ".domain-root": "domain",
+    ".estate-root": "estate",
+    ".federation-root": "federation",
+}
+
+# Canonical rung ordering (lowest to highest)
+RUNG_ORDER = ["site", "domain", "estate", "federation"]
+
+
+def resolve_rung_position(start_dir=None):
+    """Walk upward from start_dir, detect rung markers, return topology dict.
+
+    Returns dict with current_rung (nearest/lowest marker found relative to
+    start_dir) and full topology chain. Never errors — partial/missing
+    topology is normal.
+    """
+    start = start_dir or os.environ.get("CLAUDE_PROJECT_DIR") or os.getcwd()
+    start = os.path.abspath(start)
+
+    topology = {rung: None for rung in RUNG_ORDER}
+    nearest_rung = None
+
+    d = start
+    while True:
+        for marker, rung in RUNG_MARKERS.items():
+            marker_path = os.path.join(d, marker)
+            if os.path.exists(marker_path):
+                # Read marker content for name (falls back to directory name)
+                name = os.path.basename(d)
+                if os.path.isfile(marker_path):
+                    try:
+                        content = Path(marker_path).read_text(encoding="utf-8").strip()
+                        if content:
+                            # If it's JSON (.ticzone), extract name field
+                            if marker == ".ticzone":
+                                try:
+                                    data = json.loads(content)
+                                    name = data.get("name", name)
+                                except json.JSONDecodeError:
+                                    pass
+                            else:
+                                # Plain sentinel — content is the name if non-empty
+                                name = content
+                    except OSError:
+                        pass
+
+                if topology[rung] is None:
+                    topology[rung] = {"path": d, "name": name}
+                    if nearest_rung is None:
+                        nearest_rung = rung
+
+        # Stop at filesystem root
+        parent = os.path.dirname(d)
+        if parent == d:
+            break
+        d = parent
+
+    # Check for SYSTEM_MAP.md at federation root
+    system_map = None
+    if topology["federation"] is not None:
+        sm_path = os.path.join(topology["federation"]["path"], "SYSTEM_MAP.md")
+        if os.path.isfile(sm_path):
+            system_map = sm_path
+
+    # Global CLAUDE.md
+    global_claude = os.path.expanduser("~/.claude/CLAUDE.md")
+    if not os.path.isfile(global_claude):
+        global_claude = None
+
+    return {
+        "current_rung": nearest_rung or "global",
+        "topology": topology,
+        "global": global_claude,
+        "system_map": system_map,
+    }
