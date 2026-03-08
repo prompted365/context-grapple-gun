@@ -173,6 +173,7 @@ $MANDATE_CONTENT
    - memory_mining: scan MEMORY.md chain for recurring patterns, write findings
    - ladder_audit: audit CLAUDE.md chain coherence
    - runtime_drift_check: compare installed vs canonical runtime surfaces
+   - pattern_mining: run scripts/pattern_miner.py, detect recurrence across queue/signals
    - deep_audit: comprehensive multi-rung scan
 3. Write a DEDICATED structured JSON cycle report using Write tool to EXACTLY this path:
    $STRUCTURED_REPORT

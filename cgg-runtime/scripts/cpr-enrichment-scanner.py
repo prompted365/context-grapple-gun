@@ -28,6 +28,7 @@ from pathlib import Path
 # Allow importing zone_root from same directory
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from zone_root import resolve_zone_root, load_ticzone, load_subsystems_config, audit_logs_path, birth_topology
+from pattern_miner import gather_recurrence_count
 
 
 HOLDING_STATUSES = {"enrichment_needed", "enrichment_eligible"}
@@ -286,51 +287,6 @@ def gather_cross_references(cpr, project_dir):
                 })
     except (subprocess.TimeoutExpired, FileNotFoundError):
         pass
-
-    return evidence
-
-
-def gather_recurrence_count(cpr, queue_entries):
-    """Count how many other CPRs share the same subsystem + similar lesson.
-
-    Recurrence indicates the pattern keeps surfacing — stronger promotion signal.
-    Compares lesson text via 3-word overlap (cheap, no embedding needed).
-    """
-    evidence = []
-    lesson = cpr.get("lesson", "")
-    subsystem = cpr.get("subsystem", "")
-    cpr_id = cpr.get("id", "")
-
-    if not lesson or not subsystem:
-        return evidence
-
-    lesson_words = set(lesson.lower().split())
-    if len(lesson_words) < 3:
-        return evidence
-
-    recurrence = 0
-    similar_ids = []
-    for eid, entry in queue_entries.items():
-        if eid == cpr_id:
-            continue
-        if entry.get("subsystem") != subsystem:
-            continue
-        other_lesson = entry.get("lesson", "")
-        if not other_lesson:
-            continue
-        other_words = set(other_lesson.lower().split())
-        overlap = len(lesson_words & other_words)
-        total = len(lesson_words | other_words)
-        if total > 0 and overlap / total >= 0.3:
-            recurrence += 1
-            similar_ids.append(eid)
-
-    if recurrence > 0:
-        evidence.append({
-            "evidence_type": "recurrence_count",
-            "value": f"{recurrence} similar CPRs in same subsystem",
-            "detail": similar_ids[:5],
-        })
 
     return evidence
 
