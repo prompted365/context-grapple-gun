@@ -1,0 +1,78 @@
+# Mini-Swarm Onboard Scoring Rubric
+# Extends governed-triangulation scoring with narration quality evaluation.
+
+points:
+  factual_insight: 1
+  strategic_relevance: 2
+  steelman_of_rival: 3
+  structural_weakness_identified: 4
+  architectural_reframe: 5
+
+penalties:
+  shallow_claim: -2
+  unsupported_assertion: -3
+  hallucinated_fact: -5
+
+evaluation_factors:
+  - dependency_correctness
+  - engineering_leverage
+  - signal_availability
+  - implementation_cost
+  - observability_impact
+
+narration_quality:
+  clear_explanation: 2
+  connects_to_governance: 3
+  references_concrete_arena_output: 4
+
+convergence_rule: |
+  When multiple independent agents with opposed incentives
+  discover the same structural fact, treat it as high-confidence signal.
+  Independent discovery + opposed incentives + same conclusion = high confidence.
+
+# Arena result output schema (Rule 8 + Rule 10)
+arena_result:
+  decision:
+    surviving_structure: ""
+    dependency_graph: []
+    implementation_order: []
+    rationale: []
+
+  pressure_report:
+    convergent_discoveries:
+      - claim: ""
+        support_agents: []
+        confidence: high  # high | medium | low
+
+    unresolved_tensions:
+      - issue: ""
+        opposing_claims: []
+        severity: medium  # high | medium | low
+
+    repeated_attack_surfaces:
+      - weakness: ""
+        targeted_position: ""
+        raised_by: []
+
+    hidden_dependencies:
+      - dependency: ""
+        exposed_by: []
+
+    false_convergence_risks:
+      - claim: ""
+        why_risky: ""
+
+    candidate_cogprs:
+      - lesson: ""
+        lesson_type: process  # subject | process | meta
+        confidence_tier: tentative  # tentative | reinforced | convergent
+        recommended_scope: "site"
+        # ROUTING: experimental mode — subject lessons persist locally
+        # but block governance routing. Process/meta route normally.
+
+    candidate_signals:
+      - kind: ""  # BEACON | TENSION
+        summary: ""
+        reason: ""
+        confidence_tier: tentative  # tentative | reinforced | convergent
+        # ROUTING: experimental mode blocks all signal emission.

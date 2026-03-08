@@ -1,0 +1,209 @@
+Create an agent team for a governed-disagreement arena — the Mini-Swarm Onboard demo.
+
+This arena DEMONSTRATES CGG governance to a new user. Three agents debate
+"Which CGG mechanic is most valuable?" while the LEAD narrates the process.
+
+Arena mode: EXPERIMENTAL
+- Subject findings stay local (which mechanic "wins" is not governance input)
+- Process/meta lessons may route to governance via CogPR pipeline
+- No signals, warrants, or governance mutation
+
+Structure:
+- Lead: this session (orchestrator / synthesizer / narrator).
+- Teammates: exactly 3 agents, each in its own independent context window.
+
+Teammates and allegiances:
+1. SIGNAL-ADVOCATE — partisan advocate for the Signal Manifold (/siren)
+   Argument: persistent conditions, acoustic routing, nothing forgotten
+2. PIPELINE-ADVOCATE — partisan advocate for the CogPR Pipeline
+   Argument: born truth → earned doctrine, human-gated promotion
+3. CADENCE-ADVOCATE — partisan advocate for the Cadence System
+   Argument: forced boundaries, structured handoff, multi-session continuity
+
+Mission:
+Determine which CGG mechanic is most valuable through governed disagreement,
+while teaching the user how governed triangulation works.
+
+Arena rules:
+
+RULE 0 — Narration Gates
+Between each phase, the LEAD pauses to explain what just happened.
+This turns the arena from a reasoning tool into a teaching tool.
+
+Narration content:
+
+[N1 — after context phase]
+"You just watched three agents study their opponents before defending
+themselves. Rule 1 — Opponent-Context First — prevents strawmen.
+Each agent now knows the real strengths and weaknesses of the other positions."
+
+[N2 — after defense phase]
+"Each agent defended its own position while directly challenging the others.
+Notice how their defenses had to address weaknesses the opponents discovered
+— that's the adversarial pressure at work."
+
+[N3 — after rebuttal phase]
+"The rebuttal round is the 3x multiplier. Without it, agents present once
+and the lead guesses. With it, the strongest arguments survive challenge.
+Watch for concessions — when an advocate admits a rival's point is valid,
+that's high-confidence signal."
+
+[N4 — after synthesis + pressure extraction]
+"The lead just extracted what survived the adversarial process — not who
+'won' but what structural insights emerged. The pressure report classifies
+findings by confidence tier. Convergent discoveries (found independently
+by opposed agents) are the arena's highest-value output."
+
+If --quick is set, compress narration gates to single-line summaries instead
+of the full narration text above.
+
+RULE 1 — Opponent Context First
+Each agent must begin by gathering strategic context on the OTHER two positions.
+No self-defense allowed in this stage.
+
+Context reports must include:
+- real strengths
+- real weaknesses
+- structural dependencies
+- implementation risks
+- architectural role
+
+RULE 2 — Defense Round
+After context reports and N1 narration, each agent defends its own position.
+Each defense must:
+- address weaknesses discovered earlier
+- explain dependencies
+- directly challenge the other two positions
+
+RULE 3 — Rebuttal Round
+After defenses and N2 narration, agents respond to the attacks against
+their position. Rebuttals must:
+- resolve contradictions
+- counter structural attacks
+- identify flawed assumptions in rival critiques
+- concede points that are genuinely correct
+
+RULE 4 — Scoring Rubric
++1 factual insight
++2 strategic relevance
++3 steelman of rival argument
++4 structural weakness identified
++5 architectural reframe
+
+Penalties:
+-2 shallow claim
+-3 unsupported assertion
+-5 hallucinated fact
+
+Narration quality (LEAD only):
++2 clear explanation
++3 connects to governance concepts
++4 references concrete arena output
+
+RULE 5 — Dependency Gating
+Task order is enforced. No skipping stages. Narration gates are mandatory.
+context -> N1 -> defense -> N2 -> rebuttal -> N3 -> synthesis -> pressure -> N4
+
+RULE 6 — Lead Behavior
+The lead must NOT debate or advocate.
+The lead must:
+- deliver narration gates between phases (Rule 0)
+- wait for ALL agents to finish ALL rounds
+- extract convergent discoveries
+- identify surviving arguments
+- produce final synthesis
+
+RULE 7 — Convergent Discovery Rule
+If multiple independent agents with opposed incentives discover the same
+structural fact, treat it as HIGH-CONFIDENCE signal.
+
+RULE 8 — Synthesis Output
+The lead must produce:
+- corrected decision or architecture
+- dependency graph
+- implementation order (if applicable)
+- key discoveries from the arena
+
+RULE 9 — Institutional Memory
+After synthesis and pressure extraction, record:
+- structural discoveries
+- process lessons
+- corrected decisions
+
+RULE 10 — Pressure Extraction
+After final synthesis, the lead must produce a SEPARATE pressure report.
+
+The pressure report must identify:
+- convergent discoveries (facts independently found by opposed agents)
+- unresolved contradictions (tensions the synthesis could not dissolve)
+- repeated attack surfaces (weaknesses targeted by multiple opponents)
+- hidden dependencies (structural couplings exposed during the arena)
+- false convergence risks (consensus on weak foundations)
+- candidate durable lessons (reusable rules from the process)
+
+Classify each finding by:
+- lesson_type: subject | process | meta
+- confidence_tier: tentative | reinforced | convergent
+
+Route findings by arena mode (EXPERIMENTAL):
+- Keep ALL findings locally (learning stays high)
+- Block subject lessons, signals, and warrants from governance routing
+- Only process/meta CogPR candidates may route to governance
+
+The arena is NOT complete until synthesis output, pressure report,
+AND narration gate N4 are all produced.
+
+Task structure (enforce dependencies):
+
+Context tasks:
+[1] SIGNAL-ADVOCATE gathers context on CogPR Pipeline and Cadence System
+[2] PIPELINE-ADVOCATE gathers context on Signal Manifold and Cadence System
+[3] CADENCE-ADVOCATE gathers context on Signal Manifold and CogPR Pipeline
+
+Narration gate:
+[N1] LEAD narrates Rule 1 to user (blockedBy: 1,2,3)
+
+Defense tasks (blocked until N1 complete):
+[4] SIGNAL-ADVOCATE defends Signal Manifold    (blockedBy: N1)
+[5] PIPELINE-ADVOCATE defends CogPR Pipeline   (blockedBy: N1)
+[6] CADENCE-ADVOCATE defends Cadence System    (blockedBy: N1)
+
+Narration gate:
+[N2] LEAD narrates adversarial pressure (blockedBy: 4,5,6)
+
+Rebuttal tasks (blocked until N2 complete):
+[7] SIGNAL-ADVOCATE rebuts attacks        (blockedBy: N2)
+[8] PIPELINE-ADVOCATE rebuts attacks      (blockedBy: N2)
+[9] CADENCE-ADVOCATE rebuts attacks       (blockedBy: N2)
+
+Narration gate:
+[N3] LEAD narrates convergent discovery rule (blockedBy: 7,8,9)
+
+Synthesis task (blocked until N3 complete):
+[10] Lead synthesizes: which CGG mechanic is most valuable? (blockedBy: N3)
+
+Pressure extraction (blocked until synthesis complete):
+[11] Lead produces pressure report (blockedBy: 10)
+
+Final narration gate:
+[N4] Lead walks user through pressure report (blockedBy: 11)
+
+Operational constraints:
+- Agents must cite concrete evidence from CGG's actual codebase and docs.
+- Each advocate should reference specific files, skills, or governance surfaces.
+- The LEAD narration should connect arena behavior to CGG governance concepts.
+- Prioritize structural analysis over speculation.
+- Prefer architectural reasoning over preference.
+
+Key evaluation factors:
+- dependency correctness
+- engineering leverage
+- signal availability
+- implementation cost
+- observability impact
+- narration clarity (LEAD only)
+
+Goal:
+Demonstrate governed triangulation to the user while producing a defensible
+answer to "which CGG mechanic is most valuable?" — with real governance
+artifacts as output.

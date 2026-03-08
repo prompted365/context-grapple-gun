@@ -408,6 +408,8 @@ def main():
                         help="Operation: check (report), diff (show diffs), sync (copy canonical to installed)")
     parser.add_argument("--project-dir", default=None,
                         help="Zone root (auto-resolved if omitted)")
+    parser.add_argument("--plugin-root", default=None,
+                        help="Explicit CGG plugin root (bypasses auto-detection)")
     parser.add_argument("--json", action="store_true", dest="output_json",
                         help="Output structured JSON drift report (check/diff)")
     args = parser.parse_args()
@@ -421,7 +423,7 @@ def main():
             print(f"ERROR: {e}", file=sys.stderr)
         sys.exit(2)
 
-    plugin_root = find_plugin_root(zone_root)
+    plugin_root = args.plugin_root if args.plugin_root else find_plugin_root(zone_root)
 
     if not plugin_root:
         msg = f"CGG plugin root not found. Checked: {zone_root}/vendor/context-grapple-gun/, {zone_root}/.claude/cgg/, ~/.claude/cgg/"

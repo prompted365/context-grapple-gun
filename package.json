@@ -1,0 +1,23 @@
+{
+  "name": "context-grapple-gun",
+  "version": "4.0.0",
+  "description": "Context Grapple Gun — governed autonomy substrate for Claude Code",
+  "type": "module",
+  "bin": {
+    "cgg": "bin/cgg.mjs"
+  },
+  "files": [
+    "bin/",
+    "lib/"
+  ],
+  "keywords": ["claude-code", "governance", "autonomy", "agents", "cli"],
+  "author": "prompted365",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/prompted365/context-grapple-gun.git"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

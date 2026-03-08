@@ -123,3 +123,18 @@ All JSONL append-only files (`audit-logs/**/*.jsonl`) must use atomic append to 
 **Failure mode**: concurrent session-start hooks interleaving JSON lines, producing invalid JSONL. Observed at tic 1 and tic 4 on `mandates/history/*.jsonl`.
 
 <!-- promoted from CogPR-8 (tic 4→5). Band: PRIMITIVE. Source: audit-logs/mogul/mandates/history/2026-03-08.jsonl corruption incident. -->
+
+## Review Execution Delegation
+
+After `/review` docket is approved, dispatch execution to a `review-execute` subordinate agent — never execute promotions inline in the interactive path.
+
+**Flow:**
+1. Present the docket (judgment) → human approves
+2. Spawn `review-execute` agent (background, `subagent_type: general-purpose`) with the full verdict table
+3. Report completion in one line when notified
+
+**Dispatch payload:** approved verdict table + file targets + review_tic number. The agent reads MEMORY.md for lesson text, writes promoted sections, updates `queue.jsonl` and MEMORY.md metadata. `queue.jsonl` update is the completion gate.
+
+**Fallback:** If `review-execute.md` agent spec is unavailable, spawn a generic background agent with the same instructions.
+
+<!-- promoted from CogPR-9 (tic 5→6). Source: session observation — review-execute.md agent spec at cgg-runtime/agents/review-execute.md. -->

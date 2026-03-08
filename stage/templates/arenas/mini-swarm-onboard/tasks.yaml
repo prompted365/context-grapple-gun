@@ -1,0 +1,116 @@
+# Mini-Swarm Onboard Task Template
+# 15 tasks: 11 arena + 4 narration gates
+# Extends governed-triangulation with narration gates between phases.
+
+agents:
+  - name: SIGNAL-ADVOCATE
+    role: partisan advocate for the Signal Manifold (/siren)
+  - name: PIPELINE-ADVOCATE
+    role: partisan advocate for the CogPR Pipeline
+  - name: CADENCE-ADVOCATE
+    role: partisan advocate for the Cadence System
+  - name: LEAD
+    role: orchestrator, synthesizer, and narrator (does not advocate)
+
+phases:
+  context:
+    description: Each agent studies the other two positions. No self-defense.
+    tasks:
+      - id: 1
+        agent: SIGNAL-ADVOCATE
+        action: "Gather context on CogPR Pipeline and Cadence System"
+        blocked_by: []
+      - id: 2
+        agent: PIPELINE-ADVOCATE
+        action: "Gather context on Signal Manifold and Cadence System"
+        blocked_by: []
+      - id: 3
+        agent: CADENCE-ADVOCATE
+        action: "Gather context on Signal Manifold and CogPR Pipeline"
+        blocked_by: []
+
+  narration_1:
+    description: LEAD explains opponent-context-first to user.
+    tasks:
+      - id: N1
+        agent: LEAD
+        action: "Narrate Rule 1 to user — explain what opponent-context-first just accomplished"
+        blocked_by: [1, 2, 3]
+
+  defense:
+    description: Each agent defends its own position and challenges rivals.
+    tasks:
+      - id: 4
+        agent: SIGNAL-ADVOCATE
+        action: "Defend Signal Manifold, challenge CogPR Pipeline and Cadence System"
+        blocked_by: [N1]
+      - id: 5
+        agent: PIPELINE-ADVOCATE
+        action: "Defend CogPR Pipeline, challenge Signal Manifold and Cadence System"
+        blocked_by: [N1]
+      - id: 6
+        agent: CADENCE-ADVOCATE
+        action: "Defend Cadence System, challenge Signal Manifold and CogPR Pipeline"
+        blocked_by: [N1]
+
+  narration_2:
+    description: LEAD explains adversarial pressure to user.
+    tasks:
+      - id: N2
+        agent: LEAD
+        action: "Narrate adversarial pressure — explain how defenses had to address discovered weaknesses"
+        blocked_by: [4, 5, 6]
+
+  rebuttal:
+    description: Each agent responds to attacks against its position.
+    tasks:
+      - id: 7
+        agent: SIGNAL-ADVOCATE
+        action: "Rebut attacks on Signal Manifold"
+        blocked_by: [N2]
+      - id: 8
+        agent: PIPELINE-ADVOCATE
+        action: "Rebut attacks on CogPR Pipeline"
+        blocked_by: [N2]
+      - id: 9
+        agent: CADENCE-ADVOCATE
+        action: "Rebut attacks on Cadence System"
+        blocked_by: [N2]
+
+  narration_3:
+    description: LEAD explains convergent discovery and concessions to user.
+    tasks:
+      - id: N3
+        agent: LEAD
+        action: "Narrate convergent discovery rule — highlight concessions as high-confidence signal"
+        blocked_by: [7, 8, 9]
+
+  synthesis:
+    description: Lead extracts surviving structure. Must not advocate.
+    tasks:
+      - id: 10
+        agent: LEAD
+        action: "Synthesize: which CGG mechanic is most valuable? Extract surviving structure from all arena evidence"
+        blocked_by: [N3]
+
+  pressure_extraction:
+    description: Lead classifies arena findings for governance routing.
+    tasks:
+      - id: 11
+        agent: LEAD
+        action: "Produce pressure report: convergent discoveries, tensions, candidate signals/CogPRs"
+        blocked_by: [10]
+
+  narration_4:
+    description: LEAD walks user through pressure report and governance artifacts.
+    tasks:
+      - id: N4
+        agent: LEAD
+        action: "Walk user through pressure report and governance artifacts — explain what was produced and how it feeds governance"
+        blocked_by: [11]
+
+dependency_rule: |
+  context -> N1 -> defense -> N2 -> rebuttal -> N3 -> synthesis -> pressure extraction -> N4
+  No phase may start until its predecessors (including narration gates) complete.
+  The lead must not synthesize early.
+  The arena is not complete until synthesis, pressure report, AND final narration gate N4 are all produced.
