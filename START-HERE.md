@@ -79,7 +79,25 @@ git submodule add https://github.com/prompted365/context-grapple-gun.git vendor/
 claude plugin install vendor/context-grapple-gun
 ```
 
-**Or paste the bootstrap prompt** from [INSTALL.md](INSTALL.md) into Claude Code. One question, then done.
+Default runtime install scope is **user/global** (`~/.claude/...`).
+
+Your project still gets its own governance zone surfaces:
+
+* `.ticzone`
+* `.ticignore`
+* `audit-logs/`
+
+Project-local runtime scope is available, but only when explicitly chosen.
+
+**Or paste the bootstrap prompt** from [INSTALL.md](INSTALL.md) into Claude Code.
+It should ask for:
+
+1. install mode
+2. install scope
+
+Runtime scope and governance scope are different things.
+Default runtime scope is user/global.
+Default governance scope remains project-local unless promoted through the ladder.
 
 See [INSTALL.md](INSTALL.md) for full details and install modes.
 

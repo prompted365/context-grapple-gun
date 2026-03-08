@@ -4,6 +4,30 @@ Automated between-session lesson evaluation and signal management for Claude Cod
 
 > Runtime pipeline reference. For the convention layer, see [cogpr/](../../cogpr/README.md). For daily usage, see [START-HERE.md](../../START-HERE.md).
 
+## Install scope
+
+CGG install has two layers:
+
+### Runtime surfaces
+Default target:
+- `~/.claude/...`
+
+Optional target:
+- `$ZONE_ROOT/.claude/...`
+
+### Zone-local governance surfaces
+Always project-local:
+- `.ticzone`
+- `.ticignore`
+- `audit-logs/`
+- project governance files
+
+This means a user/global install can govern a project-local zone without moving the zone into `~/.claude`.
+
+Runtime scope and governance scope are different things.
+Default runtime scope is user/global.
+Default governance scope remains project-local unless promoted through the ladder.
+
 ## Runtime pipeline (Mermaid)
 
 ```mermaid
