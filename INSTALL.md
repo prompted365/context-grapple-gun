@@ -272,19 +272,46 @@ Example for user scope (merged into `~/.claude/settings.json`):
     "SessionStart": [
       {
         "type": "command",
-        "command": "$INSTALL_ROOT/hooks/session-restore-patch.sh"
+        "command": "~/.claude/hooks/session-restore-patch.sh"
       }
     ],
     "UserPromptSubmit": [
       {
         "type": "command",
-        "command": "$INSTALL_ROOT/hooks/cgg-gate.sh"
+        "command": "~/.claude/hooks/cgg-gate.sh"
       }
     ],
     "PostToolUse": [
       {
         "type": "command",
-        "command": "$INSTALL_ROOT/hooks/posttool-microscan.sh"
+        "command": "~/.claude/hooks/posttool-microscan.sh"
+      }
+    ]
+  }
+}
+```
+
+Example for project scope (merged into `$ZONE_ROOT/.claude/settings.local.json`):
+
+```json
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "type": "command",
+        "command": ".claude/hooks/session-restore-patch.sh"
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "type": "command",
+        "command": ".claude/hooks/cgg-gate.sh"
+      }
+    ],
+    "PostToolUse": [
+      {
+        "type": "command",
+        "command": ".claude/hooks/posttool-microscan.sh"
       }
     ]
   }
