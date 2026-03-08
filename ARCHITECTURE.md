@@ -143,6 +143,40 @@ Missing markers are normal. A `.estate-root` without `.domain-root` is valid —
 
 **Independence from governance zones**: Rung markers and governance zones are independent primitives. A `.domain-root` can exist without `.ticzone`. A `.ticzone` creates a governance zone; a `.domain-root` declares a topology position. The two bootstraps serve different purposes and neither requires the other.
 
+### Rung as runtime dependency
+
+Rung resolution is not diagnostic — it is a **runtime dependency consumed by all governance write paths**. Every governance artifact carries birth topology metadata:
+
+- **CPR entries**: `birth_rung`, `birth_scope_path` — where the lesson was discovered
+- **Enrichment scans**: `enrichment_rung` — where the enrichment was gathered
+- **Signals**: `birth_rung` — where the condition was detected
+- **Participation records**: `retrieved_rung` — where the lesson was retrieved
+- **Mandates**: `rung`, `topology_chain` — where the mandate was authored
+- **Microscan findings**: `birth_rung` — where the governance file was modified
+- **Mogul history records**: `birth_rung` — provenance on execution transitions
+
+The `birth_topology()` helper in `zone_root.py` provides a compact dict suitable for JSONL embedding. All Python write paths import from this single function. Shell scripts call `rung_resolver.py --json` and extract.
+
+### Pattern mining → review pipeline
+
+Rung metadata enables topology-aware pattern detection. The `pattern_miner.py` script detects recurrence — the same lesson or signal appearing across sessions, subsystems, or rungs — and classifies it:
+
+| Recurrence kind | Scope | Meaning |
+|-----------------|-------|---------|
+| `site_local` | site | Repeated within one governance zone |
+| `cross_subsystem` | site | Repeated across different subsystems |
+| `cross_site_same_domain` | domain | Repeated across sibling sites |
+| `cross_domain_same_estate` | estate | Repeated across domains |
+
+The pipeline is JSONL-first, never dual-writes to CLAUDE:
+
+1. **Mining**: `pattern_miner.py` reads CPR queue + signal store, detects word-overlap recurrence, writes to `audit-logs/patterns/YYYY-MM-DD.jsonl`
+2. **Envelope emission**: When recurrence crosses threshold (observation_count ≥ 3 or scope ≥ domain), the miner emits a **proposal envelope** as a CPR queue entry with `artifact_kind: "pattern_recurrence"`
+3. **Review**: `/review` presents pattern-sourced proposals with recurrence evidence and suggested placement rung
+4. **Promotion**: Human approves via `/review` → lesson inscribed to the target CLAUDE.md at the appropriate rung
+
+**The doctrine**: Rung resolution shapes routing and placement; JSONL is the capture substrate; CLAUDE blocks are promoted law.
+
 ### Signal birth provenance
 
 A federated signal must carry birth provenance. Hearing a signal locally does not make it locally born. When signals propagate across zone boundaries, the receiving zone must distinguish imported pressure from locally-originated claims. Local law (CLAUDE.md rules, promoted lessons) should not mutate from imported signal pressure alone — local corroboration is required before an imported signal drives governance changes. Birth provenance is tracked as metadata on the signal: `birth_zone`, `birth_tic`, and the originating emission context.

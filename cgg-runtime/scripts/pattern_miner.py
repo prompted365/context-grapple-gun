@@ -306,7 +306,118 @@ def mine_patterns(project_dir, dry_run=False):
             for pat in new_patterns:
                 f.write(json.dumps(pat, separators=(",", ":")) + "\n")
 
-    return new_patterns
+    # Emit proposal envelopes for patterns crossing the threshold
+    envelopes = []
+    if new_patterns and not dry_run:
+        envelopes = emit_pattern_envelopes(new_patterns, queue_path, topo)
+
+    return new_patterns, envelopes
+
+
+# ---------------------------------------------------------------------------
+# Proposal envelope emission
+# ---------------------------------------------------------------------------
+
+ENVELOPE_THRESHOLD_COUNT = 3
+ENVELOPE_THRESHOLD_SCOPES = {"domain", "estate", "federation"}
+
+
+def emit_pattern_envelopes(patterns, queue_path, topo):
+    """Emit proposal envelopes for patterns crossing review threshold.
+
+    Threshold: observation_count >= 3 OR recurrence_scope is domain+.
+    Writes to the CPR queue as extracted entries with artifact_kind: pattern_recurrence.
+    """
+    now = datetime.now(timezone.utc).isoformat()
+    envelopes = []
+
+    for pat in patterns:
+        count = pat.get("observation_count", 0)
+        scope = pat.get("recurrence_scope", "site")
+
+        if count < ENVELOPE_THRESHOLD_COUNT and scope not in ENVELOPE_THRESHOLD_SCOPES:
+            continue
+
+        # Determine lesson type from pattern characteristics
+        pattern_text = pat.get("pattern", "")
+        if any(kw in pattern_text.lower() for kw in ["governance", "protocol", "invariant", "rule"]):
+            lesson_type = "meta"
+        elif any(kw in pattern_text.lower() for kw in ["workflow", "process", "pipeline", "step"]):
+            lesson_type = "process"
+        else:
+            lesson_type = "subject"
+
+        envelope = {
+            "type": "cpr",
+            "id": f"cpr_{pat['id'][4:]}",  # pat_xxx -> cpr_xxx
+            "dedup_hash": pat["id"][4:],
+            "status": "extracted",
+            "lesson": pat["pattern"],
+            "source": f"pattern_miner:{pat['id']}",
+            "source_date": now[:10],
+            "band": "COGNITIVE",
+            "motivation_layer": "COGNITIVE",
+            "subsystem": pat.get("subsystem", ""),
+            "recommended_scopes": [],
+            "birth_tic": pat.get("last_observed_tic", 0),
+            "birth_rung": topo["birth_rung"],
+            "birth_scope_path": topo["birth_scope_path"],
+            "extracted_at": now,
+            "extracted_by": "pattern-miner",
+            "source_file": "pattern_miner.py",
+            "proposal_envelope": {
+                "artifact_kind": "pattern_recurrence",
+                "lesson_type": lesson_type,
+                "confidence_tier": pat.get("confidence_tier", "tentative"),
+                "relations": {
+                    "supports": [],
+                    "contradicts": [],
+                    "refines": [],
+                    "supersedes": [],
+                    "depends_on": [],
+                },
+                "capture_policy": {
+                    "persist_locally": True,
+                    "route_to_review": True,
+                    "route_to_governance": False,
+                    "allow_signal_emission": pat.get("confidence_tier") in ("reinforced", "convergent"),
+                    "allow_warrant_generation": False,
+                },
+                "evidence": {
+                    "sources": [pat["id"]],
+                    "supporting_artifacts": [o["id"] for o in pat.get("observed_in", [])[:5]],
+                    "independent_confirmations": pat.get("observation_count", 0),
+                },
+                "routing": {
+                    "review_required": True,
+                    "promotion_target": pat.get("placement_target", "site"),
+                    "promotion_blockers": [],
+                },
+                "placement": {
+                    "suggested_rung": pat.get("placement_target", "site"),
+                    "suggested_target": "CLAUDE.md",
+                    "reason": f"Recurs across {count} observations ({pat.get('recurrence_kind', 'unknown')})",
+                },
+                "payload": {
+                    "pattern_id": pat["id"],
+                    "recurrence_kind": pat.get("recurrence_kind", ""),
+                    "recurrence_scope": scope,
+                    "observation_count": count,
+                    "summary": pat["pattern"][:200],
+                },
+            },
+        }
+
+        envelopes.append(envelope)
+
+    # Write envelopes to CPR queue
+    if envelopes:
+        os.makedirs(os.path.dirname(queue_path), exist_ok=True)
+        with open(queue_path, "a", encoding="utf-8") as f:
+            for env in envelopes:
+                f.write(json.dumps(env, separators=(",", ":")) + "\n")
+
+    return envelopes
 
 
 # ---------------------------------------------------------------------------
@@ -350,16 +461,22 @@ def main():
     args = parser.parse_args()
 
     project_dir = args.project_dir or resolve_zone_root()
-    patterns = mine_patterns(project_dir, dry_run=args.dry_run)
+    patterns, envelopes = mine_patterns(project_dir, dry_run=args.dry_run)
 
     if args.output_json:
-        print(json.dumps({"patterns": patterns, "count": len(patterns)}, indent=2))
+        print(json.dumps({
+            "patterns": patterns,
+            "count": len(patterns),
+            "envelopes_emitted": len(envelopes),
+        }, indent=2))
     elif not args.quiet:
         if patterns:
             for p in patterns:
                 print(f"  {p['id']}: {p['pattern'][:60]}... "
                       f"({p['recurrence_kind']}, {p['observation_count']} obs, "
                       f"{p['confidence_tier']})")
+        if envelopes:
+            print(f"  → {len(envelopes)} proposal envelope(s) emitted to queue")
         print(len(patterns))
 
     return 0
