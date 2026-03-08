@@ -36,7 +36,16 @@ Search for `<!-- --agnostic-candidate -->` blocks with `status: "pending"` in go
 
 For each pending CogPR, read:
 - The lesson text (immediately above the flag)
-- The CogPR metadata: `lesson`, `source_date`, `source`, `band`, `motivation_layer`, `subsystem`, `recommended_scopes`, `rationale`, `review_hints`, `status`
+- The CogPR metadata: `lesson`, `source_date`, `source`, `band`, `motivation_layer`, `subsystem`, `recommended_scopes`, `rationale`, `review_hints`, `status`, `lesson_type`, `confidence_tier`
+
+### 2.5. Detect Lattice Relations
+
+For each pending CogPR, check for governance lattice edges:
+1. **Scan promoted doctrine** in target CLAUDE.md files — does this CogPR refine, contradict, or support existing rules?
+2. **Scan sibling CogPRs** in the queue — are any pending CogPRs related (merge candidates, contradictions, dependencies)?
+3. **Scan active signals** — does this CogPR resolve or depend on an active signal/warrant?
+
+Populate the `relations` field: `supports`, `contradicts`, `refines`, `supersedes`, `depends_on`. If no relations detected, leave empty (artifact reviewed in isolation is still valid — the lattice is advisory, not blocking).
 
 ### 3. Scan for Active Signals + Warrants
 
@@ -132,17 +141,25 @@ Enter Plan Mode. Present the docket in three sections, ordered by priority:
 
 ## Section C: CogPR Review
 
-(Pending CogPR flags, sorted by confidence)
+(Pending CogPR flags, ordered by confidence tier: convergent > reinforced > tentative, then by numeric confidence within tier)
 
 ### CogPR-1: <lesson summary>
 - **Source**: file:line
 - **Birth**: ENG/META in crates/harpoon/ at tic #42 _(if birth context present)_
 - **Band**: COGNITIVE | **Motivation layer**: COGNITIVE
+- **Lesson type**: subject | process | meta
+- **Confidence tier**: tentative | reinforced | convergent
 - **Subsystem**: <subsystem>
 - **Recommended targets**: <scope list>
+- **Relations**: _(if any lattice edges detected)_
+  - supports: <artifact refs>
+  - contradicts: <artifact refs>
+  - refines: <artifact refs>
+  - supersedes: <artifact refs>
+  - depends_on: <artifact refs>
 - **Rationale**: <why it's broader than local>
 - **Review hints**: <what to check>
-- **Verdict**: PROMOTE | SKIP | MODIFY
+- **Verdict**: PROMOTE | SKIP | MODIFY | MERGE | DEFER | SUPERSEDE
 - **Confidence**: 0.85
 - **Reasoning**: <2-3 sentences>
 ```
@@ -167,6 +184,22 @@ For each SKIP:
 For each MODIFY:
 1. Apply the modification to the lesson text
 2. Then promote as above
+
+For each MERGE:
+1. Identify the two (or more) artifacts being merged
+2. Synthesize a single lesson combining both
+3. Promote the merged lesson; mark originals as `absorbed` with `absorbed_reason: "merged into <merged_id>"`
+4. Upgrade confidence tier to at least `reinforced` (multiple sources = evidence)
+
+For each DEFER:
+1. Update CogPR status to `enrichment_eligible` with `pending_class: "feedback_required"`
+2. Record the unresolved dependency or contradiction that blocks promotion
+3. Set `maturity_window_tics` for re-evaluation
+
+For each SUPERSEDE:
+1. Promote the newer artifact
+2. Mark the superseded artifact as `absorbed` with `absorbed_reason: "superseded by <new_id>"`
+3. Add `supersedes` relation edge from new to old
 
 **Warrant Verdicts:**
 

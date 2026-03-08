@@ -62,7 +62,12 @@ For each CogPR in the `cgg-evaluate` block:
    - Conflict: Does the lesson contradict existing content?
    - Gap: Is the target missing this knowledge?
 4. **Consult memory**: Check your user memory for relevant preference patterns (bias only — memory does NOT enforce decisions)
-5. **Decide**: PROMOTE / SKIP / MODIFY with confidence (0.0–1.0) and reasoning
+5. **Classify**: Assign `lesson_type` (subject/process/meta) and `confidence_tier`:
+   - `tentative` (default) — observed once or inferred once
+   - `reinforced` — survived challenge, reappeared across sessions/artifacts, or has direct evidence + coherent rationale
+   - `convergent` — independently rediscovered across distinct contexts, agents, sessions, sources, or methods
+6. **Detect relations**: Check if this CogPR supports, contradicts, refines, supersedes, or depends on existing promoted doctrine or other pending CogPRs
+7. **Decide**: PROMOTE / SKIP / MODIFY / MERGE / DEFER / SUPERSEDE with confidence (0.0–1.0) and reasoning
 
 ### Signal Assessment (v3)
 
@@ -151,20 +156,39 @@ Write proposals to `~/.claude/grapple-proposals/latest.md`:
 - **Gap analysis**: <what the target is missing>
 - **Memory bias**: <relevant patterns from memory, or "none">
 
+### Classification
+
+- **Lesson type**: subject | process | meta
+- **Confidence tier**: tentative | reinforced | convergent
+- **Origin context**: session | scanner | hook | arena | external_signal
+- **Tier reasoning**: <why this tier — e.g., "first observation" for tentative, "reappeared in tic 180 and 195" for reinforced, "independently discovered in arena + session" for convergent>
+
+### Relations (Lattice Edges)
+
+- **supports**: <artifact refs, or "none detected">
+- **contradicts**: <artifact refs, or "none detected">
+- **refines**: <artifact refs, or "none detected">
+- **supersedes**: <artifact refs, or "none detected">
+- **depends_on**: <artifact refs, or "none detected">
+
 ### Verdict
 
-- **Decision**: PROMOTE | SKIP | MODIFY
+- **Decision**: PROMOTE | SKIP | MODIFY | MERGE | DEFER | SUPERSEDE
 - **Confidence**: <0.0–1.0>
 - **Reasoning**: <2-3 sentences>
 - **Modification** (if MODIFY): <what to change before promoting>
+- **Merge target** (if MERGE): <artifact to merge with>
+- **Supersedes** (if SUPERSEDE): <artifact being replaced>
+- **Defer reason** (if DEFER): <unresolved dependency>
 
 ---
 
 ## Summary
 
-- **Total CogPRs**: N evaluated (Promote: X, Skip: Y, Modify: Z)
+- **Total CogPRs**: N evaluated (Promote: X, Skip: Y, Modify: Z, Merge: A, Defer: B, Supersede: C)
 - **Signals**: S active, W warrants, T triads
-- **Docket priority**: <brief note on what /review should focus on first>
+- **Confidence distribution**: tentative=T, reinforced=R, convergent=C
+- **Docket priority**: <brief note on what /review should focus on first — convergent items first>
 ```
 
 ## Bias Awareness
