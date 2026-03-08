@@ -1,0 +1,62 @@
+{
+  "name": "cgg",
+  "owner": {
+    "name": "Prompted365"
+  },
+  "metadata": {
+    "description": "Context Grapple Gun — governed autonomy substrate for Claude Code"
+  },
+  "plugins": [
+    {
+      "name": "context-grapple-gun",
+      "source": "./",
+      "description": "Session learning system for Claude Code. Captures lessons as CogPRs, tracks signals via acoustic routing, promotes knowledge across scopes with human-gated review.",
+      "version": "4.0.1",
+      "strict": false,
+      "agents": [
+        "./cgg-runtime/agents/mogul.md",
+        "./cgg-runtime/agents/ripple-assessor.md",
+        "./cgg-runtime/agents/ladder-auditor.md",
+        "./cgg-runtime/agents/pattern-curator.md",
+        "./cgg-runtime/agents/cpr-stepper.md",
+        "./cgg-runtime/agents/review-execute.md"
+      ],
+      "hooks": {
+        "SessionStart": [
+          {
+            "hooks": [
+              {
+                "type": "command",
+                "command": "${CLAUDE_PLUGIN_ROOT}/cgg-runtime/hooks/session-restore-patch.sh",
+                "timeout": 10
+              }
+            ]
+          }
+        ],
+        "UserPromptSubmit": [
+          {
+            "hooks": [
+              {
+                "type": "command",
+                "command": "${CLAUDE_PLUGIN_ROOT}/cgg-runtime/hooks/cgg-gate.sh",
+                "timeout": 15
+              }
+            ]
+          }
+        ],
+        "PostToolUse": [
+          {
+            "matcher": "Edit|Write",
+            "hooks": [
+              {
+                "type": "command",
+                "command": "${CLAUDE_PLUGIN_ROOT}/cgg-runtime/hooks/posttool-microscan.sh",
+                "timeout": 10
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ]
+}

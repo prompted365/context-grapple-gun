@@ -53,7 +53,7 @@ The hook format has changed multiple times. The **current** format requires:
 
 Reference: [Hooks docs](https://code.claude.com/docs/en/hooks) | [Settings schema](https://json.schemastore.org/claude-code-settings.json)
 
-**Impact**: INSTALL.md bootstrap prompt, academy guide, and init-governance SKILL.md all need updating. See `PLAN-hook-doc-update.md`.
+Downstream surfaces (INSTALL.md, academy guide, init-governance SKILL.md) updated to current format at tic 2.
 
 ### Hook types available
 

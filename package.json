@@ -1,6 +1,6 @@
 {
   "name": "context-grapple-gun",
-  "version": "4.0.0",
+  "version": "4.0.1",
   "description": "Context Grapple Gun — governed autonomy substrate for Claude Code",
   "type": "module",
   "bin": {
