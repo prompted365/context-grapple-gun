@@ -321,6 +321,21 @@ def mine_patterns(project_dir, dry_run=False):
 ENVELOPE_THRESHOLD_COUNT = 3
 ENVELOPE_THRESHOLD_SCOPES = {"domain", "estate", "federation"}
 
+# Escalation rules — inspectable ladder logic for placement suggestions
+_ESCALATION_RULES = {
+    "site_local": "recurs within single site — promote at site level only",
+    "cross_subsystem": "recurs across subsystems within site — may indicate site-level invariant",
+    "cross_site_same_domain": "recurs across sibling sites — candidate for domain-level promotion",
+    "cross_domain_same_estate": "recurs across domains — candidate for estate-level promotion",
+    "cross_estate": "recurs across estates — candidate for federation or global review",
+}
+
+
+def _placement_escalation_rule(pattern):
+    """Return human-readable escalation rule for this pattern's recurrence kind."""
+    kind = pattern.get("recurrence_kind", "unknown")
+    return _ESCALATION_RULES.get(kind, f"unknown recurrence kind: {kind}")
+
 
 def emit_pattern_envelopes(patterns, queue_path, topo):
     """Emit proposal envelopes for patterns crossing review threshold.
@@ -397,6 +412,13 @@ def emit_pattern_envelopes(patterns, queue_path, topo):
                     "suggested_rung": pat.get("placement_target", "site"),
                     "suggested_target": "CLAUDE.md",
                     "reason": f"Recurs across {count} observations ({pat.get('recurrence_kind', 'unknown')})",
+                },
+                "placement_basis": {
+                    "reason": f"{pat.get('recurrence_kind', 'unknown')} recurrence",
+                    "observed_scope": scope,
+                    "recommended_scope": pat.get("placement_target", "site"),
+                    "observation_count": count,
+                    "escalation_rule": _placement_escalation_rule(pat),
                 },
                 "payload": {
                     "pattern_id": pat["id"],
