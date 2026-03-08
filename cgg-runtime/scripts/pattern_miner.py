@@ -302,9 +302,21 @@ def mine_patterns(project_dir, dry_run=False):
     # Write patterns
     if new_patterns and not dry_run:
         os.makedirs(patterns_dir, exist_ok=True)
-        with open(patterns_file, "a", encoding="utf-8") as f:
+        try:
+            from lib.atomic_append import atomic_append_jsonl
             for pat in new_patterns:
-                f.write(json.dumps(pat, separators=(",", ":")) + "\n")
+                atomic_append_jsonl(str(patterns_file), pat)
+        except ImportError:
+            import fcntl
+            lockfile = str(patterns_file) + ".lock"
+            with open(lockfile, "w") as lf:
+                fcntl.flock(lf.fileno(), fcntl.LOCK_EX)
+                try:
+                    with open(patterns_file, "a", encoding="utf-8") as f:
+                        for pat in new_patterns:
+                            f.write(json.dumps(pat, separators=(",", ":")) + "\n")
+                finally:
+                    fcntl.flock(lf.fileno(), fcntl.LOCK_UN)
 
     # Emit proposal envelopes for patterns crossing the threshold
     envelopes = []
@@ -435,9 +447,21 @@ def emit_pattern_envelopes(patterns, queue_path, topo):
     # Write envelopes to CPR queue
     if envelopes:
         os.makedirs(os.path.dirname(queue_path), exist_ok=True)
-        with open(queue_path, "a", encoding="utf-8") as f:
+        try:
+            from lib.atomic_append import atomic_append_jsonl
             for env in envelopes:
-                f.write(json.dumps(env, separators=(",", ":")) + "\n")
+                atomic_append_jsonl(queue_path, env)
+        except ImportError:
+            import fcntl
+            lockfile = queue_path + ".lock"
+            with open(lockfile, "w") as lf:
+                fcntl.flock(lf.fileno(), fcntl.LOCK_EX)
+                try:
+                    with open(queue_path, "a", encoding="utf-8") as f:
+                        for env in envelopes:
+                            f.write(json.dumps(env, separators=(",", ":")) + "\n")
+                finally:
+                    fcntl.flock(lf.fileno(), fcntl.LOCK_UN)
 
     return envelopes
 

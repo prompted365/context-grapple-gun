@@ -73,3 +73,53 @@ Reference: [Hooks docs](https://code.claude.com/docs/en/hooks) | [Settings schem
 - Shared project configs across worktrees (2.1.63)
 
 <!-- promoted from CogPR-1 (tic 1), updated tic 2 after second format break. Source: ~/.claude/projects/-Users-breydentaylor-canonical/memory/MEMORY.md -->
+
+## Plugin Hook Registration
+
+Plugins must register hooks in `hooks/hooks.json` at the plugin root — listing hooks in `plugin.json` components alone is insufficient. Use `${CLAUDE_PLUGIN_ROOT}` to reference scripts within the plugin directory.
+
+```json
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/hooks/posttool-microscan.sh"
+          }
+        ]
+      }
+    ]
+  }
+}
+```
+
+Reference: [Plugin docs](https://code.claude.com/docs/en/plugins)
+
+<!-- promoted from CogPR-4 (tic 3→5). Source: code.claude.com/docs/en/plugins. Validated by hooks/hooks.json creation. -->
+
+## Agent Tool (formerly Task)
+
+The `Task` tool was renamed to `Agent` in Claude Code 2.1.63. All CGG agent frontmatter must use `Agent`, not `Task`.
+
+- **Frontmatter**: `tools: Read, Grep, Glob, Agent, Bash`
+- **Spawn restriction**: `Agent(subagent-name)` restricts which subagents can be spawned
+- The `Task` alias may still work but should not be relied upon
+
+<!-- promoted from CogPR-5 (tic 3→5). Source: code.claude.com/docs/en/sub-agents. Applied to mogul.md at f26f21b. -->
+
+## JSONL Atomic Writes (PRIMITIVE)
+
+All JSONL append-only files (`audit-logs/**/*.jsonl`) must use atomic append to prevent corruption from concurrent writers (hooks, session-start, Mogul cycles).
+
+**Required pattern**: write to temp file, then atomic rename/append — never direct `>>` append from concurrent processes.
+
+- Scripts: use `scripts/lib/atomic-append.sh`
+- Python: use `scripts/lib/atomic_append.py`
+- All 10 JSONL-writing hooks/scripts have been patched to use these libraries
+
+**Failure mode**: concurrent session-start hooks interleaving JSON lines, producing invalid JSONL. Observed at tic 1 and tic 4 on `mandates/history/*.jsonl`.
+
+<!-- promoted from CogPR-8 (tic 4→5). Band: PRIMITIVE. Source: audit-logs/mogul/mandates/history/2026-03-08.jsonl corruption incident. -->

@@ -17,6 +17,21 @@ set -euo pipefail
 DRY_RUN=false
 [ "${1:-}" = "--dry-run" ] && DRY_RUN=true
 
+# Load atomic append library for JSONL-safe writes
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+ATOMIC_LIB="$SCRIPT_DIR/lib/atomic-append.sh"
+[ -f "$ATOMIC_LIB" ] && source "$ATOMIC_LIB"
+
+# Safe JSONL append wrapper
+safe_jsonl_append() {
+  local target="$1" content="$2"
+  if type atomic_append &>/dev/null; then
+    atomic_append "$target" "$content"
+  else
+    echo "$content" >> "$target"
+  fi
+}
+
 # ============================================================================
 # Zone root resolution
 # ============================================================================
@@ -124,7 +139,7 @@ import json
 m = json.load(open('$MANDATE_FILE'))
 t = {'transition': 'pending_to_running', 'mandate_id': m.get('mandate_id',''), 'timestamp': '$NOW'}
 print(json.dumps(t))
-" >> "$MANDATE_HISTORY_DIR/$TODAY.jsonl" 2>/dev/null
+" | while IFS= read -r _line; do safe_jsonl_append "$MANDATE_HISTORY_DIR/$TODAY.jsonl" "$_line"; done 2>/dev/null
 
 echo "Status -> running at $NOW"
 
@@ -344,7 +359,7 @@ json.dump(m, open('$MANDATE_FILE', 'w'), indent=2)
 import json
 t = {'transition': 'running_to_failed', 'mandate_id': '$MANDATE_ID', 'timestamp': '$COMPLETED_AT', 'reason': 'artifact_verification', 'errors': '$(echo "$ARTIFACT_ERRORS" | sed "s/'/\\\\'/g")'}
 print(json.dumps(t))
-" >> "$MANDATE_HISTORY_DIR/$TODAY.jsonl" 2>/dev/null
+" | while IFS= read -r _line; do safe_jsonl_append "$MANDATE_HISTORY_DIR/$TODAY.jsonl" "$_line"; done 2>/dev/null
 
     exit 1
   fi
@@ -380,7 +395,7 @@ t = {
     'birth_rung': '$BIRTH_RUNG'
 }
 print(json.dumps(t))
-" >> "$MANDATE_HISTORY_DIR/$TODAY.jsonl" 2>/dev/null
+" | while IFS= read -r _line; do safe_jsonl_append "$MANDATE_HISTORY_DIR/$TODAY.jsonl" "$_line"; done 2>/dev/null
 else
   python3 -c "
 import json
@@ -408,7 +423,7 @@ t = {
     'birth_rung': '$BIRTH_RUNG'
 }
 print(json.dumps(t))
-" >> "$MANDATE_HISTORY_DIR/$TODAY.jsonl" 2>/dev/null
+" | while IFS= read -r _line; do safe_jsonl_append "$MANDATE_HISTORY_DIR/$TODAY.jsonl" "$_line"; done 2>/dev/null
 
   exit 1
 fi

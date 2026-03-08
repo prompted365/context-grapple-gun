@@ -154,8 +154,19 @@ def write_mandate(mandate: dict, zone_root: Path, audit_logs_rel: str = "audit-l
 
     today = datetime.now().strftime("%Y-%m-%d")
     history_file = history_dir / f"{today}.jsonl"
-    with open(history_file, "a") as f:
-        f.write(json.dumps(mandate) + "\n")
+    try:
+        from lib.atomic_append import atomic_append_jsonl
+        atomic_append_jsonl(str(history_file), mandate)
+    except ImportError:
+        import fcntl
+        lockfile = str(history_file) + ".lock"
+        with open(lockfile, "w") as lf:
+            fcntl.flock(lf.fileno(), fcntl.LOCK_EX)
+            try:
+                with open(history_file, "a") as f:
+                    f.write(json.dumps(mandate) + "\n")
+            finally:
+                fcntl.flock(lf.fileno(), fcntl.LOCK_UN)
 
     return mandate_file
 

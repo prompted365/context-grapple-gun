@@ -17,6 +17,11 @@
 # Read stdin (tool result JSON) — we need the file path
 INPUT=$(cat)
 
+# Load atomic append library for JSONL-safe writes
+CGG_PLUGIN_ROOT="${CLAUDE_PLUGIN_ROOT:-$(cd "$(dirname "$0")/../.." && pwd)}"
+ATOMIC_LIB="$CGG_PLUGIN_ROOT/cgg-runtime/scripts/lib/atomic-append.sh"
+[ -f "$ATOMIC_LIB" ] && source "$ATOMIC_LIB"
+
 # ============================================================================
 # Root Anchoring
 # ============================================================================
@@ -130,8 +135,13 @@ if [ -n "$SCRIPTS_DIR" ]; then
 fi
 
 # Append finding — lightweight JSON, no signal emission
-printf '{"type":"microscan","finding":"%s","file":"%s","birth_rung":"%s","timestamp":"%s"}\n' \
-  "$FINDING_TYPE" "$FILE_PATH" "$BIRTH_RUNG" "$TIMESTAMP" >> "$STAGING_FILE" 2>/dev/null
+MICROSCAN_JSON=$(printf '{"type":"microscan","finding":"%s","file":"%s","birth_rung":"%s","timestamp":"%s"}' \
+  "$FINDING_TYPE" "$FILE_PATH" "$BIRTH_RUNG" "$TIMESTAMP")
+if type atomic_append &>/dev/null; then
+  atomic_append "$STAGING_FILE" "$MICROSCAN_JSON"
+else
+  printf '%s\n' "$MICROSCAN_JSON" >> "$STAGING_FILE" 2>/dev/null
+fi
 
 # ============================================================================
 # Emit signal seed ONLY for prompt-stack hazards
@@ -201,8 +211,13 @@ if [ "$EMIT_SIGNAL" -eq 1 ]; then
 
   SIGNAL_ID="sig_${TIMESTAMP}_microscan_drift_${BASENAME}"
 
-  printf '{"type":"signal","id":"%s","kind":"TENSION","band":"COGNITIVE","status":"active","volume":30,"max_volume":100,"tick_count":0,"subsystem":"cgg","source":"posttool-microscan.sh","source_date":"%s","created_at":"%s","birth_rung":"%s","payload":{"summary":"Installed runtime surface drifted from canonical: %s","file":"%s"},"escalation":{"warrant_threshold":70},"origin":"deterministic"}\n' \
-    "$SIGNAL_ID" "$DATE_STR" "$TIMESTAMP" "$BIRTH_RUNG" "$BASENAME" "$FILE_PATH" >> "$SIGNAL_FILE" 2>/dev/null
+  SIGNAL_JSON=$(printf '{"type":"signal","id":"%s","kind":"TENSION","band":"COGNITIVE","status":"active","volume":30,"max_volume":100,"tick_count":0,"subsystem":"cgg","source":"posttool-microscan.sh","source_date":"%s","created_at":"%s","birth_rung":"%s","payload":{"summary":"Installed runtime surface drifted from canonical: %s","file":"%s"},"escalation":{"warrant_threshold":70},"origin":"deterministic"}' \
+    "$SIGNAL_ID" "$DATE_STR" "$TIMESTAMP" "$BIRTH_RUNG" "$BASENAME" "$FILE_PATH")
+  if type atomic_append &>/dev/null; then
+    atomic_append "$SIGNAL_FILE" "$SIGNAL_JSON"
+  else
+    printf '%s\n' "$SIGNAL_JSON" >> "$SIGNAL_FILE" 2>/dev/null
+  fi
 fi
 
 exit 0

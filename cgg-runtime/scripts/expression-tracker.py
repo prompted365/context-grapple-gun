@@ -96,9 +96,21 @@ def load_participation_store(store_path: Path) -> dict:
 def append_participation(store_path: Path, entries: list[dict]) -> None:
     """Append participation entries to the JSONL store."""
     store_path.parent.mkdir(parents=True, exist_ok=True)
-    with open(store_path, "a", encoding="utf-8") as f:
+    try:
+        from lib.atomic_append import atomic_append_jsonl
         for entry in entries:
-            f.write(json.dumps(entry, separators=(",", ":")) + "\n")
+            atomic_append_jsonl(str(store_path), entry)
+    except ImportError:
+        import fcntl
+        lockfile = str(store_path) + ".lock"
+        with open(lockfile, "w") as lf:
+            fcntl.flock(lf.fileno(), fcntl.LOCK_EX)
+            try:
+                with open(store_path, "a", encoding="utf-8") as f:
+                    for entry in entries:
+                        f.write(json.dumps(entry, separators=(",", ":")) + "\n")
+            finally:
+                fcntl.flock(lf.fileno(), fcntl.LOCK_UN)
 
 
 # ---------------------------------------------------------------------------

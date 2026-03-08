@@ -23,6 +23,10 @@ cat > /dev/null
 
 # Plugin-root anchor: canonical for finding bundled runtime assets
 CGG_PLUGIN_ROOT="${CLAUDE_PLUGIN_ROOT:-$(cd "$(dirname "$0")/../.." && pwd)}"
+
+# Load atomic append library for JSONL-safe writes
+ATOMIC_LIB="$CGG_PLUGIN_ROOT/cgg-runtime/scripts/lib/atomic-append.sh"
+[ -f "$ATOMIC_LIB" ] && source "$ATOMIC_LIB"
 CGG_SCRIPTS_DIR="$CGG_PLUGIN_ROOT/cgg-runtime/scripts"
 
 # Zone-root anchor: canonical for all governance data IO
@@ -322,9 +326,16 @@ print(json.dumps(mandate, indent=2))
 
     if [ -n "$MANDATE_JSON" ]; then
       mkdir -p "$MANDATE_DIR" "$MANDATE_HISTORY_DIR"
+      # current.json: pretty-printed (standalone, human-readable)
       echo "$MANDATE_JSON" > "$MANDATE_FILE"
+      # history JSONL: compact single-line (JSONL invariant — one JSON object per line)
+      MANDATE_COMPACT=$(echo "$MANDATE_JSON" | python3 -c "import json,sys; print(json.dumps(json.load(sys.stdin), separators=(',',':')))" 2>/dev/null)
       TODAY=$(date +%Y-%m-%d)
-      echo "$MANDATE_JSON" >> "$MANDATE_HISTORY_DIR/$TODAY.jsonl"
+      if [ -n "$MANDATE_COMPACT" ] && type atomic_append &>/dev/null; then
+        atomic_append "$MANDATE_HISTORY_DIR/$TODAY.jsonl" "$MANDATE_COMPACT"
+      elif [ -n "$MANDATE_COMPACT" ]; then
+        printf '%s\n' "$MANDATE_COMPACT" >> "$MANDATE_HISTORY_DIR/$TODAY.jsonl"
+      fi
       DUE_CYCLES=$(echo "$MANDATE_JSON" | python3 -c "import json,sys; m=json.load(sys.stdin); print(', '.join(m['cycle_request']['run_now']))" 2>/dev/null)
       MOGUL_MANDATE_MSG="[MOGUL MANDATE: due cycles=$DUE_CYCLES]"
     fi

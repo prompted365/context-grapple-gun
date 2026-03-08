@@ -448,9 +448,21 @@ def scan_and_enrich(project_dir, dry_run=False, quiet=False):
 
     if entries_to_append and not dry_run:
         os.makedirs(os.path.dirname(queue_path), exist_ok=True)
-        with open(queue_path, "a", encoding="utf-8") as f:
+        try:
+            from lib.atomic_append import atomic_append_jsonl
             for entry in entries_to_append:
-                f.write(json.dumps(entry, separators=(",", ":")) + "\n")
+                atomic_append_jsonl(queue_path, entry)
+        except ImportError:
+            import fcntl
+            lockfile = queue_path + ".lock"
+            with open(lockfile, "w") as lf:
+                fcntl.flock(lf.fileno(), fcntl.LOCK_EX)
+                try:
+                    with open(queue_path, "a", encoding="utf-8") as f:
+                        for entry in entries_to_append:
+                            f.write(json.dumps(entry, separators=(",", ":")) + "\n")
+                finally:
+                    fcntl.flock(lf.fileno(), fcntl.LOCK_UN)
 
     if not quiet:
         print(f"{updated_count}")

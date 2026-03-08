@@ -247,9 +247,21 @@ def extract_cprs(project_dir, dry_run=False):
 
     if new_entries and not dry_run:
         os.makedirs(os.path.dirname(queue_file), exist_ok=True)
-        with open(queue_file, "a", encoding="utf-8") as f:
+        try:
+            from lib.atomic_append import atomic_append_jsonl
             for entry in new_entries:
-                f.write(json.dumps(entry, separators=(",", ":")) + "\n")
+                atomic_append_jsonl(queue_file, entry)
+        except ImportError:
+            import fcntl
+            lockfile = queue_file + ".lock"
+            with open(lockfile, "w") as lf:
+                fcntl.flock(lf.fileno(), fcntl.LOCK_EX)
+                try:
+                    with open(queue_file, "a", encoding="utf-8") as f:
+                        for entry in new_entries:
+                            f.write(json.dumps(entry, separators=(",", ":")) + "\n")
+                finally:
+                    fcntl.flock(lf.fileno(), fcntl.LOCK_UN)
 
     return new_entries
 

@@ -23,6 +23,10 @@ cat > /dev/null
 
 # Plugin-root anchor: canonical for finding bundled runtime assets
 CGG_PLUGIN_ROOT="${CLAUDE_PLUGIN_ROOT:-$(cd "$(dirname "$0")/../.." && pwd)}"
+
+# Load atomic append library for JSONL-safe writes
+ATOMIC_LIB="$CGG_PLUGIN_ROOT/cgg-runtime/scripts/lib/atomic-append.sh"
+[ -f "$ATOMIC_LIB" ] && source "$ATOMIC_LIB"
 CGG_SCRIPTS_DIR="$CGG_PLUGIN_ROOT/cgg-runtime/scripts"
 
 # Zone-root anchor: canonical for all governance data IO
@@ -45,6 +49,15 @@ HANDOFF_FILE="$FLAG_DIR/pending-handoff-id.txt"
 PROCESSED_IDS="$HOME/.claude/cgg-processed-handoff-ids.txt"
 META_LOG="$HOME/.claude/grapple-meta-log.jsonl"
 TIMESTAMP=$(date -Iseconds)
+
+# Safe JSONL append wrapper
+log_meta() {
+  if type atomic_append &>/dev/null; then
+    atomic_append "$META_LOG" "$1"
+  else
+    echo "$1" >> "$META_LOG"
+  fi
+}
 
 # ============================================================================
 # Resolve audit-logs path from .ticzone BEFORE any path construction
@@ -111,16 +124,16 @@ except: print('error|||')
       if [ -n "$MOGUL_RUNNER" ] && [ -x "$MOGUL_RUNNER" ]; then
         # Runner exists — spawn it. Runner owns the full pending→running→consumed lifecycle.
         # Gate does NOT touch mandate status (race condition fix: runner is sole state owner).
-        echo "{\"timestamp\":\"$TIMESTAMP\",\"action\":\"mogul_mandate_activated\",\"mandate_id\":\"$MANDATE_ID\",\"cycles\":\"$HEAVY_CYCLES\",\"status\":\"pending\"}" >> "$META_LOG"
+        log_meta "{\"timestamp\":\"$TIMESTAMP\",\"action\":\"mogul_mandate_activated\",\"mandate_id\":\"$MANDATE_ID\",\"cycles\":\"$HEAVY_CYCLES\",\"status\":\"pending\"}"
 
         MOGUL_LOG_DIR="$ZONE_ROOT/$AUDIT_LOGS_REL/mogul/cycle-reports"
         mkdir -p "$MOGUL_LOG_DIR"
         "$MOGUL_RUNNER" > "$MOGUL_LOG_DIR/$(date +%Y-%m-%dT%H%M%S)-runner-log.txt" 2>&1 &
-        echo "{\"timestamp\":\"$TIMESTAMP\",\"action\":\"mogul_runner_spawned\",\"mandate_id\":\"$MANDATE_ID\",\"cycles\":\"$HEAVY_CYCLES\",\"pid\":$!}" >> "$META_LOG"
+        log_meta "{\"timestamp\":\"$TIMESTAMP\",\"action\":\"mogul_runner_spawned\",\"mandate_id\":\"$MANDATE_ID\",\"cycles\":\"$HEAVY_CYCLES\",\"pid\":$!}"
         MANDATE_OUTPUT="[MOGUL MANDATE: runner spawn] mogul-runner.sh executing governance cycles ($HEAVY_CYCLES) in background (PID $!). Non-blocking."
       else
         # No runner — leave status pending, surface for LLM/manual execution
-        echo "{\"timestamp\":\"$TIMESTAMP\",\"action\":\"mogul_mandate_surfaced\",\"mandate_id\":\"$MANDATE_ID\",\"cycles\":\"$HEAVY_CYCLES\",\"status\":\"pending\"}" >> "$META_LOG"
+        log_meta "{\"timestamp\":\"$TIMESTAMP\",\"action\":\"mogul_mandate_surfaced\",\"mandate_id\":\"$MANDATE_ID\",\"cycles\":\"$HEAVY_CYCLES\",\"status\":\"pending\"}"
         MANDATE_OUTPUT="[MOGUL MANDATE PENDING] Heavy governance cycles due: $HEAVY_CYCLES. Spawn Mogul agent (Task tool, subagent_type: mogul, run_in_background: true) to execute mandated cycles. Mandate at: $MANDATE_FILE. Mandate ID: $MANDATE_ID. Non-blocking."
       fi
     elif [ -n "$ALL_CYCLES" ]; then
@@ -131,7 +144,7 @@ except: print('error|||')
     MANDATE_OUTPUT="[MOGUL MANDATE: in-flight] Mandate $MANDATE_ID still running (cycles: $ALL_CYCLES)."
   elif [ "$MANDATE_STATUS" = "failed" ]; then
     MANDATE_OUTPUT="[MOGUL MANDATE: FAILED] Mandate $MANDATE_ID failed (cycles: $ALL_CYCLES). Needs investigation."
-    echo "{\"timestamp\":\"$TIMESTAMP\",\"action\":\"mogul_mandate_failed_surfaced\",\"mandate_id\":\"$MANDATE_ID\",\"cycles\":\"$ALL_CYCLES\"}" >> "$META_LOG"
+    log_meta "{\"timestamp\":\"$TIMESTAMP\",\"action\":\"mogul_mandate_failed_surfaced\",\"mandate_id\":\"$MANDATE_ID\",\"cycles\":\"$ALL_CYCLES\"}"
   else
     # consumed or unknown — no output needed
     :
@@ -176,7 +189,7 @@ if [ -f "$TRIGGER_FILE" ]; then
   fi
 
   # Audit trail
-  echo "{\"timestamp\":\"$TIMESTAMP\",\"action\":\"trigger_fired\",\"handoff_id\":\"$HANDOFF_ID\",\"expected_cprs\":$EXPECTED_CPRS,\"plan_path\":\"$PLAN_PATH\",\"project\":\"$PROJECT_DIR\"}" >> "$META_LOG"
+  log_meta "{\"timestamp\":\"$TIMESTAMP\",\"action\":\"trigger_fired\",\"handoff_id\":\"$HANDOFF_ID\",\"expected_cprs\":$EXPECTED_CPRS,\"plan_path\":\"$PLAN_PATH\",\"project\":\"$PROJECT_DIR\"}"
 
   # Try deterministic assessor first
   DETERMINISTIC_ASSESSOR=$(resolve_script "ripple-assessor.py")
@@ -187,7 +200,7 @@ if [ -f "$TRIGGER_FILE" ]; then
       --output "$HOME/.claude/grapple-proposals/latest.md" \
       2>/dev/null &
 
-    echo "{\"timestamp\":\"$TIMESTAMP\",\"action\":\"deterministic_assessor_spawned\",\"handoff_id\":\"$HANDOFF_ID\",\"assessor\":\"$DETERMINISTIC_ASSESSOR\"}" >> "$META_LOG"
+    log_meta "{\"timestamp\":\"$TIMESTAMP\",\"action\":\"deterministic_assessor_spawned\",\"handoff_id\":\"$HANDOFF_ID\",\"assessor\":\"$DETERMINISTIC_ASSESSOR\"}"
     ASSESSOR_OUTPUT="[CGG TRIGGER FIRED] Deterministic ripple-assessor running in background. Proposals will appear at ~/.claude/grapple-proposals/latest.md. /review when ready."
   else
     # Fall back to LLM agent spawn
