@@ -39,3 +39,55 @@ grouping_rule: |
   Group brackets by semantic adjacency.
   Similar positions compete locally first.
   Cross-bracket compares synthesized category outputs.
+
+# Arena result output schema (Rule 8 + Rule 10)
+arena_result:
+  decision:
+    surviving_structure: ""
+    dependency_graph: []
+    implementation_order: []
+    rationale: []
+
+  pressure_report:
+    convergent_discoveries:
+      - claim: ""
+        support_agents: []
+        confidence: high  # high | medium | low
+        scope: within_bracket  # within_bracket | cross_bracket
+
+    unresolved_tensions:
+      - issue: ""
+        opposing_claims: []
+        severity: medium  # high | medium | low
+
+    repeated_attack_surfaces:
+      - weakness: ""
+        targeted_position: ""
+        raised_by: []
+        scope: within_bracket  # within_bracket | cross_bracket
+
+    hidden_dependencies:
+      - dependency: ""
+        exposed_by: []
+        exposed_phase: cross_bracket  # local | cross_bracket | wildcard
+
+    false_convergence_risks:
+      - claim: ""
+        why_risky: ""
+        detected_by: ""  # wildcard | lead | cross_bracket
+
+    candidate_cogprs:
+      - lesson: ""
+        lesson_type: process  # subject | process | meta
+        confidence_tier: tentative  # tentative | reinforced | convergent
+        recommended_scope: "site"
+        # ROUTING: block subject governance routing in experimental mode.
+        # Route by confidence_tier in operational mode.
+
+    candidate_signals:
+      - kind: ""  # BEACON | TENSION
+        summary: ""
+        reason: ""
+        confidence_tier: tentative  # tentative | reinforced | convergent
+        # ROUTING: block all signals in experimental mode.
+        # Route by confidence_tier in operational mode.

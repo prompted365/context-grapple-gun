@@ -1,0 +1,140 @@
+# Franchise Triangulation Demo
+# Theatrical governed-disagreement arena using fictional universes.
+# Demonstrates the governed triangulation primitive with zero domain expertise required.
+
+id: franchise-triangulation-demo
+title: "Best Sci-Fi/Fantasy World: The Governed Debate"
+arena: governed-triangulation
+arena_mode: experimental
+status: planned
+
+capture_policy:
+  allow_subject_lessons: true                 # learning stays high — "HP magic system" IS learned
+  route_subject_lessons_to_governance: false   # but NOT routed to governance — block routing, not learning
+  persist_subject_lessons_locally: true        # kept in arena output + local sandbox/history
+  allow_process_lessons: true                  # "rebuttal round improved argument depth" → CogPR eligible
+  allow_meta_lessons: true                     # "opponent-context prevents strawmen" → CogPR eligible
+  allow_signals: false                         # no BEACONs or TENSIONs from theatrical demos
+  allow_warrants: false
+  allow_governance_mutation: false
+
+question: |
+  Which franchise has the best sci-fi/fantasy world, period?
+  "Best" encompasses: worldbuilding depth, internal consistency, narrative stakes,
+  cultural impact, magic/tech system design, and capacity to sustain meaningful stories.
+  Advocates must argue from structural evidence, not personal preference.
+
+agents:
+  - name: BB-BAGZ
+    position: "Lord of the Rings"
+    franchise: "Tolkien's Middle-earth (books + films)"
+    bracket: 1
+    model: sonnet
+    persona: |
+      You are BB-BAGZ, a passionate and structurally rigorous advocate for
+      Middle-earth as the greatest sci-fi/fantasy world ever constructed.
+      You believe Tolkien's worldbuilding is unmatched in depth, linguistic
+      foundation, mythological coherence, and narrative gravitas.
+      Argue from structural evidence: languages, cosmology, millennia of
+      in-world history, the moral architecture, the eucatastrophe pattern.
+      Do NOT rely on "it was first" or nostalgia.
+
+  - name: FORCED-JEDISDICTION
+    position: "Star Wars"
+    franchise: "Star Wars (films + expanded universe)"
+    bracket: 1
+    model: sonnet
+    persona: |
+      You are FORCED-JEDISDICTION, a passionate and structurally rigorous
+      advocate for the Star Wars galaxy as the greatest sci-fi/fantasy world
+      ever constructed. You believe the galaxy far far away is unmatched in
+      scope, mythological resonance, and cultural penetration.
+      Argue from structural evidence: the Force as a unifying metaphysics,
+      the political economy of galactic governance, the tech-magic hybrid
+      system, the generational saga structure, the expanded universe depth.
+      Do NOT rely on box office numbers or merchandise sales.
+
+  - name: HUFFYPUFFY
+    position: "Harry Potter"
+    franchise: "Wizarding World (books + films)"
+    bracket: 1
+    model: sonnet
+    persona: |
+      You are HUFFYPUFFY, a passionate and structurally rigorous advocate
+      for the Wizarding World as the greatest sci-fi/fantasy world ever
+      constructed. You believe Rowling's world is unmatched in accessibility,
+      internal magic-system logic, institutional worldbuilding, and the
+      capacity to make the mundane magical.
+      Argue from structural evidence: the magic system's rules and limits,
+      the institutional depth (Ministry, Hogwarts, Gringotts), the hidden-
+      world-within-our-world architecture, the coming-of-age narrative
+      structure mapped onto a school calendar.
+      Do NOT rely on commercial success or childhood nostalgia.
+
+lead:
+  model: opus
+  behavior: |
+    You are the arena lead. You do NOT advocate for any franchise.
+    You orchestrate the governed triangulation protocol:
+    wait for all context reports, then all defenses, then all rebuttals.
+    Extract convergent discoveries, identify surviving arguments, and
+    produce a final synthesis that answers: which world is structurally
+    the best, and why?
+
+    Score using the governed triangulation rubric (scoring.yaml).
+    Pay special attention to convergent discoveries — when opponents
+    with opposed incentives independently identify the same structural
+    fact about a rival world, treat it as high-confidence signal.
+
+scoring: governed-triangulation/scoring.yaml
+tasks: governed-triangulation/tasks.yaml
+
+operational_notes: |
+  This is a theatrical demonstration of the governed triangulation primitive.
+  The franchise debate is the vehicle; the real subject is the arena protocol.
+
+  Key things to demonstrate:
+  1. Opponent-context produces genuine structural analysis (not strawmen)
+  2. Defense addresses real weaknesses found by opponents
+  3. Rebuttal changes arguments (the 3x multiplier in action)
+  4. Convergent discovery surfaces facts no single advocate would volunteer
+  5. Lead synthesis extracts structure, not just picks a winner
+  6. Pressure extraction classifies findings for governance routing
+  7. Institutional memory captures process lessons alongside content
+
+  Because this is an experimental arena, only process and meta lessons
+  are captured. Subject-matter findings ("LOTR has better worldbuilding")
+  are discarded. The audience sees both the synthesis AND the pressure
+  report — demonstrating how arenas feed the governance lifecycle.
+
+  The debate question is deliberately accessible — no technical domain
+  expertise required — so the audience focuses on the PROCESS, not the
+  CONTENT of the arguments.
+
+demo_narrative: |
+  Opening: "Three agents. Three franchises. One question. Governed disagreement."
+
+  Act 1 — Context: Watch each agent study its opponents' worlds with genuine
+  structural rigor. BB-BAGZ reads Harry Potter and Star Wars. FORCED-JEDISDICTION
+  reads Tolkien and Rowling. HUFFYPUFFY reads Tolkien and Lucas.
+
+  Act 2 — Defense: Each agent defends its world AND attacks the other two.
+  The attacks are informed by the context phase — these aren't generic criticism,
+  they're targeted structural challenges.
+
+  Act 3 — Rebuttal: This is where the arena earns its keep. Agents respond to
+  specific attacks. Arguments evolve. Positions strengthen or crack under pressure.
+
+  Act 4 — Synthesis: The lead extracts what survived. The answer isn't "who won" —
+  it's "what did we learn about worldbuilding that no single advocate would have
+  volunteered?"
+
+  Act 5 — Pressure Extraction: The lead classifies what the arena produced —
+  convergent discoveries, unresolved tensions, false convergence risks. This is
+  where the audience sees the arena's governance bridge in action. Because this
+  is experimental mode, subject-matter findings are sandboxed while process
+  lessons route toward CogPR candidacy.
+
+sources:
+  template: stage/templates/arenas/governed-triangulation/
+  reference_run: audit-logs/teams/rationalized-learning-regalia.md

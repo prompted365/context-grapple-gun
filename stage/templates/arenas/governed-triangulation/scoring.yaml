@@ -24,3 +24,53 @@ convergence_rule: |
   When multiple independent agents with opposed incentives
   discover the same structural fact, treat it as high-confidence signal.
   Independent discovery + opposed incentives + same conclusion = high confidence.
+
+# Arena result output schema (Rule 8 + Rule 10)
+arena_result:
+  decision:
+    surviving_structure: ""
+    dependency_graph: []
+    implementation_order: []
+    rationale: []
+
+  pressure_report:
+    convergent_discoveries:
+      - claim: ""
+        support_agents: []
+        confidence: high  # high | medium | low
+
+    unresolved_tensions:
+      - issue: ""
+        opposing_claims: []
+        severity: medium  # high | medium | low
+
+    repeated_attack_surfaces:
+      - weakness: ""
+        targeted_position: ""
+        raised_by: []
+
+    hidden_dependencies:
+      - dependency: ""
+        exposed_by: []
+
+    false_convergence_risks:
+      - claim: ""
+        why_risky: ""
+
+    candidate_cogprs:
+      - lesson: ""
+        lesson_type: process  # subject | process | meta
+        confidence_tier: tentative  # tentative | reinforced | convergent
+        recommended_scope: "site"
+        # ROUTING: experimental arenas persist subject lessons locally
+        # but block their governance routing. Process/meta route normally.
+        # Operational arenas route all types, gated by confidence_tier.
+
+    candidate_signals:
+      - kind: ""  # BEACON | TENSION
+        summary: ""
+        reason: ""
+        confidence_tier: tentative  # tentative | reinforced | convergent
+        # ROUTING: experimental arenas block all signal emission.
+        # Operational arenas route by confidence_tier:
+        #   tentative = note only, reinforced = candidate, convergent = high-priority.

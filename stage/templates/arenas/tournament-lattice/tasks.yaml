@@ -42,6 +42,8 @@ five_agent:
     - { id: 19, agent: LEAD, action: "Bracket 2 output challenges Bracket 1", blocked_by: [16,17] }
     # --- Final synthesis ---
     - { id: 20, agent: LEAD, action: "Final synthesis", blocked_by: [18,19] }
+    # --- Pressure extraction ---
+    - { id: 21, agent: LEAD, action: "Produce pressure report", blocked_by: [20] }
 
 # ============================================================
 # 7-AGENT CONFIGURATION WITH WILDCARD
@@ -93,11 +95,15 @@ seven_agent_wildcard:
     - { id: 24, agent: LEAD, action: "Bracket 2 responds to wildcard", blocked_by: [22] }
     # --- Final synthesis ---
     - { id: 25, agent: LEAD, action: "Final synthesis", blocked_by: [23,24] }
+    # --- Pressure extraction ---
+    - { id: 26, agent: LEAD, action: "Produce pressure report", blocked_by: [25] }
 
 dependency_rule: |
   context -> defense -> rebuttal -> local synthesis
   -> [wildcard audit] -> cross-bracket response -> final synthesis
+  -> pressure extraction
 
   No phase may start until its predecessors complete.
   The lead must not synthesize early.
   The wildcard must not advocate.
+  The arena is not complete until both synthesis and pressure report exist.

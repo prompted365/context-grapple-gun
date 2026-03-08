@@ -413,6 +413,28 @@ A detected runtime hazard that cannot mint a warrant is a broken governance loop
 
 **Kind-gated implication**: Only BEACON and TENSION are warrant-eligible by default (Section 5 warrant recognition). A hazard detected but emitted as a LESSON signal will accrue volume but never warrant — the governance loop is broken by kind classification, not by missing infrastructure. Emitters must choose the correct kind at emission time.
 
+## Proposal Envelope + Governance Lattice
+
+Governance artifacts carry classification metadata silently. The envelope is the shared substrate between arena-produced artifacts and main-system governance — same skeleton, different timescale.
+
+**Proposal envelope** wraps CogPRs, signals, warrants, proposals, and handoffs with:
+- `lesson_type` (`subject` | `process` | `meta`) — what kind of knowledge
+- `confidence_tier` (`tentative` | `reinforced` | `convergent`) — how much evidence backs it
+- `relations` — typed edges to other governance artifacts (lattice)
+- `capture_policy` — routing flags (persist, review, emit, warrant)
+- `evidence` — sources, supporting artifacts, independent confirmations
+
+**Governance lattice** is a lightweight relational layer where artifacts carry typed edges:
+- `supports`, `contradicts`, `refines`, `supersedes`, `depends_on`
+
+The lattice enables contextual review: merge, supersede, defer, split, and escalate — not just approve/reject.
+
+**Layer separation invariant:** Governance metadata attaches to artifacts, not to conversations. The UX layer remains conversational. The governance layer uses envelopes for routing. The knowledge substrate stores promoted results with tiers/relations already resolved.
+
+**Lattice invariant:** No governance artifact should be reviewed as if it has no neighbors.
+
+Full schema defined in project CLAUDE.md (Proposal Envelope Doctrine + Governance Lattice sections).
+
 ## Audit Cycles
 
 Governance audits run on tic-sum-derived cadence. These are interim cycles — sufficient for flat-file governance. Each cycle is a check, not a full session.

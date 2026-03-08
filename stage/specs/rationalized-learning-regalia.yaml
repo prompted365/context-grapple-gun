@@ -5,7 +5,18 @@
 id: rationalized-learning-regalia
 title: Rationalized Learning Regalia
 arena: governed-triangulation
+arena_mode: operational
 status: completed
+
+capture_policy:
+  allow_subject_lessons: true
+  route_subject_lessons_to_governance: true   # build-order findings are real governance inputs
+  persist_subject_lessons_locally: true
+  allow_process_lessons: true
+  allow_meta_lessons: true
+  allow_signals: true                         # convergent discoveries → BEACON candidates
+  allow_warrants: true
+  allow_governance_mutation: false             # still human-gated via /review
 
 agents:
   - name: EXPRESSION-TRACKER

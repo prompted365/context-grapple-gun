@@ -77,10 +77,41 @@ The lead must produce:
 - key discoveries from the arena
 
 RULE 9 — Institutional Memory
-After synthesis, record:
+After synthesis and pressure extraction, record:
 - structural discoveries
 - process lessons
 - corrected decisions
+
+RULE 10 — Pressure Extraction
+After final synthesis, the lead must produce a SEPARATE pressure report.
+
+The pressure report must identify:
+- convergent discoveries (facts independently found by opposed agents)
+- unresolved contradictions (tensions the synthesis could not dissolve)
+- repeated attack surfaces (weaknesses targeted by multiple opponents)
+- hidden dependencies (structural couplings exposed during the arena)
+- false convergence risks (consensus on weak foundations)
+- candidate durable lessons (reusable rules from the process)
+
+Classify each finding by:
+- lesson_type: subject | process | meta
+- confidence_tier: tentative | reinforced | convergent
+
+Confidence tiers:
+- tentative: appeared once, not stress-tested
+- reinforced: survived rebuttal or repeated attack
+- convergent: independently discovered by opposed agents
+
+Route findings by arena mode:
+- Experimental: keep ALL findings locally (learning stays high),
+  but block subject lessons, signals, and warrants from governance routing.
+  Only process/meta CogPR candidates may route to governance.
+- Operational: route all findings by confidence tier.
+  tentative = notes only, reinforced = candidates, convergent = high-priority.
+  All governance mutation is human-gated via /review.
+
+The arena is NOT complete until both synthesis output AND pressure report
+are produced.
 
 Task structure (enforce dependencies):
 
@@ -101,6 +132,9 @@ Rebuttal tasks (blocked until defenses complete):
 
 Synthesis task (blocked until rebuttals complete):
 [10] Lead synthesizes final plan     (blockedBy: 7,8,9)
+
+Pressure extraction (blocked until synthesis complete):
+[11] Lead produces pressure report   (blockedBy: 10)
 
 Operational constraints:
 - Agents must cite concrete evidence where possible.

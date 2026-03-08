@@ -68,7 +68,16 @@ phases:
         action: "Synthesize final plan from all arena evidence"
         blocked_by: [7, 8, 9]
 
+  pressure_extraction:
+    description: Lead classifies arena findings for governance routing.
+    tasks:
+      - id: 11
+        agent: LEAD
+        action: "Produce pressure report: convergent discoveries, tensions, candidate signals/CogPRs"
+        blocked_by: [10]
+
 dependency_rule: |
-  context -> defense -> rebuttal -> synthesis
+  context -> defense -> rebuttal -> synthesis -> pressure extraction
   No phase may start until its predecessors complete.
   The lead must not synthesize early.
+  The arena is not complete until both synthesis and pressure report exist.

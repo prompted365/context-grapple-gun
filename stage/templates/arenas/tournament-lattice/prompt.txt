@@ -98,10 +98,43 @@ The lead must NOT advocate or debate.
 The lead extracts signal: convergent discoveries, surviving arguments.
 
 RULE 9 — Institutional Memory
-After synthesis, record:
+After synthesis and pressure extraction, record:
 - structural discoveries
 - process lessons
 - corrected decisions
+
+RULE 10 — Pressure Extraction
+After final synthesis, the lead must produce a SEPARATE pressure report.
+
+The pressure report must identify:
+- convergent discoveries (especially cross-bracket convergence, which is
+  stronger than within-bracket convergence)
+- unresolved contradictions
+- repeated attack surfaces (across brackets)
+- hidden dependencies (exposed during cross-bracket challenge or wildcard audit)
+- false convergence risks (the wildcard's primary detection target)
+- candidate durable lessons
+
+Classify each finding by:
+- lesson_type: subject | process | meta
+- confidence_tier: tentative | reinforced | convergent
+
+Confidence tiers:
+- tentative: appeared once, not stress-tested
+- reinforced: survived rebuttal or repeated attack
+- convergent: independently discovered by opposed agents (cross-bracket
+  convergence is stronger than within-bracket convergence)
+
+Route findings by arena mode:
+- Experimental: keep ALL findings locally (learning stays high),
+  but block subject lessons, signals, and warrants from governance routing.
+  Only process/meta CogPR candidates may route to governance.
+- Operational: route all findings by confidence tier.
+  tentative = notes only, reinforced = candidates, convergent = high-priority.
+  All governance mutation is human-gated via /review.
+
+The arena is NOT complete until both synthesis output AND pressure report
+are produced.
 
 Operational constraints:
 - Group brackets by semantic adjacency, not randomly.
