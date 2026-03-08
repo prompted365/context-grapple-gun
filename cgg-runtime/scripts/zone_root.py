@@ -179,3 +179,19 @@ def resolve_rung_position(start_dir=None):
         "global": global_claude,
         "system_map": system_map,
     }
+
+
+def birth_topology(start_dir=None):
+    """Return compact topology metadata for embedding in JSONL artifacts.
+
+    Calls resolve_rung_position() and distills the result into a flat dict
+    suitable for inclusion in CPR entries, signals, mandates, etc.
+    """
+    rp = resolve_rung_position(start_dir)
+    return {
+        "birth_rung": rp["current_rung"],
+        "birth_scope_path": (rp["topology"].get(rp["current_rung"]) or {}).get("path"),
+        "topology_chain": {
+            k: v["path"] if v else None for k, v in rp["topology"].items()
+        },
+    }

@@ -114,9 +114,24 @@ mkdir -p "$STAGING_DIR" 2>/dev/null
 
 TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 
+# Resolve rung for topology context (best-effort, must not block on failure)
+SCRIPTS_DIR=""
+for candidate in \
+  "$ZONE_ROOT/vendor/context-grapple-gun/cgg-runtime/scripts" \
+  "${CLAUDE_PLUGIN_ROOT:+$CLAUDE_PLUGIN_ROOT/cgg-runtime/scripts}" \
+  "$HOME/.claude/cgg/cgg-runtime/scripts"; do
+  [ -n "$candidate" ] && [ -f "$candidate/rung_resolver.py" ] && SCRIPTS_DIR="$candidate" && break
+done
+
+BIRTH_RUNG="unknown"
+if [ -n "$SCRIPTS_DIR" ]; then
+  BIRTH_RUNG=$(python3 "$SCRIPTS_DIR/rung_resolver.py" --json --start "$ZONE_ROOT" 2>/dev/null \
+    | python3 -c "import sys,json; print(json.load(sys.stdin).get('current_rung','unknown'))" 2>/dev/null) || BIRTH_RUNG="unknown"
+fi
+
 # Append finding — lightweight JSON, no signal emission
-printf '{"type":"microscan","finding":"%s","file":"%s","timestamp":"%s"}\n' \
-  "$FINDING_TYPE" "$FILE_PATH" "$TIMESTAMP" >> "$STAGING_FILE" 2>/dev/null
+printf '{"type":"microscan","finding":"%s","file":"%s","birth_rung":"%s","timestamp":"%s"}\n' \
+  "$FINDING_TYPE" "$FILE_PATH" "$BIRTH_RUNG" "$TIMESTAMP" >> "$STAGING_FILE" 2>/dev/null
 
 # ============================================================================
 # Emit signal seed ONLY for prompt-stack hazards
@@ -186,8 +201,8 @@ if [ "$EMIT_SIGNAL" -eq 1 ]; then
 
   SIGNAL_ID="sig_${TIMESTAMP}_microscan_drift_${BASENAME}"
 
-  printf '{"type":"signal","id":"%s","kind":"TENSION","band":"COGNITIVE","status":"active","volume":30,"max_volume":100,"tick_count":0,"subsystem":"cgg","source":"posttool-microscan.sh","source_date":"%s","created_at":"%s","payload":{"summary":"Installed runtime surface drifted from canonical: %s","file":"%s"},"escalation":{"warrant_threshold":70},"origin":"deterministic"}\n' \
-    "$SIGNAL_ID" "$DATE_STR" "$TIMESTAMP" "$BASENAME" "$FILE_PATH" >> "$SIGNAL_FILE" 2>/dev/null
+  printf '{"type":"signal","id":"%s","kind":"TENSION","band":"COGNITIVE","status":"active","volume":30,"max_volume":100,"tick_count":0,"subsystem":"cgg","source":"posttool-microscan.sh","source_date":"%s","created_at":"%s","birth_rung":"%s","payload":{"summary":"Installed runtime surface drifted from canonical: %s","file":"%s"},"escalation":{"warrant_threshold":70},"origin":"deterministic"}\n' \
+    "$SIGNAL_ID" "$DATE_STR" "$TIMESTAMP" "$BIRTH_RUNG" "$BASENAME" "$FILE_PATH" >> "$SIGNAL_FILE" 2>/dev/null
 fi
 
 exit 0

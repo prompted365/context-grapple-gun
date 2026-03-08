@@ -31,6 +31,10 @@ import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
+# Allow importing zone_root from same directory
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from zone_root import birth_topology
+
 
 def compute_due_markers(tic: int) -> dict:
     """Compute due marker tics from current tic count."""
@@ -98,10 +102,12 @@ def build_mandate(
     supersedes: list[str],
     conformation_ref: str | None,
     runtime_verified: bool,
+    zone_root_path: str | None = None,
 ) -> dict:
     """Build a complete mandate object."""
     now = datetime.now(timezone.utc)
     mandate_id = f"tic-{tic}-{now.strftime('%Y%m%dT%H%M%S')}"
+    topo = birth_topology(zone_root_path)
 
     return {
         "mandate_id": mandate_id,
@@ -118,6 +124,8 @@ def build_mandate(
         "conformation_ref": conformation_ref,
         "mode": {"blocking_to_orchestrator": False, "allow_subdelegation": True},
         "runtime_truth": {"canonical_vs_installed_verified": runtime_verified},
+        "rung": topo["birth_rung"],
+        "topology_chain": topo["topology_chain"],
         "created_at": now.isoformat(),
         "started_at": None,
         "completed_at": None,
@@ -184,6 +192,7 @@ def main():
         supersedes=supersedes,
         conformation_ref=args.conformation_ref,
         runtime_verified=args.runtime_verified,
+        zone_root_path=str(zone_root),
     )
 
     written_path = write_mandate(mandate, zone_root, args.audit_logs_rel)

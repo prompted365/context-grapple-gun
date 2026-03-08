@@ -24,7 +24,7 @@ from pathlib import Path
 
 # Allow importing zone_root from same directory
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from zone_root import resolve_zone_root, load_ticzone, audit_logs_path
+from zone_root import resolve_zone_root, load_ticzone, audit_logs_path, birth_topology
 
 
 # ---------------------------------------------------------------------------
@@ -385,7 +385,7 @@ def _fmt_counts(c):
 # ---------------------------------------------------------------------------
 
 def compile_proposals(evaluate_data, classified, triads, tic_counter,
-                      plan_path, inline_cpr_count):
+                      plan_path, inline_cpr_count, topo=None):
     now = datetime.now(timezone.utc).isoformat()
     current_tic = tic_counter.get("count", 0)
 
@@ -435,6 +435,8 @@ def compile_proposals(evaluate_data, classified, triads, tic_counter,
     L.append(f"- **Active warrants**: {len(all_warrants)}")
     L.append(f"- **Harmonic triads**: {len(triads)}")
     L.append(f"- **Gate summary**: {len(reviewable)} reviewable, {len(gated)} tic-gated, {len(enriching)} enriching")
+    if topo:
+        L.append(f"- **Birth rung**: {topo.get('birth_rung', 'unknown')}")
 
     if evaluate_data and expected_cprs != found_cprs:
         L.append("")
@@ -525,8 +527,10 @@ def compile_proposals(evaluate_data, classified, triads, tic_counter,
 
             L.append(f"## CPR {i}: {lesson}")
             L.append("")
+            cpr_rung = cpr.get("birth_rung", "unknown")
             L.append(f"- **Source**: {source}")
             L.append(f"- **Lesson**: {lesson}")
+            L.append(f"- **Birth rung**: {cpr_rung}")
             L.append(f"- **Recommended targets**: {', '.join(recommended) if recommended else 'none'}")
             L.append(f"- **Gate state**: promotable (both gates cleared)")
             L.append("")
@@ -615,6 +619,8 @@ def main():
         evaluate_data["pending_cprs_expected"] = len(queue_cprs)
         evaluate_data.setdefault("handoff_id", "queue-driven")
 
+    topo = birth_topology(project_dir)
+
     entries = load_signal_store(signals_dir)
     classified = classify_entries(entries)
     triads = detect_harmonic_triads(classified["active_signals"])
@@ -623,7 +629,7 @@ def main():
 
     proposals = compile_proposals(
         evaluate_data, classified, triads, tic_counter,
-        plan_path, inline_cpr_count,
+        plan_path, inline_cpr_count, topo,
     )
 
     checksum = hashlib.sha256(proposals.encode()).hexdigest()[:16]

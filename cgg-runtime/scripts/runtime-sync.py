@@ -28,7 +28,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from zone_root import resolve_zone_root, load_ticzone, audit_logs_path
+from zone_root import resolve_zone_root, load_ticzone, audit_logs_path, birth_topology
 
 
 # ---------------------------------------------------------------------------
@@ -193,6 +193,8 @@ def emit_drift_signal(zone_root, drifted_surfaces, severity="detected_drift"):
     # Unresolved drift after sync is more severe
     volume = 60 if severity == "unresolved_drift" else 45
 
+    topo = birth_topology(zone_root)
+
     signal = {
         "type": "signal",
         "id": signal_id,
@@ -206,6 +208,7 @@ def emit_drift_signal(zone_root, drifted_surfaces, severity="detected_drift"):
         "source": "runtime-sync.py",
         "source_date": date_str,
         "created_at": now.isoformat(),
+        "birth_rung": topo["birth_rung"],
         "payload": {
             "summary": f"Runtime {severity.replace('_', ' ')}: {len(drifted_surfaces)} surfaces",
             "severity": severity,

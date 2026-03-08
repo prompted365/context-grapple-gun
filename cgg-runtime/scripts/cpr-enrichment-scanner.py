@@ -27,7 +27,7 @@ from pathlib import Path
 
 # Allow importing zone_root from same directory
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from zone_root import resolve_zone_root, load_ticzone, load_subsystems_config, audit_logs_path
+from zone_root import resolve_zone_root, load_ticzone, load_subsystems_config, audit_logs_path, birth_topology
 
 
 HOLDING_STATUSES = {"enrichment_needed", "enrichment_eligible"}
@@ -441,6 +441,7 @@ def scan_and_enrich(project_dir, dry_run=False, quiet=False):
         return 0
 
     now = datetime.now(timezone.utc).isoformat()
+    topo = birth_topology(project_dir)
     updated_count = 0
     entries_to_append = []
 
@@ -474,6 +475,7 @@ def scan_and_enrich(project_dir, dry_run=False, quiet=False):
 
         updated_entry = {**cpr, "enrichment": merged_enrichment}
         updated_entry["enrichment_scanned_at"] = now
+        updated_entry["enrichment_rung"] = topo["birth_rung"]
         updated_entry["enrichment_scan_count"] = cpr.get("enrichment_scan_count", 0) + 1
         updated_entry["enrichment_confidence"] = round(
             compute_enrichment_confidence(merged_enrichment), 4

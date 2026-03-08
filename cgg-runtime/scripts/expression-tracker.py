@@ -30,7 +30,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from zone_root import resolve_zone_root, load_ticzone, audit_logs_path
+from zone_root import resolve_zone_root, load_ticzone, audit_logs_path, birth_topology
 
 
 # ---------------------------------------------------------------------------
@@ -117,6 +117,7 @@ def update_from_session(zone_root: str, tic_count: int | None = None) -> dict:
     manifest_path = resolve_manifest_path(zone_root)
 
     current_tic = tic_count or 0
+    topo = birth_topology(zone_root)
     now = datetime.now(timezone.utc).isoformat()
 
     # Load existing state
@@ -180,6 +181,7 @@ def update_from_session(zone_root: str, tic_count: int | None = None) -> dict:
             "direct_expression_hits": direct_hits,
             "last_survived_tic": current_tic if write_count > 0 else prev.get("last_survived_tic", 0),
             "last_retrieved_tic": current_tic,
+            "retrieved_rung": topo["birth_rung"],
             "updated_at": now,
         }
         new_entries.append(entry)

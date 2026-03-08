@@ -21,7 +21,7 @@ from pathlib import Path
 
 # Allow importing zone_root from same directory
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from zone_root import resolve_zone_root, load_ticzone, audit_logs_path
+from zone_root import resolve_zone_root, load_ticzone, audit_logs_path, birth_topology
 
 
 BLOCK_RE = re.compile(
@@ -185,6 +185,7 @@ def extract_cprs(project_dir, dry_run=False):
     existing_hashes = load_existing_hashes(queue_file)
     gov_files = find_governance_files(project_dir, excludes)
     tic_count = get_tic_count(project_dir)
+    topo = birth_topology(project_dir)
     now = datetime.now(timezone.utc).isoformat()
 
     new_entries = []
@@ -231,6 +232,8 @@ def extract_cprs(project_dir, dry_run=False):
                 "extracted_at": now,
                 "extracted_by": "cpr-extract-hook",
                 "source_file": str(gov_file),
+                "birth_rung": topo["birth_rung"],
+                "birth_scope_path": topo["birth_scope_path"],
             }
 
             # Parse birth_tic as int if it came from block as string

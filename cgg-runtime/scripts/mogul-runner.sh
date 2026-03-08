@@ -32,6 +32,21 @@ resolve_zone_root() {
 }
 
 ZONE_ROOT=$(resolve_zone_root)
+
+# Resolve rung topology for provenance embedding
+RUNG_RESOLVER="$ZONE_ROOT/vendor/context-grapple-gun/cgg-runtime/scripts/rung_resolver.py"
+BIRTH_RUNG="unknown"
+TOPOLOGY_JSON="{}"
+if [ -f "$RUNG_RESOLVER" ]; then
+  RUNG_JSON=$(python3 "$RUNG_RESOLVER" --json --start "$ZONE_ROOT" 2>/dev/null) || RUNG_JSON="{}"
+  BIRTH_RUNG=$(echo "$RUNG_JSON" | python3 -c "import sys,json; print(json.load(sys.stdin).get('current_rung','unknown'))" 2>/dev/null) || BIRTH_RUNG="unknown"
+  TOPOLOGY_JSON=$(echo "$RUNG_JSON" | python3 -c "
+import sys,json
+d = json.load(sys.stdin).get('topology',{})
+print(json.dumps({k: v['path'] if v else None for k,v in d.items()}))
+" 2>/dev/null) || TOPOLOGY_JSON="{}"
+fi
+
 AUDIT_LOGS="$ZONE_ROOT/audit-logs"
 MANDATE_FILE="$AUDIT_LOGS/mogul/mandates/current.json"
 MANDATE_HISTORY_DIR="$AUDIT_LOGS/mogul/mandates/history"
@@ -142,6 +157,11 @@ You are a suborchestrator, not a passive reporter. When cycles reveal actionable
 \`\`\`json
 $MANDATE_CONTENT
 \`\`\`
+
+## Topology context
+
+- Birth rung: $BIRTH_RUNG
+- Topology chain: $TOPOLOGY_JSON
 
 ## Instructions
 
@@ -355,7 +375,8 @@ t = {
     'actor': {'office': 'mogul', 'embodiment': 'cgg_runtime'},
     'orchestrated_by': 'homeskillet',
     'cycles_executed': '$CYCLES'.split(','),
-    'artifacts_verified': True
+    'artifacts_verified': True,
+    'birth_rung': '$BIRTH_RUNG'
 }
 print(json.dumps(t))
 " >> "$MANDATE_HISTORY_DIR/$TODAY.jsonl" 2>/dev/null
@@ -382,7 +403,8 @@ t = {
     'timestamp': '$COMPLETED_AT',
     'exit_code': $CLAUDE_EXIT,
     'actor': {'office': 'mogul', 'embodiment': 'cgg_runtime'},
-    'orchestrated_by': 'homeskillet'
+    'orchestrated_by': 'homeskillet',
+    'birth_rung': '$BIRTH_RUNG'
 }
 print(json.dumps(t))
 " >> "$MANDATE_HISTORY_DIR/$TODAY.jsonl" 2>/dev/null
