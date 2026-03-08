@@ -253,9 +253,11 @@ if [ "$TIC_COUNT" -gt 0 ]; then
 tic = $TIC_COUNT
 cycles = ['queue_refresh', 'signal_scan']
 mem_mining_due = tic + (3 - tic % 3) if tic % 3 != 0 else tic + 3
+pattern_mining_due = tic + (4 - tic % 4) if tic % 4 != 0 else tic + 4
 ladder_due = tic + (5 - tic % 5) if tic % 5 != 0 else tic + 5
 deep_due = tic + (8 - tic % 8) if tic % 8 != 0 else tic + 8
 if tic >= mem_mining_due or tic % 3 == 0: cycles.append('memory_mining')
+if tic >= pattern_mining_due or tic % 4 == 0: cycles.append('pattern_mining')
 if tic >= ladder_due or tic % 5 == 0: cycles.extend(['ladder_audit', 'runtime_drift_check'])
 if tic >= deep_due or tic % 8 == 0: cycles.append('deep_audit')
 import json, os
@@ -265,6 +267,7 @@ if os.path.isfile(prev):
         p = json.load(open(prev))
         tc = p.get('tic_context', {})
         if tc.get('memory_mining_due_tic') and tic >= tc['memory_mining_due_tic'] and 'memory_mining' not in cycles: cycles.append('memory_mining')
+        if tc.get('pattern_mining_due_tic') and tic >= tc['pattern_mining_due_tic'] and 'pattern_mining' not in cycles: cycles.append('pattern_mining')
         if tc.get('ladder_audit_due_tic') and tic >= tc['ladder_audit_due_tic']:
             if 'ladder_audit' not in cycles: cycles.append('ladder_audit')
             if 'runtime_drift_check' not in cycles: cycles.append('runtime_drift_check')
@@ -305,6 +308,7 @@ mandate = {
     'trigger': {'kind': 'session_start', 'source_ref': 'cgg-runtime/hooks/session-restore.sh'},
     'tic_context': {'current_tic': tic, 'review_due_tic': tic+1,
         'memory_mining_due_tic': tic+(3-tic%3) if tic%3!=0 else tic+3,
+        'pattern_mining_due_tic': tic+(4-tic%4) if tic%4!=0 else tic+4,
         'ladder_audit_due_tic': tic+(5-tic%5) if tic%5!=0 else tic+5,
         'deep_audit_due_tic': tic+(8-tic%8) if tic%8!=0 else tic+8},
     'cycle_request': {'run_now': list(set(cycles)), 'reason': f'SessionStart at tic {tic}'},
