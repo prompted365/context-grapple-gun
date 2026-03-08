@@ -222,7 +222,7 @@ The following capabilities require infrastructure CGG deliberately avoids. They 
 
 | Capability | What it addresses | Why it's out of scope |
 |------------|-------------------|----------------------|
-| Expression gating | Lessons go dormant until the system re-enters a specific failure shape | Requires state beyond flat files; selective loading needs retrieval infrastructure |
+| Expression gating | Lessons go dormant until the system re-enters a specific failure shape | Requires state beyond flat files; selective loading needs retrieval infrastructure. **Note:** Basic expression *tracking* (participation counting via retrieved/survived/directly-matched tiers) IS in-scope using flat-file JSONL — see Expression Tracking below. Advanced expression *gating* (dormancy until failure shape re-entry) remains out-of-scope. |
 | Conformation-aware retrieval | Load only what matches current system shape | Requires fingerprinting system state; flat files have no selection mechanism |
 | Graph topology | Relational edges between concepts | JSONL has no structure between entries |
 | Endogenous economics | Cost pressure to compress, curate, expire | Flat-file governance grows without bound; capturing is free |
@@ -231,6 +231,20 @@ The following capabilities require infrastructure CGG deliberately avoids. They 
 These require vector databases, embedding models, graph engines, or economic engines — infrastructure that does not fit in a CLI framework. CGG provides the governance lifecycle. Fusion of these capabilities is a different engineering problem, addressed by infrastructure outside this repo.
 
 **CGG's docs do not depend on external docs.** The categories above describe classes of capability, not specific implementations. Any system providing these capabilities can compose with CGG's governance primitives.
+
+### Expression Tracking (in-scope, flat-file)
+
+Expression tracking uses survival-backed participation semantics — a three-tier evidence model, not binary proof-of-expression:
+
+| Tier | Evidence | What it means |
+|------|----------|---------------|
+| **Retrieved** | Lesson appeared in retrieval results | System saw the lesson |
+| **Survived** | Lesson remained in active lineup through generation | System held the lesson under competitive pressure |
+| **Directly matched** | Lexical evidence of the lesson in output | System demonstrably used the lesson |
+
+"Expression" = survival-backed participation, not strict proof of quotation. A lesson surviving into the active lineup while output is produced is participation.
+
+The canonical tracker lives in CGG scope with zone-root resolution (`cgg-runtime/scripts/expression-tracker.py`), writing to `$ZONE_ROOT/audit-logs/lesson-expression/participation.jsonl`. Substrate fields: `retrieval_count`, `survival_count`, `direct_expression_hits`, `last_survived_tic`. The retriever is a consumer (reads participation JSONL, applies boost), not a producer.
 
 ### When CGG stops being enough
 
@@ -552,7 +566,7 @@ The mandate is an execution-surface artifact, not a bridge or ephemeral transpor
 | Path | Role |
 |------|------|
 | `audit-logs/mogul/mandates/current.json` | Active mandate (latest, authoritative) |
-| `audit-logs/mogul/mandates/history/YYYY-MM-DD.jsonl` | Append-only mandate history |
+| `audit-logs/mogul/mandates/history/YYYY-MM-DD.jsonl` | Append-only mandate history (one JSON object per line — always compact to single-line before appending. Shell patterns like `printf '%s\n' "$(cat file.json)"` preserve multi-line formatting and break JSONL format.) |
 
 Optional: `/tmp/claude_cgg/.../mogul-mandate.json` as transport cache. The audit-logs path is the execution-surface authority.
 
@@ -884,6 +898,14 @@ If the plugin mechanism namespaces skills, CGG skills become `/cgg:cadence`, `/c
 ### Design implication
 
 The 1:1 mapping means CGG's evolution path is packaging, not migration. New skills, hooks, or agents added to `cgg-runtime/` become plugin components by adding a manifest entry. The cgg-runtime directory IS the plugin — the manifest is metadata about it.
+
+### Distribution model
+
+Claude Code plugin distribution is marketplace-driven, not raw-path-driven. `claude plugin install plugin-name@marketplace-name` is the documented form. `claude --plugin-dir ./path` is dev/test only. Installed plugins are copied to `~/.claude/plugins/cache/`.
+
+**Path resolution invariant:** Hook scripts must use `${CLAUDE_PLUGIN_ROOT}` for script resolution, not hardcoded home-directory paths. CGG's `$HOME/.claude/cgg-runtime/` fallback is structurally broken for marketplace installs — `${CLAUDE_PLUGIN_ROOT}` is the only reliable anchor.
+
+**Scope model:** user (global), project (shared), local (gitignored). Team bootstrap via `extraKnownMarketplaces` + `enabledPlugins` in `.claude/settings.json`.
 
 ## 11. Governance Truth Surfaces
 

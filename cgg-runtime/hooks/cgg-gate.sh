@@ -107,20 +107,11 @@ except: print('error|||')
   if [ "$MANDATE_STATUS" = "pending" ]; then
     if [ -n "$HEAVY_CYCLES" ]; then
       # Look for estate-local runner; fallback to LLM instruction
-      MOGUL_RUNNER="$ZONE_ROOT/scripts/mogul-runner.sh"
-      if [ -x "$MOGUL_RUNNER" ]; then
-        # Runner exists — mark running and spawn
-        python3 -c "
-import json
-try:
-    m = json.load(open('$MANDATE_FILE'))
-    m['status'] = 'running'
-    m['started_at'] = '$TIMESTAMP'
-    json.dump(m, open('$MANDATE_FILE', 'w'), indent=2)
-except: pass
-" 2>/dev/null
-
-        echo "{\"timestamp\":\"$TIMESTAMP\",\"action\":\"mogul_mandate_activated\",\"mandate_id\":\"$MANDATE_ID\",\"cycles\":\"$HEAVY_CYCLES\",\"status\":\"running\"}" >> "$META_LOG"
+      MOGUL_RUNNER=$(resolve_script "mogul-runner.sh")
+      if [ -n "$MOGUL_RUNNER" ] && [ -x "$MOGUL_RUNNER" ]; then
+        # Runner exists — spawn it. Runner owns the full pending→running→consumed lifecycle.
+        # Gate does NOT touch mandate status (race condition fix: runner is sole state owner).
+        echo "{\"timestamp\":\"$TIMESTAMP\",\"action\":\"mogul_mandate_activated\",\"mandate_id\":\"$MANDATE_ID\",\"cycles\":\"$HEAVY_CYCLES\",\"status\":\"pending\"}" >> "$META_LOG"
 
         MOGUL_LOG_DIR="$ZONE_ROOT/$AUDIT_LOGS_REL/mogul/cycle-reports"
         mkdir -p "$MOGUL_LOG_DIR"
