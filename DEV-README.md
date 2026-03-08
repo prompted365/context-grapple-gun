@@ -241,9 +241,13 @@ Default governance scope remains project-local unless promoted through the ladde
 
 ## Installation
 
-Paste the bootstrap prompt into Claude Code. It asks two questions (install mode and install scope), then handles everything — submodule, skills, hooks, agents, wiring. See [INSTALL.md](INSTALL.md) for the exact prompt.
+**Fastest:** `npx context-grapple-gun install` — checks prerequisites, clones, registers the plugin.
 
-Default runtime scope is **user/global** (`~/.claude/...`). Project-local runtime scope is opt-in only.
+**Manual:** `git submodule add ... && claude plugin install ...` — see [INSTALL.md](INSTALL.md).
+
+**Global CLI:** `npm install -g context-grapple-gun` — gives you `cgg install`, `cgg doctor`, `cgg sync` everywhere.
+
+Default runtime scope is **user/global** (`~/.claude/...`). Project-local runtime scope is opt-in only. See [INSTALL.md](INSTALL.md) for all paths, modes, and scopes.
 
 For Claude Desktop or Claude for Work, copy `cogpr/claude-desktop/project-instructions.md` into your project's custom instructions. You get the convention layer but not the automated pipeline.
 

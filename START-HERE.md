@@ -71,35 +71,48 @@ See [docs/TERMINOLOGY.md](docs/TERMINOLOGY.md) for the full glossary with neutra
 
 ---
 
-## Install (30 seconds)
+## Install
 
-**Plugin path (recommended):**
+### Option A: npm (fastest)
+
+```bash
+npx context-grapple-gun install
+```
+
+Done. The CLI clones CGG, registers the plugin, and sets up your governance zone. It asks for install mode and scope, then handles everything.
+
+**Prerequisites:** Node.js 18+, `claude` CLI >= 2.1.63, `git`, `python3`. The installer checks for all of these and tells you what's missing.
+
+**After install, you have:** `/cadence`, `/review`, `/siren`, and the full governance pipeline.
+
+### Option B: Plugin install (manual)
+
 ```bash
 git submodule add https://github.com/prompted365/context-grapple-gun.git vendor/context-grapple-gun
 claude plugin install vendor/context-grapple-gun
 ```
 
-Default runtime install scope is **user/global** (`~/.claude/...`).
+Same result as npm, but you control the clone location.
 
-Your project still gets its own governance zone surfaces:
+### Option C: Global install (for power users)
 
-* `.ticzone`
-* `.ticignore`
-* `audit-logs/`
+```bash
+npm install -g context-grapple-gun
+cgg install
+```
 
-Project-local runtime scope is available, but only when explicitly chosen.
+Gives you the `cgg` command everywhere — `cgg doctor`, `cgg sync`, `cgg install`.
 
-**Or paste the bootstrap prompt** from [INSTALL.md](INSTALL.md) into Claude Code.
-It should ask for:
+---
 
-1. install mode
-2. install scope
+**What gets created locally** (regardless of install method):
+- `.ticzone` — your project's governance boundary
+- `.ticignore` — exclusion filter for governance scans
+- `audit-logs/` — signals, tics, conformations, CogPR queue
 
-Runtime scope and governance scope are different things.
-Default runtime scope is user/global.
-Default governance scope remains project-local unless promoted through the ladder.
+**Runtime surfaces** default to `~/.claude/...` (user/global). Project-local scope is opt-in.
 
-See [INSTALL.md](INSTALL.md) for full details and install modes.
+See [INSTALL.md](INSTALL.md) for install modes, scopes, bootstrap prompt, and manual setup.
 
 ---
 

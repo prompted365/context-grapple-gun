@@ -15,7 +15,7 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/prompted365/context-grapple-gun.git"
+    "url": "git+https://github.com/prompted365/context-grapple-gun.git"
   },
   "engines": {
     "node": ">=18.0.0"

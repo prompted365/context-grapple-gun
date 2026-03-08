@@ -2,15 +2,71 @@
 
 > **Just want to use CGG?** See [START-HERE](START-HERE.md). **Pipeline mechanics?** See [DEV-README](DEV-README.md).
 
-Two paths. Pick one.
+Four install paths. Pick whichever fits.
 
 ---
 
-## Path A: Install now (30 seconds)
+## Path A: npm install (10 seconds)
 
-You already know you want CGG. Get it running.
+The fastest way. One command does everything.
 
-### Plugin install (recommended)
+### Using npx (no global install needed)
+
+```bash
+npx context-grapple-gun install
+```
+
+### Using global install
+
+```bash
+npm install -g context-grapple-gun
+cgg install
+```
+
+### What happens
+
+1. Checks prerequisites: `claude` CLI (>= 2.1.63), `git`, `python3`
+2. Clones CGG into `vendor/context-grapple-gun` (or your `--target`)
+3. Runs `claude plugin install` to register skills, hooks, and agents
+4. Prints a post-install summary
+
+### Options
+
+```bash
+# Install modes — how much automation you want
+cgg install --mode full          # Full pipeline: hooks + skills + agents (default)
+cgg install --mode skills        # Skills only: /cadence, /review, /siren
+cgg install --mode convention    # Convention only: CogPR format in CLAUDE.md
+
+# Install scope — where runtime surfaces live
+cgg install --scope user         # ~/.claude/... (default, recommended)
+cgg install --scope project      # $ZONE_ROOT/.claude/... (project-local)
+
+# Target directory — where CGG source is cloned
+cgg install --target ./vendor/context-grapple-gun   # (default)
+cgg install --target ~/.cgg                          # global location
+```
+
+### Post-install diagnostics
+
+```bash
+cgg doctor                  # Health check — topology, surfaces, sync status
+cgg sync check              # Drift detection — canonical vs installed
+cgg sync diff               # Show what drifted
+cgg sync sync               # Fix drift by copying canonical to installed
+```
+
+### Uninstall
+
+```bash
+cgg uninstall               # Remove CGG plugin, hooks, and runtime surfaces
+```
+
+---
+
+## Path B: Plugin install (manual control)
+
+Same result as npm, but you manage the clone yourself.
 
 ```bash
 # Add the submodule
@@ -22,17 +78,14 @@ claude plugin install vendor/context-grapple-gun
 
 The plugin manifest registers skills, hooks, and agents automatically.
 
-Claude should ask two things:
-1. install mode
-2. install scope
-
-Install mode decides how much automation you want.
-Install scope decides where runtime surfaces live.
+Claude asks two things:
+1. **Install mode** — how much automation (full pipeline / skills only / convention only)
+2. **Install scope** — where runtime surfaces live (user/global or project-local)
 
 Default scope is user/global (`~/.claude/...`).
 Project scope (`$ZONE_ROOT/.claude/...`) is opt-in only.
 
-Project governance zone surfaces still live at the project root either way:
+Project governance zone surfaces live at the project root either way:
 - `.ticzone`
 - `.ticignore`
 - `audit-logs/`
@@ -46,11 +99,9 @@ Project governance zone surfaces still live at the project root either way:
 
 Start a session, do some work, run `/cadence` when you're done.
 
-**Most users stop here.** The bootstrap prompt below is for environments without plugin support or for manual installs.
-
 ---
 
-## Path B: Learn first (Academy)
+## Path C: Learn first (Academy)
 
 You want to understand the governance model before installing. Good choice.
 

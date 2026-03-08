@@ -14,7 +14,7 @@ Three commands. Five structural mechanisms. One scale boundary.
 - Three commands: `/cadence`, `/review`, `/siren`
 - Run `/cadence` to end every session cleanly; run `/review` every few sessions to approve lessons
 - Scope ladder: Site → Domain → Estate → Federation → Global — you decide what promotes
-- Install via [START-HERE.md](START-HERE.md); everything else is reference or depth
+- Install: `npx context-grapple-gun install` — or see [START-HERE.md](START-HERE.md) for details
 
 ---
 
@@ -22,11 +22,12 @@ Three commands. Five structural mechanisms. One scale boundary.
 
 | You want to... | Start here |
 |----------------|------------|
-| **Use it now** | [START-HERE.md](START-HERE.md) — the three commands, a normal day, install in 30 seconds |
+| **Install now** | `npx context-grapple-gun install` — zero-thought entry, handles everything |
+| **Use it now** | [START-HERE.md](START-HERE.md) — the three commands, a normal day, what to expect |
 | **Evaluate the architecture** | This file (keep reading) → [DEV-README.md](DEV-README.md) → [ARCHITECTURE.md](ARCHITECTURE.md) |
 | **Audit recent changes** | [docs/COMMIT-HISTORY-CHEATSHEET.md](docs/COMMIT-HISTORY-CHEATSHEET.md) — why each commit happened and what it fixed or left open |
 | **Learn through story** | [academy/README.md](academy/README.md) — five chapters, real simulations, one very persistent goat |
-| **Install and extend** | [INSTALL.md](INSTALL.md) — plugin path, bootstrap fallback, install modes |
+| **Install and extend** | [INSTALL.md](INSTALL.md) — npm, plugin, bootstrap, and manual paths |
 
 ---
 
@@ -87,7 +88,7 @@ Full glossary: [docs/TERMINOLOGY.md](docs/TERMINOLOGY.md).
 **~20 minutes to informed judgment.**
 
 1. **Read:** This section + [START-HERE.md](START-HERE.md) (~5 min)
-2. **Install:** Plugin path or bootstrap — 30 seconds
+2. **Install:** `npx context-grapple-gun install` — 10 seconds
 3. **Run:** Start a session, do some work, run `/cadence` at the end
 4. **Inspect:** Look at `audit-logs/` — see the tic records, signal files, CogPR blocks
 5. **Review:** Next session, run `/review` — see the docket, the verdicts, the scope assignments
@@ -532,7 +533,7 @@ When multiple agents operate in the same domain with different cadences, CGG pro
 
 ## Where CGG fits
 
-CGG is a compact, portable governance lifecycle. Install it in 30 seconds, get value from session 1. Three commands. Zero dependencies.
+CGG is a compact, portable governance lifecycle. `npx context-grapple-gun install` and get value from session 1. Three commands. Zero runtime dependencies.
 
 CGG guarantees:
 - File-based governance lifecycle (capture, evaluate, promote, audit)
@@ -600,13 +601,40 @@ Claude Code only. Automation connecting lesson capture to evaluation to review.
 
 ## Installation
 
-### Claude Code — full pipeline
+### Quickest path: npm
 
-Three install paths (see [INSTALL.md](INSTALL.md) for details):
+```bash
+npx context-grapple-gun install
+```
 
-1. **Plugin install** — recommended. Installs runtime surfaces and then sets up project governance zone surfaces.
-2. **`/init-governance`** — fresh install, repair, or resync. Default runtime scope is **user/global**.
-3. **Manual** — copy runtime surfaces by hand and create project governance zone surfaces explicitly.
+That's it. The CLI checks prerequisites (`claude` >= 2.1.63, `git`, `python3`), clones CGG into `vendor/context-grapple-gun`, and runs `claude plugin install`. You'll be asked for install mode and scope.
+
+After install, you have `/cadence`, `/review`, `/siren`, and the full governance pipeline.
+
+**Other npm commands:**
+
+```bash
+npx context-grapple-gun doctor    # diagnostic check
+npx context-grapple-gun sync      # check for runtime drift
+```
+
+Or install globally for shorter commands:
+
+```bash
+npm install -g context-grapple-gun
+cgg install
+cgg doctor
+cgg sync
+```
+
+### Alternative paths
+
+See [INSTALL.md](INSTALL.md) for all options:
+
+1. **Plugin install** — `git submodule add` + `claude plugin install` (manual but more control)
+2. **`/init-governance`** — fresh install, repair, or resync from within Claude Code
+3. **Bootstrap prompt** — paste-and-go for environments without plugin support
+4. **Manual** — copy runtime surfaces by hand
 
 ### Install scope policy
 
