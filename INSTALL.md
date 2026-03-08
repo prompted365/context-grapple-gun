@@ -271,20 +271,32 @@ Example for user scope (merged into `~/.claude/settings.json`):
   "hooks": {
     "SessionStart": [
       {
-        "type": "command",
-        "command": "~/.claude/hooks/session-restore-patch.sh"
+        "hooks": [
+          {
+            "type": "command",
+            "command": "~/.claude/hooks/session-restore-patch.sh"
+          }
+        ]
       }
     ],
     "UserPromptSubmit": [
       {
-        "type": "command",
-        "command": "~/.claude/hooks/cgg-gate.sh"
+        "hooks": [
+          {
+            "type": "command",
+            "command": "~/.claude/hooks/cgg-gate.sh"
+          }
+        ]
       }
     ],
     "PostToolUse": [
       {
-        "type": "command",
-        "command": "~/.claude/hooks/posttool-microscan.sh"
+        "hooks": [
+          {
+            "type": "command",
+            "command": "~/.claude/hooks/posttool-microscan.sh"
+          }
+        ]
       }
     ]
   }
@@ -298,20 +310,32 @@ Example for project scope (merged into `$ZONE_ROOT/.claude/settings.local.json`)
   "hooks": {
     "SessionStart": [
       {
-        "type": "command",
-        "command": ".claude/hooks/session-restore-patch.sh"
+        "hooks": [
+          {
+            "type": "command",
+            "command": ".claude/hooks/session-restore-patch.sh"
+          }
+        ]
       }
     ],
     "UserPromptSubmit": [
       {
-        "type": "command",
-        "command": ".claude/hooks/cgg-gate.sh"
+        "hooks": [
+          {
+            "type": "command",
+            "command": ".claude/hooks/cgg-gate.sh"
+          }
+        ]
       }
     ],
     "PostToolUse": [
       {
-        "type": "command",
-        "command": ".claude/hooks/posttool-microscan.sh"
+        "hooks": [
+          {
+            "type": "command",
+            "command": ".claude/hooks/posttool-microscan.sh"
+          }
+        ]
       }
     ]
   }
@@ -590,7 +614,9 @@ mkdir -p audit-logs/{signals,tics,conformations,cprs,economy,provenance}
 # Edit .ticzone: set "name" and "tz"
 # Edit .ticignore: add project-specific exclusions
 
-# 9. Merge hooks into $SETTINGS_FILE
+# 9. Merge hooks into $SETTINGS_FILE (Era 3 matcher-group format)
+# Each event gets an array of matcher groups: [{"hooks":[{"type":"command","command":"..."}]}]
+# Omit "matcher" for match-all. Use "matcher":"regex" to filter by tool name.
 # SessionStart   -> $INSTALL_ROOT/hooks/session-restore-patch.sh
 # UserPromptSubmit -> $INSTALL_ROOT/hooks/cgg-gate.sh
 # PostToolUse -> $INSTALL_ROOT/hooks/posttool-microscan.sh

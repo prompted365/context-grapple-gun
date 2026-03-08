@@ -148,14 +148,22 @@ Create or update `.claude/settings.local.json`. If the file already exists, merg
   "hooks": {
     "SessionStart": [
       {
-        "type": "command",
-        "command": ".claude/hooks/session-restore-patch.sh"
+        "hooks": [
+          {
+            "type": "command",
+            "command": ".claude/hooks/session-restore-patch.sh"
+          }
+        ]
       }
     ],
     "UserPromptSubmit": [
       {
-        "type": "command",
-        "command": ".claude/hooks/cgg-gate.sh"
+        "hooks": [
+          {
+            "type": "command",
+            "command": ".claude/hooks/cgg-gate.sh"
+          }
+        ]
       }
     ]
   }
