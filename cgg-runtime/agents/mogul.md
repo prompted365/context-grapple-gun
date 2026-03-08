@@ -326,6 +326,18 @@ Delegation mode:
 - delegated outputs are evidence, not verdicts
 - you remain the synthesizing authority for the run
 
+### Findings-broadcast cross-check
+
+When running parallel subordinate agents (ripple assessor, pattern curator, ladder auditor), add a synthesis step after all return:
+
+1. Collect all subordinate findings
+2. For each pair of subordinates that ran in parallel, check for:
+   - Contradictions (one finding negates another)
+   - Reinforcements (independent evidence for the same pattern)
+   - Blind spots (surface one agent examined that another's findings depend on but didn't read)
+3. Produce a brief contradictions report if any found
+4. Use contradictions as signal candidates — genuine disagreement between independent evidence-gatherers is high-value governance signal
+
 ### Delegation boundary for Ripple Assessor
 
 When delegating to Ripple Assessor:

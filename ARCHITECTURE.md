@@ -111,6 +111,27 @@ Zone nesting enables federation. A subdirectory can define a nested zone with it
 
 **Acoustic exclusion vs learning eligibility.** `.ticignore` governs the acoustic manifold — ticignored paths produce no tics, signals, or warrants. It does NOT exclude paths from the learning lineup. Pattern miners, memory scanners, and retrieval agents may read ticignored content as reference material. The distinction: governance exclusion (no acoustic events) vs learning inclusion (readable for pattern mining, expression tracking, and institutional memory). Example: `stage/` is ticignored by default (arena templates don't produce governance artifacts by presence) but its arena primitives are learning-eligible reference material.
 
+### Band model
+
+Bands are frequency classes that determine signal routing, warrant eligibility, and governance blocking. They exist because not all governance signals carry equal urgency, and some categories of signal must be structurally prevented from entering the promotion pipeline.
+
+**The four bands and their rationale:**
+
+| Band | Purpose | Warrant eligible | Hearing floor |
+|------|---------|-----------------|---------------|
+| PRIMITIVE | Safety, data integrity, survival. Always audible — if a safety signal can be muffled by directory distance, the acoustic model has a structural defect. | Yes (BEACON, TENSION) | `hearing_threshold + 1` (floor enforced) |
+| COGNITIVE | Learning, discovery, process improvement. The default band for CogPRs and most signals. Standard acoustic routing applies. | Yes (BEACON, TENSION) | None (standard muffling) |
+| SOCIAL | Collaboration signals — team coordination, delegation patterns. Use sparingly. Social signals accrue attention without producing governance artifacts. | Configurable | None (standard muffling) |
+| PRESTIGE | **Governance-blocked.** Prestige signals cannot mint warrants, cannot promote, cannot enter the review pipeline. The band exists to classify and quarantine prestige-motivated emissions. An LLM that emits prestige-band content has revealed its motivation — the band's job is to make that classification stick at the physics layer, not the perception layer. | Never | N/A (blocked) |
+
+**Why PRIMITIVE has a hearing floor:** Directory distance muffling (`muffling_per_hop`) reduces effective volume for signals far from the listener. This correctly models organizational friction — a signal from a distant subsystem should attenuate. But safety signals must override this. A data integrity violation 5 directories deep is not less urgent because it's far away. The PRIMITIVE floor ensures `effective_volume >= hearing_threshold + 1` regardless of topology.
+
+**Why PRESTIGE is blocked, not absent:** Removing prestige from the band taxonomy would force prestige-motivated emissions into COGNITIVE or SOCIAL — where they'd pass governance gates undetected. The band exists as a classification target. Physics-layer enforcement (publication vector gates, motivation gates) use band classification as input. Without the band, enforcement has nothing to match against.
+
+**Band-to-warrant eligibility:** Warrant minting requires both kind eligibility (BEACON or TENSION by default, configurable in `.ticzone`) AND band eligibility (PRIMITIVE and COGNITIVE by default). A SOCIAL TENSION signal is kind-eligible but may not be band-eligible depending on zone configuration. PRESTIGE signals are never warrant-eligible regardless of kind.
+
+**Band propagation through the rung ladder:** Bands are zone-scoped, not rung-scoped. A site zone and a federation zone may configure different active bands. When signals cross zone boundaries (inter-jurisdictional propagation), they retain their birth band. The receiving zone's band configuration determines whether the signal is audible there — a SOCIAL signal crossing into a zone that only activates `["PRIMITIVE", "COGNITIVE"]` is inaudible in the receiving zone but not destroyed.
+
 ### Rung resolution
 
 The abstraction ladder defines five governance scopes: site → domain → estate → federation → global. CGG currently provides site-level governance bootstrap through `.ticzone` and `/init-governance`. Federation/estate/domain awareness is a supported topology model — add markers above the site to grow topology without reinstalling.
