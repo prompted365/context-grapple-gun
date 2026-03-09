@@ -104,15 +104,14 @@
               "queue_refresh",
               "signal_scan",
               "memory_mining",
-              "pattern_curation",
+              "pattern_mining",
               "enrichment_scan",
               "ladder_audit",
               "runtime_drift_check",
               "prompt_stack_audit",
               "deep_audit",
               "bench_packet_prep",
-              "review_close_check",
-              "drift_check"
+              "review_close_check"
             ]
           },
           "description": "List of governance cycles to execute in this activation."

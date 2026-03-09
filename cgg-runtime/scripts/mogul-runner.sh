@@ -182,14 +182,17 @@ $MANDATE_CONTENT
 
 1. Read and execute ONLY the cycles in cycle_request.run_now: $CYCLES
 2. For each cycle, produce evidence artifacts:
-   - bench_packet_prep: run scripts/bench-packet-prep.py, output to audit-logs/mogul/bench-packets/
    - queue_refresh: scan audit-logs/cprs/queue.jsonl, report state
    - signal_scan: scan audit-logs/signals/*.jsonl, report active/decayed
    - memory_mining: scan MEMORY.md chain for recurring patterns, write findings
+   - pattern_mining: run scripts/pattern_miner.py, output to audit-logs/patterns/
+   - enrichment_scan: run scripts/cpr-enrichment-scanner.py, assess enrichment-eligible CPRs
    - ladder_audit: audit CLAUDE.md chain coherence
    - runtime_drift_check: compare installed vs canonical runtime surfaces
-   - pattern_mining: run scripts/pattern_miner.py, detect recurrence across queue/signals
+   - prompt_stack_audit: run scripts/prompt-stack-audit.py, scan CLAUDE.md chain for conflicts
    - deep_audit: comprehensive multi-rung scan
+   - bench_packet_prep: run scripts/bench-packet-prep.py, output to audit-logs/mogul/bench-packets/
+   - review_close_check: run scripts/review-close-check.py, verify post-review inscription consistency
 3. Write a DEDICATED structured JSON cycle report using Write tool to EXACTLY this path:
    $STRUCTURED_REPORT
    This file is your governance evidence artifact. It MUST follow the schema below exactly.
@@ -337,6 +340,70 @@ else:
         BENCH_PACKET="$AUDIT_LOGS/mogul/bench-packets/latest.json"
         if [ ! -f "$BENCH_PACKET" ]; then
           ARTIFACT_ERRORS="${ARTIFACT_ERRORS}bench_packet_prep: latest.json missing. "
+        fi
+        ;;
+      pattern_mining)
+        TODAY_PATTERNS="$AUDIT_LOGS/patterns/$(date +%Y-%m-%d).jsonl"
+        # Pattern file is optional (no new patterns is valid), but check
+        # that the structured report mentions pattern_mining in results
+        if [ -f "$STRUCTURED_REPORT" ]; then
+          HAS_PATTERN_RESULT=$(python3 -c "
+import json
+r = json.load(open('$STRUCTURED_REPORT'))
+print('yes' if 'pattern_mining' in r.get('results', {}) else 'no')
+" 2>/dev/null)
+          if [ "$HAS_PATTERN_RESULT" != "yes" ]; then
+            ARTIFACT_ERRORS="${ARTIFACT_ERRORS}pattern_mining: not in structured report results. "
+          fi
+        fi
+        ;;
+      enrichment_scan)
+        if [ -f "$STRUCTURED_REPORT" ]; then
+          HAS_ENRICHMENT_RESULT=$(python3 -c "
+import json
+r = json.load(open('$STRUCTURED_REPORT'))
+print('yes' if 'enrichment_scan' in r.get('results', {}) else 'no')
+" 2>/dev/null)
+          if [ "$HAS_ENRICHMENT_RESULT" != "yes" ]; then
+            ARTIFACT_ERRORS="${ARTIFACT_ERRORS}enrichment_scan: not in structured report results. "
+          fi
+        fi
+        ;;
+      prompt_stack_audit)
+        # Check that an audit file was written
+        PSA_DIR="$AUDIT_LOGS/mogul/cycle-reports/prompt-stack-audits"
+        if [ -d "$PSA_DIR" ]; then
+          PSA_COUNT=$(find "$PSA_DIR" -name "*-audit.json" -newer "$MANDATE_FILE" 2>/dev/null | wc -l | tr -d ' ')
+        else
+          PSA_COUNT=0
+        fi
+        if [ "$PSA_COUNT" -eq 0 ]; then
+          ARTIFACT_ERRORS="${ARTIFACT_ERRORS}prompt_stack_audit: no audit file produced. "
+        fi
+        ;;
+      review_close_check)
+        # Check that a consistency report was written
+        RCC_DIR="$AUDIT_LOGS/mogul/cycle-reports/review-close-checks"
+        if [ -d "$RCC_DIR" ]; then
+          RCC_COUNT=$(find "$RCC_DIR" -name "*-check.json" -newer "$MANDATE_FILE" 2>/dev/null | wc -l | tr -d ' ')
+        else
+          RCC_COUNT=0
+        fi
+        if [ "$RCC_COUNT" -eq 0 ]; then
+          ARTIFACT_ERRORS="${ARTIFACT_ERRORS}review_close_check: no consistency report produced. "
+        fi
+        ;;
+      queue_refresh|signal_scan|memory_mining|ladder_audit|runtime_drift_check|deep_audit)
+        # Lightweight cycles — verify they appear in structured report results
+        if [ -f "$STRUCTURED_REPORT" ]; then
+          HAS_CYCLE_RESULT=$(python3 -c "
+import json
+r = json.load(open('$STRUCTURED_REPORT'))
+print('yes' if '$cycle' in r.get('results', {}) else 'no')
+" 2>/dev/null)
+          if [ "$HAS_CYCLE_RESULT" != "yes" ]; then
+            ARTIFACT_ERRORS="${ARTIFACT_ERRORS}${cycle}: not in structured report results. "
+          fi
         fi
         ;;
     esac

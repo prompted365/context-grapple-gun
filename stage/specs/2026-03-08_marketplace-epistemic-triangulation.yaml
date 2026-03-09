@@ -1,0 +1,78 @@
+id: "2026-03-08_marketplace-epistemic-triangulation"
+title: "Is the self-hosting marketplace pattern coincidental, mechanistic, or causally necessary?"
+arena: governed-triangulation
+arena_mode: experimental
+status: completed
+template_ref: "stage/templates/arenas/governed-triangulation/"
+created_at: "2026-03-08T21:50:00Z"
+created_tic: 9
+
+decision_context: |
+  CogPR-13 claims: "Claude Code plugins with non-standard component paths must
+  self-host as their own marketplace — plugin.json only supports standard fields,
+  custom paths require marketplace entries with strict:false."
+
+  This was discovered when npx context-grapple-gun install broke at v4.0.0.
+  The fix involved: cleaning plugin.json to standard fields, adding marketplace.json
+  with strict:false, creating root-level symlinks, and changing the installer from
+  direct local-path install to marketplace-based registration + install.
+
+  Question: Is this pattern coincidental (CGG-specific workaround), mechanistic
+  (real but narrower than claimed), or causally necessary (platform architecture constraint)?
+
+agents:
+  - name: ADVOCATE-COINCIDENCE
+    persona: |
+      You are an engineering skeptic. You believe most observed patterns are noise
+      until proven otherwise. You look for simpler explanations first. You assume
+      engineering decisions can always be restructured. When someone says "the platform
+      requires X," your first instinct is "or we could just reorganize our code."
+      You are allergic to unnecessary abstraction layers.
+
+  - name: ADVOCATE-MECHANISM
+    persona: |
+      You are a precision engineer. You believe patterns are real but their
+      explanations are usually too broad. You look for the specific, minimal
+      mechanism that explains observations — the narrowest true statement.
+      When someone says "all X require Y," you ask "which specific X, and
+      which specific property of Y?" You care about the exact moving part,
+      not the narrative around it.
+
+  - name: ADVOCATE-COUNTERFACTUAL
+    persona: |
+      You are a platform architect who thinks in counterfactuals. You test claims
+      by asking "what would break if this weren't true?" You believe platform
+      constraints are usually deeper than they appear and that workarounds are
+      evidence of real boundaries, not accidents. When someone restructures code
+      to satisfy a tool, you ask whether the tool's constraint reveals something
+      structural about the platform's design.
+
+  - name: LEAD
+    position: orchestrator (does not advocate)
+
+capture_policy:
+  allow_subject_lessons: true
+  route_subject_lessons_to_governance: false  # experimental — block subject routing
+  persist_subject_lessons_locally: true       # keep everything locally
+  allow_process_lessons: true
+  allow_meta_lessons: true
+  allow_signals: false                        # blocked — no BEACONs/TENSIONs
+  allow_warrants: false                       # blocked
+  allow_governance_mutation: false            # always human-gated
+
+evidence_surface:
+  - "canonical_developer/context-grapple-gun/.claude-plugin/plugin.json"
+  - "canonical_developer/context-grapple-gun/.claude-plugin/marketplace.json"
+  - "canonical_developer/context-grapple-gun/lib/installer.mjs"
+  - "canonical_developer/context-grapple-gun/package.json"
+  - "audit-logs/cprs/queue.jsonl (CogPR-13 entry)"
+  - "Root-level symlinks: skills -> cgg-runtime/skills, agents -> cgg-runtime/agents"
+
+pressure_report_path: "audit-logs/arenas/pressure-reports/2026-03-08_marketplace-epistemic-triangulation.json"
+outcome:
+  result: "CogPR-13 confirmed with corrected scope — schema enforcement, not path convention"
+  convergent_count: 4
+  unresolved_count: 2
+  process_cogprs: 3
+  subject_cogprs_blocked: 1
+  completed_at: "2026-03-08T21:42:00Z"

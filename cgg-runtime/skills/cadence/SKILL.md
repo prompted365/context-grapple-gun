@@ -27,7 +27,49 @@ All operational mutation happens here. These are the writes that MUST complete b
 Locate the active plan file in `~/.claude/plans/`. Evaluate its status based on the spirit of the original goal. Explicitly mark it 100% 'Completed', 'Superseded', or leave it 'Active' only if the exact thread must resume.
 
 #### Step 0.5: Emit Tic
-Record the canonical downbeat timestamp.
+
+### Tic emission semantics
+
+A tic event and a counted tic are **not the same thing**.
+
+- **Emit**: write a tic event to the zone audit surface (always, for traceability)
+- **Count**: advance canonical tic reality counters (only when not ignored)
+
+Use this law:
+
+- Default cadence runs emit **counted** tics
+- Experimental / rehearsal / sandbox / explicitly ignored runs emit tics with `count_mode: "ignored"`
+- Ignored tics are written for traceability but do **not** advance canonical counters
+
+Canonical reality is determined by counted tic progression, not by timestamps.
+
+#### Required fields on every tic event
+
+Every emitted tic event must include:
+
+| Field | Description |
+|-------|-------------|
+| `type` | Always `"tic"` |
+| `tic` | ISO-8601 timestamp |
+| `tic_zone` | Zone name only (never raw `.ticzone` JSON) |
+| `cadence_position` | `"downbeat"` or `"syncopate"` |
+| `count_mode` | `"counted"` or `"ignored"` |
+| `count_reason` | Short reason string (e.g. `"normal"`, `"experimental_arena_closeout"`, `"rehearsal"`) |
+| `domain_counter_before` | Counter value before this event |
+| `domain_counter_after` | Counter value after (same as before if ignored) |
+| `global_counter_before` | Counter value before this event |
+| `global_counter_after` | Counter value after (same as before if ignored) |
+
+#### Important clarification
+
+An ignored tic is still a tic event. It answers "did something happen?", "when?", "under what mode?" — but it does **not** answer "did canonical tic reality advance?" Only counted tics answer that.
+
+#### Counting rule
+
+- If `count_mode == "counted"`: increment both counters (`after = before + 1`)
+- If `count_mode == "ignored"`: keep counters unchanged (`after = before`), still append the tic event
+
+**Counting rule (SUBSTRATE INVARIANT):** The canonical tic count is the physical number of counted tic entries across all `$ZONE_ROOT/audit-logs/tics/*.jsonl` files — entries where `count_mode == "counted"` (or entries without `count_mode` for backwards compatibility with pre-schema tics). Determined by JSON-parsing — never by grep, never by reading an embedded counter field from a previous entry. The global counter file (`~/.claude/cgg-tic-counter.json`) is a cached mirror of this physical truth, not an independent state machine.
 
 **Zone root anchoring (SUBSTRATE INVARIANT):** All audit-store paths MUST resolve from the zone root (the directory containing `.ticzone`), never from cwd. Determine the zone root first:
 ```bash
@@ -36,29 +78,98 @@ ZONE_ROOT="${CLAUDE_PROJECT_DIR:-$(pwd)}"
 while [ "$ZONE_ROOT" != "/" ] && [ ! -f "$ZONE_ROOT/.ticzone" ]; do ZONE_ROOT=$(dirname "$ZONE_ROOT"); done
 ```
 
-**Counting rule (SUBSTRATE INVARIANT):** The canonical tic count is the physical number of `type=tic` entries across all `$ZONE_ROOT/audit-logs/tics/*.jsonl` files, determined by JSON-parsing — never by grep, never by reading an embedded `tic_count_project` field from a previous entry. The global counter file (`~/.claude/cgg-tic-counter.json`) is a cached mirror of this physical truth, not an independent state machine.
+#### Ticignored mode awareness
 
-1. Count tics physically BEFORE appending (this gives the pre-append count):
-   ```bash
-   PHYS_BEFORE=$(python3 -c "import json,glob; print(sum(1 for f in glob.glob('$ZONE_ROOT/audit-logs/tics/*.jsonl') for l in open(f) if json.loads(l).get('type')=='tic'))")
-   ```
-2. Append tic record to `$ZONE_ROOT/audit-logs/tics/YYYY-MM-DD.jsonl`:
-   `{"type": "tic", "tic": "<ISO-8601 now>", "tic_zone": "<name from .ticzone>", "cadence_position": "downbeat", "domain_counter": <PHYS_BEFORE + 1>, "global_counter": <PHYS_BEFORE + 1>}`
+When the current operation is marked experimental, rehearsal, dry-run, sandboxed, or otherwise excluded from canonical progression, emit `count_mode: "ignored"` and do **not** advance the counted tic counters. This applies even if the event is operationally real in wall-clock time.
 
-   **Counter fields are mirrors, not authority.** `domain_counter` and `global_counter` are convenience snapshots written into the record for observability. The canonical count is always the physical count of `type=tic` entries. No code may read these fields as authoritative ordering — they exist for audit trail readability only.
+Timestamps are observational; counted tic progression is canonical.
 
-   Note: `tic_count_project`, `scope` are NOT included. The stale `scope: "project"` label is replaced by zone-derived jurisdiction. The stale `tic_count_project` / `tic_count_global` fields are replaced by the mirrored counters above.
-3. Verify physical count matches:
-   ```bash
-   PHYS=$(python3 -c "import json,glob; print(sum(1 for f in glob.glob('$ZONE_ROOT/audit-logs/tics/*.jsonl') for l in open(f) if json.loads(l).get('type')=='tic'))")
-   ```
-4. Write global counter atomically (cached mirror of physical truth):
-   ```bash
-   TMP="$HOME/.claude/cgg-tic-counter.json.tmp.$$"
-   printf '{"count": %d, "last_tic": "%s"}\n' "$PHYS" "$NOW" > "$TMP"
-   mv "$TMP" "$HOME/.claude/cgg-tic-counter.json"
-   ```
-5. Report: `Tic #PHYS (physical) at YYYY-MM-DDTHH:MM:SSZ`
+#### Atomic tic append
+
+Never build tic JSON by interpolating raw `.ticzone` file contents directly into shell `printf`. Instead: derive the zone **name** only, serialize one JSON object, append it with a single `O_APPEND` write.
+
+```python
+python3 - <<'PY'
+import json, os, glob
+from datetime import datetime, timezone
+from pathlib import Path
+
+ZONE_ROOT = Path(os.environ.get("CLAUDE_PROJECT_DIR", os.getcwd()))
+TIC_DIR = ZONE_ROOT / "audit-logs" / "tics"
+TIC_DIR.mkdir(parents=True, exist_ok=True)
+
+now = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+today = now[:10]
+
+ticzone_path = ZONE_ROOT / ".ticzone"
+zone_name = "canonical"
+if ticzone_path.exists():
+    try:
+        zone_obj = json.loads(ticzone_path.read_text())
+        zone_name = zone_obj.get("name", zone_name)
+    except Exception:
+        pass
+
+def counted_tics():
+    total = 0
+    for f in glob.glob(str(TIC_DIR / "*.jsonl")):
+        with open(f, "r", encoding="utf-8") as fh:
+            for line in fh:
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    obj = json.loads(line)
+                except json.JSONDecodeError:
+                    continue
+                if obj.get("type") == "tic" and obj.get("count_mode", "counted") == "counted":
+                    total += 1
+    return total
+
+before = counted_tics()
+
+# Set this from cadence mode resolution:
+# "counted" for normal downbeat/syncopate
+# "ignored" for experimental/rehearsal/sandbox
+count_mode = "counted"
+count_reason = "cadence"
+
+after = before + 1 if count_mode == "counted" else before
+
+event = {
+    "type": "tic",
+    "tic": now,
+    "tic_zone": zone_name,
+    "cadence_position": "downbeat",
+    "count_mode": count_mode,
+    "count_reason": count_reason,
+    "domain_counter_before": before,
+    "domain_counter_after": after,
+    "global_counter_before": before,
+    "global_counter_after": after
+}
+
+path = TIC_DIR / f"{today}.jsonl"
+fd = os.open(str(path), os.O_APPEND | os.O_CREAT | os.O_WRONLY, 0o644)
+try:
+    os.write(fd, (json.dumps(event, ensure_ascii=False) + "\n").encode("utf-8"))
+finally:
+    os.close(fd)
+
+counter_path = Path.home() / ".claude" / "cgg-tic-counter.json"
+counter_path.parent.mkdir(parents=True, exist_ok=True)
+tmp = counter_path.with_suffix(".tmp")
+tmp.write_text(json.dumps({"count": after, "last_tic": now}) + "\n", encoding="utf-8")
+tmp.replace(counter_path)
+
+print(f"Tic emitted at {now} [{count_mode}]")
+print(f"Canonical count: {before} -> {after}")
+PY
+```
+
+Report:
+- Counted: `Tic #AFTER (physical) at YYYY-MM-DDTHH:MM:SSZ`
+- Ignored: `Tic emitted at YYYY-MM-DDTHH:MM:SSZ [ignored — <reason>] (canonical count unchanged at #BEFORE)`
 
 #### Step 1: Signal Manifold Hygiene
 Execute `/siren tick`. Ensure volume has accrued, decay has been applied, and thresholds are checked.
@@ -216,27 +327,14 @@ This buys headroom. The next session's SessionStart hook will reset it to 80%.
 
 #### Step 2: Emit Tic (lightweight)
 
-**Zone root anchoring + Counting rule (SUBSTRATE INVARIANT):** Same as downbeat — resolve zone root from `.ticzone` walk-up, count tics physically from `$ZONE_ROOT/audit-logs/tics/*.jsonl`.
+Same emit/count semantics as downbeat (see "Tic emission semantics" above). Resolve zone root, count physical tics, determine count_mode, append atomically.
 
-1. Count tics physically BEFORE appending:
-   ```bash
-   PHYS_BEFORE=$(python3 -c "import json,glob; print(sum(1 for f in glob.glob('$ZONE_ROOT/audit-logs/tics/*.jsonl') for l in open(f) if json.loads(l).get('type')=='tic'))")
-   ```
-2. Append tic record to `$ZONE_ROOT/audit-logs/tics/YYYY-MM-DD.jsonl`:
-   `{"type": "tic", "tic": "<ISO-8601 now>", "tic_zone": "<name from .ticzone>", "cadence_position": "syncopate", "domain_counter": <PHYS_BEFORE + 1>, "global_counter": <PHYS_BEFORE + 1>}`
+Use the same atomic append pattern from Step 0.5, with these differences:
+- `cadence_position`: `"syncopate"` (not `"downbeat"`)
+- `count_mode`: `"counted"` for normal syncopate, `"ignored"` for experimental/rehearsal/sandbox closeout
+- `count_reason`: e.g. `"emergency_syncopate"` or `"experimental_arena_closeout"`
 
-   Counter fields are mirrors, not authority (same rule as downbeat).
-3. Verify physical count:
-   ```bash
-   PHYS=$(python3 -c "import json,glob; print(sum(1 for f in glob.glob('$ZONE_ROOT/audit-logs/tics/*.jsonl') for l in open(f) if json.loads(l).get('type')=='tic'))")
-   ```
-4. Write global counter atomically (cached mirror of physical truth):
-   ```bash
-   TMP="$HOME/.claude/cgg-tic-counter.json.tmp.$$"
-   printf '{"count": %d, "last_tic": "%s"}\n' "$PHYS" "$NOW" > "$TMP"
-   mv "$TMP" "$HOME/.claude/cgg-tic-counter.json"
-   ```
-5. Report: `Tic #PHYS (physical) at YYYY-MM-DDTHH:MM:SSZ [syncopate]`
+The python3 script from Step 0.5 applies identically — just change `cadence_position`, `count_mode`, and `count_reason` values.
 
 Note: `cadence_position` is `"syncopate"`, not `"downbeat"`. This distinguishes emergency exits from planned epoch boundaries.
 

@@ -57,6 +57,10 @@ Rebuttals must:
 
 **Why rebuttal is non-optional:** The rationalized-learning-regalia run showed that MINING-ARCHITECT's rebuttal reframed Phase 5's dependency as softer than documented, changing the final build order from sequential to parallel. Without rebuttal, that correction would have been lost.
 
+**Rebuttal under convergence:** When advocates converge during the defense phase, rebuttal may compress in length but is never skipped. Apparent agreement in defense may be weak advocacy, not genuine convergence — an advocate that does not rebut may be concealing an unvoiced challenge. The rebuttal round is where you find out which. Budget for convergence-compression, not rebuttal-elimination.
+
+<!-- Added from marketplace-epistemic-triangulation arena (tic 9). All three advocates converged in defense; rebuttal round verified the convergence was genuine through concessions and scope refinements. -->
+
 ### Rule 4 — Scoring Rubric
 
 Points (ascending value):
@@ -351,3 +355,49 @@ CLAUDE.md (institutional memory)
 ```
 
 This closes the loop: the reasoning engine feeds the governance engine.
+
+## Cognitive Budget Governance
+
+Budget routing and execution envelope primitives, promoted from T3G arena operational findings.
+
+### Budget Routing Function (L1-L2)
+
+The routing function is tripartite: `format_gate → budget_gate → {LOW | MIDDLE | LIBERAL}`.
+
+| Regime | Budget | Scope | Default? |
+|--------|--------|-------|----------|
+| LIBERAL | ~22 turns/advocate | Novel doctrine, no prior template, high reversal cost | No |
+| MIDDLE | 18 turns/advocate | Standard governance questions, bounded scope | Yes (least-damaging failure mode) |
+| LOW | 8 turns/task | Format-layer tasks below full governed triangulation | No |
+
+MIDDLE is the correct default when task-class classifier signals are absent — its failure mode (modest waste) is less damaging than LOW's (protocol truncation) or LIBERAL's (context saturation).
+
+<!-- promoted from CogPR-30 L1-L2 (tic 21→22, arena-sourced T3G). 5 convergent discoveries from 3 opposed advocates. Band: COGNITIVE. -->
+
+### Execution Envelope Schema
+
+The execution envelope carries budget metadata from the routing function to the spawning mechanism:
+
+```yaml
+execution_envelope:
+  task_class: string        # classifier output
+  budget_regime: LOW | MIDDLE | LIBERAL
+  max_turns: integer        # per-advocate ceiling
+  budget_scope: per_advocate | per_task
+  override_allowed: boolean
+  override_justification: string | null
+  output_length_cap: integer | null
+  lead_context_check: boolean  # must verify lead context ceiling before spawn
+```
+
+This extends Rule 5 (dependency gating) with budget gating — the envelope must be resolved before advocate spawning begins.
+
+<!-- promoted from CogPR-31 (tic 21→22, arena-sourced T3G). All three advocates identified the envelope as hidden dependency. Band: COGNITIVE. -->
+
+### Defense-Phase Convergence Timing
+
+Governed triangulation arenas achieve structural convergence by defense phase when the question is bounded. Rebuttal serves as verification and numerical refinement under convergence, not primary discovery.
+
+Evidence: 2/2 operational arenas (marketplace-epistemic-triangulation + turn-budget-governance-triangulation) converged by defense phase. This strengthens Rule 3's "rebuttal under convergence" clause — convergence-compression is the normal pattern for bounded questions, not the exception.
+
+<!-- promoted from CogPR-33 (tic 21→22, arena-sourced T3G). Reinforced by 2/2 operational arenas. Band: COGNITIVE. -->

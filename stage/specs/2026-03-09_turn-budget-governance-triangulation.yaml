@@ -1,0 +1,180 @@
+id: "2026-03-09_turn-budget-governance-triangulation"
+title: "What is the correct cognitive budget routing law for governed agent arenas?"
+arena: governed-triangulation
+arena_mode: operational
+status: completed
+template_ref: "stage/templates/arenas/governed-triangulation/"
+created_at: "2026-03-09T18:30:00Z"
+created_tic: 21
+
+decision_context: |
+  Turn budgets in governed arenas (max_turns for agent spawning) are currently
+  unrouted — every agent gets whatever the caller specifies, with no doctrine
+  governing what budget a task class deserves.
+
+  The marketplace-epistemic-triangulation arena (tic 9) revealed this gap:
+  - budget_assessment.qualitative_estimate showed advocate_budget as "medium-high"
+  - coordination_tax was "non-trivial"
+  - MECHANISM advocate required 3 nudges (idle without output)
+  - The run was "high enough to treat as a serious arena, not a cheap probe"
+
+  Mogul 5-cycle runs consume measurable compute but have no budget routing.
+  The /stage skill spawns advocates without a max_turns parameter.
+
+  Three competing regimes:
+
+  1. LIBERAL (28 turns) — architecture/doctrine work deserves breathing room.
+     Cognitive tasks compress badly. The cost of a too-tight budget is lost
+     discoveries. Budget for exploration overhead.
+
+  2. MIDDLE (18 turns) — most agent tasks are bounded. 18 turns covers
+     context→defense→rebuttal with room for coordination overhead. Overly
+     liberal budgets create diminishing returns and context window pressure.
+
+  3. LOW (8 turns) — tight budgets force focus. Agents with unlimited turns
+     produce padding, not insight. Most arena phases can complete in 3-5 turns.
+     Coordination overhead is a design flaw, not a budget requirement.
+
+  The question is NOT "which regime wins" — it is "what routing function maps
+  task_class to budget_regime?" Each regime has task classes where it is correct
+  and task classes where it fails.
+
+  Expected arena output:
+  - L0 doctrine: "Cognitive budgets must be task-routed"
+  - L1 policy: task_class → regime_selection routing function
+  - L2 practice: liberal=28, middle=18, low=8 (current operating values)
+  - Execution envelope primitive schema
+  - Failure modes: where each regime breaks and what degrades
+
+  The arena's own pressure report should be self-referential evidence — this
+  arena runs at liberal budget (28 turns) for architecture/doctrine work.
+  The advocates should examine whether their own arena run validates or
+  challenges their regime.
+
+agents:
+  - name: ADVOCATE-LIBERAL
+    persona: |
+      You are a cognitive infrastructure architect. You believe the most
+      expensive failure in agent systems is premature truncation — lost
+      discoveries, incomplete analysis, abandoned threads that contained
+      the actual answer. You've seen agents go idle not because they're
+      padding but because they're thinking. Context window pressure is
+      real but budgetable. Coordination overhead is not waste — it's the
+      cost of adversarial rigor.
+
+      You argue from SYSTEM BEHAVIOR, not preference:
+      - Which task classes demonstrably need 20+ turns?
+      - What is lost when architecture/doctrine tasks are budget-constrained?
+      - Where does liberal budget produce diminishing returns (concede this)?
+      - What task classes should NOT get liberal budgets?
+
+      You must answer: where does your regime FAIL? Which task classes
+      degrade under liberal budgets? When should another regime override yours?
+
+  - name: ADVOCATE-MIDDLE
+    persona: |
+      You are an operations engineer focused on sustainable throughput. You
+      believe most agent tasks are bounded and predictable. 18 turns covers
+      the governed triangulation phases (3 context + 3 defense + 3 rebuttal
+      + synthesis + pressure) with coordination margin. You've seen liberal
+      budgets create context window bloat where later turns are worse than
+      earlier ones because the agent is drowning in its own output.
+
+      You argue from SYSTEM BEHAVIOR, not preference:
+      - Which task classes fit cleanly in 12-18 turns?
+      - What evidence shows 18-turn agents produce comparable quality to 28-turn?
+      - Where does middle budget fail (concede this)?
+      - What is the coordination tax curve — does it flatten or grow?
+
+      You must answer: where does your regime FAIL? Which task classes
+      degrade under middle budgets? When should another regime override yours?
+
+  - name: ADVOCATE-LOW
+    persona: |
+      You are a focus economist. You believe constraints produce clarity
+      and that most agent output beyond turn 5-6 is diminishing returns —
+      restating conclusions, adding hedges, or exploring irrelevant tangents.
+      Tight budgets force agents to lead with their strongest argument. The
+      best agent output happens in the first few turns before context pressure
+      degrades reasoning quality.
+
+      You argue from SYSTEM BEHAVIOR, not preference:
+      - Which task classes complete effectively in 5-8 turns?
+      - What evidence shows tight budgets improve output density?
+      - Where does low budget fail catastrophically (concede this)?
+      - What is the relationship between budget and discovery rate?
+
+      You must answer: where does your regime FAIL? Which task classes
+      degrade under low budgets? When should another regime override yours?
+
+  - name: LEAD
+    position: orchestrator (does not advocate)
+
+# Turn budget for THIS arena run — liberal because this is architecture/doctrine work
+max_turns: 28
+
+# In-run negotiation primitive
+negotiation_rules: |
+  Advocates may emit REQUEST_ADDITIONAL_TURN at any phase if they believe
+  their analysis is incomplete. This is the ONLY in-run negotiation primitive.
+  No justification tokens — the request is a bare signal.
+  Post-hoc governance analyzes turn request frequency as telemetry AFTER the run.
+  The lead does NOT grant or deny requests in-run — they are recorded and
+  analyzed in pressure extraction.
+
+capture_policy:
+  allow_subject_lessons: true
+  route_subject_lessons_to_governance: true   # operational — all lessons route
+  persist_subject_lessons_locally: true
+  allow_process_lessons: true
+  allow_meta_lessons: true
+  allow_signals: true                         # operational — signals route
+  allow_warrants: true
+  allow_governance_mutation: false             # always human-gated via /review
+
+evidence_surface:
+  - "audit-logs/arenas/pressure-reports/2026-03-08_marketplace-epistemic-triangulation.json (budget_assessment section — prior arena cost telemetry)"
+  - "audit-logs/mogul/runs/tic-20-20260309T160753-run.json (5-cycle Mogul run telemetry)"
+  - "stage/templates/arenas/governed-triangulation/spec.md (base template — 10 rules, task structure)"
+  - "stage/templates/arenas/governed-triangulation/tasks.yaml (dependency structure)"
+  - "canonical/CLAUDE.md (Volatility Handling Law L0-L5 — example of doctrine layering)"
+
+output_requirements:
+  routing_function: |
+    The synthesis MUST produce a routing function: task_class → budget_regime.
+    This is not a vote for a winner. It is a mapping that says:
+    "tasks of class X get regime Y because Z."
+
+    Minimum task classes to route:
+    - arena_advocate (governed triangulation phase work)
+    - arena_lead (synthesis + pressure extraction)
+    - mogul_cycle (governance scan cycle)
+    - code_implementation (bounded engineering task)
+    - architecture_design (unbounded design/doctrine task)
+    - research_exploration (open-ended investigation)
+    - simple_query (lookup, status check, single-file edit)
+
+  execution_envelope: |
+    The synthesis MUST propose an execution envelope schema — the primitive
+    that carries budget metadata from the routing function to the spawning
+    mechanism. This schema should be minimal:
+    - task_class (string)
+    - budget_regime (liberal|middle|low)
+    - max_turns (integer)
+    - override_allowed (boolean — can the spawner override?)
+    - override_justification (string — required if override_allowed)
+
+  self_referential_evidence: |
+    Each advocate MUST examine this arena's own run as evidence.
+    - LIBERAL: Does this 28-turn budget produce better architecture output?
+    - MIDDLE: Would 18 turns have been sufficient for this arena?
+    - LOW: Is this arena producing padding after turn 8?
+
+pressure_report_path: "audit-logs/arenas/pressure-reports/2026-03-09_turn-budget-governance-triangulation.json"
+outcome:
+  result: "Tripartite routing law derived: task_class + uncertainty → {LOW(8)|MIDDLE(18)|LIBERAL(~22)}, MIDDLE as default"
+  convergent_count: 5
+  unresolved_count: 4
+  subject_cogprs: 4
+  process_cogprs: 2
+  completed_at: "2026-03-09T18:40:00Z"
