@@ -195,3 +195,14 @@ Coordination overhead (nudges, retries, phase-transition messages) is lead-side 
 This accounting correction changed the LIBERAL regime derivation from 28 to ~22 turns/advocate — coordination overhead was incorrectly counted as advocate budget consumption.
 
 <!-- promoted from CogPR-35 (tic 21→22, arena-sourced T3G). All three advocates independently confirmed this accounting principle. Band: COGNITIVE. -->
+
+## Epistemic Triangulation Geometry
+
+Epistemic triangulation (coincidence/mechanism/counterfactual) is an effective geometry for hypothesis-testing arenas. Each angle tests a different failure mode of the claim:
+- **Coincidence** — could the evidence be explained by chance or confounding?
+- **Mechanism** — is there a causal pathway connecting the claim to the evidence?
+- **Counterfactual** — what would we expect to observe if the claim were false?
+
+Use this geometry when the arena question is a testable hypothesis rather than a design choice.
+
+<!-- promoted from arena-marketplace-0 (tic 9→25, arena-sourced marketplace-epistemic-triangulation). Process lesson — reinforced confidence tier. Band: COGNITIVE. -->

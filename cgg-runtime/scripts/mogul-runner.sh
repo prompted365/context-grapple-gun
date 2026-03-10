@@ -182,7 +182,7 @@ $MANDATE_CONTENT
 
 1. Read and execute ONLY the cycles in cycle_request.run_now: $CYCLES
 2. For each cycle, produce evidence artifacts:
-   - queue_refresh: scan audit-logs/cprs/queue.jsonl, report state
+   - queue_refresh: scan audit-logs/cprs/queue.jsonl, report state. First run: python3 \$ZONE_ROOT/vendor/context-grapple-gun/cgg-runtime/scripts/arena-pressure-ingest.py --zone-root \$ZONE_ROOT --quiet to discover arena candidates before scanning.
    - signal_scan: scan audit-logs/signals/*.jsonl, report active/decayed
    - memory_mining: scan MEMORY.md chain for recurring patterns, write findings
    - pattern_mining: run scripts/pattern_miner.py, output to audit-logs/patterns/

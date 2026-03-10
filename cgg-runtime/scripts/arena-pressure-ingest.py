@@ -171,23 +171,143 @@ def emit_cogpr(report: dict, rid: str, audit_logs: Path, tic: int, dry_run: bool
     }
 
     if not dry_run:
-        queue_file = str(audit_logs / "cprs" / "queue.jsonl")
-        os.makedirs(os.path.dirname(queue_file), exist_ok=True)
-        try:
-            from lib.atomic_append import atomic_append_jsonl
-            atomic_append_jsonl(queue_file, cpr)
-        except ImportError:
-            import fcntl
-            lockfile = queue_file + ".lock"
-            with open(lockfile, "w") as lf:
-                fcntl.flock(lf.fileno(), fcntl.LOCK_EX)
-                try:
-                    with open(queue_file, "a", encoding="utf-8") as f:
-                        f.write(json.dumps(cpr, separators=(",", ":")) + "\n")
-                finally:
-                    fcntl.flock(lf.fileno(), fcntl.LOCK_UN)
+        append_to_queue(cpr, audit_logs)
 
     return cpr
+
+
+def load_existing_queue(audit_logs: Path) -> dict:
+    """Load existing queue entries for dedup. Returns dict of id -> entry."""
+    queue_file = audit_logs / "cprs" / "queue.jsonl"
+    entries = {}
+    if not queue_file.exists():
+        return entries
+    for line in queue_file.read_text(encoding="utf-8").splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        try:
+            d = json.loads(line)
+            eid = d.get("id", "")
+            if eid:
+                entries[eid] = d
+        except json.JSONDecodeError:
+            continue
+    return entries
+
+
+def lesson_already_queued(lesson: str, existing_queue: dict) -> bool:
+    """Check if a lesson (by prefix match) already exists in the queue."""
+    prefix = lesson[:80]
+    for entry in existing_queue.values():
+        existing_lesson = entry.get("lesson", "")
+        existing_prefix = existing_lesson[:80]
+        if existing_prefix == prefix:
+            return True
+    return False
+
+
+def append_to_queue(entry: dict, audit_logs: Path):
+    """Append a single entry to queue.jsonl with atomic write."""
+    queue_file = str(audit_logs / "cprs" / "queue.jsonl")
+    os.makedirs(os.path.dirname(queue_file), exist_ok=True)
+    try:
+        from lib.atomic_append import atomic_append_jsonl
+        atomic_append_jsonl(queue_file, entry)
+    except ImportError:
+        import fcntl
+        lockfile = queue_file + ".lock"
+        with open(lockfile, "w") as lf:
+            fcntl.flock(lf.fileno(), fcntl.LOCK_EX)
+            try:
+                with open(queue_file, "a", encoding="utf-8") as f:
+                    f.write(json.dumps(entry, separators=(",", ":")) + "\n")
+            finally:
+                fcntl.flock(lf.fileno(), fcntl.LOCK_UN)
+
+
+def ingest_candidate_cogprs(
+    report: dict,
+    report_path: Path,
+    audit_logs: Path,
+    tic: int,
+    existing_queue: dict,
+    dry_run: bool,
+) -> list:
+    """Ingest candidate_cogprs from a pressure report into queue.jsonl.
+
+    Deduplicates against existing queue entries by lesson prefix.
+    Returns list of minted CogPR entries.
+    """
+    candidates = report.get("candidate_cogprs", [])
+    if not candidates:
+        return []
+
+    now = datetime.now(timezone.utc)
+    arena_id = report.get("arena_id", report.get("session_id", "unknown"))
+    arena_mode = report.get("arena_mode", "experimental")
+    source_tic = report.get("source_tic", tic)
+
+    minted = []
+    for i, candidate in enumerate(candidates):
+        lesson = candidate.get("lesson", "")
+        if not lesson:
+            continue
+
+        # Dedup: skip if lesson already in queue
+        if lesson_already_queued(lesson, existing_queue):
+            continue
+
+        # Generate stable ID from arena + candidate index
+        arena_short = arena_id[:40]
+        candidate_id = f"arena-{arena_short}-{i}"
+
+        # Skip if this exact candidate_id already exists
+        if candidate_id in existing_queue:
+            continue
+
+        # Normalize recommended_scopes
+        scopes = []
+        if "recommended_scope" in candidate:
+            scopes = [candidate["recommended_scope"]]
+        elif "recommended_scopes" in candidate:
+            scopes = candidate["recommended_scopes"]
+
+        cpr = {
+            "type": "cpr",
+            "id": candidate_id,
+            "status": "pending",
+            "lesson": lesson,
+            "band": candidate.get("band", "COGNITIVE"),
+            "source": f"arena:{arena_id}",
+            "source_date": now.strftime("%Y-%m-%d"),
+            "subsystem": candidate.get("subsystem", report.get("subsystem", "arena")),
+            "birth_tic": source_tic,
+            "arena_source": arena_id,
+            "arena_mode": arena_mode,
+            "confidence_tier": candidate.get("confidence_tier", "unknown"),
+            "lesson_type": candidate.get("lesson_type", "unknown"),
+            "recommended_scopes": scopes,
+            "note": candidate.get("note", ""),
+            "extracted_at": now.isoformat(),
+            "extracted_by": "arena-pressure-ingest",
+        }
+
+        # QR-T25-001: Auto-assign maturity window when absent
+        if "maturity_window_tics" not in cpr and "maturity_window_tics" not in candidate:
+            cpr["maturity_window_tics"] = 3
+            cpr["review_tic"] = source_tic + 3
+            cpr["assigned_by"] = "arena-pressure-ingest"
+            cpr["assignment_reason"] = "auto-window backfill"
+
+        if not dry_run:
+            append_to_queue(cpr, audit_logs)
+
+        # Add to existing_queue for subsequent dedup within same run
+        existing_queue[candidate_id] = cpr
+        minted.append(cpr)
+
+    return minted
 
 
 def enforce_arena_mode(report: dict) -> list[str]:
@@ -247,12 +367,14 @@ def main():
             print("No pressure reports found.")
         return
 
-    # Load processed set
+    # Load processed set and existing queue for dedup
     processed = load_processed_reports(audit_logs)
+    existing_queue = load_existing_queue(audit_logs)
 
     tic = get_tic_count(audit_logs)
     signals_emitted = 0
     cprs_generated = 0
+    candidates_minted = 0
     violations_found = []
 
     for report_path in reports:
@@ -276,10 +398,16 @@ def main():
         signal = emit_signal(report, rid, audit_logs, args.dry_run)
         signals_emitted += 1
 
-        # Generate CogPR if lesson present
+        # Generate CogPR if report-level lesson present
         cpr = emit_cogpr(report, rid, audit_logs, tic, args.dry_run)
         if cpr:
             cprs_generated += 1
+
+        # Ingest candidate_cogprs array (the main pipeline fix for SIG-T22-001)
+        minted = ingest_candidate_cogprs(
+            report, report_path, audit_logs, tic, existing_queue, args.dry_run
+        )
+        candidates_minted += len(minted)
 
         # Record as processed
         if not args.dry_run:
@@ -291,6 +419,7 @@ def main():
                 "processed_at": datetime.now(timezone.utc).isoformat(),
                 "signal_emitted": True,
                 "cpr_generated": cpr is not None,
+                "candidates_minted": len(minted),
                 "violations": mode_violations,
             }
             try:
@@ -303,12 +432,13 @@ def main():
         if not args.quiet:
             status = "DRY-RUN" if args.dry_run else "OK"
             cpr_msg = f" +CPR" if cpr else ""
+            cand_msg = f" +{len(minted)} candidates" if minted else ""
             violation_msg = f" VIOLATIONS:{len(mode_violations)}" if mode_violations else ""
-            print(f"  [{status}] {report_path.name} → signal{cpr_msg}{violation_msg}")
+            print(f"  [{status}] {report_path.name} → signal{cpr_msg}{cand_msg}{violation_msg}")
 
     if not args.quiet:
         prefix = "[DRY-RUN] " if args.dry_run else ""
-        print(f"\n{prefix}Processed: {signals_emitted} reports, {signals_emitted} signals, {cprs_generated} CogPRs")
+        print(f"\n{prefix}Processed: {signals_emitted} reports, {signals_emitted} signals, {cprs_generated} report-level CogPRs, {candidates_minted} arena candidates")
         if violations_found:
             print(f"{prefix}Mode violations: {len(violations_found)}")
             for v in violations_found:
