@@ -230,13 +230,20 @@ TIC_COUNT=0
 if [ -d "$TIC_DIR" ]; then
   TIC_COUNT=$(python3 -c "
 import json, glob
-count = 0
+max_counter = 0
 for f in sorted(glob.glob('$TIC_DIR/*.jsonl')):
     for line in open(f):
         try:
-            if json.loads(line).get('type') == 'tic': count += 1
+            d = json.loads(line)
+            if d.get('type') != 'tic': continue
+            mode = d.get('count_mode', 'counted')
+            if mode != 'counted': continue
+            # Handle both old format (global_counter) and new format (global_counter_after)
+            ca = d.get('global_counter_after', d.get('global_counter', 0))
+            if ca > max_counter:
+                max_counter = ca
         except: pass
-print(count)
+print(max_counter)
 " 2>/dev/null || echo "0")
 fi
 
