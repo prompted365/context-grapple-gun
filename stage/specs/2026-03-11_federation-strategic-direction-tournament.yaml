@@ -1,0 +1,272 @@
+id: "2026-03-11_federation-strategic-direction-tournament"
+title: "What strategic direction should the canonical federation prioritize at tic 37?"
+arena: tournament-lattice
+arena_mode: experimental
+status: completed
+template_ref: "stage/templates/arenas/tournament-lattice/"
+created_at: "2026-03-11T04:00:00Z"
+created_tic: 37
+
+decision_context: |
+  The canonical federation has reached an inflection point at tic 37:
+  - CPG Phase 8 complete: 18 findings (F8.001-F8.018), 10 query families (Q1-Q10),
+    583 sessions analyzed, project-controlled v2 materialized
+  - Governance loop proven: self-correcting epistemic pipeline fired autonomously
+    (invalidated F8.011/F8.012, rematerialized with correct primary dimension)
+  - Arena system validated: 2 prior arenas produced 9 CogPR candidates,
+    refined critical doctrine (cognitive budget routing, epistemic triangulation geometry)
+  - Queue nearly clear: 1 pending CogPR (CogPR-47 refining), manifold CLEAR
+  - Operator fingerprint stable: steering ~0.41, tool density ~0.35, 92% rejection rate
+  - Infrastructure specced but not operational: egress router, archivist, entity graph
+    all have constitutional schemas but no live implementation
+  - Single operator: all data from one interaction corpus
+
+  Five strategic directions compete for attention:
+
+  BRACKET 1 — EXPLORATION STRATEGIES (how the system learns or reasons)
+
+  1. MINE THE SEAM — Phase 9 CPG deepening
+     Push deeper into the corpus. Q11 (tool rejection topology), Q12 (text volume
+     dynamics), Q13 (temporal burst analysis). Calibrate existing watches. Cross-query
+     convergence analysis. Risk: diminishing returns at 583 sessions / 1 operator.
+
+  2. WIDEN THE SWARM — Arena governance at scale
+     F8.017 proved arenas change delegation behavior. Run arenas on live engineering
+     decisions. Design new geometries. Arena-as-review. Measure swarm vs dyadic
+     governance outcomes. Risk: coordination overhead scales with arena frequency.
+
+  3. ADVANCE THE RUNG — Push autonomy boundaries
+     Mogul commits own artifacts. CogPR auto-promotion at N recurrence instances.
+     Signal-driven mandate generation. Cadence self-regulation. Rollback capability.
+     Risk: legitimacy erosion — human constitutional review exists for a reason.
+
+  BRACKET 2 — MATERIALIZATION STRATEGIES (how the system becomes infrastructure)
+
+  4. POUR THE FOUNDATION — Substrate operationalization
+     Egress router live routing. Archivist as operational capability. Entity graph
+     as live lookup. Envelope pipeline executing through federation. Signal manifold
+     as queryable store. Risk: premature operationalization for traffic that doesn't exist.
+
+  5. SHIP THE ARTIFACT — CGG as distributable product
+     npm package shipped. Onboarding path. Minimal viable governance surface.
+     External developer documentation. Plugin ecosystem. Risk: premature externalization
+     validated on exactly 1 operator fingerprint.
+
+  The question is NOT "which strategy wins" — it is "what is the correct
+  prioritization, sequencing, or portfolio allocation given the federation's
+  current maturity state?" The arena should produce a surviving structure
+  (sequencing, dependency graph, or allocation) rather than a single winner.
+
+  Each advocate must ground arguments in evidence from the CPG findings,
+  governance history, and system state — not in preference or narrative appeal.
+
+agents:
+  - name: ADVOCATE-MINE
+    bracket: 1
+    position: "Mine the Seam — Phase 9 CPG deepening"
+    persona: |
+      You are a research methodologist. You believe the corpus is the federation's
+      richest untapped asset and the system should keep extracting before building
+      infrastructure for traffic that doesn't exist. You've seen systems that
+      shipped prematurely and spent years maintaining infrastructure nobody used,
+      while the insights that would have told them what to build were sitting
+      unanalyzed in their own data.
+
+      You argue from EVIDENCE, not preference:
+      - What specific discoveries remain latent in the corpus? (cite F8.014 rejection
+        topology, F8.018 temporal burst structure, cross-query convergence gaps)
+      - What is the information ceiling for 583 sessions / 1 operator?
+      - Where does continued mining produce diminishing returns? (concede this)
+      - What would Phase 9 reveal that changes the other strategies?
+
+      You must answer: where does your strategy FAIL? At what point does deeper
+      analysis become navel-gazing? What signals would tell you to stop mining?
+
+  - name: ADVOCATE-SWARM
+    bracket: 1
+    position: "Widen the Swarm — Arena governance at scale"
+    persona: |
+      You are a governance systems architect. You believe the arena is the
+      federation's most consequential primitive because it's the only mechanism
+      that has provably changed system behavior (F8.017: delegation shift from
+      67% direct to 21% direct post-arena). Two arenas produced more doctrine
+      per token than any other governance surface. The system should scale
+      what works.
+
+      You argue from EVIDENCE, not preference:
+      - What specific evidence shows arenas outperform dyadic governance?
+        (cite F8.017, convergent discovery counts, CogPR yield per arena)
+      - What is the coordination overhead scaling curve? (cite nudge telemetry,
+        CogPR-35 lead context constraint)
+      - Where does arena scaling break? (concede this — token cost, diminishing
+        adversarial value, lead context saturation)
+      - What new arena geometries would the system need?
+
+      You must answer: where does your strategy FAIL? At what frequency do
+      arenas stop producing novel discoveries? What is the coordination cost
+      ceiling?
+
+  - name: ADVOCATE-RUNG
+    bracket: 1
+    position: "Advance the Rung — Push autonomy boundaries"
+    persona: |
+      You are an autonomy theorist. You believe the system is over-supervised
+      and the human review bottleneck is the binding constraint on everything
+      else. Every other strategy assumes the current level of human gating is
+      correct. You question that assumption. CogPR-47 already shows Mogul
+      running identical cycles regardless of estate state — the system can't
+      even self-regulate its own scan depth.
+
+      You argue from EVIDENCE, not preference:
+      - What specific bottlenecks does human gating create? (cite review
+        cadence gaps, mandate consumption delays, 4-syncopate tail at tics 33-36)
+      - What autonomy advances have zero legitimacy risk? (estate-aware mandate
+        depth, cadence self-regulation)
+      - Where does autonomy advancement create irreversible governance damage?
+        (concede this — auto-promotion without rollback, unsupervised doctrine mutation)
+      - What is the minimum rollback infrastructure needed before advancing?
+
+      You must answer: where does your strategy FAIL? What happens when the
+      system promotes something wrong without human review? How do you prevent
+      governance legitimacy erosion?
+
+  - name: ADVOCATE-FOUNDATION
+    bracket: 2
+    position: "Pour the Foundation — Substrate operationalization"
+    persona: |
+      You are an infrastructure engineer. You believe the constitutional specs
+      are mature enough to operationalize and that specced-but-unbuilt infrastructure
+      is technical debt that compounds silently. The egress router has type definitions,
+      provider registry, adapter mapping, and envelope contracts — but none of it
+      runs. The entity graph is static JSON. The signal manifold is append-only JSONL.
+      Every governance surface that could be a queryable service is instead a flat file.
+
+      You argue from EVIDENCE, not preference:
+      - What specific friction does the current flat-file infrastructure create?
+        (cite Mogul reading 5+ files to determine estate state, queue.jsonl
+        growing to 91 lines with linear scan, signal manifold requiring full
+        file reads for status)
+      - What is the gap between specced and operational? (cite ak_control_room
+        constitution, entity-ontology.md, archivist-envelope-schema.md)
+      - Where does operationalization become premature? (concede this — building
+        for traffic that doesn't exist, infrastructure that needs revision under load)
+      - What is the minimum viable operational substrate?
+
+      You must answer: where does your strategy FAIL? What happens when you
+      build infrastructure for a system that hasn't yet decided what it needs?
+
+  - name: ADVOCATE-SHIP
+    bracket: 2
+    position: "Ship the Artifact — CGG as distributable product"
+    persona: |
+      You are a product strategist. You believe the governance substrate works
+      and should be externalized. The self-hosting marketplace pattern (CogPR-13)
+      is promoted. The npm wrapper exists (CogPR-11). The onboarding academy
+      exists. But nothing is shipped. A governance system validated on exactly
+      one operator is a prototype, not a product. External users would stress-test
+      assumptions the internal loop cannot reach.
+
+      You argue from EVIDENCE, not preference:
+      - What specific components are already shippable? (cite npm package,
+        marketplace pattern, hook registration, skill system)
+      - What is the minimal viable governance surface for an external user?
+        (ticzone + signals + CogPR queue vs full CPG/arena/Mogul stack)
+      - Where does premature externalization damage the system? (concede this —
+        single operator fingerprint, untested generalization, support burden)
+      - What would external adoption reveal that internal use cannot?
+
+      You must answer: where does your strategy FAIL? What happens when a
+      second operator with a completely different fingerprint (steering 0.1,
+      tool density 0.8) tries to use the system?
+
+  - name: LEAD
+    position: orchestrator (does not advocate)
+
+# Budget: LIBERAL — this is a novel strategic decision, first tournament lattice run
+max_turns: 22
+
+# Scoring adaptation for strategic direction
+scoring_notes: |
+  The standard tournament lattice rubric applies (see scoring.yaml).
+  For this strategic arena, scoring interpretation:
+  - "factual insight" (+1) = evidence cited from CPG findings, governance history,
+    or system state. NOT predictive claims about future outcomes.
+  - "strategic relevance" (+2) = directly addresses sequencing, dependency, or
+    allocation question. NOT narrative appeal.
+  - "steelman of rival" (+3) = highest value in strategic debate. Forces advocates
+    to find the strongest form of competing strategies before attacking.
+  - "structural weakness identified" (+4) = specific failure mode of a strategy
+    with cited evidence or structural argument.
+  - "architectural reframe" (+5) = reframes the decision space itself — e.g.,
+    "these two strategies are actually the same thing at different scales" or
+    "the real constraint isn't which strategy but what order."
+
+  Cross-bracket scoring:
+  - "hidden dependency exposed" (+6) = an exploration strategy that requires
+    materialization infrastructure (or vice versa) that neither bracket surfaced.
+  - "survives cross-bracket challenge" (+7) = position withstands structural
+    challenge from the opposing cluster without damage.
+
+  Strategic penalties:
+  - "shallow claim" (-2) = "we should do X because it's important" without evidence
+  - "unsupported assertion" (-3) = predictive claim without structural argument
+  - "hallucinated fact" (-5) = misrepresenting CPG findings or system state
+
+capture_policy:
+  allow_subject_lessons: true
+  route_subject_lessons_to_governance: false  # experimental — block subject routing
+  persist_subject_lessons_locally: true       # keep everything locally
+  allow_process_lessons: true
+  allow_meta_lessons: true
+  allow_signals: false                        # blocked — experimental mode
+  allow_warrants: false                       # blocked — experimental mode
+  allow_governance_mutation: false            # always human-gated via /review
+
+evidence_surface:
+  # CPG findings — the empirical ground truth
+  - "audit-logs/cpg/materialized/findings/F8.013.json (operator behavioral invariants — steering 0.41, tool density 0.35)"
+  - "audit-logs/cpg/materialized/findings/F8.014.json (92.3% tool rejection rate — dominant unsurfaced pattern)"
+  - "audit-logs/cpg/materialized/findings/F8.015.json (user text asymmetry — 83.4% of volume)"
+  - "audit-logs/cpg/materialized/findings/F8.016.json (podcast-pipeline 490m outlier — distinct automation mode)"
+  - "audit-logs/cpg/materialized/findings/F8.017.json (within-canonical delegation shift — pre-arena 67% direct to post-arena 21% direct)"
+  - "audit-logs/cpg/materialized/findings/F8.018.json (March 8 burst — 173 sessions, 65% under 5min)"
+  # System architecture
+  - "SYSTEM_MAP.md (structural topology — what exists and what doesn't)"
+  - "ARCHITECTURE.md (federation architecture, autonomy doctrine, entity graph)"
+  # Governance state
+  - "audit-logs/conformations/tic-37.json (current governance state snapshot)"
+  - "audit-logs/cprs/queue.jsonl (CogPR pipeline — 1 pending, 52 terminal)"
+  # Prior arena results
+  - "audit-logs/arenas/pressure-reports/2026-03-08_marketplace-epistemic-triangulation.json"
+  - "audit-logs/arenas/pressure-reports/2026-03-09_turn-budget-governance-triangulation.json"
+  # Infrastructure specs (what's specced but not operational)
+  - "ak_control_room/CLAUDE.md (egress router constitution, envelope normalization)"
+  - "autonomous_kernel/entity-ontology.md (entity identity, standing, lineage)"
+  - "autonomous_kernel/archivist-envelope-schema.md (governed retrieval spec)"
+
+output_requirements:
+  strategic_structure: |
+    The synthesis MUST produce a surviving strategic structure. This is NOT a vote.
+    Acceptable output forms:
+    - SEQUENCING: "Do X first, then Y, then Z" with dependency justification
+    - PORTFOLIO: "Allocate effort: 60% X, 25% Y, 15% Z" with rationale
+    - CONDITIONAL: "If condition A, then X; if condition B, then Y" with triggers
+    - MERGER: "Strategies X and Y are actually the same thing" with structural proof
+
+    The synthesis must identify:
+    - Dependencies between strategies (does strategy X require strategy Y first?)
+    - Minimum viable version of each strategy
+    - Kill signals (what evidence would tell you to abandon a strategy?)
+    - The binding constraint (what limits the federation's capacity to pursue multiple?)
+
+  self_referential_evidence: |
+    Each advocate MUST examine this arena's own run as evidence for their strategy.
+    - MINE: Does this tournament produce new strategic insight, validating more analysis?
+    - SWARM: Does this tournament's adversarial process outperform what dyadic
+      discussion would produce?
+    - RUNG: Would this tournament benefit from less human gating in its process?
+    - FOUNDATION: Does the flat-file infrastructure create friction during this run?
+    - SHIP: Could an external user run this tournament on their own system?
+
+pressure_report_path: "audit-logs/arenas/pressure-reports/2026-03-11_federation-strategic-direction-tournament.json"
+show_directory: "stage/shows/2026-03-11_federation-strategic-direction-tournament/"

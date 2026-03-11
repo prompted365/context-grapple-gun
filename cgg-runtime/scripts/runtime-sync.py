@@ -13,9 +13,11 @@ pretend canonical is active.
 Exit codes: 0=success, 1=validation error, 2=IO error, 3=data error.
 
 Usage:
-    python3 runtime-sync.py check  [--project-dir PATH] [--json]
-    python3 runtime-sync.py diff   [--project-dir PATH] [--json]
-    python3 runtime-sync.py sync   [--project-dir PATH]
+    python3 runtime-sync.py check      [--project-dir PATH] [--json]
+    python3 runtime-sync.py diff       [--project-dir PATH] [--json]
+    python3 runtime-sync.py sync       [--project-dir PATH]
+    python3 runtime-sync.py auto-sync  [--project-dir PATH] [--commit SHA]
+    python3 runtime-sync.py discover   [--project-dir PATH] [--json]
 """
 
 import argparse
@@ -23,6 +25,7 @@ import hashlib
 import json
 import os
 import shutil
+import subprocess
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
@@ -32,70 +35,116 @@ from zone_root import resolve_zone_root, load_ticzone, audit_logs_path, birth_to
 
 
 # ---------------------------------------------------------------------------
-# Surface registry — canonical source -> installed location
+# Surface discovery — file-tree derived, not static
 # ---------------------------------------------------------------------------
 
-def build_surface_map(plugin_root, zone_root):
-    """Build mapping of canonical -> installed paths for all tracked surfaces."""
+# Install target mapping: canonical subdirectory -> installed subdirectory
+INSTALL_TARGETS = {
+    "skills": {
+        "canonical_subdir": "skills",
+        "installed_subdir": ".claude/skills",
+        "pattern": "*/SKILL.md",
+        "type": "PROMPT_CODE",
+    },
+    "agents": {
+        "canonical_subdir": "agents",
+        "installed_subdir": ".claude/agents",
+        "pattern": "*.md",
+        "type": "PROMPT_CODE",
+    },
+    "hooks": {
+        "canonical_subdir": "hooks",
+        "installed_subdir": ".claude/hooks",
+        "pattern": "*.sh",
+        "type": "SCRIPT_CODE",
+    },
+}
+
+# Files that should NOT be synced (internal to canonical, not installable)
+SYNC_EXCLUDE = {
+    "hooks/README.md",
+}
+
+
+def discover_surfaces(plugin_root, zone_root):
+    """Auto-discover all installable surfaces by scanning the cgg-runtime file tree.
+
+    Returns a list of surface dicts (same shape as the old static build_surface_map).
+    Install targets always resolve to ~/.claude/ (the user's global runtime),
+    not zone_root/.claude/ (which is project-local settings).
+    """
     surfaces = []
+    runtime_dir = os.path.join(plugin_root, "cgg-runtime")
+    home_dir = os.path.expanduser("~")
 
-    # Skills
-    skills = [
-        ("cadence/SKILL.md", "skills/cadence/SKILL.md"),
-        ("review/SKILL.md", "skills/review/SKILL.md"),
-        ("siren/SKILL.md", "skills/siren/SKILL.md"),
-        ("init-governance/SKILL.md", "skills/init-governance/SKILL.md"),
-        ("statusline/SKILL.md", "skills/statusline/SKILL.md"),
-    ]
-    for canonical_rel, installed_rel in skills:
-        surfaces.append({
-            "name": f"skill:{canonical_rel.split('/')[0]}",
-            "canonical": os.path.join(plugin_root, "cgg-runtime", "skills", canonical_rel),
-            "installed": os.path.join(zone_root, ".claude", installed_rel),
-            "type": "PROMPT_CODE",
-        })
+    for category, spec in INSTALL_TARGETS.items():
+        canonical_dir = os.path.join(runtime_dir, spec["canonical_subdir"])
+        if not os.path.isdir(canonical_dir):
+            continue
 
-    # Agents
-    agents = [
-        "mogul.md",
-        "ripple-assessor.md",
-        "pattern-curator.md",
-        "ladder-auditor.md",
-    ]
-    for agent_file in agents:
-        surfaces.append({
-            "name": f"agent:{agent_file.replace('.md', '')}",
-            "canonical": os.path.join(plugin_root, "cgg-runtime", "agents", agent_file),
-            "installed": os.path.join(zone_root, ".claude", "agents", agent_file),
-            "type": "PROMPT_CODE",
-        })
-
-    # Scripts (zone-root-resolved runtime scripts)
-    scripts = [
-        "expression-tracker.py",
-    ]
-    for script_file in scripts:
-        surfaces.append({
-            "name": f"script:{script_file.replace('.py', '')}",
-            "canonical": os.path.join(plugin_root, "cgg-runtime", "scripts", script_file),
-            "installed": os.path.join(zone_root, "scripts", script_file),
-            "type": "SCRIPT_CODE",
-        })
-
-    # Hooks
-    hooks = [
-        "session-restore-patch.sh",
-        "cgg-gate.sh",
-    ]
-    for hook_file in hooks:
-        surfaces.append({
-            "name": f"hook:{hook_file.replace('.sh', '')}",
-            "canonical": os.path.join(plugin_root, "cgg-runtime", "hooks", hook_file),
-            "installed": os.path.join(zone_root, ".claude", "hooks", hook_file),
-            "type": "SCRIPT_CODE",
-        })
+        if category == "skills":
+            # Skills: each subdirectory with a SKILL.md
+            for entry in sorted(os.listdir(canonical_dir)):
+                skill_file = os.path.join(canonical_dir, entry, "SKILL.md")
+                if os.path.isfile(skill_file):
+                    installed = os.path.join(
+                        home_dir, spec["installed_subdir"], entry, "SKILL.md"
+                    )
+                    surfaces.append({
+                        "name": f"skill:{entry}",
+                        "canonical": skill_file,
+                        "installed": installed,
+                        "type": spec["type"],
+                        "category": category,
+                    })
+        elif category == "agents":
+            # Agents: each .md file in agents/
+            for entry in sorted(os.listdir(canonical_dir)):
+                if entry.endswith(".md"):
+                    canonical_path = os.path.join(canonical_dir, entry)
+                    rel_key = f"{spec['canonical_subdir']}/{entry}"
+                    if rel_key in SYNC_EXCLUDE:
+                        continue
+                    installed = os.path.join(
+                        home_dir, spec["installed_subdir"], entry
+                    )
+                    name = entry.replace(".md", "")
+                    surfaces.append({
+                        "name": f"agent:{name}",
+                        "canonical": canonical_path,
+                        "installed": installed,
+                        "type": spec["type"],
+                        "category": category,
+                    })
+        elif category == "hooks":
+            # Hooks: each .sh file in hooks/
+            for entry in sorted(os.listdir(canonical_dir)):
+                if entry.endswith(".sh"):
+                    canonical_path = os.path.join(canonical_dir, entry)
+                    rel_key = f"{spec['canonical_subdir']}/{entry}"
+                    if rel_key in SYNC_EXCLUDE:
+                        continue
+                    installed = os.path.join(
+                        home_dir, spec["installed_subdir"], entry
+                    )
+                    name = entry.replace(".sh", "")
+                    surfaces.append({
+                        "name": f"hook:{name}",
+                        "canonical": canonical_path,
+                        "installed": installed,
+                        "type": spec["type"],
+                        "category": category,
+                    })
 
     return surfaces
+
+
+def build_surface_map(plugin_root, zone_root):
+    """Build mapping of canonical -> installed paths for all tracked surfaces.
+
+    Now delegates to discover_surfaces() for file-tree derived discovery.
+    """
+    return discover_surfaces(plugin_root, zone_root)
 
 
 def find_plugin_root(zone_root):
@@ -104,6 +153,8 @@ def find_plugin_root(zone_root):
         os.path.join(zone_root, "vendor", "context-grapple-gun"),
         os.path.join(zone_root, ".claude", "cgg"),
         os.path.join(os.path.expanduser("~"), ".claude", "cgg"),
+        # Federation layout: canonical_developer/context-grapple-gun/
+        os.path.join(zone_root, "canonical_developer", "context-grapple-gun"),
     ]
     for c in candidates:
         if os.path.isdir(os.path.join(c, "cgg-runtime")):
@@ -168,10 +219,185 @@ def file_diff(path_a, path_b):
 
 
 # ---------------------------------------------------------------------------
+# Commit context enrichment
+# ---------------------------------------------------------------------------
+
+def get_commit_context(plugin_root, canonical_path, installed_hash):
+    """Get git commit history for a canonical file to explain drift.
+
+    Returns a dict with:
+    - last_commit: the most recent commit that touched this file
+    - commits_since_installed: commits that changed this file since the
+      installed version's content was current
+    - drift_window: human-readable summary of the drift timeline
+    """
+    if not os.path.isfile(canonical_path):
+        return None
+
+    try:
+        # Get recent commit history for this file (last 10 commits)
+        result = subprocess.run(
+            ["git", "log", "--format=%H|%ai|%s", "-n", "10", "--", canonical_path],
+            capture_output=True, text=True, timeout=10,
+            cwd=plugin_root,
+        )
+        if result.returncode != 0 or not result.stdout.strip():
+            return None
+
+        commits = []
+        for line in result.stdout.strip().split("\n"):
+            parts = line.split("|", 2)
+            if len(parts) == 3:
+                commits.append({
+                    "sha": parts[0][:12],
+                    "sha_full": parts[0],
+                    "date": parts[1].strip(),
+                    "message": parts[2].strip(),
+                })
+
+        if not commits:
+            return None
+
+        # If we have the installed hash, find which commits introduced the drift
+        # by checking file content at each commit
+        drift_commits = []
+        if installed_hash:
+            for commit in commits:
+                try:
+                    blob_result = subprocess.run(
+                        ["git", "show", f"{commit['sha_full']}:{os.path.relpath(canonical_path, plugin_root)}"],
+                        capture_output=True, timeout=5,
+                        cwd=plugin_root,
+                    )
+                    if blob_result.returncode == 0:
+                        commit_hash = hashlib.sha256(blob_result.stdout).hexdigest()
+                        if commit_hash == installed_hash:
+                            # Found the commit where installed version was current
+                            break
+                        drift_commits.append(commit)
+                except (subprocess.TimeoutExpired, FileNotFoundError):
+                    break
+
+        context = {
+            "last_commit": commits[0] if commits else None,
+            "commits_since_installed": drift_commits if drift_commits else commits[:5],
+            "drift_depth": len(drift_commits) if drift_commits else "unknown",
+        }
+
+        if drift_commits:
+            context["drift_window"] = f"{len(drift_commits)} commits, " \
+                f"from {drift_commits[-1]['date'].split()[0]} to {drift_commits[0]['date'].split()[0]}"
+        else:
+            context["drift_window"] = "unknown (installed hash not found in recent history)"
+
+        return context
+
+    except (subprocess.TimeoutExpired, FileNotFoundError, OSError):
+        return None
+
+
+def get_current_commit(repo_dir):
+    """Get the current HEAD commit SHA and message for a repo."""
+    try:
+        result = subprocess.run(
+            ["git", "rev-parse", "HEAD"],
+            capture_output=True, text=True, timeout=5,
+            cwd=repo_dir,
+        )
+        if result.returncode != 0:
+            return None, None
+
+        sha = result.stdout.strip()
+
+        msg_result = subprocess.run(
+            ["git", "log", "--format=%s", "-n", "1"],
+            capture_output=True, text=True, timeout=5,
+            cwd=repo_dir,
+        )
+        msg = msg_result.stdout.strip() if msg_result.returncode == 0 else ""
+        return sha, msg
+    except (subprocess.TimeoutExpired, FileNotFoundError):
+        return None, None
+
+
+# ---------------------------------------------------------------------------
+# Sync log
+# ---------------------------------------------------------------------------
+
+def write_sync_log(zone_root, plugin_root, synced_surfaces, commit_sha, commit_msg):
+    """Append a sync event to the sync log with commit pointer."""
+    tz_config = load_ticzone(zone_root)
+    al_path = audit_logs_path(zone_root, tz_config)
+    log_dir = os.path.join(al_path, "services")
+    os.makedirs(log_dir, exist_ok=True)
+    log_file = os.path.join(log_dir, "cgg-sync-log.jsonl")
+
+    now = datetime.now(timezone.utc)
+    entry = {
+        "event": "sync",
+        "timestamp": now.isoformat(),
+        "commit_sha": commit_sha[:12] if commit_sha else None,
+        "commit_sha_full": commit_sha,
+        "commit_message": commit_msg,
+        "surfaces_synced": [
+            {
+                "name": s["name"],
+                "canonical_hash": s.get("canonical_hash"),
+                "previous_installed_hash": s.get("installed_hash"),
+                "status_before": s.get("status"),
+            }
+            for s in synced_surfaces
+        ],
+        "surface_count": len(synced_surfaces),
+        "source": "runtime-sync.py",
+    }
+
+    try:
+        from lib.atomic_append import atomic_append_jsonl
+        atomic_append_jsonl(str(log_file), entry)
+    except ImportError:
+        import fcntl
+        lockfile = str(log_file) + ".lock"
+        with open(lockfile, "w") as lf:
+            fcntl.flock(lf.fileno(), fcntl.LOCK_EX)
+            try:
+                with open(log_file, "a", encoding="utf-8") as f:
+                    f.write(json.dumps(entry, separators=(",", ":")) + "\n")
+            finally:
+                fcntl.flock(lf.fileno(), fcntl.LOCK_UN)
+
+    return log_file
+
+
+def read_last_sync(zone_root):
+    """Read the most recent sync log entry. Returns dict or None."""
+    tz_config = load_ticzone(zone_root)
+    al_path = audit_logs_path(zone_root, tz_config)
+    log_file = os.path.join(al_path, "services", "cgg-sync-log.jsonl")
+
+    if not os.path.isfile(log_file):
+        return None
+
+    last_line = None
+    try:
+        with open(log_file, "r", encoding="utf-8") as f:
+            for line in f:
+                line = line.strip()
+                if line:
+                    last_line = line
+        if last_line:
+            return json.loads(last_line)
+    except (OSError, json.JSONDecodeError):
+        pass
+    return None
+
+
+# ---------------------------------------------------------------------------
 # Signal emission
 # ---------------------------------------------------------------------------
 
-def emit_drift_signal(zone_root, drifted_surfaces, severity="detected_drift"):
+def emit_drift_signal(zone_root, drifted_surfaces, severity="detected_drift",
+                      commit_context=None):
     """Emit a TENSION signal for runtime drift.
 
     Severity levels:
@@ -195,6 +421,16 @@ def emit_drift_signal(zone_root, drifted_surfaces, severity="detected_drift"):
 
     topo = birth_topology(zone_root)
 
+    payload = {
+        "summary": f"Runtime {severity.replace('_', ' ')}: {len(drifted_surfaces)} surfaces",
+        "severity": severity,
+        "surfaces": surface_names,
+    }
+
+    # Enrich with commit context if available
+    if commit_context:
+        payload["commit_context"] = commit_context
+
     signal = {
         "type": "signal",
         "id": signal_id,
@@ -209,11 +445,7 @@ def emit_drift_signal(zone_root, drifted_surfaces, severity="detected_drift"):
         "source_date": date_str,
         "created_at": now.isoformat(),
         "birth_rung": topo["birth_rung"],
-        "payload": {
-            "summary": f"Runtime {severity.replace('_', ' ')}: {len(drifted_surfaces)} surfaces",
-            "severity": severity,
-            "surfaces": surface_names,
-        },
+        "payload": payload,
         "escalation": {
             "warrant_threshold": 70,
         },
@@ -241,18 +473,40 @@ def emit_drift_signal(zone_root, drifted_surfaces, severity="detected_drift"):
 # Commands
 # ---------------------------------------------------------------------------
 
-def cmd_check(surfaces, zone_root, output_json=False):
+def cmd_check(surfaces, zone_root, plugin_root, output_json=False, enrich=False):
     """Report sync status for all surfaces. Emits drift hazard on detection."""
     results = [compare_surface(s) for s in surfaces]
     drifted = [r for r in results if r["status"] == "drifted"]
     missing = [r for r in results if r["status"] == "missing_installed"]
+    new_canonical = [r for r in results if r["status"] == "missing_installed"
+                     and r["canonical_hash"] is not None]
     synced = [r for r in results if r["status"] == "synced"]
 
-    # Drift detection itself is a governance hazard — emit on detection,
-    # not only on failed sync. The Trip Hazard Invariant requires it.
+    # Enrich drifted surfaces with commit context
+    enrichments = {}
+    if enrich and plugin_root:
+        for r in drifted:
+            ctx = get_commit_context(plugin_root, r["canonical"], r["installed_hash"])
+            if ctx:
+                enrichments[r["name"]] = ctx
+
+    # Drift detection itself is a governance hazard — emit on detection
     signal_id = None
+    commit_ctx_summary = None
     if drifted:
-        signal_id = emit_drift_signal(zone_root, drifted, severity="detected_drift")
+        if enrichments:
+            commit_ctx_summary = {
+                name: {
+                    "drift_depth": ctx["drift_depth"],
+                    "drift_window": ctx["drift_window"],
+                    "last_commit": ctx["last_commit"]["sha"] if ctx.get("last_commit") else None,
+                }
+                for name, ctx in enrichments.items()
+            }
+        signal_id = emit_drift_signal(zone_root, drifted, severity="detected_drift",
+                                      commit_context=commit_ctx_summary)
+
+    last_sync = read_last_sync(zone_root)
 
     if output_json:
         result = {
@@ -264,14 +518,21 @@ def cmd_check(surfaces, zone_root, output_json=False):
                     "status": r["status"],
                     "canonical_hash": r["canonical_hash"],
                     "installed_hash": r["installed_hash"],
+                    "commit_context": enrichments.get(r["name"]),
                 }
                 for r in results
             ],
             "summary": {
                 "synced": len(synced),
                 "drifted": len(drifted),
-                "missing": len(missing),
+                "missing_installed": len(missing),
+                "new_canonical": len(new_canonical),
+                "total": len(results),
             },
+            "last_sync": {
+                "timestamp": last_sync["timestamp"] if last_sync else None,
+                "commit_sha": last_sync.get("commit_sha") if last_sync else None,
+            } if last_sync else None,
             "signal_emitted": signal_id,
         }
         print(json.dumps(result, indent=2))
@@ -285,14 +546,24 @@ def cmd_check(surfaces, zone_root, output_json=False):
         status_tag = {
             "synced": "  OK  ",
             "drifted": "DRIFTED",
-            "missing_installed": "MISSING",
+            "missing_installed": " NEW  ",
             "missing_canonical": "NO SRC",
             "both_missing": "ABSENT",
         }.get(r["status"], r["status"])
         print(f"  [{status_tag}] {r['name']:<30} ({r['type']})")
 
+        # Show enrichment if available
+        if r["name"] in enrichments:
+            ctx = enrichments[r["name"]]
+            print(f"           drift: {ctx['drift_window']}")
+            if ctx.get("last_commit"):
+                print(f"           last:  {ctx['last_commit']['sha']} {ctx['last_commit']['message'][:60]}")
+
     print()
-    print(f"  Synced: {len(synced)}  |  Drifted: {len(drifted)}  |  Missing: {len(missing)}")
+    print(f"  Synced: {len(synced)}  |  Drifted: {len(drifted)}  |  New: {len(new_canonical)}  |  Total: {len(results)}")
+
+    if last_sync:
+        print(f"  Last sync: {last_sync['timestamp'][:19]}  commit: {last_sync.get('commit_sha', 'unknown')}")
 
     if signal_id:
         print(f"  TENSION signal emitted (detected_drift): {signal_id}")
@@ -300,7 +571,7 @@ def cmd_check(surfaces, zone_root, output_json=False):
     return results
 
 
-def cmd_diff(surfaces, output_json=False):
+def cmd_diff(surfaces, plugin_root, output_json=False):
     """Show diffs for drifted surfaces."""
     results = [compare_surface(s) for s in surfaces]
     drifted = [r for r in results if r["status"] == "drifted"]
@@ -316,6 +587,7 @@ def cmd_diff(surfaces, output_json=False):
         diffs = []
         for r in drifted:
             diff_info = file_diff(r["canonical"], r["installed"])
+            ctx = get_commit_context(plugin_root, r["canonical"], r["installed_hash"])
             diffs.append({
                 "name": r["name"],
                 "type": r["type"],
@@ -323,6 +595,7 @@ def cmd_diff(surfaces, output_json=False):
                 "installed": r["installed"],
                 "canonical_hash": r["canonical_hash"],
                 "installed_hash": r["installed_hash"],
+                "commit_context": ctx,
                 **diff_info,
             })
         print(json.dumps({"command": "diff", "drifted": diffs}, indent=2))
@@ -334,6 +607,7 @@ def cmd_diff(surfaces, output_json=False):
 
     for r in drifted:
         diff_info = file_diff(r["canonical"], r["installed"])
+        ctx = get_commit_context(plugin_root, r["canonical"], r["installed_hash"])
         print(f"\n--- {r['name']} ({r['type']}) ---")
         print(f"  Canonical: {r['canonical']}")
         print(f"  Installed: {r['installed']}")
@@ -341,12 +615,16 @@ def cmd_diff(surfaces, output_json=False):
         print(f"  Installed lines: {diff_info['installed_lines']}")
         print(f"  Lines only in canonical: {diff_info['removed_lines']}")
         print(f"  Lines only in installed: {diff_info['added_lines']}")
+        if ctx:
+            print(f"  Drift window: {ctx['drift_window']}")
+            for c in ctx.get("commits_since_installed", [])[:5]:
+                print(f"    {c['sha']} {c['date'].split()[0]} {c['message'][:60]}")
 
     return results
 
 
-def cmd_sync(surfaces, zone_root):
-    """Copy canonical to installed for drifted/missing surfaces, verify."""
+def cmd_sync(surfaces, zone_root, plugin_root, commit_sha=None, commit_msg=None):
+    """Copy canonical to installed for drifted/missing surfaces, verify, log."""
     results = [compare_surface(s) for s in surfaces]
     needs_sync = [r for r in results if r["status"] in ("drifted", "missing_installed")]
 
@@ -354,15 +632,18 @@ def cmd_sync(surfaces, zone_root):
         print("All surfaces are in sync. Nothing to do.")
         return results
 
-    # Record that drift was detected BEFORE sync — the detection event
-    # itself is a governance hazard per Trip Hazard Invariant
+    # Get commit pointer if not provided
+    if not commit_sha and plugin_root:
+        commit_sha, commit_msg = get_current_commit(plugin_root)
+
+    # Record that drift was detected BEFORE sync
     emit_drift_signal(zone_root, needs_sync, severity="detected_drift")
 
     print("=" * 60)
     print("RUNTIME SYNC")
     print("=" * 60)
 
-    synced_count = 0
+    synced_items = []
     for r in needs_sync:
         if not os.path.isfile(r["canonical"]):
             print(f"  [SKIP] {r['name']} — canonical source missing")
@@ -374,16 +655,27 @@ def cmd_sync(surfaces, zone_root):
         # Copy
         shutil.copy2(r["canonical"], r["installed"])
 
+        # Make scripts executable
+        if r.get("type") == "SCRIPT_CODE":
+            os.chmod(r["installed"], 0o755)
+
         # Verify
         new_hash = file_hash(r["installed"])
         if new_hash == r["canonical_hash"]:
-            print(f"  [SYNCED] {r['name']}")
-            synced_count += 1
+            label = "SYNCED" if r["status"] == "drifted" else "INSTALLED"
+            print(f"  [{label}] {r['name']}")
+            synced_items.append(r)
         else:
             print(f"  [ERROR] {r['name']} — hash mismatch after copy")
 
     print()
-    print(f"  Synced {synced_count}/{len(needs_sync)} surfaces")
+    print(f"  Synced {len(synced_items)}/{len(needs_sync)} surfaces")
+
+    # Write sync log with commit pointer
+    if synced_items:
+        log_file = write_sync_log(zone_root, plugin_root, synced_items,
+                                  commit_sha, commit_msg)
+        print(f"  Sync log: {log_file}")
 
     # Re-check for any remaining drift — escalated severity
     post_results = [compare_surface(s) for s in surfaces]
@@ -396,6 +688,110 @@ def cmd_sync(surfaces, zone_root):
     return post_results
 
 
+def cmd_auto_sync(surfaces, zone_root, plugin_root, commit_sha=None):
+    """Post-commit auto-sync: discover, compare, selectively sync, log.
+
+    This is the hook-triggered entry point. It:
+    1. Discovers all surfaces from the file tree
+    2. Compares canonical vs installed
+    3. Syncs only changed/new surfaces
+    4. Logs the sync event with commit pointer
+    5. Prints a compact summary for hook output
+    """
+    if not commit_sha and plugin_root:
+        commit_sha, commit_msg = get_current_commit(plugin_root)
+    else:
+        commit_msg = None
+
+    results = [compare_surface(s) for s in surfaces]
+    needs_sync = [r for r in results if r["status"] in ("drifted", "missing_installed")]
+    synced_count = sum(1 for r in results if r["status"] == "synced")
+
+    if not needs_sync:
+        print(f"[CGG-SYNC] All {synced_count} surfaces in sync @ {commit_sha[:8] if commit_sha else 'HEAD'}")
+        return results
+
+    # Sync and log
+    synced_items = []
+    for r in needs_sync:
+        if not os.path.isfile(r["canonical"]):
+            continue
+        os.makedirs(os.path.dirname(r["installed"]), exist_ok=True)
+        shutil.copy2(r["canonical"], r["installed"])
+        if r.get("type") == "SCRIPT_CODE":
+            os.chmod(r["installed"], 0o755)
+        new_hash = file_hash(r["installed"])
+        if new_hash == r["canonical_hash"]:
+            synced_items.append(r)
+
+    # Log
+    if synced_items:
+        write_sync_log(zone_root, plugin_root, synced_items, commit_sha, commit_msg)
+
+    # Compact summary for hook output
+    new_surfaces = [r for r in needs_sync if r["status"] == "missing_installed"]
+    updated_surfaces = [r for r in needs_sync if r["status"] == "drifted"]
+    parts = []
+    if updated_surfaces:
+        parts.append(f"{len(updated_surfaces)} updated")
+    if new_surfaces:
+        parts.append(f"{len(new_surfaces)} new")
+    summary = ", ".join(parts)
+    names = [r["name"] for r in synced_items]
+    print(f"[CGG-SYNC] {summary}: {', '.join(names)} @ {commit_sha[:8] if commit_sha else 'HEAD'}")
+
+    return results
+
+
+def cmd_discover(surfaces, plugin_root, zone_root, output_json=False):
+    """List all discovered surfaces and their sync status."""
+    results = [compare_surface(s) for s in surfaces]
+    last_sync = read_last_sync(zone_root)
+
+    if output_json:
+        output = {
+            "command": "discover",
+            "surfaces": [
+                {
+                    "name": r["name"],
+                    "category": r.get("category"),
+                    "type": r["type"],
+                    "status": r["status"],
+                    "canonical": r["canonical"],
+                    "installed": r["installed"],
+                }
+                for r in results
+            ],
+            "total": len(results),
+            "last_sync": last_sync,
+        }
+        print(json.dumps(output, indent=2))
+        return
+
+    print("=" * 60)
+    print("CGG SURFACE DISCOVERY")
+    print("=" * 60)
+
+    current_category = None
+    for r in results:
+        cat = r.get("category", "unknown")
+        if cat != current_category:
+            print(f"\n  {cat.upper()}")
+            current_category = cat
+        status_tag = {
+            "synced": "  OK  ",
+            "drifted": "DRIFTED",
+            "missing_installed": " NEW  ",
+            "missing_canonical": "NO SRC",
+            "both_missing": "ABSENT",
+        }.get(r["status"], r["status"])
+        print(f"    [{status_tag}] {r['name']}")
+
+    print(f"\n  Total: {len(results)} surfaces")
+    if last_sync:
+        print(f"  Last sync: {last_sync['timestamp'][:19]}  commit: {last_sync.get('commit_sha', 'unknown')}")
+
+
 # ---------------------------------------------------------------------------
 # Main
 # ---------------------------------------------------------------------------
@@ -404,14 +800,18 @@ def main():
     parser = argparse.ArgumentParser(
         description="Runtime Sync — compare installed vs canonical CGG surfaces"
     )
-    parser.add_argument("command", choices=["check", "diff", "sync"],
-                        help="Operation: check (report), diff (show diffs), sync (copy canonical to installed)")
+    parser.add_argument("command", choices=["check", "diff", "sync", "auto-sync", "discover"],
+                        help="Operation: check, diff, sync, auto-sync (hook-triggered), discover (list surfaces)")
     parser.add_argument("--project-dir", default=None,
                         help="Zone root (auto-resolved if omitted)")
     parser.add_argument("--plugin-root", default=None,
                         help="Explicit CGG plugin root (bypasses auto-detection)")
     parser.add_argument("--json", action="store_true", dest="output_json",
-                        help="Output structured JSON drift report (check/diff)")
+                        help="Output structured JSON (check/diff/discover)")
+    parser.add_argument("--commit", default=None, dest="commit_sha",
+                        help="Git commit SHA to record in sync log (auto-sync)")
+    parser.add_argument("--enrich", action="store_true",
+                        help="Enrich drift detection with commit history context (check)")
     args = parser.parse_args()
 
     try:
@@ -426,26 +826,30 @@ def main():
     plugin_root = args.plugin_root if args.plugin_root else find_plugin_root(zone_root)
 
     if not plugin_root:
-        msg = f"CGG plugin root not found. Checked: {zone_root}/vendor/context-grapple-gun/, {zone_root}/.claude/cgg/, ~/.claude/cgg/"
+        msg = (f"CGG plugin root not found. Checked: {zone_root}/vendor/context-grapple-gun/, "
+               f"{zone_root}/.claude/cgg/, ~/.claude/cgg/, "
+               f"{zone_root}/canonical_developer/context-grapple-gun/")
         if args.output_json:
             print(json.dumps({"error": msg, "exit_code": 2}))
         else:
-            print("ERROR: CGG plugin root not found. Checked:")
-            print(f"  {zone_root}/vendor/context-grapple-gun/")
-            print(f"  {zone_root}/.claude/cgg/")
-            print(f"  ~/.claude/cgg/")
+            print(f"ERROR: {msg}", file=sys.stderr)
         sys.exit(2)
 
     surfaces = build_surface_map(plugin_root, zone_root)
 
     if args.command == "check":
-        results = cmd_check(surfaces, zone_root, output_json=args.output_json)
+        results = cmd_check(surfaces, zone_root, plugin_root,
+                            output_json=args.output_json, enrich=args.enrich)
         drifted = [r for r in results if r["status"] in ("drifted", "missing_installed")]
         sys.exit(1 if drifted else 0)
     elif args.command == "diff":
-        cmd_diff(surfaces, output_json=args.output_json)
+        cmd_diff(surfaces, plugin_root, output_json=args.output_json)
     elif args.command == "sync":
-        cmd_sync(surfaces, zone_root)
+        cmd_sync(surfaces, zone_root, plugin_root)
+    elif args.command == "auto-sync":
+        cmd_auto_sync(surfaces, zone_root, plugin_root, commit_sha=args.commit_sha)
+    elif args.command == "discover":
+        cmd_discover(surfaces, plugin_root, zone_root, output_json=args.output_json)
 
 
 if __name__ == "__main__":
