@@ -56,6 +56,14 @@ Instead of a complete graph, run a tournament:
 
 Uses the same task template as 7-agent without the wildcard tasks. Both brackets run full triangulation (3 agents each).
 
+### Bracket Asymmetry (3+2)
+
+The 5-agent configuration uses asymmetric brackets: one triangulation (3 agents) and one dyadic (2 agents). The dyadic bracket produces lighter local adversarial pressure than the triangulation bracket, but cross-bracket challenge partially compensates — the dyadic bracket's synthesis faces the same structural scrutiny as the triangulation bracket's during the challenge phase.
+
+This asymmetry is viable, not ideal. If all positions are equally contentious, prefer 6-agent (two full triangulations) when feasible. Use 3+2 when position count is fixed at 5 or when natural semantic grouping produces a clear 3/2 split.
+
+<!-- promoted from T-CPR-1 (tic 40→42). Source: federation-strategic-direction-tournament pressure-report 2026-03-11. First tournament lattice run. Confidence: 0.80 (reinforced). Band: COGNITIVE. -->
+
 ## Grouping Rule
 
 Group brackets by **semantic adjacency**, not randomly.
@@ -130,6 +138,19 @@ This two-stage scoring makes the final synthesis harder to fake — positions mu
 
 See `scoring.yaml` for machine-readable format.
 
+## Cross-Bracket Challenge as Distinctive Mechanism
+
+Cross-bracket challenge is the tournament lattice's distinctive epistemic value-add over governed triangulation. While local brackets run standard triangulation (context → defense → rebuttal), the cross-bracket phase is where hidden dependencies between bracket-winning positions emerge — dependencies that neither bracket surfaced during local synthesis.
+
+Three categories of hidden dependency observed in the first tournament run:
+1. **Common root dependencies** — bracket winners that appear independent but share an underlying prerequisite
+2. **Multiplier relationships** — one bracket's infrastructure enabling the other bracket's value proposition
+3. **Verification relationships** — one bracket's output serving as diversity/stress-test for the other
+
+These dependencies are the tournament's primary epistemic output beyond what governed triangulation produces. The format's value proposition is: **local brackets produce refined positions; cross-bracket challenge reveals the relationships between them.**
+
+<!-- promoted from T-CPR-3 (tic 40→42). Source: federation-strategic-direction-tournament pressure-report 2026-03-11. Convergent confidence — multiple independent agents identified cross-bracket as distinctive mechanism. Confidence: 0.90. Band: COGNITIVE. -->
+
 ## Rule 10 — Pressure Extraction
 
 After final synthesis, the lead must produce a **pressure report** as a separate artifact. This rule is inherited from governed triangulation and applies identically at the tournament scale.
@@ -145,6 +166,18 @@ The pressure report must identify:
 Routing follows the arena mode (see Arena Routing section below).
 
 **The arena is not complete until BOTH synthesis output AND pressure report are produced.**
+
+## Self-Referential Evidence Principle
+
+Arena specs that include a self-referential evidence requirement — where advocates must examine their own run's metrics as evidence for their claims — produce measurably stronger concrete evidence than abstract argumentation alone.
+
+In the first tournament run, the strongest concrete evidence came from self-referential examination:
+- An advocate citing its own 40-file-read count as evidence of system complexity
+- An advocate measuring coordination overhead across the 5-agent team as evidence about governance scaling
+
+Self-referential evidence is not always applicable (the arena question must be about a property the arena itself exercises), but when it is, it should be explicitly required in the arena spec's prompt template.
+
+<!-- promoted from T-CPR-4 (tic 40→42). Source: federation-strategic-direction-tournament pressure-report 2026-03-11. N=1 (first tournament with self-referential requirement). Confidence: 0.75 (reinforced). Band: COGNITIVE. -->
 
 ## 6-Layer Meta-Model
 

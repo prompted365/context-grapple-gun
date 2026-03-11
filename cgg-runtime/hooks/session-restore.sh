@@ -259,18 +259,39 @@ MANDATE_FILE="$MANDATE_DIR/current.json"
 MOGUL_MANDATE_MSG=""
 
 if [ "$TIC_COUNT" -gt 0 ]; then
-  # Compute due cycles from tic-derived markers
-  DUE_CYCLES_CSV=$(python3 -c "
+  # Compute due cycles via estate_snapshot (MVOS L2) with inline fallback
+  ESTATE_SNAPSHOT_PY="$ZONE_ROOT/$AUDIT_LOGS_REL/cpg/scripts/estate_snapshot.py"
+  if [ -f "$ESTATE_SNAPSHOT_PY" ]; then
+    DUE_CYCLES_CSV=$(ZONE_ROOT="$ZONE_ROOT" python3 "$ESTATE_SNAPSHOT_PY" --json 2>/dev/null | python3 -c "
+import json, sys
+try:
+    data = json.load(sys.stdin)
+    cycles = data.get('profile_selection', {}).get('cycles', ['queue_refresh', 'signal_scan'])
+    # Also check mandate due-tic overrides
+    import os
+    prev = '$MANDATE_FILE'
+    tic = $TIC_COUNT
+    if os.path.isfile(prev):
+        p = json.load(open(prev))
+        tc = p.get('tic_context', {})
+        if tc.get('memory_mining_due_tic') and tic >= tc['memory_mining_due_tic'] and 'memory_mining' not in cycles: cycles.append('memory_mining')
+        if tc.get('pattern_mining_due_tic') and tic >= tc['pattern_mining_due_tic'] and 'pattern_mining' not in cycles: cycles.append('pattern_mining')
+        if tc.get('ladder_audit_due_tic') and tic >= tc['ladder_audit_due_tic']:
+            if 'ladder_audit' not in cycles: cycles.append('ladder_audit')
+        if tc.get('deep_audit_due_tic') and tic >= tc['deep_audit_due_tic'] and 'deep_audit' not in cycles: cycles.append('deep_audit')
+    print(','.join(set(cycles)))
+except:
+    print('queue_refresh,signal_scan')
+" 2>/dev/null || echo "queue_refresh,signal_scan")
+  else
+    # Inline fallback when estate_snapshot.py not available
+    DUE_CYCLES_CSV=$(python3 -c "
 tic = $TIC_COUNT
 cycles = ['queue_refresh', 'signal_scan']
-mem_mining_due = tic + (3 - tic % 3) if tic % 3 != 0 else tic + 3
-pattern_mining_due = tic + (4 - tic % 4) if tic % 4 != 0 else tic + 4
-ladder_due = tic + (5 - tic % 5) if tic % 5 != 0 else tic + 5
-deep_due = tic + (8 - tic % 8) if tic % 8 != 0 else tic + 8
-if tic >= mem_mining_due or tic % 3 == 0: cycles.append('memory_mining')
-if tic >= pattern_mining_due or tic % 4 == 0: cycles.append('pattern_mining')
-if tic >= ladder_due or tic % 5 == 0: cycles.extend(['ladder_audit', 'runtime_drift_check'])
-if tic >= deep_due or tic % 8 == 0: cycles.append('deep_audit')
+if tic % 3 == 0: cycles.append('memory_mining')
+if tic % 4 == 0: cycles.append('pattern_mining')
+if tic % 5 == 0: cycles.extend(['ladder_audit', 'runtime_drift_check'])
+if tic % 8 == 0: cycles.append('deep_audit')
 import json, os
 prev = '$MANDATE_FILE'
 if os.path.isfile(prev):
@@ -286,6 +307,7 @@ if os.path.isfile(prev):
     except: pass
 print(','.join(set(cycles)))
 " 2>/dev/null)
+  fi
 
   # Use centralized mandate writer (merge-before-write semantics)
   MANDATE_WRITER=$(resolve_script "mandate-write.py")

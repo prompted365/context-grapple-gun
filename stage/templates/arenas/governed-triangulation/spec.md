@@ -401,3 +401,9 @@ Governed triangulation arenas achieve structural convergence by defense phase wh
 Evidence: 2/2 operational arenas (marketplace-epistemic-triangulation + turn-budget-governance-triangulation) converged by defense phase. This strengthens Rule 3's "rebuttal under convergence" clause — convergence-compression is the normal pattern for bounded questions, not the exception.
 
 <!-- promoted from CogPR-33 (tic 21→22, arena-sourced T3G). Reinforced by 2/2 operational arenas. Band: COGNITIVE. -->
+
+**Rebuttal as scope revision (distinct from defense convergence):** Defense-phase convergence produces position alignment — advocates discover shared structure. Rebuttal-phase revision produces scope narrowing and sequencing shifts — advocates adjust the boundary and ordering of their positions. These are distinct operations: convergence answers "do we agree on what?", revision answers "given agreement, how does our scope change?"
+
+Evidence: In the tournament lattice run (5 agents, 2 brackets), all 5 advocates narrowed scope and shifted toward sequencing/portfolio framing in rebuttal, not defense. This holds across both triadic (3-agent) and dyadic (2-agent) brackets, confirming that rebuttal revision is structure-independent — it is a property of the three-phase process, not of bracket geometry.
+
+<!-- promoted from T-CPR-2 (tic 40→42). Source: federation-strategic-direction-tournament pressure-report 2026-03-11. 3rd arena confirming rebuttal's structural role, extends CogPR-33. Confidence: 0.85 (reinforced). Band: COGNITIVE. -->

@@ -88,6 +88,8 @@ Timestamps are observational; counted tic progression is canonical.
 
 Never build tic JSON by interpolating raw `.ticzone` file contents directly into shell `printf`. Instead: derive the zone **name** only, serialize one JSON object, append it with a single `O_APPEND` write.
 
+**Script path**: If `cadence-ops.py` is available (via `resolve_script`), call it instead of the inline Python below. It handles tic emission, conformation, and mandate in one invocation. The inline Python is the fallback when the script is unavailable.
+
 ```python
 python3 - <<'PY'
 import json, os, glob
@@ -326,6 +328,8 @@ echo 'export CLAUDE_AUTOCOMPACT_PCT_OVERRIDE=95' >> "$CLAUDE_ENV_FILE"
 This buys headroom. The next session's SessionStart hook will reset it to 80%.
 
 #### Step 2: Emit Tic (lightweight)
+
+**Script path**: If `cadence-ops.py` is available (via `resolve_script`), call it instead of the inline Python below. It handles tic emission, conformation, and mandate in one invocation. The inline Python is the fallback when the script is unavailable.
 
 Same emit/count semantics as downbeat (see "Tic emission semantics" above). Resolve zone root, count physical tics, determine count_mode, append atomically.
 

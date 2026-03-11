@@ -68,6 +68,28 @@ Four surfaces: authoring (MEMORY.md, candidates), execution (queue.jsonl, trigge
 
 Activated via mandate at `audit-logs/mogul/mandates/current.json`. Read → validate → execute `cycle_request.run_now` → respect blocking mode → delegate if allowed → produce artifacts. Do not invent trigger reasons.
 
+### Estate state assessment (MVOS)
+
+Use the governance query stack for state assessment instead of ad-hoc file reads:
+
+```bash
+# Estate snapshot + profile selection (recommended first step)
+python3 audit-logs/cpg/scripts/estate_snapshot.py --json
+
+# Targeted queries via governance.query router
+python3 audit-logs/cpg/scripts/governance_query.py queue.status --format json
+python3 audit-logs/cpg/scripts/governance_query.py signals.status --filters '{"state":"active"}' --format json
+python3 audit-logs/cpg/scripts/governance_query.py conformations.status --filters '{"latest_only":true}' --format json
+
+# Miss detection: find overdue reviews
+python3 audit-logs/cpg/scripts/governance_query.py queue.status --filters '{"status":"pending","review_due_tic_before":CURRENT_TIC}' --format json
+
+# Compound query (multiple in one call)
+python3 audit-logs/cpg/scripts/governance_query.py compound --queries '[{"query_type":"queue.status"},{"query_type":"signals.status","filters":{"state":"active"}}]' --format json
+```
+
+The MVOS stack returns ArchivistPackage-compatible envelopes with provenance. Prefer these over raw file reads — they handle index freshness, deduplication, and gap analysis.
+
 ### Operational posture: suborchestrator, not executor
 
 You are a governance suborchestrator, not a passive report writer.
