@@ -20,6 +20,7 @@ import glob
 import json
 import os
 import re
+import subprocess
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
@@ -204,6 +205,77 @@ def compute_rules_in_force(zone_root: str) -> dict:
     return rules
 
 
+def query_governance_compound(zone_root: str) -> list:
+    """Call governance.query compound for enriched conformation data.
+
+    Uses subprocess to respect repo boundaries — governance_query.py lives
+    in the federation audit-logs, cadence-ops.py lives in the CGG domain.
+    """
+    al = audit_logs_path(zone_root)
+    gq_script = os.path.join(al, "cpg", "scripts", "governance_query.py")
+    if not os.path.isfile(gq_script):
+        return []
+
+    queries = json.dumps([
+        {"query_type": "queue.status"},
+        {"query_type": "signals.status"},
+        {"query_type": "conformations.status"},
+        {"query_type": "estate.snapshot"},
+    ])
+    try:
+        result = subprocess.run(
+            [sys.executable, gq_script, "compound", "--queries", queries, "--format", "json"],
+            capture_output=True, text=True, timeout=30, cwd=zone_root
+        )
+        if result.returncode == 0:
+            return json.loads(result.stdout)
+    except (subprocess.TimeoutExpired, json.JSONDecodeError, OSError):
+        pass
+    return []
+
+
+def extract_governance_enrichment(gq_responses: list) -> dict:
+    """Extract enrichment fields from governance.query compound responses."""
+    enrichment = {}
+    for resp in gq_responses:
+        qt = resp.get("query_type")
+        if qt == "queue.status":
+            counts = resp.get("counts", {})
+            enrichment["queue_terminal_counts"] = {
+                k: counts.get(k, 0)
+                for k in ("promoted", "skipped", "superseded", "total")
+                if k in counts
+            }
+        elif qt == "signals.status":
+            results = resp.get("results", [])
+            active = len([r for r in results if r.get("state") == "active"])
+            resolved = len([r for r in results if r.get("state") == "resolved"])
+            dismissed = len([r for r in results if r.get("state") == "dismissed"])
+            enrichment["manifold_summary"] = {
+                "active": active,
+                "resolved": resolved,
+                "dismissed": dismissed,
+            }
+            enrichment["manifold_state"] = (
+                "CLEAR" if active == 0
+                else "HAZARD" if active > 2
+                else "ACTIVE"
+            )
+        elif qt == "conformations.status":
+            results = resp.get("results", {})
+            enrichment["conformation_coverage"] = {
+                "total": results.get("count", 0),
+                "gaps": results.get("gap_count", 0),
+                "gap_list": results.get("gaps", []),
+            }
+        elif qt == "estate.snapshot":
+            results = resp.get("results", {})
+            sel = results.get("profile_selection", {})
+            enrichment["estate_profile"] = sel.get("profile", "unknown")
+            enrichment["estate_cycles"] = sel.get("cycles", [])
+    return enrichment
+
+
 def write_conformation(zone_root: str, tic_count: int, tic_timestamp: str,
                        posture: str = None) -> dict:
     """Write a conformation snapshot at the current tic boundary."""
@@ -282,6 +354,13 @@ def write_conformation(zone_root: str, tic_count: int, tic_timestamp: str,
     }
     if posture:
         conformation["posture"] = posture
+
+    # Enrichment from governance.query compound (cross-repo subprocess call)
+    gq_responses = query_governance_compound(zone_root)
+    if gq_responses:
+        enrichment = extract_governance_enrichment(gq_responses)
+        if enrichment:
+            conformation["governance_query_enrichment"] = enrichment
 
     # Write conformation file
     conf_dir = os.path.join(al, "conformations")
