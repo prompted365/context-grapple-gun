@@ -180,6 +180,28 @@ Three consecutive unexecuted mandates at tics 13-15 demonstrated the structural 
 
 <!-- promoted from CogPR-26 (tic 16→19). Source: 3 consecutive unexecuted mandates at tics 13, 14, 15. Band: COGNITIVE. -->
 
+## Mogul Mandate Execution Depth Scaling
+
+Mogul mandate execution depth must scale to estate state at mandate creation time. The mandate metadata must include an estate state snapshot (`queue_pending`, `signals_active`, `hazards_open`, `tics_since_last_review`, `tics_since_last_conformation`) so that Mogul can match a run profile at execution time without re-reading the full estate.
+
+Run profiles:
+- **verification** (all-clear): compact receipt, no deep scan
+- **active** (pending CPRs or recent arena output): targeted assessment of pending items
+- **hazard** (open hazards or active signals): full drift check
+- **post-review** (inscription verify only): confirm promoted lessons landed
+
+Running identical full cycles regardless of estate state wastes cognitive resources and inflates run artifact noise. Estate-aware depth is a Mogul mandate behavior constraint only — not a general strategic pivot doctrine and not a claim about all federation bottlenecks.
+
+<!-- promoted from CogPR-47 (tic 32→40). Source: PAT-T32-005 + PAT-T36-003 — 5-instance recurrence (tics 26, 32, 34, 36, 39) + tournament cross-bracket convergence (3 agents, 2 brackets). Operator scope note: estate-aware Mogul mandate depth only. Band: COGNITIVE. -->
+
+## Cadence Downbeat Enforcement
+
+Cadence downbeat must enforce a strict sequence: emit tic event, then write conformation, before the tic counter advances. The tic count hook must count only non-ignored tic events — counting all tic events including `count_mode: "ignored"` produces phantom ticks that desynchronize the tic counter from the conformation history.
+
+12+ missing conformations across governance history trace to this root cause. The downbeat sequence is: (1) emit tic event with `count_mode: "counted"`, (2) write conformation snapshot, (3) advance counter. Any other ordering or omission breaks the tic-conformation invariant.
+
+<!-- promoted from CogPR-43 (tic 27→32). Source: PAT-T31-002 pattern mining + HAZARD-T31-A runtime drift check. 5+ recurrences, 2 consecutive hazards. Band: COGNITIVE. -->
+
 ## Lead Context as Binding Constraint
 
 Lead context accumulation — not advocate turn count — is the binding budget constraint in governed arenas. The lead receives ALL advocate outputs: N advocates × M turns each = N×M messages accumulating in lead context. Advocate budgets are local (bounded per-agent), but lead context is global (accumulates across all agents).
