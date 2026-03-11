@@ -311,7 +311,7 @@ The ripple-assessor runs HEADLESS on next session start (background, non-blockin
 
 ## Mode: Double-Time (emergency syncopate)
 
-When the user invokes `/cadence double-time`, execute the emergency session boundary. Produces a valid handoff in minimal turns. No tick, no conformation, no assessor — just tic + plan.
+When the user invokes `/cadence double-time`, execute the emergency session boundary. Produces a valid handoff in minimal turns. Tic + conformation + plan (no assessor, no mandate).
 
 ### Phase 1: ENG/DIRECT — Operational Writes (Steps 1-2)
 

@@ -467,7 +467,14 @@ fi
 FULL_MSG=""
 [ -n "$CGG_MSG" ] && FULL_MSG="$CGG_MSG"
 [ -n "$SIREN_MSG" ] && FULL_MSG="${FULL_MSG:+$FULL_MSG }$SIREN_MSG"
-[ -n "$MOGUL_MANDATE_MSG" ] && FULL_MSG="${FULL_MSG:+$FULL_MSG }$MOGUL_MANDATE_MSG"
+if [ -n "$MOGUL_MANDATE_MSG" ]; then
+  FULL_MSG="${FULL_MSG:+$FULL_MSG }$MOGUL_MANDATE_MSG"
+  # Tell the orchestrator HOW to consume the mandate
+  MOGUL_RUNNER=$(resolve_script "mogul-runner.sh")
+  if [ -n "$MOGUL_RUNNER" ]; then
+    FULL_MSG="$FULL_MSG [MOGUL CONSUMPTION: Mogul consumes mandates via: bash $MOGUL_RUNNER]"
+  fi
+fi
 [ -n "$PARALLEL_MSG" ] && FULL_MSG="${FULL_MSG:+$FULL_MSG }$PARALLEL_MSG"
 [ "$TIC_COUNT" -gt 0 ] && FULL_MSG="${FULL_MSG:+$FULL_MSG }[TIC: #$TIC_COUNT]"
 

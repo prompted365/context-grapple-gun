@@ -484,12 +484,14 @@ def main():
     tic_count = tic_result["counter_after"]
     tic_timestamp = tic_result["timestamp"]
 
-    # 2. Conformation (skip for syncopate by default)
-    skip_conf = args.skip_conformation
-    if args.mode == "syncopate" and not args.skip_conformation:
-        # Syncopate skips conformation by default unless explicitly kept
-        # (the flag --skip-conformation is still respected for downbeat)
-        skip_conf = True
+    # 2. Conformation — always generated for both downbeat and syncopate.
+    # CogPR-43: the tic-conformation invariant requires every counted tic
+    # to have a corresponding conformation. --skip-conformation is only
+    # honored for syncopate (emergency override); downbeat never skips.
+    if args.mode == "downbeat":
+        skip_conf = False  # CogPR-43: downbeat NEVER skips
+    else:
+        skip_conf = args.skip_conformation  # syncopate: only if explicitly requested
 
     if not skip_conf:
         conf_result = write_conformation(zone_root, tic_count, tic_timestamp, args.posture)
