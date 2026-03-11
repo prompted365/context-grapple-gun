@@ -1,12 +1,14 @@
 #!/bin/bash
-# CGG v5 — UserPromptSubmit gate
+# CGG v6 — UserPromptSubmit gate
 # Two independent branches:
-#   A) Trigger branch: fires ONCE per handoff — runs ripple-assessor, then self-disarms
-#   B) Mandate branch: checks for pending Mogul mandates independent of trigger state
+#   A) Mandate branch: checks for pending Mogul mandates independent of trigger state
+#   B) Trigger branch: fires ONCE per handoff — routes ripple.assessment via trigger-router,
+#      runs ripple-assessor, then self-disarms
 #
-# Assessment strategy (deterministic first, LLM fallback):
-#   1. If ripple-assessor.py exists → run it directly (fast, deterministic)
-#   2. Otherwise → instruct Claude to spawn the ripple-assessor agent (original behavior)
+# Assessment strategy (Phase 4 — trigger-router first, deterministic second, LLM fallback):
+#   1. Route ripple.assessment trigger to ent_ripple_assessor inbox via trigger-router.py
+#   2. If ripple-assessor.py exists → run it directly (fast, deterministic)
+#   3. Otherwise → instruct Claude to spawn the ripple-assessor agent
 #
 # Script resolution order:
 #   1. $ZONE_ROOT/scripts/<name>.py (project override)
@@ -153,6 +155,8 @@ fi
 
 # ============================================================================
 # Branch B: Trigger-based assessor spawn — independent of mandate
+# Phase 4: Routes ripple.assessment via trigger-router, falls back to
+#           flag-file polling for backward compatibility.
 # ============================================================================
 
 HAS_TRIGGER=false
@@ -191,7 +195,92 @@ if [ -f "$TRIGGER_FILE" ]; then
   # Audit trail
   log_meta "{\"timestamp\":\"$TIMESTAMP\",\"action\":\"trigger_fired\",\"handoff_id\":\"$HANDOFF_ID\",\"expected_cprs\":$EXPECTED_CPRS,\"plan_path\":\"$PLAN_PATH\",\"project\":\"$PROJECT_DIR\"}"
 
-  # Try deterministic assessor first
+  # ── Route ripple.assessment via trigger-router (primary path) ──
+  TRIGGER_ROUTER=$(resolve_script "trigger-router.py")
+  INBOX_SCANNER=$(resolve_script "inbox-envelope.py")
+  RIPPLE_ROUTED=false
+
+  # Read current tic count for routing
+  TIC_DIR="$ZONE_ROOT/$AUDIT_LOGS_REL/tics"
+  CURRENT_TIC=0
+  if [ -d "$TIC_DIR" ]; then
+    CURRENT_TIC=$(python3 -c "
+import json, glob
+max_counter = 0
+for f in sorted(glob.glob('$TIC_DIR/*.jsonl')):
+    for line in open(f):
+        try:
+            d = json.loads(line)
+            if d.get('type') != 'tic': continue
+            if d.get('count_mode', 'counted') != 'counted': continue
+            ca = d.get('global_counter_after', d.get('global_counter', 0))
+            if ca > max_counter: max_counter = ca
+        except: pass
+print(max_counter)
+" 2>/dev/null || echo "0")
+  fi
+
+  # Build signal snapshot for the trigger body
+  SIGNAL_SNAPSHOT=$(python3 -c "
+import json, glob
+signals = {}
+for f in sorted(glob.glob('$ZONE_ROOT/$AUDIT_LOGS_REL/signals/*.jsonl')):
+    for line in open(f):
+        try:
+            d = json.loads(line)
+            eid = d.get('id', '')
+            if eid and d.get('type') == 'signal':
+                signals[eid] = d
+        except: pass
+active = [{'id': s['id'], 'volume': s.get('volume',0), 'band': s.get('band','?')}
+          for s in signals.values() if s.get('status') in ('active','acknowledged','working')]
+print(json.dumps(active))
+" 2>/dev/null || echo "[]")
+
+  RIPPLE_BODY_JSON=$(python3 -c "
+import json
+body = {
+    'plan_id': '$PLAN_PATH' if '$PLAN_PATH' else None,
+    'handoff_id': '$HANDOFF_ID' if '$HANDOFF_ID' else None,
+    'active_signals_snapshot': json.loads('$SIGNAL_SNAPSHOT'),
+    'trigger_data': '''$TRIGGER_DATA''',
+    'expected_cprs': $EXPECTED_CPRS,
+}
+print(json.dumps(body))
+" 2>/dev/null)
+
+  if [ -n "$TRIGGER_ROUTER" ] && [ -n "$RIPPLE_BODY_JSON" ]; then
+    ROUTE_RESULT=$(python3 "$TRIGGER_ROUTER" \
+      --zone-root "$ZONE_ROOT" \
+      route \
+      --trigger-type ripple.assessment \
+      --source-event UserPromptSubmit \
+      --producer "cgg-gate.sh" \
+      --source-tic "$CURRENT_TIC" \
+      --subject "Ripple assessment — handoff $HANDOFF_ID" \
+      --body "$RIPPLE_BODY_JSON" \
+      --session-id "$(python3 -c "import uuid; print(uuid.uuid4().hex[:12])" 2>/dev/null)" \
+      2>/dev/null)
+
+    ROUTE_STATUS=$(echo "$ROUTE_RESULT" | python3 -c "import json,sys; print(json.load(sys.stdin).get('status',''))" 2>/dev/null)
+    if [ "$ROUTE_STATUS" = "routed" ]; then
+      RIPPLE_ROUTED=true
+      log_meta "{\"timestamp\":\"$TIMESTAMP\",\"action\":\"ripple_routed_via_trigger_router\",\"handoff_id\":\"$HANDOFF_ID\"}"
+
+      # Read ripple-assessor inbox for injection
+      if [ -n "$INBOX_SCANNER" ]; then
+        RIPPLE_INBOX=$(python3 "$INBOX_SCANNER" \
+          --zone-root "$ZONE_ROOT" \
+          scan \
+          --entity ent_ripple_assessor \
+          --format injection \
+          --current-tic "$CURRENT_TIC" \
+          2>/dev/null)
+      fi
+    fi
+  fi
+
+  # ── Deterministic assessor spawn (runs regardless of routing) ──
   DETERMINISTIC_ASSESSOR=$(resolve_script "ripple-assessor.py")
   if [ -n "$DETERMINISTIC_ASSESSOR" ]; then
     python3 "$DETERMINISTIC_ASSESSOR" \
@@ -201,7 +290,12 @@ if [ -f "$TRIGGER_FILE" ]; then
       2>/dev/null &
 
     log_meta "{\"timestamp\":\"$TIMESTAMP\",\"action\":\"deterministic_assessor_spawned\",\"handoff_id\":\"$HANDOFF_ID\",\"assessor\":\"$DETERMINISTIC_ASSESSOR\"}"
-    ASSESSOR_OUTPUT="[CGG TRIGGER FIRED] Deterministic ripple-assessor running in background. Proposals will appear at ~/.claude/grapple-proposals/latest.md. /review when ready."
+
+    if [ "$RIPPLE_ROUTED" = "true" ] && [ -n "$RIPPLE_INBOX" ]; then
+      ASSESSOR_OUTPUT="[CGG TRIGGER FIRED] $RIPPLE_INBOX Deterministic ripple-assessor running in background. Proposals at ~/.claude/grapple-proposals/latest.md. /review when ready."
+    else
+      ASSESSOR_OUTPUT="[CGG TRIGGER FIRED] Deterministic ripple-assessor running in background. Proposals will appear at ~/.claude/grapple-proposals/latest.md. /review when ready."
+    fi
   else
     # Fall back to LLM agent spawn
     PLAN_REF=""
@@ -210,7 +304,12 @@ if [ -f "$TRIGGER_FILE" ]; then
     else
       PLAN_REF="Plan file: not located (assessor should search for handoff_id: $HANDOFF_ID)"
     fi
-    ASSESSOR_OUTPUT="[CGG TRIGGER FIRED] Spawn ripple-assessor agent (Task tool, subagent_type: ripple-assessor) BEFORE starting user work. $PLAN_REF. Expected CogPR count: $EXPECTED_CPRS. Handoff ID: $HANDOFF_ID. The assessor will read the plan, evaluate pending CogPR flags and active signals, and write proposals to ~/.claude/grapple-proposals/latest.md. Run it in the background so you can proceed with the user's request."
+
+    if [ "$RIPPLE_ROUTED" = "true" ] && [ -n "$RIPPLE_INBOX" ]; then
+      ASSESSOR_OUTPUT="[CGG TRIGGER FIRED] $RIPPLE_INBOX Spawn ripple-assessor agent (Agent tool, subagent_type: ripple-assessor) BEFORE starting user work. $PLAN_REF. Expected CogPR count: $EXPECTED_CPRS. Handoff ID: $HANDOFF_ID. Run it in background."
+    else
+      ASSESSOR_OUTPUT="[CGG TRIGGER FIRED] Spawn ripple-assessor agent (Agent tool, subagent_type: ripple-assessor) BEFORE starting user work. $PLAN_REF. Expected CogPR count: $EXPECTED_CPRS. Handoff ID: $HANDOFF_ID. The assessor will read the plan, evaluate pending CogPR flags and active signals, and write proposals to ~/.claude/grapple-proposals/latest.md. Run it in the background so you can proceed with the user's request."
+    fi
   fi
 fi
 

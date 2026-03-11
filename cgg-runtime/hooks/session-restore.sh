@@ -1,5 +1,5 @@
 #!/bin/bash
-# CGG v4 — SessionStart canonical governance runtime entrypoint
+# CGG v5 — SessionStart canonical governance runtime entrypoint
 #
 # Features:
 # - Zone-root-anchored governance IO (all paths resolve from .ticzone, never cwd)
@@ -10,6 +10,7 @@
 # - Parallel session awareness
 # - CPR extract backfill + enrichment scanner (if scripts exist)
 # - Physical tic count anchoring
+# - Trigger-router integration (Phase 4): mandate routing via inbox delivery
 #
 # Constitutional principles:
 # - Signals do not expire. Only resolved/dismissed are terminal.
@@ -248,15 +249,20 @@ print(max_counter)
 fi
 
 # ============================================================================
-# Overdue cycle detection + Mogul mandate write
+# Overdue cycle detection + Mogul mandate routing (Phase 4: trigger-router)
 # ============================================================================
-# SessionStart writes Mogul mandate for overdue work — it does NOT do Mogul work.
-# The mandate is consumed by first-prompt spawn or next explicit activation.
+# SessionStart computes due cycles and routes a mogul.mandate trigger to
+# Mogul's inbox via trigger-router.py. The trigger-router handles envelope
+# creation, idempotency, dedup, and audit logging.
+#
+# Backward compatibility: current.json is still written as a fallback until
+# inbox routing is validated (remove after 5 clean tics).
 
 MANDATE_DIR="$AUDIT_LOGS/mogul/mandates"
 MANDATE_HISTORY_DIR="$MANDATE_DIR/history"
 MANDATE_FILE="$MANDATE_DIR/current.json"
 MOGUL_MANDATE_MSG=""
+INBOX_INJECTION=""
 
 if [ "$TIC_COUNT" -gt 0 ]; then
   # Compute due cycles via estate_snapshot (MVOS L2) with inline fallback
@@ -309,25 +315,93 @@ print(','.join(set(cycles)))
 " 2>/dev/null)
   fi
 
-  # Use centralized mandate writer (merge-before-write semantics)
-  MANDATE_WRITER=$(resolve_script "mandate-write.py")
-  if [ -n "$MANDATE_WRITER" ] && [ -n "$DUE_CYCLES_CSV" ]; then
-    MANDATE_JSON=$(python3 "$MANDATE_WRITER" \
-      --zone-root "$ZONE_ROOT" \
-      --trigger-kind session_start \
-      --trigger-source "cgg-runtime/hooks/session-restore.sh" \
-      --tic "$TIC_COUNT" \
-      --cycles "$DUE_CYCLES_CSV" \
-      --audit-logs-rel "$AUDIT_LOGS_REL" \
-      2>/dev/null)
+  if [ -n "$DUE_CYCLES_CSV" ]; then
+    # ── Build mandate body JSON ──
+    MANDATE_BODY_JSON=$(python3 -c "
+import json
+from datetime import datetime, timezone
+now = datetime.now(timezone.utc)
+tic = $TIC_COUNT
+cycles = '$DUE_CYCLES_CSV'.split(',')
+body = {
+    'mandate_id': f'tic-{tic}-{now.strftime(\"%Y%m%dT%H%M%S\")}',
+    'tic': tic,
+    'cycle_request': {'run_now': list(set(cycles)), 'reason': f'SessionStart at tic {tic}'},
+    'tic_context': {'current_tic': tic, 'review_due_tic': tic+1,
+        'memory_mining_due_tic': tic+(3-tic%3) if tic%3!=0 else tic+3,
+        'pattern_mining_due_tic': tic+(4-tic%4) if tic%4!=0 else tic+4,
+        'ladder_audit_due_tic': tic+(5-tic%5) if tic%5!=0 else tic+5,
+        'deep_audit_due_tic': tic+(8-tic%8) if tic%8!=0 else tic+8},
+    'estate_profile': 'standard',
+}
+print(json.dumps(body))
+" 2>/dev/null)
 
-    if [ -n "$MANDATE_JSON" ]; then
-      DUE_CYCLES=$(echo "$MANDATE_JSON" | python3 -c "import json,sys; m=json.load(sys.stdin); print(', '.join(m['cycle_request']['run_now']))" 2>/dev/null)
-      MOGUL_MANDATE_MSG="[MOGUL MANDATE: due cycles=$DUE_CYCLES]"
+    # ── Route via trigger-router (primary path) ──
+    TRIGGER_ROUTER=$(resolve_script "trigger-router.py")
+    SESSION_ID=$(python3 -c "import uuid; print(uuid.uuid4().hex[:12])" 2>/dev/null || echo "unknown")
+
+    ROUTED=false
+    if [ -n "$TRIGGER_ROUTER" ] && [ -n "$MANDATE_BODY_JSON" ]; then
+      ROUTE_RESULT=$(python3 "$TRIGGER_ROUTER" \
+        --zone-root "$ZONE_ROOT" \
+        route \
+        --trigger-type mogul.mandate \
+        --source-event SessionStart \
+        --producer "session-restore.sh" \
+        --source-tic "$TIC_COUNT" \
+        --subject "Mogul mandate — tic $TIC_COUNT" \
+        --body "$MANDATE_BODY_JSON" \
+        --session-id "$SESSION_ID" \
+        2>/dev/null)
+
+      ROUTE_STATUS=$(echo "$ROUTE_RESULT" | python3 -c "import json,sys; print(json.load(sys.stdin).get('status',''))" 2>/dev/null)
+      if [ "$ROUTE_STATUS" = "routed" ]; then
+        ROUTED=true
+        DUE_CYCLES=$(echo "$MANDATE_BODY_JSON" | python3 -c "import json,sys; m=json.load(sys.stdin); print(', '.join(m['cycle_request']['run_now']))" 2>/dev/null)
+
+        # ── Inbox scan for prompt injection ──
+        INBOX_SCANNER=$(resolve_script "inbox-envelope.py")
+        if [ -n "$INBOX_SCANNER" ]; then
+          INBOX_INJECTION=$(python3 "$INBOX_SCANNER" \
+            --zone-root "$ZONE_ROOT" \
+            scan \
+            --entity ent_mogul \
+            --format injection \
+            --current-tic "$TIC_COUNT" \
+            2>/dev/null)
+        fi
+
+        # Use inbox injection as mandate message if available, else fallback format
+        if [ -n "$INBOX_INJECTION" ]; then
+          MOGUL_MANDATE_MSG="$INBOX_INJECTION"
+        else
+          MOGUL_MANDATE_MSG="[MOGUL MANDATE: due cycles=$DUE_CYCLES]"
+        fi
+      fi
     fi
-  elif [ -n "$DUE_CYCLES_CSV" ]; then
-    # Fallback: inline mandate write (no centralized writer available)
-    MANDATE_JSON=$(python3 -c "
+
+    # ── Backward-compatible fallback: current.json + history JSONL ──
+    # Always write current.json (consumed by cgg-gate.sh Branch A mandate check).
+    # Remove this fallback block after 5 clean tics of inbox routing.
+    MANDATE_WRITER=$(resolve_script "mandate-write.py")
+    if [ -n "$MANDATE_WRITER" ]; then
+      MANDATE_JSON=$(python3 "$MANDATE_WRITER" \
+        --zone-root "$ZONE_ROOT" \
+        --trigger-kind session_start \
+        --trigger-source "cgg-runtime/hooks/session-restore.sh" \
+        --tic "$TIC_COUNT" \
+        --cycles "$DUE_CYCLES_CSV" \
+        --audit-logs-rel "$AUDIT_LOGS_REL" \
+        2>/dev/null)
+
+      if [ -n "$MANDATE_JSON" ] && [ "$ROUTED" = "false" ]; then
+        DUE_CYCLES=$(echo "$MANDATE_JSON" | python3 -c "import json,sys; m=json.load(sys.stdin); print(', '.join(m['cycle_request']['run_now']))" 2>/dev/null)
+        MOGUL_MANDATE_MSG="[MOGUL MANDATE: due cycles=$DUE_CYCLES]"
+      fi
+    else
+      # Inline fallback: build mandate JSON and write current.json + history
+      MANDATE_JSON=$(python3 -c "
 import json
 from datetime import datetime, timezone
 now = datetime.now(timezone.utc)
@@ -353,20 +427,21 @@ mandate = {
 print(json.dumps(mandate, indent=2))
 " 2>/dev/null)
 
-    if [ -n "$MANDATE_JSON" ]; then
-      mkdir -p "$MANDATE_DIR" "$MANDATE_HISTORY_DIR"
-      # current.json: pretty-printed (standalone, human-readable)
-      echo "$MANDATE_JSON" > "$MANDATE_FILE"
-      # history JSONL: compact single-line (JSONL invariant — one JSON object per line)
-      MANDATE_COMPACT=$(echo "$MANDATE_JSON" | python3 -c "import json,sys; print(json.dumps(json.load(sys.stdin), separators=(',',':')))" 2>/dev/null)
-      TODAY=$(date +%Y-%m-%d)
-      if [ -n "$MANDATE_COMPACT" ] && type atomic_append &>/dev/null; then
-        atomic_append "$MANDATE_HISTORY_DIR/$TODAY.jsonl" "$MANDATE_COMPACT"
-      elif [ -n "$MANDATE_COMPACT" ]; then
-        printf '%s\n' "$MANDATE_COMPACT" >> "$MANDATE_HISTORY_DIR/$TODAY.jsonl"
+      if [ -n "$MANDATE_JSON" ]; then
+        mkdir -p "$MANDATE_DIR" "$MANDATE_HISTORY_DIR"
+        echo "$MANDATE_JSON" > "$MANDATE_FILE"
+        MANDATE_COMPACT=$(echo "$MANDATE_JSON" | python3 -c "import json,sys; print(json.dumps(json.load(sys.stdin), separators=(',',':')))" 2>/dev/null)
+        TODAY=$(date +%Y-%m-%d)
+        if [ -n "$MANDATE_COMPACT" ] && type atomic_append &>/dev/null; then
+          atomic_append "$MANDATE_HISTORY_DIR/$TODAY.jsonl" "$MANDATE_COMPACT"
+        elif [ -n "$MANDATE_COMPACT" ]; then
+          printf '%s\n' "$MANDATE_COMPACT" >> "$MANDATE_HISTORY_DIR/$TODAY.jsonl"
+        fi
+        if [ "$ROUTED" = "false" ]; then
+          DUE_CYCLES=$(echo "$MANDATE_JSON" | python3 -c "import json,sys; m=json.load(sys.stdin); print(', '.join(m['cycle_request']['run_now']))" 2>/dev/null)
+          MOGUL_MANDATE_MSG="[MOGUL MANDATE: due cycles=$DUE_CYCLES]"
+        fi
       fi
-      DUE_CYCLES=$(echo "$MANDATE_JSON" | python3 -c "import json,sys; m=json.load(sys.stdin); print(', '.join(m['cycle_request']['run_now']))" 2>/dev/null)
-      MOGUL_MANDATE_MSG="[MOGUL MANDATE: due cycles=$DUE_CYCLES]"
     fi
   fi
 fi
@@ -468,7 +543,9 @@ FULL_MSG=""
 [ -n "$CGG_MSG" ] && FULL_MSG="$CGG_MSG"
 [ -n "$SIREN_MSG" ] && FULL_MSG="${FULL_MSG:+$FULL_MSG }$SIREN_MSG"
 if [ -n "$MOGUL_MANDATE_MSG" ]; then
-  FULL_MSG="${FULL_MSG:+$FULL_MSG }$MOGUL_MANDATE_MSG"
+  # Inbox injection may be multi-line — flatten for JSON embedding
+  MANDATE_FLAT=$(echo "$MOGUL_MANDATE_MSG" | tr '\n' ' ' | sed 's/  */ /g')
+  FULL_MSG="${FULL_MSG:+$FULL_MSG }$MANDATE_FLAT"
   # Tell the orchestrator HOW to consume the mandate
   MOGUL_RUNNER=$(resolve_script "mogul-runner.sh")
   if [ -n "$MOGUL_RUNNER" ]; then
