@@ -25,6 +25,25 @@ If it exists AND its `Handoff ID` matches a recent session's handoff:
 
 If proposals don't exist or are stale, proceed to inline scanning.
 
+### 1.5. Governance Query Pre-Check
+
+Before scanning files manually, run a compound governance query to get a structured summary of current pipeline state. This sets expectations for what the detailed scan should find.
+
+```bash
+python3 audit-logs/cpg/scripts/governance_query.py compound \
+  --queries '[{"query_type":"queue.status","filters":{"status":"pending"}},{"query_type":"signals.status","filters":{"state":"active"}},{"query_type":"conformations.status","filters":{"latest_only":true}}]' \
+  --format json
+```
+
+From the response, extract:
+- **Queue**: `counts.pending` — how many pending CogPRs to expect in the scan
+- **Signals**: count of active signals/warrants — pre-populates Section A and B expectations
+- **Conformation**: latest conformation content — current estate posture and manifold state
+
+If the governance query returns `queue.pending == 0` AND `signals.active == 0`, the docket will be empty (Sections A-C all clear). Report this to the operator and skip to Step 9 unless the operator wants to proceed with a maintenance review.
+
+Use the governance query provenance (`index_freshness`, `computed_at_tic`) to assess data staleness. If `index_freshness == "stale"`, note this in the docket header.
+
 ### 2. Scan for Pending CogPR Flags
 
 Search for `<!-- --agnostic-candidate -->` blocks with `status: "pending"` in governance files only:
@@ -264,6 +283,9 @@ After applying all approved actions, verify constitutional changes landed cohere
 **Cross-checks:**
 - No duplicate queue entries for the same CogPR (same lesson hash at same scope)
 - No contradictory post-review states (promoted in queue but missing from target, or rejected but still showing as pending)
+
+**Post-review governance query verification:**
+Run `governance_query.py queue.status --format json` after all verdicts are applied. Compare `counts.pending` against expected post-review count (original pending minus promoted minus skipped). If mismatch, report as consistency failure.
 
 **Output:** Report the consistency result explicitly:
 ```
