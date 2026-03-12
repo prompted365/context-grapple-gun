@@ -360,7 +360,7 @@ print(json.dumps(body))
         ROUTED=true
         DUE_CYCLES=$(echo "$MANDATE_BODY_JSON" | python3 -c "import json,sys; m=json.load(sys.stdin); print(', '.join(m['cycle_request']['run_now']))" 2>/dev/null)
 
-        # ── Inbox scan for prompt injection ──
+        # ── Inbox scan for prompt injection + attention-debt (Phase 5) ──
         INBOX_SCANNER=$(resolve_script "inbox-envelope.py")
         if [ -n "$INBOX_SCANNER" ]; then
           INBOX_INJECTION=$(python3 "$INBOX_SCANNER" \
@@ -370,6 +370,14 @@ print(json.dumps(body))
             --format injection \
             --current-tic "$TIC_COUNT" \
             2>/dev/null)
+
+          # Phase 5: Emit attention-debt signals for all stale inbox items
+          python3 "$INBOX_SCANNER" \
+            --zone-root "$ZONE_ROOT" \
+            stale-check \
+            --current-tic "$TIC_COUNT" \
+            --emit-signals \
+            > /dev/null 2>&1 || true
         fi
 
         # Use inbox injection as mandate message if available, else fallback format

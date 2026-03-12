@@ -68,6 +68,8 @@ flowchart TB
 | `skills/cadence/SKILL.md` | Unified epoch boundary — downbeat (default) or double-time (emergency syncopate) |
 | `skills/review/SKILL.md` | Unified CogPR + Warrant docket reviewer |
 | `skills/siren/SKILL.md` | Signal emission + triage dashboard |
+| `skills/governance-mandate-cycle/SKILL.md` | Mogul mandate execution — spawns team for pattern mining + ladder audit + drift check |
+| `skills/governance-check/SKILL.md` | Compact governance status dashboard — `/loop` target for continuous monitoring |
 | `skills/cadence-downbeat/SKILL.md` | [LEGACY] Redirects to `/cadence` |
 | `skills/cadence-syncopate/SKILL.md` | [LEGACY] Redirects to `/cadence double-time` |
 | `skills/grapple/SKILL.md` | [LEGACY] Redirects to `/review` |

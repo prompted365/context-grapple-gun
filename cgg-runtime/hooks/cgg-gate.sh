@@ -276,6 +276,14 @@ print(json.dumps(body))
           --format injection \
           --current-tic "$CURRENT_TIC" \
           2>/dev/null)
+
+        # Phase 5: Emit attention-debt signals for stale inbox items
+        python3 "$INBOX_SCANNER" \
+          --zone-root "$ZONE_ROOT" \
+          stale-check \
+          --current-tic "$CURRENT_TIC" \
+          --emit-signals \
+          > /dev/null 2>&1 || true
       fi
     fi
   fi

@@ -8,8 +8,11 @@ Responsibilities:
   validate, normalize, dedupe, write atomically, initialize lifecycle fields,
   emit receipt skeleton when required.
 
-Does NOT: routing decisions, threshold evaluation, attention-debt emission,
-hook rewiring, manifest interpretation beyond schema lookup.
+Does NOT: routing decisions, manifest interpretation beyond schema lookup,
+hook rewiring.
+
+Phase 5 additions: attention-debt signal emission (detect_stale -> emit_attention_debt_signals),
+stale-check CLI command (scans all entity inboxes), scan_all_inboxes helper.
 
 Filename shape:
   WAIT_<priority>_<trigger-type>_t<tic>_<short-id>.json
@@ -666,6 +669,84 @@ def detect_stale(inbox_path: str, current_tic: int,
 
 
 # ─────────────────────────────────────────────
+# Attention-Debt Signal Emission (Phase 5)
+# ─────────────────────────────────────────────
+
+def emit_attention_debt_signals(zone_root: str, entity_id: str,
+                                stale_items: list, current_tic: int) -> list:
+    """Emit attention-debt signals to audit-logs/signals/ for stale inbox items.
+
+    Each stale item becomes one signal entry in YYYY-MM-DD.jsonl.
+    Idempotent: signal IDs are deterministic (entity + message_id + state).
+    Returns list of emitted signal dicts.
+    """
+    if not stale_items:
+        return []
+
+    tz = load_ticzone(zone_root)
+    signal_dir = os.path.join(audit_logs_path(zone_root, tz), "signals")
+    os.makedirs(signal_dir, exist_ok=True)
+
+    today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    signal_file = os.path.join(signal_dir, f"{today}.jsonl")
+    now = datetime.now(timezone.utc).isoformat()
+
+    emitted = []
+    for item in stale_items:
+        msg_id = item["message_id"]
+        state = item["state"]
+        signal = {
+            "id": f"sig_inbox_{entity_id}_{msg_id}_{state.lower()}",
+            "type": "signal",
+            "status": "active",
+            "band": item.get("signal_band", "COGNITIVE"),
+            "volume": item.get("volume", 40),
+            "source": "inbox_attention_debt",
+            "target_entity": entity_id,
+            "tic": current_tic,
+            "payload": {
+                "inbox_entity": entity_id,
+                "message_id": msg_id,
+                "current_state": state,
+                "stale_since_tic": item.get("stale_since_tic"),
+                "tics_in_state": item.get("tics_in_state"),
+                "subject": item.get("subject", ""),
+                "signal_kind": item.get("signal_kind", "TENSION"),
+            },
+            "reason": item.get("reason", ""),
+            "created_at": now,
+        }
+        try:
+            from lib.atomic_append import atomic_append_jsonl
+            atomic_append_jsonl(signal_file, signal)
+        except ImportError:
+            with open(signal_file, "a", encoding="utf-8") as f:
+                f.write(json.dumps(signal, separators=(",", ":")) + "\n")
+        emitted.append(signal)
+
+    return emitted
+
+
+def scan_all_inboxes(audit_root: str, current_tic: int,
+                     thresholds: dict | None = None) -> dict:
+    """Scan all entity inboxes for stale items. Returns {entity_id: [stale_items]}."""
+    mailbox_dir = os.path.join(audit_root, "agent-mailboxes")
+    if not os.path.isdir(mailbox_dir):
+        return {}
+    results = {}
+    for entity_dir in sorted(os.listdir(mailbox_dir)):
+        if not entity_dir.startswith("ent_"):
+            continue
+        ibox = os.path.join(mailbox_dir, entity_dir)
+        if not os.path.isdir(ibox):
+            continue
+        stale = detect_stale(ibox, current_tic, thresholds)
+        if stale:
+            results[entity_dir] = stale
+    return results
+
+
+# ─────────────────────────────────────────────
 # Receipts & Events
 # ─────────────────────────────────────────────
 
@@ -810,6 +891,36 @@ def cmd_scan(args):
         print(json.dumps(result, indent=2))
 
 
+def cmd_stale_check(args):
+    """Scan all entity inboxes for stale items and emit attention-debt signals."""
+    zr, ar, _, _ = _resolve(args)
+    if not args.current_tic:
+        print(json.dumps({"status": "error", "reason": "--current-tic required"}))
+        sys.exit(1)
+
+    all_stale = scan_all_inboxes(ar, args.current_tic)
+    total_emitted = 0
+
+    if args.emit_signals:
+        for entity_id, items in all_stale.items():
+            emitted = emit_attention_debt_signals(zr, entity_id, items, args.current_tic)
+            total_emitted += len(emitted)
+
+    # Summary
+    summary = {
+        "status": "ok",
+        "tic": args.current_tic,
+        "entities_checked": len(all_stale) if all_stale else 0,
+        "total_stale": sum(len(v) for v in all_stale.values()),
+        "signals_emitted": total_emitted,
+        "details": {eid: [{"message_id": s["message_id"], "state": s["state"],
+                           "tics_in_state": s["tics_in_state"], "subject": s["subject"]}
+                          for s in items]
+                    for eid, items in all_stale.items()},
+    }
+    print(json.dumps(summary, indent=2))
+
+
 def main():
     p = argparse.ArgumentParser(description="Inbox envelope handler")
     p.add_argument("--zone-root", default=None)
@@ -878,6 +989,13 @@ def main():
     g.add_argument("--format", default="json", choices=["json", "injection"])
     g.add_argument("--current-tic", type=int, default=None)
     g.set_defaults(func=cmd_scan)
+
+    # stale-check
+    h = sub.add_parser("stale-check")
+    h.add_argument("--current-tic", type=int, required=True)
+    h.add_argument("--emit-signals", action="store_true", default=False,
+                   help="Emit attention-debt signals for stale items")
+    h.set_defaults(func=cmd_stale_check)
 
     args = p.parse_args()
     args.func(args)

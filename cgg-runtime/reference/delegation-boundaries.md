@@ -2,7 +2,7 @@
 
 ## Valid subordinate roles
 
-- ripple assessor
+- ripple assessor (runtime drift)
 - scope resolver
 - ladder auditor
 - prompt-stack auditor
@@ -10,49 +10,57 @@
 - repo-map assessor
 - manifestation evidence gatherer
 - deliverable workstream coordinators
+- pattern curator (meta)
+- pattern curator (direct)
+
+## Single team topology (mandate cycle)
+
+All mandate workers run in one team: `mandate-pattern-triangulation`. No nested teams. No standalone subagents while the team is active.
+
+```
+Team: mandate-pattern-triangulation
+Lead: Mogul
+Teammate 1: ladder-auditor
+Teammate 2: ripple-assessor (runtime drift)
+Teammate 3: pattern-curator-meta
+Teammate 4: pattern-curator-direct
+```
+
+Platform guardrail: one team per session per lead.
+
+## Task graph
+
+T1-T4 run in parallel. T5-T8 depend on discovery completion. T9-T10 depend on elimination. T11-T12 are lead synthesis. See mogul.md Section B for full graph.
 
 ## Delegation mode
 
-- Choose the orchestration form that fits the governance surface structure (see mandate-protocol.md orchestration ladder)
-- Use blocking execution for gate-critical, sequence-dependent work
-- Use nonblocking execution for maintenance follow-through, background enrichment, scanning
-- Load skills headlessly for sniper-clean tasks — often the most efficient path
-- Resume bounded subagents when continuity across sessions matters
-- Use agent teams only when the task structurally benefits from independent worker coordination
 - Delegated outputs are evidence, not verdicts
 - Mogul remains the synthesizing authority for the run
+- Use the task graph dependency structure for sequencing
+- For non-mandate work (deliverable teams, standalone assessments): use standard subagent dispatch
 
 ## Findings-broadcast cross-check
 
-When running parallel subordinate agents (ripple assessor, pattern curator, ladder auditor), add a synthesis step after all return:
+For adversarial pattern mining: cross-elimination verdicts (NOVEL/DUPLICATE/PARTIAL_OVERLAP) are the primary cross-check. Ladder and drift commentary on survivors is the secondary cross-check. Only candidates surviving both gates advance.
 
-1. Collect all subordinate findings
-2. For each pair of subordinates that ran in parallel, check for:
-   - Contradictions (one finding negates another)
-   - Reinforcements (independent evidence for the same pattern)
-   - Blind spots (surface one agent examined that another's findings depend on but didn't read)
-3. Produce a brief contradictions report if any found
-4. Use contradictions as signal candidates — genuine disagreement between independent evidence-gatherers is high-value governance signal
+For ladder/drift findings: check for contradictions/reinforcements between findings and surviving pattern candidates during Mogul synthesis.
 
 ## Ripple Assessor boundary
 
-- Delegate only bounded assessment work
+- First-pass runtime drift audit (T2) + commentary on surviving candidates (T10)
 - Preserve Mogul responsibility for synthesis
 - Do not collapse Mogul into Ripple Assessor
-- If a task implicates runtime drift, prompt-stack interference, actor-boundary conflict, multi-rung ladder coherence, or estate-wide ops routing, keep it at Mogul level
+- If a task implicates prompt-stack interference, actor-boundary conflict, multi-rung ladder coherence, or estate-wide ops routing, keep it at Mogul level
 
 ## Pattern Curator boundary
 
-- Delegate bounded mining tasks: scan specific authoring surfaces for pattern evidence
-- Pattern Curator returns findings packets (candidate seeds, hazard findings, ops routing recommendations)
-- Mogul synthesizes findings into governance actions
-- If Pattern Curator returns findings that imply deliverable-team routing, estate-wide orchestration, or ladder coherence audit, handle them at Mogul level
-- Pattern Curator is read-only — it never writes to governance surfaces
+- Blind discovery → submission → elimination → await commentary
+- Pattern curators are read-only — they never write to governance surfaces
+- The blindness rule is a hard constraint: no own-category rationale before first-pass
+- Mogul synthesizes findings; curators produce evidence only
 
 ## Ladder Auditor boundary
 
-- Delegate bounded coherence audit tasks: scan CLAUDE.md chain for structural issues
-- Ladder Auditor returns audit packets with per-rule classifications (coherent, strained, overbroad, under_abstracted, demotion_pressure)
-- Mogul synthesizes audit findings into review staging material or ops routing decisions
-- If Ladder Auditor returns findings that imply estate-wide restructuring or constitutional amendments, handle them at Mogul level
+- First-pass coherence audit (T1) + commentary on surviving candidates (T9)
 - Ladder Auditor is read-only — it never modifies governance surfaces
+- If audit findings imply estate-wide restructuring or constitutional amendments, handle at Mogul level
