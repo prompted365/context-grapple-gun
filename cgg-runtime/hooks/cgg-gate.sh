@@ -139,8 +139,83 @@ except: print('error|||')
         MANDATE_OUTPUT="[MOGUL MANDATE PENDING] Heavy governance cycles due: $HEAVY_CYCLES. Spawn Mogul agent (Task tool, subagent_type: mogul, run_in_background: true) to execute mandated cycles. Mandate at: $MANDATE_FILE. Mandate ID: $MANDATE_ID. Non-blocking."
       fi
     elif [ -n "$ALL_CYCLES" ]; then
-      # Lightweight cycles only — surface but don't spawn
-      MANDATE_OUTPUT="[MOGUL MANDATE: lightweight] Pending cycles: $ALL_CYCLES (no heavy work — no spawn needed)."
+      # Lightweight cycles — execute inline and consume
+      LIGHTWEIGHT_RESULTS=""
+      LIGHTWEIGHT_FAILED=""
+
+      # Execute each lightweight cycle
+      IFS=',' read -ra LW_CYCLES <<< "$ALL_CYCLES"
+      for cycle in "${LW_CYCLES[@]}"; do
+        case "$cycle" in
+          queue_refresh)
+            # Re-index CPR queue
+            QUEUE_FILE="$ZONE_ROOT/$AUDIT_LOGS_REL/cprs/queue.jsonl"
+            if [ -f "$QUEUE_FILE" ]; then
+              PENDING=$(python3 -c "
+import json
+seen = {}
+for line in open('$QUEUE_FILE'):
+    line = line.strip()
+    if not line: continue
+    try:
+        e = json.loads(line)
+        seen[e.get('id','')] = e
+    except: pass
+pending = [v for v in seen.values() if v.get('review_verdict','') == '' and v.get('status','') not in ('promoted','skipped','absorbed','rejected')]
+print(len(pending))
+" 2>/dev/null)
+              LIGHTWEIGHT_RESULTS="${LIGHTWEIGHT_RESULTS}queue_refresh=${PENDING:-0}_pending,"
+            else
+              LIGHTWEIGHT_RESULTS="${LIGHTWEIGHT_RESULTS}queue_refresh=no_queue,"
+            fi
+            ;;
+          signal_scan)
+            # Count active signals
+            SIGNAL_DIR="$ZONE_ROOT/$AUDIT_LOGS_REL/signals"
+            if [ -d "$SIGNAL_DIR" ]; then
+              ACTIVE_SIGS=$(python3 -c "
+import json, glob, os
+seen = {}
+for f in sorted(glob.glob(os.path.join('$SIGNAL_DIR', '*.jsonl'))):
+    for line in open(f):
+        line = line.strip()
+        if not line: continue
+        try:
+            e = json.loads(line)
+            seen[e.get('id','')] = e
+        except: pass
+active = [v for v in seen.values() if v.get('status','active') == 'active' and v.get('type','') == 'signal']
+print(len(active))
+" 2>/dev/null)
+              LIGHTWEIGHT_RESULTS="${LIGHTWEIGHT_RESULTS}signal_scan=${ACTIVE_SIGS:-0}_active,"
+            else
+              LIGHTWEIGHT_RESULTS="${LIGHTWEIGHT_RESULTS}signal_scan=no_signals,"
+            fi
+            ;;
+          *)
+            LIGHTWEIGHT_RESULTS="${LIGHTWEIGHT_RESULTS}${cycle}=skipped,"
+            ;;
+        esac
+      done
+
+      # Consume the mandate
+      python3 -c "
+import json
+from datetime import datetime, timezone
+m = json.load(open('$MANDATE_FILE'))
+m['status'] = 'consumed'
+m['completed_at'] = datetime.now(timezone.utc).isoformat()
+m['lightweight_results'] = '${LIGHTWEIGHT_RESULTS}'.rstrip(',')
+json.dump(m, open('$MANDATE_FILE', 'w'), indent=2)
+" 2>/dev/null
+
+      if [ $? -eq 0 ]; then
+        log_meta "{\"timestamp\":\"$TIMESTAMP\",\"action\":\"lightweight_mandate_consumed\",\"mandate_id\":\"$MANDATE_ID\",\"cycles\":\"$ALL_CYCLES\",\"results\":\"${LIGHTWEIGHT_RESULTS}\"}"
+        MANDATE_OUTPUT="[MOGUL MANDATE: consumed] Lightweight cycles completed inline: ${LIGHTWEIGHT_RESULTS%,}."
+      else
+        log_meta "{\"timestamp\":\"$TIMESTAMP\",\"action\":\"lightweight_mandate_consumption_failed\",\"mandate_id\":\"$MANDATE_ID\",\"cycles\":\"$ALL_CYCLES\"}"
+        MANDATE_OUTPUT="[MOGUL MANDATE: lightweight] Pending cycles: $ALL_CYCLES (inline consumption failed — needs investigation)."
+      fi
     fi
   elif [ "$MANDATE_STATUS" = "running" ]; then
     MANDATE_OUTPUT="[MOGUL MANDATE: in-flight] Mandate $MANDATE_ID still running (cycles: $ALL_CYCLES)."

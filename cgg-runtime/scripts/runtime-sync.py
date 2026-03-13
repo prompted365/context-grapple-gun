@@ -58,6 +58,12 @@ INSTALL_TARGETS = {
         "pattern": "*.sh",
         "type": "SCRIPT_CODE",
     },
+    "scripts": {
+        "canonical_subdir": "scripts",
+        "installed_subdir": ".claude/cgg-runtime/scripts",
+        "pattern": "*.py",
+        "type": "SCRIPT_CODE",
+    },
 }
 
 # Files that should NOT be synced (internal to canonical, not installable)
@@ -130,6 +136,62 @@ def discover_surfaces(plugin_root, zone_root):
                     name = entry.replace(".sh", "")
                     surfaces.append({
                         "name": f"hook:{name}",
+                        "canonical": canonical_path,
+                        "installed": installed,
+                        "type": spec["type"],
+                        "category": category,
+                    })
+        elif category == "scripts":
+            # Scripts: each .py file in scripts/ (flat, not nested)
+            for entry in sorted(os.listdir(canonical_dir)):
+                if entry.endswith(".py"):
+                    canonical_path = os.path.join(canonical_dir, entry)
+                    rel_key = f"{spec['canonical_subdir']}/{entry}"
+                    if rel_key in SYNC_EXCLUDE:
+                        continue
+                    installed = os.path.join(
+                        home_dir, spec["installed_subdir"], entry
+                    )
+                    name = entry.replace(".py", "")
+                    surfaces.append({
+                        "name": f"script:{name}",
+                        "canonical": canonical_path,
+                        "installed": installed,
+                        "type": spec["type"],
+                        "category": category,
+                    })
+            # Also sync .sh scripts (mogul-runner.sh, etc.)
+            for entry in sorted(os.listdir(canonical_dir)):
+                if entry.endswith(".sh"):
+                    canonical_path = os.path.join(canonical_dir, entry)
+                    rel_key = f"{spec['canonical_subdir']}/{entry}"
+                    if rel_key in SYNC_EXCLUDE:
+                        continue
+                    installed = os.path.join(
+                        home_dir, spec["installed_subdir"], entry
+                    )
+                    name = entry.replace(".sh", "")
+                    surfaces.append({
+                        "name": f"script:{name}",
+                        "canonical": canonical_path,
+                        "installed": installed,
+                        "type": spec["type"],
+                        "category": category,
+                    })
+            # Sync lib/ subdirectory contents
+            lib_dir = os.path.join(canonical_dir, "lib")
+            if os.path.isdir(lib_dir):
+                for entry in sorted(os.listdir(lib_dir)):
+                    if entry.startswith("__"):
+                        continue  # skip __pycache__
+                    canonical_path = os.path.join(lib_dir, entry)
+                    if not os.path.isfile(canonical_path):
+                        continue
+                    installed = os.path.join(
+                        home_dir, spec["installed_subdir"], "lib", entry
+                    )
+                    surfaces.append({
+                        "name": f"script:lib/{entry}",
                         "canonical": canonical_path,
                         "installed": installed,
                         "type": spec["type"],
