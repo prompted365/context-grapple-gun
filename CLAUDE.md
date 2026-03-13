@@ -132,6 +132,16 @@ All JSONL append-only files (`audit-logs/**/*.jsonl`) must use atomic append to 
 
 <!-- promoted from CogPR-8 (tic 4→5). Band: PRIMITIVE. Source: audit-logs/mogul/mandates/history/2026-03-08.jsonl corruption incident. -->
 
+## Missing Import Cascade Guard (PRIMITIVE)
+
+When removing or refactoring code that exports hooks (especially R3F/Three.js hooks like `useFrame`, `useThree`, custom hooks), verify that all import sites are updated. `tsc --noEmit` does NOT catch removed-code imports that were tree-shaken — the build succeeds but the runtime loses WebGL context silently.
+
+**Required check**: After any hook/export removal, grep for the removed export name across all consuming files. Do not rely on tsc alone.
+
+**Failure mode**: Orphaned hook import → silent WebGL context loss → black canvas with no error. Observed at tic 60.
+
+<!-- promoted from CogPR-49 (tic 60→71). Band: PRIMITIVE. Source: operator-observation — removed hook left orphaned import, tsc passed, runtime WebGL context lost silently. -->
+
 ## Review Execution Delegation
 
 After `/review` docket is approved, dispatch execution to a `review-execute` subordinate agent — never execute promotions inline in the interactive path.
@@ -193,6 +203,31 @@ Run profiles:
 Running identical full cycles regardless of estate state wastes cognitive resources and inflates run artifact noise. Estate-aware depth is a Mogul mandate behavior constraint only — not a general strategic pivot doctrine and not a claim about all federation bottlenecks.
 
 <!-- promoted from CogPR-47 (tic 32→40). Source: PAT-T32-005 + PAT-T36-003 — 5-instance recurrence (tics 26, 32, 34, 36, 39) + tournament cross-bracket convergence (3 agents, 2 brackets). Operator scope note: estate-aware Mogul mandate depth only. Band: COGNITIVE. -->
+
+## Mandate Lifecycle Defects
+
+Mandate lifecycle has three structural defects that refine the Mandate Consumption Discipline (CogPR-26) and Mandate Execution Depth Scaling (CogPR-47):
+
+1. **session-restore.sh overwrites without check** — always writes `current.json` without checking existing pending mandates. Lightweight mandates accumulate as durable obligations.
+2. **SessionStart recomputes instead of reconciling** — recomputes cadence from tic modulo instead of reconciling with previous mandate `tic_context`. Creates mandate duplication on session restore.
+3. **No concurrency guard on inline Mogul spawn** — the review skill can inline-spawn Mogul without checking whether a loop-backed Mogul is already active.
+
+**Fix sequence**: ephemeral mandate consumption in cgg-gate → de-inline review Mogul spawn → collapse SessionStart into restore/reconcile.
+
+<!-- promoted from CogPR-57 (tic 75→80). Source: external-audit-verified. Refines CogPR-26 (mandate consumption) and CogPR-47 (mandate depth scaling). Band: COGNITIVE. -->
+
+## Promotion Scope Discipline
+
+Promotion decision is two decisions, not one: (1) is the content valid? (2) what class of doctrine does it belong to? Scope reconciliation must happen before promotion — batch promotion from census evidence is especially prone to scope collapse.
+
+Doctrine class taxonomy:
+- **CLAUDE.md** = active implementation doctrine (constraints that shape agent behavior)
+- **Memory files** = born truth, structural design, architectural read (reference material, not law)
+- **Risk map** = performance hazard doctrine (operational guardrails)
+
+**Failure mode**: Foreground review without scope reconciliation against Mogul analysis caused 5 of 6 CogPRs routed to wrong target at tic 75.
+
+<!-- promoted from CogPR-58 (tic 75→80). Source: operator-correction. Reinforced tier. Band: COGNITIVE. -->
 
 ## Cadence Downbeat Enforcement
 
