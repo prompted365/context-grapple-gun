@@ -73,48 +73,15 @@ See [docs/TERMINOLOGY.md](docs/TERMINOLOGY.md) for the full glossary with neutra
 
 ## Install
 
-### Option A: npm (fastest)
-
 ```bash
 npx context-grapple-gun install
 ```
 
-Done. The CLI clones CGG, registers the plugin, and sets up your governance zone. It asks for install mode and scope, then handles everything.
+Done. The CLI checks prerequisites, clones CGG, registers the plugin, and sets up your governance zone. After install, you have `/cadence`, `/review`, `/siren`, and the full governance pipeline.
 
-**Prerequisites:** Node.js 18+, `claude` CLI >= 2.1.63, `git`, `python3`. The installer checks for all of these and tells you what's missing.
+**Verify it worked:** `cgg doctor`
 
-**After install, you have:** `/cadence`, `/review`, `/siren`, and the full governance pipeline.
-
-**Verify it worked:** Run `cgg doctor` to check your installation. It confirms hooks are registered, skills are available, and your governance zone is set up correctly. If anything is missing, it tells you what to fix.
-
-### Option B: Plugin install (manual)
-
-```bash
-git submodule add https://github.com/prompted365/context-grapple-gun.git vendor/context-grapple-gun
-claude plugin install vendor/context-grapple-gun
-```
-
-Same result as npm, but you control the clone location.
-
-### Option C: Global install (for power users)
-
-```bash
-npm install -g context-grapple-gun
-cgg install
-```
-
-Gives you the `cgg` command everywhere — `cgg doctor`, `cgg sync`, `cgg install`.
-
----
-
-**What gets created locally** (regardless of install method):
-- `.ticzone` — your project's governance boundary
-- `.ticignore` — exclusion filter for governance scans
-- `audit-logs/` — signals, tics, conformations, CogPR queue
-
-**Runtime surfaces** default to `~/.claude/...` (user/global). Project-local scope is opt-in.
-
-See [INSTALL.md](INSTALL.md) for install modes, scopes, bootstrap prompt, and manual setup.
+See [INSTALL.md](INSTALL.md) for all options (plugin install, global CLI, bootstrap prompt, manual setup, install modes and scopes).
 
 ---
 

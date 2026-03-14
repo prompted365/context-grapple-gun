@@ -241,15 +241,7 @@ Default governance scope remains project-local unless promoted through the ladde
 
 ## Installation
 
-**Fastest:** `npx context-grapple-gun install` — checks prerequisites, clones, registers the plugin.
-
-**Manual:** `git submodule add ... && claude plugin install ...` — see [INSTALL.md](INSTALL.md).
-
-**Global CLI:** `npm install -g context-grapple-gun` — gives you `cgg install`, `cgg doctor`, `cgg sync` everywhere.
-
-Default runtime scope is **user/global** (`~/.claude/...`). Project-local runtime scope is opt-in only. See [INSTALL.md](INSTALL.md) for all paths, modes, and scopes.
-
-For Claude Desktop or Claude for Work, copy `cogpr/claude-desktop/project-instructions.md` into your project's custom instructions. You get the convention layer but not the automated pipeline.
+`npx context-grapple-gun install` — see [INSTALL.md](INSTALL.md) for all options, modes, and scopes.
 
 ## Daily workflow
 
@@ -318,6 +310,76 @@ Three numbers tell you whether CGG is compounding:
 3. **Promotion ROI** -- how often a promoted rule prevents a future incident. A promoted rule that never fires again has infinite ROI.
 
 See [ARCHITECTURE.md](ARCHITECTURE.md#measuring-cggs-impact) for the full measurement rationale.
+
+## Constitutional learning loops
+
+A constitutional governance loop wraps the entire system: experience generates proposals, proposals require human review, review produces promotion or rejection, and the operating constitution updates accordingly. Humans author law. Agents execute within it.
+
+```mermaid
+flowchart TB
+    subgraph Fast["Fast loop — active session"]
+        Work[Work session] --> Capture[Capture CogPR + signals]
+        Capture --> Cadence[/`/cadence` end-of-session/]
+    end
+
+    Cadence --> Plan[Plan with trigger]
+    Plan --> Assessor[Background ripple-assessor]
+    Assessor --> Proposals[Proposals file]
+
+    subgraph Gate["Human gate — constitutional review"]
+        Proposals --> Review[/`/review` docket/]
+        Review -->|approve| Promote[Promote scope (Site→...→Global)]
+        Review -->|reject/modify| Iterate[Refine lesson or handler]
+    end
+
+    Promote --> Manifest[Manifest in CLAUDE.md + runtime hooks]
+    Manifest --> SessionRestore[Next session restore]
+    SessionRestore --> Work
+
+    Manifest --> Signals[Runtime signals]
+    Signals -->|threshold| Warrant[Warrant minted]
+    Warrant --> Review
+    Signals -.background pressure.- Cadence
+```
+
+### The unified flow: how knowledge survives context death
+
+The system runs three loops at different speeds. The **fast loop** is your working session -- implement, debug, verify. The **medium loop** is site memory, where validated lessons accumulate across sessions. The **slow loop** is global memory, where universal invariants settle after enough cross-site validation. The 100k token cycle destroys the local context window, but because the CogPR buffer feeds site and global memory asynchronously, knowledge arcs over the destruction event and cascades into the next session.
+
+The `/review` human review isn't just a safety check -- it's the epoch boundary. It marks the moment where Session N's raw discoveries become Session N+1's upgraded starting state. The agent should have amnesia after the context flush. It doesn't, because the abstraction ladder carried the knowledge through.
+
+### The abstraction ladder (detailed)
+
+Knowledge in CGG lives on a scope hierarchy -- the abstraction ladder. Lessons move in both directions: upward through extract > generalize > canonicalize, and downward through apply > interpret > audit > validate.
+
+**Rungs:**
+
+- **Site** -- a lesson at the project root's `CLAUDE.md` or `MEMORY.md`. True across this codebase. The default working rung.
+- **Domain** -- cross-module within a site. Useful when a project has distinct subsystems.
+- **Estate** -- cross-project governance. When multiple repos share an operator or team.
+- **Federation** -- cross-organization. When multiple estates coordinate. Rare.
+- **Global** -- a lesson promoted to `~/.claude/CLAUDE.md`. True across every project on the machine. This is a treaty, not a convenience.
+
+**Climbing:** A lesson climbs when a CogPR is approved through `/review`. The ripple assessor checks scope correctness. Promotion requires evidence: at least 2 full pipeline cycles for global scope, cross-validation where relevant, no schema churn that would invalidate it next week. Two maturity gates formalize this: a temporal gate (`tic_gated`) and an epistemic gate (`enrichment_eligible`). See [ARCHITECTURE.md](ARCHITECTURE.md#9-cpr-maturity-fields-concrete-spec) for the field spec.
+
+**Descending:** Higher-scope law descends by applicability claim and runtime interpretation, not by automatic lower-scope inscription. Lower scopes validate whether broader law carries load in context. If it fails there, the canonical law is amended at its own rung. Lower-scope writing is reserved for local origin, explicit exception, or explicitly reviewed boundary.
+
+### The lexical ceiling
+
+CGG is the portable lexical governance layer. Human rationale is the scarce substrate AI governance is trying to encode. CGG changes the economics of that encoding by making rationale compound in governed form.
+
+**But text has a ceiling.** Lesson corpora grow, nested projects add weight, and walls of text dilute force. Mitigations built in: scoped zones, the abstraction ladder, signal decay, and human curation during `/review`. But neither abolishes the ceiling.
+
+**Beyond the ceiling:** expression gating, conformation-aware retrieval, graph topology, economic pressure, and compiled constraints live outside this repo. CGG stays flat-file and auditable; when you need those capabilities, CGG's primitives become the audit trail beneath whatever substrate you adopt. See [ARCHITECTURE.md](ARCHITECTURE.md#6-scaling-ceiling).
+
+### Applicability
+
+CGG is model-agnostic and host-agnostic. Claude Code is the current primary host, but the primitives port to any agent framework.
+
+- **Engineering teams** -- CogPRs are pull requests for agent behavior. The ripple assessor is the CI runner. `/review` is code review.
+- **Regulated industries** -- audit trail where every rule change is a CogPR with reviewable diff, approval timestamp, and scope designation.
+- **Public sector** -- all state lives in flat, human-readable files. `git log` as the audit tool. Tic-zones enforce agency-level compartmentalization.
+- **Multi-agent coordination** -- shared clock (tics), shared jurisdiction (zones), shared governance (the ladder).
 
 ## Maintainers
 
