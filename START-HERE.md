@@ -85,6 +85,8 @@ Done. The CLI clones CGG, registers the plugin, and sets up your governance zone
 
 **After install, you have:** `/cadence`, `/review`, `/siren`, and the full governance pipeline.
 
+**Verify it worked:** Run `cgg doctor` to check your installation. It confirms hooks are registered, skills are available, and your governance zone is set up correctly. If anything is missing, it tells you what to fix.
+
 ### Option B: Plugin install (manual)
 
 ```bash

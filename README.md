@@ -579,7 +579,7 @@ The convention layer. Markdown standards for flagging lessons and reviewing prom
 
 | Variant | Path | What it does |
 |---------|------|-------------|
-| Claude Code | `cogpr/claude-code/` | Skills with YAML frontmatter |
+| Claude Code | `cgg-runtime/skills/` | Full skill pipeline with YAML frontmatter (cadence, review, siren, etc.) |
 | Claude Desktop | `cogpr/claude-desktop/` | Project instructions snippet |
 | Claude for Work | `cogpr/claude-work/` | Project instructions snippet |
 

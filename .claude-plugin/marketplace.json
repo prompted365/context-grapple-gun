@@ -4,7 +4,7 @@
     "name": "Prompted365"
   },
   "metadata": {
-    "description": "Context Grapple Gun — governed autonomy substrate for Claude Code"
+    "description": "Context Grapple Gun — file-based governance lifecycle for persistent AI sessions"
   },
   "plugins": [
     {
@@ -18,8 +18,13 @@
         "./cgg-runtime/agents/ripple-assessor.md",
         "./cgg-runtime/agents/ladder-auditor.md",
         "./cgg-runtime/agents/pattern-curator.md",
+        "./cgg-runtime/agents/pattern-curator-meta.md",
+        "./cgg-runtime/agents/pattern-curator-direct.md",
         "./cgg-runtime/agents/cpr-stepper.md",
-        "./cgg-runtime/agents/review-execute.md"
+        "./cgg-runtime/agents/review-execute.md",
+        "./cgg-runtime/agents/civil-engineer.md",
+        "./cgg-runtime/agents/videographer.md",
+        "./cgg-runtime/agents/cbux-steward.md"
       ],
       "hooks": {
         "SessionStart": [

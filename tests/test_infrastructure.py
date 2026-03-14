@@ -279,15 +279,15 @@ class TestCogPRConfigurations:
         assert config_path.exists()
 
     def test_code_skills_exist(self):
-        """Claude Code skills should exist."""
-        skills_dir = REPO_ROOT / "cogpr" / "claude-code" / "skills"
+        """Claude Code skills should exist in cgg-runtime/skills/."""
+        skills_dir = REPO_ROOT / "cgg-runtime" / "skills"
         assert skills_dir.is_dir()
 
-        # Should have the key skills
+        # Should have the key skills (includes legacy compatibility shims)
         expected_skills = ["cadence-downbeat", "grapple", "init-cogpr"]
         for skill in expected_skills:
             skill_dir = skills_dir / skill
-            assert skill_dir.is_dir(), f"Skill {skill} missing from cogpr/claude-code/skills/"
+            assert skill_dir.is_dir(), f"Skill {skill} missing from cgg-runtime/skills/"
 
     def test_configs_have_band_hierarchy(self):
         """All CogPR configs should document the band hierarchy."""

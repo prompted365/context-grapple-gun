@@ -1,7 +1,7 @@
 {
   "name": "context-grapple-gun",
   "version": "4.0.1",
-  "description": "Context Grapple Gun — governed autonomy substrate for Claude Code",
+  "description": "Context Grapple Gun — file-based governance lifecycle for persistent AI sessions. Three commands, flat files, human-gated review.",
   "type": "module",
   "bin": {
     "cgg": "bin/cgg.mjs"

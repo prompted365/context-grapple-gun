@@ -3,7 +3,7 @@
 import { getVersion, error, info } from '../lib/utils.mjs';
 
 const HELP = `
-Context Grapple Gun — governed autonomy substrate for Claude Code
+Context Grapple Gun — file-based governance lifecycle for persistent AI sessions
 
 Usage:
   cgg install [options]    Clone CGG and register as Claude Code plugin
