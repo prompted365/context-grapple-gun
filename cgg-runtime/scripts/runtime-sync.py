@@ -71,6 +71,12 @@ SYNC_EXCLUDE = {
     "hooks/README.md",
 }
 
+# Non-standard install paths: canonical relative path -> installed path override
+# For files that install to a location other than the category's default target
+INSTALL_PATH_OVERRIDES = {
+    "hooks/wire-cutter.sh": os.path.join(os.path.expanduser("~"), ".claude", "wire-cutter.sh"),
+}
+
 
 def discover_surfaces(plugin_root, zone_root):
     """Auto-discover all installable surfaces by scanning the cgg-runtime file tree.
@@ -130,9 +136,13 @@ def discover_surfaces(plugin_root, zone_root):
                     rel_key = f"{spec['canonical_subdir']}/{entry}"
                     if rel_key in SYNC_EXCLUDE:
                         continue
-                    installed = os.path.join(
-                        home_dir, spec["installed_subdir"], entry
-                    )
+                    # Check for non-standard install path override
+                    if rel_key in INSTALL_PATH_OVERRIDES:
+                        installed = INSTALL_PATH_OVERRIDES[rel_key]
+                    else:
+                        installed = os.path.join(
+                            home_dir, spec["installed_subdir"], entry
+                        )
                     name = entry.replace(".sh", "")
                     surfaces.append({
                         "name": f"hook:{name}",
