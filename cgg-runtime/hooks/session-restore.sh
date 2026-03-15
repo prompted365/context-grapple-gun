@@ -573,6 +573,23 @@ print(' '.join(parts))
 fi
 
 # ============================================================================
+# Crisis injection condition checks (crisis-response/README.md)
+# ============================================================================
+# Lightweight post-scan pass: checks signal storm, mandate pileup, inbox
+# backlog. Runtime divergence check is deferred (slower) and only runs if
+# other conditions are clean.
+
+CRISIS_MSG=""
+CRISIS_CHECKER=$(resolve_script "crisis-injection.py")
+if [ -n "$CRISIS_CHECKER" ] && [ "$TIC_COUNT" -gt 0 ]; then
+  CRISIS_MSG=$(python3 "$CRISIS_CHECKER" \
+    --zone-root "$ZONE_ROOT" \
+    --audit-logs "$AUDIT_LOGS" \
+    --current-tic "$TIC_COUNT" \
+    2>/dev/null || true)
+fi
+
+# ============================================================================
 # Parallel session awareness
 # ============================================================================
 
@@ -616,6 +633,7 @@ if [ -n "$MOGUL_MANDATE_MSG" ]; then
   fi
 fi
 [ -n "$PARALLEL_MSG" ] && FULL_MSG="${FULL_MSG:+$FULL_MSG }$PARALLEL_MSG"
+[ -n "$CRISIS_MSG" ] && FULL_MSG="${FULL_MSG:+$FULL_MSG }$CRISIS_MSG"
 [ "$TIC_COUNT" -gt 0 ] && FULL_MSG="${FULL_MSG:+$FULL_MSG }[TIC: #$TIC_COUNT]"
 
 if [ -n "$FULL_MSG" ]; then
