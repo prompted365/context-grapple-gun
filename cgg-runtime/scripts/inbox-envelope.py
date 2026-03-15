@@ -678,6 +678,7 @@ def emit_attention_debt_signals(zone_root: str, entity_id: str,
 
     Each stale item becomes one signal entry in YYYY-MM-DD.jsonl.
     Idempotent: signal IDs are deterministic (entity + message_id + state).
+    Dedup: skips emission if a signal with the same ID already exists in today's file.
     Returns list of emitted signal dicts.
     """
     if not stale_items:
@@ -691,12 +692,34 @@ def emit_attention_debt_signals(zone_root: str, entity_id: str,
     signal_file = os.path.join(signal_dir, f"{today}.jsonl")
     now = datetime.now(timezone.utc).isoformat()
 
+    # Build set of signal IDs already emitted today to prevent duplicates
+    existing_ids: set = set()
+    if os.path.isfile(signal_file):
+        try:
+            with open(signal_file, "r", encoding="utf-8") as f:
+                for line in f:
+                    line = line.strip()
+                    if not line:
+                        continue
+                    try:
+                        existing_ids.add(json.loads(line).get("id", ""))
+                    except (json.JSONDecodeError, KeyError):
+                        pass
+        except OSError:
+            pass
+
     emitted = []
     for item in stale_items:
         msg_id = item["message_id"]
         state = item["state"]
+        signal_id = f"sig_inbox_{entity_id}_{msg_id}_{state.lower()}"
+
+        # Skip if already emitted today
+        if signal_id in existing_ids:
+            continue
+
         signal = {
-            "id": f"sig_inbox_{entity_id}_{msg_id}_{state.lower()}",
+            "id": signal_id,
             "type": "signal",
             "status": "active",
             "band": item.get("signal_band", "COGNITIVE"),
@@ -722,6 +745,7 @@ def emit_attention_debt_signals(zone_root: str, entity_id: str,
         except ImportError:
             with open(signal_file, "a", encoding="utf-8") as f:
                 f.write(json.dumps(signal, separators=(",", ":")) + "\n")
+        existing_ids.add(signal_id)
         emitted.append(signal)
 
     return emitted

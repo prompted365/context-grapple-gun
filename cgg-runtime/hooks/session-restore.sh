@@ -264,7 +264,25 @@ MANDATE_FILE="$MANDATE_DIR/current.json"
 MOGUL_MANDATE_MSG=""
 INBOX_INJECTION=""
 
-if [ "$TIC_COUNT" -gt 0 ]; then
+# ── Idempotency guard: skip mandate emission if one already exists for this tic ──
+# Prevents mandate emission runaway when multiple sessions open at the same tic.
+# Evidence: tic-87 produced 269 inbox messages from unguarded re-emission.
+MANDATE_ALREADY_EXISTS=false
+if [ -f "$MANDATE_FILE" ] && [ "$TIC_COUNT" -gt 0 ]; then
+  EXISTING_TIC=$(python3 -c "
+import json
+try:
+    m = json.load(open('$MANDATE_FILE'))
+    t = m.get('tic_context', {}).get('current_tic', m.get('tic', 0))
+    print(t)
+except: print(0)
+" 2>/dev/null || echo "0")
+  if [ "$EXISTING_TIC" = "$TIC_COUNT" ]; then
+    MANDATE_ALREADY_EXISTS=true
+  fi
+fi
+
+if [ "$TIC_COUNT" -gt 0 ] && [ "$MANDATE_ALREADY_EXISTS" = "false" ]; then
   # Compute due cycles via estate_snapshot (MVOS L2) with inline fallback
   ESTATE_SNAPSHOT_PY="$ZONE_ROOT/$AUDIT_LOGS_REL/cpg/scripts/estate_snapshot.py"
   if [ -f "$ESTATE_SNAPSHOT_PY" ]; then
@@ -451,6 +469,40 @@ print(json.dumps(mandate, indent=2))
         fi
       fi
     fi
+  fi
+fi
+
+# ── Mandate already exists: still inject inbox context for orchestrator ──
+if [ "$MANDATE_ALREADY_EXISTS" = "true" ] && [ "$TIC_COUNT" -gt 0 ]; then
+  INBOX_SCANNER=$(resolve_script "inbox-envelope.py")
+  if [ -n "$INBOX_SCANNER" ]; then
+    INBOX_INJECTION=$(python3 "$INBOX_SCANNER" \
+      --zone-root "$ZONE_ROOT" \
+      scan \
+      --entity ent_mogul \
+      --format injection \
+      --current-tic "$TIC_COUNT" \
+      2>/dev/null)
+
+    python3 "$INBOX_SCANNER" \
+      --zone-root "$ZONE_ROOT" \
+      stale-check \
+      --current-tic "$TIC_COUNT" \
+      --emit-signals \
+      > /dev/null 2>&1 || true
+  fi
+
+  if [ -n "$INBOX_INJECTION" ]; then
+    MOGUL_MANDATE_MSG="$INBOX_INJECTION"
+  else
+    DUE_CYCLES=$(python3 -c "
+import json
+try:
+    m = json.load(open('$MANDATE_FILE'))
+    print(', '.join(m.get('cycle_request',{}).get('run_now',[])))
+except: print('unknown')
+" 2>/dev/null)
+    MOGUL_MANDATE_MSG="[MOGUL MANDATE: due cycles=$DUE_CYCLES (existing mandate for tic $TIC_COUNT)]"
   fi
 fi
 
