@@ -142,6 +142,22 @@ When removing or refactoring code that exports hooks (especially R3F/Three.js ho
 
 <!-- promoted from CogPR-49 (tic 60→71). Band: PRIMITIVE. Source: operator-observation — removed hook left orphaned import, tsc passed, runtime WebGL context lost silently. -->
 
+## Runtime Sync Parity Verification
+
+Source-repo correctness does not imply runtime correctness. Hook-invoked scripts resolve from the **installed** location (`~/.claude/cgg-runtime/scripts/`), not from the canonical source repo. A fix committed to the source repo has no effect until the installed copy is synced and verified identical.
+
+**Required sequence** after modifying any hook-invoked script:
+1. Commit to source repo (`canonical_developer/context-grapple-gun/`)
+2. Copy to installed location (`~/.claude/cgg-runtime/scripts/` or `~/.claude/hooks/`)
+3. `diff` source and installed — must be identical
+4. Verify hook resolution path reaches the correct file (check `resolve_script` candidates)
+
+**Failure mode**: `inbox-envelope.py` was patched with signal dedup in the source repo but the installed copy at `~/.claude/` lacked the fix. Every SessionStart re-emitted 571 attention-debt signals because the executing script had no dedup guard. The source repo was correct; the runtime was not. Three sessions of cleanup failed to hold because the wrong script kept running.
+
+**Registry is the inbox source of truth, not files**: `detect_stale()` reads from `inbox-registry.json`, not from WAIT files on disk. Deleting WAIT files without archiving registry entries leaves phantom state that hooks re-detect as stale.
+
+<!-- promoted from CogPR-65 runtime-parity finding (tic 91). Band: COGNITIVE. Source: three-layer containment — trigger manifest + registry purge + script sync. Evidence: 571 phantom signals per session, 3 sessions of failed cleanup before root cause identified. -->
+
 ## Review Execution Delegation
 
 After `/review` docket is approved, dispatch execution to a `review-execute` subordinate agent — never execute promotions inline in the interactive path.
@@ -208,13 +224,15 @@ Running identical full cycles regardless of estate state wastes cognitive resour
 
 Mandate lifecycle has three structural defects that refine the Mandate Consumption Discipline (CogPR-26) and Mandate Execution Depth Scaling (CogPR-47):
 
-1. **session-restore.sh overwrites without check** — always writes `current.json` without checking existing pending mandates. Lightweight mandates accumulate as durable obligations.
-2. **SessionStart recomputes instead of reconciling** — recomputes cadence from tic modulo instead of reconciling with previous mandate `tic_context`. Creates mandate duplication on session restore.
+1. **session-restore.sh overwrites without check** — always writes `current.json` without checking existing pending mandates. Lightweight mandates accumulate as durable obligations. **Mitigated**: tic-level idempotency guard added (checks `current.json` tic before emitting).
+2. **SessionStart recomputes instead of reconciling** — recomputes cadence from tic modulo instead of reconciling with previous mandate `tic_context`. Creates mandate duplication on session restore. **Mitigated**: `trigger-manifest.yaml` idempotency key changed from `mandate_{tic}_{session_id}` to `mandate_{tic}` with `first_wins` policy.
 3. **No concurrency guard on inline Mogul spawn** — the review skill can inline-spawn Mogul without checking whether a loop-backed Mogul is already active.
+
+**Idempotency key constraint**: The mandate idempotency key must NOT include `session_id` — per-session UUIDs defeat dedup because every session generates a unique ID, making every emission appear novel. The correct granularity is `mandate_{tic}` with `first_wins` policy. Evidence: tic-87 produced 269 inbox messages, 200+ report files, and 328 signal entries from a single-tic runaway caused by `{session_id}` in the key template.
 
 **Fix sequence**: ephemeral mandate consumption in cgg-gate → de-inline review Mogul spawn → collapse SessionStart into restore/reconcile.
 
-<!-- promoted from CogPR-57 (tic 75→80). Source: external-audit-verified. Refines CogPR-26 (mandate consumption) and CogPR-47 (mandate depth scaling). Band: COGNITIVE. -->
+<!-- promoted from CogPR-57 (tic 75→80), extended by CogPR-65 (tic 91). Source: external-audit-verified + mandate runaway containment. Refines CogPR-26 (mandate consumption) and CogPR-47 (mandate depth scaling). Band: COGNITIVE. -->
 
 ## Promotion Scope Discipline
 
