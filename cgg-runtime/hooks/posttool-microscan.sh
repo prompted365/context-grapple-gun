@@ -17,6 +17,9 @@
 # Read stdin (tool result JSON) — we need the file path
 INPUT=$(cat)
 
+# Wire cutter — emergency kill switch
+[ -f ~/.claude/wire-cutter.sh ] && source ~/.claude/wire-cutter.sh && wire_check microscan
+
 # Load atomic append library for JSONL-safe writes
 CGG_PLUGIN_ROOT="${CLAUDE_PLUGIN_ROOT:-$(cd "$(dirname "$0")/../.." && pwd)}"
 ATOMIC_LIB="$CGG_PLUGIN_ROOT/cgg-runtime/scripts/lib/atomic-append.sh"

@@ -19,6 +19,9 @@
 #   pending → running → consumed | failed
 cat > /dev/null
 
+# Wire cutter — emergency kill switch
+[ -f ~/.claude/wire-cutter.sh ] && source ~/.claude/wire-cutter.sh && wire_check gate
+
 # ============================================================================
 # Root Anchoring
 # ============================================================================

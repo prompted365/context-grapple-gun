@@ -18,6 +18,9 @@
 # - Warrant eligibility is kind-gated (configurable via .ticzone).
 cat > /dev/null
 
+# Wire cutter — emergency kill switch
+[ -f ~/.claude/wire-cutter.sh ] && source ~/.claude/wire-cutter.sh && wire_check session
+
 # ============================================================================
 # Phase 1: Root Anchoring
 # ============================================================================

@@ -14,6 +14,9 @@ set -euo pipefail
 # Read tool input from stdin
 INPUT=$(cat)
 
+# Wire cutter — emergency kill switch
+[ -f ~/.claude/wire-cutter.sh ] && source ~/.claude/wire-cutter.sh && wire_check sync
+
 # Extract the command that was run
 COMMAND=$(echo "$INPUT" | python3 -c "
 import sys, json
