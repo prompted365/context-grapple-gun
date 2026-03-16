@@ -132,16 +132,6 @@ All JSONL append-only files (`audit-logs/**/*.jsonl`) must use atomic append to 
 
 <!-- promoted from CogPR-8 (tic 4→5). Band: PRIMITIVE. Source: audit-logs/mogul/mandates/history/2026-03-08.jsonl corruption incident. -->
 
-## Missing Import Cascade Guard (PRIMITIVE)
-
-When removing or refactoring code that exports hooks (especially R3F/Three.js hooks like `useFrame`, `useThree`, custom hooks), verify that all import sites are updated. `tsc --noEmit` does NOT catch removed-code imports that were tree-shaken — the build succeeds but the runtime loses WebGL context silently.
-
-**Required check**: After any hook/export removal, grep for the removed export name across all consuming files. Do not rely on tsc alone.
-
-**Failure mode**: Orphaned hook import → silent WebGL context loss → black canvas with no error. Observed at tic 60.
-
-<!-- promoted from CogPR-49 (tic 60→71). Band: PRIMITIVE. Source: operator-observation — removed hook left orphaned import, tsc passed, runtime WebGL context lost silently. -->
-
 ## Runtime Sync Parity Verification
 
 Source-repo correctness does not imply runtime correctness. Hook-invoked scripts resolve from the **installed** location (`~/.claude/cgg-runtime/scripts/`), not from the canonical source repo. A fix committed to the source repo has no effect until the installed copy is synced and verified identical.
@@ -281,3 +271,97 @@ Epistemic triangulation (coincidence/mechanism/counterfactual) is an effective g
 Use this geometry when the arena question is a testable hypothesis rather than a design choice.
 
 <!-- promoted from arena-marketplace-0 (tic 9→25, arena-sourced marketplace-epistemic-triangulation). Process lesson — reinforced confidence tier. Band: COGNITIVE. -->
+
+## Session Learning Protocol
+
+When you discover something during a session that constitutes a durable lesson — a friction point resolved, a non-obvious behavior confirmed, a workflow correction — capture it as a CogPR (Cognitive Pull Request).
+
+### Write rule (born truth vs in-force truth)
+
+Write lessons to MEMORY.md by default (born truth). Only write to CLAUDE.md when the lesson IS a law change (in-force truth). If no subsystem MEMORY.md exists, write to the project's auto-memory (`~/.claude/projects/*/memory/MEMORY.md`).
+
+### CogPR format
+
+Write the lesson inline, then add this flag immediately after:
+
+<!-- --agnostic-candidate
+  lesson: "one-line lesson summary"
+  source_date: "YYYY-MM-DD"
+  source: "file:line"
+  band: "COGNITIVE"
+  motivation_layer: "COGNITIVE"
+  subsystem: "relevant_subsystem"
+  recommended_scopes:
+    - "path/to/broader/CLAUDE.md"
+  rationale: "why this is broader than local"
+  review_hints: "what to check when evaluating"
+  status: "example"
+-->
+
+> Set `status: "pending"` on real CogPRs. The template uses `"example"` to avoid false positives in the inline CPR scanner.
+
+### Birth discipline
+
+Never delay birth of a pattern-shaped CogPR on the grounds of maturity. Capture first. Prove later. Promote only when earned.
+
+- If the observation is pattern-shaped (recurring, structural, or contract-level), mint the CogPR immediately at birth tic.
+- Maturity governs **promotion**, not **capture**. Losing the hypothesis is system failure; premature promotion is recoverable.
+- For external platform contract surfaces (hook schema, plugin manifest, install semantics, marketplace protocol), capture hypotheses immediately — do not legislate from memory when contract validation is available.
+
+### Band budget
+
+| Band | Use for |
+|------|---------|
+| PRIMITIVE | Safety, data integrity, survival signals |
+| COGNITIVE | Learning, discovery, process improvement (default) |
+| SOCIAL | Collaboration signals (use sparingly) |
+| PRESTIGE | Never. Governance-blocked. |
+
+Run `/cadence` when the session feels long — around 100k tokens is a good heuristic. If context is degrading, `/cadence double-time` does a minimal exit. The `cadence-syncopate` command surface remains valid and supported.
+
+### Experimental arena cadence isolation
+
+Events inside experimental arenas may be recorded, but they do not advance physical cadence by default. Only operative-zone execution advances the physical tic counter.
+
+When cadence is emitted from experimental closeout or other ignored contexts, emit a normal tic event (`type: "tic"`) with:
+
+- `count_mode: "ignored"`
+- `count_reason: "<explicit reason>"`
+- `domain_counter_before == domain_counter_after`
+- `global_counter_before == global_counter_after`
+
+Do not fork the event type. The distinction is counting mode, not event existence. One event model, one scanner, one audit surface.
+
+### Timestamp authority law
+
+If timestamps are not canonical, they must never be used as authoritative ordering fields. Use tic, phase, dependency completion, or explicit operator-metadata labels instead. Canonical progression is determined by counted tic progression, not by wall-clock timestamps.
+
+For arena reports and other non-canonical surfaces, prefer tic-based closure:
+```json
+{"source_tic": 9, "completion_tic": 9, "phase_closure": {"context": "complete", ...}}
+```
+not authoritative-looking wall-clock sequencing (`created_at`, `completed_at`).
+
+### Posture (optional)
+
+Declare your working mode at session start:
+
+| | DIRECT (execute) | META (analyze) |
+|---|---|---|
+| **ENG** | Implement, fix, ship | Architect, plan, design |
+| **OPS** | Run pipelines, hit APIs | Audit, review, explore |
+
+When capturing a CogPR, include `posture: "ENG/META"` (or whichever
+mode applies). This helps `/review` weigh context — a lesson from active
+implementation carries different weight than one from analysis.
+
+Posture is advisory in CGG. Substrates that enforce posture constraints
+(META = read-only, etc.) use the same fields — zero migration on upgrade.
+
+### Signal format
+
+For persistent conditions that need tracking, emit signals to `audit-logs/signals/YYYY-MM-DD.jsonl`. Use /siren for signal management if installed.
+
+### Topology
+
+Run `cgg-doctor.sh` from your project root to see your governance topology.
