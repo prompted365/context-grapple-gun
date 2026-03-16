@@ -167,18 +167,22 @@ def load_queue_pending(queue_path: str) -> list:
             continue
 
     pending_statuses = {"pending", "enrichment_needed", "enrichment_eligible",
-                        "extracted", "review_ready"}
-    return [
-        {
+                        "extracted", "review_ready", "deferred"}
+    result = []
+    for e in entries.values():
+        if e.get("status") not in pending_statuses:
+            continue
+        item = {
             "id": e.get("id"),
             "lesson": (e.get("lesson", "") or "")[:100],
             "band": e.get("band", "COGNITIVE"),
             "subsystem": e.get("subsystem", ""),
             "status": e.get("status", ""),
         }
-        for e in entries.values()
-        if e.get("status") in pending_statuses
-    ]
+        if e.get("status") == "deferred" and e.get("deferred_to_tic"):
+            item["deferred_to_tic"] = e["deferred_to_tic"]
+        result.append(item)
+    return result
 
 
 def compute_rules_in_force(zone_root: str) -> dict:

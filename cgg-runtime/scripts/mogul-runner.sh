@@ -17,7 +17,9 @@ set -euo pipefail
 DRY_RUN=false
 [ "${1:-}" = "--dry-run" ] && DRY_RUN=true
 
-# Load atomic append library for JSONL-safe writes
+# Load atomic append library for JSONL-safe writes.
+# SCRIPT_DIR is reliable for sibling-file lookups (lib/, etc.) since
+# mogul-runner.sh lives alongside its dependencies at install time.
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 ATOMIC_LIB="$SCRIPT_DIR/lib/atomic-append.sh"
 [ -f "$ATOMIC_LIB" ] && source "$ATOMIC_LIB"
@@ -33,17 +35,19 @@ safe_jsonl_append() {
 }
 
 # ============================================================================
-# Zone root resolution
+# Zone root resolution — use CLAUDE_PROJECT_DIR, walk to .ticzone.
+# Never use dirname "$0" for zone root — this script may be installed
+# at ~/.claude/cgg-runtime/scripts/ which is outside the project tree.
 # ============================================================================
 
 resolve_zone_root() {
-  local dir="${CLAUDE_PROJECT_DIR:-$(cd "$(dirname "$0")/.." && pwd)}"
+  local dir="${CLAUDE_PROJECT_DIR:-$(pwd)}"
   while [ "$dir" != "/" ]; do
     [ -f "$dir/.ticzone" ] && echo "$dir" && return 0
     dir=$(dirname "$dir")
   done
-  git -C "$(dirname "$0")" rev-parse --show-toplevel 2>/dev/null && return 0
-  echo "$(cd "$(dirname "$0")/.." && pwd)"
+  git rev-parse --show-toplevel 2>/dev/null && return 0
+  echo "${CLAUDE_PROJECT_DIR:-$(pwd)}"
 }
 
 ZONE_ROOT=$(resolve_zone_root)

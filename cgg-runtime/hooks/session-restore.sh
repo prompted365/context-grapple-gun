@@ -25,8 +25,18 @@ cat > /dev/null
 # Phase 1: Root Anchoring
 # ============================================================================
 
-# Plugin-root anchor: canonical for finding bundled runtime assets
-CGG_PLUGIN_ROOT="${CLAUDE_PLUGIN_ROOT:-$(cd "$(dirname "$0")/../.." && pwd)}"
+# Plugin-root anchor: canonical for finding bundled runtime assets.
+# CLAUDE_PLUGIN_ROOT is only set for plugin-registered hooks (hooks.json).
+# User-registered hooks (~/.claude/hooks/) must resolve via fallback chain.
+CGG_PLUGIN_ROOT="${CLAUDE_PLUGIN_ROOT:-}"
+if [ -z "$CGG_PLUGIN_ROOT" ] || [ ! -d "$CGG_PLUGIN_ROOT/cgg-runtime" ]; then
+  for _cpr_candidate in \
+    "${CLAUDE_PROJECT_DIR:+$CLAUDE_PROJECT_DIR/vendor/context-grapple-gun}" \
+    "${CLAUDE_PROJECT_DIR:+$CLAUDE_PROJECT_DIR/canonical_developer/context-grapple-gun}" \
+    "$HOME/.claude"; do
+    [ -n "$_cpr_candidate" ] && [ -d "$_cpr_candidate/cgg-runtime" ] && CGG_PLUGIN_ROOT="$_cpr_candidate" && break
+  done
+fi
 
 # Load atomic append library for JSONL-safe writes
 ATOMIC_LIB="$CGG_PLUGIN_ROOT/cgg-runtime/scripts/lib/atomic-append.sh"

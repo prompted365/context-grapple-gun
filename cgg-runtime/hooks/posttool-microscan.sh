@@ -20,8 +20,19 @@ INPUT=$(cat)
 # Wire cutter — emergency kill switch
 [ -f ~/.claude/wire-cutter.sh ] && source ~/.claude/wire-cutter.sh && wire_check microscan
 
+# Plugin-root anchor: CLAUDE_PLUGIN_ROOT is only set for plugin-registered hooks.
+# User-registered hooks (~/.claude/hooks/) must resolve via fallback chain.
+CGG_PLUGIN_ROOT="${CLAUDE_PLUGIN_ROOT:-}"
+if [ -z "$CGG_PLUGIN_ROOT" ] || [ ! -d "$CGG_PLUGIN_ROOT/cgg-runtime" ]; then
+  for _cpr_candidate in \
+    "${CLAUDE_PROJECT_DIR:+$CLAUDE_PROJECT_DIR/vendor/context-grapple-gun}" \
+    "${CLAUDE_PROJECT_DIR:+$CLAUDE_PROJECT_DIR/canonical_developer/context-grapple-gun}" \
+    "$HOME/.claude"; do
+    [ -n "$_cpr_candidate" ] && [ -d "$_cpr_candidate/cgg-runtime" ] && CGG_PLUGIN_ROOT="$_cpr_candidate" && break
+  done
+fi
+
 # Load atomic append library for JSONL-safe writes
-CGG_PLUGIN_ROOT="${CLAUDE_PLUGIN_ROOT:-$(cd "$(dirname "$0")/../.." && pwd)}"
 ATOMIC_LIB="$CGG_PLUGIN_ROOT/cgg-runtime/scripts/lib/atomic-append.sh"
 [ -f "$ATOMIC_LIB" ] && source "$ATOMIC_LIB"
 

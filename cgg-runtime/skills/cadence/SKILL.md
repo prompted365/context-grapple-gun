@@ -26,7 +26,40 @@ All operational mutation happens here. These are the writes that MUST complete b
 #### Step 0: Reconcile Native Plan State
 Locate the active plan file in `~/.claude/plans/`. Evaluate its status based on the spirit of the original goal. Explicitly mark it 100% 'Completed', 'Superseded', or leave it 'Active' only if the exact thread must resume.
 
-#### Step 0.5: Emit Tic
+#### Step 0.5: Emit Tic + Conformation + Mandate (unified)
+
+**Primary path (MANDATORY when available):** Run `cadence-ops.py` — it handles tic emission, conformation snapshot, and mandate cascade in one deterministic invocation. This is the ONLY correct path for conformation writing. Do NOT write conformations inline or delegate to `/siren conformation` — LLM-approximated signal counts produce stale data (validated: tic-101 reported 2305 active signals instead of 0 because inline code counted raw JSONL lines without last-write-wins dedup).
+
+```bash
+# Resolve cadence-ops.py location
+ZONE_ROOT="${CLAUDE_PROJECT_DIR:-$(pwd)}"
+while [ "$ZONE_ROOT" != "/" ] && [ ! -f "$ZONE_ROOT/.ticzone" ]; do ZONE_ROOT=$(dirname "$ZONE_ROOT"); done
+
+CADENCE_OPS=""
+for candidate in \
+  "$ZONE_ROOT/vendor/context-grapple-gun/cgg-runtime/scripts/cadence-ops.py" \
+  "$ZONE_ROOT/canonical_developer/context-grapple-gun/cgg-runtime/scripts/cadence-ops.py" \
+  "${CLAUDE_PLUGIN_ROOT:+$CLAUDE_PLUGIN_ROOT/cgg-runtime/scripts/cadence-ops.py}" \
+  "$HOME/.claude/cgg-runtime/scripts/cadence-ops.py"; do
+  [ -n "$candidate" ] && [ -f "$candidate" ] && CADENCE_OPS="$candidate" && break
+done
+
+# Run it (handles tic + conformation + mandate)
+python3 "$CADENCE_OPS" --zone-root "$ZONE_ROOT" --mode downbeat
+```
+
+Parse the JSON output to extract:
+- `result.tic.counter_after` — the new tic count
+- `result.tic.timestamp` — the tic timestamp
+- `result.conformation.summary` — signal/warrant/cogpr counts
+- `result.mandate` — mandate status and due cycles
+
+Report: `Tic #COUNTER_AFTER (physical) at TIMESTAMP`
+
+**Fallback path (only if cadence-ops.py is not found):** Use the inline Python tic emission below, then call `/siren conformation` for the snapshot. This is inferior because `/siren conformation` relies on LLM signal counting.
+
+<details>
+<summary>Inline tic emission fallback (expand only if cadence-ops.py unavailable)</summary>
 
 ### Tic emission semantics
 
@@ -45,8 +78,6 @@ Canonical reality is determined by counted tic progression, not by timestamps.
 
 #### Required fields on every tic event
 
-Every emitted tic event must include:
-
 | Field | Description |
 |-------|-------------|
 | `type` | Always `"tic"` |
@@ -54,41 +85,13 @@ Every emitted tic event must include:
 | `tic_zone` | Zone name only (never raw `.ticzone` JSON) |
 | `cadence_position` | `"downbeat"` or `"syncopate"` |
 | `count_mode` | `"counted"` or `"ignored"` |
-| `count_reason` | Short reason string (e.g. `"normal"`, `"experimental_arena_closeout"`, `"rehearsal"`) |
+| `count_reason` | Short reason string |
 | `domain_counter_before` | Counter value before this event |
 | `domain_counter_after` | Counter value after (same as before if ignored) |
 | `global_counter_before` | Counter value before this event |
 | `global_counter_after` | Counter value after (same as before if ignored) |
 
-#### Important clarification
-
-An ignored tic is still a tic event. It answers "did something happen?", "when?", "under what mode?" — but it does **not** answer "did canonical tic reality advance?" Only counted tics answer that.
-
-#### Counting rule
-
-- If `count_mode == "counted"`: increment both counters (`after = before + 1`)
-- If `count_mode == "ignored"`: keep counters unchanged (`after = before`), still append the tic event
-
-**Counting rule (SUBSTRATE INVARIANT):** The canonical tic count is the physical number of counted tic entries across all `$ZONE_ROOT/audit-logs/tics/*.jsonl` files — entries where `count_mode == "counted"` (or entries without `count_mode` for backwards compatibility with pre-schema tics). Determined by JSON-parsing — never by grep, never by reading an embedded counter field from a previous entry. The global counter file (`~/.claude/cgg-tic-counter.json`) is a cached mirror of this physical truth, not an independent state machine.
-
-**Zone root anchoring (SUBSTRATE INVARIANT):** All audit-store paths MUST resolve from the zone root (the directory containing `.ticzone`), never from cwd. Determine the zone root first:
-```bash
-ZONE_ROOT="${CLAUDE_PROJECT_DIR:-$(pwd)}"
-# Walk up to find .ticzone if CLAUDE_PROJECT_DIR is not set
-while [ "$ZONE_ROOT" != "/" ] && [ ! -f "$ZONE_ROOT/.ticzone" ]; do ZONE_ROOT=$(dirname "$ZONE_ROOT"); done
-```
-
-#### Ticignored mode awareness
-
-When the current operation is marked experimental, rehearsal, dry-run, sandboxed, or otherwise excluded from canonical progression, emit `count_mode: "ignored"` and do **not** advance the counted tic counters. This applies even if the event is operationally real in wall-clock time.
-
-Timestamps are observational; counted tic progression is canonical.
-
-#### Atomic tic append
-
-Never build tic JSON by interpolating raw `.ticzone` file contents directly into shell `printf`. Instead: derive the zone **name** only, serialize one JSON object, append it with a single `O_APPEND` write.
-
-**Script path**: If `cadence-ops.py` is available (via `resolve_script`), call it instead of the inline Python below. It handles tic emission, conformation, and mandate in one invocation. The inline Python is the fallback when the script is unavailable.
+**Counting rule (SUBSTRATE INVARIANT):** The canonical tic count is the physical number of counted tic entries across all `$ZONE_ROOT/audit-logs/tics/*.jsonl` files — entries where `count_mode == "counted"`. Determined by JSON-parsing — never by grep, never by reading an embedded counter field.
 
 ```python
 python3 - <<'PY'
@@ -118,45 +121,30 @@ def counted_tics():
         with open(f, "r", encoding="utf-8") as fh:
             for line in fh:
                 line = line.strip()
-                if not line:
-                    continue
-                try:
-                    obj = json.loads(line)
-                except json.JSONDecodeError:
-                    continue
+                if not line: continue
+                try: obj = json.loads(line)
+                except json.JSONDecodeError: continue
                 if obj.get("type") == "tic" and obj.get("count_mode", "counted") == "counted":
                     total += 1
     return total
 
 before = counted_tics()
-
-# Set this from cadence mode resolution:
-# "counted" for normal downbeat/syncopate
-# "ignored" for experimental/rehearsal/sandbox
 count_mode = "counted"
 count_reason = "cadence"
-
 after = before + 1 if count_mode == "counted" else before
 
 event = {
-    "type": "tic",
-    "tic": now,
-    "tic_zone": zone_name,
-    "cadence_position": "downbeat",
-    "count_mode": count_mode,
+    "type": "tic", "tic": now, "tic_zone": zone_name,
+    "cadence_position": "downbeat", "count_mode": count_mode,
     "count_reason": count_reason,
-    "domain_counter_before": before,
-    "domain_counter_after": after,
-    "global_counter_before": before,
-    "global_counter_after": after
+    "domain_counter_before": before, "domain_counter_after": after,
+    "global_counter_before": before, "global_counter_after": after
 }
 
 path = TIC_DIR / f"{today}.jsonl"
 fd = os.open(str(path), os.O_APPEND | os.O_CREAT | os.O_WRONLY, 0o644)
-try:
-    os.write(fd, (json.dumps(event, ensure_ascii=False) + "\n").encode("utf-8"))
-finally:
-    os.close(fd)
+try: os.write(fd, (json.dumps(event, ensure_ascii=False) + "\n").encode("utf-8"))
+finally: os.close(fd)
 
 counter_path = Path.home() / ".claude" / "cgg-tic-counter.json"
 counter_path.parent.mkdir(parents=True, exist_ok=True)
@@ -169,15 +157,12 @@ print(f"Canonical count: {before} -> {after}")
 PY
 ```
 
-Report:
-- Counted: `Tic #AFTER (physical) at YYYY-MM-DDTHH:MM:SSZ`
-- Ignored: `Tic emitted at YYYY-MM-DDTHH:MM:SSZ [ignored — <reason>] (canonical count unchanged at #BEFORE)`
+After inline tic emission, execute `/siren conformation` as a fallback conformation writer.
 
-#### Step 1: Signal Manifold Hygiene
-Execute `/siren tick`. Ensure volume has accrued, decay has been applied, and thresholds are checked.
+</details>
 
-#### Step 1.5: Snapshot Conformation
-Execute `/siren conformation` to capture the system's total state at this tic boundary.
+#### Step 1: Signal Manifold Hygiene (skip if cadence-ops.py ran)
+If `cadence-ops.py` was used in Step 0.5, signal state is already captured in the conformation — skip `/siren tick`. Only execute `/siren tick` if the inline fallback was used.
 
 #### Step 2: Extract Lessons (CogPRs)
 Did we establish a new rule or optimize a workflow? If yes, capture it as a `<!-- --agnostic-candidate -->` block using the COGNITIVE band. Route based on truth-state (see write rule below).
@@ -327,20 +312,17 @@ echo 'export CLAUDE_AUTOCOMPACT_PCT_OVERRIDE=95' >> "$CLAUDE_ENV_FILE"
 
 This buys headroom. The next session's SessionStart hook will reset it to 80%.
 
-#### Step 2: Emit Tic (lightweight)
+#### Step 2: Emit Tic + Conformation (lightweight)
 
-**Script path**: If `cadence-ops.py` is available (via `resolve_script`), call it instead of the inline Python below. It handles tic emission, conformation, and mandate in one invocation. The inline Python is the fallback when the script is unavailable.
+**Primary path (MANDATORY when available):** Run `cadence-ops.py --mode syncopate` — same script as downbeat but with syncopate mode. Handles tic + conformation in one deterministic call (mandate is skipped by default for syncopate).
 
-Same emit/count semantics as downbeat (see "Tic emission semantics" above). Resolve zone root, count physical tics, determine count_mode, append atomically.
+```bash
+python3 "$CADENCE_OPS" --zone-root "$ZONE_ROOT" --mode syncopate
+```
 
-Use the same atomic append pattern from Step 0.5, with these differences:
-- `cadence_position`: `"syncopate"` (not `"downbeat"`)
-- `count_mode`: `"counted"` for normal syncopate, `"ignored"` for experimental/rehearsal/sandbox closeout
-- `count_reason`: e.g. `"emergency_syncopate"` or `"experimental_arena_closeout"`
+Use the same `$CADENCE_OPS` resolution from the downbeat Step 0.5 section.
 
-The python3 script from Step 0.5 applies identically — just change `cadence_position`, `count_mode`, and `count_reason` values.
-
-Note: `cadence_position` is `"syncopate"`, not `"downbeat"`. This distinguishes emergency exits from planned epoch boundaries.
+**Fallback:** If `cadence-ops.py` is unavailable, use the inline Python from the downbeat fallback section with `cadence_position: "syncopate"` and `count_reason: "emergency_syncopate"`.
 
 ### Phase 2: PLAN MODE — The Handoff (Steps 3-4)
 

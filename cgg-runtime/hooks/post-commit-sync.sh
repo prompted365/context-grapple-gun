@@ -33,15 +33,48 @@ if ! echo "$COMMAND" | grep -q 'git commit'; then
     exit 0
 fi
 
-# Resolve paths
-SCRIPT_DIR="$(cd "$(dirname "$0")/.." && pwd)/scripts"
-ZONE_ROOT="${CLAUDE_PROJECT_DIR:-$(cd "$(dirname "$0")/../../.." && pwd)}"
-CGG_ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
+# ============================================================================
+# Path resolution — use environment variables, not dirname "$0" relative paths.
+# This hook is installed at ~/.claude/hooks/ which is OUTSIDE the plugin tree.
+# dirname-relative navigation only works inside the plugin directory.
+# ============================================================================
+
+# Zone root: use CLAUDE_PROJECT_DIR, fall back to .ticzone walk
+resolve_zone_root() {
+    local dir="${CLAUDE_PROJECT_DIR:-$(pwd)}"
+    while [ "$dir" != "/" ]; do
+        [ -f "$dir/.ticzone" ] && echo "$dir" && return 0
+        dir=$(dirname "$dir")
+    done
+    echo "${CLAUDE_PROJECT_DIR:-$(pwd)}"
+}
+ZONE_ROOT=$(resolve_zone_root)
+
+# Plugin root: use CLAUDE_PLUGIN_ROOT, fall back to known locations
+CGG_ROOT="${CLAUDE_PLUGIN_ROOT:-}"
+if [ -z "$CGG_ROOT" ] || [ ! -d "$CGG_ROOT" ]; then
+    for candidate in \
+        "$ZONE_ROOT/vendor/context-grapple-gun" \
+        "$ZONE_ROOT/canonical_developer/context-grapple-gun" \
+        "$HOME/.claude/cgg"; do
+        [ -d "$candidate" ] && CGG_ROOT="$candidate" && break
+    done
+fi
+
+# Scripts directory: plugin-root-anchored, then global install fallback
+SCRIPT_DIR=""
+for candidate in \
+    "${CGG_ROOT:+$CGG_ROOT/cgg-runtime/scripts}" \
+    "$HOME/.claude/cgg-runtime/scripts"; do
+    [ -n "$candidate" ] && [ -d "$candidate" ] && SCRIPT_DIR="$candidate" && break
+done
+
+# Fast exit: no scripts directory found
+[ -z "$SCRIPT_DIR" ] && exit 0
 
 # Check if the commit touched cgg-runtime files
-# We check the most recent commit in the CGG repo
-CGG_GIT_DIR="$CGG_ROOT/.git"
-if [ -d "$CGG_GIT_DIR" ]; then
+CGG_GIT_DIR="${CGG_ROOT:+$CGG_ROOT/.git}"
+if [ -n "$CGG_GIT_DIR" ] && [ -d "$CGG_GIT_DIR" ]; then
     # CGG has its own git — check if the commit was in this repo
     CHANGED_FILES=$(cd "$CGG_ROOT" && git diff-tree --no-commit-id --name-only -r HEAD 2>/dev/null || true)
     if ! echo "$CHANGED_FILES" | grep -q 'cgg-runtime/'; then
@@ -59,8 +92,11 @@ fi
 
 # Run auto-sync
 if [ -f "$SCRIPT_DIR/runtime-sync.py" ]; then
-    python3 "$SCRIPT_DIR/runtime-sync.py" auto-sync \
+    RESULT=$(python3 "$SCRIPT_DIR/runtime-sync.py" auto-sync \
         --project-dir "$ZONE_ROOT" \
-        --plugin-root "$CGG_ROOT" \
-        --commit "$COMMIT_SHA" 2>/dev/null || true
+        --plugin-root "${CGG_ROOT:-$ZONE_ROOT}" \
+        --commit "$COMMIT_SHA" 2>&1) || true
+    if [ -n "$RESULT" ]; then
+        echo "$RESULT"
+    fi
 fi
