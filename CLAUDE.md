@@ -148,6 +148,18 @@ Source-repo correctness does not imply runtime correctness. Hook-invoked scripts
 
 <!-- promoted from CogPR-65 runtime-parity finding (tic 91). Band: COGNITIVE. Source: three-layer containment — trigger manifest + registry purge + script sync. Evidence: 571 phantom signals per session, 3 sessions of failed cleanup before root cause identified. -->
 
+## Signal ID Determinism
+
+Signal IDs must be deterministic and condition-stable — derived from the condition being signaled (entity, state, source), not from emission timestamp or session ID. A signal for the same condition across poll cycles must resolve to the same ID so that dedup infrastructure can suppress duplicates.
+
+**Pattern**: Non-deterministic IDs (timestamp-suffix, session-suffix) cause the same condition to appear as N distinct signals per cycle, flooding the manifold. The dedup guard (inbox-envelope.py) is a runtime fix; this rule prevents the class of error at the emitter.
+
+**Constraint**: Signal manifold integrity depends on ID stability — without it, the manifold's active count becomes meaningless noise. The 2305-duplicate incident at tic 91-94 demonstrated that a single non-deterministic emitter can overwhelm the entire signal surface.
+
+**Evidence**: 1150 active WAIT signals from 8 condition-stable IDs each emitted 100+ times (2026-03-15.jsonl). 6 consecutive Mogul audit cycles confirmed. Tic-91 containment fixed symptoms; this rule prevents recurrence.
+
+<!-- promoted from CogPR-66 (tic 94→100). Source: audit-logs/mogul/runs/tic-94-20260316T005800Z-run.json. Evidence: 2305-duplicate incident at tic 91-94, inbox-envelope.py dedup guard, 1150 active WAIT signals with 8 deterministic IDs. -->
+
 ## Review Execution Delegation
 
 After `/review` docket is approved, dispatch execution to a `review-execute` subordinate agent — never execute promotions inline in the interactive path.
