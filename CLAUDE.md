@@ -226,13 +226,11 @@ Running identical full cycles regardless of estate state wastes cognitive resour
 
 Mandate lifecycle has three structural defects that refine the Mandate Consumption Discipline (CogPR-26) and Mandate Execution Depth Scaling (CogPR-47):
 
-1. **session-restore.sh overwrites without check** — always writes `current.json` without checking existing pending mandates. Lightweight mandates accumulate as durable obligations. **Mitigated**: tic-level idempotency guard added (checks `current.json` tic before emitting).
-2. **SessionStart recomputes instead of reconciling** — recomputes cadence from tic modulo instead of reconciling with previous mandate `tic_context`. Creates mandate duplication on session restore. **Mitigated**: `trigger-manifest.yaml` idempotency key changed from `mandate_{tic}_{session_id}` to `mandate_{tic}` with `first_wins` policy.
-3. **No concurrency guard on inline Mogul spawn** — the review skill can inline-spawn Mogul without checking whether a loop-backed Mogul is already active.
+1. **session-restore.sh overwrites without check** — always writes `current.json` without checking existing pending mandates. Lightweight mandates accumulate as durable obligations. **Mitigated**: tic-level idempotency guard added (checks `current.json` tic before emitting). **Fixed** (tic 108): reconcile-first cycle computation — reads previous mandate `tic_context` as primary schedule, modulo as fallback only.
+2. **SessionStart recomputes instead of reconciling** — recomputes cadence from tic modulo instead of reconciling with previous mandate `tic_context`. Creates mandate duplication on session restore. **Mitigated**: `trigger-manifest.yaml` idempotency key changed from `mandate_{tic}_{session_id}` to `mandate_{tic}` with `first_wins` policy. **Fixed** (tic 108): collapsed into reconcile-first in session-restore.sh.
+3. **No concurrency guard on inline Mogul spawn** — the review skill can inline-spawn Mogul without checking whether a loop-backed Mogul is already active. **Fixed** (tic 108): concurrency guard added to `/review` SKILL.md steps 5.5 and 8.5 — checks `current.json` status before writing mandates. Race guard added to cgg-gate.sh inline consumption.
 
 **Idempotency key constraint**: The mandate idempotency key must NOT include `session_id` — per-session UUIDs defeat dedup because every session generates a unique ID, making every emission appear novel. The correct granularity is `mandate_{tic}` with `first_wins` policy. Evidence: tic-87 produced 269 inbox messages, 200+ report files, and 328 signal entries from a single-tic runaway caused by `{session_id}` in the key template.
-
-**Fix sequence**: ephemeral mandate consumption in cgg-gate → de-inline review Mogul spawn → collapse SessionStart into restore/reconcile.
 
 <!-- promoted from CogPR-57 (tic 75→80), extended by CogPR-65 (tic 91). Source: external-audit-verified + mandate runaway containment. Refines CogPR-26 (mandate consumption) and CogPR-47 (mandate depth scaling). Band: COGNITIVE. -->
 
