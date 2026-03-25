@@ -100,7 +100,11 @@ Before presenting the docket, verify that Section C (CogPR Review) has fresh Mog
 1. Check for a bench packet at `audit-logs/mogul/bench-packets/latest.json` or the most recent `audit-logs/mogul/bench-packets/YYYY-MM-DD.json`
 2. If a bench packet exists and its `created_at` is within the last 2 tics of the current tic count, proceed — it is fresh enough
 3. If the bench packet is stale or missing:
-   a. Write a **blocking** Mogul mandate for `bench_packet_prep`:
+   a. **Concurrency guard** (CogPR-57 fix #2): Before writing a mandate, read `audit-logs/mogul/mandates/current.json` and check its `status` field:
+      - If `"running"`: do NOT overwrite. Report to operator: "Mogul mandate already running (ID: X). Cannot spawn bench-prep. Proceed in degraded mode or wait?"
+      - If `"pending"`: do NOT overwrite. Surface the existing mandate to operator.
+      - If `"consumed"`, `"failed"`, or missing: safe to write new mandate.
+   b. Write a **blocking** Mogul mandate for `bench_packet_prep`:
       ```json
       {
         "actor": {"office": "mogul", "embodiment": "cgg_runtime"},
@@ -296,7 +300,12 @@ If any check fails, surface it as a governance hazard — do not silently procee
 
 ### 8.5. Review-Close Mogul Mandate
 
-After applying all approved actions and verifying consistency (Step 8), write a **non-blocking** Mogul mandate for review-close follow-up:
+After applying all approved actions and verifying consistency (Step 8), write a **non-blocking** Mogul mandate for review-close follow-up.
+
+**Concurrency guard** (CogPR-57 fix #2): Before writing, read `audit-logs/mogul/mandates/current.json`:
+- If `"running"`: do NOT overwrite. Log the review-close intent to `grapple-meta-log.jsonl` with `action: "review_close_mandate_deferred"` and note the blocking mandate ID. The next session's cadence will pick up the review-close cycle.
+- If `"pending"`: check if the pending mandate's cycles overlap. If they do, merge `review_close_check` into the existing mandate's `run_now` array. If no overlap, supersede with the review-close mandate (set `supersedes` field).
+- If `"consumed"`, `"failed"`, or missing: safe to write new mandate.
 
 ```json
 {

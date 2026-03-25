@@ -296,55 +296,68 @@ except: print(0)
 fi
 
 if [ "$TIC_COUNT" -gt 0 ] && [ "$MANDATE_ALREADY_EXISTS" = "false" ]; then
-  # Compute due cycles via estate_snapshot (MVOS L2) with inline fallback
-  ESTATE_SNAPSHOT_PY="$ZONE_ROOT/$AUDIT_LOGS_REL/cpg/scripts/estate_snapshot.py"
-  if [ -f "$ESTATE_SNAPSHOT_PY" ]; then
-    DUE_CYCLES_CSV=$(ZONE_ROOT="$ZONE_ROOT" python3 "$ESTATE_SNAPSHOT_PY" --json 2>/dev/null | python3 -c "
-import json, sys
-try:
-    data = json.load(sys.stdin)
-    cycles = data.get('profile_selection', {}).get('cycles', ['queue_refresh', 'signal_scan'])
-    # Also check mandate due-tic overrides
-    import os
-    prev = '$MANDATE_FILE'
-    tic = $TIC_COUNT
-    if os.path.isfile(prev):
-        p = json.load(open(prev))
-        tc = p.get('tic_context', {})
-        if tc.get('memory_mining_due_tic') and tic >= tc['memory_mining_due_tic'] and 'memory_mining' not in cycles: cycles.append('memory_mining')
-        if tc.get('pattern_mining_due_tic') and tic >= tc['pattern_mining_due_tic'] and 'pattern_mining' not in cycles: cycles.append('pattern_mining')
-        if tc.get('ladder_audit_due_tic') and tic >= tc['ladder_audit_due_tic']:
-            if 'ladder_audit' not in cycles: cycles.append('ladder_audit')
-        if tc.get('deep_audit_due_tic') and tic >= tc['deep_audit_due_tic'] and 'deep_audit' not in cycles: cycles.append('deep_audit')
-    print(','.join(set(cycles)))
-except:
-    print('queue_refresh,signal_scan')
-" 2>/dev/null || echo "queue_refresh,signal_scan")
-  else
-    # Inline fallback when estate_snapshot.py not available
-    DUE_CYCLES_CSV=$(python3 -c "
+  # ── Reconcile-first cycle computation (CogPR-57 fix #3) ──
+  # Primary: read previous mandate's tic_context for scheduled due_tic values.
+  # Secondary: estate_snapshot or modulo fallback only when no previous context.
+  # This prevents recomputation drift where modulo math disagrees with the
+  # schedule that cadence/review explicitly set in tic_context.
+  DUE_CYCLES_CSV=$(python3 -c "
+import json, os, sys
+
 tic = $TIC_COUNT
-cycles = ['queue_refresh', 'signal_scan']
-if tic % 3 == 0: cycles.append('memory_mining')
-if tic % 4 == 0: cycles.append('pattern_mining')
-if tic % 5 == 0: cycles.extend(['ladder_audit', 'runtime_drift_check'])
-if tic % 8 == 0: cycles.append('deep_audit')
-import json, os
 prev = '$MANDATE_FILE'
+base_cycles = ['queue_refresh', 'signal_scan']  # always due
+
+# ── Primary: reconcile from previous mandate tic_context ──
+tc = {}
+has_prev_context = False
 if os.path.isfile(prev):
     try:
         p = json.load(open(prev))
         tc = p.get('tic_context', {})
-        if tc.get('memory_mining_due_tic') and tic >= tc['memory_mining_due_tic'] and 'memory_mining' not in cycles: cycles.append('memory_mining')
-        if tc.get('pattern_mining_due_tic') and tic >= tc['pattern_mining_due_tic'] and 'pattern_mining' not in cycles: cycles.append('pattern_mining')
-        if tc.get('ladder_audit_due_tic') and tic >= tc['ladder_audit_due_tic']:
-            if 'ladder_audit' not in cycles: cycles.append('ladder_audit')
-            if 'runtime_drift_check' not in cycles: cycles.append('runtime_drift_check')
-        if tc.get('deep_audit_due_tic') and tic >= tc['deep_audit_due_tic'] and 'deep_audit' not in cycles: cycles.append('deep_audit')
+        # Previous context is valid if it has any due_tic fields
+        if any(k.endswith('_due_tic') for k in tc):
+            has_prev_context = True
     except: pass
-print(','.join(set(cycles)))
-" 2>/dev/null)
-  fi
+
+if has_prev_context:
+    # Schedule-driven: use due_tic values from previous mandate
+    due_map = {
+        'memory_mining': 'memory_mining_due_tic',
+        'pattern_mining': 'pattern_mining_due_tic',
+        'ladder_audit': 'ladder_audit_due_tic',
+        'deep_audit': 'deep_audit_due_tic',
+    }
+    for cycle, key in due_map.items():
+        due_at = tc.get(key)
+        if due_at and tic >= due_at:
+            base_cycles.append(cycle)
+else:
+    # ── Fallback: modulo-based defaults (no previous context) ──
+    if tic % 3 == 0: base_cycles.append('memory_mining')
+    if tic % 4 == 0: base_cycles.append('pattern_mining')
+    if tic % 5 == 0: base_cycles.extend(['ladder_audit', 'runtime_drift_check'])
+    if tic % 8 == 0: base_cycles.append('deep_audit')
+
+# ── Optional: estate_snapshot can ADD cycles but not replace schedule ──
+estate_py = '$ZONE_ROOT/$AUDIT_LOGS_REL/cpg/scripts/estate_snapshot.py'
+if os.path.isfile(estate_py):
+    try:
+        import subprocess
+        env = os.environ.copy()
+        env['ZONE_ROOT'] = '$ZONE_ROOT'
+        r = subprocess.run(['python3', estate_py, '--json'],
+                          capture_output=True, text=True, env=env, timeout=10)
+        if r.returncode == 0:
+            data = json.loads(r.stdout)
+            estate_cycles = data.get('profile_selection', {}).get('cycles', [])
+            for c in estate_cycles:
+                if c not in base_cycles:
+                    base_cycles.append(c)
+    except: pass
+
+print(','.join(sorted(set(base_cycles))))
+" 2>/dev/null || echo "queue_refresh,signal_scan")
 
   if [ -n "$DUE_CYCLES_CSV" ]; then
     # ── Build mandate body JSON ──

@@ -156,6 +156,20 @@ except: print('error|||')
       LIGHTWEIGHT_RESULTS=""
       LIGHTWEIGHT_FAILED=""
 
+      # Re-validate status before consumption (race guard: mogul-runner may have
+      # picked up the mandate between our initial read and now — CogPR-57 fix #1)
+      RECHECK_STATUS=$(python3 -c "
+import json
+try:
+    m = json.load(open('$MANDATE_FILE'))
+    print(m.get('status', 'pending'))
+except: print('error')
+" 2>/dev/null)
+      if [ "$RECHECK_STATUS" != "pending" ]; then
+        log_meta "{\"timestamp\":\"$TIMESTAMP\",\"action\":\"lightweight_mandate_race_avoided\",\"mandate_id\":\"$MANDATE_ID\",\"recheck_status\":\"$RECHECK_STATUS\"}"
+        MANDATE_OUTPUT="[MOGUL MANDATE: $RECHECK_STATUS] Mandate $MANDATE_ID already picked up (status: $RECHECK_STATUS)."
+      else
+
       # Execute each lightweight cycle
       IFS=',' read -ra LW_CYCLES <<< "$ALL_CYCLES"
       for cycle in "${LW_CYCLES[@]}"; do
@@ -229,6 +243,8 @@ json.dump(m, open('$MANDATE_FILE', 'w'), indent=2)
         log_meta "{\"timestamp\":\"$TIMESTAMP\",\"action\":\"lightweight_mandate_consumption_failed\",\"mandate_id\":\"$MANDATE_ID\",\"cycles\":\"$ALL_CYCLES\"}"
         MANDATE_OUTPUT="[MOGUL MANDATE: lightweight] Pending cycles: $ALL_CYCLES (inline consumption failed — needs investigation)."
       fi
+
+      fi  # end race guard (CogPR-57 fix #1)
     fi
   elif [ "$MANDATE_STATUS" = "running" ]; then
     MANDATE_OUTPUT="[MOGUL MANDATE: in-flight] Mandate $MANDATE_ID still running (cycles: $ALL_CYCLES)."
