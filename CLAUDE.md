@@ -284,6 +284,36 @@ Use this geometry when the arena question is a testable hypothesis rather than a
 
 <!-- promoted from arena-marketplace-0 (tic 9→25, arena-sourced marketplace-epistemic-triangulation). Process lesson — reinforced confidence tier. Band: COGNITIVE. -->
 
+## Governance Label Accuracy
+
+'Observer-first' is a governance label that systematically understates commitment. If the model includes synchronous pre-action checkpoints at critical boundaries (cost, publish, destroy), the model is 'governed-at-boundaries' and the label should match. Labels shape investment decisions — a mislabeled pattern will be under-resourced where it matters most.
+
+<!-- promoted from CogPR-73 (tic 102→105). Source: arena:triad-fusion-authority-arena — Wildcard Record #5 (semantic downgrade), governance-examiner rebuttal, all agents converged on gates at cost/publish/destroy. Band: COGNITIVE. -->
+
+## Same-Model Convergence Discount
+
+Same-model agent convergence is weaker than cross-model convergence. Same-substrate agents satisfy incentive independence (opposed mandates) but not epistemic independence (shared priors). Downgrade same-model convergent findings to REINFORCED until validated by implementation evidence.
+
+<!-- promoted from CogPR-76 (tic 102→105). Source: arena:triad-fusion-evidence-rebuttal — same-substrate shared priors observation. Tentative confidence; CGG scope first, federation promotion pending cross-model arena validation. Band: COGNITIVE. -->
+
+## Concession Cascade Detection
+
+Evidence-rebuttal concession cascade: when evidence advocate concedes all claims, check for role abandonment vs claim adjustment. Lead must verify empirical evidence perspective survives even when specific evidence base is thin. Concession cascade produces bilateral consensus, not triangulated convergence.
+
+<!-- promoted from CogPR-77 (tic 102→105). Source: arena:triad-fusion-evidence-rebuttal — evidence advocate conceded all claims, bilateral consensus ≠ triangulated convergence. Band: COGNITIVE. -->
+
+## Arena Velocity Guard
+
+When arena convergence happens faster than evidence accumulation, treat the consensus as a hypothesis set, not a decision set. Each consensus point needs an explicit falsification condition. The wildcard strike-down question ('what would the smart-but-wrong version be?') applied to each point before ratification guards against elegant plans nobody can build.
+
+<!-- promoted from CogPR-74 (tic 102→105). Source: arena:triad-fusion-authority-arena — 8 consensus points in 3 phases, Wildcard Records #3 and #8, strike-down question technique. Complements CogPR-33 (convergence timing). Band: COGNITIVE. -->
+
+## showClearContextOnPlanAccept Must Be True
+
+CGG cadence depends on plan-mode context-clear as the session epoch boundary. When false (the default as of Claude Code with 1M context), clear-context options are suppressed in the plan approval menu, replacing them with keep-context variants. This silently breaks the cadence handoff chain (plan approve + clear -> session-restore.sh -> trigger extraction -> assessor spawn). Set `showClearContextOnPlanAccept: true` in `~/.claude/settings.json` for any CGG-governed workspace.
+
+<!-- promoted from CogPR-78 (tic 104→107). Source: binary-analysis-claude-code-2.1.81. Evidence: binary-verified — flag controls first option in plan approval menu, cadence handoff chain restored after setting true. Band: COGNITIVE. -->
+
 ## Session Learning Protocol
 
 When you discover something during a session that constitutes a durable lesson — a friction point resolved, a non-obvious behavior confirmed, a workflow correction — capture it as a CogPR (Cognitive Pull Request).
