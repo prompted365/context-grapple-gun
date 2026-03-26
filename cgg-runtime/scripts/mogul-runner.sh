@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # mogul-runner.sh — Mogul mandate consumer
 #
 # Reads authoritative mandate from audit-logs/mogul/mandates/current.json,

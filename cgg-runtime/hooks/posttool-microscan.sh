@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # CGG v4 — PostToolUse micro-scan hook
 # Lightweight governance notice between cadence boundaries.
 # Fires after Write/Edit tool completions. Must complete in < 2 seconds.

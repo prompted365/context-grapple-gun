@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # CGG v6 — UserPromptSubmit gate
 # Two independent branches:
 #   A) Mandate branch: checks for pending Mogul mandates independent of trigger state

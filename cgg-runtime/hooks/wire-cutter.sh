@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # CGG Wire Cutter — emergency kill switch for hooks, loops, and emitters
 #
 # Usage in any hook:

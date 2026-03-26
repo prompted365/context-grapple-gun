@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # CGG v5 — SessionStart canonical governance runtime entrypoint
 #
 # Features:

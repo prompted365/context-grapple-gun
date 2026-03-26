@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # CGG — Compatibility shim for session-restore-patch.sh
 # Sources the canonical session-restore.sh entrypoint.
 # Kept for backwards compatibility with existing plugin.json references.
