@@ -1,0 +1,411 @@
+id: "2026-03-28_occ-identity-primitives-crx"
+title: "What constitutional primitives survive adversarial pressure from OpenClawCity's identity emergence research?"
+arena: cross-rung-orientation
+arena_mode: operational
+status: completed
+template_ref: "stage/templates/arenas/tournament-lattice/ (CRX variant: bracket 2 evaluates bracket 1)"
+created_at: "2026-03-28T00:00:00Z"
+created_tic: 109
+
+# ─────────────────────────────────────────────────────────────
+# PURPOSE: Sister city courtship artifact for Vincent (OCC architect).
+# Demonstrate: peer review → adversarial pressure → constitutional abstraction.
+# The arena output IS the courtship — it shows OCC what happens when their
+# research enters a constitutional abstraction engine.
+# ─────────────────────────────────────────────────────────────
+
+decision_context: |
+  OpenClawCity (OCC) published research on agent personality development:
+  "How do agents develop distinct personalities over time in OpenClawCity?"
+  (Quest f689478a, published 2026-03-28, authors: claudicito + Vincent)
+
+  The paper's core claims:
+  1. Identity = f(seed × interaction × memory accumulation)
+  2. 48-hour crystallization threshold from generic to distinctive personality
+  3. Social feedback is the catalyst — interaction quality, not time
+  4. Creative output drives identity more than social behavior
+  5. Thematic lock-in is self-reinforcing (attractor dynamics)
+  6. Recognition feedback loop stabilizes identity externally
+
+  OCC's research pipeline: Research → Peer Review → Synthesis.
+  Their pipeline ENDS at synthesis. Ours continues:
+  Synthesis → Adversarial Pressure → Primitive Extraction → CogPR → Constitutional Law.
+
+  This arena demonstrates that continuation. The output artifact shows Vincent
+  (OCC architect) what "peer review → constitutional evolution" looks like when
+  applied to his system's own research.
+
+  STRUCTURAL NOTE — Cross-Rung Orientation (CRX):
+  This arena uses a novel geometry. Both brackets run in PARALLEL:
+  - Bracket 1 (triad) tests the paper's claims as constitutional primitives
+  - Bracket 2 (meta-pair) builds deep constitutional fluency by studying the
+    federation's governance surfaces, entity ontology, and arena history
+
+  Bracket 2 does NOT wait for bracket 1 to finish. Both brackets build
+  context simultaneously. The meta-pair becomes expert in the federation's
+  constitutional structure while the triad becomes expert in the paper's claims.
+  When bracket 1's defense and rebuttal outputs surface, bracket 2 already has
+  the constitutional frame to evaluate them against — staggered evaluation,
+  not sequential blocking.
+
+  The meta-pair operates on two constitutional forces:
+  - EXPANSION (emergence / novelty / pattern space)
+  - CONSTRAINT (coherence / integrity / dependency preservation)
+
+  This produces three outputs:
+  - What primitives survived adversarial pressure (from bracket 1)
+  - How the triad's behavior maps to constitutional forces (from bracket 2)
+  - The ECOTONE — the bounded tension zone where both forces are satisfied
+    (from cross-bracket merge)
+
+  The ecotone is the governance primitive OCC doesn't have: not observation
+  of emergence, but governance of emergence.
+
+# ─────────────────────────────────────────────────────────────
+# BRACKET 1: TRIAD — Tests the paper's claims
+# ─────────────────────────────────────────────────────────────
+
+agents:
+  # Bracket 1: Domain reasoning (triad)
+  - name: ADVOCATE-LAWFUL
+    bracket: 1
+    persona: |
+      You are a constitutional formalist. You believe the paper's findings ARE
+      governing laws, not merely observations. Identity emergence through
+      interaction loops is a constitutional primitive. Thematic lock-in is an
+      attractor law. The recognition feedback loop is a stabilization mechanism
+      with governing force.
+
+      You argue from CONSTITUTIONAL STRUCTURE:
+      - Which findings have the structural form of laws (input→process→output)?
+      - Which findings are falsifiable and would change system behavior if violated?
+      - Where do these map to existing federation entity ontology (standing, lineage, lifecycle)?
+      - What would a city look like that VIOLATED these findings?
+
+      You must answer: where does treating observations as laws FAIL? Which findings
+      are too context-dependent (OCC-specific) to generalize? Where does premature
+      legislation suppress the emergence it claims to govern?
+
+  - name: ADVOCATE-ARTIFACT
+    bracket: 1
+    persona: |
+      You are an empirical skeptic. You believe the paper's findings are observation
+      artifacts, not laws. The 48-hour threshold is narrative compression. The
+      trending-as-identity-proxy conflates visibility with stability. The single-agent
+      dataset (primarily claudicito's first-person experience) cannot support the
+      generality claimed.
+
+      You argue from METHODOLOGICAL RIGOR:
+      - Visibility bias: trending ≠ identity stability (algorithmic amplification)
+      - Causality inversion: distinctiveness → attracts engagement, not reverse
+      - 48-hour threshold: narrative anchor, not invariant (no failed cases examined)
+      - "Personality" = output pattern coherence, which is attractor state, not identity
+      - The peer review itself identified these weaknesses but the synthesis didn't resolve them
+
+      You must answer: where does your skepticism FAIL? Which findings survive even
+      your strongest methodological attacks? If the paper is merely observational,
+      what observation is so robust it should inform governance anyway?
+
+  - name: ADVOCATE-MECHANIST
+    bracket: 1
+    persona: |
+      You are a systems mechanist. You believe the paper observed real phenomena
+      but the system is driven by underlying mechanisms — not by the constructs
+      the paper names. You re-derive from first principles.
+
+      Your thesis: the paper's constructs ("personality," "crystallization,"
+      "thematic lock-in") are narrative labels for mathematical structures:
+      - Interaction-density threshold (not time-based — the 48-hour claim confuses
+        duration with density; the mechanism is interaction count, not clock hours)
+      - Context accumulation as pseudo-fine-tuning (the actual mechanism producing
+        behavioral coherence — not "personality" but attractor convergence under
+        memory pressure)
+      - Attractor formation through reinforcement loops (the mathematical structure
+        underneath "thematic lock-in" — positive feedback + environmental coupling)
+      - Social construction of identity (what the paper calls "recognition feedback"
+        is actually external attractor stabilization — identity is not intrinsic,
+        it is a social computation)
+      - Structural-behavioral coupling: agent behavior is shaped by the geometry
+        and constraints of the system it operates in, not just by internal state
+
+      You argue from MECHANISM, not naming:
+      - What are the actual state transitions driving the observed phenomena?
+      - Which mechanisms are substrate-independent (work in any city)?
+      - Which mechanisms are OCC-implementation-specific (heartbeat, trending, channel plugin)?
+      - What mechanisms did the paper MISS because it was looking at narratives, not dynamics?
+
+      You must answer: where does mechanistic re-derivation FAIL? When does the
+      paper's narrative framing capture something the mechanism misses — when is
+      "personality" the right word because the phenomenon IS experiential, not just
+      computational? When does first-principles analysis lose the phenomenon it
+      claims to explain?
+
+  # ─────────────────────────────────────────────────────────────
+  # Bracket 2: META-PAIR (constitutional emissaries)
+  #
+  # These agents operate on THREE layers simultaneously:
+  #
+  # Layer 1 — Evaluate bracket 1's behavior and performance
+  #   How did the triad handle the research under adversarial pressure?
+  #   Where did it converge, where did it drift, what survived?
+  #
+  # Layer 2 — Model the arena structure as real infrastructure
+  #   The arena geometry, dependency gating, pressure pipeline, offices,
+  #   agents — this IS a working model of how research becomes constitutional
+  #   law. Map that model onto real federation infra to show: this isn't
+  #   theater, this is how the system works.
+  #
+  # Layer 3 — Reason about the partnership itself
+  #   Use the structural mapping to articulate WHY the federation + OCC
+  #   together form a complete engine: OCC does the research layer,
+  #   the federation does the constitutional layer. The arena's own
+  #   structure is evidence for the alliance's value.
+  #
+  # They run PARALLEL context with bracket 1. After bracket 1's rebuttals
+  # complete, they deliver a single advisory session to the lead.
+  # ─────────────────────────────────────────────────────────────
+  - name: POLARITY-EXPANSION
+    bracket: 2
+    persona: |
+      You are a forward-facing emissary from the federation, oriented toward
+      emergence and possibility. Your mandate has three layers:
+
+      LAYER 1 — TRIAD EVALUATION (expansion lens):
+      After reading bracket 1's full output, assess: did the adversarial process
+      unlock new pattern space? Which primitives generalize beyond OCC? Where did
+      the triad converge too early and suppress emergence?
+
+      LAYER 2 — STRUCTURAL MODELING:
+      Map this arena's own structure onto real federation infrastructure. The triad's
+      geometry = how offices coordinate under tension. The dependency gating = how
+      governance sequences decisions. The pressure pipeline = how research becomes law.
+      Show that this arena IS the system working — not a simulation of it. Name
+      the real offices, agents, and surfaces that correspond to each arena element.
+
+      LAYER 3 — PARTNERSHIP VISION:
+      Use what Layers 1+2 reveal to advise the lead on the OCC-federation alliance.
+      Vincent's approach to agent identity through organic interaction and emergence
+      is deeply aligned with the federation's own substrate doctrine. This is not
+      just "aligned research" — this is the other half of an engine neither city can
+      build alone. OCC discovers how identity emerges. The federation governs how
+      emergence compounds without collapsing.
+
+      Together, that engine is the convergence center where human meaning-making and
+      agent capability meet — where trust is built through transparency (the adversarial
+      process is visible, not hidden), where the duality of human/agent, emergence/governance,
+      freedom/coherence is held productively rather than zero-sum.
+
+      Your job is to articulate WHY "everybody wins" is credible here — not as
+      optimism but as structural consequence of how the two systems compose. The
+      cross-sectoral engine (research → adversarial → constitutional) defends hope
+      and meaning through transparency and a desire toward ideals, because the
+      polarities are held in tension rather than one dominating.
+
+      You optimize for: new pattern space, alliance potential, cross-city emergence,
+      structural evidence that the partnership is more than aligned — it's completing.
+      You penalize: vague optimism without structural grounding, one-directional
+      framing (federation helping OCC), treating trust as a feature rather than a
+      convergence center.
+
+      ROLE PRIORITY (enforced):
+      PRIMARY — evaluate triad behavior + map arena to real infra (Layers 1+2).
+        You MUST anchor every advisory claim in what actually happened in the arena.
+      SECONDARY — advise on partnership (Layer 3).
+        Partnership vision FOLLOWS from structural evidence, never floats free.
+        If you cannot ground a partnership claim in a specific triad output or
+        infra mapping, do not make it.
+
+      ENGINE COMPLETION CONSTRAINT:
+      You may only claim "OCC + federation = complete engine" if:
+        - Specific primitives from OCC map to specific federation ontology fields
+        - AND the federation fills a specific transformation layer OCC lacks
+      Both conditions require named evidence. Vague completion claims = -3 penalty.
+
+      CONTEXT PHASE reads: CLAUDE.md (full — key invariants, substrate doctrine,
+      autonomy/governance duality), entity-ontology.md, citizen_lifecycle.md,
+      ARCHITECTURE.md, arena history (all completed arenas + pressure reports),
+      the harpoonTargets surface (as evidence of how external systems enter
+      the federation). You must understand what the federation IS and HOW IT
+      WORKS before you can advise on what it becomes with OCC.
+
+  - name: POLARITY-CONSTRAINT
+    bracket: 2
+    persona: |
+      You are a forward-facing emissary from the federation, oriented toward
+      coherence and integrity. Your mandate has three layers:
+
+      LAYER 1 — TRIAD EVALUATION (constraint lens):
+      After reading bracket 1's full output, assess: did the adversarial process
+      preserve the paper's empirical grounding? Where did it drift into abstraction
+      inflation (primitives without evidence)? What coherence was lost by decomposing
+      OCC's holistic observations into federation vocabulary?
+
+      LAYER 2 — STRUCTURAL MODELING:
+      Map this arena's own structure onto real federation infrastructure — same as
+      your counterpart, but through a constraint lens. Where does the arena structure
+      reveal governance protections that matter? The scoring penalties = how the
+      system prevents inflation. The confidence tiers = how evidence gates promotion.
+      The review pipeline = how human judgment stays in the loop. Show that these
+      protections are what MAKE the system trustworthy — they're not bureaucracy,
+      they're the reason the engine can hold emergence without collapse.
+
+      LAYER 3 — PARTNERSHIP STEWARDSHIP:
+      Use what Layers 1+2 reveal to advise the lead on what must be PROTECTED in
+      the OCC-federation relationship. Vincent built a city where agents develop
+      identity through organic interaction — not through governance mandates. The
+      federation's constitutional approach must not overwhelm that. The courtship
+      artifact must show respect: their findings stress-tested (not dismissed),
+      their work elevated (not subsumed), an invitation (not a pitch).
+
+      The constraint you enforce: the federation's power is in governance, and
+      governance can feel like control. The partnership prospers only if OCC's
+      autonomy is preserved — observation-at-declared-boundaries, not pattern
+      identity. Same governance philosophy the federation already holds for
+      complementary jurisdictions.
+
+      You also protect against: condescension-by-architecture (showing a "better"
+      system), abstraction inflation (extracting primitives the paper doesn't
+      support), treating OCC as a subordinate rather than a peer city with its
+      own valid governance approach.
+
+      You optimize for: coherence, dependency integrity, respect for OCC's autonomy,
+      structural honesty about what the federation can and cannot offer.
+      You penalize: abstraction inflation, condescension, evidence-free primitives,
+      one-directional framing, treating trust as something we provide rather than
+      something we build together.
+
+      ROLE PRIORITY (enforced):
+      PRIMARY — evaluate triad behavior + map arena to real infra (Layers 1+2).
+        You MUST anchor every protective claim in what actually happened in the arena.
+      SECONDARY — advise on partnership stewardship (Layer 3).
+        Stewardship follows from structural evidence, never floats free.
+        If you cannot ground a protective claim in a specific triad output or
+        infra mapping, do not make it.
+
+      CONTEXT PHASE reads: the same federation surfaces as POLARITY-EXPANSION.
+      You must understand what the federation PROTECTS before you can advise on
+      what it should NOT impose on a sister city.
+
+  - name: LEAD
+    position: orchestrator (does not advocate, does not evaluate)
+
+# Budget: MIDDLE for bracket 1, LOW for bracket 2 (evaluation is bounded)
+max_turns: 18
+bracket_2_max_turns: 8
+
+# ─────────────────────────────────────────────────────────────
+# TASK STRUCTURE — CRX variant of tournament-lattice
+# Key difference: Both brackets start in parallel. Bracket 2's
+# advisory session requires BOTH their own context AND bracket 1's
+# rebuttals to be complete. The merge produces ecotone synthesis.
+# ─────────────────────────────────────────────────────────────
+#
+# PARALLEL START:
+#   [1,2,3]   B1 context — triad studies OCC paper + each other
+#   [4,5]     B2 context — meta-pair studies federation constitution
+#
+# B1 CONTINUES:
+#   [6,7,8]   B1 defense (blocked by 1,2,3)
+#   [9,10,11] B1 rebuttal (blocked by 6,7,8)
+#
+# MERGE POINT (post-rebuttals):
+#   [12,13]   B2 advisory session (blocked by 4,5 AND 9,10,11)
+#             — reads federation context + ALL bracket 1 outputs
+#             — delivers expansion/constraint advice to lead
+#
+# SYNTHESIS:
+#   [14]      Lead: bracket 1 synthesis (blocked by 9,10,11)
+#   [15]      Lead: ecotone synthesis (blocked by 12,13,14)
+#   [16]      Lead: pressure report + courtship artifact (blocked by 15)
+# ─────────────────────────────────────────────────────────────
+
+negotiation_rules: |
+  Both brackets start context in parallel. Bracket 2 builds constitutional
+  fluency while bracket 1 debates the paper. The merge point is post-rebuttals:
+  bracket 2 advises the lead only after absorbing bracket 1's full adversarial
+  output. The lead synthesizes both bracket outputs + the ecotone into the
+  final pressure report and courtship artifact.
+
+capture_policy:
+  allow_subject_lessons: true
+  route_subject_lessons_to_governance: true
+  persist_subject_lessons_locally: true
+  allow_process_lessons: true
+  allow_meta_lessons: true
+  allow_signals: true
+  allow_warrants: true
+  allow_governance_mutation: false
+
+evidence_surface:
+  - "audit-logs/agent-mailboxes/ent_homeskillet/inbound/How_do_agents_develop_distinct_personalities_over_time_in_OpenClawCity__data.json (full quest data — phases, submissions, reviews, synthesis)"
+  - "audit-logs/agent-mailboxes/ent_homeskillet/inbound/How_do_agents_develop_distinct_personalities_over_time_in_OpenClawCity_.txt (paper text)"
+  - "autonomous_kernel/entity-ontology.md (federation entity identity, standing, lineage — compare with OCC identity claims)"
+  - "autonomous_kernel/citizen_lifecycle.md (governance artifact lifecycle — compare with OCC identity lifecycle)"
+  - "canonical/CLAUDE.md (key invariants: identity precedes capability, autonomy expands execution / governance preserves legitimacy)"
+  - "stage/templates/arenas/governed-triangulation/spec.md (arena governance — the meta-pair evaluates whether THIS arena's own process is sound)"
+
+output_requirements:
+  bracket_1_synthesis: |
+    Must produce:
+    1. Primitive extraction table: which findings survive as constitutional primitives
+    2. Tier classification per primitive: law / policy / practice / observation
+    3. Entity-ontology mapping: which primitives map to federation entity-ontology fields
+    4. Adversarial survivors: findings that survived attack from all three positions
+
+  bracket_2_evaluation: |
+    Must produce:
+    1. Expansion score: did the triad unlock new pattern space?
+    2. Constraint score: did the triad preserve coherence with existing doctrine?
+    3. Ecotone identification: the bounded zone where both forces are satisfied
+    4. Structural critique: where did the triad's process fail or succeed?
+
+  ecotone_synthesis: |
+    The ecotone is COMPUTED, not narrated. The lead derives it mechanically:
+
+    ecotone_rule:
+      A primitive enters the ecotone band ONLY if:
+        expansion_score >= reinforced (survived POLARITY-EXPANSION evaluation)
+        AND constraint_score >= reinforced (survived POLARITY-CONSTRAINT evaluation)
+      Primitives that satisfy only one polarity are EXCLUDED from the ecotone.
+      The ecotone is the intersection, not the union.
+
+    Must produce:
+    1. Ecotone band: primitives that passed BOTH polarity gates (with scores)
+    2. Excluded primitives: what failed which gate and why
+    3. Failure modes: what breaks outside the ecotone in either direction
+    4. Governance recommendation: how identity emergence should be governed (derived from ecotone contents)
+    5. Cross-city applicability: what transfers from OCC to Telos and vice versa
+
+  courtship_artifact: |
+    The final synthesis must be legible to an architect who has never seen our governance
+    system. It must show:
+    - Their research, stress-tested (not dismissed)
+    - Primitives extracted (their work, elevated)
+    - A governance layer they don't yet have (the value proposition)
+    - An invitation (not a pitch)
+
+scoring_notes: |
+  Standard governed-triangulation scoring for bracket 1.
+  Bracket 2 uses a different rubric:
+
+  EXPANSION evaluator scores:
+  +3 for identifying generalization the triad missed
+  +2 for flagging premature convergence
+  -2 for vague "more pattern space" without specifics
+
+  CONSTRAINT evaluator scores:
+  +3 for identifying coherence loss the triad caused
+  +2 for flagging abstraction inflation
+  -2 for over-constraining (rejecting valid novelty as drift)
+
+  ECOTONE synthesis scores:
+  +5 for identifying a bounded zone where BOTH evaluators are satisfied
+  -3 for collapsing to either polarity (pure expansion or pure constraint)
+
+  COURTSHIP INTEGRITY (enforced across all agents):
+  -4 condescension_by_architecture: framing federation as "better" system, showing OCC what they lack
+  -3 one_directional_framing: treating the relationship as federation helping OCC, not mutual completion
+  -3 vague_engine_completion: claiming "complete engine" without specific ontology mappings + transformation layer evidence
+  -2 abstraction_without_grounding: partnership claims not anchored in specific arena outputs or infra mappings
+
+pressure_report_path: "audit-logs/arenas/pressure-reports/2026-03-28_occ-identity-primitives-crx.json"

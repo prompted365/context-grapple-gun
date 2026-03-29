@@ -1,0 +1,102 @@
+# Governed Harpoon Triangulation Scoring Rubric
+# Extends governed-triangulation scoring with harpoon-specific bonuses and penalties.
+
+# Standard governed-triangulation points (inherited)
+points:
+  factual_insight: 1
+  strategic_relevance: 2
+  steelman_of_rival: 3
+  structural_weakness_identified: 4
+  architectural_reframe: 5
+
+# Harpoon-specific extensions
+  cross_office_discovery: 6       # Names 3+ federation/estate surfaces with evidence
+
+penalties:
+  shallow_claim: -2
+  unsupported_assertion: -3
+  hallucinated_fact: -5
+
+# Harpoon-specific penalties
+  vague_leverage_claim: -3        # "Many verticals" without naming specific surfaces/outcomes
+
+evaluation_factors:
+  - dependency_correctness
+  - engineering_leverage
+  - signal_availability
+  - implementation_cost
+  - observability_impact
+  # Harpoon-specific
+  - cross_office_leverage_ratio    # Surfaces served / implementation cost
+  - tier_classification_evidence   # Evidence supporting the tier verdict
+  - tool_coupling_assessment       # How dependent is the target on external tools?
+  - pattern_portability            # Do extracted patterns survive domain removal?
+
+convergence_rule: |
+  When multiple independent agents with opposed incentives
+  discover the same structural fact, treat it as high-confidence signal.
+  Independent discovery + opposed incentives + same conclusion = high confidence.
+
+  For harpoon assessments: convergent tier classification carries higher weight
+  than convergent pattern identification. All three advocates agreeing on the
+  tier is the strongest possible signal about the target's value.
+
+# Arena result output schema (extends governed-triangulation)
+arena_result:
+  decision:
+    tier_classification: ""        # tier_1_harvest | tier_2_adapt | tier_3_investigate | discard
+    surviving_structure: ""
+    dependency_graph: []
+    implementation_order: []
+    rationale: []
+
+  # Harpoon-specific output requirements
+  constitutional_patterns:
+    - pattern_name: ""
+      description: ""
+      federation_surfaces_served: []
+      estate_surfaces_served: []
+      existing_primitives: ""
+      gap: ""
+
+  cross_office_leverage_map:
+    - action: ""
+      federation_surfaces: []
+      estate_surfaces: []
+      leverage_ratio: ""           # surfaces served / implementation cost
+
+  pressure_report:
+    convergent_discoveries:
+      - claim: ""
+        support_agents: []
+        confidence: high
+
+    unresolved_tensions:
+      - issue: ""
+        opposing_claims: []
+        severity: medium
+
+    repeated_attack_surfaces:
+      - weakness: ""
+        targeted_position: ""
+        raised_by: []
+
+    hidden_dependencies:
+      - dependency: ""
+        exposed_by: []
+
+    false_convergence_risks:
+      - claim: ""
+        why_risky: ""
+
+    candidate_cogprs:
+      - lesson: ""
+        lesson_type: process
+        confidence_tier: tentative
+        recommended_scope: "site"
+
+    candidate_signals:
+      - kind: ""
+        summary: ""
+        reason: ""
+        confidence_tier: tentative

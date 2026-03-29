@@ -1,0 +1,231 @@
+id: triad-fusion-evidence-rebuttal
+title: "Triad Fusion Evidence Rebuttal: Test Coverage as Authority Evidence"
+arena: governed-triangulation  # extended with wildcard phase
+arena_mode: operational
+status: completed
+continuation_of: triad-fusion-authority-arena
+
+# -------------------------------------------------------------------
+# QUESTION
+# -------------------------------------------------------------------
+# The parent arena (triad-fusion-authority-arena) produced 7 probationary
+# claims and 5 rejected claims. New evidence has surfaced:
+#
+# 1. telos-studio has 8 validated test suites (148+ assertions, all green)
+#    covering: clip authority, camera authority, v5 validation, migration,
+#    visibility resolution, clip creation, clip sync, share payload
+#
+# 2. ArtCraft has ZERO test files — no frontend tests, no Rust #[test]
+#    blocks, no test framework configuration
+#
+# This evidence was not available to the parent arena. It bears directly
+# on 4 probationary claims and 2 rejected claims. The question:
+#
+# Does validated test coverage constitute authority evidence that changes
+# any parent arena verdict — or is test coverage orthogonal to the
+# architectural concerns the parent arena adjudicated?
+# -------------------------------------------------------------------
+
+parent_arena:
+  id: triad-fusion-authority-arena
+  governance_memo: stage/shows/triad-fusion-authority-arena/governance-memo.yaml
+  pressure_report: stage/shows/triad-fusion-authority-arena/pressure-report.yaml
+  verdict: proceed_with_constraints
+
+new_evidence:
+  telos_studio_tests:
+    location: canonical_developer/telos-studio/tests/
+    run_date: "2026-03-17"
+    result: "8/8 PASS, 148+ assertions"
+    suites:
+      - name: camera-authority.test.js
+        assertions: 18
+        validates: "Shared resolver produces single source of truth for viewport, preview, playback, pilot cameras"
+        bears_on: "R3F vs THREE.js decision — camera authority is framework-agnostic"
+
+      - name: clip-authority.test.js
+        assertions: 22
+        validates: "Clip operations canonical, guard rails enforced, compatibility shots synchronized through serialization"
+        bears_on: "Production ontology authority — clip lifecycle is validated with referential integrity"
+
+      - name: clip-creation.test.js
+        assertions: 42
+        validates: "Full clip lifecycle: snapshot capture, clip creation from prep, track linkage, legacy shot creation, serialization roundtrip, camera bootstrap"
+        bears_on: "Migration feasibility — creation path tested end-to-end"
+
+      - name: clip-sync.test.js
+        assertions: ~20
+        validates: "Clip-shot synchronization through store mutations"
+        bears_on: "State authority — Zustand+Immer store mutations are validated"
+
+      - name: migration.test.js
+        assertions: 38
+        validates: "v4-to-v5 migration with idempotency, shot-to-clip mapping, output settings, referential integrity, transport state, legacy preservation"
+        bears_on: "Migration ladder — proven migration path exists with idempotency guarantee"
+
+      - name: share-payload.test.js
+        assertions: ~15
+        validates: "Share/transport payload structure and integrity"
+        bears_on: "Export authority — serialization contract validated"
+
+      - name: v5-validation.test.js
+        assertions: 26
+        validates: "26 referential integrity checks across shoots/sequences/tracks/clips/assetRefs/mediaBindings/audioTracks"
+        bears_on: "Schema authority — v5 ontology has enforcement, not just convention"
+
+      - name: visibility.test.js
+        assertions: 42
+        validates: "Context-aware visibility resolution with shoot/lens/shot override cascade across 5 contexts (stage, cameraPreview, record, export, prepPreview)"
+        bears_on: "Governance-at-boundaries pattern — visibility is governed by context, not global toggle"
+
+  telos_studio_docs:
+    architecture_md:
+      confirms: |
+        v5 production ontology is operational. Clips are canonical (editorial source of truth).
+        Store hierarchy: ~1000 lines Zustand+Immer. Data flow: serialize → validate → persist.
+        Save/load/share all route through validateV5SceneData(). Migration v4→v5 with idempotency.
+        6 shell components decomposed from monolithic page.js. Transport is timing authority.
+    system_atlas_md:
+      confirms: |
+        16 API routes with v5 validation on save+share. File inventory with line counts.
+        Export: 12 formats (PNG, MP4, WebM, frame-ZIP, GLTF, GLB, OBJ, STL, PLY, USDZ, JSON).
+        Test section documents 5 coverage areas. Feature matrix: 14 feature categories.
+    relevance: |
+      Architecture documentation is self-consistent with test results AND source code.
+      This is not just "tests pass" — it's a documented, validated, migrated production system.
+
+  artcraft_tests:
+    location: null
+    result: "ZERO test files found — no frontend tests, no Rust #[test], no test framework"
+    bears_on: "Authority claims for ArtCraft state management are unvalidated"
+
+claims_under_reexamination:
+  # PROBATIONARY claims from parent that new evidence bears on
+  from_probationary:
+    - parent_claim: "ArtCraft is the right host estate (chassis)"
+      new_evidence_relevance: |
+        ArtCraft has zero test coverage. telos-studio has 148+ assertions.
+        The host-size bias concern (wildcard Record #1) gains weight:
+        175 crates with zero validation vs 8 validated test suites.
+        Does unvalidated state management weaken the host argument?
+
+    - parent_claim: "R3F for new PageStudio"
+      new_evidence_relevance: |
+        camera-authority.test.js proves the camera resolver is framework-agnostic
+        (pure functions, no R3F or THREE.js imports in the resolver itself).
+        This partially dissolves the framework familiarity bias concern —
+        the authority layer doesn't care about the renderer.
+
+    - parent_claim: "ArtCraft's internal extension velocity can fill governance gaps natively"
+      new_evidence_relevance: |
+        Zero test coverage means extension velocity is unvalidated velocity.
+        The 0-byte composable_engines stubs (CD-5) plus zero tests suggests
+        architectural promises without verification infrastructure.
+
+    - parent_claim: "~4-5 weeks total engineering for must-have seams"
+      new_evidence_relevance: |
+        telos-studio's migration.test.js validates a working v4→v5 migration
+        with idempotency. This is PROVEN migration infrastructure. The cost
+        estimate should account for telos-studio's existing migration path
+        rather than assuming greenfield migration work.
+
+  # REJECTED claims from parent that new evidence may rehabilitate
+  from_rejected:
+    - parent_claim: "Telos Studio production ontology v5 replaces ArtCraft's EditorState/TimelineState"
+      rejection_reason: "4 distinct state categories — ontology covers only one"
+      new_evidence_relevance: |
+        The rejection is structurally correct (v5 covers production/timeline,
+        not editor/session/render state). BUT: the one category v5 DOES cover
+        is the one with 148+ validated assertions, referential integrity checks,
+        migration path, and serialization roundtrip tests. ArtCraft's EditorState
+        has ZERO validated assertions. For the production/timeline authority surface
+        specifically, v5 is not just a candidate — it's the only validated option.
+        The rejection should be narrowed: "v5 does not replace ALL of EditorState,
+        but it IS the authority for production state."
+
+    - parent_claim: "ArtCraft pages map to Telos flow graph nodes/clusters"
+      rejection_reason: "5 of 13 pages are NOT workflow nodes"
+      new_evidence_relevance: null  # test evidence does not bear on this claim
+
+agents:
+  - name: EVIDENCE-ADVOCATE
+    position: "Argue that test coverage constitutes authority evidence that materially changes parent verdicts."
+    bracket: null
+
+  - name: ARCHITECTURE-DEFENDER
+    position: "Argue that test coverage is orthogonal to architectural authority — validated code can still be the wrong abstraction."
+    bracket: null
+
+  - name: GOVERNANCE-ARBITER
+    position: "Apply federation governance standards to adjudicate: what does 'authority' mean when one system is validated and the other is not?"
+    bracket: null
+
+  - name: WILDCARD
+    position: "Fallacy extraction + inversion harvesting. Detect validation bias (tested = correct), coverage theater, and false authority from test presence."
+    bracket: null
+
+  - name: LEAD
+    position: "Orchestrator/synthesizer. Does not advocate."
+    bracket: null
+
+adjudication_targets:
+  A_verdict_reexamination:
+    - "Does zero test coverage weaken ArtCraft's host authority claim?"
+    - "Does framework-agnostic camera authority dissolve R3F familiarity bias?"
+    - "Does validated migration path change the cost estimate?"
+    - "Should the v5 replacement rejection be narrowed to 'v5 is authority for production state only'?"
+
+  B_authority_definition:
+    - "Is validated test coverage a necessary condition for authority claims?"
+    - "Is validated test coverage a sufficient condition for authority claims?"
+    - "Can unvalidated code hold authority if it has production usage evidence?"
+    - "What is the relationship between test validation and architectural correctness?"
+
+  C_wildcard_targets:
+    - "Validation bias: does 'tested' mean 'correct'? telos-studio tests could validate the wrong abstraction."
+    - "Coverage theater: 148 assertions on the wrong surface is worse than 0 assertions with production evidence."
+    - "False authority from test presence: tests prove internal consistency, not integration fitness."
+    - "Survivorship bias: ArtCraft ships to users without tests — does that constitute stronger evidence?"
+
+decision_artifact_schema:
+  verdicts_changed:
+    - claim: "<parent claim>"
+      old_verdict: "probationary|rejected"
+      new_verdict: "settled|probationary|rejected"
+      evidence: "<what changed>"
+  verdicts_unchanged:
+    - claim: "<parent claim>"
+      verdict: "unchanged"
+      reason: "<why evidence is orthogonal>"
+  new_constraints:
+    - constraint: "<any new constraint surfaced>"
+  updated_authority_map:
+    surfaces_affected: []
+
+capture_policy:
+  allow_subject_lessons: true
+  route_subject_lessons_to_governance: true
+  persist_subject_lessons_locally: true
+  allow_process_lessons: true
+  allow_meta_lessons: true
+  allow_signals: true
+  allow_warrants: false
+  allow_governance_mutation: false
+
+sources:
+  parent_arena:
+    - stage/shows/triad-fusion-authority-arena/governance-memo.yaml
+    - stage/shows/triad-fusion-authority-arena/pressure-report.yaml
+  test_evidence:
+    - canonical_developer/telos-studio/tests/  # 8 suites, 148+ assertions, all green (2026-03-17)
+    - canonical_developer/telos-studio/test_result.md  # agent testing protocol + status
+  architecture_docs:
+    - canonical_developer/telos-studio/docs/ARCHITECTURE.md  # v5 ontology, store hierarchy, data flow, editorial source of truth
+    - canonical_developer/telos-studio/docs/SYSTEM_ATLAS.md  # full system atlas with file inventory, API routes, feature matrix
+    - canonical_developer/telos-studio/docs/LEGAL.md
+  codebases:
+    - /tmp/artcraft-scan  # for verifying zero-test claim (confirmed: 0 test files, 0 #[test] blocks)
+    - canonical_developer/telos-studio/  # for reading actual test files + source
+
+output:
+  path: stage/shows/triad-fusion-evidence-rebuttal/

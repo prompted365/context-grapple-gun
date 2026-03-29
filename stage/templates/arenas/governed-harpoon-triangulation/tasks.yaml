@@ -1,0 +1,91 @@
+# Governed Harpoon Triangulation Task Template
+# 11 tasks, 5 phases, strict dependency gating.
+# Inherits governed-triangulation structure with typed harpoon positions.
+
+agents:
+  - name: ADVOCATE-HARVEST
+    role: "Capability integration architect — argues for shipping the target whole"
+  - name: ADVOCATE-MINE
+    role: "Pattern extraction specialist — argues for cherry-picking reusable geometries"
+  - name: ADVOCATE-CATALYZE
+    role: "Constitutional opportunity detector — argues the target reveals higher-leverage primitives"
+  - name: LEAD
+    role: orchestrator and synthesizer (does not advocate)
+
+phases:
+  context:
+    description: Each agent studies the other two positions and the target source material.
+    tasks:
+      - id: 1
+        agent: ADVOCATE-HARVEST
+        action: "Study MINE and CATALYZE positions. Read target source material. Identify where wholesale harvest creates immediate operational value."
+        blocked_by: []
+      - id: 2
+        agent: ADVOCATE-MINE
+        action: "Study HARVEST and CATALYZE positions. Read target source material. Identify reusable geometries that survive domain removal."
+        blocked_by: []
+      - id: 3
+        agent: ADVOCATE-CATALYZE
+        action: "Study HARVEST and MINE positions. Read target source material AND federation surfaces. Enumerate specific constitutional gaps with surface counts."
+        blocked_by: []
+
+  defense:
+    description: Each agent defends its position and challenges rivals.
+    tasks:
+      - id: 4
+        agent: ADVOCATE-HARVEST
+        action: "Defend harvest position. Challenge MINE (empty skeletons?) and CATALYZE (NIH bias?). Include required concession."
+        blocked_by: [1, 2, 3]
+      - id: 5
+        agent: ADVOCATE-MINE
+        action: "Defend extraction position. Challenge HARVEST (tool coupling?) and CATALYZE (months of engineering?). Include required concession."
+        blocked_by: [1, 2, 3]
+      - id: 6
+        agent: ADVOCATE-CATALYZE
+        action: "Defend catalysis position with SPECIFIC surface enumeration. Challenge HARVEST (technical debt?) and MINE (orchestration loss?). Include required concession + NIH self-exam."
+        blocked_by: [1, 2, 3]
+
+  rebuttal:
+    description: Each agent responds to attacks against its position.
+    tasks:
+      - id: 7
+        agent: ADVOCATE-HARVEST
+        action: "Rebut attacks on harvest position. Address tool-coupling and compound-value challenges."
+        blocked_by: [4, 5, 6]
+      - id: 8
+        agent: ADVOCATE-MINE
+        action: "Rebut attacks on extraction position. Address empty-skeletons and orchestration-loss challenges."
+        blocked_by: [4, 5, 6]
+      - id: 9
+        agent: ADVOCATE-CATALYZE
+        action: "Rebut attacks on catalysis position. May release gaps to MINE where overlap is conceded. Hold firm on genuine unique contributions."
+        blocked_by: [4, 5, 6]
+
+  synthesis:
+    description: Lead extracts surviving structure. Must produce tier classification, leverage map, and implementation phasing.
+    tasks:
+      - id: 10
+        agent: LEAD
+        action: "Synthesize: tier classification, constitutional patterns, cross-office leverage map, phased implementation sequence"
+        blocked_by: [7, 8, 9]
+
+  pressure_extraction:
+    description: Lead classifies findings for governance routing. Harpoon-specific output requirements.
+    tasks:
+      - id: 11
+        agent: LEAD
+        action: "Produce pressure report: convergent discoveries, tensions, candidate signals/CogPRs. Include tier classification and harvest verdict."
+        blocked_by: [10]
+
+dependency_rule: |
+  context -> defense -> rebuttal -> synthesis -> pressure extraction
+  No phase may start until its predecessors complete.
+  The lead must not synthesize early.
+  The arena is not complete until BOTH synthesis output AND pressure report exist.
+
+harpoon_specific: |
+  CATALYZE must name specific offices + surfaces + outcomes for every leverage claim.
+  Vague leverage claims trigger -3 penalty (vague_leverage_claim).
+  Cross-office discoveries naming 3+ surfaces with evidence trigger +6 bonus.
+  All advocates must include "where my position FAILS" section in defense.
+  CATALYZE must include "NIH self-examination" section in defense.

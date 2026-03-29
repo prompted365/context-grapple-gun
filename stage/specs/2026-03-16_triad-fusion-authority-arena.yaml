@@ -1,0 +1,125 @@
+id: triad-fusion-authority-arena
+title: "Triad Fusion Authority Arena: ArtCraft × Telos × Telos Studio"
+arena: governed-triangulation  # extended with wildcard phase
+arena_mode: operational
+status: completed
+
+# -------------------------------------------------------------------
+# QUESTION
+# -------------------------------------------------------------------
+# Does the current fusion analysis (chassis/brain/proof) correctly
+# distinguish host estate, canonical authority surfaces, migration
+# strategy, and substrate alignment — without allowing size, elegance,
+# or semantic resonance to masquerade as proof?
+#
+# No implementation conclusion may be treated as settled unless it
+# survives challenge from fork survivability, authority ownership,
+# and governance identity.
+# -------------------------------------------------------------------
+
+triad:
+  fork:
+    name: ArtCraft
+    repo: https://github.com/storytold/artcraft
+    role: "Desktop IDE for AI image/video creation. Tauri (Rust + React). 175 crates, 16 AI provider clients, direct THREE.js, page-based tools."
+    local_scan: /tmp/artcraft-scan
+  coordination_plane:
+    name: Telos
+    repo: https://github.com/prompted365/telos.git
+    role: "Governed flow coordination engine. 7-class semantic graph, 5-mode projection, trust tier calibration, governance basis hashing, gate system, builder agent."
+    local_scan: /tmp/telos-scan
+  experiment:
+    name: Telos Studio
+    repo: https://github.com/prompted365/telos-studio.git
+    role: "Hybrid virtual studio with production ontology v5. Shoots/sequences/tracks/clips, context-aware frame evaluation, visibility profiles, Zustand+Immer governable state."
+    local_scan: /tmp/telos-studio-scan
+
+agents:
+  - name: ESTATE-CONSERVATOR
+    position: "Defend ArtCraft's native grain, fork survivability, upstream compatibility, and anti-rewrite discipline."
+    bracket: null
+
+  - name: FUSION-ARCHITECT
+    position: "Argue for the fused triad as a single platform, identify highest-leverage unifications, define minimal clean seam path."
+    bracket: null
+
+  - name: GOVERNANCE-EXAMINER
+    position: "Interrogate all identity claims between Telos, CGG, studio governance, trust tiers, and substrate mounting. Reject metaphor inflation."
+    bracket: null
+
+  - name: WILDCARD
+    position: "Fallacy extraction + inversion harvesting. Interrogate reasoning process, not codebases."
+    bracket: null
+
+  - name: LEAD
+    position: "Orchestrator/synthesizer. Does not advocate."
+    bracket: null
+
+adjudication_targets:
+  A_authority_ledger:
+    - asset_truth
+    - timeline_truth
+    - render_truth
+    - flow_workflow_truth
+    - governance_truth
+    - export_truth
+    - user_session_editor_truth
+
+  B_fusion_strategy_class:
+    - hard_replacement
+    - adapter_layer
+    - mirror_dual_write
+    - graph_over_shell
+    - shell_over_graph
+    - federated_but_distinct
+
+  C_runtime_decision_boundary:
+    - preserve_direct_three_core
+    - wrap_with_r3f_boundary
+    - selective_r3f_islands
+    - full_substrate_migration_later
+
+  D_fork_survival_doctrine:
+    - upstream_pull_strategy
+    - divergence_budget
+    - patch_layer_boundaries
+    - native_extension_seams_vs_invasive_deltas
+
+decision_artifact_schema:
+  settled: "claims that survived challenge"
+  probationary: "promising claims requiring implementation evidence"
+  rejected: "claims that failed structural scrutiny"
+  required_mappings:
+    - authority_map
+    - migration_ladder
+    - fork_divergence_model
+    - runtime_decision_rubric
+  verdict: "proceed | proceed_with_constraints | hold_pending_evidence"
+
+capture_policy:
+  allow_subject_lessons: true
+  route_subject_lessons_to_governance: true
+  persist_subject_lessons_locally: true
+  allow_process_lessons: true
+  allow_meta_lessons: true
+  allow_signals: true
+  allow_warrants: true
+  allow_governance_mutation: false
+
+sources:
+  scans:
+    - /tmp/artcraft-scan
+    - /tmp/telos-scan
+    - /tmp/telos-studio-scan
+  federation:
+    - canonical/SYSTEM_MAP.md
+    - canonical/ARCHITECTURE.md
+    - canonical/CLAUDE.md
+    - canonical/autonomous_kernel/telos/root.yaml
+    - canonical/autonomous_kernel/telos/sub_telos.yaml
+  prior_analysis:
+    - "Session tic-101 Phase 1 fusion analysis (chassis/brain/proof framing, 7-seam inventory)"
+    - "Operator correction memo (4 overreaches, 4 missed layers, authority vs representation gap)"
+
+output:
+  path: stage/shows/triad-fusion-authority-arena/

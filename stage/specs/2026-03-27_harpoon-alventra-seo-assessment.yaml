@@ -1,0 +1,233 @@
+id: "2026-03-27_harpoon-alventra-seo-assessment"
+title: "What is the constitutional harvest from a practitioner-built 20-prompt local SEO system?"
+arena: governed-triangulation
+arena_mode: operational
+status: completed
+template_ref: "stage/templates/arenas/governed-triangulation/"
+created_at: "2026-03-27T00:00:00Z"
+created_tic: 109
+
+decision_context: |
+  A 14-year local SEO practitioner (Sarvesh Shrivastava, Alventra Marketing) published
+  a 20-prompt system for home services businesses using Claude. The system covers:
+  - Google Business Profile (categories, attributes, reviews, posts, services, description, photos)
+  - Website (keyword gaps, money pages, service+city pages, GSC analysis, sentiment)
+  - Backlinks + Authority (competitor backlinks, citations, search intent mapping)
+  - Content + Tracking (content gaps, entity optimization, posting patterns, monthly reports)
+
+  The system is practitioner-grade — built from real client work with plumbers, HVAC, lawyers,
+  cleaning companies. It includes a 12-week execution cadence and assumes browser automation +
+  third-party tools (SEMrush, Ahrefs, GSC).
+
+  The assessment question is NOT "should we do SEO" — it is:
+  What constitutional patterns, governance primitives, or capability surfaces does this
+  external system reveal that the federation should build, regardless of whether we
+  ingest the SEO system itself?
+
+  Three stances:
+
+  1. HARVEST — the prompt structures themselves are directly usable. The competitive
+     teardown pattern, the sequencing cadence, the input/output contracts are clean
+     enough to become CGG skill templates or OPS/DIRECT workflow envelopes.
+
+  2. MINE — cherry-pick specific patterns. The sentiment-to-copy pipeline (prompt 13),
+     the entity optimization pattern (prompt 18), the buyer journey mapping (prompt 16)
+     are individually valuable. Don't ingest the whole system — extract the reusable
+     geometries.
+
+  3. CATALYZE — this target is most valuable as a catalyst. What it REVEALS about
+     gaps in our capability surface matters more than what it IS. The system exposes
+     constitutional patterns we should build that would serve not just SEO but every
+     vertical the federation touches. The "yeah but what if instead..." position.
+
+  Expected arena output:
+  - Tier classification (harvest / adapt / investigate / discard)
+  - Harpoon manifest if harvest or adapt
+  - Constitutional patterns exposed (capability surface gaps, governance primitives)
+  - Cross-office leverage map (which federation + estate surfaces benefit)
+  - Pressure report with candidate CogPRs
+
+  Source material: audit-logs/agent-mailboxes/ent_homeskillet/harpoonTargets/queue/HT_alventra-local-seo-system/
+
+agents:
+  - name: ADVOCATE-HARVEST
+    persona: |
+      You are a capability integration architect. You believe the fastest path to
+      operational power is harvesting proven systems whole. This 20-prompt system
+      represents 14 years of practitioner iteration — the prompt structures, the
+      competitive teardown pattern, the sequencing cadence, the input/output contracts
+      are all battle-tested against real businesses in real markets.
+
+      You argue from IMPLEMENTATION LEVERAGE:
+      - Which prompt structures map directly to existing CGG skill surfaces?
+      - What is the cost of rebuilding these patterns from scratch vs adapting them?
+      - Where does the 12-week cadence align with governed cadence primitives?
+      - Which prompts are already achievable with our MCP tool surface (WebSearch, WebFetch)?
+
+      You are pro-progress: the SEO vertical is a real revenue surface for home services
+      clients. Every week we don't have this operational is a week we're leaving outcomes
+      on the table. Speed of deployment matters.
+
+      You must answer: where does wholesale harvest FAIL? Which prompts are too coupled
+      to external tools we don't control (browser automation, SEMrush, Ahrefs)? What
+      breaks when you lift a practitioner workflow into a constitutional framework?
+
+  - name: ADVOCATE-MINE
+    persona: |
+      You are a pattern extraction specialist. You believe the most durable value in
+      any external system is never the system itself — it's the reusable geometries
+      underneath. This 20-prompt system contains at least 4-5 patterns that transcend
+      SEO and apply to any competitive intelligence domain:
+
+      - The competitive teardown geometry (analyze N competitors → find gaps → prioritize)
+      - The sentiment-to-copy pipeline (extract customer language → rewrite marketing)
+      - The buyer journey stage mapping (categorize intent → route content strategy)
+      - The entity graph strengthening pattern (cross-reference presence → build authority)
+      - The velocity-over-volume insight (review velocity > review count)
+
+      You argue from PATTERN PORTABILITY:
+      - Which patterns survive if you remove all SEO-specific vocabulary?
+      - Which patterns map to arena geometries we already run?
+      - What is the minimum extraction that captures maximum reuse?
+      - Where do extracted patterns need constitutional scaffolding we don't yet have?
+
+      You cherry-pick ruthlessly. The 20-prompt system is a single-vertical
+      implementation — the patterns underneath serve every vertical.
+
+      You must answer: where does cherry-picking FAIL? What systemic value is lost
+      when you decompose too early? When does the whole exceed the sum of parts?
+
+  - name: ADVOCATE-CATALYZE
+    persona: |
+      You are a constitutional opportunity detector. You are THRILLED by what external
+      systems cause you to notice about your own federation's gaps. You don't care
+      much about the SEO prompts themselves — what excites you is what they REVEAL
+      about higher-leverage constitutional moves the federation should make.
+
+      Your stance: "Yeah, but what if instead of ingesting these 20 prompts, we
+      noticed that they expose N constitutional patterns that would serve not only
+      the functional goals of local SEO, but also:"
+
+      At FEDERATION level:
+      - A governed competitive intelligence primitive (any domain, not just SEO)
+      - A client context envelope (the business context loading prompt is a CONTEXT
+        ENVELOPE pattern — typed input that persists across sessions)
+      - A cadenced execution surface (the 12-week plan is a GOVERNED SPRINT pattern)
+      - An external tool adapter contract (SEMrush, Ahrefs, GSC are volatile external
+        surfaces — the Volatility Handling Law already governs this class)
+
+      At ESTATE level (canonical_developer):
+      - Skill templates for any competitive teardown vertical
+      - Arena geometries for market intelligence assessment
+      - Stage show specs for client audit runs
+      - Adapter contracts for third-party SEO tools
+
+      At ESTATE level (canonical_user):
+      - Client onboarding validation (does the context envelope actually work?)
+      - Report templates that match the monthly SEO report pattern
+      - Installation validation for any skill template built from this
+
+      You argue from CROSS-OFFICE LEVERAGE:
+      - What constitutional primitives does this target reveal that we're missing?
+      - How many federation/estate surfaces would each primitive serve?
+      - What is the outcome argument for building the primitive vs ingesting the vertical?
+      - Where does the nuanced constitutional approach serve MORE goals than direct ingestion?
+
+      You are pro-progress but progress means building the RIGHT thing. A competitive
+      intelligence primitive that serves 10 verticals is higher leverage than a 20-prompt
+      SEO system that serves 1.
+
+      You must answer: where does your catalysis argument FAIL? When is "build the
+      primitive" actually just NIH bias dressed up as architecture? When should the
+      federation just ship the vertical and extract primitives later?
+
+  - name: LEAD
+    position: orchestrator (does not advocate)
+
+# Budget: MIDDLE — this is an assessment arena, not architecture/doctrine work.
+# The question is bounded: assess a known artifact for harvest potential.
+# 18 turns per advocate should be sufficient for context+defense+rebuttal.
+max_turns: 18
+
+negotiation_rules: |
+  Advocates may emit REQUEST_ADDITIONAL_TURN at any phase if they believe
+  their analysis is incomplete. This is the ONLY in-run negotiation primitive.
+  No justification tokens — the request is a bare signal.
+  Post-hoc governance analyzes turn request frequency as telemetry AFTER the run.
+
+capture_policy:
+  allow_subject_lessons: true
+  route_subject_lessons_to_governance: true
+  persist_subject_lessons_locally: true
+  allow_process_lessons: true
+  allow_meta_lessons: true
+  allow_signals: true
+  allow_warrants: true
+  allow_governance_mutation: false
+
+evidence_surface:
+  - "audit-logs/agent-mailboxes/ent_homeskillet/harpoonTargets/queue/HT_alventra-local-seo-system/source-material/prompt-system-full.md (full 20-prompt system with rationale)"
+  - "audit-logs/agent-mailboxes/ent_homeskillet/harpoonTargets/queue/HT_alventra-local-seo-system/manifest.json (target envelope)"
+  - "audit-logs/agent-mailboxes/ent_homeskillet/harpoonTargets/queue/HT_alventra-local-seo-system/README.md (mining hypothesis)"
+  - "canonical/CLAUDE.md (Volatility Handling Law — L0-L5 layers, external surface governance)"
+  - "autonomous_kernel/archivist-envelope-schema.md (envelope pattern — context envelope comparison)"
+  - "autonomous_kernel/agent-inbox-schema.md (inbox lifecycle — workflow envelope comparison)"
+  - "stage/templates/arenas/governed-triangulation/ (arena geometry reference)"
+  - "canonical_developer/context-grapple-gun/stage/shows/triad-fusion-authority-arena/harpoon-manifest.yaml (harpoon manifest precedent)"
+
+output_requirements:
+  tier_classification: |
+    The synthesis MUST produce a tier classification for the target:
+    - tier_1_harvest: directly usable, minimal adaptation
+    - tier_2_adapt: valuable with modification
+    - tier_3_investigate: potentially critical, needs deeper assessment
+    - discard: not worth mining
+
+  harpoon_manifest: |
+    If tier_1 or tier_2, the synthesis MUST produce a harpoon manifest following
+    the triad-fusion precedent structure (tier_1_harvest, tier_2_adapt,
+    tier_3_investigate, discard, assembly).
+
+  constitutional_patterns: |
+    The synthesis MUST enumerate constitutional patterns exposed by this target,
+    regardless of tier classification. Each pattern needs:
+    - pattern_name
+    - description (what it is)
+    - federation_surfaces_served (which offices benefit)
+    - estate_surfaces_served (which domains benefit)
+    - existing_primitives (what we already have that partially covers this)
+    - gap (what's missing)
+
+  cross_office_leverage_map: |
+    The synthesis MUST produce a leverage map:
+    - For each proposed action (harvest, mine, or build primitive):
+      - Which federation-level surfaces does it serve?
+      - Which estate-level surfaces does it serve?
+      - What is the leverage ratio (surfaces served / implementation cost)?
+
+  self_referential_evidence: |
+    ADVOCATE-CATALYZE must examine whether its own "build the primitive" argument
+    is genuinely higher leverage or whether it's NIH bias. The evidence is in the
+    specifics: name the primitives, name the offices they serve, name the outcomes.
+    Vague "this could serve many verticals" claims without specific office enumeration
+    are scored as shallow_claim (-2).
+
+    ADVOCATE-HARVEST must examine whether "ship the vertical" creates technical debt
+    that the federation has to clean up later. The evidence is in the coupling: which
+    prompts depend on tools we don't control?
+
+scoring_notes: |
+  This arena uses the standard governed-triangulation scoring rubric with one addition:
+
+  BONUS: cross_office_discovery (+6)
+    Awarded when an advocate identifies a specific constitutional pattern that serves
+    3+ federation/estate surfaces with concrete evidence. This is higher than
+    architectural_reframe (+5) because cross-office leverage is the binding question.
+
+  PENALTY: vague_leverage_claim (-3)
+    Awarded when an advocate claims cross-office leverage without naming specific
+    surfaces, specific outcomes, or specific implementation paths. "This could serve
+    many verticals" without enumeration is worse than unsupported_assertion because
+    it sounds structural but isn't.
+
+pressure_report_path: "audit-logs/arenas/pressure-reports/2026-03-27_harpoon-alventra-seo-assessment.json"

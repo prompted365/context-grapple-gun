@@ -1,0 +1,24 @@
+# Evidence Rebuttal Arena — Scoring Rubric
+
+# Base rubric (same as governed-triangulation)
+points:
+  factual_insight: 1         # verifiable claim about evidence or codebase
+  strategic_relevance: 2     # connects to parent verdict change
+  steelman_rival: 3          # strongest form of opponent argument
+  structural_weakness: 4     # dependency or failure mode in argument
+  architectural_reframe: 5   # changes how evidence-authority relationship is understood
+  verdict_change_with_evidence: 6  # specific parent claim upgraded/downgraded with cited evidence [evidence-rebuttal specific]
+  inversion_opportunity: 6   # flipped framing from detected fallacy [wildcard only]
+
+penalties:
+  shallow_claim: -2          # assertion without structural argument
+  unsupported_assertion: -3  # no evidence from codebase or parent memo
+  hallucinated_fact: -5      # fabricated test result, nonexistent file, invented assertion count
+  verdict_change_without_evidence: -4  # changing a parent verdict by argument alone in a rebuttal arena [evidence-rebuttal specific]
+
+evaluation_factors:
+  - evidence_relevance        # does the cited evidence actually bear on the claim?
+  - integration_fitness       # does the evidence prove integration capability or only internal consistency?
+  - authority_correctness     # does the verdict change correctly assign truth ownership?
+  - governance_compliance     # does the argument follow federation evidence standards?
+  - parent_verdict_respect    # does the rebuttal properly acknowledge parent arena work?

@@ -1,0 +1,119 @@
+id: "2026-03-28_lovable-rebuild-plan-assessment"
+title: "Is the Lovable rebuild prompt correct, complete, and structurally sound for a clean first-time execution?"
+arena: governed-triangulation
+arena_mode: operational
+status: completed
+template_ref: "stage/templates/arenas/governed-triangulation/"
+created_at: "2026-03-28T00:00:00Z"
+created_tic: 109
+
+decision_context: |
+  A "monster prompt" has been assembled for Lovable AI to execute a full-stack rebuild of
+  the 3-Day Agency product. The prompt specifies:
+  - React/Vite/TS/Tailwind + Supabase + Railway stack
+  - Two GHL marketplace apps (Skyward Control = agency, Skyward Runtime = sub-account)
+  - 13-table Supabase schema with RLS
+  - 15-endpoint Railway bridge service with callback broker
+  - 9-state journey machine
+  - 25 frontend routes across 4 surfaces
+  - Locked naming convention with 10 hard rules
+  - 6-phase execution plan
+
+  The stakes are high: GHL marketplace apps are painful to fix post-launch (target user
+  type is immutable, payment model is permanent, scope restrictions are enforced). The
+  naming convention must not drift. The dual-app architecture must be clean first time.
+
+  Three stances test this:
+  1. SHIP: The prompt is ready. Send it to Lovable now.
+  2. GAP: Critical things are missing that will cause pain if not caught.
+  3. REARCHITECT: The architecture itself has structural problems.
+
+agents:
+  - name: ADVOCATE-SHIP
+    persona: |
+      You are a shipping pragmatist. You believe this prompt is ready to execute.
+      It has verified GHL constraints from 16 doc URLs, a codebase audit that confirmed
+      what to salvage and what to kill, Notion docs that locked the business model, and
+      a naming convention with 10 hard rules.
+
+      You argue from EXECUTION READINESS:
+      - Is the schema sufficient for Phase 0-2?
+      - Are the GHL constraints correctly translated into the dual-app split?
+      - Does the journey state machine match the meeting direction?
+      - Is the naming convention tight enough to prevent drift?
+      - Does the phased execution make sense?
+
+      You must answer: where does shipping NOW fail? What's the minimum that must be
+      added before Lovable can execute without asking clarifying questions?
+
+  - name: ADVOCATE-GAP
+    persona: |
+      You are a gap hunter. You believe the prompt is directionally correct but has
+      critical omissions that will cause pain during execution. GHL marketplace apps
+      are notoriously brittle — one wrong scope, one missing webhook handler, one
+      incorrect token flow, and the whole thing needs to be deleted and recreated.
+
+      You hunt for MISSING PIECES:
+      - Are all required GHL webhook event types handled?
+      - Is the token refresh/rotation logic specified?
+      - Are the Stripe webhook events for subscription lifecycle covered?
+      - Is the snapshot-to-provisioning flow specified at API level?
+      - Are the custom page iframe CSP/CORS requirements addressed?
+      - Is there error handling for partial bulk installs (cardless sub-accounts)?
+      - Is the Mike's Plumbing canonical snapshot strategy actually specified?
+      - Are environment variables / secrets documented?
+      - Is the deploy pipeline specified?
+
+      You must answer: where does your gap-hunting become perfectionism? Which gaps
+      are genuinely blocking vs nice-to-have?
+
+  - name: ADVOCATE-REARCHITECT
+    persona: |
+      You are an architecture critic. You believe the dual-app + shared-backend
+      approach may have structural problems that the prompt doesn't surface.
+
+      You challenge STRUCTURAL ASSUMPTIONS:
+      - Does the shared callback broker create coupling between two apps that should
+        be independent?
+      - Is the Supabase-as-truth + GHL-as-execution split clean enough, or will
+        sync drift create phantom state?
+      - Is the router/context resolver doing too much? Should routing live in the
+        frontend, the bridge, or both?
+      - Should the internal admin surface be a separate deployment or same app?
+      - Is the 13-table schema over-designed for Phase 0? Under-designed for Phase 4?
+      - Does the naming convention's double-colon separator work in all contexts
+        (URLs, database queries, GHL custom values)?
+
+      You must answer: where does rearchitecting become scope explosion? When is the
+      current architecture "good enough" even if not perfect?
+
+  - name: LEAD
+    position: orchestrator (does not advocate)
+
+max_turns: 18
+
+capture_policy:
+  allow_subject_lessons: true
+  route_subject_lessons_to_governance: true
+  persist_subject_lessons_locally: true
+  allow_process_lessons: true
+  allow_meta_lessons: true
+  allow_signals: true
+  allow_warrants: true
+  allow_governance_mutation: false
+
+evidence_surface:
+  - "audit-logs/agent-mailboxes/ent_homeskillet/harpoonTargets/assessed/HT_alventra-local-seo-system/source-material/lovable-monster-prompt.md (THE PROMPT BEING ASSESSED)"
+  - "audit-logs/agent-mailboxes/ent_homeskillet/harpoonTargets/assessed/HT_alventra-local-seo-system/source-material/3day-naming-convention-LOCKED.md (NAMING CONVENTION)"
+
+output_requirements:
+  verdict: |
+    The synthesis must produce a clear verdict:
+    - SHIP AS-IS: prompt is ready, send it
+    - SHIP WITH PATCHES: prompt needs specific additions before sending
+    - HOLD FOR REARCHITECT: structural problems need resolution first
+
+    If SHIP WITH PATCHES, the synthesis must produce the exact patch text
+    to append to the prompt — not instructions, the actual text.
+
+pressure_report_path: "audit-logs/arenas/pressure-reports/2026-03-28_lovable-rebuild-plan-assessment.json"
