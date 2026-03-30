@@ -312,6 +312,38 @@ CGG cadence depends on plan-mode context-clear as the session epoch boundary. Wh
 
 <!-- promoted from CogPR-78 (tic 104→107). Source: binary-analysis-claude-code-2.1.81. Evidence: binary-verified — flag controls first option in plan approval menu, cadence handoff chain restored after setting true. Band: COGNITIVE. -->
 
+## Overlap-Frequency Tiering Primitive
+
+Overlap-frequency tiering is a reusable prioritization primitive for competitive and comparative analysis: features all competitors share = table stakes (necessary but not differentiating), some share = opportunity zone (competitive leverage), one has uniquely = differentiation (strategic advantage). Apply this tiering to any domain where multiple entities are compared across feature sets — SEO landscapes, capability surfaces, vendor assessments. The primitive appeared in 12/20 prompts during harpoon assessment with demonstrated live cross-domain instantiation.
+
+<!-- promoted from CogPR-81 (tic 109→115). Source: arena:harpoon-alventra-seo-assessment — convergent (HARVEST+MINE advocates). Cross-domain applicability demonstrated in SEO, capability, and vendor assessment contexts. Band: COGNITIVE. -->
+
+## CATALYZE Advocate Geometry
+
+Harpoon assessment arenas benefit from a CATALYZE advocate position that argues for higher-leverage constitutional alternatives, replacing binary PASS/NO with phased convergence. The CATALYZE advocate's role: when a harpoon item fails direct adoption, identify what constitutional primitive it could become through transformation. This produces richer assessment output — items are not just accepted or rejected but classified along a spectrum from direct-adopt to constitutional-extract to reject.
+
+<!-- promoted from CogPR-82 (tic 109→115). Source: arena:harpoon-alventra-seo-assessment — reinforced. Process improvement for arena geometry, validated in practice during harpoon assessment. Band: COGNITIVE. -->
+
+## Copilot Script Classification (tier_2_adapt)
+
+External prompt systems that require human execution (e.g., "Open Chrome and navigate to...") are most accurately classified as `tier_2_adapt` — copilot scripts, not agent-executable envelopes. The "Open Chrome" pattern is a reliable signal of copilot-script dependency. Assessment should separate pattern value (the reasoning structure may be reusable) from execution mechanism (human-in-the-loop vs agent-executable). This sharpens harpoon assessment by preventing misclassification of human-dependent prompts as directly ingestible automation.
+
+<!-- promoted from CogPR-84 (tic 109→115). Source: arena:harpoon-alventra-seo-assessment — reinforced. Practical operational value for harpoon assessment classification. Band: COGNITIVE. -->
+
+## Cross-Rung Orientation (CRX) Arena Geometry
+
+CRX is the 6th arena geometry template, designed for cross-rung and cross-jurisdiction exploration. Structure: triad (domain-level reasoning with opposed advocates) + meta-pair (constitutional emissaries with expansion/constraint polarity) + ecotone synthesis (mechanical derivation from both polarity gates). The meta-pair catches what triads miss — specifically complementary-jurisdictions violations and suppressed emergence. First CRX run produced qualitatively different output from standard governed triangulation. Use CRX geometry when the arena question spans jurisdictional boundaries or rung levels.
+
+Template location: `stage/templates/arenas/cross-rung-orientation/`
+
+<!-- promoted from CogPR-88 (tic 109→115). Source: arena:occ-identity-primitives-crx — reinforced. First run validated qualitative difference from governed triangulation. Meta-pair caught complementary-jurisdictions violations the triad missed. Resolves BEACON_crx_geometry_validated. Band: COGNITIVE. -->
+
+## Recursive Meta-Enforcement
+
+Schema-level enforcement of governance requirements can be formally satisfied while substantively violated — a mandatory dissent field satisfied by writing "No dissent." is compliance theater. The response is recursive meta-enforcement: mechanisms watching mechanisms. When a governance schema requires a field (unresolved tensions, dissent, surprise assessment), the enforcement layer must also check whether the field's content is substantively meaningful, not just syntactically present. This applies to any schema-enforced governance requirement and extends concession cascade detection (CogPR-77) from arena-specific to system-wide.
+
+<!-- promoted from CogPR-93 (tic 112→115). Source: arena:occ-epistemic-safeguards-crx — convergent. MECHANIST form-vs-substance analysis + LAWFUL iterative enforcement. Extends CogPR-77 (concession cascade). Resolves BEACON_occ_epistemic_governance_convergence. Band: COGNITIVE. -->
+
 ## Session Learning Protocol
 
 When you discover something during a session that constitutes a durable lesson — a friction point resolved, a non-obvious behavior confirmed, a workflow correction — capture it as a CogPR (Cognitive Pull Request).
