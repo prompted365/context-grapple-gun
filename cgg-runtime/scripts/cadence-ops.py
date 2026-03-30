@@ -167,7 +167,7 @@ def load_queue_pending(queue_path: str) -> list:
             continue
 
     pending_statuses = {"pending", "enrichment_needed", "enrichment_eligible",
-                        "extracted", "review_ready", "deferred"}
+                        "extracted", "review_ready"}
     result = []
     for e in entries.values():
         if e.get("status") not in pending_statuses:
