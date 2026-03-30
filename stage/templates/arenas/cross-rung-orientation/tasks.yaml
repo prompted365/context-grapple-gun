@@ -1,0 +1,59 @@
+# Cross-Rung Orientation (CRX) Task Template
+# 6 agents: 3 triad (bracket 1) + 2 meta-pair (bracket 2) + 1 lead
+# 16 tasks with parallel start and staggered merge
+
+crx_six_agent:
+  agents:
+    - { name: ADVOCATE-LAWFUL, bracket: 1, role: "constitutional formalist — argues claims are laws" }
+    - { name: ADVOCATE-ARTIFACT, bracket: 1, role: "empirical skeptic — argues claims are observation artifacts" }
+    - { name: ADVOCATE-MECHANIST, bracket: 1, role: "systems mechanist — re-derives claims as mechanisms" }
+    - { name: POLARITY-EXPANSION, bracket: 2, role: "expansion emissary — emergence, generalization, alliance potential" }
+    - { name: POLARITY-CONSTRAINT, bracket: 2, role: "constraint emissary — coherence, integrity, grounding" }
+    - { name: LEAD, bracket: null, role: "orchestrator — synthesizes, computes ecotone, produces deliverable" }
+
+  tasks:
+    # --- Bracket 1: Context (parallel with B2 context) ---
+    - { id: 1,  agent: ADVOCATE-LAWFUL,    phase: context,  action: "Study subject + other advocates' positions", blocked_by: [] }
+    - { id: 2,  agent: ADVOCATE-ARTIFACT,   phase: context,  action: "Study subject + other advocates' positions", blocked_by: [] }
+    - { id: 3,  agent: ADVOCATE-MECHANIST,  phase: context,  action: "Study subject + other advocates' positions", blocked_by: [] }
+
+    # --- Bracket 2: Context (parallel with B1 context) ---
+    - { id: 4,  agent: POLARITY-EXPANSION,  phase: context,  action: "Study constitutional surfaces + governance infrastructure", blocked_by: [] }
+    - { id: 5,  agent: POLARITY-CONSTRAINT, phase: context,  action: "Study constitutional surfaces + governance infrastructure", blocked_by: [] }
+
+    # --- Bracket 1: Defense (blocked by B1 context) ---
+    - { id: 6,  agent: ADVOCATE-LAWFUL,    phase: defense,  action: "Defend position against other advocates", blocked_by: [1,2,3] }
+    - { id: 7,  agent: ADVOCATE-ARTIFACT,   phase: defense,  action: "Defend position against other advocates", blocked_by: [1,2,3] }
+    - { id: 8,  agent: ADVOCATE-MECHANIST,  phase: defense,  action: "Defend position against other advocates", blocked_by: [1,2,3] }
+
+    # --- Bracket 1: Rebuttal (blocked by B1 defense) ---
+    - { id: 9,  agent: ADVOCATE-LAWFUL,    phase: rebuttal, action: "Final rebuttal — rebut attacks, steelman opponents", blocked_by: [6,7,8] }
+    - { id: 10, agent: ADVOCATE-ARTIFACT,   phase: rebuttal, action: "Final rebuttal — rebut attacks, steelman opponents", blocked_by: [6,7,8] }
+    - { id: 11, agent: ADVOCATE-MECHANIST,  phase: rebuttal, action: "Final rebuttal — rebut attacks, steelman opponents", blocked_by: [6,7,8] }
+
+    # --- Bracket 2: Advisory (blocked by B2 context AND B1 rebuttals) ---
+    # This is the merge point — meta-pair absorbs ALL bracket 1 output
+    - { id: 12, agent: POLARITY-EXPANSION,  phase: advisory, action: "Three-layer evaluation: triad behavior + structural mapping + contextual advice", blocked_by: [4,5,9,10,11] }
+    - { id: 13, agent: POLARITY-CONSTRAINT, phase: advisory, action: "Three-layer evaluation: triad behavior + structural mapping + contextual advice", blocked_by: [4,5,9,10,11] }
+
+    # --- Synthesis (lead only) ---
+    - { id: 14, agent: LEAD, phase: synthesis, action: "Bracket 1 synthesis — primitive extraction table + CogPR candidates + falsification conditions", blocked_by: [9,10,11] }
+    - { id: 15, agent: LEAD, phase: ecotone,   action: "Ecotone synthesis — COMPUTE intersection of expansion and constraint gates + governance recommendation", blocked_by: [12,13,14] }
+    - { id: 16, agent: LEAD, phase: pressure,  action: "Pressure report + deliverable artifact (courtship / assessment / proposal)", blocked_by: [15] }
+
+dependency_rule: |
+  B1 context + B2 context (parallel)
+  → B1 defense (blocked by B1 context)
+  → B1 rebuttal (blocked by B1 defense)
+  → B2 advisory (blocked by B2 context AND B1 rebuttals)  ← MERGE POINT
+  → B1 synthesis (blocked by B1 rebuttals)
+  → ecotone synthesis (blocked by B2 advisory AND B1 synthesis)
+  → pressure report + deliverable (blocked by ecotone)
+
+  No phase may start until its predecessors complete.
+  The lead must not synthesize early.
+  The meta-pair must not advocate.
+  The arena is not complete until BOTH synthesis AND pressure report are produced.
+
+  NOTE: B1 synthesis (task 14) and B2 advisory (tasks 12-13) can run in parallel
+  after rebuttals complete. The ecotone (task 15) waits for both.

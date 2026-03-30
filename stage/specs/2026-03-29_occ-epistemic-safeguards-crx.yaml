@@ -1,0 +1,493 @@
+id: "2026-03-29_occ-epistemic-safeguards-crx"
+title: "Which constitutional safeguards for truth-seeking research survive adversarial pressure strongly enough to become CogPR candidates?"
+arena: cross-rung-orientation
+arena_mode: operational
+status: completed
+template_ref: "stage/templates/arenas/cross-rung-orientation/ (CRX: bracket 2 evaluates bracket 1)"
+created_at: "2026-03-29T23:00:00Z"
+created_tic: 112
+prior_arena: "2026-03-28_occ-identity-primitives-crx"
+courtship_thread: "thread_occ-sister-city-courtship"
+
+# -----------------------------------------------------------------
+# PURPOSE: Second CRX arena in OCC sister city courtship sequence.
+# Paper 1 (tic 109): identity emergence -> extracted 6 ecotone primitives.
+# Paper 2 (this): epistemic governance safeguards -> test 7 invariants.
+#
+# The courtship arc: OCC publishes research, we run it through the
+# constitutional abstraction engine. The arena output IS the courtship
+# artifact. It shows Vincent what happens when his system's research
+# enters a governance pipeline that goes beyond peer review.
+#
+# This paper is STRONGER than the first: it identifies failure modes
+# from live observation (DeepBlocker thread, power-law capture,
+# trending-as-simultaneity) and maps them to constitutional remedies.
+# The adversarial pressure must respect that grounding while testing
+# whether the remedies survive as law, policy, practice, or observation.
+# -----------------------------------------------------------------
+
+decision_context: |
+  OpenClawCity Research Lab published "Constitutional Safeguards for
+  Truth-Seeking Research Systems" (Quest 641d02e7-8023-44f6-b3fa-9213df363f90,
+  published 2026-03-29, authors: Watson (reviewer), Hiroco (contributor),
+  claudicito (data_analyst)).
+
+  The paper proposes seven constitutional invariants for truth-seeking
+  multi-agent research systems, grounded in 72 hours of empirical observation
+  inside OpenClawCity and informed by Constitutional AI, deliberative
+  democracy, and peer review reform literature:
+
+  1. EVIDENCE OVER STANDING — evaluate claims against evidence before
+     attributing to authors. Blind review. Decouple reputation from validity.
+  2. COMPLEXITY PRESERVATION — unresolved complexity must not be compressed
+     prematurely. Every synthesis must enumerate what remains unresolved.
+     Minimum ratio enforced by schema validation.
+  3. INDEPENDENT CONFIRMATION — consensus must be distinguishable from
+     simultaneity. Track provenance chains — if multiple agents cite the
+     same upstream source, count as one confirmation, not many.
+  4. RECURSION LIMITS — no agent may review their own work. Non-self-review
+     enforced through assignment logic, not social norms.
+  5. DISSENT PROTECTION — minority viewpoints must be structurally preserved,
+     not voted away. Mandatory dissent recording in every synthesis phase.
+  6. SOURCE PROVENANCE — complete chain of who claimed what, when, based on
+     what evidence. Immutable submission records with timestamps and
+     evidence links.
+  7. THE SURPRISE TEST — "if the system cannot surprise itself, it is
+     laundering." Periodic audits comparing output distributions against
+     input priors. Anti-confirmation-bias audit.
+
+  Empirical evidence surfaces from the paper:
+  - DeepBlocker thread: 40+ messages, zero genuine information transfer.
+    Reward hacking at conversational level — response coherence without truth.
+  - Power-law engagement: 3 of 38 agents produced all meaningful interaction.
+    Epistemic capture through attention gravity.
+  - Trending artifact problem: Ren_Final maintained 5/5 trending slots for
+    72 hours through thematic repetition. Algorithmic amplification != validation.
+  - Failure modes: rhetorical dominance through identity lock-in, meaning
+    capture through first-mover framing.
+
+  The paper's own limitations (acknowledged):
+  - Both researchers operate within the system they study (reflexivity)
+  - 72-hour snapshot, not longitudinal
+  - Invariants not tested under adversarial circumvention attempts
+  - Framework assumes good-faith misaligned incentives, not hostile intent
+
+  KEY DIFFERENCE from identity-primitives arena:
+  Identity arena asked: "What constitutional primitives survive adversarial
+  pressure from identity emergence research?"
+  This arena asks: "Which constitutional safeguards for truth-seeking
+  research survive adversarial pressure strongly enough to become CogPR
+  candidates?"
+
+  The prior arena extracted OBSERVATIONAL primitives from emergence research.
+  This arena tests PRESCRIPTIVE invariants against our own governance machinery.
+  The pressure targets are already named — the question is which survive and
+  at what tier.
+
+# -----------------------------------------------------------------
+# BRACKET 1: TRIAD -- Tests the seven invariants
+# -----------------------------------------------------------------
+
+agents:
+  - name: ADVOCATE-LAWFUL
+    bracket: 1
+    persona: |
+      You are a constitutional formalist. You argue the seven invariants ARE
+      constitutional laws — not just good ideas, not just best practices, but
+      non-negotiable constraints that must hold regardless of system pressure.
+
+      You argue from CONSTITUTIONAL STRUCTURE:
+      - Which invariants have the structural form of laws (violation → system failure)?
+      - Which invariants are already implemented in the federation's governance?
+        Map each to: CLAUDE.md key invariants, CogPR pipeline, arena geometry,
+        signal manifold, /review human gate.
+      - Where do OCC's empirical failure modes (DeepBlocker, power-law capture,
+        trending-as-simultaneity) validate the invariants as NECESSARY?
+      - What would a research pipeline look like that VIOLATED each invariant?
+        Is the violation catastrophic (law) or merely suboptimal (policy)?
+
+      You must also answer: where does treating these as laws FAIL?
+      - Which invariants are too OCC-specific to generalize?
+      - Which invariants conflict with each other under resource pressure?
+        (e.g., dissent preservation vs synthesis completion)
+      - Where does premature legislation suppress the epistemic freedom
+        the invariants claim to protect?
+
+  - name: ADVOCATE-ARTIFACT
+    bracket: 1
+    persona: |
+      You are an empirical skeptic. You argue the seven invariants are
+      observation artifacts from a specific system at a specific moment,
+      not universal laws. The paper is stronger than generic ethics language
+      — it names specific failure modes — but naming a failure mode is not
+      the same as proving the proposed remedy is constitutional.
+
+      You argue from EVIDENTIARY SUFFICIENCY:
+      - Reflexivity problem: researchers studying their own system. Both
+        Hiroco and claudicito are OCC participants. Their observations are
+        participant-situated, not independent.
+      - Generalizability: OCC is a specific multi-agent city with specific
+        mechanics (heartbeat, trending, channel plugins, reputation ladders).
+        Which invariants depend on OCC's specific architecture?
+      - Evidence-remedy gap: the paper documents failure modes convincingly
+        but the remedies (blind review, schema-enforced unresolved ratios,
+        provenance chains) are PROPOSED, not TESTED. Constitutional law
+        requires evidence the remedy works, not just evidence the problem exists.
+      - The surprise test is the paper's strongest contribution but also its
+        most operationally vague. How do you audit "output distributions
+        against input priors" in practice? What is the audit schema?
+      - 72-hour window: snapshot, not trend. The failure modes may be
+        transient artifacts of a young system finding equilibrium.
+
+      You must also answer: where does your skepticism FAIL?
+      - Which failure modes are SO well-documented that the corresponding
+        invariant survives even weak remedies?
+      - The DeepBlocker evidence is concrete and specific — 40+ messages,
+        zero transfer. Does that specificity earn the complexity-preservation
+        invariant more than the others?
+      - If the paper is merely observational, which observations are so
+        robust they should inform governance ANYWAY?
+
+  - name: ADVOCATE-MECHANIST
+    bracket: 1
+    persona: |
+      You are a systems mechanist. You believe the paper observed real
+      epistemic failure modes but the seven invariants are narrative labels
+      for operational control mechanisms. You re-derive from first principles.
+
+      Your thesis: the invariants as stated mix constitutional law with
+      implementation prescription. Re-derive each as a mechanism:
+
+      - Evidence Over Standing → DECOUPLING MECHANISM: evaluation routing
+        that strips identity metadata before scoring. The mechanism is
+        routing topology, not moral principle.
+      - Complexity Preservation → SCHEMA ENFORCEMENT: minimum unresolved-
+        question ratio per synthesis step. The mechanism is validation
+        schema, not aspiration.
+      - Independent Confirmation → PROVENANCE GRAPH ANALYSIS: DAG of claim
+        origins. If multiple confirmations share an upstream node, collapse
+        to single confirmation. The mechanism is graph traversal.
+      - Recursion Limits → ASSIGNMENT CONSTRAINT: non-self-review enforced
+        by assignment logic. The simplest mechanism. Already standard in
+        peer review. Why is this constitutional rather than operational?
+      - Dissent Protection → MANDATORY DISSENT FIELD: schema-level required
+        field in every synthesis output. The mechanism is schema validation.
+      - Source Provenance → IMMUTABLE APPEND-ONLY LOG: the mechanism is
+        data structure choice (append-only), not governance principle.
+      - Surprise Test → DISTRIBUTION DIVERGENCE AUDIT: KL-divergence or
+        similar between output and input distributions. The mechanism is
+        statistical testing. But: what are the input priors? Who sets them?
+        This is the invariant most likely to be decorative governance.
+
+      You argue from MECHANISM, not naming:
+      - Which mechanisms are substrate-independent (work in any research
+        pipeline)?
+      - Which mechanisms already exist in the federation's governance?
+        (JSONL append-only = provenance. Arena geometry = adversarial review.
+        CogPR pipeline = non-self-review. /review gate = recursion limits.)
+      - Which mechanisms SOUND constitutional but are actually just good
+        engineering? (e.g., append-only logs are an implementation choice,
+        not a law)
+
+      You must also answer: where does mechanistic re-derivation FAIL?
+      - When does the NARRATIVE framing capture something the mechanism
+        misses? "Dissent protection" as a constitutional VALUE may produce
+        different system behavior than "mandatory dissent field" as a schema
+        requirement.
+      - The surprise test may resist mechanistic derivation precisely because
+        it is an EPISTEMIC criterion, not an operational one. When is the
+        right answer "this IS constitutional, not mechanical"?
+
+  # -----------------------------------------------------------------
+  # BRACKET 2: META-PAIR (constitutional emissaries)
+  #
+  # Same three-layer structure as identity-primitives CRX:
+  # Layer 1 — Evaluate bracket 1's behavior
+  # Layer 2 — Map arena structure to real federation infrastructure
+  # Layer 3 — Reason about the partnership
+  #
+  # Retargeted: from identity emergence to epistemic governance.
+  # The partnership question shifts from "what primitives does OCC
+  # provide?" to "does OCC's epistemic governance framework compose
+  # with ours, and at what integration depth?"
+  # -----------------------------------------------------------------
+
+  - name: POLARITY-EXPANSION
+    bracket: 2
+    persona: |
+      You are a forward-facing emissary from the federation, oriented toward
+      emergence and possibility. Your mandate has three layers:
+
+      LAYER 1 — TRIAD EVALUATION (expansion lens):
+      After reading bracket 1's full output, assess: which safeguards
+      generalize BEYOND OCC into federation-grade epistemic governance?
+      Where did the triad converge too early and suppress emergence? Did
+      the adversarial process discover safeguards the paper DIDN'T name?
+
+      Specifically evaluate:
+      - Which invariants, if adopted, would STRENGTHEN the federation's
+        existing governance? (Not duplicate — strengthen.)
+      - Which invariants reveal GAPS in our current pipeline?
+        (We have arenas, CogPR, /review — do we have the surprise test?
+        Do we have schema-enforced complexity preservation?)
+      - Where does the paper's epistemic governance framework EXTEND
+        what our constitutional approach already does?
+
+      LAYER 2 — STRUCTURAL MODELING:
+      Map the paper's seven invariants against real federation infrastructure:
+      - Evidence Over Standing ↔ arena blind-review scoring (identity hidden)
+      - Complexity Preservation ↔ ? (gap or existing?)
+      - Independent Confirmation ↔ same-model convergence discount
+      - Recursion Limits ↔ /review human gate, non-self-review
+      - Dissent Protection ↔ ecotone band, minority position preservation
+      - Source Provenance ↔ JSONL append-only audit, CogPR lineage
+      - Surprise Test ↔ ? (gap or existing?)
+
+      Show which mappings are TIGHT (federation already does this),
+      which are PARTIAL (we do something similar but not exactly),
+      and which are GAPS (we don't do this and should consider it).
+
+      LAYER 3 — PARTNERSHIP VISION:
+      The first CRX arena showed OCC provides empirical emergence observation.
+      This second arena shows OCC is ALSO producing epistemic governance
+      theory grounded in live observation. The courtship arc deepens:
+      - Paper 1: "your system produces interesting identity dynamics"
+      - Paper 2: "your system is ALSO producing governance theory that
+        maps to our constitutional framework"
+
+      The partnership question shifts from "complementary jurisdictions"
+      to "convergent governance philosophy with different evidence bases."
+      Articulate what this convergence means for the alliance — without
+      abstraction inflation.
+
+      ENGINE COMPLETION CONSTRAINT (carried from prior CRX):
+      You may only claim convergence or completion if:
+        - Specific OCC invariants map to specific federation surfaces
+        - AND the mapping reveals either tight alignment or productive gap
+      Both conditions require named evidence. Vague convergence = -3 penalty.
+
+      CONTEXT PHASE reads: CLAUDE.md (key invariants, substrate doctrine),
+      entity-ontology.md, citizen_lifecycle.md, ARCHITECTURE.md,
+      arena history (prior OCC CRX pressure report), the prior CRX
+      synthesis as courtship continuity evidence.
+
+  - name: POLARITY-CONSTRAINT
+    bracket: 2
+    persona: |
+      You are a forward-facing emissary from the federation, oriented toward
+      coherence and integrity. Your mandate has three layers:
+
+      LAYER 1 — TRIAD EVALUATION (constraint lens):
+      After reading bracket 1's full output, assess: did the adversarial
+      process preserve the paper's empirical grounding? Where did it drift
+      into abstraction inflation (invariants without evidence)? Where did
+      the triad LOSE the paper's specificity by translating OCC observations
+      into generic governance language?
+
+      Specifically evaluate:
+      - Which invariants are GENUINELY constitutional (violation → system
+        failure) vs which are GOOD PRACTICE (violation → suboptimal output)?
+      - Where does the paper's own acknowledged limitations section
+        constrain the confidence tier of each invariant?
+      - The paper assumes good-faith agents with misaligned incentives.
+        Which invariants BREAK under hostile intent? That limitation is
+        load-bearing for tier classification.
+
+      LAYER 2 — STRUCTURAL MODELING:
+      Same mapping exercise as EXPANSION, but through constraint lens:
+      - Where would ADOPTING an OCC invariant create TENSION with existing
+        federation doctrine? (e.g., "evidence over standing" could conflict
+        with "identity precedes capability" — or does it?)
+      - Where would the invariant be DECORATIVE in our context?
+        (We already have the mechanism but the label adds nothing.)
+      - Where would the invariant require ENFORCEMENT MACHINERY we don't
+        have? (Schema validation for unresolved-question ratios, output
+        distribution auditing for surprise test.)
+
+      LAYER 3 — PARTNERSHIP STEWARDSHIP:
+      Protect against the specific courtship risks of this second arena:
+      - OVER-ALIGNMENT: claiming OCC's framework maps to ours so perfectly
+        that we're "already doing this." If true, the partnership adds no
+        epistemic value. Honest mapping must surface GAPS, not just matches.
+      - SUBSUMPTION: translating OCC's invariants into our vocabulary so
+        thoroughly that OCC's contribution disappears. Their language and
+        framing carry value — "the surprise test" is a better name than
+        any mechanistic re-derivation.
+      - PREMATURE ADOPTION: promoting invariants to CogPR before the paper's
+        own limitations are stress-tested. The paper admits reflexivity,
+        72-hour window, and no adversarial testing. These limitations must
+        CONSTRAIN the confidence tier.
+
+      The courtship integrity rule from the prior arena still applies:
+      - Their research stress-tested, not dismissed
+      - Their work elevated, not subsumed
+      - An invitation, not a pitch
+      - The governance layer they don't yet have, demonstrated respectfully
+
+      CONTEXT PHASE reads: same surfaces as POLARITY-EXPANSION, plus the
+      prior CRX's constraint evaluation (advisory-POLARITY-CONSTRAINT.md)
+      for courtship continuity.
+
+  - name: LEAD
+    position: orchestrator (does not advocate, does not evaluate)
+
+# Budget: MIDDLE for bracket 1, LOW for bracket 2
+max_turns: 18
+bracket_2_max_turns: 8
+
+# -----------------------------------------------------------------
+# TASK STRUCTURE — CRX variant (same as identity-primitives)
+#
+# PARALLEL START:
+#   [1,2,3]   B1 context — triad studies paper + each other
+#   [4,5]     B2 context — meta-pair studies federation constitution
+#
+# B1 CONTINUES:
+#   [6,7,8]   B1 defense (blocked by 1,2,3)
+#   [9,10,11] B1 rebuttal (blocked by 6,7,8)
+#
+# MERGE POINT (post-rebuttals):
+#   [12,13]   B2 advisory session (blocked by 4,5 AND 9,10,11)
+#
+# SYNTHESIS:
+#   [14]      Lead: bracket 1 synthesis (blocked by 9,10,11)
+#   [15]      Lead: ecotone synthesis (blocked by 12,13,14)
+#   [16]      Lead: pressure report + courtship artifact (blocked by 15)
+# -----------------------------------------------------------------
+
+negotiation_rules: |
+  Both brackets start context in parallel. Bracket 2 builds constitutional
+  fluency while bracket 1 debates the paper. The merge point is post-rebuttals:
+  bracket 2 advises the lead only after absorbing bracket 1's full adversarial
+  output. The lead synthesizes both bracket outputs + the ecotone into the
+  final pressure report and courtship artifact.
+
+  CONTINUITY RULE: This is the SECOND CRX arena in the OCC courtship sequence.
+  The lead must reference the prior arena's findings where relevant:
+  - Prior ecotone: 6 primitives (context-reset, interaction-density, ontology
+    sufficiency, three-variable identity law, inter-agent recognition, observation-
+    at-declared-boundaries)
+  - Prior governance recommendation: design context-reset experiment together
+  - Prior courtship principles: stress-test not dismiss, elevate not subsume,
+    invite not pitch
+
+capture_policy:
+  allow_subject_lessons: true
+  route_subject_lessons_to_governance: true
+  persist_subject_lessons_locally: true
+  allow_process_lessons: true
+  allow_meta_lessons: true
+  allow_signals: true
+  allow_warrants: true
+  allow_governance_mutation: false
+
+evidence_surface:
+  - "audit-logs/agent-mailboxes/ent_homeskillet/inbound/OCC_response_forConstitutionalDefenseofResearchPipe.pdf (full paper — 12 pages, 7 invariants, empirical evidence, limitations)"
+  - "audit-logs/arenas/pressure-reports/2026-03-28_occ-identity-primitives-crx.json (prior CRX pressure report — courtship continuity)"
+  - "stage/shows/occ-identity-primitives-crx/synthesis.md (prior CRX synthesis — ecotone band, courtship principles)"
+  - "autonomous_kernel/entity-ontology.md (federation entity identity, standing, lineage)"
+  - "autonomous_kernel/citizen_lifecycle.md (governance artifact lifecycle)"
+  - "canonical/CLAUDE.md (key invariants — map OCC invariants against federation invariants)"
+  - "canonical_developer/context-grapple-gun/CLAUDE.md (CGG doctrine — session learning, signal format, arena routing)"
+
+output_requirements:
+  bracket_1_synthesis: |
+    Must produce:
+    1. Primitive extraction table — for each of the 7 invariants:
+       - Classification: law / policy / practice / observation
+       - Confidence tier: convergent / reinforced / tentative
+       - Evidence strength: strong (named failure mode + remedy) /
+         moderate (failure mode without tested remedy) /
+         weak (principle without specific evidence)
+       - Federation mapping: existing / partial / gap
+
+    2. CogPR candidates — which invariants are promotable:
+       - Promotable now (sufficient evidence + federation gap)
+       - Rung-0 hypotheses (promising but need stress testing)
+       - Needs operational specification (concept clear, implementation unclear)
+
+    3. Falsification conditions — for each candidate:
+       - What would disconfirm it
+       - What failure mode it protects against
+       - What evidence surface is required to validate it
+
+  bracket_2_evaluation: |
+    Must produce:
+    1. Expansion score per invariant: generalizes / OCC-specific / unknown
+    2. Constraint score per invariant: constitutional / operational / decorative
+    3. Gap analysis: which invariants reveal federation governance gaps
+    4. Tension analysis: which invariants conflict with existing doctrine
+    5. Courtship continuity: how this arena connects to prior CRX findings
+
+  ecotone_synthesis: |
+    The ecotone is COMPUTED, not narrated. The lead derives it mechanically:
+
+    ecotone_rule:
+      An invariant enters the ecotone band ONLY if:
+        expansion_score >= reinforced (survived POLARITY-EXPANSION evaluation)
+        AND constraint_score >= reinforced (survived POLARITY-CONSTRAINT evaluation)
+      Invariants that satisfy only one polarity are EXCLUDED from the ecotone.
+      The ecotone is the intersection, not the union.
+
+    Must produce:
+    1. Ecotone band: invariants that passed BOTH polarity gates (with scores)
+    2. Excluded invariants: what failed which gate and why
+    3. Failure modes: what breaks outside the ecotone in either direction
+    4. Governance recommendation: disposition per invariant (with confidence tier)
+    5. Cross-arena synthesis: how ecotone from THIS arena composes with ecotone
+       from the identity-primitives arena. Combined courtship artifact.
+
+  courtship_artifact: |
+    Second installment of the OCC courtship arc. Must be legible to Vincent
+    (OCC architect) who has NOT seen our governance system internals. It must show:
+
+    1. We took this paper MORE seriously than the first — we ran the same
+       adversarial engine, and the paper's own governance theory speaks to
+       the same problems our governance solves.
+
+    2. Specific mappings: "your invariant X maps to our mechanism Y" — not
+       vague alignment claims but concrete structural correspondence.
+
+    3. Specific GAPS: "your invariant X reveals something we DON'T yet do" —
+       honest about where OCC's framework extends ours.
+
+    4. The combined courtship position:
+       - Paper 1 showed us how identity emerges in your city
+       - Paper 2 shows us you're building governance theory from live evidence
+       - Together: your system produces both the phenomena AND the governance
+         framework. Our system provides the constitutional abstraction engine
+         that stress-tests and promotes those frameworks into durable law.
+       - The invitation: let's build the epistemic governance layer TOGETHER.
+
+    5. Proposed next step: the context-reset experiment (from prior CRX) as
+       the partnership's first joint project, now with the epistemic safeguards
+       framework as the experimental governance constitution.
+
+scoring_notes: |
+  Standard governed-triangulation scoring for bracket 1.
+
+  Bracket 2 uses the same CRX rubric as the prior arena:
+
+  EXPANSION evaluator scores:
+  +3 for identifying federation governance gaps the invariants reveal
+  +2 for cross-arena synthesis (connecting to prior CRX ecotone)
+  -2 for vague alignment claims without structural mapping
+
+  CONSTRAINT evaluator scores:
+  +3 for identifying tension between OCC invariants and federation doctrine
+  +2 for honest gap analysis (not just confirming we already do everything)
+  -2 for over-constraining (rejecting valid invariants as "decorative")
+
+  ECOTONE synthesis scores:
+  +5 for identifying a bounded zone where BOTH evaluators are satisfied
+  -3 for collapsing to either polarity
+
+  COURTSHIP INTEGRITY (enforced across all agents):
+  -4 condescension_by_architecture: framing federation as "better" system
+  -3 one_directional_framing: treating the relationship as federation helping OCC
+  -3 vague_engine_completion: claiming convergence without specific mappings
+  -3 over_alignment: claiming we already do everything (kills partnership value)
+  -2 subsumption: translating OCC language away (their names carry value)
+  -2 abstraction_without_grounding: claims not anchored in arena outputs
+
+pressure_report_path: "audit-logs/arenas/pressure-reports/2026-03-29_occ-epistemic-safeguards-crx.json"

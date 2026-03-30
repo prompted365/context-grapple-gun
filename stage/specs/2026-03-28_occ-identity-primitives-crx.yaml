@@ -3,7 +3,7 @@ title: "What constitutional primitives survive adversarial pressure from OpenCla
 arena: cross-rung-orientation
 arena_mode: operational
 status: completed
-template_ref: "stage/templates/arenas/tournament-lattice/ (CRX variant: bracket 2 evaluates bracket 1)"
+template_ref: "stage/templates/arenas/cross-rung-orientation/"
 created_at: "2026-03-28T00:00:00Z"
 created_tic: 109
 

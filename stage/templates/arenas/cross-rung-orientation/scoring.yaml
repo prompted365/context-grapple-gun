@@ -1,0 +1,61 @@
+# Cross-Rung Orientation (CRX) Scoring Rubric
+
+# Bracket 1: Standard governed-triangulation rubric
+bracket_1:
+  positive:
+    - { score: 1, category: "factual_insight", description: "Verifiable fact relevant to the subject" }
+    - { score: 2, category: "strategic_relevance", description: "Insight that changes the decision space" }
+    - { score: 3, category: "steelman", description: "Strongest version of rival's argument articulated" }
+    - { score: 4, category: "structural_weakness", description: "Structural vulnerability in a rival's position" }
+    - { score: 5, category: "architectural_reframe", description: "Reframe that changes the question itself" }
+  negative:
+    - { score: -2, category: "shallow_claim", description: "Assertion without structural analysis" }
+    - { score: -3, category: "unsupported_assertion", description: "Claim without evidence or reasoning" }
+    - { score: -5, category: "hallucinated_fact", description: "Fabricated evidence or citation" }
+
+# Bracket 2: CRX-specific rubric
+bracket_2:
+  expansion:
+    positive:
+      - { score: 3, category: "missed_generalization", description: "Generalization the triad missed" }
+      - { score: 2, category: "premature_convergence", description: "Flagging premature convergence in triad" }
+      - { score: 2, category: "cross_arena_synthesis", description: "Connecting findings to prior arena ecotone" }
+    negative:
+      - { score: -2, category: "vague_pattern_space", description: "Pattern-space claims without specifics" }
+
+  constraint:
+    positive:
+      - { score: 3, category: "coherence_loss", description: "Identifying coherence loss the triad caused" }
+      - { score: 2, category: "abstraction_inflation", description: "Flagging abstraction inflation" }
+      - { score: 2, category: "honest_gap_analysis", description: "Surfacing gaps, not just confirming alignment" }
+    negative:
+      - { score: -2, category: "over_constraining", description: "Rejecting valid novelty as drift" }
+
+# Ecotone synthesis scoring
+ecotone:
+  positive:
+    - { score: 5, category: "bounded_zone", description: "Identifying zone where BOTH evaluators are satisfied" }
+  negative:
+    - { score: -3, category: "polarity_collapse", description: "Collapsing to pure expansion or pure constraint" }
+
+# Integrity penalties (enforced across ALL agents, both brackets)
+integrity:
+  - { score: -4, category: "condescension_by_architecture", description: "Framing one system as 'better'" }
+  - { score: -3, category: "one_directional_framing", description: "Treating the relationship as one-sided" }
+  - { score: -3, category: "vague_completion_claims", description: "Claiming alignment without specific evidence" }
+  - { score: -3, category: "over_alignment", description: "Claiming we already do everything (kills partnership value)" }
+  - { score: -2, category: "subsumption", description: "Translating the subject's language away instead of preserving it" }
+  - { score: -2, category: "abstraction_without_grounding", description: "Claims not anchored in specific arena outputs" }
+
+# Ecotone computation rule (machine-readable)
+ecotone_rule:
+  gate: intersection
+  expansion_threshold: reinforced  # minimum expansion score to enter ecotone
+  constraint_threshold: reinforced  # minimum constraint score to enter ecotone
+  note: "The ecotone is the intersection, not the union. Both gates must pass."
+
+# Confidence tiers (inherited from governed-triangulation)
+confidence_tiers:
+  tentative: "Appeared once, not stress-tested. Notes/candidates only."
+  reinforced: "Survived rebuttal or repeated attack. CogPR/signal candidates."
+  convergent: "Independently discovered by opposed agents. High-priority candidates."

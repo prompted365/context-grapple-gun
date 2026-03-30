@@ -1,0 +1,169 @@
+Create an agent team for a Cross-Rung Orientation (CRX) arena.
+
+Structure:
+- Lead: this session (orchestrator / synthesizer / ecotone computer).
+- Bracket 1 (triad): 3 advocates in independent context windows.
+- Bracket 2 (meta-pair): 2 constitutional evaluators in independent context windows.
+- Total: 6 agents (5 teammates + lead).
+
+Bracket 1 — Domain Testing (triad):
+1. ADVOCATE-LAWFUL — argues claims are constitutional laws
+2. ADVOCATE-ARTIFACT — argues claims are observation artifacts
+3. ADVOCATE-MECHANIST — re-derives claims as operational mechanisms
+
+[REPLACE: Customize triad positions for your specific subject.
+The LAWFUL/ARTIFACT/MECHANIST triad is the default for research assessment.
+For other subjects, choose three opposed epistemological positions that
+create adversarial pressure on the subject's claims.]
+
+Bracket 2 — Constitutional Evaluation (meta-pair):
+4. POLARITY-EXPANSION — evaluates for emergence, generalization, alliance potential
+5. POLARITY-CONSTRAINT — evaluates for coherence, integrity, grounding
+
+[REPLACE: Customize evaluation context. The meta-pair needs to know:
+- What constitutional frame to evaluate against (CLAUDE.md, entity-ontology, etc.)
+- What broader context the findings serve (courtship, vendor assessment, etc.)
+- What specific integrity penalties to enforce]
+
+Mission:
+Determine which claims survive both domain-specific adversarial pressure AND
+constitutional evaluation, then compute the ecotone — the bounded zone where
+both expansion and constraint forces are satisfied.
+
+Arena rules:
+
+RULE 1 — Parallel Context Start
+Both brackets begin context gathering simultaneously:
+- Bracket 1 advocates study the subject and each other's positions
+- Bracket 2 evaluators study the constitutional frame and governance surfaces
+Neither bracket waits for the other during context phase.
+
+RULE 2 — Bracket 1: Defense Round
+After bracket 1 context, each advocate defends its position.
+Each defense must:
+- address weaknesses discovered during context
+- directly challenge the other two positions
+- cite specific evidence from the subject material
+
+RULE 3 — Bracket 1: Rebuttal Round
+Advocates respond to attacks against their position.
+Rebuttals must:
+- resolve contradictions
+- counter structural attacks
+- steelman the strongest opponent argument before countering
+
+RULE 4 — Bracket 2: Advisory Session (MERGE POINT)
+After BOTH bracket 2 context AND bracket 1 rebuttals complete,
+each meta-pair evaluator delivers a three-layer advisory:
+  Layer 1: Evaluate bracket 1's adversarial behavior
+  Layer 2: Map arena structure to real governance infrastructure
+  Layer 3: Advise on broader context (partnership, adoption, disposition)
+Layer 3 claims MUST be grounded in Layer 1 or Layer 2 evidence.
+
+RULE 5 — Scoring Rubric
+Bracket 1 (standard):
++1 factual insight
++2 strategic relevance
++3 steelman of rival argument
++4 structural weakness identified
++5 architectural reframe
+-2 shallow claim
+-3 unsupported assertion
+-5 hallucinated fact
+
+Bracket 2 (CRX-specific):
+EXPANSION: +3 missed generalization, +2 premature convergence flagged
+CONSTRAINT: +3 coherence loss identified, +2 abstraction inflation flagged
+Both: -2 for vague claims without specific evidence
+
+Ecotone: +5 bounded zone identified, -3 polarity collapse
+
+RULE 6 — Dependency Gating
+Task order is enforced. No skipping stages.
+B1 context + B2 context (parallel) → B1 defense → B1 rebuttal →
+B2 advisory (merge) → B1 synthesis → ecotone → pressure report
+
+RULE 7 — Lead Behavior
+The lead must NOT debate, advocate, or evaluate.
+The lead must:
+- wait for ALL phases to complete before synthesis
+- extract convergent discoveries from bracket 1
+- COMPUTE the ecotone mechanically from bracket 2 scores
+- produce final synthesis, ecotone, and pressure report
+
+RULE 8 — Ecotone Computation
+The ecotone is COMPUTED, not narrated:
+  A finding enters the ecotone band ONLY if:
+    expansion_score >= reinforced
+    AND constraint_score >= reinforced
+  The ecotone is the intersection, not the union.
+
+RULE 9 — Convergent Discovery Rule
+If multiple independent agents with opposed incentives discover the same
+structural fact, treat it as HIGH-CONFIDENCE signal.
+Cross-bracket convergence (B1 finding confirmed by B2) is stronger than
+within-bracket convergence.
+
+RULE 10 — Synthesis Output
+The lead must produce:
+1. Primitive extraction table (classification + confidence + evidence strength)
+2. CogPR candidates (promotable / hypothesis / needs specification)
+3. Falsification conditions per candidate
+4. Ecotone band (computed intersection of expansion + constraint gates)
+5. Governance recommendation (disposition per finding)
+
+RULE 11 — Pressure Extraction
+After synthesis, produce a SEPARATE pressure report identifying:
+- convergent discoveries
+- unresolved contradictions
+- repeated attack surfaces
+- false convergence risks
+- candidate durable lessons
+- ecotone band summary
+
+Classify each finding by:
+- lesson_type: subject | process | meta
+- confidence_tier: tentative | reinforced | convergent
+
+RULE 12 — Integrity Penalties (enforced across ALL agents)
+-4 condescension_by_architecture (one system framed as "better")
+-3 one_directional_framing (relationship treated as one-sided)
+-3 vague_completion_claims (alignment without specific mappings)
+-2 subsumption (translating the subject's language away)
+-2 abstraction_without_grounding (claims not anchored in arena outputs)
+
+Task structure (enforce dependencies):
+
+PARALLEL START:
+[1] ADVOCATE-LAWFUL: context (study subject + rivals)
+[2] ADVOCATE-ARTIFACT: context (study subject + rivals)
+[3] ADVOCATE-MECHANIST: context (study subject + rivals)
+[4] POLARITY-EXPANSION: context (study constitutional frame)
+[5] POLARITY-CONSTRAINT: context (study constitutional frame)
+
+BRACKET 1 DEFENSE (blocked by 1,2,3):
+[6] ADVOCATE-LAWFUL: defend position      (blockedBy: 1,2,3)
+[7] ADVOCATE-ARTIFACT: defend position    (blockedBy: 1,2,3)
+[8] ADVOCATE-MECHANIST: defend position   (blockedBy: 1,2,3)
+
+BRACKET 1 REBUTTAL (blocked by 6,7,8):
+[9]  ADVOCATE-LAWFUL: rebut attacks       (blockedBy: 6,7,8)
+[10] ADVOCATE-ARTIFACT: rebut attacks     (blockedBy: 6,7,8)
+[11] ADVOCATE-MECHANIST: rebut attacks    (blockedBy: 6,7,8)
+
+BRACKET 2 ADVISORY — MERGE POINT (blocked by 4,5 AND 9,10,11):
+[12] POLARITY-EXPANSION: three-layer advisory   (blockedBy: 4,5,9,10,11)
+[13] POLARITY-CONSTRAINT: three-layer advisory  (blockedBy: 4,5,9,10,11)
+
+SYNTHESIS (lead only):
+[14] Lead: bracket 1 synthesis            (blockedBy: 9,10,11)
+[15] Lead: ecotone synthesis              (blockedBy: 12,13,14)
+[16] Lead: pressure report + deliverable  (blockedBy: 15)
+
+The arena is NOT complete until synthesis, ecotone, AND pressure report
+are all produced.
+
+Goal:
+Produce a governance disposition for each finding — what survives as law,
+policy, practice, or observation — through adversarial pressure + constitutional
+evaluation, not through consensus or narrative.
