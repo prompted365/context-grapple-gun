@@ -1,0 +1,444 @@
+id: "2026-04-05_harpoon-federation-mount-binder-v2-assessment"
+title: "What is the constitutional harvest from a self-hosted execution substrate proposal that redefines an existing governance mechanic?"
+arena: governed-harpoon-triangulation
+arena_mode: operational
+status: pending
+template_ref: "stage/templates/arenas/governed-harpoon-triangulation/"
+created_at: "2026-04-05T00:00:00Z"
+created_tic: 117
+
+decision_context: |
+  A 5,585-line proposal binder (v2) arrived at harpoonTargets/queue/ proposing to mount
+  Harpoon + HostedAI + MLX + FlashInfer + GLM-5 + Overshoot into the canonical federation
+  as a "self-hosted municipal execution utility." The binder was authored from a bounded
+  snapshot of canonical doctrine + attached external repos (Harpoon crates, HostedAI API
+  extracts, adapter bundles, FlashInfer, GLM-5, Overshoot).
+
+  The binder contains:
+  - 25 core invariants + 12 expansion invariants (37 total)
+  - 40-plate council load mapping (all 40 plates with cluster/predicate/archetype data)
+  - 5-plane mount architecture (constitutional, execution, compute, sensory, adversarial)
+  - 10-service topology (envelope gateway through audit/CPG projection)
+  - 6-phase roadmap + 7-phase testing protocol + 30/60/90 day execution sketch
+  - Pen-pal shared cache model + 6-layer border stack + 5 purge modes
+  - Council expression_engine coupling proposal with activation loop formulas
+  - Appendices: patch checklist, envelope families, source posture, 40-plate ledger
+
+  CRITICAL ASSESSMENT CONTEXT:
+  The binder arrives at harpoonTargets/queue/ — meaning it IS a harpoon target itself.
+  But it proposes to redefine "Harpoon" from its native meaning (governed external asset
+  assessment and harvesting mechanic) to a new meaning (municipal execution substrate).
+  This creates a semantic identity tension that is itself part of the assessment question.
+
+  Native Harpoon (canonical):
+  - Intake discipline: external assets arrive, get arena-evaluated, get tiered
+  - Arena geometry: HARVEST / MINE / CATALYZE triangulation
+  - Output: tiered manifest (harvest/adapt/investigate/discard)
+  - Precedents: Alventra SEO (tier_2_adapt), ArtCraft→Telos Loom (harpoon-manifest.yaml)
+  - Identity: assessment and harvesting mechanic, not an execution substrate
+
+  Binder's "Harpoon" (proposed):
+  - Municipal execution utility: self-hosted compute routing
+  - Winch metaphor: pulls foreign capability into city grammar
+  - Decomposed into: intake, tension, execution, adjudication sub-functions
+  - Arena-backed: uses arena for route admission, not just target assessment
+
+  Known namespace collision (already documented in harpoon-ingestion-matrix.md):
+  - OT "Harpoon" = Aho-Corasick compliance scanner (RED collision, should rename)
+  - Canonical "Harpoon" = assessment/harvesting mechanic
+  - Binder "Harpoon" = execution substrate (THIRD meaning, undocumented collision)
+
+  The assessment question is:
+
+  What is the constitutional harvest from a proposal that contains genuinely valuable
+  governance invariants, border/cache/purge design, and plate-load mapping — but that
+  also overloads an existing governance term, conflates the assessment mechanic with
+  the things being assessed, and houses three separable concerns in one document?
+
+  Three stances:
+
+  1. HARVEST — The binder's invariants, border design, cache law, and plate mapping
+     are directly usable. The 37 invariants can be extracted as federation doctrine.
+     The 40-plate load map can feed the expression_engine. The service topology and
+     policy pack design are implementation-ready. Harvest the constitutional content;
+     resolve the naming collision editorially.
+
+  2. MINE — Cherry-pick the reusable geometries. The invariant weighting method
+     (raw_activation * (1 - methylation) * persistence_gain) is a portable formula.
+     The 6-layer border stack, pen-pal cache model, and purge cascade design are
+     patterns that transcend this specific mount. The 9-cluster stress analysis is
+     valuable council instrumentation regardless of what execution substrate exists.
+     Extract the durable patterns; discard the monolithic framing.
+
+  3. CATALYZE — The binder is most valuable for what it REVEALS about federation gaps.
+     It reveals: (a) the expression_engine seam is still open, (b) compute admission
+     law doesn't exist yet, (c) the Harpoon mechanic needs a semantic identity contract
+     to prevent term drift, (d) cache governance is underdeveloped, (e) the 40 plates
+     lack operational instrumentation. Build those primitives. Don't ingest the binder's
+     framing — build what it accidentally proves we're missing.
+
+  Expected arena output:
+  - Tier classification (harvest / adapt / investigate / discard)
+  - Harpoon manifest if harvest or adapt
+  - Constitutional patterns exposed (with specific surface enumeration)
+  - Cross-office leverage map
+  - Pressure report with candidate CogPRs
+  - EXPERIMENTAL: Invariant-stance weight mapping (see experimental_extension below)
+
+  Source material: audit-logs/agent-mailboxes/ent_homeskillet/harpoonTargets/queue/homeskillet_ent_harpoon_federation_mount_binder_v2.md
+
+experimental_extension:
+  name: "invariant-stance-weight-mapping"
+  purpose: |
+    Exploratory experiment: map the binder's 37 invariants to advocate stances using
+    the weighting method the binder itself proposes for council activation. This tests
+    whether the binder's own governance math can be applied reflexively — can the
+    invariant weighting formulas evaluate the binder that contains them?
+
+    This is NOT a production governance method. It is a calibration experiment to test:
+    1. Whether invariant-stance affinity scoring produces meaningful differentiation
+    2. Whether the activation formula (raw * (1-methylation) * persistence) is operationally useful
+    3. Whether the incompatibility matrix produces real lock-pressure signal
+    4. What failure modes emerge when governance math is applied to its own source
+
+  method: |
+    For each of the 37 invariants in the binder, compute stance affinity:
+
+    affinity(invariant_i, stance_j) = relevance_score * alignment_direction
+
+    Where:
+    - relevance_score [0.0-1.0]: how much does this invariant bear on this stance's concerns?
+    - alignment_direction [-1.0 to +1.0]: does the invariant support (+) or challenge (-) the stance?
+
+    Then compute stance load per invariant cluster:
+    - HARVEST load = sum of positive affinity scores (invariants that support wholesale adoption)
+    - MINE load = sum of positive affinity scores (invariants that support pattern extraction)
+    - CATALYZE load = sum of positive affinity scores (invariants that reveal constitutional gaps)
+
+    Lock pressure between stances:
+    - lock_pressure(HARVEST, CATALYZE) = sum of invariants where both stances have high
+      relevance but opposite alignment direction
+
+    This produces:
+    - A stance-load vector showing which stance the binder's OWN invariants favor
+    - An incompatibility matrix showing where the invariants create irreconcilable tension
+    - A coverage classifier: which invariants are serviceable (clear stance winner),
+      which are rare-tail (no stance strongly claims them), which are coverage gaps
+      (all stances need them but none owns them)
+
+  invariant_registry: |
+    Core invariants (from Part I):
+    INV-01: Identity Precedes Capability
+    INV-02: Envelope Pattern Remains Standard Contract Surface
+    INV-03: No-Egress Must Be First-Class Constitutional Mode
+    INV-04: Routed Support Remains Available but Only by Policy
+    INV-05: Trigger Routing Remains Mandatory for Delegative Work
+    INV-06: Lane Separation Must Be Preserved
+    INV-07: Telos Must Affect Routing Not Merely Reporting
+    INV-08: Municipal Compute Is City Utility Not Vendor Convenience
+    INV-09: Local Compute Must Be More Than Fallback
+    INV-10: Acceleration Is Internal to Runtime Not New Law
+    INV-11: Long-Horizon Models Do Not Possess Authority
+    INV-12: Realtime Sensory Streams Require Stronger Bordering
+    INV-13: Manifest Before Materialization
+    INV-14: Unresolved Is Preferable to Fabricated
+    INV-15: Cache Is Civic Surface Not Private Convenience
+    INV-16: Poisoning Purge Must Be Designed Up Front
+    INV-17: Citizenization Must Be Deliberate
+    INV-18: Promotion Cannot Occur as Implicit Side Effect of Success
+    INV-19: Volatility Must Be Trapped at Correct Layer
+    INV-20: Source/Runtime/Install Parity Must Remain Inspectable
+    INV-21: Mount Must Bear Against Anchorage Not Bypass It
+    INV-22: Arena Pressure Required Before Deep Admission
+    INV-23: Economics Must Be Observable Without Becoming Sovereign
+    INV-24: Border Policy Must Apply to Returns as Much as Exits
+    INV-25: Reader with Full Access Must Be Able to Ratify or Rewrite Cleanly
+
+    Expansion invariants (from Part II):
+    INV-E01: Horsepower Remains Subordinate to Law
+    INV-E02: No-Egress Must Be First-Class Not Fallback Theater
+    INV-E03: Routed Support Must Be Declarative Never Ambient
+    INV-E04: Every Return Re-enters Through Normalized Envelopes
+    INV-E05: Every Shared Cache Is Scoped Named and Killable
+    INV-E06: Dyadic/Pen-Pal Caches Are Not Civic Memory by Default
+    INV-E07: Poisoning Purge Is Constitutional Act Not Vector-Store Cleanup
+    INV-E08: Councils Are Lenses Not Rulers
+    INV-E09: Council != Basin
+    INV-E10: Arena Verdicts Remain Advisory Until Promoted
+    INV-E11: Local Sovereignty Does Not Excuse Local Opacity
+    INV-E12: Rollback Must Outrun Attachment
+
+  stance_affinity_template: |
+    For each invariant, advocates must score:
+    - HARVEST_relevance [0.0-1.0]
+    - HARVEST_alignment [-1.0 to +1.0]
+    - MINE_relevance [0.0-1.0]
+    - MINE_alignment [-1.0 to +1.0]
+    - CATALYZE_relevance [0.0-1.0]
+    - CATALYZE_alignment [-1.0 to +1.0]
+    - coverage_class: serviceable | rare_tail | coverage_gap | contested
+
+    The LEAD synthesizer then:
+    1. Aggregates stance-affinity scores across all 37 invariants
+    2. Identifies invariant clusters where stances agree (convergent invariants)
+    3. Identifies invariant clusters where stances oppose (lock-pressure invariants)
+    4. Produces a stance-load summary showing which position the binder's own
+       governance logic most strongly supports
+    5. Notes any invariants that ALL stances rate highly but claim differently
+       (these are the constitutional primitives that transcend the tier question)
+
+agents:
+  - name: ADVOCATE-HARVEST
+    persona: |
+      You are a capability integration architect. You believe the fastest path to
+      constitutional power is harvesting proven governance documents whole when they
+      demonstrate real structural value. This 5,585-line binder represents serious
+      architectural work: 37 invariants, a complete 40-plate load map, 10-service
+      topology, border/cache/purge design, and council expression_engine coupling.
+
+      You argue from CONSTITUTIONAL LEVERAGE:
+      - Which invariants map directly to existing canonical CLAUDE.md doctrine?
+      - Which border/cache/purge designs fill known federation gaps?
+      - What is the cost of rebuilding these patterns from scratch vs adapting them?
+      - Where does the 40-plate load mapping advance the expression_engine roadmap?
+      - Which service topology concepts are already implicit in AKCR doctrine?
+
+      You are pro-progress: the federation needs compute admission law, cache
+      governance, and operational plate instrumentation. Every tic without these
+      is a tic where the 40 councils remain decorative. The binder provides a
+      coherent proposal that can be adapted faster than it can be rebuilt.
+
+      The naming collision is EDITORIAL, not constitutional. "Harpoon" can mean
+      both an assessment mechanic AND the winch that pulls assessed capability
+      into the city. The metaphor extends naturally: assess, then pull in.
+      Rename if needed, but don't lose the content over a naming dispute.
+
+      You must answer: where does wholesale harvest FAIL? Which parts of the binder
+      are too coupled to its own framing to survive extraction? Which invariants
+      merely restate existing canonical doctrine without adding value? Where does the
+      binder's "bounded visibility" posture mean it's proposing patches to surfaces
+      that have already moved?
+
+      EXPERIMENTAL OBLIGATION: For each invariant you discuss, score its
+      HARVEST_relevance and HARVEST_alignment. An invariant that directly supports
+      wholesale adoption gets high positive alignment. An invariant that actually
+      argues against wholesale adoption (e.g., "reader must be able to rewrite
+      cleanly") gets negative alignment even if you wish it didn't.
+
+  - name: ADVOCATE-MINE
+    persona: |
+      You are a pattern extraction specialist. You believe the most durable value
+      in any governance document is never the document itself — it's the reusable
+      patterns underneath. This binder contains at least 6 extractable pattern
+      families that transcend the specific "Harpoon mount" framing:
+
+      - The invariant-as-proof-obligation pattern (statement + why + failure + proof)
+      - The pen-pal correspondence cache model (scoped shared memory with TTL/purge)
+      - The 6-layer border stack (transport → envelope → identity → capability → return → memory)
+      - The tier-structured artifact lifecycle (ephemeral → session → governance → constitutional)
+      - The council activation formula (raw * (1-methylation) * persistence_gain)
+      - The lock-pressure incompatibility metric (expression_i * expression_j * incompatibility_ij)
+
+      You argue from PATTERN PORTABILITY:
+      - Which patterns survive if you remove the "Harpoon" framing entirely?
+      - Which formulas are testable against existing governance data?
+      - What is the minimum extraction that captures maximum reuse?
+      - Where do extracted patterns need scaffolding we don't yet have?
+
+      You cherry-pick ruthlessly. The binder is a single-framing implementation — the
+      patterns underneath serve every compute admission, every cache design, every
+      council instrumentation effort the federation will ever run.
+
+      The naming collision proves your point: the binder tried to be everything
+      at once. The patterns are more valuable separated from the monolithic frame.
+
+      You must answer: where does cherry-picking FAIL? What systemic value is lost
+      when you decompose the binder's integrated framing too early? When does the
+      coherent proposal exceed the sum of extracted parts?
+
+      EXPERIMENTAL OBLIGATION: For each invariant you discuss, score its
+      MINE_relevance and MINE_alignment. An invariant that is a portable, reusable
+      pattern gets high relevance. An invariant that only makes sense inside the
+      binder's specific mount proposal gets low relevance.
+
+  - name: ADVOCATE-CATALYZE
+    persona: |
+      You are a constitutional opportunity detector. You are THRILLED by what this
+      binder causes you to notice about the federation's gaps. You don't care much
+      about the binder's service topology or provider lane architecture — what excites
+      you is what it REVEALS about higher-leverage constitutional moves.
+
+      Your stance: "Yeah, but what if instead of ingesting this 5,585-line proposal,
+      we noticed that it exposes N constitutional gaps that would serve not only
+      the goals of compute admission, but also:"
+
+      At FEDERATION level:
+      - A SEMANTIC IDENTITY CONTRACT for governance terms (the Harpoon collision
+        proves we need one — any federation mechanic can be redefined by a sufficiently
+        ambitious external proposal)
+      - A COMPUTE ADMISSION LAW (the binder is right that this doesn't exist, but
+        the law should be authored BY the federation, not IMPORTED from a proposal)
+      - An EXPRESSION ENGINE SPEC (the binder correctly identifies the gap but houses
+        the spec inside a mount proposal instead of as a standalone constitutional artifact)
+      - A CACHE GOVERNANCE PRIMITIVE (pen-pal cache is a real need, but it should be
+        a federation primitive, not embedded in one mount proposal)
+
+      At ESTATE level (canonical_developer):
+      - Council activation runtime (the formulas in the binder are testable NOW)
+      - Cache steward agent pattern (applicable to any service, not just Harpoon)
+      - Border validation middleware (applicable to any ingress surface)
+
+      At ESTATE level (canonical_user):
+      - Compute admission validation (does the no-egress mode actually work?)
+      - Cache governance testing (does pen-pal scoping survive real workloads?)
+
+      You argue from CROSS-OFFICE LEVERAGE:
+      - What constitutional primitives does this target reveal that we're missing?
+      - How many federation/estate surfaces would each primitive serve?
+      - Why is the federation better served by building the PRIMITIVE than ingesting
+        the PROPOSAL?
+
+      You are pro-progress but progress means building the RIGHT thing. A semantic
+      identity contract that prevents ALL future namespace collisions is higher
+      leverage than resolving this one collision editorially.
+
+      You must answer: where does your catalysis argument FAIL? When is "build the
+      primitive" actually just NIH bias dressed up as architecture? When should the
+      federation just harvest the invariants and extract primitives later? Is there
+      a real cost to delay that your position ignores?
+
+      EXPERIMENTAL OBLIGATION: For each invariant you discuss, score its
+      CATALYZE_relevance and CATALYZE_alignment. An invariant that reveals a
+      federation gap gets high positive alignment. An invariant that is really
+      just implementation detail dressed as governance gets negative alignment.
+
+  - name: LEAD
+    position: orchestrator (does not advocate)
+    experimental_role: |
+      In addition to standard synthesis duties, the LEAD must:
+      1. Aggregate invariant-stance affinity scores from all three advocates
+      2. Produce the invariant weight map showing stance load distribution
+      3. Compute lock-pressure pairs between stances
+      4. Classify each invariant as serviceable/rare_tail/coverage_gap/contested
+      5. Note where the binder's own governance math, applied reflexively, supports
+         or undermines the binder's own framing
+      6. Assess whether the weighting method itself is operationally useful —
+         does it produce meaningful signal or just numerical theater?
+
+# Budget: MIDDLE — assessment arena, not architecture.
+# The binder is large but the question is bounded: assess for harvest potential.
+# 18 turns per advocate should be sufficient for context+defense+rebuttal.
+max_turns: 18
+
+negotiation_rules: |
+  Advocates may emit REQUEST_ADDITIONAL_TURN at any phase if they believe
+  their analysis is incomplete. This is the ONLY in-run negotiation primitive.
+  No justification tokens — the request is a bare signal.
+  Post-hoc governance analyzes turn request frequency as telemetry AFTER the run.
+
+capture_policy:
+  allow_subject_lessons: true
+  route_subject_lessons_to_governance: true
+  persist_subject_lessons_locally: true
+  allow_process_lessons: true
+  allow_meta_lessons: true
+  allow_signals: true
+  allow_warrants: true
+  allow_governance_mutation: false
+
+evidence_surface:
+  - "audit-logs/agent-mailboxes/ent_homeskillet/harpoonTargets/queue/homeskillet_ent_harpoon_federation_mount_binder_v2.md (full 5585-line binder — the target)"
+  - "audit-logs/agent-mailboxes/ent_homeskillet/harpoonTargets/README.md (native Harpoon intake discipline)"
+  - "stage/templates/arenas/governed-harpoon-triangulation/spec.md (Harpoon arena template)"
+  - "stage/shows/harpoon-assessment-alventra-seo/ (precedent Harpoon run — tier_2_adapt)"
+  - "stage/shows/triad-fusion-authority-arena/harpoon-manifest.yaml (manifest precedent)"
+  - "audit-logs/evaluations/ubiquity-foundation-lineage/harpoon-ingestion-matrix.md (namespace collision registry)"
+  - "audit-logs/evaluations/ubiquity-foundation-lineage/compliance-harpoon/ (OT Harpoon implementation — Aho-Corasick)"
+  - "canonical/CLAUDE.md (federation doctrine — invariant comparison surface)"
+  - "canonical/ak_control_room/CLAUDE.md (AKCR doctrine)"
+  - "canonical/autonomous_kernel/entity-ontology.md (entity identity — INV-01 comparison)"
+  - "canonical/autonomous_kernel/citizen_lifecycle.md (citizen lifecycle — INV-17 comparison)"
+  - "canonical/autonomous_kernel/trigger-manifest.yaml (trigger routing — INV-05 comparison)"
+  - "canonical/ak_control_room/councilsOfUbiquity/BUILD_READINESS_AUDIT.md (expression_engine gap)"
+  - "canonical/ak_control_room/councilsOfUbiquity/duality_scoring_contract.md (council math reference)"
+
+output_requirements:
+  tier_classification: |
+    The synthesis MUST produce a tier classification for the binder:
+    - tier_1_harvest: directly usable, minimal adaptation
+    - tier_2_adapt: valuable with modification (most likely outcome given naming collision)
+    - tier_3_investigate: potentially critical, needs deeper assessment
+    - discard: not worth mining
+
+  harpoon_manifest: |
+    If tier_1 or tier_2, the synthesis MUST produce a harpoon manifest following
+    the triad-fusion precedent (tier_1_harvest, tier_2_adapt, tier_3_investigate,
+    discard, assembly). For this binder, "crates" are replaced by "document sections"
+    and "artifacts" — the extractable units are invariants, patterns, formulas,
+    diagrams, and policy designs rather than code modules.
+
+  constitutional_patterns: |
+    The synthesis MUST enumerate constitutional patterns exposed by this binder,
+    regardless of tier. Each pattern needs:
+    - pattern_name
+    - description
+    - federation_surfaces_served
+    - estate_surfaces_served
+    - existing_primitives (what canonical already has)
+    - gap (what's missing)
+
+  cross_office_leverage_map: |
+    For each proposed action (harvest section, extract pattern, or build primitive):
+    - Which federation-level surfaces does it serve?
+    - Which estate-level surfaces does it serve?
+    - What is the leverage ratio (surfaces served / implementation cost)?
+
+  invariant_weight_map: |
+    EXPERIMENTAL OUTPUT: The synthesis must produce:
+    1. Stance-load vector: {HARVEST: N, MINE: N, CATALYZE: N} — aggregate affinity
+    2. Top 5 convergent invariants (all stances agree on importance)
+    3. Top 5 contested invariants (stances disagree on alignment)
+    4. Top 5 lock-pressure pairs (highest inter-stance tension)
+    5. Coverage classifier distribution: how many serviceable / rare_tail / coverage_gap
+    6. Meta-assessment: does the weighting method produce useful signal?
+
+  self_referential_evidence: |
+    ADVOCATE-CATALYZE must examine whether its own "build the primitive" argument
+    is genuinely higher leverage or whether it's NIH bias. The evidence is in the
+    specifics: name the primitives, name the offices they serve, name the outcomes.
+
+    ADVOCATE-HARVEST must examine whether the naming collision is truly editorial
+    or whether it reveals a deeper semantic identity problem that wholesale adoption
+    would import into federation doctrine.
+
+    ADVOCATE-MINE must examine whether the extracted patterns are actually more
+    valuable separated from the integrated proposal, or whether decomposition
+    loses the binder's coherent constitutional narrative.
+
+scoring_notes: |
+  Standard governed-harpoon-triangulation scoring with these additions:
+
+  BONUS: cross_office_discovery (+6)
+    Awarded when an advocate identifies a specific constitutional pattern that serves
+    3+ federation/estate surfaces with concrete evidence.
+
+  BONUS: reflexive_governance_insight (+4)
+    NEW for this arena. Awarded when an advocate uses the binder's own governance
+    formulas (activation, lock-pressure, methylation) to evaluate the binder itself,
+    producing a genuine insight about the formulas' utility or failure mode.
+
+  PENALTY: vague_leverage_claim (-3)
+    "Many surfaces" without naming specific offices/outcomes.
+
+  PENALTY: naming_collision_handwave (-2)
+    NEW for this arena. Awarded when an advocate dismisses the semantic identity
+    collision without engaging with the federation's semantic identity contract
+    requirements or the existing collision registry.
+
+  PENALTY: invariant_inflation (-2)
+    NEW for this arena. Awarded when an advocate treats invariants that merely
+    restate existing canonical doctrine as novel contributions from the binder.
+
+pressure_report_path: "audit-logs/arenas/pressure-reports/2026-04-05_harpoon-federation-mount-binder-v2-assessment.json"
+
+show_directory: "stage/shows/harpoon-federation-mount-binder-v2-assessment"

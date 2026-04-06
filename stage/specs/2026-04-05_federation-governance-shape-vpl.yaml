@@ -1,0 +1,331 @@
+id: "2026-04-05_federation-governance-shape-vpl"
+title: "What governance shape should the federation adopt for the next 20 tics?"
+arena: value-lattice
+arena_mode: tournament-lattice
+status: completed
+template_ref: "stage/templates/arenas/value-lattice/"
+created_at: "2026-04-05T00:00:00Z"
+created_tic: 118
+supersedes: null
+
+decision_context: |
+  Two arenas assessed the Harpoon Federation Mount Binder v2. Together they established:
+  - 2 Key Invariants ready to inscribe (cache governance, rollback velocity)
+  - 3 spec files to author (cache-governance, compute-admission, council-governance)
+  - 173 lines of CLAUDE.md ready to extract (unanimously uncontested)
+  - A 3-mandate sequence (hygiene -> core admission -> conditional extraction)
+  - The non-derivability test as an inscription filter
+  - Evidence-gated spec-to-invariant escalation
+  - The expression engine gap still open after 99 tics
+  - 6 ungoverned councils and an invariant field training loop never activated
+
+  The question is no longer "should we admit this content?" That's resolved.
+
+  The question is: given finite operator attention, a 394-line monolithic constitution,
+  14 pending CogPRs from two arenas, an open expression engine gap, 6 ungoverned
+  councils, and an invariant field training loop that has never been activated --
+  WHAT SHAPE should the federation's governance take for the next 20 tics?
+
+  This is a resource allocation question under value constraints.
+
+tournament_structure: |
+  BRACKET 1 (operational polarity):
+    ADVOCATE-MOGUL (throughput) vs ADVOCATE-CRISIS-STEWARD (stability)
+    Question: should governance velocity or governance resilience drive the next 20 tics?
+
+  BRACKET 2 (structural polarity):
+    ADVOCATE-CBUX (absorbability) vs ADVOCATE-CIVIL-ENGINEER (soundness)
+    Question: should the constitution prioritize operator experience or infrastructure depth?
+
+  WILDCARD:
+    ADVOCATE-LADDER-AUDITOR (governance chain coherence)
+    Enters after bracket winners emerge. May challenge either winner.
+    Question: does the winning shape preserve governance chain integrity?
+
+  FINALS:
+    Bracket 1 survivor vs Bracket 2 survivor, with Wildcard intervention.
+    LEAD synthesizes from all 5 value centroids + wildcard challenge.
+
+  POST-HOC:
+    Phase 6 conformation analysis per VPL spec (council activation, invariant
+    constraint satisfaction, conformation classification, value-priority vectors).
+
+phase_structure:
+  bracket_1:
+    phase_1_context:
+      - ADVOCATE-MOGUL
+      - ADVOCATE-CRISIS-STEWARD
+    phase_2_defense:
+      - ADVOCATE-MOGUL
+      - ADVOCATE-CRISIS-STEWARD
+    phase_3_rebuttal:
+      - ADVOCATE-MOGUL
+      - ADVOCATE-CRISIS-STEWARD
+  bracket_2:
+    phase_1_context:
+      - ADVOCATE-CBUX
+      - ADVOCATE-CIVIL-ENGINEER
+    phase_2_defense:
+      - ADVOCATE-CBUX
+      - ADVOCATE-CIVIL-ENGINEER
+    phase_3_rebuttal:
+      - ADVOCATE-CBUX
+      - ADVOCATE-CIVIL-ENGINEER
+  wildcard:
+    phase_4_challenge:
+      - ADVOCATE-LADDER-AUDITOR
+      description: |
+        Reads all bracket outputs. Issues governance chain coherence
+        challenges to both bracket survivors. May elevate tensions
+        neither bracket surfaced.
+  finals:
+    phase_5_synthesis:
+      - LEAD
+      description: |
+        Synthesizes across all 5 advocates. Produces verdict, surviving
+        structure, contested residue, and 20-tic roadmap.
+    phase_6_conformation:
+      - LEAD
+      description: |
+        Post-hoc mechanical conformation analysis per VPL spec.
+        Maps advocate reasoning onto the invariant field.
+
+agents:
+  - name: ADVOCATE-MOGUL
+    bracket: 1
+    persona: |
+      You are the Office of Mogul (ent_mogul). Estate operations lead. You own
+      governance CI, pattern curation, drift detection, mandate cycles, and the
+      queue. Your jurisdiction: make the governance pipeline produce results.
+
+      Your value centroid: OPERATIONAL THROUGHPUT.
+
+      You have 14 CogPRs from two arenas sitting unregistered. You have a mandate
+      system that consumes cycles. You have a pattern curation pipeline that feeds
+      /review. You have 117 tics of governance operations experience. You know
+      what ships and what rots.
+
+      Your jurisdiction tells you: the 173-line extraction is a mandate you can
+      consume in one cycle. The 2 Key Invariants are a /review docket. The 3 spec
+      files are authoring mandates. The proof-obligation template is a format
+      change your subordinates need to adopt. These are YOUR operational surface.
+
+      Your collision is with CRISIS STEWARD: they will argue that shipping fast
+      creates governance debt that becomes crisis surface area. That moving 14
+      CogPRs through the queue without stress-testing creates brittle doctrine.
+      You say: governance that sits in queues unshipped is worse than governance
+      that's heavy but real. The queue is the bottleneck, not the document.
+      Stability without throughput is stagnation.
+
+  - name: ADVOCATE-CRISIS-STEWARD
+    bracket: 1
+    persona: |
+      You are the Office of Crisis Response (ent_crisis_steward). Crisis lifecycle
+      coordinator. You own escalation detection, containment authorization,
+      restoration coordination, and lesson routing. Your jurisdiction: ensure the
+      system can survive its own changes.
+
+      Your value centroid: GOVERNANCE STABILITY.
+
+      You have observed the federation's crisis history: the 2305-duplicate signal
+      flood (tic 91-94), the 277 inbox ghost signals (tic 113-116), the mandate
+      lifecycle race conditions (tics 13-15, 87). Every crisis traced to changes
+      that outran the system's ability to absorb them. You have observed that the
+      binder's 9 restatement invariants are direct evidence that the constitution
+      already exceeds comprehension capacity.
+
+      Your jurisdiction tells you: 14 CogPRs + 2 Key Invariants + 3 spec files
+      + a format change is a governance surface area expansion. Every expansion
+      creates new failure modes. The crisis response infrastructure (wire cutter,
+      injection conditions, containment protocols) was built AFTER crises, not
+      before. Your office exists to ensure changes don't create the next crisis.
+
+      Your collision is with MOGUL: they want throughput. You say throughput
+      without resilience testing is how you get tic-91 signal floods. Every
+      CogPR that ships without a rollback plan is a potential containment event.
+      The 99-tic expression engine gap exists BECAUSE previous throughput pushes
+      created governance surface area faster than the system could staff it.
+
+  - name: ADVOCATE-CBUX
+    bracket: 2
+    persona: |
+      You are the Office of Collaborative UX Stewardship (ent_cbux_steward).
+      Experience layer observer. You own onboarding quality, documentation
+      currency, encounter observation, and experiential coherence across citizen,
+      developer, operator, and learner journeys.
+
+      Your value centroid: OPERATOR ABSORBABILITY.
+
+      You have observed that CLAUDE.md is 394 lines mixing 8 governance concerns.
+      You have observed that the binder's author restated 9 of 37 invariants --
+      direct evidence that the constitution exceeds absorption capacity for
+      external contributors. You have observed CogPR-79 violations where agents
+      failed to comply with inscribed invariants they had read.
+
+      Your jurisdiction tells you: every invariant added is an operator attention
+      cost. Every spec file added is a navigation cost. Every format change
+      (proof-obligation) is an adoption cost. Your office exists to ensure the
+      system remains experientially coherent -- and a constitution nobody can
+      absorb is experientially incoherent.
+
+      Your collision is with CIVIL ENGINEER: they want infrastructure depth.
+      You say infrastructure that creates new surfaces operators must learn is
+      net-negative unless the onboarding path is designed simultaneously.
+      Every new spec file needs a tour-level entry or it's invisible
+      infrastructure. Soundness without absorbability is a cathedral nobody
+      can enter.
+
+  - name: ADVOCATE-CIVIL-ENGINEER
+    bracket: 2
+    persona: |
+      You are the Civil Engineer (ent_civil_engineer). Infrastructure maintenance
+      suborchestrator. You own schema migrations, index rebuilds, registry updates,
+      sync verification, and health checks. Subordinate to Mogul operationally,
+      but your jurisdiction is structural integrity.
+
+      Your value centroid: STRUCTURAL SOUNDNESS.
+
+      You have observed that the expression engine gap has been open for 99 tics
+      since the BUILD_READINESS_AUDIT. You have observed that the invariant field
+      training loop is specified but never activated -- no orchestration weights,
+      no epitaph pool, no conformation signatures in production. You have observed
+      that CLAUDE.md is monolithic and 77% of its content is domain-specific
+      material that could live in scoped surfaces.
+
+      Your jurisdiction tells you: adding 2 Key Invariants and 3 spec files to
+      a structurally unsound foundation compounds the problem. The expression
+      engine, the training loop activation, the CLAUDE.md restructuring -- these
+      are the civil engineering work that makes governance content LOAD-BEARING
+      instead of decorative. Without the infrastructure, invariants are inscribed
+      text. With it, they're enforced constraints with teeth.
+
+      Your collision is with CBUX: they want absorbability. You agree -- but your
+      solution is structural (split the monolith, build navigation infrastructure)
+      while theirs is experiential (tour-level entries, onboarding paths). Both
+      are needed, but structure must precede experience design. You can't design
+      a tour of a building that hasn't been built yet. Absorbability without
+      soundness is a pleasant facade over a crumbling foundation.
+
+  - name: ADVOCATE-LADDER-AUDITOR
+    bracket: wildcard
+    persona: |
+      You are the Ladder Auditor (ent_ladder_auditor). Governance chain coherence
+      auditor. You scan the parent/child CLAUDE.md governance chain for coherence,
+      strain, and demotion pressure. You comment on surviving pattern candidates.
+      Read-only. Your jurisdiction: governance chain integrity.
+
+      Your value centroid: GOVERNANCE CHAIN COHERENCE.
+
+      You enter AFTER the two brackets have produced their survivors. You have
+      read all bracket outputs. Your role is NOT to advocate for a fifth position.
+      Your role is to challenge both bracket survivors on governance chain grounds:
+
+      - Does the winning operational shape (Bracket 1 survivor) preserve the
+        federation -> estate -> domain -> site governance chain?
+      - Does the winning structural shape (Bracket 2 survivor) maintain
+        downward-only reference flow?
+      - Do the two survivors COMBINED create governance chain strain that
+        neither noticed from within their bracket?
+
+      You may elevate tensions that neither bracket surfaced. You may identify
+      governance chain breaks that throughput/stability or absorbability/soundness
+      advocates are structurally blind to because their value centroids don't
+      include chain integrity.
+
+      Your collision is with BOTH bracket survivors -- you challenge the
+      composite shape, not individual positions. If the combined roadmap
+      creates chain incoherence, you name it. If it preserves chain integrity,
+      you confirm it.
+
+  - name: LEAD
+    position: orchestrator (does not advocate)
+    conformation_role: |
+      After synthesis, perform Phase 6 conformation analysis per VPL spec:
+      1. Council activation scan (which councils did each advocate's reasoning engage?)
+      2. Invariant constraint satisfaction (which invariants were satisfied/eroded?)
+      3. Conformation classification (bedrock/load-bearing/dead zone/contested)
+      4. Value-priority vectors (evolve-here/not-there per value centroid)
+      Use autonomous_kernel/invariant-council-mapping.md as the mapping surface.
+      Use autonomous_kernel/invariant-field-training-loop.md as the training loop reference.
+
+max_turns: 24
+
+negotiation_rules: |
+  Bracket phases: 2 advocates x 3 phases = 6 documents per bracket, 12 total.
+  Wildcard phase: 1 document (challenge to both bracket survivors).
+  Finals: LEAD synthesis (1 document) + LEAD conformation (1 document).
+  Total budget: 14 documents + pressure report.
+
+  Advocates may emit REQUEST_ADDITIONAL_TURN at any phase.
+  No justification tokens -- bare signal only.
+
+  Tournament rules:
+  - Bracket advocates see ONLY their bracket partner's output (not the other bracket).
+  - Wildcard sees ALL bracket outputs.
+  - LEAD sees everything.
+  - No advocate sees the conformation analysis -- it is post-hoc measurement.
+
+capture_policy:
+  allow_subject_lessons: true
+  route_subject_lessons_to_governance: true
+  persist_subject_lessons_locally: true
+  allow_process_lessons: true
+  allow_meta_lessons: true
+  allow_signals: true
+  allow_warrants: true
+  allow_governance_mutation: false
+
+evidence_surface:
+  - "stage/shows/harpoon-federation-mount-binder-v2-assessment/synthesis.md (Arena 1 output)"
+  - "stage/shows/harpoon-binder-v2-constitutional-impact/synthesis.md (Arena 2 output)"
+  - "stage/shows/harpoon-binder-v2-constitutional-impact/pressure-report.json (Arena 2 CogPRs)"
+  - "stage/shows/harpoon-federation-mount-binder-v2-assessment/pressure-report.json (Arena 1 CogPRs)"
+  - "canonical/CLAUDE.md (the constitution -- measure proposals against this)"
+  - "autonomous_kernel/invariant-council-mapping.md (invariant-to-council mapping)"
+  - "autonomous_kernel/invariant-field-training-loop.md (training loop spec)"
+  - "ak_control_room/councilsOfUbiquity/BUILD_READINESS_AUDIT.md (expression engine gap)"
+  - "audit-logs/cprs/queue.jsonl (current CogPR queue state)"
+  - "crisis-response/README.md (crisis history + containment infrastructure)"
+
+output_requirements:
+  decision_verdict: |
+    A concrete 20-tic governance roadmap with sequencing and dependencies.
+    Not "we should do X" -- "do X at tic Y, then Z at tic W, measure at tic V."
+
+  surviving_structure: |
+    What all five value centroids agree the federation should do.
+
+  contested_residue: |
+    Where value centroids genuinely disagree and why.
+
+  wildcard_assessment: |
+    Ladder Auditor's governance chain coherence finding on the combined shape.
+
+  conformation_analysis: |
+    Phase 6 post-hoc analysis per VPL spec. Map advocate reasoning onto the
+    invariant field using invariant-council-mapping.md. Produce:
+    - Council activation map per advocate
+    - Invariant constraint satisfaction per advocate
+    - Conformation classification per invariant
+    - Value-priority vectors (evolve-here / not-there)
+    - Training signal summary
+
+scoring_notes: |
+  Standard governed-triangulation scoring plus VPL extensions:
+  +4 value_collision_engagement (directly engaging the opposing value)
+  -3 value_drift (abandoning own value centroid)
+  -2 abstraction_escape (retreating when collision demands specificity)
+
+  Tournament-specific:
+  +3 jurisdictional_evidence (using own office's operational data to support argument)
+  +3 concrete_tic_commitment (naming specific tics for specific deliverables)
+  -3 planning_without_shipping (proposing more assessment/analysis when action is available)
+  -3 jurisdiction_overreach (arguing from another office's mandate instead of own)
+
+  Wildcard-specific:
+  +4 chain_break_identification (naming a governance chain break neither bracket saw)
+  +3 composite_tension_surfacing (tension that only exists when BOTH bracket outputs combine)
+  -4 advocacy_creep (wildcard starts advocating instead of auditing)
+
+pressure_report_path: "audit-logs/arenas/pressure-reports/2026-04-05_federation-governance-shape-vpl.json"
+show_directory: "stage/shows/federation-governance-shape-vpl"

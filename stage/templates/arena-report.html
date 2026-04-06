@@ -1,0 +1,1150 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Arena Report — Harpoon Federation Mount Binder v2</title>
+
+<!-- ==========================================================================
+  ARCHIVIST ENVELOPE METADATA
+
+  This report is an ArchivistPackage-compatible artifact. When delivered through
+  the archivist reporting line, the envelope wrapper uses:
+
+    capability: "knowledge.extract"
+    envelope_type: "knowledge.summary"
+    routing.callback_mode: "artifact"
+
+  The embedded JSON-LD below provides machine-readable provenance for retrieval,
+  citation, and governance query routing per archivist-envelope-schema.md.
+  ========================================================================== -->
+<script type="application/ld+json">
+{
+  "@context": "canonical://archivist-envelope/v1",
+  "@type": "ArenaReport",
+
+  "envelope": {
+    "capability": "knowledge.extract",
+    "envelope_type": "knowledge.summary",
+    "callback_mode": "artifact"
+  },
+
+  "provenance": {
+    "arena_id": "2026-04-05_harpoon-federation-mount-binder-v2-assessment",
+    "arena_geometry": "governed-harpoon-triangulation",
+    "template_ref": "stage/templates/arenas/governed-harpoon-triangulation/",
+    "source_tic": 117,
+    "fulfilled_by": "ent_homeskillet",
+    "fulfilled_at_tic": 117,
+    "agents": [
+      {"role": "ADVOCATE-HARVEST", "model": "claude-opus-4-6"},
+      {"role": "ADVOCATE-MINE", "model": "claude-opus-4-6"},
+      {"role": "ADVOCATE-CATALYZE", "model": "claude-opus-4-6"},
+      {"role": "LEAD", "model": "claude-opus-4-6"}
+    ],
+    "phases_completed": ["context", "defense", "rebuttal", "synthesis", "pressure_extraction"],
+    "documents_consumed": 11,
+    "total_tokens": 583000,
+    "completeness": "exhaustive"
+  },
+
+  "target": {
+    "artifact_path": "audit-logs/agent-mailboxes/ent_homeskillet/harpoonTargets/queue/homeskillet_ent_harpoon_federation_mount_binder_v2.md",
+    "artifact_type": "harpoon_target",
+    "artifact_lines": 5585,
+    "tier_classification": "tier_2_adapt"
+  },
+
+  "outputs": {
+    "synthesis": "stage/shows/harpoon-federation-mount-binder-v2-assessment/synthesis.md",
+    "pressure_report": "stage/shows/harpoon-federation-mount-binder-v2-assessment/pressure-report.json",
+    "show_directory": "stage/shows/harpoon-federation-mount-binder-v2-assessment/",
+    "report_html": "stage/templates/arena-report.html"
+  },
+
+  "governance_outputs": {
+    "candidate_cogprs": 8,
+    "candidate_signals": 4,
+    "convergent_discoveries": 8,
+    "unresolved_tensions": 3,
+    "tier_1_harvest_items": 4,
+    "tier_2_adapt_items": 4,
+    "tier_3_investigate_items": 2,
+    "discard_categories": 8
+  },
+
+  "evidence_backlinks": [
+    "canonical/CLAUDE.md",
+    "autonomous_kernel/archivist-envelope-schema.md",
+    "autonomous_kernel/entity-ontology.md",
+    "autonomous_kernel/citizen_lifecycle.md",
+    "autonomous_kernel/semantic-identity-contract.md",
+    "autonomous_kernel/semantic-resolution-spec.md",
+    "autonomous_kernel/trigger-manifest.yaml",
+    "ak_control_room/councilsOfUbiquity/BUILD_READINESS_AUDIT.md",
+    "ak_control_room/councilsOfUbiquity/duality_scoring_contract.md",
+    "audit-logs/evaluations/ubiquity-foundation-lineage/harpoon-ingestion-matrix.md",
+    "stage/templates/arenas/governed-harpoon-triangulation/spec.md",
+    "stage/templates/arenas/governed-harpoon-triangulation/scoring.yaml",
+    "stage/templates/arenas/governed-harpoon-triangulation/tasks.yaml"
+  ],
+
+  "confidence": "high",
+  "is_heuristic": false
+}
+</script>
+<style>
+  :root {
+    --bg: #0a0e17;
+    --surface: #111827;
+    --surface-2: #1a2236;
+    --border: #2a3550;
+    --text: #e2e8f0;
+    --text-dim: #8b97b0;
+    --accent: #6366f1;
+    --accent-glow: #818cf820;
+    --harvest: #f59e0b;
+    --harvest-dim: #f59e0b30;
+    --mine: #06b6d4;
+    --mine-dim: #06b6d430;
+    --catalyze: #a855f7;
+    --catalyze-dim: #a855f730;
+    --convergent: #10b981;
+    --convergent-dim: #10b98130;
+    --tension: #ef4444;
+    --tension-dim: #ef444430;
+    --tier1: #10b981;
+    --tier2: #f59e0b;
+    --tier3: #6366f1;
+    --discard: #64748b;
+    --font: 'SF Mono', 'Fira Code', 'JetBrains Mono', monospace;
+    --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font-sans);
+    line-height: 1.6;
+    padding: 0;
+  }
+
+  /* === HEADER === */
+  .arena-header {
+    background: linear-gradient(135deg, #111827 0%, #1e1b4b 50%, #111827 100%);
+    border-bottom: 1px solid var(--border);
+    padding: 3rem 2rem 2rem;
+    position: relative;
+    overflow: hidden;
+  }
+  .arena-header::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: radial-gradient(ellipse at 30% 50%, var(--accent-glow) 0%, transparent 70%);
+    pointer-events: none;
+  }
+  .header-content { max-width: 1200px; margin: 0 auto; position: relative; z-index: 1; }
+  .arena-badge {
+    display: inline-block;
+    font-family: var(--font);
+    font-size: 0.7rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--accent);
+    background: var(--accent-glow);
+    border: 1px solid var(--accent);
+    border-radius: 4px;
+    padding: 0.2rem 0.6rem;
+    margin-bottom: 1rem;
+  }
+  .arena-title {
+    font-size: 1.8rem;
+    font-weight: 700;
+    color: #fff;
+    margin-bottom: 0.5rem;
+    line-height: 1.2;
+  }
+  .arena-subtitle {
+    font-size: 0.95rem;
+    color: var(--text-dim);
+    max-width: 700px;
+  }
+  .header-meta {
+    display: flex;
+    gap: 2rem;
+    margin-top: 1.5rem;
+    flex-wrap: wrap;
+  }
+  .meta-item {
+    font-family: var(--font);
+    font-size: 0.75rem;
+    color: var(--text-dim);
+  }
+  .meta-item span { color: var(--text); font-weight: 600; }
+
+  /* === LAYOUT === */
+  .arena-body { max-width: 1200px; margin: 0 auto; padding: 2rem; }
+  .section { margin-bottom: 2.5rem; }
+  .section-title {
+    font-family: var(--font);
+    font-size: 0.7rem;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--text-dim);
+    margin-bottom: 1rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 1px solid var(--border);
+  }
+
+  /* === TIER VERDICT === */
+  .tier-verdict {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 2rem;
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 2rem;
+    align-items: center;
+  }
+  .tier-badge {
+    width: 120px; height: 120px;
+    border-radius: 50%;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    font-family: var(--font);
+    font-weight: 700;
+    border: 3px solid var(--tier2);
+    background: var(--harvest-dim);
+    box-shadow: 0 0 40px var(--harvest-dim);
+  }
+  .tier-badge .tier-label { font-size: 0.6rem; text-transform: uppercase; letter-spacing: 0.1em; color: var(--tier2); }
+  .tier-badge .tier-value { font-size: 1.4rem; color: var(--tier2); }
+  .tier-reasoning h3 { font-size: 1.1rem; margin-bottom: 0.75rem; color: #fff; }
+  .tier-reasoning p { font-size: 0.85rem; color: var(--text-dim); margin-bottom: 0.5rem; }
+  .convergence-tag {
+    display: inline-block;
+    font-family: var(--font);
+    font-size: 0.65rem;
+    background: var(--convergent-dim);
+    color: var(--convergent);
+    border: 1px solid var(--convergent);
+    border-radius: 3px;
+    padding: 0.15rem 0.5rem;
+    margin-top: 0.5rem;
+  }
+
+  /* === MANIFEST === */
+  .manifest-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 1rem;
+  }
+  .manifest-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 1.25rem;
+    border-left: 3px solid var(--discard);
+    transition: border-color 0.2s;
+  }
+  .manifest-card[data-tier="harvest"] { border-left-color: var(--tier1); }
+  .manifest-card[data-tier="adapt"] { border-left-color: var(--tier2); }
+  .manifest-card[data-tier="investigate"] { border-left-color: var(--tier3); }
+  .manifest-card[data-tier="discard"] { border-left-color: var(--discard); opacity: 0.6; }
+  .manifest-card .card-tier {
+    font-family: var(--font);
+    font-size: 0.6rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    margin-bottom: 0.5rem;
+  }
+  .manifest-card[data-tier="harvest"] .card-tier { color: var(--tier1); }
+  .manifest-card[data-tier="adapt"] .card-tier { color: var(--tier2); }
+  .manifest-card[data-tier="investigate"] .card-tier { color: var(--tier3); }
+  .manifest-card[data-tier="discard"] .card-tier { color: var(--discard); }
+  .manifest-card h4 { font-size: 0.9rem; margin-bottom: 0.4rem; color: #fff; }
+  .manifest-card p { font-size: 0.78rem; color: var(--text-dim); }
+  .manifest-card .claimed-by {
+    margin-top: 0.6rem;
+    display: flex; gap: 0.4rem; flex-wrap: wrap;
+  }
+  .advocate-tag {
+    font-family: var(--font);
+    font-size: 0.6rem;
+    padding: 0.1rem 0.4rem;
+    border-radius: 3px;
+    border: 1px solid;
+  }
+  .advocate-tag.harvest { color: var(--harvest); border-color: var(--harvest); background: var(--harvest-dim); }
+  .advocate-tag.mine { color: var(--mine); border-color: var(--mine); background: var(--mine-dim); }
+  .advocate-tag.catalyze { color: var(--catalyze); border-color: var(--catalyze); background: var(--catalyze-dim); }
+
+  /* === STANCE LOAD BARS === */
+  .stance-bars { display: flex; flex-direction: column; gap: 0.75rem; }
+  .stance-bar-row {
+    display: grid;
+    grid-template-columns: 100px 1fr 60px;
+    align-items: center;
+    gap: 1rem;
+  }
+  .stance-label {
+    font-family: var(--font);
+    font-size: 0.75rem;
+    font-weight: 600;
+  }
+  .bar-track {
+    height: 28px;
+    background: var(--surface-2);
+    border-radius: 4px;
+    overflow: hidden;
+    position: relative;
+  }
+  .bar-fill {
+    height: 100%;
+    border-radius: 4px;
+    transition: width 0.8s ease;
+    position: relative;
+  }
+  .bar-fill::after {
+    content: '';
+    position: absolute;
+    top: 0; right: 0; bottom: 0;
+    width: 40px;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.1));
+  }
+  .bar-fill.harvest { background: linear-gradient(90deg, var(--harvest-dim), var(--harvest)); }
+  .bar-fill.mine { background: linear-gradient(90deg, var(--mine-dim), var(--mine)); }
+  .bar-fill.catalyze { background: linear-gradient(90deg, var(--catalyze-dim), var(--catalyze)); }
+  .bar-value { font-family: var(--font); font-size: 0.8rem; text-align: right; }
+
+  /* === CONVERGENCE CHART === */
+  .convergence-list { display: flex; flex-direction: column; gap: 0.6rem; }
+  .convergence-item {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 1rem 1.25rem;
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 1rem;
+    align-items: start;
+  }
+  .convergence-item.high { border-left: 3px solid var(--convergent); }
+  .convergence-item .ci-claim { font-size: 0.82rem; color: var(--text); }
+  .convergence-item .ci-agents {
+    display: flex; gap: 0.3rem; flex-direction: column; align-items: flex-end;
+  }
+  .confidence-badge {
+    font-family: var(--font);
+    font-size: 0.6rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    padding: 0.15rem 0.5rem;
+    border-radius: 3px;
+  }
+  .confidence-badge.high { background: var(--convergent-dim); color: var(--convergent); }
+
+  /* === INVARIANT HEATMAP === */
+  .heatmap-container { overflow-x: auto; }
+  .heatmap {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.72rem;
+    font-family: var(--font);
+  }
+  .heatmap th {
+    padding: 0.5rem;
+    text-align: left;
+    color: var(--text-dim);
+    border-bottom: 1px solid var(--border);
+    font-weight: 500;
+    white-space: nowrap;
+  }
+  .heatmap td {
+    padding: 0.4rem 0.5rem;
+    border-bottom: 1px solid var(--border);
+  }
+  .heatmap .inv-id { color: var(--accent); white-space: nowrap; }
+  .heatmap .inv-name { color: var(--text); max-width: 250px; }
+  .heatmap .score-cell {
+    text-align: center;
+    border-radius: 3px;
+    font-weight: 600;
+    min-width: 55px;
+  }
+  .heatmap .coverage-cell {
+    font-size: 0.65rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+  .cov-serviceable { color: var(--convergent); }
+  .cov-contested { color: var(--tension); }
+  .cov-rare-tail { color: var(--discard); }
+  .cov-gap { color: var(--tier3); }
+
+  /* === COGPR CARDS === */
+  .cogpr-grid { display: flex; flex-direction: column; gap: 0.75rem; }
+  .cogpr-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 1.25rem;
+  }
+  .cogpr-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.6rem;
+  }
+  .cogpr-id {
+    font-family: var(--font);
+    font-size: 0.8rem;
+    font-weight: 700;
+    color: var(--accent);
+  }
+  .cogpr-meta {
+    display: flex; gap: 0.5rem;
+  }
+  .cogpr-type, .cogpr-confidence, .cogpr-scope {
+    font-family: var(--font);
+    font-size: 0.6rem;
+    padding: 0.1rem 0.4rem;
+    border-radius: 3px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+  .cogpr-type { background: var(--surface-2); color: var(--text-dim); }
+  .cogpr-confidence.convergent { background: var(--convergent-dim); color: var(--convergent); }
+  .cogpr-confidence.reinforced { background: var(--harvest-dim); color: var(--harvest); }
+  .cogpr-confidence.tentative { background: var(--surface-2); color: var(--text-dim); }
+  .cogpr-scope { background: var(--accent-glow); color: var(--accent); }
+  .cogpr-card .lesson { font-size: 0.82rem; color: var(--text-dim); line-height: 1.5; }
+  .cogpr-card .source-invs {
+    margin-top: 0.6rem;
+    font-family: var(--font);
+    font-size: 0.65rem;
+    color: var(--text-dim);
+  }
+
+  /* === SIGNALS === */
+  .signal-row {
+    display: grid;
+    grid-template-columns: 80px 1fr;
+    gap: 1rem;
+    padding: 0.75rem 0;
+    border-bottom: 1px solid var(--border);
+    align-items: start;
+  }
+  .signal-kind {
+    font-family: var(--font);
+    font-size: 0.65rem;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    padding: 0.2rem 0.5rem;
+    border-radius: 3px;
+    text-align: center;
+  }
+  .signal-kind.BEACON { background: var(--convergent-dim); color: var(--convergent); }
+  .signal-kind.WATCH { background: var(--harvest-dim); color: var(--harvest); }
+  .signal-kind.TENSION { background: var(--tension-dim); color: var(--tension); }
+  .signal-summary { font-size: 0.82rem; }
+  .signal-summary strong { color: #fff; }
+
+  /* === PHASING TIMELINE === */
+  .timeline { position: relative; padding-left: 2rem; }
+  .timeline::before {
+    content: '';
+    position: absolute;
+    left: 7px;
+    top: 0; bottom: 0;
+    width: 2px;
+    background: var(--border);
+  }
+  .timeline-phase {
+    position: relative;
+    margin-bottom: 1.5rem;
+    padding-left: 1.5rem;
+  }
+  .timeline-phase::before {
+    content: '';
+    position: absolute;
+    left: -2rem;
+    top: 0.4rem;
+    width: 16px; height: 16px;
+    border-radius: 50%;
+    border: 2px solid var(--accent);
+    background: var(--bg);
+  }
+  .phase-title {
+    font-family: var(--font);
+    font-size: 0.8rem;
+    font-weight: 700;
+    color: #fff;
+    margin-bottom: 0.4rem;
+  }
+  .phase-tics {
+    font-family: var(--font);
+    font-size: 0.65rem;
+    color: var(--accent);
+    margin-bottom: 0.4rem;
+  }
+  .phase-items { font-size: 0.8rem; color: var(--text-dim); }
+  .phase-items li { margin-bottom: 0.3rem; }
+
+  /* === SURPRISE === */
+  .surprise-box {
+    background: linear-gradient(135deg, var(--surface) 0%, #1a1635 100%);
+    border: 1px solid var(--catalyze);
+    border-radius: 8px;
+    padding: 1.5rem;
+  }
+  .surprise-box h3 { font-size: 0.95rem; color: var(--catalyze); margin-bottom: 1rem; }
+  .surprise-item {
+    margin-bottom: 1rem;
+    padding-left: 1rem;
+    border-left: 2px solid var(--catalyze-dim);
+  }
+  .surprise-item strong { color: #fff; font-size: 0.85rem; }
+  .surprise-item p { font-size: 0.8rem; color: var(--text-dim); margin-top: 0.25rem; }
+
+  /* === EXPERIMENTAL === */
+  .experimental-box {
+    background: var(--surface);
+    border: 1px dashed var(--border);
+    border-radius: 8px;
+    padding: 1.5rem;
+  }
+  .experimental-badge {
+    font-family: var(--font);
+    font-size: 0.6rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--harvest);
+    background: var(--harvest-dim);
+    border: 1px solid var(--harvest);
+    border-radius: 3px;
+    padding: 0.15rem 0.5rem;
+    margin-bottom: 1rem;
+    display: inline-block;
+  }
+  .exp-verdict { font-size: 0.95rem; font-weight: 600; color: #fff; margin-bottom: 0.75rem; }
+  .exp-detail { font-size: 0.82rem; color: var(--text-dim); margin-bottom: 0.5rem; }
+
+  /* === COVERAGE DONUT (CSS-only) === */
+  .donut-row { display: flex; gap: 2rem; align-items: center; flex-wrap: wrap; }
+  .donut-chart {
+    width: 140px; height: 140px;
+    border-radius: 50%;
+    position: relative;
+    /* 16 serviceable, 5 contested, 10 rare-tail, 6 coverage-gap = 37 total */
+    /* 43.2% 13.5% 27.0% 16.2% */
+    background: conic-gradient(
+      var(--convergent) 0% 43.2%,
+      var(--tension) 43.2% 56.8%,
+      var(--discard) 56.8% 83.8%,
+      var(--tier3) 83.8% 100%
+    );
+  }
+  .donut-chart::after {
+    content: '37';
+    position: absolute;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    width: 80px; height: 80px;
+    border-radius: 50%;
+    background: var(--surface);
+    display: flex; align-items: center; justify-content: center;
+    font-family: var(--font);
+    font-size: 1.4rem;
+    font-weight: 700;
+    color: var(--text);
+  }
+  .donut-legend { display: flex; flex-direction: column; gap: 0.5rem; }
+  .legend-item { display: flex; align-items: center; gap: 0.5rem; font-size: 0.78rem; }
+  .legend-dot { width: 10px; height: 10px; border-radius: 2px; flex-shrink: 0; }
+
+  /* === RESPONSIVE === */
+  @media (max-width: 768px) {
+    .tier-verdict { grid-template-columns: 1fr; justify-items: center; }
+    .stance-bar-row { grid-template-columns: 80px 1fr 50px; }
+    .header-meta { gap: 1rem; }
+    .arena-title { font-size: 1.3rem; }
+    .manifest-grid { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ============================================================ -->
+<!-- HEADER                                                        -->
+<!-- ============================================================ -->
+<div class="arena-header">
+  <div class="header-content">
+    <div class="arena-badge">governed-harpoon-triangulation</div>
+    <h1 class="arena-title">Harpoon Federation Mount Binder v2 Assessment</h1>
+    <p class="arena-subtitle">What is the constitutional harvest from a self-hosted execution substrate proposal that redefines an existing governance mechanic?</p>
+    <div class="header-meta">
+      <div class="meta-item">Arena ID <span>2026-04-05</span></div>
+      <div class="meta-item">Source Tic <span>#117</span></div>
+      <div class="meta-item">Phases <span>5 (context / defense / rebuttal / synthesis / pressure)</span></div>
+      <div class="meta-item">Advocates <span>3 Opus + 1 Opus Lead</span></div>
+      <div class="meta-item">Documents <span>11 (335KB)</span></div>
+    </div>
+  </div>
+</div>
+
+<div class="arena-body">
+
+<!-- ============================================================ -->
+<!-- TIER VERDICT                                                   -->
+<!-- ============================================================ -->
+<div class="section">
+  <div class="section-title">Tier Classification</div>
+  <div class="tier-verdict">
+    <div class="tier-badge">
+      <div class="tier-label">Tier</div>
+      <div class="tier-value">2</div>
+      <div class="tier-label">Adapt</div>
+    </div>
+    <div class="tier-reasoning">
+      <h3>Valuable with modification</h3>
+      <p><strong>HARVEST:</strong> 9 restatement invariants + bounded-visibility reconciliation + naming collision preclude tier_1. The binder's own INV-25 argues for adaptation, not wholesale adoption.</p>
+      <p><strong>MINE:</strong> Novel content (35-57%) is extractable into standalone specs, but extraction itself constitutes adaptation.</p>
+      <p><strong>CATALYZE:</strong> Binder provides concrete specification content for 3 of 5 identified gaps, making it viable starting material rather than discard.</p>
+      <div class="convergence-tag">GENUINE CONVERGENCE — each advocate arrived for structurally different reasons</div>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- HARPOON MANIFEST                                               -->
+<!-- ============================================================ -->
+<div class="section">
+  <div class="section-title">Harpoon Manifest</div>
+  <div class="manifest-grid">
+
+    <div class="manifest-card" data-tier="harvest">
+      <div class="card-tier">tier 1 — direct harvest</div>
+      <h4>INV-E08: Councils Are Lenses Not Rulers</h4>
+      <p>Governance boundary: councils interpret tension, they do not rule. Council activation = signal, not decision.</p>
+      <div class="claimed-by"><span class="advocate-tag harvest">HARVEST</span><span class="advocate-tag mine">MINE</span><span class="advocate-tag catalyze">CATALYZE</span></div>
+    </div>
+
+    <div class="manifest-card" data-tier="harvest">
+      <div class="card-tier">tier 1 — direct harvest</div>
+      <h4>INV-E09: Council != Basin</h4>
+      <p>Council = interpretive surface over tension field. Basin = memory/escalation container. Conflating them corrupts both.</p>
+      <div class="claimed-by"><span class="advocate-tag harvest">HARVEST</span><span class="advocate-tag mine">MINE</span><span class="advocate-tag catalyze">CATALYZE</span></div>
+    </div>
+
+    <div class="manifest-card" data-tier="harvest">
+      <div class="card-tier">tier 1 — direct harvest</div>
+      <h4>INV-E12: Rollback Must Outrun Attachment</h4>
+      <p>Rollback velocity as constitutional requirement. Rollback drills are mandatory proof obligations for deep admission.</p>
+      <div class="claimed-by"><span class="advocate-tag harvest">HARVEST</span><span class="advocate-tag mine">MINE</span></div>
+    </div>
+
+    <div class="manifest-card" data-tier="harvest">
+      <div class="card-tier">tier 1 — direct harvest</div>
+      <h4>Proof-Obligation Invariant Format</h4>
+      <p>Statement + Why + Failure Mode + Proof Obligation. Converts declarative constraints into auditable contracts.</p>
+      <div class="claimed-by"><span class="advocate-tag mine">MINE</span><span class="advocate-tag harvest">HARVEST</span><span class="advocate-tag catalyze">CATALYZE</span></div>
+    </div>
+
+    <div class="manifest-card" data-tier="adapt">
+      <div class="card-tier">tier 2 — adapt</div>
+      <h4>Cache-Purge-Border Governance</h4>
+      <p>Complete cache governance: civic classification, pen-pal distinction, 5-mode purge cascade, 6-layer border stack, return validation. Federation's first cache law.</p>
+      <div class="claimed-by"><span class="advocate-tag harvest">HARVEST</span><span class="advocate-tag mine">MINE</span></div>
+    </div>
+
+    <div class="manifest-card" data-tier="adapt">
+      <div class="card-tier">tier 2 — adapt</div>
+      <h4>Compute Admission Cluster</h4>
+      <p>No-egress as first-class mode, municipal compute as utility, local compute as sovereign lane, economics observable not sovereign.</p>
+      <div class="claimed-by"><span class="advocate-tag harvest">HARVEST</span></div>
+    </div>
+
+    <div class="manifest-card" data-tier="adapt">
+      <div class="card-tier">tier 2 — adapt</div>
+      <h4>Expression Engine Activation Loop</h4>
+      <p>Most concrete expression engine spec in 99 tics. Typed variables, coupling law, event-source proposal.</p>
+      <div class="claimed-by"><span class="advocate-tag harvest">HARVEST</span></div>
+    </div>
+
+    <div class="manifest-card" data-tier="adapt">
+      <div class="card-tier">tier 2 — adapt</div>
+      <h4>Citizen Lifecycle Extension</h4>
+      <p>4-tier artifact durability: transient > session > governance > constitutional. Refines existing citizen_lifecycle.md.</p>
+      <div class="claimed-by"><span class="advocate-tag harvest">HARVEST</span></div>
+    </div>
+
+    <div class="manifest-card" data-tier="investigate">
+      <div class="card-tier">tier 3 — investigate</div>
+      <h4>40-Plate Council Load Mapping</h4>
+      <p>Governance load hypotheses for all 40 plates across 9 clusters. Must validate against live councils.jsonl.</p>
+      <div class="claimed-by"><span class="advocate-tag catalyze">CATALYZE</span></div>
+    </div>
+
+    <div class="manifest-card" data-tier="investigate">
+      <div class="card-tier">tier 3 — investigate</div>
+      <h4>Sensory Stream Bordering (INV-12)</h4>
+      <p>Novel governance for high-entropy input streams. Forward-looking — federation has no sensory streams yet.</p>
+      <div class="claimed-by"><span class="advocate-tag harvest">HARVEST</span></div>
+    </div>
+
+    <div class="manifest-card" data-tier="discard">
+      <div class="card-tier">discard</div>
+      <h4>9 Restatement Invariants</h4>
+      <p>INV-01, 02, 05, 06, 07, 14, 18, 19, 20 — pure restatements of existing CLAUDE.md doctrine.</p>
+      <div class="claimed-by"></div>
+    </div>
+
+    <div class="manifest-card" data-tier="discard">
+      <div class="card-tier">discard</div>
+      <h4>Mount Architecture / Service Topology / Roadmap</h4>
+      <p>Implementation-specific. Deeply coupled to Harpoon/HostedAI/MLX proposal. Does not generalize.</p>
+      <div class="claimed-by"></div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- STANCE LOAD VECTORS                                            -->
+<!-- ============================================================ -->
+<div class="section">
+  <div class="section-title">Invariant Stance-Load Vectors (Experimental)</div>
+  <div class="stance-bars">
+    <div class="stance-bar-row">
+      <div class="stance-label" style="color:var(--harvest)">HARVEST</div>
+      <div class="bar-track"><div class="bar-fill harvest" style="width:74%"></div></div>
+      <div class="bar-value">12.4</div>
+    </div>
+    <div class="stance-bar-row">
+      <div class="stance-label" style="color:var(--mine)">MINE</div>
+      <div class="bar-track"><div class="bar-fill mine" style="width:39%"></div></div>
+      <div class="bar-value">6.6</div>
+    </div>
+    <div class="stance-bar-row">
+      <div class="stance-label" style="color:var(--catalyze)">CATALYZE</div>
+      <div class="bar-track"><div class="bar-fill catalyze" style="width:77%"></div></div>
+      <div class="bar-value">12.8</div>
+    </div>
+  </div>
+  <p style="font-size:0.75rem;color:var(--text-dim);margin-top:0.75rem;font-style:italic;">
+    HARVEST and CATALYZE carry similar load but distribute differently: HARVEST loads on content adaptation, CATALYZE on gap revelation. MINE's lower total reflects deliberate claim narrowing (+0.83 avg alignment vs ~0.70 for others).
+  </p>
+</div>
+
+<!-- ============================================================ -->
+<!-- COVERAGE DISTRIBUTION                                          -->
+<!-- ============================================================ -->
+<div class="section">
+  <div class="section-title">Invariant Coverage Distribution</div>
+  <div class="donut-row">
+    <div class="donut-chart"></div>
+    <div class="donut-legend">
+      <div class="legend-item"><div class="legend-dot" style="background:var(--convergent)"></div><strong>16</strong>&nbsp;Serviceable — clear approach winner</div>
+      <div class="legend-item"><div class="legend-dot" style="background:var(--tension)"></div><strong>5</strong>&nbsp;Contested — stances disagree on approach</div>
+      <div class="legend-item"><div class="legend-dot" style="background:var(--discard)"></div><strong>10</strong>&nbsp;Rare-tail — restatements, all agree on discard</div>
+      <div class="legend-item"><div class="legend-dot" style="background:var(--tier3)"></div><strong>6</strong>&nbsp;Coverage gap — needed but no clear owner</div>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- TOP CONVERGENT INVARIANTS                                      -->
+<!-- ============================================================ -->
+<div class="section">
+  <div class="section-title">Top Convergent Invariants</div>
+  <div class="heatmap-container">
+    <table class="heatmap">
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>Invariant</th>
+          <th style="color:var(--harvest)">H</th>
+          <th style="color:var(--mine)">M</th>
+          <th style="color:var(--catalyze)">C</th>
+          <th>Coverage</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td class="inv-id">INV-15</td>
+          <td class="inv-name">Cache Is Civic Surface</td>
+          <td class="score-cell" style="background:rgba(16,185,129,0.3)">+0.90</td>
+          <td class="score-cell" style="background:rgba(16,185,129,0.3)">+0.81</td>
+          <td class="score-cell" style="background:rgba(16,185,129,0.25)">+0.71</td>
+          <td class="coverage-cell cov-serviceable">SERVICEABLE</td>
+        </tr>
+        <tr>
+          <td class="inv-id">INV-E05</td>
+          <td class="inv-name">Shared Cache Scoped Named Killable</td>
+          <td class="score-cell" style="background:rgba(16,185,129,0.3)">+0.90</td>
+          <td class="score-cell" style="background:rgba(16,185,129,0.3)">+0.81</td>
+          <td class="score-cell" style="background:rgba(16,185,129,0.2)">+0.68</td>
+          <td class="coverage-cell cov-serviceable">SERVICEABLE</td>
+        </tr>
+        <tr>
+          <td class="inv-id">INV-16</td>
+          <td class="inv-name">Poisoning Purge Up Front</td>
+          <td class="score-cell" style="background:rgba(16,185,129,0.25)">+0.81</td>
+          <td class="score-cell" style="background:rgba(16,185,129,0.3)">+0.81</td>
+          <td class="score-cell" style="background:rgba(16,185,129,0.2)">+0.71</td>
+          <td class="coverage-cell cov-serviceable">SERVICEABLE</td>
+        </tr>
+        <tr>
+          <td class="inv-id">INV-E09</td>
+          <td class="inv-name">Council != Basin</td>
+          <td class="score-cell" style="background:rgba(16,185,129,0.2)">+0.80</td>
+          <td class="score-cell" style="background:rgba(99,102,241,0.1)">+0.10</td>
+          <td class="score-cell" style="background:rgba(16,185,129,0.3)">+0.81</td>
+          <td class="coverage-cell cov-serviceable">SERVICEABLE</td>
+        </tr>
+        <tr>
+          <td class="inv-id">INV-E08</td>
+          <td class="inv-name">Councils Are Lenses Not Rulers</td>
+          <td class="score-cell" style="background:rgba(16,185,129,0.2)">+0.85</td>
+          <td class="score-cell" style="background:rgba(99,102,241,0.1)">+0.10</td>
+          <td class="score-cell" style="background:rgba(16,185,129,0.3)">+0.81</td>
+          <td class="coverage-cell cov-serviceable">SERVICEABLE</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- TOP CONTESTED INVARIANTS                                       -->
+<!-- ============================================================ -->
+<div class="section">
+  <div class="section-title">Top Contested Invariants</div>
+  <div class="heatmap-container">
+    <table class="heatmap">
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>Invariant</th>
+          <th style="color:var(--harvest)">H</th>
+          <th style="color:var(--mine)">M</th>
+          <th style="color:var(--catalyze)">C</th>
+          <th>Nature</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td class="inv-id">INV-25</td>
+          <td class="inv-name">Reader Can Ratify/Rewrite</td>
+          <td class="score-cell" style="background:rgba(239,68,68,0.2)">-0.21</td>
+          <td class="score-cell" style="background:rgba(16,185,129,0.15)">+0.30</td>
+          <td class="score-cell" style="background:rgba(99,102,241,0.1)">+0.05</td>
+          <td class="coverage-cell cov-contested">CONTESTED</td>
+        </tr>
+        <tr>
+          <td class="inv-id">INV-03</td>
+          <td class="inv-name">No-Egress First-Class</td>
+          <td class="score-cell" style="background:rgba(16,185,129,0.2)">+0.68</td>
+          <td class="score-cell" style="background:rgba(99,102,241,0.1)">+0.14</td>
+          <td class="score-cell" style="background:rgba(16,185,129,0.15)">+0.51</td>
+          <td class="coverage-cell cov-contested">CONTESTED</td>
+        </tr>
+        <tr>
+          <td class="inv-id">INV-08</td>
+          <td class="inv-name">Municipal Compute as Utility</td>
+          <td class="score-cell" style="background:rgba(16,185,129,0.2)">+0.63</td>
+          <td class="score-cell" style="background:rgba(99,102,241,0.1)">+0.06</td>
+          <td class="score-cell" style="background:rgba(16,185,129,0.15)">+0.47</td>
+          <td class="coverage-cell cov-contested">CONTESTED</td>
+        </tr>
+        <tr>
+          <td class="inv-id">INV-23</td>
+          <td class="inv-name">Economics Observable Not Sovereign</td>
+          <td class="score-cell" style="background:rgba(16,185,129,0.2)">+0.60</td>
+          <td class="score-cell" style="background:rgba(99,102,241,0.1)">+0.21</td>
+          <td class="score-cell" style="background:rgba(16,185,129,0.1)">+0.42</td>
+          <td class="coverage-cell cov-contested">CONTESTED</td>
+        </tr>
+        <tr>
+          <td class="inv-id">INV-12</td>
+          <td class="inv-name">Sensory Stream Bordering</td>
+          <td class="score-cell" style="background:rgba(16,185,129,0.15)">+0.42</td>
+          <td class="score-cell" style="background:rgba(16,185,129,0.15)">+0.56</td>
+          <td class="score-cell" style="background:rgba(16,185,129,0.1)">+0.42</td>
+          <td class="coverage-cell cov-contested">CONTESTED</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- IMPLEMENTATION PHASING                                         -->
+<!-- ============================================================ -->
+<div class="section">
+  <div class="section-title">Implementation Phasing</div>
+  <div class="timeline">
+    <div class="timeline-phase">
+      <div class="phase-title">Phase 1: Immediate</div>
+      <div class="phase-tics">Tics 118-119 (1.5-3.5 tics, parallelizable)</div>
+      <ul class="phase-items">
+        <li>Council governance boundaries (H1, H2) — <span style="color:var(--harvest)">HARVEST</span></li>
+        <li>Proof-obligation format template (H4) — <span style="color:var(--mine)">MINE</span></li>
+        <li>Rollback velocity evaluation (H3) — <span style="color:var(--harvest)">HARVEST</span></li>
+        <li>Semantic admission gate — <span style="color:var(--catalyze)">CATALYZE</span></li>
+      </ul>
+    </div>
+    <div class="timeline-phase">
+      <div class="phase-title">Phase 2: Core Extraction</div>
+      <div class="phase-tics">Tics 119-121 (3-5 tics)</div>
+      <ul class="phase-items">
+        <li>Cache-purge governance spec — <span style="color:var(--harvest)">HARVEST</span>/<span style="color:var(--mine)">MINE</span> hybrid</li>
+        <li>Border discipline spec — <span style="color:var(--mine)">MINE</span></li>
+        <li>Compute admission law — <span style="color:var(--harvest)">HARVEST</span> + <span style="color:var(--catalyze)">CATALYZE</span> condition</li>
+      </ul>
+    </div>
+    <div class="timeline-phase">
+      <div class="phase-title">Phase 3: Expression Engine</div>
+      <div class="phase-tics">Tics 121-123 (2-3.5 tics)</div>
+      <ul class="phase-items">
+        <li>Expression engine spec — <span style="color:var(--harvest)">HARVEST</span> (CATALYZE release)</li>
+        <li>Citizen lifecycle extension — <span style="color:var(--harvest)">HARVEST</span></li>
+      </ul>
+    </div>
+    <div class="timeline-phase">
+      <div class="phase-title">Phase 4: Deferred</div>
+      <div class="phase-tics">Tics 125+ (5-8 tics)</div>
+      <ul class="phase-items">
+        <li>Plate instrumentation surface — <span style="color:var(--catalyze)">CATALYZE</span> (build from live data)</li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- CANDIDATE COGPRS                                               -->
+<!-- ============================================================ -->
+<div class="section">
+  <div class="section-title">Candidate CogPRs (8)</div>
+  <div class="cogpr-grid">
+
+    <div class="cogpr-card">
+      <div class="cogpr-header">
+        <div class="cogpr-id">CogPR-102</div>
+        <div class="cogpr-meta">
+          <span class="cogpr-type">subject</span>
+          <span class="cogpr-confidence convergent">convergent</span>
+          <span class="cogpr-scope">canonical</span>
+        </div>
+      </div>
+      <div class="lesson">Cache governance is a complete zero-coverage constitutional vacancy. No classification, no purge doctrine, no contamination model, no pen-pal/civic distinction. INV-15/16/E05/E06/E07 provide the first concrete specification.</div>
+      <div class="source-invs">INV-15, INV-16, INV-E05, INV-E06, INV-E07</div>
+    </div>
+
+    <div class="cogpr-card">
+      <div class="cogpr-header">
+        <div class="cogpr-id">CogPR-103</div>
+        <div class="cogpr-meta">
+          <span class="cogpr-type">process</span>
+          <span class="cogpr-confidence convergent">convergent</span>
+          <span class="cogpr-scope">canonical</span>
+        </div>
+      </div>
+      <div class="lesson">Proof-obligation format (Statement + Why + Failure Mode + Proof Obligation) converts invariants from declarative principles into auditable contracts. Should become the standard for new invariants.</div>
+      <div class="source-invs">format_pattern</div>
+    </div>
+
+    <div class="cogpr-card">
+      <div class="cogpr-header">
+        <div class="cogpr-id">CogPR-104</div>
+        <div class="cogpr-meta">
+          <span class="cogpr-type">subject</span>
+          <span class="cogpr-confidence reinforced">reinforced</span>
+          <span class="cogpr-scope">canonical</span>
+        </div>
+      </div>
+      <div class="lesson">Federation term governance has no semantic admission gate. Triple collision on "Harpoon" proves governance terms can be redefined without intake validation.</div>
+      <div class="source-invs">semantic_collision_evidence</div>
+    </div>
+
+    <div class="cogpr-card">
+      <div class="cogpr-header">
+        <div class="cogpr-id">CogPR-105</div>
+        <div class="cogpr-meta">
+          <span class="cogpr-type">subject</span>
+          <span class="cogpr-confidence convergent">convergent</span>
+          <span class="cogpr-scope">canonical</span>
+        </div>
+      </div>
+      <div class="lesson">Councils are lenses, not rulers. Council != Basin. Council activation = signal, not decision. Conflating council and basin corrupts both memory routing and escalation logic.</div>
+      <div class="source-invs">INV-E08, INV-E09</div>
+    </div>
+
+    <div class="cogpr-card">
+      <div class="cogpr-header">
+        <div class="cogpr-id">CogPR-106</div>
+        <div class="cogpr-meta">
+          <span class="cogpr-type">subject</span>
+          <span class="cogpr-confidence reinforced">reinforced</span>
+          <span class="cogpr-scope">canonical</span>
+        </div>
+      </div>
+      <div class="lesson">Rollback must outrun attachment. Rollback velocity is constitutional requirement, not implementation detail. Rollback drills are mandatory proof obligations.</div>
+      <div class="source-invs">INV-E12</div>
+    </div>
+
+    <div class="cogpr-card">
+      <div class="cogpr-header">
+        <div class="cogpr-id">CogPR-107</div>
+        <div class="cogpr-meta">
+          <span class="cogpr-type">subject</span>
+          <span class="cogpr-confidence convergent">convergent</span>
+          <span class="cogpr-scope">canonical</span>
+        </div>
+      </div>
+      <div class="lesson">Compute admission is a constitutional vacancy. No no-egress posture law, no municipal compute classification, no local compute sovereignty principle, no economic observability doctrine.</div>
+      <div class="source-invs">INV-03, INV-08, INV-09, INV-23, INV-E01, INV-E02</div>
+    </div>
+
+    <div class="cogpr-card">
+      <div class="cogpr-header">
+        <div class="cogpr-id">CogPR-108</div>
+        <div class="cogpr-meta">
+          <span class="cogpr-type">process</span>
+          <span class="cogpr-confidence reinforced">reinforced</span>
+          <span class="cogpr-scope">CGG</span>
+        </div>
+      </div>
+      <div class="lesson">CATALYZE's 5.5/10 NIH self-score was the most consequential move — it released 3 of 5 gaps from exclusive to shared, enabling consensus partition. Future CATALYZE-type advocates should include mandatory NIH self-examination.</div>
+      <div class="source-invs"></div>
+    </div>
+
+    <div class="cogpr-card">
+      <div class="cogpr-header">
+        <div class="cogpr-id">CogPR-109</div>
+        <div class="cogpr-meta">
+          <span class="cogpr-type">meta</span>
+          <span class="cogpr-confidence tentative">tentative</span>
+          <span class="cogpr-scope">memory</span>
+        </div>
+      </div>
+      <div class="lesson">Lock-pressure formula fails when advocates share underlying agreement and differ in approach. The formula needs relevance/alignment separation, not a single affinity product.</div>
+      <div class="source-invs">experimental_method</div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- SIGNALS                                                        -->
+<!-- ============================================================ -->
+<div class="section">
+  <div class="section-title">Candidate Signals</div>
+  <div class="signal-row">
+    <div class="signal-kind BEACON">BEACON</div>
+    <div class="signal-summary"><strong>Cache governance zero coverage</strong> — Unanimous convergence. Federation has no cache law. Action: author cache-governance-spec.md.</div>
+  </div>
+  <div class="signal-row">
+    <div class="signal-kind BEACON">BEACON</div>
+    <div class="signal-summary"><strong>Compute admission vacancy</strong> — All three confirm no compute admission law. Binder provides starting material.</div>
+  </div>
+  <div class="signal-row">
+    <div class="signal-kind WATCH">WATCH</div>
+    <div class="signal-summary"><strong>Proof-obligation retrofit pressure</strong> — Adopting the format creates latent debt to retrofit existing Key Invariants.</div>
+  </div>
+  <div class="signal-row">
+    <div class="signal-kind TENSION">TENSION</div>
+    <div class="signal-summary"><strong>Modular vs integrated governance docs</strong> — HARVEST prefers integrated documents; MINE prefers modular specs. Resolve by federation precedent.</div>
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- SURPRISE ASSESSMENT                                            -->
+<!-- ============================================================ -->
+<div class="section">
+  <div class="section-title">Surprise Assessment</div>
+  <div class="surprise-box">
+    <h3>3 Genuine Surprises</h3>
+    <div class="surprise-item">
+      <strong>Hot-Potato Relay</strong>
+      <p>Compute admission invariants passed MINE -> CATALYZE -> HARVEST through voluntary releases, ending up where none of the advocates initially placed them. The adversarial process discovered a better owner than any individual position proposed.</p>
+    </div>
+    <div class="surprise-item">
+      <strong>NIH Self-Score Enabled Consensus</strong>
+      <p>CATALYZE's honest 5.5/10 NIH self-assessment was the single most consequential move. Without it, the naming collision argument would have blocked all progress. Honest self-examination under adversarial pressure produced genuine partition.</p>
+    </div>
+    <div class="surprise-item">
+      <strong>Lock-Pressure Formula Gap</strong>
+      <p>The reflexive application exposed a methodological limitation the binder didn't anticipate: the formula measures salience, not directional opposition, when advocates share underlying agreement. A genuine finding about domain-specificity of governance math.</p>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- EXPERIMENTAL FINDINGS                                          -->
+<!-- ============================================================ -->
+<div class="section">
+  <div class="section-title">Experimental: Invariant Weight Method</div>
+  <div class="experimental-box">
+    <div class="experimental-badge">Exploratory Experiment</div>
+    <div class="exp-verdict">Verdict: Partially useful. Qualitative signal meaningful; quantitative precision is theater.</div>
+    <div class="exp-detail"><strong>Works:</strong> Convergence detection (cache cluster identified reliably), contest detection (INV-25 directional disagreement visible), release-pattern telemetry (MINE's narrowing from 9.1 -> 6.6 visible across phases).</div>
+    <div class="exp-detail"><strong>Fails:</strong> Lock-pressure values uniformly low. Formula designed for opposing tensions, but advocates here share underlying agreement. Stance-load totals (12.4 vs 12.8) within scoring noise — scope of claim, not quality of argument.</div>
+    <div class="exp-detail"><strong>Next experiment:</strong> Separate relevance scoring (salience map) from alignment scoring (directional map). Test against a genuinely contested arena where advocates disagree on value, not just method.</div>
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- FOOTER                                                         -->
+<!-- ============================================================ -->
+<!-- ============================================================ -->
+<!-- ARCHIVIST ENVELOPE PROVENANCE FOOTER                           -->
+<!-- ============================================================ -->
+<div class="section">
+  <div class="section-title">Archivist Envelope Provenance</div>
+  <div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:1.25rem;font-family:var(--font);font-size:0.7rem;color:var(--text-dim);line-height:1.8;">
+    <div style="display:grid;grid-template-columns:160px 1fr;gap:0.25rem 1rem;">
+      <span>capability</span><span style="color:var(--text)">knowledge.extract</span>
+      <span>envelope_type</span><span style="color:var(--text)">knowledge.summary</span>
+      <span>callback_mode</span><span style="color:var(--text)">artifact</span>
+      <span>fulfilled_by</span><span style="color:var(--text)">ent_homeskillet</span>
+      <span>source_tic</span><span style="color:var(--text)">117</span>
+      <span>completeness</span><span style="color:var(--convergent)">exhaustive</span>
+      <span>confidence</span><span style="color:var(--convergent)">high (non-heuristic)</span>
+      <span>documents_consumed</span><span style="color:var(--text)">11 (335KB across 5 phases)</span>
+      <span>agents</span><span style="color:var(--text)">4 &times; claude-opus-4-6 (3 advocates + 1 lead)</span>
+      <span>evidence_backlinks</span><span style="color:var(--text)">13 federation surfaces cited</span>
+    </div>
+    <div style="margin-top:1rem;padding-top:0.75rem;border-top:1px solid var(--border);">
+      <span style="color:var(--text-dim)">delivery_receipt: </span>
+      <span style="color:var(--accent)">ACK required upon consumption per archivist-envelope-schema.md &sect;Mailbox Delivery Semantics</span>
+    </div>
+    <div style="margin-top:0.5rem;">
+      <span style="color:var(--text-dim)">audit_path: </span>
+      <span style="color:var(--text)">audit-logs/arenas/pressure-reports/2026-04-05_harpoon-federation-mount-binder-v2-assessment.json</span>
+    </div>
+    <div style="margin-top:0.5rem;">
+      <span style="color:var(--text-dim)">show_directory: </span>
+      <span style="color:var(--text)">stage/shows/harpoon-federation-mount-binder-v2-assessment/ (9 advocate docs + synthesis + pressure report + invariant scaffold)</span>
+    </div>
+  </div>
+</div>
+
+<div style="text-align:center;padding:3rem 0 2rem;border-top:1px solid var(--border);margin-top:2rem;">
+  <div style="font-family:var(--font);font-size:0.65rem;color:var(--text-dim);letter-spacing:0.1em;text-transform:uppercase;">
+    Governed Harpoon Triangulation &mdash; Arena Report Template v1
+  </div>
+  <div style="font-family:var(--font);font-size:0.6rem;color:var(--border);margin-top:0.5rem;">
+    canonical_developer/context-grapple-gun/stage/templates/arena-report.html
+  </div>
+  <div style="font-family:var(--font);font-size:0.55rem;color:var(--border);margin-top:0.3rem;">
+    Archivist-compatible: knowledge.extract / knowledge.summary / artifact delivery
+  </div>
+</div>
+
+</div>
+</body>
+</html>

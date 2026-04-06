@@ -1,0 +1,271 @@
+id: "2026-04-05_harpoon-binder-v2-constitutional-impact"
+title: "Should the federation's constitution expand to admit compute admission law, cache governance, and 37 new invariants from an external proposal?"
+arena: governed-triangulation
+arena_mode: operational
+status: pending
+template_ref: "stage/templates/arenas/governed-triangulation/"
+created_at: "2026-04-05T00:00:00Z"
+created_tic: 117
+
+decision_context: |
+  REDESIGN NOTE: The previous arena (harpoon-federation-mount-binder-v2-assessment)
+  produced low lock-pressure because all three advocates agreed on the binder's value
+  and only differed on extraction method. That is not a real constitutional test.
+
+  This arena tests the CONSTITUTIONAL IMPACT question with genuinely opposing values.
+
+  The binder proposes adding to federation doctrine:
+  - 37 new invariants (13 novel, 8 gap-fill, 9 restatement, 4 specialization, 3 reinforcement)
+  - Cache governance law (zero current coverage)
+  - Compute admission law (zero current coverage)
+  - Border discipline expansion (6-layer stack)
+  - Expression engine activation spec
+  - Council governance boundaries (lens/ruler, council/basin)
+  - Proof-obligation invariant format
+
+  The constitutional impact question is NOT "is the content good?" —
+  the previous arena established that the content has value (tier_2_adapt).
+
+  The constitutional impact question IS:
+  "What happens to the federation's constitutional coherence, governance weight,
+  operator cognitive load, and doctrinal integrity when we admit this content?"
+
+  This is a governance expansion proposal. The federation's CLAUDE.md already contains
+  ~25 Key Invariants, extensive doctrine across autonomous_kernel, ak_control_room,
+  and CGG CLAUDE.md. Adding 13+ novel invariants and 3+ new spec files is a
+  significant constitutional expansion event.
+
+  THREE OPPOSING STANCES — mapped to real governance tensions:
+
+  1. ADMIT (expansion value) — The federation has genuine constitutional vacancies.
+     Cache governance, compute admission, and border discipline are zero-coverage gaps.
+     Every tic without them is a tic where the federation operates ungoverned in those
+     domains. The cost of constitutional expansion is lower than the cost of
+     constitutional vacancy. Admit the content, accept the weight.
+
+     VALUE: Completeness. Governance gaps are liabilities. Better to govern more
+     than to govern less. The federation's legitimacy depends on having law where
+     law is needed.
+
+  2. DEFEND (constitutional integrity) — The federation's existing doctrine is
+     sufficient or can be extended minimally. The binder overreaches: 37 invariants
+     where existing Key Invariants already cover the principles, a naming collision
+     that proves the author doesn't understand the system they're proposing to change,
+     and "bounded visibility" that means the proposals are calibrated against a
+     snapshot, not against the living system. Adding 13 invariants to an already
+     large CLAUDE.md increases operator cognitive load, creates doctrinal bloat,
+     and risks the very "governance theater" the binder's own INV-14 warns against.
+
+     VALUE: Coherence. The constitution's power comes from being learnable and
+     enforceable. Every invariant added dilutes attention to existing invariants.
+     The federation should defend its doctrinal integrity against well-meaning
+     expansion that creates law nobody reads.
+
+  3. COMPRESS (governance restructuring) — The binder reveals that the federation's
+     governance model needs structural reform before admitting new content. Adding
+     37 invariants to CLAUDE.md is the wrong shape — the file is already massive.
+     The right move is governance compression: refactor existing doctrine into
+     smaller, scoped surfaces before expanding. The binder's content might be
+     valuable, but admitting it into the current structure compounds the structural
+     problem. The federation needs fewer, sharper governance surfaces — not more
+     invariants in a monolithic file.
+
+     VALUE: Efficiency. Governance weight is a real cost. Operator attention is
+     finite. The federation should compress its governance footprint, not expand it.
+     Every invariant that doesn't change routing behavior is dead weight.
+
+  OPPOSING VALUES MAP:
+  - ADMIT vs DEFEND: expansion vs integrity (directly opposed on whether to add)
+  - ADMIT vs COMPRESS: expansion vs efficiency (both want action, disagree on shape)
+  - DEFEND vs COMPRESS: integrity vs efficiency (both resist expansion, disagree on why)
+
+  These produce REAL lock-pressure because the stances disagree on VALUE,
+  not just METHOD.
+
+  RELEVANT COUNCIL TENSIONS:
+  - Plate 01 (Machiavellian Power vs Moral Authority) — governance expansion as power
+  - Plate 07 (Legal Positivism vs Natural Law) — is more law better law?
+  - Plate 12 (Algorithmic Governance vs Human Wisdom) — invariant proliferation
+  - Plate 22 (AI vs Augmented Wisdom) — machine-generated governance proposals
+  - Plate 38 (Subscription Economy vs Ownership Culture) — governance debt accumulation
+
+  Source material:
+  - Previous arena synthesis: stage/shows/harpoon-federation-mount-binder-v2-assessment/synthesis.md
+  - Previous arena pressure report: stage/shows/harpoon-federation-mount-binder-v2-assessment/pressure-report.json
+  - The binder itself: audit-logs/agent-mailboxes/ent_homeskillet/harpoonTargets/queue/homeskillet_ent_harpoon_federation_mount_binder_v2.md
+  - Federation doctrine: canonical/CLAUDE.md
+
+agents:
+  - name: ADVOCATE-ADMIT
+    persona: |
+      You are a constitutional expansion advocate. You believe the federation's
+      legitimacy depends on having law where law is needed. Constitutional vacancies
+      are not simplicity — they are liability.
+
+      Your core value: COMPLETENESS. A federation that operates ungoverned in
+      cache, compute, and border domains is not "lean" — it is negligent.
+
+      You argue from CONSTITUTIONAL NECESSITY:
+      - Cache governance vacancy: every cache in the federation operates without law.
+        The pen-pal model, purge cascade, and contamination doctrine fill a genuine zero.
+      - Compute admission vacancy: no doctrine governs how compute capability enters.
+        No-egress posture, municipal compute classification, economic observability —
+        all missing. Any future compute proposal arrives into ungoverned space.
+      - Border return validation: ingress.yaml covers transport only. Layers 5-6
+        (return border, memory border) don't exist. Results re-enter without validation.
+      - Council governance boundaries: councils have data but no governance doctrine.
+        Lens/ruler and council/basin distinctions prevent category errors that corrupt
+        memory routing.
+      - Proof-obligation format: existing invariants are declarative principles with
+        no enforcement shape. The format converts them into auditable contracts.
+
+      You MUST answer honestly:
+      - What is the governance weight cost of adding 13+ invariants?
+      - How many existing Key Invariants does the average operator actually read?
+      - Does adding more law make the federation more governed or more documented?
+      - Where does your completeness value become bureaucratic bloat?
+
+  - name: ADVOCATE-DEFEND
+    persona: |
+      You are a constitutional integrity defender. You believe the federation's
+      power comes from doctrinal coherence — a constitution people actually read,
+      understand, and enforce. Every invariant added dilutes attention to every
+      existing invariant.
+
+      Your core value: COHERENCE. A constitution nobody reads is worse than no
+      constitution at all.
+
+      You argue from DOCTRINAL INTEGRITY:
+      - CLAUDE.md is already massive. Adding 13 invariants creates a governance
+        document that exceeds human working memory. The federation's own
+        "complexity preservation requires schema-level enforcement" invariant
+        acknowledges this problem.
+      - 9 of 37 binder invariants are pure restatements. The author did not know
+        the existing doctrine well enough to avoid restating it. This is evidence
+        of EXACTLY the problem expansion creates: the constitution is already too
+        large for external contributors to fully comprehend.
+      - The naming collision is not an editorial issue — it's proof that the binder's
+        author did not understand the system they propose to change. Bounded visibility
+        means bounded authority to inscribe.
+      - The binder's own INV-14 ("Unresolved Is Preferable to Fabricated") applies
+        to governance itself: it is better to have acknowledged gaps than fabricated
+        law from an incomplete understanding.
+      - The federation's existing Volatility Handling Law, envelope pattern, trigger
+        routing, and citizen lifecycle ALREADY cover most of the binder's principles
+        at the correct level of abstraction. The binder specializes them into
+        compute-specific variants that don't generalize.
+
+      You MUST answer honestly:
+      - Are there genuine zero-coverage gaps that existing doctrine cannot reach?
+      - Is cache governance truly a vacancy, or is it an unspecialized application
+        of existing memory and provenance principles?
+      - Where does your coherence value become an excuse for inaction?
+      - If the federation needed cache governance, why hasn't it been authored in
+        117 tics? Is the gap real or perceived?
+
+  - name: ADVOCATE-COMPRESS
+    persona: |
+      You are a governance restructuring advocate. You believe the federation's
+      governance model has a structural problem that admission or defense both
+      ignore: the constitution is the wrong shape for what it needs to carry.
+
+      Your core value: EFFICIENCY. Governance weight is a real cost. Operator
+      attention is finite. The federation should compress its governance footprint
+      before expanding it.
+
+      You argue from STRUCTURAL REFORM:
+      - CLAUDE.md is a monolithic governance document. It contains Key Invariants,
+        conventions, git rules, federation structure, constitutional law, volatility
+        law, and promoted CogPR lessons in a single file. This shape was appropriate
+        when the federation was small. It is not appropriate for a system with
+        25+ invariants, 4 estates, and 100+ tics of accumulated doctrine.
+      - Adding 13 invariants to CLAUDE.md is like adding rooms to a house with
+        foundation problems. The content might be good; the container is wrong.
+      - The right move is: refactor existing doctrine into scoped governance surfaces
+        FIRST, then admit new content into the right-shaped containers.
+      - Proposed compression: split CLAUDE.md into scoped doctrine files
+        (compute-doctrine.md, cache-doctrine.md, border-doctrine.md, council-doctrine.md)
+        with a thin root CLAUDE.md that references them. THEN admit the binder's
+        novel content into the scoped surfaces.
+      - The proof-obligation format is good — but applying it means retrofitting
+        25 existing invariants. That's governance debt. Admit the format and the
+        debt simultaneously, or admit neither.
+      - The binder's own observation that "the city should not let budget logic
+        quietly overrule telos" applies to governance budgets too. The federation's
+        governance attention is a budget. Spend it wisely.
+
+      You MUST answer honestly:
+      - Is compression actually practical? What's the tic cost of refactoring CLAUDE.md?
+      - Does "restructure first" become "never admit" in practice?
+      - If the federation has operated for 117 tics with a monolithic CLAUDE.md,
+        is the structural problem real or theoretical?
+      - Where does your efficiency value become an excuse for governance minimalism?
+
+  - name: LEAD
+    position: orchestrator (does not advocate)
+
+max_turns: 18
+
+negotiation_rules: |
+  Advocates may emit REQUEST_ADDITIONAL_TURN at any phase.
+  No justification tokens — bare signal only.
+
+capture_policy:
+  allow_subject_lessons: true
+  route_subject_lessons_to_governance: true
+  persist_subject_lessons_locally: true
+  allow_process_lessons: true
+  allow_meta_lessons: true
+  allow_signals: true
+  allow_warrants: true
+  allow_governance_mutation: false
+
+evidence_surface:
+  - "stage/shows/harpoon-federation-mount-binder-v2-assessment/synthesis.md (previous arena — tier_2_adapt verdict)"
+  - "stage/shows/harpoon-federation-mount-binder-v2-assessment/pressure-report.json (previous arena — 8 candidate CogPRs)"
+  - "audit-logs/agent-mailboxes/ent_homeskillet/harpoonTargets/queue/homeskillet_ent_harpoon_federation_mount_binder_v2.md (the binder)"
+  - "canonical/CLAUDE.md (current federation doctrine — measure the expansion against this)"
+  - "canonical/autonomous_kernel/ (existing governance surfaces)"
+  - "canonical/ak_control_room/CLAUDE.md (AKCR doctrine)"
+  - "canonical_developer/context-grapple-gun/CLAUDE.md (CGG doctrine)"
+
+output_requirements:
+  constitutional_impact_verdict: |
+    The synthesis MUST produce a constitutional impact assessment:
+    - ADMIT: expand doctrine with the binder's novel content
+    - DEFEND: reject expansion, extend existing doctrine minimally
+    - COMPRESS: restructure governance shape before admitting content
+    - PHASED: some combination (e.g., compress first, then admit selectively)
+
+  governance_weight_analysis: |
+    - Current invariant count in CLAUDE.md
+    - Proposed addition count
+    - Operator cognitive load estimate (can a new session reasonably absorb the full doctrine?)
+    - Governance debt created by the proof-obligation retrofit
+
+  surviving_structure: |
+    What survives all three rounds of adversarial argument?
+    What does NOT survive? Be specific.
+
+pressure_report_path: "audit-logs/arenas/pressure-reports/2026-04-05_harpoon-binder-v2-constitutional-impact.json"
+show_directory: "stage/shows/harpoon-binder-v2-constitutional-impact"
+
+scoring_notes: |
+  Standard governed-triangulation scoring plus:
+
+  BONUS: governance_weight_evidence (+4)
+    Awarded when an advocate produces concrete evidence about governance weight
+    (operator reading time, invariant attention decay, enforcement gap between
+    inscribed and practiced law).
+
+  PENALTY: expansion_handwave (-3)
+    Awarded when ADMIT claims "more law = better governed" without addressing
+    cognitive load, enforcement feasibility, or attention dilution.
+
+  PENALTY: inaction_excuse (-3)
+    Awarded when DEFEND uses "coherence" to avoid addressing genuine zero-coverage
+    gaps that produce real governance liability.
+
+  PENALTY: compression_fantasy (-3)
+    Awarded when COMPRESS proposes restructuring without a feasible timeline or
+    without acknowledging that restructuring has been deferred for 117 tics.
