@@ -237,6 +237,25 @@ Append completed arena to `audit-logs/arenas/registry.jsonl`:
 }
 ```
 
+## Post-Processing: Arena Report Pipeline
+
+After Step 10 (Report), optionally generate an archivist-envelope HTML report:
+
+1. Run `arena-report-generator.py --zone-root $ZONE_ROOT --arena-id $ARENA_ID`
+   (or `--tic N` for multi-arena sessions)
+2. This produces a `report-manifest.json` in the show directory
+3. Dispatch `arena-report-agent` (spec: `cgg-runtime/agents/arena-report-agent.md`)
+   with the manifest path to generate the HTML report
+4. The HTML report embeds JSON-LD archivist envelope metadata for governance retrieval
+
+For multi-arena sessions (e.g., /cadence close with 2+ arenas), use `--tic N` to
+capture all arenas sharing a source tic in a single unified report.
+
+The report pipeline is archivist-envelope-compliant:
+- Capability: `knowledge.extract`
+- Envelope type: `knowledge.summary`
+- Callback mode: `artifact`
+
 ## Critical Invariants
 
 1. **No skipping phases** — enforced at agent spawn via task blockers
