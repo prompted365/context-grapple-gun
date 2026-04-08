@@ -344,6 +344,36 @@ Schema-level enforcement of governance requirements can be formally satisfied wh
 
 <!-- promoted from CogPR-93 (tic 112→115). Source: arena:occ-epistemic-safeguards-crx — convergent. MECHANIST form-vs-substance analysis + LAWFUL iterative enforcement. Extends CogPR-77 (concession cascade). Resolves BEACON_occ_epistemic_governance_convergence. Band: COGNITIVE. -->
 
+## NIH Self-Examination in Adversarial Arenas
+
+In governed adversarial arenas, advocates arguing for build-alternative positions (CATALYZE, build-from-scratch, replace-with-custom) must include a mandatory NIH (Not Invented Here) self-examination: an honest numeric self-score (0-10) assessing how much of their advocacy is driven by NIH bias versus genuine gap analysis. Advocates who honestly assess their own failure modes produce genuine convergence; advocates who cannot produce bilateral stalemate. The NIH self-score is the mechanism that releases deadlocked positions into shared territory.
+
+<!-- promoted from CogPR-108 (tic 118→119). Source: arena:harpoon-federation-mount-binder-v2-assessment — reinforced. CATALYZE's 5.5/10 NIH self-score released 3 of 5 gaps from exclusive to shared territory, making consensus partition possible. Band: COGNITIVE. -->
+
+## Opposing-Values Geometry for Constitutional Questions
+
+Constitutional questions (expansion, restructuring, inscription, authority changes) should use opposing-values arena geometry where advocates hold genuinely different values (e.g., completeness vs coherence vs efficiency), not same-direction geometry where advocates agree on value but differ on approach. Opposing-values geometry produces higher lock-pressure, surfaces absorption capacity concerns, and generates analytical tools (e.g., non-derivability test) that same-direction geometry cannot produce. Same-direction geometry produces low lock-pressure everywhere because advocates agree on valence — method disagreement does not generate the constitutional stress-testing that value disagreement does.
+
+<!-- promoted from CogPR-112 (tic 118→119). Source: arena:harpoon-binder-v2-constitutional-impact — reinforced. Direct empirical comparison: Arena 1 (same-direction) produced low lock-pressure and no analytical tools; Arena 2 (opposing-values) produced the non-derivability test (CogPR-110) and structural reform mandates. Band: COGNITIVE. -->
+
+## Post-Hoc Conformation (Anti-Pattern: In-Arena Invariant Scoring)
+
+Do not ask arena advocates to score their positions against invariants during their turns. In-arena invariant scoring distorts advocate reasoning — advocates checklist-optimize against the scoring criteria instead of reasoning naturally from their value positions. The correct design is post-hoc conformation: advocates speak from values without scoring awareness, then an invariant field measurement is applied after advocacy completes. This separation is load-bearing — it preserves the authenticity of advocacy while still capturing invariant alignment data.
+
+<!-- promoted from CogPR-114 (tic 118→119). Source: session:harpoon-binder-vpl-design-tic-118 — reinforced. Arena 1 experimental invariant weight scaffold demonstrated checklist-optimization distortion. VPL spec Phase 6 (post-hoc conformation) is the validated alternative. Band: COGNITIVE. -->
+
+## VPL Standard Geometry (Tournament-Lattice)
+
+Tournament-lattice VPL (Value-Position Lattice) with bracket isolation and wildcard challenge is the standard geometry for federation governance shape questions. The geometry combines three validated principles:
+
+1. **Constitutional actors as advocates** — office holders (Mogul, Crisis Steward, CBUX, Civil Engineer, Ladder Auditor) have natural value centroids from jurisdictional mandates and natural evidence bases from operational data. Using them instead of generic labels produces advocates with authentic stakes.
+2. **Value-position fusion** — constitutional actors naturally fuse value-driven and position-driven stances in a single lattice. Their jurisdictional mandates ARE value centroids; their operational data IS positional evidence. VPL achieves what separate arena types cannot.
+3. **Wildcard chain coherence challenge** — the wildcard finds composite tensions invisible to bracket-isolated advocates. Every constitutional VPL arena must include a chain coherence wildcard.
+
+Template: `stage/templates/arenas/value-lattice/spec.md`
+
+<!-- promoted from CogPR-116 merged with CogPR-113 + CogPR-115 (tic 118→119). Source: arena:federation-governance-shape-vpl — convergent. Wildcard found 3 composite tensions invisible to 12 bracket documents. Constitutional actors produced office-specific evidence unavailable to generic labels. First VPL run validated the geometry. Band: COGNITIVE. -->
+
 ## Session Learning Protocol
 
 When you discover something during a session that constitutes a durable lesson — a friction point resolved, a non-obvious behavior confirmed, a workflow correction — capture it as a CogPR (Cognitive Pull Request).

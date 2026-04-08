@@ -38,43 +38,37 @@ from zone_root import resolve_zone_root, load_ticzone, audit_logs_path, birth_to
 # Surface discovery — file-tree derived, not static
 # ---------------------------------------------------------------------------
 
-# Install target mapping: canonical subdirectory -> installed subdirectory
-INSTALL_TARGETS = {
-    "skills": {
-        "canonical_subdir": "skills",
-        "installed_subdir": ".claude/skills",
-        "pattern": "*/SKILL.md",
-        "type": "PROMPT_CODE",
-    },
-    "agents": {
-        "canonical_subdir": "agents",
-        "installed_subdir": ".claude/agents",
-        "pattern": "*.md",
-        "type": "PROMPT_CODE",
-    },
-    "hooks": {
-        "canonical_subdir": "hooks",
-        "installed_subdir": ".claude/hooks",
-        "pattern": "*.sh",
-        "type": "SCRIPT_CODE",
-    },
-    "scripts": {
-        "canonical_subdir": "scripts",
-        "installed_subdir": ".claude/cgg-runtime/scripts",
-        "pattern": "*.py",
-        "type": "SCRIPT_CODE",
-    },
-}
+# ---------------------------------------------------------------------------
+# Surface manifest — loaded from sync-manifest.json (single source of truth)
+# Both runtime-sync.py and posttool-sync-weigh.sh consume this file.
+# Edit sync-manifest.json, not these variables.
+# ---------------------------------------------------------------------------
 
-# Files that should NOT be synced (internal to canonical, not installable)
-SYNC_EXCLUDE = {
-    "hooks/README.md",
-}
+def _load_sync_manifest():
+    """Load surface map from sync-manifest.json next to cgg-runtime/."""
+    manifest_candidates = [
+        os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "sync-manifest.json"),
+        os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "sync-manifest.json"),
+    ]
+    for path in manifest_candidates:
+        path = os.path.normpath(path)
+        if os.path.isfile(path):
+            with open(path) as f:
+                return json.load(f)
+    # Fallback: if manifest is missing, fail loudly
+    print("FATAL: sync-manifest.json not found. Looked in:", manifest_candidates, file=sys.stderr)
+    sys.exit(3)
 
-# Non-standard install paths: canonical relative path -> installed path override
-# For files that install to a location other than the category's default target
+_MANIFEST = _load_sync_manifest()
+
+INSTALL_TARGETS = _MANIFEST["install_targets"]
+
+SYNC_EXCLUDE = set(_MANIFEST.get("sync_exclude", []))
+
+# Overrides in manifest use relative paths (~/.claude/...); expand to absolute
 INSTALL_PATH_OVERRIDES = {
-    "hooks/wire-cutter.sh": os.path.join(os.path.expanduser("~"), ".claude", "wire-cutter.sh"),
+    k: os.path.join(os.path.expanduser("~"), v)
+    for k, v in _MANIFEST.get("install_path_overrides", {}).items()
 }
 
 

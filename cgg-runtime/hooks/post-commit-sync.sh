@@ -90,6 +90,31 @@ else
     COMMIT_SHA=$(cd "$ZONE_ROOT" && git rev-parse HEAD 2>/dev/null || echo "unknown")
 fi
 
+# ============================================================================
+# MANIFEST CHANGE DETECTION
+# If sync-manifest.json was in this commit, the surface map itself changed.
+# Both runtime-sync.py and posttool-sync-weigh.sh consume this file —
+# flag it prominently so the installed copy gets updated.
+# ============================================================================
+
+MANIFEST_CHANGED=false
+if echo "$CHANGED_FILES" | grep -q 'sync-manifest.json'; then
+    MANIFEST_CHANGED=true
+    echo "[post-commit-sync] sync-manifest.json CHANGED in this commit"
+    echo "  The weigh manifest defines which files count toward runtime parity."
+    echo "  Both runtime-sync.py and posttool-sync-weigh.sh read from it."
+    echo "  Installed copy at ~/.claude/cgg-runtime/sync-manifest.json needs update."
+
+    # Auto-sync the manifest itself
+    CANONICAL_MANIFEST="${CGG_ROOT:-$ZONE_ROOT/canonical_developer/context-grapple-gun}/cgg-runtime/sync-manifest.json"
+    INSTALLED_MANIFEST="$HOME/.claude/cgg-runtime/sync-manifest.json"
+    if [ -f "$CANONICAL_MANIFEST" ]; then
+        mkdir -p "$(dirname "$INSTALLED_MANIFEST")"
+        cp "$CANONICAL_MANIFEST" "$INSTALLED_MANIFEST"
+        echo "  → manifest synced to installed location"
+    fi
+fi
+
 # Run auto-sync
 if [ -f "$SCRIPT_DIR/runtime-sync.py" ]; then
     RESULT=$(python3 "$SCRIPT_DIR/runtime-sync.py" auto-sync \
@@ -98,5 +123,25 @@ if [ -f "$SCRIPT_DIR/runtime-sync.py" ]; then
         --commit "$COMMIT_SHA" 2>&1) || true
     if [ -n "$RESULT" ]; then
         echo "$RESULT"
+    fi
+fi
+
+# ============================================================================
+# CANONICAL PARENT AWARENESS
+# If this commit is inside canonical_developer/ (a federation sub-estate),
+# the parent canonical/ repo now has dirty state from this commit's sync
+# effects. Flag it so the session knows to commit up.
+# ============================================================================
+
+if [ -n "$ZONE_ROOT" ] && [ -f "$ZONE_ROOT/.federation-root" ]; then
+    # We're in the federation repo — check if canonical_developer changes
+    # created drift that the parent should be aware of
+    PARENT_DIRTY=$(cd "$ZONE_ROOT" && git status --porcelain canonical_developer/ 2>/dev/null | head -1)
+    if [ -n "$PARENT_DIRTY" ]; then
+        SURFACE_COUNT=$(cd "$ZONE_ROOT" && git status --porcelain canonical_developer/ 2>/dev/null | wc -l | tr -d ' ')
+        echo "[post-commit-sync] canonical parent has ${SURFACE_COUNT} uncommitted change(s) from this commit's sync"
+        if [ "$MANIFEST_CHANGED" = true ]; then
+            echo "  ⚠ manifest changed — weighed surface definitions may have shifted"
+        fi
     fi
 fi

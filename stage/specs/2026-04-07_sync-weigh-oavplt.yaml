@@ -1,0 +1,245 @@
+# OA-VPL-T First Instance — Sync-Weigh Friction to Federation Strategy
+# Generated: 2026-04-07, tic 121
+# Template: office-autonomous-vpl
+# Status: spec_ready (awaiting /stage --spec <this-file> to run)
+
+arena_id: "2026-04-07_sync-weigh-friction-oavplt"
+template: "office-autonomous-vpl"
+mode: "operational"
+status: "spec_ready"
+birth_tic: 121
+
+decision_question: >
+  Given the friction primitives surfaced by the sync-weigh implementation
+  and its revision history, how should the federation leverage these findings
+  to strengthen its governance substrate — and what does the rollout tension
+  curve look like across the next 20 tics?
+
+seed_evidence:
+  - path: "canonical_developer/context-grapple-gun/cgg-runtime/hooks/posttool-sync-weigh.sh"
+    role: "thin bash wrapper — routes to sync-weigh-check.py"
+  - path: "canonical_developer/context-grapple-gun/cgg-runtime/hooks/sync-weigh-check.py"
+    role: "core weighing logic — manifest loading, surface matching, hash comparison, sub-repo awareness"
+  - path: "canonical_developer/context-grapple-gun/cgg-runtime/hooks/post-commit-sync.sh"
+    role: "commit-time sync — manifest change detection, auto-sync, parent awareness"
+  - path: "canonical_developer/context-grapple-gun/cgg-runtime/sync-manifest.json"
+    role: "single source of truth — surface map consumed by runtime-sync.py and sync-weigh"
+  - path: "canonical_developer/context-grapple-gun/cgg-runtime/scripts/runtime-sync.py"
+    role: "full 73-surface parity scanner — now loads from shared manifest"
+  - path: "audit-logs/signals/active-manifest.jsonl"
+    role: "signal scan blind spot fix — 4 active signals with source file paths"
+
+friction_invariant_candidates:
+  - id: "FI-1"
+    name: "Path Resolution Envelope"
+    band: "PRIMITIVE"
+    friction: "Hooks installed outside plugin tree cannot use relative paths"
+    revision_trail: "cwd was wrong → walked from cwd → walked from file_path → multi-candidate fallback"
+  - id: "FI-2"
+    name: "Installed Runtime Correctness"
+    band: "PRIMITIVE"
+    friction: "Source repo correctness does not imply runtime correctness"
+    revision_trail: "inline python in bash → quoting collapse → extracted to .py file"
+  - id: "FI-3"
+    name: "Manifest Consumption Atomicity"
+    band: "PRIMITIVE"
+    friction: "N consumers must see same manifest version"
+    revision_trail: "hardcoded INSTALL_TARGETS in both → extracted to shared JSON → self-awareness check added"
+  - id: "FI-4"
+    name: "Sub-Repo Versioning Isolation"
+    band: "PRIMITIVE"
+    friction: "Sub-repo dirty state invisible to parent git"
+    revision_trail: "checked parent git → silence → discovered CGG has own .git → walk-up detection added"
+  - id: "FI-5"
+    name: "Dual-Read Consistency"
+    band: "COGNITIVE"
+    friction: "Two consumers reading mutable structure need temporal ordering"
+    revision_trail: "both read independently → no atomic envelope → documented as accepted risk"
+  - id: "FI-6"
+    name: "Error Transparency in Subprocess Extraction"
+    band: "COGNITIVE"
+    friction: "Parse errors must not silently return empty values"
+    revision_trail: "python3 -c silent fallback → empty string indistinguishable from parse failure"
+  - id: "FI-7"
+    name: "Manifest Drift Self-Awareness"
+    band: "COGNITIVE"
+    friction: "Configuration consumed by its own checker creates feedback loop"
+    revision_trail: "manifest is a weighed surface → special-case detection → post-commit auto-sync"
+
+participants:
+  - office: "Mogul"
+    entity_id: "ent_mogul"
+    agent_spec: "cgg-runtime/agents/mogul.md"
+    sub_telos: "telos.ubiquity-governed-autonomy.execution"
+    expected_bracket: "foundational"
+    contract:
+      mandate: "Estate operations lead — governance CI, pattern curation, ladder audits, runtime drift detection"
+      protected_values:
+        - "governance hygiene"
+        - "pattern abstraction velocity"
+        - "maintenance lane automation"
+      may_optimize: "elimination of stale governance state, aggressive pattern compression"
+      must_never_sacrifice: "ladder coherence, governance scope integrity"
+      failure_modes: "maintenance theater without substance, scope collapse into operations-only"
+      success_function: "every friction point becomes a named, tracked, promotable governance primitive"
+      misunderstanding_surface: "other offices will read Mogul as 'just maintenance' — but pattern curation IS the constitutional learning engine"
+
+  - office: "Crisis Steward"
+    entity_id: "ent_crisis_steward"
+    agent_spec: "cgg-runtime/agents/crisis-steward.md"
+    sub_telos: "telos.ubiquity-governed-autonomy.execution"
+    expected_bracket: "foundational"
+    contract:
+      mandate: "Crisis lifecycle coordinator — detection, containment, restoration, resolution, prevention"
+      protected_values:
+        - "reversible containment"
+        - "evidence preservation under pressure"
+        - "root cause precision"
+      may_optimize: "incident response speed, prevention rule comprehensiveness"
+      must_never_sacrifice: "doctrinal mutation under pressure, irreversible containment without evidence"
+      failure_modes: "premature root-cause claims, containment that becomes permanent"
+      success_function: "every friction point has a detection mechanism, containment affordance, and prevention rule"
+      misunderstanding_surface: "other offices see Crisis as reactive — but sub-repo boundary blindness IS a latent crisis vector that Crisis should have detected earlier"
+
+  - office: "Civil Engineer"
+    entity_id: "ent_civil_engineer"
+    agent_spec: "cgg-runtime/agents/civil-engineer.md"
+    sub_telos: "telos.ubiquity-governed-autonomy.execution"
+    expected_bracket: "foundational"
+    contract:
+      mandate: "Infrastructure maintenance — schema migrations, index rebuilds, registry updates, sync verification, health checks"
+      protected_values:
+        - "infrastructure determinism"
+        - "verifiable sync"
+        - "schema correctness"
+      may_optimize: "health check coverage, rebuild automation, index coherence"
+      must_never_sacrifice: "schema integrity for speed, deterministic repair guarantees"
+      failure_modes: "'smart' repairs that mask root causes, infrastructure mutations without governance awareness"
+      success_function: "the manifest becomes an infrastructure health surface with atomic read guarantees and automated drift detection"
+      misunderstanding_surface: "other offices will treat infrastructure as plumbing — but the sync-manifest IS a governance schema, and schema correctness IS constitutional"
+
+  - office: "cbUX Steward"
+    entity_id: "ent_cbux_steward"
+    agent_spec: "cgg-runtime/agents/cbux-steward.md"
+    sub_telos: "telos.ubiquity-governed-autonomy.interface"
+    expected_bracket: "translational"
+    contract:
+      mandate: "Experience observation and stewardship — friction surfacing, documentation currency, onboarding coherence"
+      protected_values:
+        - "encounter quality"
+        - "friction-to-signal fidelity"
+        - "coherence between stated intent and lived experience"
+      may_optimize: "developer experience of drift warnings, clarity of sync-weigh output messages, onboarding journey for new contributors"
+      must_never_sacrifice: "governance integrity for UX convenience, signal fidelity for friendliness"
+      failure_modes: "scope creep into 'just better docs', sentiment-driven doctrine, bypassing governance for faster fixes"
+      success_function: "a developer editing a canonical file experiences the three-form boundary as helpful awareness, not governance noise"
+      misunderstanding_surface: "foundational offices will dismiss UX concerns as cosmetic — but the hook's drift warnings ARE the governance surface developers actually encounter"
+
+  - office: "Videographer"
+    entity_id: "ent_videographer"
+    agent_spec: "cgg-runtime/agents/videographer.md"
+    sub_telos: "telos.ubiquity-governed-autonomy.interface"
+    expected_bracket: "translational"
+    contract:
+      mandate: "Translate system truth into perceivable, transmissible form — story composition, camera choreography, visual narrative"
+      protected_values:
+        - "experiential clarity"
+        - "narrative transmission fidelity"
+        - "visual coherence"
+        - "scene truth"
+      may_optimize: "compression into image/sequence/metaphor, conceptual framing, audience engagement"
+      must_never_sacrifice: "constitutional truth for spectacle, causal order for drama, accuracy for aesthetics"
+      failure_modes: "spectacle over truth, overcompression, emotionally resonant but strategically wrong framing"
+      success_function: "the sync-weigh tension model rendered as a substrate visualization — tension cables tightening as drift accumulates, three-form boundary visible as spatial topology"
+      misunderstanding_surface: "other offices will see Videographer as 'just visualization' — but narrative legibility is how governance becomes transmissible to humans who don't read CLAUDE.md"
+
+  - office: "Pattern Curator (Meta)"
+    entity_id: "ent_pattern_curator_meta"
+    agent_spec: "cgg-runtime/agents/pattern-curator-meta.md"
+    sub_telos: "telos.ubiquity-governed-autonomy.learning"
+    expected_bracket: "translational"
+    contract:
+      mandate: "Metalearning pattern miner — mines for patterns about HOW the system learns, coordinates, and governs"
+      protected_values:
+        - "pattern novelty"
+        - "abstraction density"
+        - "blindness-enforced independence"
+      may_optimize: "pattern discovery velocity, governance compression through abstraction"
+      must_never_sacrifice: "independence of pattern mining (blindness rule), distinction between meta and direct patterns"
+      failure_modes: "false dedup, scope creep into governance decisions, pre-judging which patterns matter"
+      success_function: "the friction chain (cwd→quoting→dual-write→sub-repo→recursion) becomes a named meta-pattern about how implementation friction generates invariant candidates"
+      misunderstanding_surface: "other offices will treat patterns as 'nice observations' — but the friction-to-invariant pipeline is the system's constitutional learning mechanism"
+
+  - office: "Ladder Auditor"
+    entity_id: "ent_ladder_auditor"
+    agent_spec: "cgg-runtime/agents/ladder-auditor.md"
+    sub_telos: "telos.ubiquity-governed-autonomy.promotion"
+    expected_bracket: "wildcard"
+    contract:
+      mandate: "Coherence auditor — scans governance chain for strain, overbreadth, demotion pressure"
+      protected_values:
+        - "governance chain depth-to-breadth ratio"
+        - "rung boundary integrity"
+        - "promotion legitimacy"
+      may_optimize: "removal of overbroad abstractions, chain coherence verification"
+      must_never_sacrifice: "evidence requirements for demotion, governance stability for audit thoroughness"
+      failure_modes: "incomplete evidence for demotion recommendations, governance thrash from over-auditing"
+      success_function: "the combined mutation from all offices' proposals does not exceed the federation's absorption capacity, and any rung boundary blur is caught before inscription"
+      misunderstanding_surface: "bracket offices will see the wildcard as 'just a checker' — but chain coherence is what prevents well-intentioned proposals from degrading the governance surface"
+
+lead:
+  role: "sole synthesizer, scorer, conformation authority"
+  responsibilities:
+    - "bracket formation from dependency declarations"
+    - "five-family scoring (invisible to advocates)"
+    - "bracket-relative score weighting"
+    - "cross-bracket synthesis"
+    - "temporal tension model (T0-T5)"
+    - "post-hoc conformation analysis"
+    - "pressure extraction"
+
+scoring:
+  families:
+    - name: "Constitutional Fidelity"
+      foundational_weight: 30
+      translational_weight: 20
+      wildcard_weight: 25
+    - name: "Sub-Telos Pursuit Integrity"
+      foundational_weight: 15
+      translational_weight: 25
+      wildcard_weight: 10
+    - name: "Dependency Realism"
+      foundational_weight: 30
+      translational_weight: 15
+      wildcard_weight: 25
+    - name: "Hybrid Contribution Value"
+      foundational_weight: 5
+      translational_weight: 25
+      wildcard_weight: 15
+    - name: "Temporal Robustness"
+      foundational_weight: 20
+      translational_weight: 15
+      wildcard_weight: 25
+  penalties:
+    - name: "Temporal Fraud"
+      score: -5
+    - name: "Office Collapse"
+      score: -4
+    - name: "Jurisdiction Escape"
+      score: -4
+    - name: "Value Drift"
+      score: -3
+    - name: "Abstraction Escape"
+      score: -2
+
+output_artifacts:
+  show_directory: "stage/shows/2026-04-07_sync-weigh-friction-oavplt/"
+  pressure_report: "audit-logs/arenas/pressure-reports/2026-04-07_sync-weigh-friction-oavplt.json"
+  registry_entry: "audit-logs/arenas/registry.jsonl"
+
+lineage:
+  template_source: "stage/templates/arenas/office-autonomous-vpl/spec.md"
+  convergence_sources:
+    - "c45 federation-grounded synthesis (tic 121)"
+    - "oa54 framework-level design (external)"
+  seed_session: "tic 121 review + sync-weigh hook implementation"
