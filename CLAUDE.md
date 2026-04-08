@@ -374,6 +374,16 @@ Template: `stage/templates/arenas/value-lattice/spec.md`
 
 <!-- promoted from CogPR-116 merged with CogPR-113 + CogPR-115 (tic 118→119). Source: arena:federation-governance-shape-vpl — convergent. Wildcard found 3 composite tensions invisible to 12 bracket documents. Constitutional actors produced office-specific evidence unavailable to generic labels. First VPL run validated the geometry. Band: COGNITIVE. -->
 
+## Hook Path Resolution
+
+Hook scripts must discover zone root by walking up from the **edited file path**, not from `cwd`. Hooks execute in an arbitrary working directory set by the harness (often `~` or other external paths), not by the project. Using `os.getcwd()` or `$CLAUDE_PROJECT_DIR` as the primary zone root anchor silently fails when cwd is outside the federation tree. The file path (`$CLAUDE_FILE`)is the only reliable anchor to discover zone root via directory traversal.
+
+**Pattern:** Walk up from `$CLAUDE_FILE` looking for `.ticzone` or `audit-logs/`, not from `cwd`.
+
+**Failure mode:** Hook returned silence from `~/`; full output from `canonical/` — same input JSON, different cwd. Zone root resolution from file path walked up correctly in all 4 tests. Existing post-commit-sync.sh had the same latent bug masked by git commit always running from repo dir.
+
+<!-- promoted from CogPR-127 (tic 122→124). Source: session:sync-weigh-hook-tic-121. Zone root resolution validated walking up from file path in all test cases. -->
+
 ## Session Learning Protocol
 
 When you discover something during a session that constitutes a durable lesson — a friction point resolved, a non-obvious behavior confirmed, a workflow correction — capture it as a CogPR (Cognitive Pull Request).
