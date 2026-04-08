@@ -479,8 +479,12 @@ def emit_drift_signal(zone_root, drifted_surfaces, severity="detected_drift",
     date_str = now.strftime("%Y-%m-%d")
     signal_file = os.path.join(signal_dir, f"{date_str}.jsonl")
 
-    surface_names = [s["name"] for s in drifted_surfaces]
-    signal_id = f"sig_{now.strftime('%Y-%m-%dT%H:%MZ')}_{severity}_{len(drifted_surfaces)}"
+    surface_names = sorted(s["name"] for s in drifted_surfaces)
+    # Deterministic ID: derived from condition (severity + surfaces), not timestamp.
+    # Same condition across poll cycles resolves to same ID for dedup.
+    id_content = f"{severity}:{'|'.join(surface_names)}"
+    id_hash = hashlib.sha256(id_content.encode()).hexdigest()[:12]
+    signal_id = f"sig_{date_str}_{severity}_{id_hash}"
 
     # Unresolved drift after sync is more severe
     volume = 60 if severity == "unresolved_drift" else 45
@@ -531,6 +535,24 @@ def emit_drift_signal(zone_root, drifted_surfaces, severity="detected_drift",
                     f.write(json.dumps(signal, separators=(",", ":")) + "\n")
             finally:
                 fcntl.flock(lf.fileno(), fcntl.LOCK_UN)
+
+    # Auto-append to active-manifest.jsonl so Mogul signal scan sees it
+    manifest_path = os.path.join(signal_dir, "active-manifest.jsonl")
+    manifest_entry = {
+        "signal_id": signal_id,
+        "kind": "TENSION",
+        "band": "COGNITIVE",
+        "status": "active",
+        "volume": volume,
+        "source_file": os.path.relpath(signal_file, os.path.dirname(al_path)),
+        "summary": payload["summary"],
+    }
+    try:
+        from lib.atomic_append import atomic_append_jsonl
+        atomic_append_jsonl(str(manifest_path), manifest_entry)
+    except ImportError:
+        with open(manifest_path, "a", encoding="utf-8") as mf:
+            mf.write(json.dumps(manifest_entry, separators=(",", ":")) + "\n")
 
     return signal_id
 

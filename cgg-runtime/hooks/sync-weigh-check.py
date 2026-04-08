@@ -21,7 +21,8 @@ def main():
     try:
         data = json.load(sys.stdin)
         file_path = data.get('tool_input', {}).get('file_path', '')
-    except Exception:
+    except Exception as e:
+        print(f'[sync-weigh] stdin parse error: {e}', file=sys.stderr)
         return
 
     if not file_path:
