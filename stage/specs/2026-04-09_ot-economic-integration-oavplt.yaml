@@ -1,0 +1,185 @@
+id: "2026-04-09_ot-economic-integration-oavplt"
+title: "How should the federation wire OT's economic substrate into the visitor economy as a complementary jurisdiction with trust-optimized gated unlocks?"
+arena: office-autonomous-vpl-temporal
+arena_mode: operational
+status: pending
+template_ref: "stage/templates/arenas/office-autonomous-vpl/spec.md"
+created_at: "2026-04-09T01:00:00Z"
+created_tic: 125
+
+decision_context: |
+  The canonical federation's visitor economy (51 specs, 12 runtime engines, 35 audit surfaces)
+  is SPEC_COMPLETE and IMPLEMENTATION_PENDING. Separately, Operation Torque's economic layer
+  (Nautilus Swarm, ucoin, mint/burn, treasury, micro-ledger) is PRODUCTION-GRADE with 100+ tests
+  and Docker deployment.
+
+  A deep analysis (ot-economics-dump-tic125.md, 95 files, 25K lines) reveals:
+
+  STRONGEST ALIGNMENT (mechanical layer):
+  - Mint/burn maps to standing transitions (mint on promotion, 6 burn channels for demotion/decay/penalty)
+  - Treasury pipes model biome resource flow (with growth-function adaptation)
+  - Micro-ledger per-account balances track endorsement reputation stakes
+  - Economy-tick drives the biome's independent clock
+  - Economy whisper already emits CGG-compatible Siren signals
+  - Barometer 5-phase lifecycle maps to biome maturity stages
+
+  WEAKEST ALIGNMENT (semantic layer):
+  - Trading-domain assumptions (BTC price, Sharpe ratios, NFS from lexical contexts)
+  - Fixed 128-agent population vs dynamic visitor arrivals/departures
+  - Aggregate trust scoring vs per-visitor trust_score
+  - Single-engine authority (Foreman) vs distributed multi-tic governance (CGG)
+
+  THREE INDEPENDENT ECONOMIC ENGINES EXIST:
+  1. Nautilus Swarm — 128-agent trading engine with ucoin (Rust, production)
+  2. Ruvector CRDT Ledger — P2P credit system with stake/slash (Rust/WASM, production)
+  3. Agent-Zero Economy — ambient whisper + foreman tool (Python, production)
+
+  THE CONSTITUTIONAL QUESTION:
+  How do we wire OT's economic substrate into the Telos visitor economy such that:
+  (a) trust-optimized dissonance-holding autonomy expands via gated unlocks
+  (b) the abstraction ladder and centroid ray model is motivated and operational
+  (c) the economic layer is COMPLEMENTARY to existing governance (not replacing it)
+  (d) the integration starts at the best surfaces and extends over the entire loop set
+  (e) the Volatility Handling Law applies (OT economy = external volatile surface from canonical's perspective)
+
+  This is NOT "should we integrate?" — the architect has authorized integration.
+  The question is HOW — at what boundaries, with what adapters, through what gates,
+  in what sequence, and with what rollback velocity.
+
+seed_evidence:
+  primary:
+    - path: "audit-logs/agent-mailboxes/ent_breyden/inbound/ot-economics-dump-tic125.md"
+      description: "95-file OT economic layer dump — Nautilus, ucoin, mint/burn, treasury, ledger, whisper, ruvector"
+    - path: "audit-logs/agent-mailboxes/ent_breyden/inbound/telos-complete-dump-tic125.md"
+      description: "116-file complete Telos visitor economy dump — specs, runtime, audit, publications, memos"
+  doctrine:
+    - path: "canonical/CLAUDE.md"
+      description: "Federation Key Invariants (observation-at-declared-boundaries, volatility handling, rollback velocity)"
+    - path: "autonomous_kernel/entity-ontology.md"
+      description: "Visitor visa lifecycle, trust_score as derivation input, standing mapping"
+    - path: "autonomous_kernel/standing-progression-spec.md"
+      description: "Trust computation, behavioral diversity, endorsement mechanics"
+    - path: "autonomous_kernel/pen-pal-cache-spec.md"
+      description: "Collaborative knowledge cache with trust-tier write gating"
+    - path: "autonomous_kernel/biome-simulation-spec.md"
+      description: "Physarum/Lichen simulation with energy conservation and monopoly prevention"
+    - path: "autonomous_kernel/border-stack-spec.md"
+      description: "7-layer border enforcement (integration boundary)"
+    - path: "autonomous_kernel/harpoon-orchestrator-spec.md"
+      description: "Routing brain with arena-backed admission"
+    - path: "autonomous_kernel/local-sovereign-lane-spec.md"
+      description: "No-egress primary mode (sovereignty constraint)"
+    - path: "autonomous_kernel/citizenization-policy.md"
+      description: "How mount outputs enter citizen lifecycle"
+
+harpoon_context: |
+  This arena operates in HARPOON-DRIVEN mode. The OT economic dump IS the harpoon target.
+  Each office must assess the target through its jurisdictional lens and identify:
+  - ANCHOR SPOTS: OT primitives that align with federation doctrine (winch in as-is)
+  - WINCH POINTS: Integration surfaces where OT mechanics mount into federation infrastructure
+  - ADAPTATION CANDIDATES: OT patterns needing transformation before federation compatibility
+  - REJECTION ZONES: OT assumptions that contradict federation invariants (do not winch)
+  - GATED UNLOCKS: Capabilities that become available as trust/maturity thresholds are crossed
+
+  The harpoon's guiding principle: "The economic layer must be complementary to governance,
+  not a replacement. Trust-optimized means the system expands capability as trust is earned,
+  not as features are built."
+
+actors:
+  - entity_id: ent_mogul
+    office: "Mogul"
+    mandate_lens: "Governance heartbeat integration — how does OT's economy-tick become the visitor economy's governance clock? Where do mint/burn events route through mandate cycles? How does the Barometer's phase machine complement existing cadence?"
+    harpoon_focus: "economy-tick, Barometer lifecycle, mandate cycle integration, cache_refresh economics"
+
+  - entity_id: ent_crisis_steward
+    office: "Crisis Steward"
+    mandate_lens: "Economic containment — what happens when the economic layer fails? Cache poisoning with economic incentive. Mint runaway. Burn cascade. Treasury drain. What wire-cuts exist for economic emergency? How does the 6-channel burn map to containment levels?"
+    harpoon_focus: "burn manifold as containment, treasury reserve ratio as health signal, economic circuit breaker as wire-cut"
+
+  - entity_id: ent_ladder_auditor
+    office: "Ladder Auditor"
+    mandate_lens: "Standing-economic coherence — how does ucoin balance map to trust_score without creating a plutocracy? The abstraction ladder: visitor → tourist → student → resident → citizen, each unlock gated by trust AND economic contribution. Centroid ray model: each standing tier has an economic centroid, and progression means your economic behavior converges toward the next tier's centroid."
+    harpoon_focus: "NanoUCoin-to-trust_score mapping, gated unlock sequence, micro-ledger AccountKind mapping to standing tiers, immune flags for permanent residents"
+
+  - entity_id: ent_civil_engineer
+    office: "Civil Engineer"
+    mandate_lens: "Infrastructure integration — SQLite WAL vs federation audit-logs, Foreman single-engine vs distributed tics, Rust crate deployment alongside Python runtime. Schema migration path. What runs where? What calls what? Docker topology."
+    harpoon_focus: "ledger deployment model, economy-tick hosting, micro-ledger schema adaptation, audit surface bridging"
+
+  - entity_id: ent_cbux_steward
+    office: "CollabUX Steward"
+    mandate_lens: "Visitor experience of economics — how does a visitor FEEL the economic layer? Is it ambient (like economy whisper) or explicit? Does the biome's physics already teach economic lessons (energy conservation = don't overspend, monopoly prevention = diversify)? The economy should be experienced, not explained."
+    harpoon_focus: "economy whisper as visitor ambient context, biome physics as economic metaphor, trust progression as felt economic growth"
+
+  - entity_id: ent_prevention_architect
+    office: "Prevention Architect"
+    mandate_lens: "Economic invariant design — what invariants must hold for the economic layer to be safe? INV-ECON-01: No plutocracy (economic power ≠ governance power). INV-ECON-02: Burn cannot destroy standing (burns affect economic balance, not political membership). INV-ECON-03: Mint cannot bypass review gates."
+    harpoon_focus: "economic invariants, burn/standing separation, mint/governance gate, reserve ratio as constitutional floor"
+
+  - entity_id: ent_ladder_auditor
+    office: "Ladder Auditor (Wildcard)"
+    role: wildcard
+    mandate_lens: "Chain coherence across ALL brackets — where do the foundational and translational brackets contradict each other? What composite tensions emerge when you wire economic infrastructure into governance experience? The wildcard finds what bracket isolation hides."
+    harpoon_focus: "composite tension at economic-governance boundary, abstraction ladder coherence, gated unlock sequencing conflicts"
+
+expected_brackets:
+  foundational:
+    question: "What economic infrastructure must be true before any visitor sees economic signals?"
+    expected_offices: [ent_mogul, ent_crisis_steward, ent_civil_engineer, ent_prevention_architect]
+    dependencies: "none — this bracket establishes the floor"
+
+  translational:
+    question: "How does the economic substrate become a visitor experience and a governance complement?"
+    expected_offices: [ent_ladder_auditor, ent_cbux_steward]
+    dependencies: "foundational bracket must resolve infrastructure choices first"
+
+  wildcard:
+    question: "What composite tensions are invisible from inside either bracket?"
+    expected_offices: [ent_ladder_auditor]
+    dependencies: "both brackets must complete"
+
+temporal_windows:
+  T0_immediate: "L5 adapter: economy whisper reads OT Foreman, emits CGG signals. Read-only observation bridge."
+  T1_short: "Per-visitor micro-ledger accounts. Mint on contribution, demurrage on inactivity. trust_score derived from balance trajectory."
+  T2_medium: "Endorsement reputation staking via locked_stake_nano. Burn channels wired to demotion mechanics. Treasury pipes model biome resource flow."
+  T3_long: "Divergence tokens for behavioral diversity incentive. Challenge mechanism for cache write verification. Exchange architecture for cross-federation economics."
+  T4_mature: "Ruvector CRDT ledger for P2P cross-federation credit. Ambassador-mediated economic diplomacy. Seasonal economics (Barometer phases = biome seasons)."
+  T5_asymptotic: "Full loop-set integration: every governance surface has an economic signal. Every economic event has a governance consequence. Trust-optimized autonomy: the more you earn trust, the more economic freedom you unlock."
+
+constraints:
+  - "Volatility Handling Law applies — OT economy is externally controlled volatile surface"
+  - "Observation-at-declared-boundaries is the integration model (not schema normalization)"
+  - "No plutocracy — economic balance informs but does not determine standing"
+  - "Rollback velocity must exceed attachment velocity — drill rollback before deepening integration"
+  - "Physics-not-instruction — economic lessons taught through biome consequence, not balance display"
+  - "Complementary jurisdiction — OT and canonical are observation peers, not merged systems"
+
+output_artifacts:
+  - type: "harpoon_manifest"
+    description: "Tiered manifest: ANCHOR (winch as-is), ADAPT (transform first), DEFER (not ready), REJECT (contradicts doctrine)"
+  - type: "adapter_spec"
+    description: "L5 adapter specification for OT economy → canonical governance bridge"
+  - type: "gated_unlock_sequence"
+    description: "Trust-gated capability unlock ladder: what economic features activate at each standing tier"
+  - type: "economic_invariant_set"
+    description: "INV-ECON-* invariants proposed for federation doctrine"
+  - type: "temporal_tension_forecast"
+    description: "Predicted tension curve across T0-T5 integration windows"
+  - type: "rollback_drill_design"
+    description: "Proof obligation: demonstrate rollback at each integration depth"
+
+budget:
+  advocates: 6
+  phases: 10
+  estimated_tasks: 45
+  lead_context_ceiling: "250K tokens"
+  regime: LIBERAL
+
+show_spec:
+  title: "Economic Substrate Integration — OA-VPL-T Arena"
+  geometry: "OA-VPL-T (Office-Autonomous Value-Position Lattice with Temporal Modeling)"
+  seed: "OT economic dump (95 files) + Telos visitor economy (116 files)"
+  question: "How to wire OT economics into visitor economy with trust-gated unlocks and complementary jurisdiction?"
+  actors: 7
+  brackets: 3
+  temporal_windows: 6
