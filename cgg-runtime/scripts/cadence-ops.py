@@ -390,6 +390,7 @@ def compute_due_cycles(tic: int) -> list:
 
     if tic % 3 == 0:
         cycles.append("memory_mining")
+        cycles.append("cache_refresh")
     if tic % 4 == 0:
         cycles.append("pattern_mining")
     if tic % 5 == 0:

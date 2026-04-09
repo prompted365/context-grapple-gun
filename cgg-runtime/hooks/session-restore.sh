@@ -324,6 +324,7 @@ if has_prev_context:
     # Schedule-driven: use due_tic values from previous mandate
     due_map = {
         'memory_mining': 'memory_mining_due_tic',
+        'cache_refresh': 'cache_refresh_due_tic',
         'pattern_mining': 'pattern_mining_due_tic',
         'ladder_audit': 'ladder_audit_due_tic',
         'deep_audit': 'deep_audit_due_tic',
@@ -334,7 +335,7 @@ if has_prev_context:
             base_cycles.append(cycle)
 else:
     # ── Fallback: modulo-based defaults (no previous context) ──
-    if tic % 3 == 0: base_cycles.append('memory_mining')
+    if tic % 3 == 0: base_cycles.append('memory_mining'); base_cycles.append('cache_refresh')
     if tic % 4 == 0: base_cycles.append('pattern_mining')
     if tic % 5 == 0: base_cycles.extend(['ladder_audit', 'runtime_drift_check'])
     if tic % 8 == 0: base_cycles.append('deep_audit')
@@ -373,6 +374,7 @@ body = {
     'cycle_request': {'run_now': list(set(cycles)), 'reason': f'SessionStart at tic {tic}'},
     'tic_context': {'current_tic': tic, 'review_due_tic': tic+1,
         'memory_mining_due_tic': tic+(3-tic%3) if tic%3!=0 else tic+3,
+        'cache_refresh_due_tic': tic+(3-tic%3) if tic%3!=0 else tic+3,
         'pattern_mining_due_tic': tic+(4-tic%4) if tic%4!=0 else tic+4,
         'ladder_audit_due_tic': tic+(5-tic%5) if tic%5!=0 else tic+5,
         'deep_audit_due_tic': tic+(8-tic%8) if tic%8!=0 else tic+8},
@@ -467,6 +469,7 @@ mandate = {
     'trigger': {'kind': 'session_start', 'source_ref': 'cgg-runtime/hooks/session-restore.sh'},
     'tic_context': {'current_tic': tic, 'review_due_tic': tic+1,
         'memory_mining_due_tic': tic+(3-tic%3) if tic%3!=0 else tic+3,
+        'cache_refresh_due_tic': tic+(3-tic%3) if tic%3!=0 else tic+3,
         'pattern_mining_due_tic': tic+(4-tic%4) if tic%4!=0 else tic+4,
         'ladder_audit_due_tic': tic+(5-tic%5) if tic%5!=0 else tic+5,
         'deep_audit_due_tic': tic+(8-tic%8) if tic%8!=0 else tic+8},

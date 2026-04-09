@@ -250,6 +250,11 @@ def ingest_candidate_cogprs(
 
     minted = []
     for i, candidate in enumerate(candidates):
+        # Type guard: candidate may be a bare string instead of dict
+        if isinstance(candidate, str):
+            candidate = {"lesson": candidate, "confidence_tier": "unknown", "lesson_type": "unknown"}
+        elif not isinstance(candidate, dict):
+            continue
         lesson = candidate.get("lesson", "")
         if not lesson:
             continue
