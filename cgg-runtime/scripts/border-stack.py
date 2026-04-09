@@ -57,6 +57,30 @@ except ImportError:
 
 
 # ---------------------------------------------------------------------------
+# CONFIG — PROVISIONAL thresholds (per CogPR-46, no calibration evidence)
+# ---------------------------------------------------------------------------
+CONFIG = {
+    # L1 Transport: egress posture enforcement
+    "egress_postures": ["SEALED", "SCOPED", "OPEN"],              # PROVISIONAL
+    # L3 Identity: minimum standing per operation
+    "min_standing_inference_local": "student",                      # PROVISIONAL
+    "min_standing_inference_remote": "student",                     # PROVISIONAL
+    "min_standing_cache_read": "guest",                             # PROVISIONAL
+    "min_standing_cache_write": "student",                          # PROVISIONAL
+    "min_standing_cache_purge": "citizen",                          # PROVISIONAL
+    "min_standing_execution_route": "student",                      # PROVISIONAL
+    "min_standing_execution_challenge": "student",                  # PROVISIONAL
+    # L4 Cache: trust-tier hierarchy
+    "trust_tiers": ["sovereign", "constitutional", "municipal_utility"],  # PROVISIONAL
+    # L5 Callback: signature verification
+    "callback_signature_required": True,                            # PROVISIONAL
+    # L6 Artifact classification: governance-significant envelope types
+    "governance_significant_types": ["contamination.notice", "route.challenge"],  # PROVISIONAL
+    # L7 Citizenization: lineage verification required
+    "citizenization_lineage_required": True,                        # PROVISIONAL
+}
+
+# ---------------------------------------------------------------------------
 # Envelope type catalog (from envelopes.yaml)
 # ---------------------------------------------------------------------------
 
