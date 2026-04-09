@@ -194,6 +194,7 @@ $MANDATE_CONTENT
    - ladder_audit: audit CLAUDE.md chain coherence
    - runtime_drift_check: compare installed vs canonical runtime surfaces
    - prompt_stack_audit: run scripts/prompt-stack-audit.py, scan CLAUDE.md chain for conflicts
+   - cache_refresh: run \$ZONE_ROOT/vendor/context-grapple-gun/cgg-runtime/scripts/visitor-economy-monitor.py --cache-refresh \$TIC, report cache state + standing decay + biome health
    - deep_audit: comprehensive multi-rung scan
    - bench_packet_prep: run scripts/bench-packet-prep.py, output to audit-logs/mogul/bench-packets/
    - review_close_check: run scripts/review-close-check.py, verify post-review inscription consistency
@@ -395,6 +396,26 @@ print('yes' if 'enrichment_scan' in r.get('results', {}) else 'no')
         fi
         if [ "$RCC_COUNT" -eq 0 ]; then
           ARTIFACT_ERRORS="${ARTIFACT_ERRORS}review_close_check: no consistency report produced. "
+        fi
+        ;;
+      cache_refresh)
+        # Verify cache_refresh produced a cache-state artifact
+        CACHE_STATE_DIR="$AUDIT_LOGS/biome/pen-pal-cache/state-artifacts"
+        if [ -d "$CACHE_STATE_DIR" ]; then
+          CACHE_ARTIFACT_COUNT=$(find "$CACHE_STATE_DIR" -name "*-cache-state.json" -newer "$MANDATE_FILE" 2>/dev/null | wc -l | tr -d ' ')
+        else
+          CACHE_ARTIFACT_COUNT=0
+        fi
+        # Cache may be empty (valid) — check structured report has cache_refresh in results
+        if [ -f "$STRUCTURED_REPORT" ]; then
+          HAS_CACHE_RESULT=$(python3 -c "
+import json
+r = json.load(open('$STRUCTURED_REPORT'))
+print('yes' if 'cache_refresh' in r.get('results', {}) else 'no')
+" 2>/dev/null)
+          if [ "$HAS_CACHE_RESULT" != "yes" ]; then
+            ARTIFACT_ERRORS="${ARTIFACT_ERRORS}cache_refresh: not in structured report results. "
+          fi
         fi
         ;;
       queue_refresh|signal_scan|memory_mining|ladder_audit|runtime_drift_check|deep_audit)
