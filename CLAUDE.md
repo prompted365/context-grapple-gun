@@ -539,3 +539,9 @@ Write complete spec surface BEFORE launching implementation agents. Agents read 
 Validated at scale: 13 spec tranches → 12 implementation engines, 86/86 artifacts verified correct.
 
 <!-- promoted from CogPR-135 (tic 125→128). Source: session:tic-125 megabuild. Evidence: largest implementation session in federation history — 13 tranches, 12 engines, 86/86 verified. Distinct from global "authoritative appendices" guidance — this is about temporal ordering of spec authoring vs agent spawning. Band: COGNITIVE. -->
+
+## Composite Mutation Assessment at LEAD Level
+
+CogPR-117 (composite mutation scheduling) is systematically invisible to advocate-level reasoning in governed arenas. Offices assess their own constitutional surface changes individually but never assess the composite. The wildcard chain coherence mechanism is the only reliable detection surface. Composite assessment must be enforced at LEAD/synthesis level as a mandatory Phase 6 deliverable, not left to advocate initiative.
+
+<!-- promoted from CogPR-140 (tic 126→130). Source: arena:2026-04-09_ot-economic-integration-oavplt. Note: CD-5. Convergent: wildcard found, confirmed by conformation analysis (dead zone classification). Band: COGNITIVE. -->
