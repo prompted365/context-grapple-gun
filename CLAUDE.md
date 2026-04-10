@@ -477,3 +477,65 @@ For persistent conditions that need tracking, emit signals to `audit-logs/signal
 ### Topology
 
 Run `cgg-doctor.sh` from your project root to see your governance topology.
+
+## Bash-Python Quoting Collapse
+
+Inline Python in bash heredoc (`python3 -c "..."`) silently breaks when the Python code contains triple-quoted docstrings — bash C-style quoting (`$'...'`) mangles triple quotes into string terminators. The fix is to extract Python logic to a separate `.py` file and have the bash hook invoke it. This is a syntax-semantic collapse vector specific to hook authoring: bash and Python have incompatible quoting semantics that produce silent failures (no error, no output, exit 0 under `set -e`).
+
+**Pattern**: When a hook needs non-trivial Python logic, write a `.py` file and call it from bash — never inline Python with heredoc or `-c` quoting.
+
+<!-- promoted from CogPR-126 (tic 122→128). Source: session:sync-weigh-hook-tic-121. Evidence: bash -x trace showed $'Count' uncommitted' — triple-quote docstring mangled. Hook produced exit 0 with no output. Fixed by extracting to sync-weigh-check.py. Supports syntax-semantic collapse doctrine (canonical/CLAUDE.md). Band: COGNITIVE. -->
+
+## OA-VPL-T Arena Geometry
+
+OA-VPL-T (Office-Autonomous Value-Position Lattice with Temporal Modeling) is the 8th arena geometry template. Founding principle: **friction is evidence of hidden constitutional structure** — the revision trail from implementation friction is the excavation trail of the invariant stack. Key innovations: Phase 0a/0b (offices derive positions from mandate, not assigned labels), dependency-emergent brackets, and T0-T5 temporal tension modeling with Temporal Fraud as highest penalty.
+
+Template: `stage/templates/arenas/office-autonomous-vpl/spec.md`
+
+<!-- promoted from CogPR-128 (tic 122→128). Source: session:oavplt-design-tic-121. Evidence: convergence synthesis between c45 (federation-grounded) and oa54 (framework-level). Validated by 2 arena instances (sync-weigh + OT-integration). Refines arena template system, supports CogPR-112 (opposing-values geometry). Band: COGNITIVE. -->
+
+## Install Boundary as Governance Transition
+
+The forge→runtime install boundary (`canonical_developer/` → `~/.claude/`) is a first-class governance transition, not merely a file copy. Properties valid at the forge (syntax correctness, test passage, manifest consistency) are not automatically valid at the runtime. Derived constraints of this transition include: manifest atomicity, dual-read consistency, error transparency, and recursive self-observation. One structural anchor with derived rules is a tighter promotion footprint than independent inscriptions for each derived constraint.
+
+This refines the Three-Form CGG Boundary (canonical/CLAUDE.md) with an operational principle: the install boundary is where governance properties must be re-verified, not assumed.
+
+<!-- promoted from CogPR-130 (tic 122→128). Source: arena:sync-weigh-friction-oavplt — 5/7 office convergence. Ladder Auditor structural anchor framing validated. DIRECT-D enrichment: one structural anchor with derived rules is a tighter promotion footprint than seven independent inscriptions. Band: COGNITIVE. -->
+
+## Detection Affordance Tracking
+
+Promoted invariants should carry `detection_affordance` metadata tracking whether a detection mechanism exists. This is advisory at review time, not a blocking gate. Entries marked `"pending"` generate queue-refresh follow-up obligations. The metadata tracks the gap between inscription and enforcement — an invariant without a detection mechanism is a mandate without mechanism (F-2 pattern).
+
+Format in promotion comments: `detection_affordance: active|pending|none`
+
+<!-- promoted from CogPR-131 (tic 122→128). Source: arena:sync-weigh-friction-oavplt — 6/7 office convergence. Extends enforcement integrity (CogPR-100). Resolves the monitored-invariant concept: advisory question at review + metadata flag + follow-up obligation. Band: COGNITIVE. -->
+
+## Friction-to-Invariant Pipeline
+
+Implementation friction generates invariant candidates through a recurring pipeline: friction → debugging → root cause → candidate → naming → promotion. The pipeline itself is a governance primitive — friction density predicts candidate generation rate. The sync-weigh implementation produced 7 friction invariant candidates from one implementation, validating the pattern. The constitutional learning is the pipeline shape, not the individual candidates it produces.
+
+<!-- promoted from CogPR-132 (tic 122→128). Source: arena:sync-weigh-friction-oavplt — Pattern Curator Meta primary, Bracket B convergence, 5/7 office agreement. Meta-process observation about how arenas discover invariants. Band: COGNITIVE. -->
+
+## Recursive Self-Observation
+
+When a governance configuration surface is consumed by the mechanism it governs, the system exhibits recursive self-observation — the observer observing itself. This is constitutionally distinct from linear enforcement (CogPR-100): enforcement integrity addresses distributed layers detecting distinct failure modes, while recursive self-observation addresses a single mechanism that is both enforcer and governed surface. Non-derivability from CogPR-100 confirmed — these are structurally different phenomena.
+
+Live evidence: `sync-manifest.json` consumed by `sync-weigh-check.py` which checks manifest drift; `active-manifest.jsonl` created as fix for signal scan blind spot.
+
+CGG scope — promote to federation if second subsystem instantiation emerges.
+
+<!-- promoted from CogPR-133 (tic 122→128). Source: arena:sync-weigh-friction-oavplt — triple convergence (Pattern Curator Meta, cbUX, Videographer). Non-derivability vs CogPR-100 adjudicated: PASS. Resolves sig_2026-04-08_arena_fi7_nonderivability_open. Band: COGNITIVE. -->
+
+## Encounter Quality Upstream of Signals
+
+The governance encounter surface (hook output at edit time) is constitutionally upstream of signal infrastructure. If the encounter fails — silent hook, wrong path resolution, ambiguous output — the governance signal never fires. The manifold's health depends on encounter surface reliability. A silent exit-0 does not just frustrate the developer — it blinds the governance layer. Encounter quality is a load-bearing governance component, not a UX convenience.
+
+<!-- promoted from CogPR-134 (tic 122→128). Source: arena:sync-weigh-friction-oavplt — reinforced across 3 arena offices (cbUX primary, Videographer + Pattern Curator Meta supporting). Crisis Steward's 2305-duplicate incident as causal evidence. Complements CogPR-130 (install boundary anchor). Band: COGNITIVE. -->
+
+## Spec-First Parallel Swarm
+
+Write complete spec surface BEFORE launching implementation agents. Agents read specs as their constitution — the spec is the agent's mandate, not a reference document. This eliminates the headless subagent curation problem (documented in global CLAUDE.md "Headless Subagent Delegation") by making the spec authoritative rather than relying on inline appendices. The temporal ordering is load-bearing: spec authoring must complete before agent spawning begins.
+
+Validated at scale: 13 spec tranches → 12 implementation engines, 86/86 artifacts verified correct.
+
+<!-- promoted from CogPR-135 (tic 125→128). Source: session:tic-125 megabuild. Evidence: largest implementation session in federation history — 13 tranches, 12 engines, 86/86 verified. Distinct from global "authoritative appendices" guidance — this is about temporal ordering of spec authoring vs agent spawning. Band: COGNITIVE. -->

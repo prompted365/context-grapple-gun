@@ -358,6 +358,29 @@ def visitor_census(zone_root=None):
 # 5. Full Cycle (all operations)
 # ---------------------------------------------------------------------------
 
+def economy_observation(zone_root=None):
+    """Run economy bridge observation cycle.
+
+    Fetches OT economic state via Foreman API, emits governance signals
+    and rendering whispers. Returns observation envelope.
+    """
+    try:
+        import importlib.util
+        spec = importlib.util.spec_from_file_location(
+            "economy_bridge_adapter",
+            os.path.join(SCRIPT_DIR, "economy-bridge-adapter.py"))
+        eba = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(eba)
+        return eba.observe()
+    except Exception as e:
+        return {
+            "operation": "economy_observation",
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "status": "error",
+            "error": str(e),
+        }
+
+
 def full_cycle(tic, zone_root=None):
     """Run all visitor economy monitoring operations.
 
@@ -368,6 +391,7 @@ def full_cycle(tic, zone_root=None):
     results["standing_decay"] = standing_decay_check(zone_root)
     results["biome_health"] = biome_health_check(zone_root)
     results["census"] = visitor_census(zone_root)
+    results["economy_observation"] = economy_observation(zone_root)
     return results
 
 
@@ -388,6 +412,8 @@ def main():
                        help="Run biome health check")
     group.add_argument("--census", action="store_true",
                        help="Run visitor census")
+    group.add_argument("--economy", action="store_true",
+                       help="Run economy bridge observation cycle")
     group.add_argument("--full-cycle", type=int, metavar="TIC",
                        help="Run all operations for given tic")
 
@@ -406,6 +432,8 @@ def main():
         result = biome_health_check(zr)
     elif args.census:
         result = visitor_census(zr)
+    elif args.economy:
+        result = economy_observation(zr)
     elif args.full_cycle is not None:
         result = full_cycle(args.full_cycle, zr)
     else:
