@@ -671,6 +671,13 @@ fi
 [ -n "$CRISIS_MSG" ] && FULL_MSG="${FULL_MSG:+$FULL_MSG }$CRISIS_MSG"
 [ "$TIC_COUNT" -gt 0 ] && FULL_MSG="${FULL_MSG:+$FULL_MSG }[TIC: #$TIC_COUNT]"
 
+# ── Handoff consumption protocol hint (versioned, structural) ──
+# Appended when a cadence handoff is detected. Tells the consuming session
+# how to treat the Next Actions — not memory-dependent, injected with the data.
+if [ -n "$LATEST_PLAN" ]; then
+  FULL_MSG="$FULL_MSG [CGG CONSUMPTION PROTOCOL v1: Next Actions from the prior handoff are your primary work queue. (1) Consume the Mogul mandate first as governance overhead — report compactly. (2) Surface the Next Actions as a numbered TODO in your first substantive response. (3) Verify each item against current state before executing — items may already be completed. (4) Incomplete items carry forward to the next handoff. The mandate is not the session's purpose — the Next Actions are.]"
+fi
+
 if [ -n "$FULL_MSG" ]; then
   echo "{\"hookSpecificOutput\":{\"hookEventName\":\"SessionStart\",\"additionalContext\":\"$FULL_MSG\"}}"
 fi
