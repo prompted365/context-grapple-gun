@@ -206,8 +206,8 @@ def seed_biome_state(cohort, zone_root):
         for i in range(len(nids)):
             for j in range(i + 1, len(nids)):
                 edges.append({
-                    "source": nids[i],
-                    "target": nids[j],
+                    "source_node": nids[i],
+                    "target_node": nids[j],
                     "weight": 1.0,
                     "edge_type": edge_types[0],
                     "age": 0,
