@@ -289,24 +289,38 @@ def write_conformation(zone_root: str, tic_count: int, tic_timestamp: str,
 
     now = datetime.now(timezone.utc)
 
-    # Load signal state
+    # Load signal state from active-manifest.jsonl (authoritative source).
+    # Daily signal logs contain raw emissions with mixed schemas; the manifest
+    # is the curated, deduplicated truth for active/resolved state.
     signal_dir = os.path.join(al, "signals")
-    all_signals = load_latest_per_id(signal_dir, type_filter="signal")
-    all_warrants = load_latest_per_id(signal_dir, type_filter="warrant")
+    manifest_path = os.path.join(signal_dir, "active-manifest.jsonl")
+    manifest_entries = []
+    if os.path.isfile(manifest_path):
+        for line in Path(manifest_path).read_text(encoding="utf-8").splitlines():
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                manifest_entries.append(json.loads(line))
+            except json.JSONDecodeError:
+                continue
 
     active_signal_statuses = {"active", "acknowledged", "working"}
     active_signals = [
         {
-            "id": s.get("id"),
+            "id": s.get("signal_id", s.get("id", "")),
             "kind": s.get("kind", ""),
             "band": s.get("band", ""),
             "volume": s.get("volume", 0),
             "status": s.get("status", ""),
             "subsystem": s.get("subsystem", ""),
         }
-        for s in all_signals.values()
+        for s in manifest_entries
         if s.get("status") in active_signal_statuses
     ]
+
+    # Warrants: still scan daily logs (no manifest yet for warrants)
+    all_warrants = load_latest_per_id(signal_dir, type_filter="warrant")
     active_warrants = [
         {
             "id": w.get("id"),

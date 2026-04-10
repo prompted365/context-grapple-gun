@@ -570,29 +570,38 @@ SIGNAL_DIR="$AUDIT_LOGS/signals"
 SIREN_MSG=""
 if [ -d "$SIGNAL_DIR" ]; then
   SIREN_MSG=$(python3 -c "
-import json, glob, sys
-signals = {}
+import json, os, glob, sys
+# Source signals from active-manifest.jsonl (authoritative curated truth).
+# Daily logs contain raw emissions with mixed schemas; the manifest is deduplicated.
+manifest = os.path.join('$SIGNAL_DIR', 'active-manifest.jsonl')
+signals = []
+if os.path.isfile(manifest):
+    for line in open(manifest):
+        try:
+            d = json.loads(line)
+            signals.append(d)
+        except: pass
+# Warrants: still scan daily logs (no manifest yet)
 warrants = {}
 for f in sorted(glob.glob('$SIGNAL_DIR/*.jsonl')):
+    if os.path.basename(f) == 'active-manifest.jsonl': continue
     for line in open(f):
         try:
             d = json.loads(line)
             eid = d.get('id', '')
             if not eid: continue
-            if d.get('type') == 'signal':
-                signals[eid] = d
-            elif d.get('type') == 'warrant':
+            if d.get('type') == 'warrant':
                 warrants[eid] = d
         except: pass
-# Signals never expire — only count active/acknowledged/working
-active_sigs = [s for s in signals.values() if s.get('status') in ('active','acknowledged','working')]
+active_sigs = [s for s in signals if s.get('status') in ('active','acknowledged','working')]
 active_wrns = [w for w in warrants.values() if w.get('status') in ('active','acknowledged')]
 if not active_sigs and not active_wrns:
     sys.exit(0)
 loudest = max(active_sigs, key=lambda s: s.get('volume',0), default=None)
 parts = ['[SIREN: %d active signals, %d active warrants.' % (len(active_sigs), len(active_wrns))]
 if loudest:
-    parts.append('Loudest: %s (volume=%s, band=%s).' % (loudest.get('id','?'), loudest.get('volume',0), loudest.get('band','?')))
+    sid = loudest.get('signal_id', loudest.get('id','?'))
+    parts.append('Loudest: %s (volume=%s, band=%s).' % (sid, loudest.get('volume',0), loudest.get('band','?')))
 parts.append('/siren when ready.]')
 print(' '.join(parts))
 " 2>/dev/null || true)
