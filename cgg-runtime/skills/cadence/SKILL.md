@@ -294,6 +294,27 @@ The ripple-assessor runs HEADLESS on next session start (background, non-blockin
 
 ---
 
+## Handoff Consumption Protocol
+
+When a new session receives a handoff plan (via `implement_plan` or plan-mode exit), the **Next Actions** section is the session's primary work queue. The handoff is not just state documentation — it is a TODO list with a governance sidecar.
+
+### Session-start ordering
+
+1. **Consume the Mogul mandate** (mechanical cycles script-routed, deliberative cycles team-routed). This is governance overhead — do it first and report compactly.
+2. **Surface the Next Actions** from the handoff as a numbered TODO list in the first substantive response. This is the user's actual work queue. Present it visibly — not buried in a mandate receipt.
+3. **Proceed with the user's intent.** If the user's message is "implement the plan," the Next Actions ARE the plan. Execute them in priority order, checking each against current state before acting (items may have been completed in prior sessions).
+
+### Next Actions are carry-forward by default
+
+If a session completes some Next Actions but not all, the remaining items carry forward into the next handoff's Next Actions section. Items are only dropped when:
+- Explicitly completed (mark done)
+- Explicitly deferred (move to a `## Deferred` section with reason)
+- Superseded by new work (note what replaced them)
+
+New Next Actions from the current session are appended after carried items. The ordering reflects priority, not chronology.
+
+---
+
 ## Mode: Double-Time (emergency syncopate)
 
 When the user invokes `/cadence double-time`, execute the emergency session boundary. Produces a valid handoff in minimal turns. Tic + conformation + plan (no assessor, no mandate).
