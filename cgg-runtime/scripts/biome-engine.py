@@ -210,11 +210,15 @@ def iso_now():
 
 
 def get_current_act(cycle):
-    """Return act_id for the given biome cycle."""
+    """Return act_id for the given biome cycle. Pre-start cycles map to act_1."""
     for act_id, bounds in ACTS.items():
         if bounds["start"] <= cycle <= bounds["end"]:
             return act_id
-    return None
+    # Cycle 0 or below act_1 start: return act_1 (pre-expansion)
+    # Cycle beyond act_4 end: return act_4 (post-dispersal)
+    if cycle <= ACTS["act_1"]["start"]:
+        return "act_1"
+    return "act_4"
 
 
 def get_current_season(cycle):

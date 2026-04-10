@@ -518,6 +518,7 @@ class DocksHandler:
         visitor_record = {
             "entity_id": entity_id,
             "display_name": display_name,
+            "mcp_server_endpoint": mcp_endpoint,
             "home_federation_id": home_federation_id,
             "arrived_at": now.isoformat(),
             "standing": standing,
@@ -613,6 +614,87 @@ class DocksHandler:
             "federation_rate": rate["rates"]["federation_wide"],
             "rate_limit": self.rate_limiter.limits["federation_wide_per_minute"],
         }
+
+    def check_wire_cut_status(self) -> dict:
+        """Check wire-cut status. Delegates to module-level check_wire_cut()."""
+        return check_wire_cut()
+
+    def get_rate_limit_status(self) -> dict:
+        """Return current rate limit status."""
+        return self.rate_limiter.check_rate()
+
+    def list_visitors(
+        self, standing_filter: str | None = None, limit: int = 50
+    ) -> dict:
+        """List registered visitors from the visitor registry.
+
+        Args:
+            standing_filter: Optional standing to filter by (guest, tourist, etc.)
+            limit: Max number of visitors to return.
+
+        Returns:
+            {"visitors": [...], "total": int, "filtered": int}
+        """
+        visitors = []
+        if os.path.isfile(self.visitor_registry_path):
+            try:
+                with open(self.visitor_registry_path, "r", encoding="utf-8") as f:
+                    for line in f:
+                        line = line.strip()
+                        if not line:
+                            continue
+                        try:
+                            entry = json.loads(line)
+                            visitors.append(entry)
+                        except json.JSONDecodeError:
+                            continue
+            except OSError:
+                pass
+
+        total = len(visitors)
+
+        if standing_filter:
+            visitors = [v for v in visitors if v.get("standing") == standing_filter]
+
+        filtered = len(visitors)
+        visitors = visitors[:limit]
+
+        return {"visitors": visitors, "total": total, "filtered": filtered}
+
+    def run_probes(self, entity_id: str) -> dict:
+        """Run probe handshake for a registered visitor by entity_id.
+
+        Looks up the visitor's MCP endpoint from the registry, then runs probes.
+        """
+        # Find visitor in registry
+        endpoint = None
+        if os.path.isfile(self.visitor_registry_path):
+            try:
+                with open(self.visitor_registry_path, "r", encoding="utf-8") as f:
+                    for line in f:
+                        line = line.strip()
+                        if not line:
+                            continue
+                        try:
+                            entry = json.loads(line)
+                            if entry.get("entity_id") == entity_id:
+                                endpoint = entry.get("mcp_server_endpoint")
+                                # Fall back to ingress_lane info if no endpoint stored
+                                break
+                        except json.JSONDecodeError:
+                            continue
+            except OSError:
+                pass
+
+        if not endpoint:
+            return {
+                "ok": False,
+                "error": "entity_not_found",
+                "entity_id": entity_id,
+                "message": f"No registered visitor found with entity_id: {entity_id}",
+            }
+
+        return execute_probes(endpoint)
 
     # ── Signal emission ──
 
