@@ -484,8 +484,46 @@ def compute_behavioral_diversity(entity_id, window_cycles=None, zone_root=None):
 
 
 # ---------------------------------------------------------------------------
+# 1b. GATE-ENTROPY (CogPR-139 wiring: economy-bridge → standing-engine)
+# ---------------------------------------------------------------------------
+
+def _get_gate_entropy_score(entity_id, zone_root=None):
+    """Retrieve gate-entropy score from economy bridge adapter output.
+
+    Gate-entropy measures distributional breadth across economic channels
+    (contribution, governance, exchange, endorsement). It is a stronger
+    trust signal than balance per CogPR-139.
+
+    Returns:
+        float or None — entropy in bits (max ~2.0), None if no data available.
+    """
+    if zone_root is None:
+        zone_root = resolve_zone_root(SCRIPT_DIR)
+
+    # Look for economy bridge gate-entropy output
+    gate_entropy_dir = os.path.join(
+        zone_root, "audit-logs", "services", "economy-bridge", "gate-entropy"
+    )
+    entity_file = os.path.join(gate_entropy_dir, f"{entity_id}.json")
+
+    if not os.path.isfile(entity_file):
+        return None
+
+    try:
+        with open(entity_file, "r", encoding="utf-8") as f:
+            data = json.load(f)
+        entropy = data.get("gate_entropy")
+        if entropy is not None:
+            return float(entropy)
+    except (json.JSONDecodeError, ValueError, OSError):
+        pass
+
+    return None
+
+
+# ---------------------------------------------------------------------------
 # 2. TRUST_SCORE COMPUTATION
-#    Non-linear derivation from 4 input signals
+#    Non-linear derivation from 5 input signals (4 original + gate-entropy)
 # ---------------------------------------------------------------------------
 
 def compute_trust_score(entity_id, zone_root=None):
@@ -522,6 +560,13 @@ def compute_trust_score(entity_id, zone_root=None):
     # None means no data — treat as neutral (0.5) rather than penalizing
     pressure_score = pressure_raw if pressure_raw is not None else 0.5
 
+    # --- Component 5: Gate-entropy (CogPR-139) ---
+    # Gate-entropy (distributional breadth across economic channels) is a
+    # stronger trust signal than balance. Trailing-window measurement with
+    # environmental normalization. If economy bridge data is unavailable,
+    # gate-entropy is neutral (does not penalize or boost).
+    gate_entropy_score = _get_gate_entropy_score(entity_id, zone_root)
+
     # --- Non-linear derivation ---
     # Property 1: High volume + low diversity does NOT compensate.
     # Apply diversity as a gate on history: if diversity is low, history
@@ -535,6 +580,19 @@ def compute_trust_score(entity_id, zone_root=None):
         CONFIG["input_weights"]["behavioral_diversity"] * diversity_score
         + CONFIG["input_weights"]["interaction_history"] * gated_history
     )
+
+    # Property 2b: Gate-entropy enriches behavioral diversity signal.
+    # When gate-entropy data exists, blend it with behavioral diversity
+    # (stronger signal per CogPR-139). Max gate entropy = log2(4) ≈ 2.0.
+    if gate_entropy_score is not None:
+        gate_entropy_normalized = min(gate_entropy_score / 2.0, 1.0)
+        # Blend: 60% behavioral diversity + 40% gate entropy
+        blended_diversity = 0.6 * diversity_score + 0.4 * gate_entropy_normalized
+        base_behavioral = (
+            CONFIG["input_weights"]["behavioral_diversity"] * blended_diversity
+            + CONFIG["input_weights"]["interaction_history"] * gated_history
+        )
+
     endorsement_multiplier = 1.0 + (endorsement_score * 0.5)  # Up to 1.5x
     behavioral_with_endorsement = min(base_behavioral * endorsement_multiplier, 1.0)
 
@@ -568,6 +626,8 @@ def compute_trust_score(entity_id, zone_root=None):
             "interaction_history_gated": round(gated_history, 4),
             "pressure_response": round(pressure_score, 4),
             "pressure_data_present": pressure_raw is not None,
+            "gate_entropy": round(gate_entropy_score, 4) if gate_entropy_score is not None else None,
+            "gate_entropy_present": gate_entropy_score is not None,
             "diversity_gate": round(diversity_gate, 4),
             "endorsement_multiplier": round(endorsement_multiplier, 4),
             "decay_factor": round(decay_factor, 4),
