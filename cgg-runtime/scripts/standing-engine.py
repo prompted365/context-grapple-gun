@@ -498,7 +498,7 @@ def _get_gate_entropy_score(entity_id, zone_root=None):
         float or None — entropy in bits (max ~2.0), None if no data available.
     """
     if zone_root is None:
-        zone_root = resolve_zone_root(SCRIPT_DIR)
+        zone_root = _resolve_zone_root()
 
     # Look for economy bridge gate-entropy output
     gate_entropy_dir = os.path.join(
