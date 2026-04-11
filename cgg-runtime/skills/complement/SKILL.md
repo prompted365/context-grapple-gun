@@ -211,9 +211,70 @@ When invoked:
 
 Output must be concise. A finding, not an essay. If the skill produces more than a short paragraph, it has over-widened.
 
+## Feedback Architecture (Layer 3)
+
+The complement of a shape-detection skill is not another shape. It is the feedback architecture that keeps the skill from becoming stale.
+
+Three layers govern this skill:
+
+```
+Layer 1: response content        — origin ray / complement ray
+Layer 2: response-geometry skill  — origin mode / complement mode
+Layer 3: skill governance         — author+invoke+classify / capture+evaluate+calibrate
+```
+
+Layers 1 and 2 are the skill's expressive geometry. Layer 3 is its epistemic feedback geometry — the lens-learning loop.
+
+### Invocation Capture
+
+After every `/complement` invocation, append a record to `audit-logs/complement/invocations.jsonl`:
+
+```json
+{
+  "timestamp": "<iso>",
+  "tic": "<current>",
+  "mode": "post-landing | origin-shape",
+  "decision": "surface | defer | suppress",
+  "centroid": "<inferred centroid>",
+  "active_ray": "<what was in focus>",
+  "complement_candidate": "<what was found or null>",
+  "scope": "<rung or layer>",
+  "structural_criteria_met": ["<which of the 5>"],
+  "user_response": null,
+  "outcome": null
+}
+```
+
+`user_response` and `outcome` are backfilled later:
+- **user_response**: what the user chose (accepted / redirected / rejected / no response)
+- **outcome**: did the surfaced complement land? did a suppressed complement later matter?
+
+### What This Enables
+
+1. **Suppress quality assessment** — if suppressed complements repeatedly surface later as real issues, the gate is too aggressive
+2. **Surface quality assessment** — if surfaced complements are repeatedly rejected or ignored, the gate is too permissive
+3. **Centroid inference calibration** — do inferred centroids match what the user actually cares about?
+4. **Mode selection evidence** — when does origin-shape add value vs post-landing?
+
+### Calibration Rule
+
+Do not formalize heuristics from fewer than 10 invocations. The skill starts with per-invocation judgment guided by the five-criteria gate. Heuristic refinement comes only from accumulated evidence, not from speculation about what patterns might emerge.
+
+### Meta-Complement Invariant
+
+Every mode-creation process has its own complement: not just how the mode works, but how the mode learns whether it worked. This applies recursively — if someone later builds a feedback-evaluation layer on top of this capture, that layer also needs its own feedback architecture. The recursion terminates when the evaluation loop closes through human judgment (the user saying "that was right" or "you missed something").
+
+### Correction Log
+
+This section records cases where the skill's own gate produced a wrong decision, as calibration evidence:
+
+**Tic 136, invocation 2 (post-landing on origin-shape output):**
+Suppressed the feedback-capture complement as "decorative repetition" of the origin-shape finding. Wrong. The complement had been *named* by origin-shape but not *built*. Named is not landed. Two structural criteria were met (verification burden + sequencing). The gate failed to distinguish "this was already surfaced in a prior mode" from "this was surfaced but not yet materialized." Correction: the structural relevance test must evaluate against the state of the complement (built vs named vs unnamed), not just against whether it appeared in recent output.
+
 ## Constraints
 
 - Manual invocation only. Do not auto-fire.
 - Optional post-cadence step (wire later after suppress behavior is validated).
 - Per-invocation judgment guided by the five-criteria gate. Do not over-heuristic.
 - The skill has explicit permission not to be clever.
+- Named is not landed. A complement that was surfaced but not built is still a valid complement.
