@@ -209,6 +209,53 @@ def iso_now():
     return datetime.now(timezone.utc).isoformat()
 
 
+# ---------------------------------------------------------------------------
+# Interaction record emission — bridges biome topology to standing engine
+# ---------------------------------------------------------------------------
+
+REGISTRY_PATH = os.path.join(AUDIT_ROOT, "biome", "visa-registry", "registry.jsonl")
+
+
+def emit_interaction(entity_id, interaction_type, cycle, edge_id=None,
+                     partner_id=None, flow=0.0, event_type="edge_creation",
+                     act=None, season=None):
+    """Emit an interaction record to the visa registry for standing engine consumption.
+
+    The standing engine's _get_entity_interactions() filters on records with
+    'interaction_type' field matching entity_id. This bridges biome topology
+    events to trust_score computation (behavioral diversity + interaction history).
+    """
+    record = {
+        "entity_id": entity_id,
+        "interaction_type": interaction_type,
+        "cycle": cycle,
+        "event_type": event_type,
+        "timestamp": iso_now(),
+    }
+    if edge_id:
+        record["edge_id"] = edge_id
+    if partner_id:
+        record["partner_id"] = partner_id
+    if flow > 0:
+        record["flow"] = round(flow, 4)
+    if act:
+        record["act"] = act
+    if season:
+        record["season"] = season
+    atomic_append_jsonl(REGISTRY_PATH, record)
+
+
+def emit_edge_interactions(source_id, target_id, edge_type, cycle, edge_id,
+                           event_type="edge_creation", flow=0.0, act=None, season=None):
+    """Emit interaction records for both ends of an edge event."""
+    emit_interaction(source_id, edge_type, cycle, edge_id=edge_id,
+                     partner_id=target_id, flow=flow, event_type=event_type,
+                     act=act, season=season)
+    emit_interaction(target_id, edge_type, cycle, edge_id=edge_id,
+                     partner_id=source_id, flow=flow, event_type=event_type,
+                     act=act, season=season)
+
+
 def get_current_act(cycle):
     """Return act_id for the given biome cycle. Pre-start cycles map to act_1."""
     for act_id, bounds in ACTS.items():
@@ -749,6 +796,12 @@ def attempt_new_connections(topology, environment):
         node["strategy_diversity"] = shannon_entropy(node["edge_type_distribution"])
         existing_edges.add((nid, target_id))
         new_edges += 1
+
+        # Emit interaction records for both ends of the new edge
+        emit_edge_interactions(
+            nid, target_id, edge_type, cycle, edge_id,
+            event_type="edge_creation", act=act, season=season,
+        )
 
     return new_edges
 
@@ -1367,6 +1420,18 @@ def advance_cycle(topology, organisms, environment):
 
     # Step 1: Resource flow (all acts)
     execute_resource_flow(topology, environment)
+
+    # Step 1b: Emit interaction records for edges with non-zero flow
+    for e in topology["edges"]:
+        if e.get("flow", 0) > 0:
+            # Map non-canonical edge types (seed edges) to canonical interaction type
+            itype = e["edge_type"] if e["edge_type"] in EDGE_TYPES else "exchange"
+            emit_edge_interactions(
+                e["source_node"], e["target_node"], itype,
+                new_cycle, e["edge_id"],
+                event_type="resource_flow", flow=e["flow"],
+                act=act, season=environment.get("season"),
+            )
 
     # Step 2: Depletion check (INV-BIOME-01)
     newly_depleted = enforce_energy_conservation(topology, build_node_index(topology))

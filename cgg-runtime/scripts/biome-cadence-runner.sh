@@ -55,27 +55,29 @@ echo "$BIOME_OUTPUT"
 ACT_BOUNDARY=$(echo "$BIOME_OUTPUT" | grep -c "ACT_BOUNDARY" || true)
 
 if [[ "$ACT_BOUNDARY" -gt 0 ]]; then
-    echo "[biome-cadence] Act boundary detected — triggering standing recalculation..."
+    echo "[biome-cadence] Act boundary detected."
+fi
 
-    # Get all active visitor entity IDs from organisms.json
-    ZONE_ROOT=$($PYTHON -c "
+# ── Standing recalculation (every cycle — biome emits interaction records) ──
+echo "[biome-cadence] Recalculating trust scores for all visitors..."
+
+ZONE_ROOT=$($PYTHON -c "
 import sys, os
 sys.path.insert(0, '$SCRIPT_DIR')
 from zone_root import resolve_zone_root
 print(resolve_zone_root('$SCRIPT_DIR'))
 ")
-    ORGANISMS="$ZONE_ROOT/audit-logs/biome/state/organisms.json"
+ORGANISMS="$ZONE_ROOT/audit-logs/biome/state/organisms.json"
 
-    if [[ -f "$ORGANISMS" ]]; then
-        # Extract entity IDs and recalculate trust_score for each
-        $PYTHON -c "
+if [[ -f "$ORGANISMS" ]]; then
+    $PYTHON -c "
 import json, subprocess, sys
 with open('$ORGANISMS') as f:
     data = json.load(f)
 visitors = data.get('visitors', [])
 for v in visitors:
-    eid = v.get('entity_id', '')
-    if eid.startswith('ent_visitor_'):
+    eid = v.get('visitor_id', '')
+    if eid.startswith('ent_visitor_') and v.get('active', False) and not v.get('evicted', False):
         result = subprocess.run(
             [sys.executable, '$SCRIPT_DIR/standing-engine.py', '--compute-trust', eid],
             capture_output=True, text=True
@@ -85,7 +87,6 @@ for v in visitors:
         else:
             print(f'[standing] {eid}: ERROR - {result.stderr.strip()}', file=sys.stderr)
 "
-    fi
 fi
 
 # ── Economy bridge observation (every cycle) ──
