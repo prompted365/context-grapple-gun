@@ -53,11 +53,27 @@ def load_queue(queue_path):
 
 
 def load_signal_store(signal_dir):
-    """Load latest-per-ID signal state from all JSONL files."""
+    """Load signal state from active-manifest.jsonl (authoritative curated truth).
+    Falls back to scanning all JSONL files if manifest doesn't exist."""
     entries = {}
     sd = Path(signal_dir)
     if not sd.exists():
         return entries
+    manifest = sd / "active-manifest.jsonl"
+    if manifest.exists():
+        for line in manifest.read_text(encoding="utf-8").splitlines():
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                d = json.loads(line)
+                sid = d.get("signal_id", d.get("id", ""))
+                if sid:
+                    entries[sid] = d
+            except json.JSONDecodeError:
+                continue
+        return entries
+    # Fallback: scan daily logs (less reliable, may include resolved signals)
     for f in sorted(sd.glob("*.jsonl")):
         for line in f.read_text(encoding="utf-8").splitlines():
             line = line.strip()
@@ -71,6 +87,28 @@ def load_signal_store(signal_dir):
             except json.JSONDecodeError:
                 continue
     return entries
+
+
+def count_physical_tics(audit_logs_path):
+    """Count physical tics from tic event JSONL files (authoritative count)."""
+    tic_dir = Path(audit_logs_path) / "tics"
+    if not tic_dir.exists():
+        return 0
+    max_counter = 0
+    for f in sorted(tic_dir.glob("*.jsonl")):
+        for line in f.read_text(encoding="utf-8").splitlines():
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                d = json.loads(line)
+                if d.get("type") == "tic" and d.get("count_mode") != "ignored":
+                    gc = d.get("global_counter_after", 0)
+                    if gc > max_counter:
+                        max_counter = gc
+            except json.JSONDecodeError:
+                continue
+    return max_counter
 
 
 def find_claude_md_chain(zone_root):
@@ -196,8 +234,8 @@ def build_bench_packet(project_dir, dry_run=False):
     pending = get_pending_cprs(queue)
     recently_promoted = get_recently_promoted(queue)
 
-    # Get current tic from .ticzone
-    tic = tz_config.get("tic", 0)
+    # Get current tic from physical tic event count (authoritative)
+    tic = count_physical_tics(al_path)
 
     # Build per-CPR dossier
     pending_cogprs = []

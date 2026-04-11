@@ -188,6 +188,43 @@ Write to the nearest governance file based on truth-state:
 When writing to a subdir CLAUDE.md, ensure the project root CLAUDE.md
 indexes it (add a reference in any existing "subdirectory guides" section).
 
+#### Step 2.5: Routing Decision Batch Capture
+
+Review the session's delegations. For each non-trivial delegation (anything beyond direct conversation), append a routing decision record to `audit-logs/routing/decisions.jsonl`. Include: pressure class, intake class, weight, mode selected, recipient(s), and reason. Mark outcome as null — backfill happens next session or at review.
+
+Schema per entry:
+```json
+{
+  "decision_id": "tic-{TIC}-seq-{N}",
+  "tic": 134,
+  "timestamp": "ISO-8601",
+  "actor": "ent_homeskillet",
+  "input": {
+    "pressure_class": "endogenous | exogenous",
+    "source_description": "one-liner",
+    "intake_class": "map | harpoon | quiver | reject | unclassified",
+    "weight": "light | medium | heavy"
+  },
+  "routing": {
+    "mode": "direct | split | spec_swarm | envelope",
+    "recipient_count": 1,
+    "recipients": ["entity_names"],
+    "envelope_id": "or null",
+    "spec_ref": "path or null"
+  },
+  "context": {
+    "session_tic": 134,
+    "active_signals": 5,
+    "pending_cprs": 0,
+    "inbox_depth": 0,
+    "reason": "one-liner: why this mode was selected"
+  },
+  "outcome": null
+}
+```
+
+This is a 2-minute journaling step. If the session had zero delegations, skip. When routing decisions are captured, add to Next Actions: "Backfill routing decision outcomes from prior session (N decisions pending)."
+
 ### Phase 2: PLAN MODE — The Handoff (Steps 3-4)
 
 #### Step 3: Enter Plan Mode

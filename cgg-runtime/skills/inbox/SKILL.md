@@ -184,6 +184,42 @@ For each `EMIT_` prefixed item in `outbound/`:
 - **Thread coherence** — when responding to a thread, include the `thread_id` and `reply_to` fields so the conversation is traceable
 - **Registry is truth** — if `indexes/inbox-registry.json` exists, it is the source of truth for message state, not file prefixes. Update registry when moving files.
 
+## inbox-query.py — Programmatic API
+
+The `inbox-query.py` script (at `scripts/inbox-query.py` in the zone root, or `~/.claude/cgg-runtime/scripts/inbox-query.py` at runtime) provides programmatic inbox access. **Prefer this over raw file scanning.**
+
+Resolve the script location:
+```bash
+ZONE_ROOT="${CLAUDE_PROJECT_DIR:-$(pwd)}"
+while [ "$ZONE_ROOT" != "/" ] && [ ! -f "$ZONE_ROOT/.ticzone" ]; do ZONE_ROOT=$(dirname "$ZONE_ROOT"); done
+
+INBOX_QUERY=""
+for candidate in \
+  "$ZONE_ROOT/scripts/inbox-query.py" \
+  "$HOME/.claude/cgg-runtime/scripts/inbox-query.py"; do
+  [ -f "$candidate" ] && INBOX_QUERY="$candidate" && break
+done
+```
+
+### Key subcommands
+
+| Subcommand | Use |
+|---|---|
+| `status --entity ent_X --current-tic N` | Compact entity inbox summary |
+| `status --all --current-tic N` | All entities at once |
+| `inject --entity ent_X --current-tic N` | Prompt-injection-ready payload |
+| `brief --entity ent_X` | Priority-tiered briefing with artifact sizes |
+| `search --query "term" [--entity ent_X]` | FTS5 search across envelopes |
+| `thread --thread-id thread_X` | Reconstruct a thread |
+| `transition --message-id msg_X --to-state Y --by ent_Z --tic N` | State machine advancement |
+| `enforce-ttl --current-tic N` | Archive expired, resurface deferred |
+
+Add `--format text` before the subcommand for human-readable output: `inbox-query.py --format text status --entity ent_X --current-tic 134`
+
+For `/inbox` and `/inbox status`, use `inbox-query.py --format text status --entity {entity} --current-tic {tic}` as the primary data source, falling back to raw file scanning only if the script is unavailable.
+
+For `/inbox process`, use `inbox-query.py --format json status --entity {entity} --current-tic {tic}` to get structured data, then process items interactively.
+
 ## Current Tic Discovery
 
-Read `audit-logs/tics/*.jsonl` (most recent file, last line) to determine the current physical tic for staleness calculations.
+Read `audit-logs/tics/*.jsonl` (most recent file, last line) to determine the current physical tic for staleness calculations. Or use the tic count from the session-start hook injection (`[TIC: #N]`).

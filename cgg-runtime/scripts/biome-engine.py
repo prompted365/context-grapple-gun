@@ -321,9 +321,10 @@ def save_snapshot(topology, organisms, environment, act_id, federation_tic=0):
 # ===================================================================
 
 def emit_signal(band, signal_type, payload):
-    """Emit a signal to the daily signals JSONL file."""
+    """Emit a signal to the daily signals JSONL file with dedup-on-write gate."""
     today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
     sig_file = os.path.join(SIGNAL_DIR, f"{today}.jsonl")
+    manifest_file = os.path.join(SIGNAL_DIR, "active-manifest.jsonl")
 
     # Deterministic signal ID from condition content
     id_source = f"{signal_type}_{payload.get('act_id', '')}_{payload.get('biome_cycle', '')}"
@@ -337,7 +338,13 @@ def emit_signal(band, signal_type, payload):
         "payload": payload,
         "emitted_at": iso_now(),
     }
-    atomic_append_jsonl(sig_file, signal)
+    try:
+        from lib.atomic_append import dedup_signal_append
+        written = dedup_signal_append(sig_file, signal, manifest_path=manifest_file)
+        if not written:
+            return sig_id  # Already exists, skip silently
+    except ImportError:
+        atomic_append_jsonl(sig_file, signal)
     return sig_id
 
 

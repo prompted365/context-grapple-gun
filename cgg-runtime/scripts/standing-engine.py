@@ -1255,6 +1255,368 @@ def initiate_due_process(entity_id, trigger_type, evidence, zone_root=None):
 
 
 # ---------------------------------------------------------------------------
+# University Admission (Student/foreign_delegate → Resident)
+# Spec: autonomous_kernel/university-admission-spec.md
+# ---------------------------------------------------------------------------
+
+UNIVERSITY_CONFIG = {
+    "trust_threshold": 0.6,
+    "diversity_threshold": 2.0,   # log2(4)
+    "min_acts_completed": 2,
+    "review_authority": ["ent_crisis_steward", "ent_resolution_analyst"],
+    "appeal_window_tics": 3,
+    "queue_path_suffix": "biome/university-queue.jsonl",
+}
+
+
+def university_precheck(entity_id, zone_root=None):
+    """Run automated pre-check for University admission eligibility.
+
+    Returns dict with 'eligible' bool, 'reasons' list, and 'scores' snapshot.
+    """
+    trust_result = compute_trust_score(entity_id, zone_root=zone_root) or {}
+    diversity_result = compute_behavioral_diversity(entity_id, zone_root=zone_root) or {}
+    standing = _get_entity_standing(entity_id, zone_root=zone_root) or {}
+    time_at = _get_entity_time_at_standing(entity_id, zone_root=zone_root) or {}
+    endorsements = _get_entity_endorsements(entity_id, active_only=True, zone_root=zone_root) or []
+
+    reasons = []
+    trust_score = trust_result.get("trust_score", 0)
+    diversity_entropy = diversity_result.get("entropy", 0)
+    current_standing = standing.get("standing", "guest")
+    tics_at_standing = time_at.get("tics_at_standing", 0)
+
+    # Must be foreign_delegate (student equivalent) to apply
+    if current_standing != "foreign_delegate":
+        reasons.append(f"Standing is '{current_standing}', must be 'foreign_delegate'")
+
+    if trust_score < UNIVERSITY_CONFIG["trust_threshold"]:
+        reasons.append(f"Trust score {trust_score:.3f} < {UNIVERSITY_CONFIG['trust_threshold']}")
+
+    if diversity_entropy < UNIVERSITY_CONFIG["diversity_threshold"]:
+        reasons.append(f"Diversity entropy {diversity_entropy:.3f} < {UNIVERSITY_CONFIG['diversity_threshold']}")
+
+    # Time-lock: min acts completed (proxy via tics)
+    min_tics = CONFIG["time_locks"].get("resident", 10)
+    if tics_at_standing < min_tics:
+        reasons.append(f"Time at standing {tics_at_standing} < {min_tics} required")
+
+    # Endorsement required per INV-STANDING-03
+    active_endorsements = [e for e in endorsements if e.get("target_standing") == "resident"]
+    if not active_endorsements:
+        reasons.append("No active endorsement targeting 'resident' standing")
+
+    eligible = len(reasons) == 0
+
+    return {
+        "entity_id": entity_id,
+        "eligible": eligible,
+        "reasons": reasons,
+        "scores": {
+            "trust_score": trust_score,
+            "diversity_entropy": diversity_entropy,
+            "current_standing": current_standing,
+            "tics_at_standing": tics_at_standing,
+            "active_endorsements": len(active_endorsements),
+        },
+        "checked_at": datetime.now(timezone.utc).isoformat(),
+    }
+
+
+def university_queue_entry(entity_id, zone_root=None):
+    """Queue entity for University admission review (after passing pre-check).
+
+    Returns the queue entry or error if pre-check fails.
+    """
+    precheck = university_precheck(entity_id, zone_root=zone_root)
+    if not precheck["eligible"]:
+        return {"error": "Pre-check failed", "reasons": precheck["reasons"]}
+
+    zr = zone_root or str(_biome_path())
+    queue_path = os.path.join(_resolve_zone_root(zone_root), "audit-logs",
+                              UNIVERSITY_CONFIG["queue_path_suffix"])
+
+    entry = {
+        "type": "university_admission",
+        "entity_id": entity_id,
+        "status": "queued",
+        "scores_at_queue": precheck["scores"],
+        "queued_at": datetime.now(timezone.utc).isoformat(),
+        "review_authority": UNIVERSITY_CONFIG["review_authority"],
+        "decision": None,
+        "decision_at": None,
+        "appeal_window_until": None,
+    }
+
+    _setup_lib_path()
+    try:
+        from lib.atomic_append import atomic_append_jsonl
+        atomic_append_jsonl(queue_path, entry)
+    except ImportError:
+        os.makedirs(os.path.dirname(queue_path), exist_ok=True)
+        with open(queue_path, "a") as f:
+            f.write(json.dumps(entry) + "\n")
+
+    # Emit signal for review queue
+    _emit_signal("university.admission_queued", "COGNITIVE", {
+        "entity_id": entity_id,
+        "trust_score": precheck["scores"]["trust_score"],
+    }, zone_root=zone_root)
+
+    return entry
+
+
+# ---------------------------------------------------------------------------
+# Ambassador Graduation (Citizen → Ambassador lateral role)
+# Spec: autonomous_kernel/ambassador-graduation-spec.md
+# ---------------------------------------------------------------------------
+
+AMBASSADOR_CONFIG = {
+    "min_cross_federation_bonds": 2,
+    "min_cross_federation_endorsements": 1,
+    "min_bridge_behaviors": 5,
+    "inactivity_threshold_tics": 15,
+    "review_authority": ["ent_crisis_steward", "ent_homeskillet"],
+    "nomination_path_suffix": "biome/ambassador-nominations.jsonl",
+}
+
+
+def ambassador_precheck(entity_id, zone_root=None):
+    """Run automated pre-check for Ambassador graduation eligibility.
+
+    Ambassador is lateral from Citizen — adds diplomatic capabilities,
+    not higher internal standing.
+    """
+    standing = _get_entity_standing(entity_id, zone_root=zone_root) or {}
+    current_standing = standing.get("standing", "guest")
+    federation_id = _get_entity_federation_id(entity_id, zone_root=zone_root)
+
+    reasons = []
+
+    if current_standing != "citizen":
+        reasons.append(f"Standing is '{current_standing}', must be 'citizen'")
+
+    if not federation_id:
+        reasons.append("No home_federation_id — required for Ambassador role")
+
+    # Check cross-federation bonds (from biome bond data)
+    zr = _resolve_zone_root(zone_root)
+    bond_data_path = os.path.join(zr, "audit-logs", "biome", "bonds.jsonl")
+    cross_fed_bonds = 0
+    if os.path.isfile(bond_data_path):
+        for line in open(bond_data_path):
+            try:
+                b = json.loads(line)
+                if entity_id in b.get("partners", []):
+                    partner_feds = b.get("home_federations", [])
+                    if any(f != federation_id for f in partner_feds if f):
+                        cross_fed_bonds += 1
+            except (json.JSONDecodeError, ValueError):
+                pass
+
+    if cross_fed_bonds < AMBASSADOR_CONFIG["min_cross_federation_bonds"]:
+        reasons.append(f"Cross-federation bonds {cross_fed_bonds} < "
+                       f"{AMBASSADOR_CONFIG['min_cross_federation_bonds']} required")
+
+    # Check cross-federation endorsements
+    endorsements = _get_entity_endorsements(entity_id, active_only=True, zone_root=zone_root)
+    cross_fed_endorsements = [e for e in endorsements
+                              if e.get("endorser_federation") and
+                              e.get("endorser_federation") != federation_id]
+    if len(cross_fed_endorsements) < AMBASSADOR_CONFIG["min_cross_federation_endorsements"]:
+        reasons.append(f"Cross-federation endorsements {len(cross_fed_endorsements)} < "
+                       f"{AMBASSADOR_CONFIG['min_cross_federation_endorsements']} required")
+
+    eligible = len(reasons) == 0
+
+    return {
+        "entity_id": entity_id,
+        "eligible": eligible,
+        "reasons": reasons,
+        "profile": {
+            "current_standing": current_standing,
+            "home_federation_id": federation_id,
+            "cross_federation_bonds": cross_fed_bonds,
+            "cross_federation_endorsements": len(cross_fed_endorsements),
+        },
+        "checked_at": datetime.now(timezone.utc).isoformat(),
+    }
+
+
+def ambassador_nominate(entity_id, nominator_id, zone_root=None):
+    """Submit Ambassador graduation nomination (after pre-check passes).
+
+    Nominations route to constitutional review via inbox.
+    """
+    precheck = ambassador_precheck(entity_id, zone_root=zone_root)
+    if not precheck["eligible"]:
+        return {"error": "Pre-check failed", "reasons": precheck["reasons"]}
+
+    zr = _resolve_zone_root(zone_root)
+    nom_path = os.path.join(zr, "audit-logs",
+                            AMBASSADOR_CONFIG["nomination_path_suffix"])
+
+    nomination = {
+        "type": "ambassador_nomination",
+        "entity_id": entity_id,
+        "nominator_id": nominator_id,
+        "status": "pending_review",
+        "profile_at_nomination": precheck["profile"],
+        "nominated_at": datetime.now(timezone.utc).isoformat(),
+        "review_authority": AMBASSADOR_CONFIG["review_authority"],
+        "decision": None,
+    }
+
+    _setup_lib_path()
+    try:
+        from lib.atomic_append import atomic_append_jsonl
+        atomic_append_jsonl(nom_path, nomination)
+    except ImportError:
+        os.makedirs(os.path.dirname(nom_path), exist_ok=True)
+        with open(nom_path, "a") as f:
+            f.write(json.dumps(nomination) + "\n")
+
+    _emit_signal("ambassador.nomination_submitted", "COGNITIVE", {
+        "entity_id": entity_id,
+        "nominator_id": nominator_id,
+    }, zone_root=zone_root)
+
+    return nomination
+
+
+def ambassador_inactivity_check(entity_id, current_tic, zone_root=None):
+    """Check if an Ambassador is inactive (> threshold tics since last bridge activity).
+
+    Returns inactivity status and recommendation.
+    """
+    zr = _resolve_zone_root(zone_root)
+    # Check last bridge activity from interactions
+    interactions = _get_entity_interactions(entity_id, zone_root=zone_root)
+    bridge_interactions = [i for i in interactions
+                          if i.get("type") in ("collaboration", "teaching", "exchange")
+                          and i.get("cross_federation", False)]
+
+    if bridge_interactions:
+        last_activity_tic = max(i.get("tic", 0) for i in bridge_interactions)
+    else:
+        last_activity_tic = 0
+
+    tics_inactive = current_tic - last_activity_tic if current_tic and last_activity_tic else 999
+    is_inactive = tics_inactive > AMBASSADOR_CONFIG["inactivity_threshold_tics"]
+
+    return {
+        "entity_id": entity_id,
+        "is_inactive": is_inactive,
+        "tics_since_last_bridge_activity": tics_inactive,
+        "threshold_tics": AMBASSADOR_CONFIG["inactivity_threshold_tics"],
+        "recommendation": "inactivity_review" if is_inactive else "active",
+    }
+
+
+# ---------------------------------------------------------------------------
+# Ecotone Visa (cross-biome movement)
+# Spec: autonomous_kernel/cross-biome-visa-spec.md
+# ---------------------------------------------------------------------------
+
+ECOTONE_CONFIG = {
+    "default_visa_ttl_tics": 10,
+    "min_standing_for_visa": "tourist",
+    "visa_registry_suffix": "biome/visa-registry.jsonl",
+}
+
+
+def ecotone_request_visa(entity_id, source_biome, target_biome, zone_root=None):
+    """Request a cross-biome visa at an ecotone post.
+
+    Evaluates standing and issues TTL-bound visa.
+    """
+    standing = _get_entity_standing(entity_id, zone_root=zone_root) or {}
+    current_standing = standing.get("standing", "guest")
+    standing_order = CONFIG["standing_order"]
+
+    min_idx = standing_order.index(ECOTONE_CONFIG["min_standing_for_visa"])
+    current_idx = standing_order.index(current_standing) if current_standing in standing_order else -1
+
+    if current_idx < min_idx:
+        return {
+            "entity_id": entity_id,
+            "visa_status": "denied",
+            "reason": f"Standing '{current_standing}' below minimum '{ECOTONE_CONFIG['min_standing_for_visa']}'",
+        }
+
+    now = datetime.now(timezone.utc)
+    visa_id = _deterministic_signal_id("visa", entity_id, source_biome, target_biome)
+
+    visa = {
+        "type": "ecotone_visa",
+        "visa_id": visa_id,
+        "entity_id": entity_id,
+        "source_biome": source_biome,
+        "target_biome": target_biome,
+        "standing_snapshot": current_standing,
+        "issued_at": now.isoformat(),
+        "ttl_tics": ECOTONE_CONFIG["default_visa_ttl_tics"],
+        "status": "issued",
+        "revocation_reason": None,
+    }
+
+    zr = _resolve_zone_root(zone_root)
+    registry_path = os.path.join(zr, "audit-logs",
+                                 ECOTONE_CONFIG["visa_registry_suffix"])
+
+    _setup_lib_path()
+    try:
+        from lib.atomic_append import atomic_append_jsonl
+        atomic_append_jsonl(registry_path, visa)
+    except ImportError:
+        os.makedirs(os.path.dirname(registry_path), exist_ok=True)
+        with open(registry_path, "a") as f:
+            f.write(json.dumps(visa) + "\n")
+
+    return visa
+
+
+def ecotone_revoke_visa(visa_id, reason, zone_root=None):
+    """Revoke an active visa. Appends revocation entry to registry."""
+    revocation = {
+        "type": "ecotone_visa_revocation",
+        "visa_id": visa_id,
+        "status": "revoked",
+        "revocation_reason": reason,
+        "revoked_at": datetime.now(timezone.utc).isoformat(),
+    }
+
+    zr = _resolve_zone_root(zone_root)
+    registry_path = os.path.join(zr, "audit-logs",
+                                 ECOTONE_CONFIG["visa_registry_suffix"])
+
+    _setup_lib_path()
+    try:
+        from lib.atomic_append import atomic_append_jsonl
+        atomic_append_jsonl(registry_path, revocation)
+    except ImportError:
+        with open(registry_path, "a") as f:
+            f.write(json.dumps(revocation) + "\n")
+
+    return revocation
+
+
+def _resolve_zone_root(zone_root=None):
+    """Resolve zone root from argument or auto-detect."""
+    if zone_root:
+        return str(zone_root)
+    # Walk up from script location
+    p = Path(__file__).resolve().parent
+    for _ in range(10):
+        if (p / ".ticzone").exists() or (p / "audit-logs").is_dir():
+            return str(p)
+        if p.parent == p:
+            break
+        p = p.parent
+    return os.getcwd()
+
+
+# ---------------------------------------------------------------------------
 # Signal emission helper
 # ---------------------------------------------------------------------------
 
@@ -1345,6 +1707,33 @@ Examples:
         help="Compute endorser penalty cascade for an evicted entity",
     )
     group.add_argument(
+        "--university-precheck",
+        metavar="ENTITY_ID",
+        help="Check University admission eligibility",
+    )
+    group.add_argument(
+        "--university-queue",
+        metavar="ENTITY_ID",
+        help="Queue entity for University admission review",
+    )
+    group.add_argument(
+        "--ambassador-precheck",
+        metavar="ENTITY_ID",
+        help="Check Ambassador graduation eligibility",
+    )
+    group.add_argument(
+        "--ambassador-nominate",
+        nargs=2,
+        metavar=("ENTITY_ID", "NOMINATOR_ID"),
+        help="Nominate entity for Ambassador graduation",
+    )
+    group.add_argument(
+        "--visa-request",
+        nargs=3,
+        metavar=("ENTITY_ID", "SOURCE_BIOME", "TARGET_BIOME"),
+        help="Request ecotone visa for cross-biome movement",
+    )
+    group.add_argument(
         "--config",
         action="store_true",
         help="Print current PROVISIONAL configuration",
@@ -1383,6 +1772,28 @@ Examples:
 
     elif args.penalty_cascade:
         result = compute_endorser_penalty(args.penalty_cascade, zone_root=zr)
+        print(_format_json(result))
+
+    elif args.university_precheck:
+        result = university_precheck(args.university_precheck, zone_root=zr)
+        print(_format_json(result))
+
+    elif args.university_queue:
+        result = university_queue_entry(args.university_queue, zone_root=zr)
+        print(_format_json(result))
+
+    elif args.ambassador_precheck:
+        result = ambassador_precheck(args.ambassador_precheck, zone_root=zr)
+        print(_format_json(result))
+
+    elif args.ambassador_nominate:
+        entity_id, nominator_id = args.ambassador_nominate
+        result = ambassador_nominate(entity_id, nominator_id, zone_root=zr)
+        print(_format_json(result))
+
+    elif args.visa_request:
+        entity_id, source, target = args.visa_request
+        result = ecotone_request_visa(entity_id, source, target, zone_root=zr)
         print(_format_json(result))
 
     elif args.config:

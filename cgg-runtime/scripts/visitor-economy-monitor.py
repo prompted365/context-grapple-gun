@@ -77,7 +77,13 @@ def _emit_signal(al, signal_id, kind, band, description, subsystem="visitor_econ
         "emitted_at": now.isoformat(),
         "source": "visitor-economy-monitor.py",
     }
-    atomic_append_jsonl(os.path.join(sig_dir, f"{today}.jsonl"), signal)
+    target = os.path.join(sig_dir, f"{today}.jsonl")
+    manifest = os.path.join(sig_dir, "active-manifest.jsonl")
+    try:
+        from lib.atomic_append import dedup_signal_append
+        dedup_signal_append(target, signal, manifest_path=manifest)
+    except ImportError:
+        atomic_append_jsonl(target, signal)
     return signal
 
 

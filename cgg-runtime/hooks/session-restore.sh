@@ -232,7 +232,7 @@ ENRICHMENT_MSG=""
 ENRICHMENT_SCANNER=$(resolve_script "cpr-enrichment-scanner.py")
 if [ -n "$ENRICHMENT_SCANNER" ] && [ "$HOLDING_CPRS" -gt 0 ]; then
   python3 "$ENRICHMENT_SCANNER" --project-dir "$PROJECT_DIR" > /dev/null 2>&1 &
-  ENRICHMENT_MSG="[ENRICHMENT: scanning $HOLDING_CPRS holding CogPRs in background]"
+  ENRICHMENT_MSG="[ENRICHMENT: scanning $HOLDING_CPRS CogPRs (enrichment_needed/enrichment_eligible status) in background. Completion updates queue.jsonl status. No action needed — enrichment runs automatically. Results visible in next /review.]"
 fi
 
 # ============================================================================
@@ -556,7 +556,7 @@ if [ -n "$TRIGGER_MSG" ]; then
   CGG_MSG="$CGG_MSG $TRIGGER_MSG"
 fi
 if [ "$TOTAL_CPRS" -gt 0 ]; then
-  CGG_MSG="$CGG_MSG [CPR QUEUE: $TOTAL_CPRS pending ($CPR_COUNT inline + $QUEUE_COUNT in queue.jsonl). /review when ready.]"
+  CGG_MSG="$CGG_MSG [CPR QUEUE: $TOTAL_CPRS pending ($CPR_COUNT inline + $QUEUE_COUNT in queue.jsonl). /review when ready.] [CPR LIFECYCLE v1: pending CogPRs advance through: extracted -> enrichment_needed -> enrichment_eligible -> promotable -> promoted. Run /review to triage and promote.]"
 fi
 if [ -n "$ENRICHMENT_MSG" ]; then
   CGG_MSG="$CGG_MSG $ENRICHMENT_MSG"
@@ -603,6 +603,7 @@ if loudest:
     sid = loudest.get('signal_id', loudest.get('id','?'))
     parts.append('Loudest: %s (volume=%s, band=%s).' % (sid, loudest.get('volume',0), loudest.get('band','?')))
 parts.append('/siren when ready.]')
+parts.append('[SIREN PROTOCOL v1: (1) High-volume signals (>30) may warrant triage before other work. (2) Run /siren to view, triage, and resolve signals. (3) Warrants indicate governance obligations requiring action. (4) Band context: PRIMITIVE=safety/data integrity, COGNITIVE=learning/process, SOCIAL=collaboration.]')
 print(' '.join(parts))
 " 2>/dev/null || true)
 fi
@@ -617,11 +618,14 @@ fi
 CRISIS_MSG=""
 CRISIS_CHECKER=$(resolve_script "crisis-injection.py")
 if [ -n "$CRISIS_CHECKER" ] && [ "$TIC_COUNT" -gt 0 ]; then
-  CRISIS_MSG=$(python3 "$CRISIS_CHECKER" \
+  CRISIS_RAW=$(python3 "$CRISIS_CHECKER" \
     --zone-root "$ZONE_ROOT" \
     --audit-logs "$AUDIT_LOGS" \
     --current-tic "$TIC_COUNT" \
     2>/dev/null || true)
+  if [ -n "$CRISIS_RAW" ]; then
+    CRISIS_MSG="$CRISIS_RAW [CRISIS PROTOCOL v1: (1) Pause non-critical work. (2) Triage via /siren. (3) If mandate-related, check audit-logs/mogul/mandates/. (4) If signal-related, check audit-logs/signals/active-manifest.jsonl.]"
+  fi
 fi
 
 # ============================================================================
@@ -646,7 +650,24 @@ for f in sorted(glob.glob('$SESSION_META/*.json'), key=lambda x: -__import__('os
 print(count)
 " 2>/dev/null || echo "0")
   if [ "$RECENT_COUNT" -gt 1 ]; then
-    PARALLEL_MSG="[PARALLEL: $RECENT_COUNT recent sessions on this project in last 2h. Files may have shifted since last handoff.]"
+    PARALLEL_MSG="[PARALLEL: $RECENT_COUNT recent sessions on this project in last 2h. (1) ADVISORY — files may have changed since your handoff. (2) Re-read target files before editing. (3) git pull if working on shared branch. (4) Coordinate via /cadence to avoid duplicate work.]"
+  fi
+fi
+
+# ============================================================================
+# Inbox injection (inbox-query.py inject)
+# ============================================================================
+
+INBOX_MSG=""
+INBOX_QUERY=$(resolve_script "inbox-query.py")
+if [ -n "$INBOX_QUERY" ] && [ "$TIC_COUNT" -gt 0 ]; then
+  INBOX_RAW=$(python3 "$INBOX_QUERY" --format text inject \
+    --entity ent_homeskillet \
+    --current-tic "$TIC_COUNT" \
+    2>/dev/null || true)
+  if [ -n "$INBOX_RAW" ]; then
+    # Flatten multi-line output for JSON embedding
+    INBOX_MSG=$(echo "$INBOX_RAW" | tr '\n' ' ' | sed 's/  */ /g')
   fi
 fi
 
@@ -657,6 +678,7 @@ fi
 FULL_MSG=""
 [ -n "$CGG_MSG" ] && FULL_MSG="$CGG_MSG"
 [ -n "$SIREN_MSG" ] && FULL_MSG="${FULL_MSG:+$FULL_MSG }$SIREN_MSG"
+[ -n "$INBOX_MSG" ] && FULL_MSG="${FULL_MSG:+$FULL_MSG }$INBOX_MSG"
 if [ -n "$MOGUL_MANDATE_MSG" ]; then
   # Inbox injection may be multi-line — flatten for JSON embedding
   MANDATE_FLAT=$(echo "$MOGUL_MANDATE_MSG" | tr '\n' ' ' | sed 's/  */ /g')

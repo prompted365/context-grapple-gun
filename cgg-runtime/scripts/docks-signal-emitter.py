@@ -161,42 +161,53 @@ def emit_docks_signal(
         "origin": "deterministic",
     }
 
-    # Write signal to daily JSONL
+    # Write signal to daily JSONL with dedup gate
+    manifest_path = os.path.join(signal_dir, "active-manifest.jsonl")
     try:
-        from lib.atomic_append import atomic_append_jsonl
-        atomic_append_jsonl(signal_file, signal)
+        from lib.atomic_append import dedup_signal_append
+        written = dedup_signal_append(signal_file, signal, manifest_path=manifest_path)
     except ImportError:
-        import fcntl
-        lockfile = signal_file + ".lock"
-        line = json.dumps(signal, separators=(",", ":")) + "\n"
-        with open(lockfile, "w") as lf:
-            fcntl.flock(lf.fileno(), fcntl.LOCK_EX)
-            try:
-                with open(signal_file, "a", encoding="utf-8") as f:
-                    f.write(line)
-                    f.flush()
-                    os.fsync(f.fileno())
-            finally:
-                fcntl.flock(lf.fileno(), fcntl.LOCK_UN)
+        written = True
+        try:
+            from lib.atomic_append import atomic_append_jsonl
+            atomic_append_jsonl(signal_file, signal)
+        except ImportError:
+            import fcntl
+            lockfile = signal_file + ".lock"
+            line = json.dumps(signal, separators=(",", ":")) + "\n"
+            with open(lockfile, "w") as lf:
+                fcntl.flock(lf.fileno(), fcntl.LOCK_EX)
+                try:
+                    with open(signal_file, "a", encoding="utf-8") as f:
+                        f.write(line)
+                        f.flush()
+                        os.fsync(f.fileno())
+                finally:
+                    fcntl.flock(lf.fileno(), fcntl.LOCK_UN)
 
     # Auto-append to active-manifest.jsonl for Mogul signal scan visibility
-    manifest_path = os.path.join(signal_dir, "active-manifest.jsonl")
-    manifest_entry = {
-        "signal_id": signal_id,
-        "signal_type": signal_type,
-        "kind": resolved_kind,
-        "band": resolved_band,
-        "status": "active",
-        "volume": resolved_volume,
-        "source_file": f"signals/{date_str}.jsonl",
-        "summary": _build_summary(signal_type, content),
-    }
-    try:
-        from lib.atomic_append import atomic_append_jsonl
-        atomic_append_jsonl(manifest_path, manifest_entry)
-    except ImportError:
-        with open(manifest_path, "a", encoding="utf-8") as mf:
-            mf.write(json.dumps(manifest_entry, separators=(",", ":")) + "\n")
+    # (only if the signal was actually written — dedup gate may have skipped it)
+    if written:
+        manifest_entry = {
+            "signal_id": signal_id,
+            "signal_type": signal_type,
+            "kind": resolved_kind,
+            "band": resolved_band,
+            "status": "active",
+            "volume": resolved_volume,
+            "source_file": f"signals/{date_str}.jsonl",
+            "summary": _build_summary(signal_type, content),
+        }
+        try:
+            from lib.atomic_append import dedup_signal_append
+            dedup_signal_append(manifest_path, manifest_entry)
+        except ImportError:
+            try:
+                from lib.atomic_append import atomic_append_jsonl
+                atomic_append_jsonl(manifest_path, manifest_entry)
+            except ImportError:
+                with open(manifest_path, "a", encoding="utf-8") as mf:
+                    mf.write(json.dumps(manifest_entry, separators=(",", ":")) + "\n")
 
     return signal_id
 

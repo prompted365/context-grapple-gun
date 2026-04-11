@@ -149,7 +149,7 @@ except: print('error|||')
       else
         # No runner — leave status pending, surface for LLM/manual execution
         log_meta "{\"timestamp\":\"$TIMESTAMP\",\"action\":\"mogul_mandate_surfaced\",\"mandate_id\":\"$MANDATE_ID\",\"cycles\":\"$HEAVY_CYCLES\",\"status\":\"pending\"}"
-        MANDATE_OUTPUT="[MOGUL MANDATE PENDING] Heavy governance cycles due: $HEAVY_CYCLES. Spawn Mogul agent (Task tool, subagent_type: mogul, run_in_background: true) to execute mandated cycles. Mandate at: $MANDATE_FILE. Mandate ID: $MANDATE_ID. Non-blocking."
+        MANDATE_OUTPUT="[MOGUL MANDATE PENDING] Heavy governance cycles due: $HEAVY_CYCLES. Spawn Mogul agent (Agent tool, subagent_type: mogul, run_in_background: true) to execute mandated cycles. Mandate at: $MANDATE_FILE. Mandate ID: $MANDATE_ID. Non-blocking. [MOGUL PROTOCOL v1: (1) Spawn with Agent tool (subagent_type: mogul, run_in_background: true). (2) Mogul reads mandate from MANDATE_FILE, transitions pending->running->consumed. (3) If mandate fails, check audit-logs/mogul/cycle-reports/ for diagnostics. (4) Mandate is governance overhead — complete it, report compactly, then focus on user work.]"
       fi
     elif [ -n "$ALL_CYCLES" ]; then
       # Lightweight cycles — execute inline and consume
@@ -241,7 +241,7 @@ json.dump(m, open('$MANDATE_FILE', 'w'), indent=2)
         MANDATE_OUTPUT="[MOGUL MANDATE: consumed] Lightweight cycles completed inline: ${LIGHTWEIGHT_RESULTS%,}."
       else
         log_meta "{\"timestamp\":\"$TIMESTAMP\",\"action\":\"lightweight_mandate_consumption_failed\",\"mandate_id\":\"$MANDATE_ID\",\"cycles\":\"$ALL_CYCLES\"}"
-        MANDATE_OUTPUT="[MOGUL MANDATE: lightweight] Pending cycles: $ALL_CYCLES (inline consumption failed — needs investigation)."
+        MANDATE_OUTPUT="[MOGUL MANDATE: lightweight] Pending cycles: $ALL_CYCLES (inline consumption failed). [MANDATE FAILURE PROTOCOL v1: (1) Check audit-logs/mogul/cycle-reports/ for runner logs. (2) Read audit-logs/mogul/mandates/current.json for error field. (3) If recoverable (script not found, timeout), fix and re-run. (4) If structural (schema mismatch, missing infrastructure), emit signal and defer to next /review.]"
       fi
 
       fi  # end race guard (CogPR-57 fix #1)
@@ -249,7 +249,7 @@ json.dump(m, open('$MANDATE_FILE', 'w'), indent=2)
   elif [ "$MANDATE_STATUS" = "running" ]; then
     MANDATE_OUTPUT="[MOGUL MANDATE: in-flight] Mandate $MANDATE_ID still running (cycles: $ALL_CYCLES)."
   elif [ "$MANDATE_STATUS" = "failed" ]; then
-    MANDATE_OUTPUT="[MOGUL MANDATE: FAILED] Mandate $MANDATE_ID failed (cycles: $ALL_CYCLES). Needs investigation."
+    MANDATE_OUTPUT="[MOGUL MANDATE: FAILED] Mandate $MANDATE_ID failed (cycles: $ALL_CYCLES). [MANDATE FAILURE PROTOCOL v1: (1) Check audit-logs/mogul/cycle-reports/ for runner logs. (2) Read audit-logs/mogul/mandates/current.json for error field. (3) If recoverable (script not found, timeout), fix and re-run. (4) If structural (schema mismatch, missing infrastructure), emit signal and defer to next /review.]"
     log_meta "{\"timestamp\":\"$TIMESTAMP\",\"action\":\"mogul_mandate_failed_surfaced\",\"mandate_id\":\"$MANDATE_ID\",\"cycles\":\"$ALL_CYCLES\"}"
   else
     # consumed or unknown — no output needed
@@ -418,9 +418,9 @@ print(json.dumps(body))
     fi
 
     if [ "$RIPPLE_ROUTED" = "true" ] && [ -n "$RIPPLE_INBOX" ]; then
-      ASSESSOR_OUTPUT="[CGG TRIGGER FIRED] $RIPPLE_INBOX Spawn ripple-assessor agent (Agent tool, subagent_type: ripple-assessor) BEFORE starting user work. $PLAN_REF. Expected CogPR count: $EXPECTED_CPRS. Handoff ID: $HANDOFF_ID. Run it in background."
+      ASSESSOR_OUTPUT="[CGG TRIGGER FIRED] $RIPPLE_INBOX [RIPPLE PROTOCOL v1: (1) Spawn ripple-assessor in background (Agent tool, subagent_type: ripple-assessor). (2) NON-BLOCKING — proceed with user work immediately. (3) Assessor writes proposals to ~/.claude/grapple-proposals/latest.md. (4) You do NOT need to wait for completion. (5) Proposals are consumed when user runs /review, not before.] $PLAN_REF. Expected CogPR count: $EXPECTED_CPRS. Handoff ID: $HANDOFF_ID."
     else
-      ASSESSOR_OUTPUT="[CGG TRIGGER FIRED] Spawn ripple-assessor agent (Agent tool, subagent_type: ripple-assessor) BEFORE starting user work. $PLAN_REF. Expected CogPR count: $EXPECTED_CPRS. Handoff ID: $HANDOFF_ID. The assessor will read the plan, evaluate pending CogPR flags and active signals, and write proposals to ~/.claude/grapple-proposals/latest.md. Run it in the background so you can proceed with the user's request."
+      ASSESSOR_OUTPUT="[CGG TRIGGER FIRED] [RIPPLE PROTOCOL v1: (1) Spawn ripple-assessor in background (Agent tool, subagent_type: ripple-assessor). (2) NON-BLOCKING — proceed with user work immediately. (3) Assessor writes proposals to ~/.claude/grapple-proposals/latest.md. (4) You do NOT need to wait for completion. (5) Proposals are consumed when user runs /review, not before.] $PLAN_REF. Expected CogPR count: $EXPECTED_CPRS. Handoff ID: $HANDOFF_ID."
     fi
   fi
 fi

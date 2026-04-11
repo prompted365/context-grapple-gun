@@ -123,20 +123,25 @@ def emit_signal(report: dict, rid: str, audit_logs: Path, dry_run: bool) -> dict
 
     if not dry_run:
         signal_file = audit_logs / "signals" / f"{date_str}.jsonl"
+        manifest_file = audit_logs / "signals" / "active-manifest.jsonl"
         signal_file.parent.mkdir(parents=True, exist_ok=True)
         try:
-            from lib.atomic_append import atomic_append_jsonl
-            atomic_append_jsonl(str(signal_file), signal)
+            from lib.atomic_append import dedup_signal_append
+            dedup_signal_append(str(signal_file), signal, manifest_path=str(manifest_file))
         except ImportError:
-            import fcntl
-            lockfile = str(signal_file) + ".lock"
-            with open(lockfile, "w") as lf:
-                fcntl.flock(lf.fileno(), fcntl.LOCK_EX)
-                try:
-                    with open(signal_file, "a", encoding="utf-8") as f:
-                        f.write(json.dumps(signal, separators=(",", ":")) + "\n")
-                finally:
-                    fcntl.flock(lf.fileno(), fcntl.LOCK_UN)
+            try:
+                from lib.atomic_append import atomic_append_jsonl
+                atomic_append_jsonl(str(signal_file), signal)
+            except ImportError:
+                import fcntl
+                lockfile = str(signal_file) + ".lock"
+                with open(lockfile, "w") as lf:
+                    fcntl.flock(lf.fileno(), fcntl.LOCK_EX)
+                    try:
+                        with open(signal_file, "a", encoding="utf-8") as f:
+                            f.write(json.dumps(signal, separators=(",", ":")) + "\n")
+                    finally:
+                        fcntl.flock(lf.fileno(), fcntl.LOCK_UN)
 
     return signal
 
