@@ -1,14 +1,23 @@
 ---
 name: complement
-description: Post-landing closure inference — direction-agnostic, scope-aware detection of materially missing expressions around an active move.
+description: Closure inference and response-geometry disclosure — direction-agnostic, scope-aware detection of materially missing expressions around an active move.
 user-invocable: true
 ---
 
 # /complement
 
-Post-landing closure inference. Detects whether an active move is partial, identifies the missing complementary expression, and surfaces it only when it materially improves closure.
+Two modes of the same primitive:
 
-This is a local coherence operation, not a follow-up helper or pattern mining lite.
+- **Post-landing** (`/complement`) — after something lands, detect whether closure is partial
+- **Origin-shape** (`/complement --origin`) — before committing to a response, detect latent dual-ray structure and yield the shaping choice
+
+Both are local coherence operations, not follow-up helpers or pattern mining lite.
+
+The origin-shape mode is the stronger primitive. It prevents the two failure modes rather than cleaning up after them:
+- assistant stays too narrow and misses the complement
+- assistant widens too early and steals the shaping decision
+
+The correct pattern is: **surface the shape before committing to the answer shape**.
 
 ## Definitions
 
@@ -31,11 +40,60 @@ These three terms must stay distinct. Conflating them degrades the skill into ad
 
 "Complement" is also scope-agnostic. The same pattern can appear at sentence level, artifact level, workflow level, governance level, system architecture level, or federation level. Scope agnostic does not mean scope blind — the skill must detect the right scope of the complement.
 
-## Trigger Condition
+## Origin-Shape Mode
 
-Invoke `/complement` after a **local closure event that may still hide non-local incompleteness**.
+When invoked with `--origin` (or when the shape is detected at the point of formulating a response), the skill operates before the response commits to a geometry.
 
-Not after every trivial step. The operative condition is: something landed, and there is a reasonable chance the closure is partial in a way that matters.
+### Origin-Shape Runtime
+
+```
+1. DETECT that the incoming issue has centroid-complement structure
+2. INFER the centroid
+3. IDENTIFY the active ray (what the user is asking about)
+4. EXPOSE the complementary ray (what is latent but not yet named)
+5. YIELD the shaping choice to the user
+```
+
+### Origin-Shape Output
+
+When the skill detects a dual-ray / centroid-complement situation at origin, emit:
+
+```
+ORIGIN SHAPE
+  centroid:           [the governing concern]
+  active ray:         [what is being asked about]
+  complementary ray:  [what is latent but unnamed]
+  unnamed tension:    [if any]
+  suggested geometry: single-ray / paired-rays / full-centroid
+```
+
+Then yield with something like:
+
+> This looks like a [shape description]. Active ray: X. Likely complement: Y. Respond single-ray, shape both, or respond from centroid?
+
+The user then chooses:
+
+1. **Single-ray** — answer the asked question only, hold the complement
+2. **Shape both** — answer with both rays paired, showing the structure
+3. **Respond from centroid** — answer from the governing concern outward, letting both rays emerge naturally from the center
+
+Option 3 is the real upgrade. Instead of issue-then-fix-then-realize-complement, it becomes: issue appears, shape detected, centroid inferred, response geometry chosen, answer shaped accordingly.
+
+### What This Provides
+
+Earlier structural legibility. The process becomes:
+
+```
+detect shape → show shape → let the user steer response geometry
+```
+
+The benefit is not better completion. It is the right to choose the form of the answer before the answer commits to a form.
+
+## Trigger Conditions
+
+**Post-landing mode** (`/complement`): invoke after a **local closure event that may still hide non-local incompleteness**. Not after every trivial step.
+
+**Origin-shape mode** (`/complement --origin`): invoke when formulating a response to something that appears to carry centroid-complement structure. The operative signal is: the issue has more than one directional expression, and committing to one without exposing the other would hide load-bearing structure.
 
 ## Six-Step Runtime
 
@@ -112,6 +170,23 @@ decision    = SUPPRESS — doc update does not change current proof
 ```
 
 This example teaches restraint. The candidate complement is real but decorative relative to the active boundary. Surfacing it would reduce closure density by pulling attention away from the compile fix into documentation maintenance.
+
+### Example 3: Origin-shape (biome trust wiring)
+
+User asks about biome trust scores being stuck. Before responding:
+
+```
+ORIGIN SHAPE
+  centroid:           visitor economy pipeline integrity
+  active ray:         biome engine doesn't emit interaction records
+  complementary ray:  cadence runner only recalculates trust at act boundaries
+  unnamed tension:    visitor_id vs entity_id field mismatch in runner
+  suggested geometry: paired-rays
+```
+
+> This is a paired-ray shape. Active: biome emission gap. Complement: cadence runner recalculation frequency + field name bug. Respond single-ray or shape both?
+
+User says "shape both" — response addresses emission, recalculation, and the field bug together as aspects of one centroid rather than discovering the complement mid-implementation.
 
 ## Context Modes
 
