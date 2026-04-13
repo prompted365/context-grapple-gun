@@ -31,6 +31,12 @@ INFRASTRUCTURE
 │   ├── budget enforcement (cap + window + per-job max)
 │   └── completion events → audit-logs/media-router/completions/
 │
+├── overshoot_router.py    ← Visual adjudication egress (Overshoot)
+│   ├── analyze / status / results / models / presets / budget
+│   ├── 3 modes: source (footage), generated (assets), draft (assembled)
+│   ├── streaming-only (LiveKit + WebSocket, no chat completions)
+│   └── default model: Qwen/Qwen3.5-9B
+│
 ├── profiles/              ← Show profile JSON files (per-project)
 │   └── {show-slug}.profile.json
 │
@@ -80,7 +86,8 @@ Each skill reads from and writes to `./output/{show_slug}/`. The dependency chai
 | `/edit-decision-list` | selection, profile, creative, audience-context | `edl.json` |
 | `/broll-prompt-engineer` | edl, profile, creative, audience-context | `broll-prompts.json` + `envelopes/*.json` |
 | `/caption-semantic-layer` | edl, selection, scoring, profile, creative | `captions.json` |
-| Cut auditor | edl, broll-prompts, captions | `cut-audit.json` |
+| Visual adjudication | generated media, assembled draft | `adjudication-*.json` (via overshoot_router.py) |
+| Cut auditor | edl, broll-prompts, captions, adjudication | `cut-audit.json` |
 | `/post-copy-generator` | selection, scoring, edl, profile, creative, audience-context | `post-copy.json` |
 | `/pipeline-report` | ALL prior outputs | `report.html` |
 

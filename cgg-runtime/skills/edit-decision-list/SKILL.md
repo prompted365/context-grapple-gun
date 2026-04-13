@@ -89,7 +89,20 @@ Identify where b-roll should appear. B-roll is not decoration — it is a visual
 - **Start/end in the audio timeline**
 - **Emotional register**: What is the speaker's emotional state at this moment
 - **Visual function**: illustrate / contrast / abstract / amplify / ground
+- **Continuity type**: static / animated / morphing — determines whether the slot can be trimmed into
+- **Min uninterrupted seconds**: For animated/morphing slots, the minimum duration that must be preserved. A morph transition (reality → generated scene → reality) is an atomic unit — cutting into it mid-flow produces visible disruption.
 - **Transition in/out**: What cut type leads into and out of this b-roll slot
+
+### B-Roll Boundary Constraints
+
+**Morph transitions are not cuts.** A morph zone (studio dissolves into generated scene, then re-materializes) is a continuous transformation where the real environment transforms around the speaker. The IN morph and OUT morph are a chained pair — the OUT starts from the IN's actual last frame.
+
+**Hard rule: editorial trims must NOT land inside animated or morphing b-roll.** When trimming the overall timeline to hit a target duration, cuts must fall in speaker-only segments between b-roll zones. If you need to shave time:
+1. Cut speaker-only sections first (they are freely trimmable)
+2. Cut entire b-roll zones if needed (remove the whole zone, not part of it)
+3. NEVER cut into the middle of a morph — it creates a visible continuity break where the dissolve starts but doesn't complete
+
+**Visual adjudication:** After assembly, run `overshoot_router.py analyze --preset draft_review` on the assembled timeline. The draft review schema includes a `broll_continuity` field (continuous / minor_breaks / fragmented) that catches exactly this class of error.
 
 ## Output Schema
 
@@ -141,9 +154,11 @@ Identify where b-roll should appear. B-roll is not decoration — it is a visual
       "duration_approx": "string",
       "emotional_register": "string — speaker's emotional state",
       "visual_function": "illustrate | contrast | abstract | amplify | ground",
+      "continuity_type": "static | animated | morphing — determines trim safety",
+      "min_uninterrupted_seconds": "float — minimum duration for animated/morphing slots (null for static)",
       "scene_context": "string — what was just said, what is about to be said",
-      "transition_in": "j_cut | l_cut | hard_cut",
-      "transition_out": "j_cut | l_cut | hard_cut",
+      "transition_in": "j_cut | l_cut | hard_cut | morph_in",
+      "transition_out": "j_cut | l_cut | hard_cut | morph_out",
       "prompt_seed": "string — initial direction for the b-roll prompt engineer"
     }
   ],

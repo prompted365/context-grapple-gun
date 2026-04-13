@@ -38,9 +38,13 @@ You are not doing the work alone. You are managing a team of specialists. Your j
                [PHASE 5c]               |
                B-Roll Dispatch          |
                (fal.ai router)         |
-                    \                  /
-                     \   [PHASE 6]   /
-                      \  Cut Audit  /
+                    |                  /
+               [PHASE 5d]            /
+               Asset Adjudication   /
+               (overshoot_router)  /
+                    \             /
+                     \  [PHASE 6]
+                      \ Cut Audit
                        \    |      /
                       [PHASE 7a] [PHASE 7b]
                       Post Copy   Report Assembly
@@ -101,11 +105,16 @@ phases:
     blocked_by: [phase_5a_broll]
     note: "Lead dispatches envelopes to fal router, monitors completions"
     
+  phase_5d_adjudication:
+    agents: [lead_inline]
+    blocked_by: [phase_5c_broll_dispatch]
+    note: "Run overshoot_router.py analyze --preset generated_assessment on each generated asset. Pass/fail verdict. Failed assets flagged for regeneration."
+    
   phase_6_cut_audit:
     agents: [cut-auditor]
     model: opus
-    blocked_by: [phase_4_edl, phase_5a_broll, phase_5b_captions]
-    note: "Different agent than EDL builder — fresh eyes looking for problems"
+    blocked_by: [phase_4_edl, phase_5a_broll, phase_5b_captions, phase_5d_adjudication]
+    note: "Different agent than EDL builder — fresh eyes. Includes adjudication verdicts."
     
   phase_7a_post_copy:
     agents: [post-copy-writer]
@@ -244,6 +253,22 @@ After b-roll envelopes are written:
 6. Report job IDs to user
 7. Note: generation is async — continue with cut audit while media generates
 
+### Phase 5d: Visual Adjudication (lead inline)
+
+After generated assets arrive from fal.ai:
+1. For each generated asset (morph clip, scene image, b-roll video):
+   ```bash
+   python3 overshoot_router.py analyze <asset_path> --preset generated_assessment
+   ```
+2. Review verdicts — each asset gets a pass/fail with fidelity scores (style, intent, likeness, quality)
+3. **Failed assets**: flag for regeneration. Present failures to user with the assessment's reasoning.
+4. **Passed assets**: proceed to cut audit.
+5. Write results to `./output/{show_slug}/{date}-adjudication.json`
+
+**Note:** Overshoot is streaming-only (no batch/chat endpoint). The router uses FileSource with real-time pacing. Each asset analysis takes roughly the asset's duration. Token budget: `delay_seconds * 128` max output tokens — the `generated_assessment` structured schema fits within this at 2s delay (256 tokens).
+
+**Note:** Overshoot results for consecutive static shots will be highly repetitive (no inter-clip memory). When consuming results, coalesce near-identical descriptions — the signal is in the *changes* between clips, not the repeated descriptions.
+
 ### Phase 6: Cut Audit
 
 Spawn **one agent** (opus) — **different agent than EDL builder** (fresh eyes):
@@ -254,9 +279,12 @@ Prompt includes:
 - EDL (from Phase 4)
 - B-roll prompts (from Phase 5a — what visuals are intended)
 - Caption layer (from Phase 5b — where text lands)
+- Adjudication verdicts (from Phase 5d — asset quality assessment)
 - Instructions: You are a CRITIC, not the editor. Review every J and L cut
   against its stated intention. Flag anything abrupt, unmotivated, or
-  technically incorrect. Be honest — the editor won't improve if you're nice.
+  technically incorrect. Check that no editorial trims land inside morphing
+  b-roll zones — the EDL's continuity_type field tells you which slots are
+  atomic. Be honest — the editor won't improve if you're nice.
 - Output: write cut-audit.json to ./output/{show_slug}/
 ```
 
@@ -352,7 +380,9 @@ If no timestamps: proceed with content-based boundaries, flag reduced precision 
     ...
 ```
 
-## Media Generation Router
+## Media Routers
+
+### Generation Router (fal.ai)
 
 **Location**: `canonical_developer/context-grapple-gun/cgg-runtime/scripts/media-router/fal_router.py`
 
@@ -382,6 +412,30 @@ python3 fal_router.py status <job_id>
 ```
 
 Completions land in `audit-logs/media-router/completions/<job_id>.json`.
+
+### Adjudication Router (Overshoot)
+
+**Location**: `canonical_developer/context-grapple-gun/cgg-runtime/scripts/media-router/overshoot_router.py`
+
+Visual adjudication authority — governs when generation is justified and whether outputs are acceptable. Three surfaces:
+- **source**: Footage assessment (visual hinges, face windows, edit grammar)
+- **generated**: Asset evaluation (style/intent/likeness fidelity, pass/fail)
+- **draft**: Assembled timeline review (pacing, b-roll continuity, arc coherence)
+
+| Command | Purpose |
+|---------|---------|
+| `analyze <file> --preset <name>` | Run structured analysis |
+| `status` | Check active streams |
+| `results <stream_id>` | Retrieve results |
+| `models` | List available models |
+| `budget` | Check shared spend with fal_router |
+
+**Key constraints:**
+- Streaming-only API (no chat completions). Uses FileSource + LiveKit transport.
+- API at `/v0.2` (not `/v1`). Default model: `Qwen/Qwen3.5-9B`.
+- Output token limit: `delay_seconds × 128`. Structured schemas must fit.
+- Processing presets: snappy (0.5s/64tok), balanced (1s/128tok), detailed (2s/256tok).
+- No inter-clip memory — consecutive static shots produce near-identical descriptions. Consume results by looking for *changes*, not repeating descriptions.
 
 ## Error Handling
 
