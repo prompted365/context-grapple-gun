@@ -50,7 +50,18 @@ From the audience context:
 - Motion must read at mobile scale — subtle details get lost on a phone screen
 - The b-roll must feel *native* to the platform, not imported from a different medium
 
-### Layer 5: Tool-Specific Optimization
+### Layer 5: Adjudication Awareness
+
+If an Overshoot adjudication verdict is available for a prior draft (from `overshoot_router.py --preset draft_review`), incorporate its findings:
+
+- **B-roll continuity breaks**: If the verdict flagged `broll_continuity: "fragmented"` or `"minor_breaks"`, check whether the break was caused by editorial trimming cutting into a morph transition. If so, write prompts that account for the EDL slot's `continuity_type` and `min_uninterrupted_seconds` — the generated asset must be long enough to survive the edit window without mid-motion truncation.
+- **Overreach moments**: If the verdict flagged visual overreach at specific timestamps, dial back visual complexity for those slots. The prompt should serve meaning more quietly.
+- **Underreach moments**: If the verdict flagged visual underreach, the prompt for that slot should be bolder — the previous pass was too subtle.
+- **Caption sync issues**: If `caption_sync` was flagged, ensure the prompt's composition notes leave adequate text-safe zones. Caption timing problems often compound when b-roll has busy visual centers competing with text.
+
+The adjudication verdict is optional input. When absent, skip this layer. When present, it overrides Layer 2 visual function choices only where the verdict specifically contradicts them.
+
+### Layer 6: Tool-Specific Optimization
 
 Adapt the prompt to the configured video generation tool:
 
@@ -74,8 +85,9 @@ If `video_gen_tool` is `none`: Write the prompt anyway as a creative direction d
   "video_gen_tool": "string — tool this prompt is optimized for",
   "prompt": "string — the full generation prompt",
   "negative_prompt": "string — what to avoid (anti-patterns enforced here)",
-  "duration": "string — target duration for this b-roll clip",
+  "duration": "string — target duration for this b-roll clip (must exceed EDL min_uninterrupted_seconds for morphing slots)",
   "aspect_ratio": "string — from creative config",
+  "continuity_type": "static | animated | morphing — from EDL slot, governs trim safety",
   
   "creative_brief": {
     "scene_context": "string — what the speaker just said (for human reference)",
@@ -99,6 +111,7 @@ A prompt passes when:
 2. The prompt could not be generic — it is specific to THIS moment in THIS show
 3. The prompt respects the profile's aesthetic invariants (verifiable against the anti-pattern list)
 4. The composition accounts for text overlay zones
+5. For morphing/animated slots: the requested duration exceeds `min_uninterrupted_seconds` from the EDL, ensuring the generated asset survives editorial trimming without mid-motion truncation
 
 A prompt fails when:
 - It describes a pretty scene that has no relationship to the speaker's meaning

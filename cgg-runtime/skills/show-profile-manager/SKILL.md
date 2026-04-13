@@ -126,6 +126,15 @@ profiles/
   "video_gen_tool": "seedance | veo | happyhorse | kling | runway | none",
   "video_gen_notes": "string — tool-specific prompt optimization notes",
   
+  "adjudication_config": {
+    "enabled": "boolean — whether visual adjudication runs for this creative (default true)",
+    "preset": "source_assessment | generated_assessment | draft_review — which adjudication preset to run",
+    "model_tier": "small | medium | large — model tier for adjudication (default medium)",
+    "auto_revise": "boolean — if true, pipeline automatically re-runs flagged stages on REVISE verdict (default false)",
+    "morph_continuity_check": "boolean — if true, adjudicator specifically checks morph transition integrity (default true)",
+    "caption_sync_check": "boolean — if true, adjudicator checks caption timing alignment (default true)"
+  },
+  
   "overrides": {
     "// any profile-level field can be overridden here for this creative": true
   }

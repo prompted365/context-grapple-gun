@@ -45,6 +45,20 @@ The HTML report contains every major decision made across the pipeline with full
 - Status: PASS (cut achieves its stated goal), FLAG (technically correct but intention could be stronger), FIX (cut doesn't achieve what it claims)
 - For any FLAG or FIX: what specifically could be different
 
+### Section 5.5: Visual Adjudication (if available)
+
+If the pipeline ran an Overshoot adjudication pass (via `overshoot_router.py`), include the results:
+
+- **Verdict**: PASS or REVISE, with the model and preset used
+- **Pacing assessment**: too_slow / good / too_fast / uneven — presented as a rhythm diagram
+- **B-roll continuity**: continuous / minor_breaks / fragmented — with specific timestamps and descriptions of any breaks. If morph transitions were cut mid-flow by editorial trimming, flag these prominently as they indicate EDL constraint violations.
+- **Overreach/underreach moments**: Each flagged timestamp with the adjudicator's reasoning
+- **Caption sync**: good / minor_issues / major_issues — correlated with the caption layer's collision audit
+- **Arc expression score**: How well the final edit expresses the intended emotional arc (0-1)
+- **Revision notes**: If verdict is REVISE, present each revision note as an actionable item with the relevant pipeline stage that should re-run
+
+If no adjudication was run, display a placeholder noting that visual adjudication is available via `overshoot_router.py --preset draft_review` and what it would assess.
+
 ### Section 6: B-Roll Prompts
 - Each prompt with its creative brief
 - The prompt text ready to paste into the gen tool

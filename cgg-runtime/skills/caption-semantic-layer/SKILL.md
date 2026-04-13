@@ -86,6 +86,7 @@ You receive:
 - The scored segment (with identified hook, tension, resolution, loop moments)
 - The full profile + active creative (caption styling configs)
 - The transcript text for the selected segment
+- (Optional) Overshoot adjudication verdict — if a `draft_review` pass was run, it includes a `caption_sync` field (`good | minor_issues | major_issues`) and may flag specific timing problems
 
 ## Process
 
@@ -116,6 +117,15 @@ Walk through the full timeline and verify:
 - No moment has overlapping key semantics
 - Text placement doesn't collide with b-roll focal points (check against b-roll composition notes)
 - Overall text density is appropriate (not too much text on screen at any moment)
+
+### Step 5: Overshoot Caption Sync Reconciliation (conditional)
+
+If an Overshoot adjudication verdict is available with `caption_sync` data:
+- **good**: No action needed — confirms the caption layer timing is sound
+- **minor_issues**: Review the adjudicator's specific timing flags. Common causes: subtitle group boundaries misaligned with speech rhythm, key semantic animation overlapping with transition cuts. Adjust timing windows for flagged segments.
+- **major_issues**: The caption layer likely needs structural rework. Check for: (1) key semantics placed at wrong emotional beats (the adjudicator sees the assembled video, not just the transcript), (2) subtitle groups too large causing delayed appearance, (3) caption animation timing conflicting with b-roll morph transitions. Reconcile against the adjudicator's `revision_notes` if present.
+
+Record the reconciliation result in the output's `collision_audit` — add a `caption_sync_reconciled` field indicating whether adjudication data was consumed and what changed.
 
 ## Output Schema
 
