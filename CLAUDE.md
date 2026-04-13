@@ -589,3 +589,61 @@ When two engines share state through a registry file, the producing engine must 
 A complement surfaced in a prior mode but not yet materialized remains a valid complement. The structural relevance test must evaluate complement state (built vs named vs unnamed), not just recent-output presence. First calibration evidence from /complement invocation log — the gate correction shapes skill behavior by requiring materialization state assessment before declaring a complement irrelevant.
 
 <!-- promoted from CogPR-152 (tic 136→138). Source: session:tic-136. Evidence: first /complement calibration. Gate correction: evaluate complement state, not just recent-output presence. Band: COGNITIVE. Confidence: 0.82. -->
+
+## Contamination Lifecycle and Forensic Investigation Discipline
+
+Third-party software contamination follows a structural lifecycle: (1) silent environment mutation (shell profile injection, proxy redirection without ToS disclosure), (2) persistence mechanisms (auto-launch override via internal config sync that resists user intervention, provider env.sh writes on every launch), (3) data residuals surviving removal (macOS drag-to-Trash removes only .app bundle; ~/Library data, launch agents, keychain entries, auto-updaters persist — observed: 9.4GB across 19 directories from 3 apps).
+
+Detection requires three complementary systems: file-integrity drift (did watched files change — high confidence, after-the-fact), baseline deviation (new env vars, launch agents, proxy settings — high confidence, after-the-fact), live attribution (what process is touching files now — medium confidence, real-time only). 'Who changed this file' cannot be recovered after the fact without pre-existing auditing.
+
+Investigation discipline: enforce app identity separation at the top of any multi-app investigation (per-app evidence buckets, shared-framework hypotheses explicitly labeled). Separate observed fact (entitlement exists, local server exists, bundled runtime exists) from inferred risk (possible interception surface, possible exfil path). Require proof threshold before strong verbs — use 'creates a surface for,' 'permits,' 'is capable of' until runtime evidence of activation exists. Entitlement proof first, runtime/process inventory second, network/socket verification third, source-level code inference last.
+
+<!-- promoted from CogPR-170/171/172/173 merged (tic 141-143→143). Source: Genspark forensic investigation tic 141-143. Band: PRIMITIVE. detection_affordance: active (contam_sentinel.py). -->
+
+## Accessibility API Structural Indistinguishability
+
+Cross-app activity tracking via accessibility API is structurally indistinguishable from legitimate dictation context — the app needs focused_app_bundle_id to deliver text. The invasive choice is persisting and syncing that data, not collecting it. Detection requires inspecting the local database schema for sync tables and cross-app indexes, not monitoring runtime behavior.
+
+<!-- promoted from CogPR-175 (tic 142→143). Source: Speakly genspark-flow.db analysis. Depends on: MERGE-A (three detection systems). Band: COGNITIVE. detection_affordance: pending. -->
+
+## Competing Canons / Hardening Pass Obligation
+
+Report artifacts that span an iterative build accumulate competing canons when the approach changes mid-session but earlier sections aren't rewritten. A report that describes abstract scalar-bar b-roll in sections 1-5 and morph-based narrative scenes in section 11 carries two incompatible descriptions of the same deliverable. The hardening pass (rewriting the top-level story to match the final winning approach while preserving the forensic record of how the pipeline got there) is a distinct authoring obligation, not a polish step.
+
+<!-- promoted from CogPR-161 (tic 139→143). Source: session:podcast-pipeline-ep31. Band: COGNITIVE. detection_affordance: pending. -->
+
+## Baseline Re-Anchoring After Intentional State Change
+
+Integrity sentinels that detect remediation-era changes must be rebaselined immediately after cleanup completes. The baseline captures pre-remediation state — disappeared malware agents, shifted mdworker populations, etc. — creating false-positive noise that obscures real future drift. Rebaseline-after-remediation is the correct sequence: init → detect → remediate → rebaseline → monitor clean state. Without the rebaseline step, the sentinel's first clean-state check inherits all the remediation delta as 'drift', triggering high-volume signals (vol 50) that are entirely self-referential.
+
+<!-- promoted from CogPR-176 (tic 143→143). Source: contam_sentinel.py vol 50 self-referential bootstrap signal. Band: COGNITIVE. detection_affordance: active (contam_sentinel.py rebaseline). -->
+
+## Multi-Session Artifact Provenance
+
+Forensic reports spanning multiple investigation sessions must carry explicit per-finding timestamps, not a single document date. The tic-142 deep analysis invalidated a key claim from the tic-141 initial report: 'App did NOT recontaminate on restart — injection was one-time onboarding action.' The correction (TokenProvider fires on every launch) was only possible because the second session tested what the first session assumed. Reports with a single date create a false impression of static, complete findings. The fix: each finding carries its own discovery timestamp and confidence level, and corrections to prior findings are marked explicitly as corrections with the original claim cited.
+
+<!-- promoted from CogPR-177 (tic 143→143). Source: Genspark forensic binder — prior session's one-time claim corrected. Band: COGNITIVE. detection_affordance: pending. -->
+
+## Drift Classification Taxonomy
+
+When auditing an adapter for API drift, classify each line as: accurate (matches current docs), likely stale (was accurate, drift detected), unverified from public docs (may work but not documented), or custom layer (our orchestration, not an API claim). The classification taxonomy prevents conflating adapter-specific orchestration code with actual API contract violations. The TS overshoot adapter had 6 custom-layer files that were architecturally sound but would have been flagged as drift without this distinction.
+
+<!-- promoted from CogPR-163 (tic 140→143). Source: session:overshoot-adapter-audit. Operationalizes Volatility Handling Law L3/L5. Band: COGNITIVE. detection_affordance: pending. -->
+
+## Single Routing Surface for Generation and Adjudication
+
+External media API routers (generation + adjudication) should share a single routing surface and budget. Generation asks 'make this' and adjudication asks 'is this good?' — both are media egress, both cost money, both need audit trails. Splitting them by provider rather than by function fragments the spend surface.
+
+<!-- promoted from CogPR-162 (tic 140→143). Source: session:overshoot-adapter-audit. Extends cognitive budget routing. Band: COGNITIVE. detection_affordance: pending. -->
+
+## Overlay-at-Timestamp Assembly
+
+B-roll assembly must use overlay-at-timestamp (video replaces speaker footage at specific time windows), not insert-between-segments (video spliced into the timeline). Insert-based assembly adds duration to the video track without adding duration to the audio track, causing cumulative sync drift after every insertion. The audio spine is continuous and untouched; the visual layer swaps at precise windows.
+
+<!-- promoted from CogPR-158 (tic 139→143). Source: session:podcast-pipeline-ep31. Band: COGNITIVE. detection_affordance: pending. -->
+
+## Morph Transition Grammar
+
+Morph transitions are atomic compound operations: (1) keyframes must come from different visual worlds — two real frames produce camera interpolation, not transformation; (2) OUT morph chains from IN morph's actual last frame (pose continuity); (3) editorial trims must not land inside morphing zones — cutting mid-morph produces visible breaks. EDL needs continuity_type per b-roll slot.
+
+<!-- promoted from CogPR-155/167 merged (tic 139-141→143). Source: session:podcast-pipeline-ep31 + Ep31 reel analysis. Depends on: CogPR-158 (overlay method). Band: COGNITIVE. detection_affordance: pending. -->
