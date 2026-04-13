@@ -56,10 +56,21 @@ PRODUCTION_ROOT = ZONE_ROOT.parent / "promptedllc_productions"
 PROFILES_DIR = PRODUCTION_ROOT / "profiles"
 
 # ---------------------------------------------------------------------------
-# Models — current as of docs.overshoot.ai 2026-03-11
+# Models — current as of docs.overshoot.ai 2026-03-11, playground 2026-04-12
 # ---------------------------------------------------------------------------
 
 MODELS = {
+    # Featured (playground-promoted, 2026-04-12)
+    "gemma-4-31b": {
+        "overshoot_id": "google/gemma-4-31b",
+        "tier": "large",
+        "note": "Google Gemma 4. Playground-featured, marked Fast.",
+    },
+    "holo-3": {
+        "overshoot_id": "holo-3",
+        "tier": "large",
+        "note": "New model family. Playground-featured.",
+    },
     # Large (27B+) — best quality, slower
     "qwen3.5-35b-a3b": {
         "overshoot_id": "Qwen/Qwen3.5-35B-A3B",
@@ -137,6 +148,33 @@ DEFAULT_MODEL = "qwen3.5-9b"
 COST_PER_SECOND_USD = 0.003  # ~$0.18/min, conservative estimate
 
 # ---------------------------------------------------------------------------
+# Processing presets — mirrors playground (Snappy/Balanced/Detailed/Custom)
+# Stride = delay_seconds. Effective FPS = (target_fps * clip_length) / stride.
+# Max output tokens = floor(128 * stride).
+# ---------------------------------------------------------------------------
+
+PROCESSING_PRESETS = {
+    "snappy": {
+        "target_fps": 6,
+        "clip_length_seconds": 0.5,
+        "delay_seconds": 0.5,
+        "note": "Fast results, 64 max tokens. Good for triage.",
+    },
+    "balanced": {
+        "target_fps": 6,
+        "clip_length_seconds": 1.0,
+        "delay_seconds": 1.0,
+        "note": "Default. 128 max tokens. Good balance of speed and detail.",
+    },
+    "detailed": {
+        "target_fps": 10,
+        "clip_length_seconds": 2.0,
+        "delay_seconds": 1.5,
+        "note": "20 frames/clip, 192 max tokens. Deep analysis.",
+    },
+}
+
+# ---------------------------------------------------------------------------
 # Analysis modes — Visual Adjudication Layer responsibility surfaces
 # ---------------------------------------------------------------------------
 
@@ -145,8 +183,8 @@ ANALYSIS_MODES = {
         "description": "Source footage assessment — visual hinges, face windows, edit grammar",
         "mode": "clip",
         "target_fps": 6,
-        "clip_length_seconds": 1.0,
-        "delay_seconds": 1.0,
+        "clip_length_seconds": 2.0,
+        "delay_seconds": 2.0,
         "model": "qwen3.5-9b",
     },
     "generated": {
@@ -235,10 +273,14 @@ PRESETS = {
             "Review this assembled video draft for editorial coherence. Assess:\n"
             "1. PACING COHERENCE — does the rhythm serve the content? Too fast, too slow, just right?\n"
             "2. TRANSITION COHERENCE — do visual transitions serve the editorial arc or distract?\n"
-            "3. VISUAL OVERREACH — any generated content that draws attention away from the message?\n"
-            "4. VISUAL UNDERREACH — any moments begging for visual support that got nothing?\n"
-            "5. ARC EXPRESSION — does the final edit still express the intended emotional arc?\n"
-            "6. CAPTION SYNC — are captions timed to speech? Any overlap or delay?\n\n"
+            "3. B-ROLL CONTINUITY — does generated/overlay imagery flow continuously, or does it "
+            "appear chopped, fragmented, or abruptly interrupted mid-motion? A morph or animation "
+            "that starts but gets cut before completing is a continuity break. Flag any b-roll that "
+            "feels like it was sliced mid-flow by editorial trimming.\n"
+            "4. VISUAL OVERREACH — any generated content that draws attention away from the message?\n"
+            "5. VISUAL UNDERREACH — any moments begging for visual support that got nothing?\n"
+            "6. ARC EXPRESSION — does the final edit still express the intended emotional arc?\n"
+            "7. CAPTION SYNC — are captions timed to speech? Any overlap or delay?\n\n"
             "Overall PASS/REVISE verdict with specific revision notes if REVISE."
         ),
         "output_schema": {
@@ -246,6 +288,8 @@ PRESETS = {
             "properties": {
                 "pacing": {"type": "string", "enum": ["too_slow", "good", "too_fast", "uneven"]},
                 "transition_coherence": {"type": "number"},
+                "broll_continuity": {"type": "string", "enum": ["continuous", "minor_breaks", "fragmented"]},
+                "broll_continuity_notes": {"type": "array", "items": {"type": "string"}},
                 "overreach_moments": {"type": "array", "items": {"type": "string"}},
                 "underreach_moments": {"type": "array", "items": {"type": "string"}},
                 "arc_expression": {"type": "number"},
@@ -253,7 +297,7 @@ PRESETS = {
                 "verdict": {"type": "string", "enum": ["pass", "revise"]},
                 "revision_notes": {"type": "array", "items": {"type": "string"}},
             },
-            "required": ["pacing", "arc_expression", "verdict"],
+            "required": ["pacing", "broll_continuity", "arc_expression", "verdict"],
         },
     },
 }
