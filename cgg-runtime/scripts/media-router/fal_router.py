@@ -67,6 +67,15 @@ MODELS = {
         "cost_per_unit": 0.3024,  # per second at 720p
         "unit": "second",
     },
+    "seedance-2.0-r2v": {
+        "fal_id": "bytedance/seedance-2.0/reference-to-video",
+        "type": "video",
+        "cost_per_unit": 0.3024,  # per second at 720p (same pricing tier)
+        "unit": "second",
+        "max_images": 9,
+        "max_videos": 3,
+        "max_audio": 3,
+    },
 }
 
 # Reverse lookup: fal_id -> our model key
@@ -147,7 +156,8 @@ def estimate_cost(envelope):
         mult = model["resolution_multipliers"].get(res, 1.0)
         return model["cost_per_unit"] * n * mult
     elif model["type"] == "video":
-        duration = int(envelope.get("params", {}).get("duration", "5"))
+        dur_raw = envelope.get("params", {}).get("duration", "5")
+        duration = int(dur_raw) if dur_raw != "auto" else 8  # conservative estimate for auto
         if model_key == "kling-v3-pro-i2v":
             audio = envelope.get("params", {}).get("generate_audio", True)
             rate = model["cost_per_unit_audio"] if audio else model["cost_per_unit"]
@@ -215,16 +225,31 @@ def translate_envelope(envelope):
 
     elif model_key == "seedance-2.0-i2v":
         fal_params = {
-            "start_frame": params["image_url"],
+            "image_url": params["image_url"],
             "prompt": params["prompt"],
             "duration": str(params.get("duration", "5")),
         }
         for opt in ["aspect_ratio", "resolution", "audio", "end_frame"]:
             if opt in params:
                 fal_params[opt] = params[opt]
-        # Seedance uses "end_frame" not "end_image_url"
         if "end_image_url" in params and "end_frame" not in params:
             fal_params["end_frame"] = params["end_image_url"]
+        return fal_id, fal_params
+
+    elif model_key == "seedance-2.0-r2v":
+        fal_params = {
+            "prompt": params["prompt"],
+        }
+        # Reference arrays — up to 9 images, 3 videos, 3 audio
+        if "image_urls" in params:
+            fal_params["image_urls"] = params["image_urls"][:9]
+        if "video_urls" in params:
+            fal_params["video_urls"] = params["video_urls"][:3]
+        if "audio_urls" in params:
+            fal_params["audio_urls"] = params["audio_urls"][:3]
+        for opt in ["aspect_ratio", "resolution", "duration", "generate_audio", "seed"]:
+            if opt in params:
+                fal_params[opt] = params[opt]
         return fal_id, fal_params
 
     else:
@@ -477,6 +502,54 @@ def cmd_result(args):
     print(json.dumps(result, indent=2, default=str))
 
 
+def cmd_extract_frames(args):
+    """Extract evenly-spaced frames from a video for reference array input."""
+    import subprocess
+    src = Path(args.source)
+    if not src.exists():
+        print(f"ERROR: {src} not found", file=sys.stderr)
+        sys.exit(1)
+
+    n = args.count
+    out_dir = Path(args.output_dir)
+    out_dir.mkdir(parents=True, exist_ok=True)
+
+    # Get video duration
+    probe = subprocess.run(
+        ["ffprobe", "-v", "quiet", "-print_format", "json", "-show_format", str(src)],
+        capture_output=True, text=True
+    )
+    duration = float(json.loads(probe.stdout)["format"]["duration"])
+
+    # Calculate timestamps for even spacing
+    if args.start is not None and args.end is not None:
+        start_t, end_t = args.start, args.end
+    else:
+        start_t, end_t = 0, duration
+
+    interval = (end_t - start_t) / n
+    timestamps = [start_t + i * interval for i in range(n)]
+
+    paths = []
+    for i, ts in enumerate(timestamps):
+        out_path = out_dir / f"ref_{i+1:02d}_{ts:.2f}s.png"
+        subprocess.run([
+            "ffmpeg", "-v", "quiet", "-ss", str(ts), "-i", str(src),
+            "-frames:v", "1", "-q:v", "2", str(out_path), "-y"
+        ])
+        paths.append(str(out_path))
+        print(f"  Frame {i+1}/{n}: {ts:.2f}s -> {out_path.name}")
+
+    result = {
+        "source": str(src),
+        "frame_count": n,
+        "interval_seconds": interval,
+        "timestamps": timestamps,
+        "paths": paths,
+    }
+    print(json.dumps(result, indent=2))
+
+
 def cmd_budget(args):
     if args.action == "reset":
         budget = {**DEFAULT_BUDGET, "window_start": datetime.now(timezone.utc).isoformat()}
@@ -524,6 +597,14 @@ def main():
     p_result.add_argument("job_id", help="Job ID")
     p_result.add_argument("--timeout", type=int, default=300)
     p_result.set_defaults(func=cmd_result)
+
+    p_extract = sub.add_parser("extract-frames", help="Extract reference frame array from video")
+    p_extract.add_argument("source", help="Source video path")
+    p_extract.add_argument("--count", "-n", type=int, default=8, help="Number of frames (default 8, max 9 for Seedance r2v)")
+    p_extract.add_argument("--output-dir", "-o", default="./output/ref-frames", help="Output directory")
+    p_extract.add_argument("--start", type=float, default=None, help="Start time in seconds")
+    p_extract.add_argument("--end", type=float, default=None, help="End time in seconds")
+    p_extract.set_defaults(func=cmd_extract_frames)
 
     p_budget = sub.add_parser("budget", help="View or manage spend budget")
     p_budget.add_argument("action", nargs="?", default="show",

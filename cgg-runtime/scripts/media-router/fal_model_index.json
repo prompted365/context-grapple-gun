@@ -1,0 +1,1006 @@
+{
+  "indexed_at": "2026-04-12",
+  "model_count": 200,
+  "models": {
+    "fal-ai/kling-video/v3/pro/image-to-video": {
+      "category": "image-to-video",
+      "name": "Kling Video v3 Image to Video [Pro]",
+      "status": "active"
+    },
+    "bytedance/seedance-2.0/image-to-video": {
+      "category": "image-to-video",
+      "name": "Seedance 2 Image to Video",
+      "status": "active"
+    },
+    "fal-ai/kling-video/v2.6/pro/image-to-video": {
+      "category": "image-to-video",
+      "name": "Kling Video v2.6 Image to Video",
+      "status": "active"
+    },
+    "fal-ai/kling-video/v2.5-turbo/pro/image-to-video": {
+      "category": "image-to-video",
+      "name": "Kling Video",
+      "status": "active"
+    },
+    "fal-ai/bytedance/seedance/v1.5/pro/image-to-video": {
+      "category": "image-to-video",
+      "name": "Bytedance",
+      "status": "active"
+    },
+    "xai/grok-imagine-video/image-to-video": {
+      "category": "image-to-video",
+      "name": "Grok Imagine Video",
+      "status": "active"
+    },
+    "fal-ai/veo3.1/fast/image-to-video": {
+      "category": "image-to-video",
+      "name": "Veo 3.1 Fast",
+      "status": "active"
+    },
+    "bytedance/seedance-2.0/reference-to-video": {
+      "category": "image-to-video",
+      "name": "Seedance 2 Reference to Video",
+      "status": "active"
+    },
+    "fal-ai/kling-video/v3/standard/image-to-video": {
+      "category": "image-to-video",
+      "name": "Kling Video v3 Image to Video [Standard]",
+      "status": "active"
+    },
+    "fal-ai/veo3.1/image-to-video": {
+      "category": "image-to-video",
+      "name": "Veo 3.1",
+      "status": "active"
+    },
+    "bytedance/seedance-2.0/fast/image-to-video": {
+      "category": "image-to-video",
+      "name": "Seedance 2.0 Fast Image to Video",
+      "status": "active"
+    },
+    "fal-ai/sora-2/image-to-video": {
+      "category": "image-to-video",
+      "name": "Sora 2",
+      "status": "active"
+    },
+    "fal-ai/kling-video/o3/pro/image-to-video": {
+      "category": "image-to-video",
+      "name": "Kling O3 Image to Video [Pro]",
+      "status": "active"
+    },
+    "fal-ai/kling-video/v2.1/standard/image-to-video": {
+      "category": "image-to-video",
+      "name": "Kling 2.1 (standard)",
+      "status": "active"
+    },
+    "bytedance/seedance-2.0/fast/reference-to-video": {
+      "category": "image-to-video",
+      "name": "Seedance 2.0 Fast Reference to Video",
+      "status": "active"
+    },
+    "fal-ai/minimax/hailuo-02/standard/image-to-video": {
+      "category": "image-to-video",
+      "name": "MiniMax Hailuo 02 [Standard] (Image to Video)",
+      "status": "active"
+    },
+    "fal-ai/bytedance/seedance/v1/pro/image-to-video": {
+      "category": "image-to-video",
+      "name": "Seedance 1.0 Pro",
+      "status": "active"
+    },
+    "fal-ai/kling-video/o3/standard/image-to-video": {
+      "category": "image-to-video",
+      "name": "Kling O3 Image to Video [Pro]",
+      "status": "active"
+    },
+    "fal-ai/veo3.1/first-last-frame-to-video": {
+      "category": "image-to-video",
+      "name": "Veo 3.1",
+      "status": "active"
+    },
+    "fal-ai/kling-video/o3/pro/reference-to-video": {
+      "category": "image-to-video",
+      "name": "Kling O3 Reference to Video [Pro]",
+      "status": "active"
+    },
+    "fal-ai/veo3.1/lite/image-to-video": {
+      "category": "image-to-video",
+      "name": "Veo3.1 Lite Image to Video",
+      "status": "active"
+    },
+    "fal-ai/veo3.1/fast/first-last-frame-to-video": {
+      "category": "image-to-video",
+      "name": "Veo 3.1 Fast",
+      "status": "active"
+    },
+    "fal-ai/wan-25-preview/image-to-video": {
+      "category": "image-to-video",
+      "name": "Wan 2.5 Image to Video",
+      "status": "active"
+    },
+    "fal-ai/kling-video/v2.1/pro/image-to-video": {
+      "category": "image-to-video",
+      "name": "Kling 2.1 (pro)",
+      "status": "active"
+    },
+    "fal-ai/kling-video/v1.6/standard/image-to-video": {
+      "category": "image-to-video",
+      "name": "Kling 1.6",
+      "status": "active"
+    },
+    "veed/fabric-1.0": {
+      "category": "image-to-video",
+      "name": "Fabric 1.0",
+      "status": "active"
+    },
+    "fal-ai/sora-2/image-to-video/pro": {
+      "category": "image-to-video",
+      "name": "Sora 2",
+      "status": "active"
+    },
+    "fal-ai/kling-video/v2.5-turbo/standard/image-to-video": {
+      "category": "image-to-video",
+      "name": "Kling Video",
+      "status": "active"
+    },
+    "wan/v2.6/image-to-video": {
+      "category": "image-to-video",
+      "name": "Wan v2.6 Image to Video",
+      "status": "active"
+    },
+    "fal-ai/bytedance/seedance/v1/lite/image-to-video": {
+      "category": "image-to-video",
+      "name": "Seedance 1.0 Lite",
+      "status": "active"
+    },
+    "fal-ai/wan/v2.7/image-to-video": {
+      "category": "image-to-video",
+      "name": "Wan",
+      "status": "active"
+    },
+    "fal-ai/veo3/fast/image-to-video": {
+      "category": "image-to-video",
+      "name": "Veo 3 Fast [Image to Video]",
+      "status": "active"
+    },
+    "fal-ai/pixverse/v6/image-to-video": {
+      "category": "image-to-video",
+      "name": "Pixverse",
+      "status": "active"
+    },
+    "fal-ai/kling-video/v1.6/pro/image-to-video": {
+      "category": "image-to-video",
+      "name": "Kling 1.6",
+      "status": "active"
+    },
+    "fal-ai/ltx-2.3/image-to-video/fast": {
+      "category": "image-to-video",
+      "name": "LTX 2.3 Video Fast",
+      "status": "active"
+    },
+    "fal-ai/veo3.1/reference-to-video": {
+      "category": "image-to-video",
+      "name": "Veo 3.1",
+      "status": "active"
+    },
+    "fal-ai/minimax/hailuo-02/pro/image-to-video": {
+      "category": "image-to-video",
+      "name": "MiniMax Hailuo 02 [Pro] (Image to Video)",
+      "status": "active"
+    },
+    "fal-ai/minimax/hailuo-2.3/standard/image-to-video": {
+      "category": "image-to-video",
+      "name": "MiniMax Hailuo 2.3 [Standard] (Image to Video)",
+      "status": "active"
+    },
+    "fal-ai/kling-video/o1/image-to-video": {
+      "category": "image-to-video",
+      "name": "Kling O1 First Frame Last Frame to Video [Pro]",
+      "status": "active"
+    },
+    "fal-ai/bytedance/seedance/v1/pro/fast/image-to-video": {
+      "category": "image-to-video",
+      "name": "Bytedance",
+      "status": "active"
+    },
+    "fal-ai/kling-video/o3/standard/reference-to-video": {
+      "category": "image-to-video",
+      "name": "Kling O3 Reference to Video [Standard]",
+      "status": "active"
+    },
+    "fal-ai/minimax/hailuo-2.3/pro/image-to-video": {
+      "category": "image-to-video",
+      "name": "MiniMax Hailuo 2.3 [Pro] (Image to Video)",
+      "status": "active"
+    },
+    "fal-ai/kling-video/ai-avatar/v2/pro": {
+      "category": "image-to-video",
+      "name": "Kling AI Avatar v2 Pro",
+      "status": "active"
+    },
+    "fal-ai/ltx-2.3/image-to-video": {
+      "category": "image-to-video",
+      "name": "LTX 2.3 Video Pro",
+      "status": "active"
+    },
+    "fal-ai/wan/v2.2-a14b/image-to-video/turbo": {
+      "category": "image-to-video",
+      "name": "Wan",
+      "status": "active"
+    },
+    "fal-ai/kling-video/v2/master/image-to-video": {
+      "category": "image-to-video",
+      "name": "Kling 2.0 Master",
+      "status": "active"
+    },
+    "xai/grok-imagine-video/reference-to-video": {
+      "category": "image-to-video",
+      "name": "Grok Imagine Reference to Video",
+      "status": "active"
+    },
+    "fal-ai/wan-i2v": {
+      "category": "image-to-video",
+      "name": "Wan-2.1 Image-to-Video",
+      "status": "active"
+    },
+    "fal-ai/minimax/hailuo-02-fast/image-to-video": {
+      "category": "image-to-video",
+      "name": "Minimax",
+      "status": "active"
+    },
+    "fal-ai/kling-video/ai-avatar/v2/standard": {
+      "category": "image-to-video",
+      "name": "Kling AI Avatar v2 Standard",
+      "status": "active"
+    },
+    "fal-ai/nano-banana-2": {
+      "category": "text-to-image",
+      "name": "Nano Banana 2",
+      "status": "active"
+    },
+    "fal-ai/flux/schnell": {
+      "category": "text-to-image",
+      "name": "FLUX.1 [schnell]",
+      "status": "active"
+    },
+    "fal-ai/nano-banana-pro": {
+      "category": "text-to-image",
+      "name": "Nano Banana Pro",
+      "status": "active"
+    },
+    "fal-ai/flux/dev": {
+      "category": "text-to-image",
+      "name": "FLUX.1 [dev]",
+      "status": "active"
+    },
+    "fal-ai/flux-2-pro": {
+      "category": "text-to-image",
+      "name": "Flux 2 Pro",
+      "status": "active"
+    },
+    "fal-ai/flux-pro/v1.1": {
+      "category": "text-to-image",
+      "name": "FLUX1.1 [pro]",
+      "status": "active"
+    },
+    "fal-ai/flux-lora": {
+      "category": "text-to-image",
+      "name": "FLUX.1 [dev] with LoRAs",
+      "status": "active"
+    },
+    "fal-ai/nano-banana": {
+      "category": "text-to-image",
+      "name": "Nano Banana",
+      "status": "active"
+    },
+    "xai/grok-imagine-image": {
+      "category": "text-to-image",
+      "name": "Grok Imagine Image",
+      "status": "active"
+    },
+    "fal-ai/gpt-image-1.5": {
+      "category": "text-to-image",
+      "name": "GPT-Image 1.5",
+      "status": "active"
+    },
+    "fal-ai/bytedance/seedream/v4.5/text-to-image": {
+      "category": "text-to-image",
+      "name": "Bytedance",
+      "status": "active"
+    },
+    "fal-ai/flux-pro/v1.1-ultra": {
+      "category": "text-to-image",
+      "name": "FLUX1.1 [pro] ultra",
+      "status": "active"
+    },
+    "fal-ai/z-image/turbo": {
+      "category": "text-to-image",
+      "name": "Z-Image Turbo",
+      "status": "active"
+    },
+    "fal-ai/bytedance/seedream/v5/lite/text-to-image": {
+      "category": "text-to-image",
+      "name": "Bytedance",
+      "status": "active"
+    },
+    "fal-ai/ideogram/v3": {
+      "category": "text-to-image",
+      "name": "Ideogram Text to Image",
+      "status": "active"
+    },
+    "fal-ai/flux-2": {
+      "category": "text-to-image",
+      "name": "Flux 2",
+      "status": "active"
+    },
+    "fal-ai/bytedance/seedream/v4/text-to-image": {
+      "category": "text-to-image",
+      "name": "Bytedance Seedream v4",
+      "status": "active"
+    },
+    "fal-ai/imagen4/preview": {
+      "category": "text-to-image",
+      "name": "Imagen 4",
+      "status": "active"
+    },
+    "fal-ai/fast-sdxl": {
+      "category": "text-to-image",
+      "name": "Stable Diffusion XL",
+      "status": "active"
+    },
+    "fal-ai/flux-2/turbo": {
+      "category": "text-to-image",
+      "name": "Flux 2",
+      "status": "active"
+    },
+    "fal-ai/gemini-3-pro-image-preview": {
+      "category": "text-to-image",
+      "name": "Gemini 3 Pro Image Preview",
+      "status": "active"
+    },
+    "fal-ai/flux-1/schnell": {
+      "category": "text-to-image",
+      "name": "FLUX.1 [schnell]",
+      "status": "active"
+    },
+    "fal-ai/recraft/v3/text-to-image": {
+      "category": "text-to-image",
+      "name": "Recraft V3",
+      "status": "active"
+    },
+    "fal-ai/flux-2/flash": {
+      "category": "text-to-image",
+      "name": "Flux 2",
+      "status": "active"
+    },
+    "fal-ai/gemini-25-flash-image": {
+      "category": "text-to-image",
+      "name": "Gemini 2.5 Flash Image",
+      "status": "active"
+    },
+    "fal-ai/wan/v2.7/text-to-image": {
+      "category": "text-to-image",
+      "name": "Wan",
+      "status": "active"
+    },
+    "fal-ai/flux-2-max": {
+      "category": "text-to-image",
+      "name": "Flux 2 Max",
+      "status": "active"
+    },
+    "fal-ai/imagen4/preview/ultra": {
+      "category": "text-to-image",
+      "name": "Imagen 4 Ultra",
+      "status": "active"
+    },
+    "fal-ai/recraft/v4/text-to-image": {
+      "category": "text-to-image",
+      "name": "Recraft V4",
+      "status": "active"
+    },
+    "fal-ai/flux-pro/kontext/text-to-image": {
+      "category": "text-to-image",
+      "name": "FLUX.1 Kontext [pro]",
+      "status": "active"
+    },
+    "fal-ai/imagen4/preview/fast": {
+      "category": "text-to-image",
+      "name": "Imagen 4",
+      "status": "active"
+    },
+    "fal-ai/flux-2-flex": {
+      "category": "text-to-image",
+      "name": "Flux 2 Flex",
+      "status": "active"
+    },
+    "fal-ai/qwen-image": {
+      "category": "text-to-image",
+      "name": "Qwen Image",
+      "status": "active"
+    },
+    "fal-ai/z-image/turbo/lora": {
+      "category": "text-to-image",
+      "name": "Z-Image Turbo",
+      "status": "active"
+    },
+    "fal-ai/bytedance/seedream/v3/text-to-image": {
+      "category": "text-to-image",
+      "name": "Bytedance",
+      "status": "active"
+    },
+    "fal-ai/recraft/v4/pro/text-to-image": {
+      "category": "text-to-image",
+      "name": "Recraft V4 Pro",
+      "status": "active"
+    },
+    "fal-ai/gemini-3.1-flash-image-preview": {
+      "category": "text-to-image",
+      "name": "Gemini 3.1 Flash Image Preview",
+      "status": "active"
+    },
+    "fal-ai/flux-general": {
+      "category": "text-to-image",
+      "name": "FLUX.1 [dev] with Controlnets and Loras",
+      "status": "active"
+    },
+    "fal-ai/flux-2/lora": {
+      "category": "text-to-image",
+      "name": "Flux 2",
+      "status": "active"
+    },
+    "fal-ai/ideogram/v2": {
+      "category": "text-to-image",
+      "name": "Ideogram V2",
+      "status": "active"
+    },
+    "fal-ai/flux-pro/kontext/max/text-to-image": {
+      "category": "text-to-image",
+      "name": "FLUX.1 Kontext [max]",
+      "status": "active"
+    },
+    "fal-ai/qwen-image-2512": {
+      "category": "text-to-image",
+      "name": "Qwen Image 2512",
+      "status": "active"
+    },
+    "fal-ai/flux-2/klein/9b": {
+      "category": "text-to-image",
+      "name": "FLUX.2 [klein] 9B",
+      "status": "active"
+    },
+    "fal-ai/kling-image/v3/text-to-image": {
+      "category": "text-to-image",
+      "name": "Kling Image",
+      "status": "active"
+    },
+    "fal-ai/minimax/image-01": {
+      "category": "text-to-image",
+      "name": "MiniMax (Hailuo AI) Text to Image",
+      "status": "active"
+    },
+    "fal-ai/qwen-image-2/pro/text-to-image": {
+      "category": "text-to-image",
+      "name": "Qwen Image 2",
+      "status": "active"
+    },
+    "fal-ai/fast-lightning-sdxl": {
+      "category": "text-to-image",
+      "name": "Stable Diffusion XL Lightning",
+      "status": "active"
+    },
+    "fal-ai/qwen-image-2/text-to-image": {
+      "category": "text-to-image",
+      "name": "Qwen Image 2",
+      "status": "active"
+    },
+    "fal-ai/flux/krea": {
+      "category": "text-to-image",
+      "name": "FLUX.1 Krea [dev]",
+      "status": "active"
+    },
+    "fal-ai/flux-2/klein/4b": {
+      "category": "text-to-image",
+      "name": "FLUX.2 [klein] 4B",
+      "status": "active"
+    },
+    "fal-ai/nano-banana-2/edit": {
+      "category": "image-to-image",
+      "name": "Nano Banana 2",
+      "status": "active"
+    },
+    "fal-ai/nano-banana-pro/edit": {
+      "category": "image-to-image",
+      "name": "Nano Banana Pro",
+      "status": "active"
+    },
+    "fal-ai/bytedance/seedream/v4.5/edit": {
+      "category": "image-to-image",
+      "name": "Bytedance",
+      "status": "active"
+    },
+    "fal-ai/nano-banana/edit": {
+      "category": "image-to-image",
+      "name": "Nano Banana",
+      "status": "active"
+    },
+    "fal-ai/gpt-image-1.5/edit": {
+      "category": "image-to-image",
+      "name": "GPT-Image 1.5",
+      "status": "active"
+    },
+    "xai/grok-imagine-image/edit": {
+      "category": "image-to-image",
+      "name": "Grok Imagine Image",
+      "status": "active"
+    },
+    "fal-ai/flux-2-pro/edit": {
+      "category": "image-to-image",
+      "name": "Flux 2 Pro",
+      "status": "active"
+    },
+    "fal-ai/flux-pro/kontext": {
+      "category": "image-to-image",
+      "name": "FLUX.1 Kontext [pro]",
+      "status": "active"
+    },
+    "fal-ai/seedvr/upscale/image": {
+      "category": "image-to-image",
+      "name": "SeedVR2",
+      "status": "active"
+    },
+    "fal-ai/bytedance/seedream/v5/lite/edit": {
+      "category": "image-to-image",
+      "name": "Bytedance",
+      "status": "active"
+    },
+    "fal-ai/gemini-3-pro-image-preview/edit": {
+      "category": "image-to-image",
+      "name": "Gemini 3 Pro Image Preview",
+      "status": "active"
+    },
+    "fal-ai/bria/background/remove": {
+      "category": "image-to-image",
+      "name": "Bria RMBG 2.0",
+      "status": "active"
+    },
+    "fal-ai/bytedance/seedream/v4/edit": {
+      "category": "image-to-image",
+      "name": "Bytedance Seedream v4 Edit",
+      "status": "active"
+    },
+    "fal-ai/birefnet/v2": {
+      "category": "image-to-image",
+      "name": "Birefnet Background Removal",
+      "status": "active"
+    },
+    "fal-ai/topaz/upscale/image": {
+      "category": "image-to-image",
+      "name": "Topaz",
+      "status": "active"
+    },
+    "fal-ai/clarity-upscaler": {
+      "category": "image-to-image",
+      "name": "Clarity Upscaler",
+      "status": "active"
+    },
+    "fal-ai/flux/dev/image-to-image": {
+      "category": "image-to-image",
+      "name": "FLUX.1 [dev]",
+      "status": "active"
+    },
+    "fal-ai/gemini-25-flash-image/edit": {
+      "category": "image-to-image",
+      "name": "Gemini 2.5 Flash Image",
+      "status": "active"
+    },
+    "fal-ai/birefnet": {
+      "category": "image-to-image",
+      "name": "Birefnet Background Removal",
+      "status": "active"
+    },
+    "fal-ai/flux-pro/kontext/max": {
+      "category": "image-to-image",
+      "name": "FLUX.1 Kontext [max]",
+      "status": "active"
+    },
+    "fal-ai/esrgan": {
+      "category": "image-to-image",
+      "name": "Upscale Images",
+      "status": "active"
+    },
+    "fal-ai/flux-2/edit": {
+      "category": "image-to-image",
+      "name": "Flux 2",
+      "status": "active"
+    },
+    "fal-ai/qwen-image-edit-2511-multiple-angles": {
+      "category": "image-to-image",
+      "name": "Qwen Image Edit 2511 Multiple Angles",
+      "status": "active"
+    },
+    "fal-ai/imageutils/rembg": {
+      "category": "image-to-image",
+      "name": "Remove Background",
+      "status": "active"
+    },
+    "fal-ai/sam-3/image": {
+      "category": "image-to-image",
+      "name": "Segment Anything Model 3",
+      "status": "active"
+    },
+    "fal-ai/flux-2-max/edit": {
+      "category": "image-to-image",
+      "name": "Flux 2 Max",
+      "status": "active"
+    },
+    "fal-ai/flux-pro/v1/fill": {
+      "category": "image-to-image",
+      "name": "FLUX.1 [pro] Fill",
+      "status": "active"
+    },
+    "fal-ai/recraft/upscale/crisp": {
+      "category": "image-to-image",
+      "name": "Recraft Crisp Upscale",
+      "status": "active"
+    },
+    "fal-ai/gemini-3.1-flash-image-preview/edit": {
+      "category": "image-to-image",
+      "name": "Gemini 3.1 Flash Image Preview",
+      "status": "active"
+    },
+    "fal-ai/aura-sr": {
+      "category": "image-to-image",
+      "name": "AuraSR",
+      "status": "active"
+    },
+    "fal-ai/flux-kontext/dev": {
+      "category": "image-to-image",
+      "name": "FLUX.1 Kontext [dev]",
+      "status": "active"
+    },
+    "fal-ai/qwen-image-2/pro/edit": {
+      "category": "image-to-image",
+      "name": "Qwen Image 2",
+      "status": "active"
+    },
+    "fal-ai/wan/v2.7/pro/edit": {
+      "category": "image-to-image",
+      "name": "Wan",
+      "status": "active"
+    },
+    "fal-ai/flux-pulid": {
+      "category": "image-to-image",
+      "name": "PuLID Flux",
+      "status": "active"
+    },
+    "fal-ai/flux-2/flash/edit": {
+      "category": "image-to-image",
+      "name": "Flux 2",
+      "status": "active"
+    },
+    "fal-ai/qwen-image-edit-2511": {
+      "category": "image-to-image",
+      "name": "Qwen Image Edit 2511",
+      "status": "active"
+    },
+    "fal-ai/flux-pro/kontext/max/multi": {
+      "category": "image-to-image",
+      "name": "FLUX.1 Kontext [max]",
+      "status": "active"
+    },
+    "fal-ai/flux-2/turbo/edit": {
+      "category": "image-to-image",
+      "name": "Flux 2",
+      "status": "active"
+    },
+    "fal-ai/flux-2/klein/9b/edit": {
+      "category": "image-to-image",
+      "name": "FLUX.2 [klein] 9B",
+      "status": "active"
+    },
+    "fal-ai/flux-2-flex/edit": {
+      "category": "image-to-image",
+      "name": "Flux 2 Flex",
+      "status": "active"
+    },
+    "fal-ai/qwen-image-2/edit": {
+      "category": "image-to-image",
+      "name": "Qwen Image 2",
+      "status": "active"
+    },
+    "fal-ai/flux-lora/image-to-image": {
+      "category": "image-to-image",
+      "name": "FLUX.1 [dev] with LoRAs",
+      "status": "active"
+    },
+    "fal-ai/z-image/turbo/image-to-image": {
+      "category": "image-to-image",
+      "name": "Z-Image Turbo",
+      "status": "active"
+    },
+    "clarityai/crystal-upscaler": {
+      "category": "image-to-image",
+      "name": "Crystal Upscaler",
+      "status": "active"
+    },
+    "fal-ai/recraft/vectorize": {
+      "category": "image-to-image",
+      "name": "Recraft",
+      "status": "active"
+    },
+    "fal-ai/ideogram/character": {
+      "category": "image-to-image",
+      "name": "Ideogram V3 Character",
+      "status": "active"
+    },
+    "fal-ai/flux-kontext-lora": {
+      "category": "image-to-image",
+      "name": "Flux Kontext Lora",
+      "status": "active"
+    },
+    "fal-ai/wan/v2.7/edit": {
+      "category": "image-to-image",
+      "name": "Wan",
+      "status": "active"
+    },
+    "fal-ai/fashn/tryon/v1.6": {
+      "category": "image-to-image",
+      "name": "FASHN Virtual Try-On V1.6",
+      "status": "active"
+    },
+    "fal-ai/ideogram/v3/reframe": {
+      "category": "image-to-image",
+      "name": "Ideogram",
+      "status": "active"
+    },
+    "fal-ai/topaz/upscale/video": {
+      "category": "video-to-video",
+      "name": "Topaz Video Upscale",
+      "status": "active"
+    },
+    "fal-ai/kling-video/v2.6/standard/motion-control": {
+      "category": "video-to-video",
+      "name": "Kling Video v2.6 Motion Control [Standard]",
+      "status": "active"
+    },
+    "fal-ai/kling-video/v3/pro/motion-control": {
+      "category": "video-to-video",
+      "name": "Kling Video",
+      "status": "active"
+    },
+    "fal-ai/ffmpeg-api/merge-videos": {
+      "category": "video-to-video",
+      "name": "Ffmpeg Api",
+      "status": "active"
+    },
+    "fal-ai/kling-video/o3/pro/video-to-video/edit": {
+      "category": "video-to-video",
+      "name": "Kling O3 Edit Video [Pro]",
+      "status": "active"
+    },
+    "fal-ai/kling-video/v2.6/pro/motion-control": {
+      "category": "video-to-video",
+      "name": "Kling Video v2.6 Motion Control [Pro]",
+      "status": "active"
+    },
+    "fal-ai/kling-video/v3/standard/motion-control": {
+      "category": "video-to-video",
+      "name": "Kling Video",
+      "status": "active"
+    },
+    "fal-ai/ffmpeg-api/compose": {
+      "category": "video-to-video",
+      "name": "FFmpeg API Compose",
+      "status": "active"
+    },
+    "fal-ai/seedvr/upscale/video": {
+      "category": "video-to-video",
+      "name": "SeedVR2",
+      "status": "active"
+    },
+    "fal-ai/sync-lipsync/v3": {
+      "category": "video-to-video",
+      "name": "sync-3 Lipsync",
+      "status": "active"
+    },
+    "fal-ai/ffmpeg-api/merge-audio-video": {
+      "category": "video-to-video",
+      "name": "Ffmpeg Api Merge Audio-Video",
+      "status": "active"
+    },
+    "fal-ai/mmaudio-v2": {
+      "category": "video-to-video",
+      "name": "MMAudio V2",
+      "status": "active"
+    },
+    "fal-ai/sync-lipsync/v2/pro": {
+      "category": "video-to-video",
+      "name": "Sync Lipsync",
+      "status": "active"
+    },
+    "fal-ai/kling-video/o1/video-to-video/edit": {
+      "category": "video-to-video",
+      "name": "Kling O1 Edit Video [Pro]",
+      "status": "active"
+    },
+    "fal-ai/bytedance-upscaler/upscale/video": {
+      "category": "video-to-video",
+      "name": "Bytedance Upscaler",
+      "status": "active"
+    },
+    "fal-ai/wan/v2.2-14b/animate/replace": {
+      "category": "video-to-video",
+      "name": "Wan-2.2 Animate Replace",
+      "status": "active"
+    },
+    "fal-ai/kling-video/o3/pro/video-to-video/reference": {
+      "category": "video-to-video",
+      "name": "Kling O3 Reference Video to Video [Pro]",
+      "status": "active"
+    },
+    "fal-ai/kling-video/o3/standard/video-to-video/edit": {
+      "category": "video-to-video",
+      "name": "Kling O3 Edit Video [Standard]",
+      "status": "active"
+    },
+    "xai/grok-imagine-video/edit-video": {
+      "category": "video-to-video",
+      "name": "Grok Imagine Video",
+      "status": "active"
+    },
+    "fal-ai/sync-lipsync/v2": {
+      "category": "video-to-video",
+      "name": "Sync Lipsync 2.0",
+      "status": "active"
+    },
+    "veed/lipsync": {
+      "category": "video-to-video",
+      "name": "Lipsync",
+      "status": "active"
+    },
+    "fal-ai/workflow-utilities/auto-subtitle": {
+      "category": "video-to-video",
+      "name": "Workflow Utilities",
+      "status": "active"
+    },
+    "fal-ai/sync-lipsync": {
+      "category": "video-to-video",
+      "name": "sync.so -- lipsync 1.9.0-beta",
+      "status": "active"
+    },
+    "fal-ai/latentsync": {
+      "category": "video-to-video",
+      "name": "LatentSync",
+      "status": "active"
+    },
+    "fal-ai/pixverse/lipsync": {
+      "category": "video-to-video",
+      "name": "Pixverse",
+      "status": "active"
+    },
+    "fal-ai/wan/v2.2-14b/animate/move": {
+      "category": "video-to-video",
+      "name": "Wan-2.2 Animate Move",
+      "status": "active"
+    },
+    "fal-ai/wan/v2.7/edit-video": {
+      "category": "video-to-video",
+      "name": "Wan",
+      "status": "active"
+    },
+    "mirelo-ai/sfx-v1.5/video-to-video": {
+      "category": "video-to-video",
+      "name": "Mirelo SFX V1.5",
+      "status": "active"
+    },
+    "veed/video-background-removal/fast": {
+      "category": "video-to-video",
+      "name": "Video Background Removal",
+      "status": "active"
+    },
+    "fal-ai/bytedance/dreamactor/v2": {
+      "category": "video-to-video",
+      "name": "Bytedance",
+      "status": "active"
+    },
+    "fal-ai/kling-video/o1/standard/video-to-video/edit": {
+      "category": "video-to-video",
+      "name": "Kling O1 Edit Video [Standard]",
+      "status": "active"
+    },
+    "fal-ai/video-upscaler": {
+      "category": "video-to-video",
+      "name": "Video Upscaler",
+      "status": "active"
+    },
+    "fal-ai/veo3.1/extend-video": {
+      "category": "video-to-video",
+      "name": "Veo 3.1",
+      "status": "active"
+    },
+    "bria/video/background-removal": {
+      "category": "video-to-video",
+      "name": "Video",
+      "status": "active"
+    },
+    "fal-ai/kling-video/o1/video-to-video/reference": {
+      "category": "video-to-video",
+      "name": "Kling O1 Reference Video to Video [Pro]",
+      "status": "active"
+    },
+    "fal-ai/kling-video/o3/standard/video-to-video/reference": {
+      "category": "video-to-video",
+      "name": "Kling O3 Reference Video to Video [Standard]",
+      "status": "active"
+    },
+    "fal-ai/flashvsr/upscale/video": {
+      "category": "video-to-video",
+      "name": "Flashvsr",
+      "status": "active"
+    },
+    "fal-ai/workflow-utilities/trim-video": {
+      "category": "video-to-video",
+      "name": "Workflow Utilities",
+      "status": "active"
+    },
+    "clarityai/crystal-video-upscaler": {
+      "category": "video-to-video",
+      "name": "Crystal Upscaler [Video]",
+      "status": "active"
+    },
+    "fal-ai/veo3.1/fast/extend-video": {
+      "category": "video-to-video",
+      "name": "Veo 3.1 Fast",
+      "status": "active"
+    },
+    "wan/v2.6/reference-to-video": {
+      "category": "video-to-video",
+      "name": "Wan v2.6 Reference to Video",
+      "status": "active"
+    },
+    "xai/grok-imagine-video/extend-video": {
+      "category": "video-to-video",
+      "name": "Grok Imagine Extend Video",
+      "status": "active"
+    },
+    "veed/video-background-removal": {
+      "category": "video-to-video",
+      "name": "Video Background Removal",
+      "status": "active"
+    },
+    "fal-ai/pixverse/v6/extend": {
+      "category": "video-to-video",
+      "name": "Pixverse",
+      "status": "active"
+    },
+    "fal-ai/ltx-2.3/extend-video": {
+      "category": "video-to-video",
+      "name": "LTX Video 2.3 Pro",
+      "status": "active"
+    },
+    "fal-ai/ltx-2.3/retake-video": {
+      "category": "video-to-video",
+      "name": "LTX Video 2.3 Pro",
+      "status": "active"
+    },
+    "fal-ai/infinitalk": {
+      "category": "video-to-video",
+      "name": "Infinitalk",
+      "status": "active"
+    },
+    "fal-ai/birefnet/v2/video": {
+      "category": "video-to-video",
+      "name": "Birefnet",
+      "status": "active"
+    },
+    "fal-ai/kling-video/o1/standard/video-to-video/reference": {
+      "category": "video-to-video",
+      "name": "Kling O1 Reference Video to Video [Standard]",
+      "status": "active"
+    },
+    "fal-ai/rife/video": {
+      "category": "video-to-video",
+      "name": "RIFE",
+      "status": "active"
+    }
+  }
+}

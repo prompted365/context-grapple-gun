@@ -545,3 +545,47 @@ Validated at scale: 13 spec tranches → 12 implementation engines, 86/86 artifa
 CogPR-117 (composite mutation scheduling) is systematically invisible to advocate-level reasoning in governed arenas. Offices assess their own constitutional surface changes individually but never assess the composite. The wildcard chain coherence mechanism is the only reliable detection surface. Composite assessment must be enforced at LEAD/synthesis level as a mandatory Phase 6 deliverable, not left to advocate initiative.
 
 <!-- promoted from CogPR-140 (tic 126→130). Source: arena:2026-04-09_ot-economic-integration-oavplt. Note: CD-5. Convergent: wildcard found, confirmed by conformation analysis (dead zone classification). Band: COGNITIVE. -->
+
+## Wire-Cut Scoping by Capability Class
+
+Containment wire-cuts must be scoped to capability classes (ingress, all, panic), not binary on/off. The Docks wire-cut spec demonstrates the pattern — three graduated scopes preserve maximum capability while containing the specific threat vector. Binary wire-cuts (everything or nothing) over-contain, causing collateral damage that discourages use of containment altogether.
+
+<!-- promoted from CogPR-145 (tic 129→138). Source: pattern_miner:PAT-T129-DIRECT-A — reinforced. Docks wire-cut implementation validates graduated scoping. Crisis subsystem scope. Band: COGNITIVE. Confidence: 0.85. -->
+
+## Authoritative Count Discipline
+
+Governance reporting tools must source counts from authoritative state (physical event files, active manifests), not from configuration or raw unfiltered logs. bench-packet-prep.py silently reported tic=0 (from .ticzone config) and signals=290 (from raw logs) instead of tic=134 (from counted events) and signals=5 (from curated manifest). Extends CogPR-79 (spot-check output against source data) with a specific authoritative-source discipline.
+
+<!-- promoted from CogPR-146 (tic 135→138). Source: session:tic-135. Evidence: bench-packet-prep.py sourced tic from config and signals from unfiltered logs, producing dramatically wrong counts. Extends CogPR-79. Band: COGNITIVE. Confidence: 0.92. -->
+
+## Dedup-at-Write Using Canonical Identity
+
+Duplicate detection must occur at the write boundary (physics layer) keyed on canonical record identity (signal_id, CPR id), not at scan time or by content hash. `dedup_signal_append()` in `atomic_append.py` demonstrates the pattern — one enforcement point, four emitters. This is distinct from atomic writes (CogPR-8, corruption prevention) and signal ID determinism (CogPR-66, ID stability) — this addresses where and how dedup enforcement happens: at the write boundary, using canonical identity as the key.
+
+<!-- promoted from CogPR-147 (tic 135→138). Source: session:tic-135. Evidence: dedup_signal_append() in atomic_append.py — 4 emitters already using write-boundary dedup. Complements CogPR-8 (atomic writes) and CogPR-66 (signal ID determinism). Band: COGNITIVE. Confidence: 0.90. -->
+
+## Pattern Mining Context Procurement
+
+Pattern mining context procurement must precede mining — a briefing covering governance surfaces with NLP heuristics (bigram frequency, Gini coefficient, temporal clustering, entity co-occurrence) empowers mining agents with statistical shape without claiming to catch patterns. Three-tier posture (briefing+inline / interactive / full team) guards against cognitive drain while ensuring surface coverage. Validated: briefing-first approach empowered the pattern-curator to discover MEMORY.md truncation that a script couldn't.
+
+<!-- promoted from CogPR-149 (tic 136→138). Source: session:tic-136. Evidence: pattern-mining-context.py + three-tier posture validated in practice. Shapes Mogul's agent-spawning behavior for pattern mining. Band: COGNITIVE. Confidence: 0.82. -->
+
+## Hook Binary Invocation (No Aliases)
+
+Hook scripts must call binaries directly, never shell aliases — aliases live in interactive shell config (.zshrc) and do not survive non-interactive invocation. Dedup by content hash prevents duplicate firing at event boundaries. Complements Hook Path Resolution (CogPR-127) which covers zone root discovery but not invocation resolution.
+
+**Pattern**: Use full binary paths (`/usr/bin/python3`, `$(which tmux)`) in hook scripts, never aliases or functions from shell profiles.
+
+<!-- promoted from CogPR-150 (tic 136→138). Source: session:tic-136. Evidence: alias resolution failure in hook invocation + content-hash dedup prevents duplicate firing. Complements CogPR-127 (Hook Path Resolution). Band: COGNITIVE. Confidence: 0.88. -->
+
+## Inter-Engine Integration Emission
+
+When two engines share state through a registry file, the producing engine must emit records in the consuming engine's expected format. Each engine may be individually correct while the integration surface is a blind spot. 14 cycles of invisible integration failure between biome-engine and trust-engine demonstrated the pattern — each engine passed its own tests, but the integration surface was never verified. Extends CogPR-79 (spot-check output against source) to cross-system integration verification.
+
+<!-- promoted from CogPR-151 (tic 136→138). Source: session:tic-136. Evidence: 14 cycles of biome→trust invisible failure. Each engine individually correct; integration surface unverified. Extends CogPR-79 to inter-engine integration. Band: COGNITIVE. Confidence: 0.92. -->
+
+## Named-Is-Not-Landed Gate
+
+A complement surfaced in a prior mode but not yet materialized remains a valid complement. The structural relevance test must evaluate complement state (built vs named vs unnamed), not just recent-output presence. First calibration evidence from /complement invocation log — the gate correction shapes skill behavior by requiring materialization state assessment before declaring a complement irrelevant.
+
+<!-- promoted from CogPR-152 (tic 136→138). Source: session:tic-136. Evidence: first /complement calibration. Gate correction: evaluate complement state, not just recent-output presence. Band: COGNITIVE. Confidence: 0.82. -->
