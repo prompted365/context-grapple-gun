@@ -453,6 +453,37 @@ def save_results(job_id, results):
 # Overshoot dispatch — async, uses Python SDK with FileSource
 # ---------------------------------------------------------------------------
 
+def _apply_realtime_pacing():
+    """
+    Monkey-patch the SDK's FFmpegSource to add -re flag for local files.
+
+    The SDK's FileSource decodes at max speed, exhausting short files before
+    the server processes clips. The -re flag forces real-time decode rate.
+    This is a workaround — proper fix is upstream SDK support for file pacing.
+    """
+    try:
+        from overshoot._ffmpeg import FFmpegSource
+        if hasattr(FFmpegSource, '_patched_for_realtime'):
+            return  # Already patched
+        _original = FFmpegSource._build_cmd
+
+        def _patched_build_cmd(self):
+            cmd = _original(self)
+            is_network = self.source.startswith(("http://", "https://", "rtsp://", "rtmp://"))
+            if not is_network and not self._input_format:
+                try:
+                    i_idx = cmd.index("-i")
+                    cmd.insert(i_idx, "-re")
+                except ValueError:
+                    pass
+            return cmd
+
+        FFmpegSource._build_cmd = _patched_build_cmd
+        FFmpegSource._patched_for_realtime = True
+    except (ImportError, AttributeError):
+        pass  # SDK internals changed — skip gracefully
+
+
 async def dispatch_analyze(video_path, analysis_mode, model_key, prompt,
                            output_schema=None, max_duration_sec=120):
     """
@@ -465,6 +496,8 @@ async def dispatch_analyze(video_path, analysis_mode, model_key, prompt,
         print("ERROR: overshoot SDK not installed. Run: pip install git+https://github.com/Overshoot-ai/overshoot-python.git",
               file=sys.stderr)
         sys.exit(1)
+
+    _apply_realtime_pacing()
 
     api_key = load_overshoot_key()
     video = Path(video_path)
@@ -539,9 +572,11 @@ async def dispatch_analyze(video_path, analysis_mode, model_key, prompt,
             "stream_id": stream.stream_id,
         })
 
-        # Wait for video to finish (FileSource with loop=False ends naturally)
-        # or timeout
-        stream_duration = min(duration_sec + 10, max_duration_sec)
+        # With -re pacing, video plays in real time. Wait for actual duration
+        # plus buffer for server processing of final clips.
+        stream_duration = min(duration_sec + 15, max_duration_sec + 15)
+        print(f"  [{record['job_id']}] Streaming ~{duration_sec:.0f}s video "
+              f"(waiting {stream_duration:.0f}s with buffer)...", file=sys.stderr)
         await asyncio.sleep(stream_duration)
 
         await stream.close()
