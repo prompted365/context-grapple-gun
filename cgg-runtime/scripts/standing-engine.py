@@ -380,8 +380,41 @@ def _get_entity_time_at_standing(entity_id, zone_root=None):
     if last_transition_tic is None:
         return 0
 
-    # Estimate current tic from the ticzone or latest registry entry
+    # Estimate current tic from tic log files, then fall back to registry scan
     latest_tic = last_transition_tic
+    zr = zone_root or resolve_zone_root()
+
+    # Try multiple audit-logs paths (zone_root may be federation root or cwd)
+    for candidate_al in [
+        os.path.join(zr, "audit-logs"),
+        os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(
+            os.path.dirname(os.path.abspath(__file__))))), "audit-logs"),
+    ]:
+        tic_dir = os.path.join(candidate_al, "tics")
+        if os.path.isdir(tic_dir):
+            tic_files = sorted(f for f in os.listdir(tic_dir) if f.endswith(".jsonl"))
+            if tic_files:
+                last_file = os.path.join(tic_dir, tic_files[-1])
+                try:
+                    with open(last_file) as f:
+                        last_line = None
+                        for line in f:
+                            line = line.strip()
+                            if line:
+                                last_line = line
+                        if last_line:
+                            rec = json.loads(last_line)
+                            # Tic records use domain_counter_after for numeric tic
+                            t = rec.get("domain_counter_after",
+                                        rec.get("global_counter_after",
+                                                rec.get("tic", 0)))
+                            if isinstance(t, (int, float)) and t > latest_tic:
+                                latest_tic = t
+                except (json.JSONDecodeError, OSError):
+                    pass
+            break  # found tics dir, stop searching
+
+    # Also scan registry entries for higher tic values
     for rec in records:
         t = rec.get("tic", rec.get("federation_tic", 0))
         if isinstance(t, (int, float)) and t > latest_tic:

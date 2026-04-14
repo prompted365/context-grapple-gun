@@ -807,6 +807,121 @@ def attempt_new_connections(topology, environment):
 
 
 # ===================================================================
+# Loneliness bridge — intervention for isolated nodes
+# ===================================================================
+
+LONELINESS_THRESHOLD_CYCLES = 5  # PROVISIONAL: cycles at 0 connections before intervention
+
+
+def attempt_loneliness_bridges(topology, environment):
+    """Create bridge edges for nodes isolated for too long.
+
+    If a node has 0 connections for LONELINESS_THRESHOLD_CYCLES consecutive
+    cycles, create a weak bridge to the nearest connected node. This addresses
+    the biome_intra_sector_edge_only signal — isolated nodes in distant sectors
+    cannot form edges through normal proximity-based mechanics.
+
+    Bridge edges are marked with edge_type="loneliness_bridge" and start at
+    low weight (0.5) so they can be pruned if no interaction follows.
+    """
+    cycle = environment.get("cycle", 0)
+    act = environment.get("act", "act_1")
+    season = environment.get("season", "spring")
+    existing_edges = {(e["source_node"], e["target_node"]) for e in topology["edges"]}
+    bridges_created = 0
+
+    for node in topology["nodes"]:
+        nid = node["node_id"]
+        if node["connection_count"] > 0:
+            continue
+        if node.get("depletion_state") is not None:
+            continue
+
+        # Check how long this node has been isolated
+        # Use absolute cycle count — if at 0 connections for threshold+ cycles,
+        # the node needs intervention regardless of generation boundaries
+        if cycle < LONELINESS_THRESHOLD_CYCLES:
+            continue
+
+        # Find nearest node with at least 1 connection (prefer connected nodes
+        # as bridges — they're already part of the network)
+        candidates = [
+            n for n in topology["nodes"]
+            if n["node_id"] != nid
+            and n["connection_count"] > 0
+            and n.get("depletion_state") is None
+            and (nid, n["node_id"]) not in existing_edges
+            and (n["node_id"], nid) not in existing_edges
+        ]
+
+        if not candidates:
+            # Fallback: any non-depleted node
+            candidates = [
+                n for n in topology["nodes"]
+                if n["node_id"] != nid
+                and n.get("depletion_state") is None
+                and (nid, n["node_id"]) not in existing_edges
+                and (n["node_id"], nid) not in existing_edges
+            ]
+
+        if not candidates:
+            continue
+
+        # Pick nearest by Euclidean distance
+        def dist(a, b):
+            return math.sqrt(
+                (a["position"]["x"] - b["position"]["x"]) ** 2
+                + (a["position"]["y"] - b["position"]["y"]) ** 2
+                + (a["position"]["z"] - b["position"]["z"]) ** 2
+            )
+
+        target = min(candidates, key=lambda t: dist(node, t))
+        tid = target["node_id"]
+        edge_id = content_hash(nid, tid, "loneliness_bridge", str(cycle))
+
+        topology["edges"].append({
+            "edge_id": edge_id,
+            "source_node": nid,
+            "target_node": tid,
+            "edge_type": "exchange",  # canonical type for trust engine compatibility
+            "weight": 0.5,  # weak — must earn flow to survive pruning
+            "flow": 0.0,
+            "maintenance_cost": CONFIG["base_maintenance_cost"] * 0.5,  # half cost
+            "created_cycle": cycle,
+            "last_flow_cycle": 0,
+            "metadata": {"intervention_type": "loneliness_bridge"},
+        })
+
+        node["connection_count"] += 1
+        node["edge_type_distribution"]["exchange"] = node["edge_type_distribution"].get("exchange", 0) + 1
+        node["strategy_diversity"] = shannon_entropy(node["edge_type_distribution"])
+        existing_edges.add((nid, tid))
+
+        # Also update target node
+        target["connection_count"] += 1
+        target["edge_type_distribution"]["exchange"] = target["edge_type_distribution"].get("exchange", 0) + 1
+        target["strategy_diversity"] = shannon_entropy(target["edge_type_distribution"])
+
+        bridges_created += 1
+
+        # Emit interaction records
+        emit_edge_interactions(
+            nid, tid, "exchange", cycle, edge_id,
+            event_type="loneliness_bridge", act=act, season=season,
+        )
+
+        # Emit governance signal
+        emit_signal("COGNITIVE", "loneliness_bridge_created", {
+            "isolated_node": nid,
+            "bridge_target": tid,
+            "biome_cycle": cycle,
+            "cycles_isolated": cycle,
+        })
+
+    return bridges_created
+
+
+# ===================================================================
 # Pruning — Act II edge removal
 # ===================================================================
 
@@ -1454,6 +1569,10 @@ def advance_cycle(topology, organisms, environment):
         new_connections = attempt_new_connections(topology, environment)
     summary["new_connections"] = new_connections
 
+    # Step 5b: Loneliness bridges — intervene for isolated nodes
+    loneliness_bridges = attempt_loneliness_bridges(topology, environment)
+    summary["loneliness_bridges"] = loneliness_bridges
+
     # Step 6: Bond formation (Act III)
     new_bonds = 0
     if act == "act_3":
@@ -1527,6 +1646,33 @@ def advance_cycle(topology, organisms, environment):
 
     # Persist state
     save_state(topology, organisms, environment)
+
+    # Step 10: Trust progression — compute trust scores and check promotions
+    # Runs after save_state so standing-engine reads committed interaction data.
+    try:
+        import importlib.util
+        _tpc_path = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                                 "trust-progression-cycle.py")
+        if os.path.isfile(_tpc_path):
+            _tpc_spec = importlib.util.spec_from_file_location(
+                "trust_progression_cycle", _tpc_path)
+            _tpc = importlib.util.module_from_spec(_tpc_spec)
+            _tpc_spec.loader.exec_module(_tpc)
+            trust_results = _tpc.run_trust_progression(verbose=False)
+            summary["trust_progression"] = {
+                "visitors_processed": trust_results["visitors_processed"],
+                "promotions": len(trust_results["promotions"]),
+                "pending_review": len(trust_results["pending_review"]),
+                "errors": len(trust_results["errors"]),
+            }
+            if trust_results["promotions"]:
+                for p in trust_results["promotions"]:
+                    print(f"  [STANDING] {p['entity_id']}: {p['from']} → {p['to']} "
+                          f"(trust={p['trust_score']:.4f})")
+        else:
+            summary["trust_progression"] = {"skipped": "trust-progression-cycle.py not found"}
+    except Exception as e:
+        summary["trust_progression"] = {"error": str(e)}
 
     return summary
 
