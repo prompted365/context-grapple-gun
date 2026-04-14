@@ -6,9 +6,9 @@
 
 # Start Here
 
-**The problem you already know:** Sessions keep rediscovering the same lessons. Decisions drift, fixes repeat, and there's no audited path for what should persist. Claude forgetting is a symptom; governance gaps are the cause.
+**CGG stops Claude Code from relearning the same lessons every session.** It captures hard-won discoveries from real work, routes them through human review, promotes them along an abstraction ladder, and hydrates them back into future sessions.
 
-**CGG fixes the governance gap.** Three commands. Flat files. Human approval at every gate. Lessons become durable, reviewed operating rules instead of anecdotes.
+Three commands. Flat files. Human approval at every gate.
 
 ---
 
