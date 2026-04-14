@@ -1218,7 +1218,7 @@ def generate_postcards(topology, organisms, environment):
                 "insights_contributed": insights,
                 "standing_at_dispersal": visitor["standing"],
             },
-            "rationalization_flag": visitor["rationalization_flag"],
+            "rationalization_flag": visitor.get("rationalization_flag", False),
             "bond_soredium": soredium_list,
             "created_at": iso_now(),
             "biome_cycle": cycle,
