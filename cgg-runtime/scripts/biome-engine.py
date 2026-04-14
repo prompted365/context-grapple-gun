@@ -1662,6 +1662,8 @@ def advance_cycle(topology, organisms, environment):
             summary["trust_progression"] = {
                 "visitors_processed": trust_results["visitors_processed"],
                 "promotions": len(trust_results["promotions"]),
+                "demotions": len(trust_results.get("demotions", [])),
+                "demotion_watches": len(trust_results.get("demotion_watches", [])),
                 "pending_review": len(trust_results["pending_review"]),
                 "errors": len(trust_results["errors"]),
             }
@@ -1669,6 +1671,14 @@ def advance_cycle(topology, organisms, environment):
                 for p in trust_results["promotions"]:
                     print(f"  [STANDING] {p['entity_id']}: {p['from']} → {p['to']} "
                           f"(trust={p['trust_score']:.4f})")
+            if trust_results.get("demotions"):
+                for d in trust_results["demotions"]:
+                    print(f"  [DEMOTION] {d['entity_id']}: {d['from']} → {d['to']} "
+                          f"(trust={d['trust_score']:.4f})")
+            if trust_results.get("demotion_watches"):
+                for w in trust_results["demotion_watches"]:
+                    print(f"  [WATCH] {w['entity_id']}: trust decay "
+                          f"({w['trust_score']:.4f} < {w['threshold']})")
         else:
             summary["trust_progression"] = {"skipped": "trust-progression-cycle.py not found"}
     except Exception as e:

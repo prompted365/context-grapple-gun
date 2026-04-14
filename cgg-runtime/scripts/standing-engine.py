@@ -157,6 +157,14 @@ CONFIG = {
         "resident": "citizen",
     },
 
+    # Demotion targets: current_standing -> previous_standing
+    "demotion_map": {
+        "tourist": "guest",
+        "foreign_delegate": "tourist",
+        "resident": "foreign_delegate",
+        "citizen": "resident",
+    },
+
     # Governance gate types per transition
     "governance_gates": {
         "tourist": "automated",
