@@ -247,7 +247,7 @@ The plan must include:
 - **Session Projection** (see below)
 - Session Learning & ROI with Time Saved Estimates
 - Friction (Signals): any new `<!-- --signal -->` blocks for unresolved technical debt
-- **Governance Next Actions** (concrete, numbered — governance chores only)
+- **Governance Next Actions** (concrete, numbered — governance chores only). **Git cycle gate:** run `scripts/git-cycle.sh` before writing this section. If any repos are dirty, unpushed, or diverged, add "Resolve git cycle: [repo list]" as the FIRST governance next action. The pre-planmode hook also surfaces this, but the hook may fire before the session's final commits land — the handoff is the authoritative checkpoint.
 - Conformation summary
 - Cadence due markers (see below)
 - `<!-- cgg-evaluate -->` trigger block at the very bottom — `pending_cprs_expected` must match the exact number of CogPRs from Step 2

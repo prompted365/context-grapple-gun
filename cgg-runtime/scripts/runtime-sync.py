@@ -123,9 +123,9 @@ def discover_surfaces(plugin_root, zone_root):
                         "category": category,
                     })
         elif category == "hooks":
-            # Hooks: each .sh file in hooks/
+            # Hooks: each .sh and .py file in hooks/
             for entry in sorted(os.listdir(canonical_dir)):
-                if entry.endswith(".sh"):
+                if entry.endswith(".sh") or entry.endswith(".py"):
                     canonical_path = os.path.join(canonical_dir, entry)
                     rel_key = f"{spec['canonical_subdir']}/{entry}"
                     if rel_key in SYNC_EXCLUDE:
@@ -137,7 +137,8 @@ def discover_surfaces(plugin_root, zone_root):
                         installed = os.path.join(
                             home_dir, spec["installed_subdir"], entry
                         )
-                    name = entry.replace(".sh", "")
+                    ext = os.path.splitext(entry)[1]
+                    name = entry.replace(ext, "")
                     surfaces.append({
                         "name": f"hook:{name}",
                         "canonical": canonical_path,
@@ -182,20 +183,24 @@ def discover_surfaces(plugin_root, zone_root):
                         "type": spec["type"],
                         "category": category,
                     })
-            # Sync lib/ subdirectory contents
-            lib_dir = os.path.join(canonical_dir, "lib")
-            if os.path.isdir(lib_dir):
-                for entry in sorted(os.listdir(lib_dir)):
+            # Sync subdirectory contents (lib/, media-router/, etc.)
+            # Reads from manifest subdirectories list, falls back to known defaults
+            subdirs = spec.get("subdirectories", ["lib"])
+            for subdir_name in subdirs:
+                subdir_path = os.path.join(canonical_dir, subdir_name)
+                if not os.path.isdir(subdir_path):
+                    continue
+                for entry in sorted(os.listdir(subdir_path)):
                     if entry.startswith("__"):
                         continue  # skip __pycache__
-                    canonical_path = os.path.join(lib_dir, entry)
+                    canonical_path = os.path.join(subdir_path, entry)
                     if not os.path.isfile(canonical_path):
                         continue
                     installed = os.path.join(
-                        home_dir, spec["installed_subdir"], "lib", entry
+                        home_dir, spec["installed_subdir"], subdir_name, entry
                     )
                     surfaces.append({
-                        "name": f"script:lib/{entry}",
+                        "name": f"script:{subdir_name}/{entry}",
                         "canonical": canonical_path,
                         "installed": installed,
                         "type": spec["type"],

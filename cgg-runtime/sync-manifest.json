@@ -16,14 +16,15 @@
     "hooks": {
       "canonical_subdir": "hooks",
       "installed_subdir": ".claude/hooks",
-      "pattern": "*.sh",
+      "pattern": "*.sh *.py",
       "type": "SCRIPT_CODE"
     },
     "scripts": {
       "canonical_subdir": "scripts",
       "installed_subdir": ".claude/cgg-runtime/scripts",
-      "pattern": "*.py",
-      "type": "SCRIPT_CODE"
+      "pattern": "*.py *.sh",
+      "type": "SCRIPT_CODE",
+      "subdirectories": ["lib", "media-router"]
     }
   },
   "sync_exclude": [
