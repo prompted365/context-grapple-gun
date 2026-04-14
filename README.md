@@ -4,9 +4,14 @@
 
 # Context Grapple Gun
 
-**A file-based governance lifecycle for persistent AI systems.**
+**Persistent context and cognitive pull requests for Claude Code.**
 
-Three commands. Five structural mechanisms. One scale boundary.
+*Context. Gates. Cognitive pull requests.*
+
+CGG stops Claude Code from relearning the same lessons every session.
+It captures hard-won discoveries from real work, routes them through human review, promotes them along an abstraction ladder, and hydrates them back into future sessions without confusing rendered context with constitutional source of truth.
+
+Three commands. Auditable files. No service required.
 
 ---
 
@@ -46,15 +51,15 @@ Three commands. Five structural mechanisms. One scale boundary.
 | `/review` | Review proposed lessons. Approve, reject, or modify before promotion. |
 | `/siren` | Check on recurring friction. See what signals are building, what warrants have minted. |
 
-**Five structural mechanisms make it work:**
+**Why this compounds instead of just accumulating:**
 
 | Mechanism | What it does |
 |-----------|--------------|
-| Abstraction ladder | Scope hierarchy: site > domain > estate > federation > global. Lessons climb it through review. |
-| Epoch boundary | Context rotation discipline. End the session before cognitive degradation, carry knowledge forward. |
-| Human gate | Every scope promotion requires explicit approval. The agent proposes; you decide. |
-| Signal manifold | Runtime condition monitoring. Friction signals accrue volume, cross thresholds, mint warrants. |
-| Tic / tic-zone | Canonical timestamping and jurisdictional scoping. Total ordering across agents and cadences. |
+| Scoped gates | Every promotion requires explicit approval. The agent proposes; you decide what scope it reaches. |
+| Abstraction ladder | Scope hierarchy: site > domain > estate > federation > global. Lessons climb through review, not drift. |
+| Hydration boundary | Rendered working context is never confused with constitutional source of truth. Lessons hydrate back into sessions from their authoritative files. |
+| Cognitive pull requests | Proposed lessons are captured as CogPRs — structured, reviewable units that strip contextual noise before promotion. |
+| Signal manifold | Recurring friction accrues volume, crosses thresholds, mints warrants. You see what keeps coming up. |
 
 **One scale boundary:**
 
@@ -75,10 +80,11 @@ CGG is the governance lifecycle. It uses flat files, git-tracked, auditable by d
 
 On first encounter, CGG terminology maps to familiar systems concepts:
 - **CogPR** -- behavior pull request: a proposed lesson flagged for review and promotion
-- **tic** -- sequenced timestamp: ISO-8601 + monotonic counter for total ordering
-- **tic-zone** -- jurisdiction boundary: `.ticzone`-defined acoustic region that scopes routing
-- **siren > warrant** -- recurring friction signal that mints an escalation when it crosses threshold
+- **Hydration boundary** -- source-of-truth separation: constitutional files (CLAUDE.md, MEMORY.md) are authoritative; rendered working context is downstream
 - **Abstraction ladder** -- scope hierarchy: Site > Domain > Estate > Federation > Global; lessons climb through `/review`
+- **Scoped gates** -- human approval at every scope transition; nothing promotes without explicit review
+- **tic** -- sequenced timestamp: ISO-8601 + monotonic counter for total ordering
+- **siren > warrant** -- recurring friction signal that mints an escalation when it crosses threshold
 
 Full glossary: [docs/TERMINOLOGY.md](docs/TERMINOLOGY.md).
 

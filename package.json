@@ -1,7 +1,7 @@
 {
   "name": "context-grapple-gun",
   "version": "4.0.1",
-  "description": "Context Grapple Gun — file-based governance lifecycle for persistent AI sessions. Three commands, flat files, human-gated review.",
+  "description": "Context Grapple Gun — persistent context and cognitive pull requests for Claude Code. Three commands, auditable files, no service required.",
   "type": "module",
   "bin": {
     "cgg": "bin/cgg.mjs"
