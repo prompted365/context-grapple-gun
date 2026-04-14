@@ -143,6 +143,48 @@ def log_event(plan_hash: str, delta_result: dict):
 
 
 # ---------------------------------------------------------------------------
+# Git cycle check — versioning-is-mandatory enforcement
+# ---------------------------------------------------------------------------
+
+def find_git_cycle() -> str:
+    """Locate git-cycle.sh by walking up from ZONE_ROOT."""
+    candidates = [
+        ZONE_ROOT / "scripts" / "git-cycle.sh",
+    ]
+    for c in candidates:
+        if c.exists() and c.is_file():
+            return str(c)
+    return ""
+
+
+def run_git_cycle() -> dict:
+    """Run git-cycle.sh --check. Non-blocking — surfaces alerts via stdout."""
+    script = find_git_cycle()
+    if not script:
+        return {"returncode": -1, "output": ""}
+
+    try:
+        result = subprocess.run(
+            ["bash", script, "--check"],
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=30,
+        )
+    except (subprocess.TimeoutExpired, OSError):
+        return {"returncode": -1, "output": ""}
+
+    # If repos need attention, emit to stdout so the hook output is visible
+    if result.returncode != 0 and result.stdout.strip():
+        print(f"[git-cycle] {result.stdout.strip()}")
+
+    return {
+        "returncode": result.returncode,
+        "output": result.stdout.strip(),
+    }
+
+
+# ---------------------------------------------------------------------------
 # Main
 # ---------------------------------------------------------------------------
 
@@ -180,6 +222,10 @@ def main():
 
     # Fire tmux delta dump
     delta_result = run_tdelta(tmux_session)
+
+    # Git cycle check — surface dirty repos before plan mode
+    # Non-blocking: emits to stdout (shown to user) but never blocks the plan.
+    git_cycle_result = run_git_cycle()
 
     # Persist to memory
     append_memory(plan_text, plan_hash, delta_result.get("dump_path", ""))
