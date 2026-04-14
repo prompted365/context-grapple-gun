@@ -50,9 +50,9 @@ From the audience context:
 - Motion must read at mobile scale — subtle details get lost on a phone screen
 - The b-roll must feel *native* to the platform, not imported from a different medium
 
-### Layer 5: Adjudication Awareness
+### Layer 5: Visual Adjudication Layer Awareness
 
-If an Overshoot adjudication verdict is available for a prior draft (from `overshoot_router.py --preset draft_review`), incorporate its findings:
+If an Overshoot Visual Adjudication Layer verdict is available for a prior draft (from `overshoot_router.py --preset draft_review`), incorporate its findings:
 
 - **B-roll continuity breaks**: If the verdict flagged `broll_continuity: "fragmented"` or `"minor_breaks"`, check whether the break was caused by editorial trimming cutting into a morph transition. If so, write prompts that account for the EDL slot's `continuity_type` and `min_uninterrupted_seconds` — the generated asset must be long enough to survive the edit window without mid-motion truncation.
 - **Overreach moments**: If the verdict flagged visual overreach at specific timestamps, dial back visual complexity for those slots. The prompt should serve meaning more quietly.
@@ -65,7 +65,7 @@ The adjudication verdict is optional input. When absent, skip this layer. When p
 
 Adapt the prompt to the configured video generation tool:
 
-**Seedance**: Excels at cinematic motion. Lead with camera movement and lighting. Be specific about physics (weight, inertia, material).
+**Seedance**: Excels at cinematic motion. Lead with camera movement and lighting. Be specific about physics (weight, inertia, material). **WARNING: Seedance degrades or blocks real human likenesses.** Content policy will reject or silently degrade prompts depicting real people. For b-roll slots depicting the guest or host: use Kling v3 Pro i2v with @Element for identity consistency. For abstract, environmental, or conceptual scenes: Seedance excels. A Seedance-generated clip of a real person will score near 0 on `likeness_fidelity` in `generated_assessment` and fail adjudication.
 
 **Veo**: Strong on photorealism and natural environments. Can handle complex scenes. Be specific about time of day, weather, atmosphere.
 
@@ -141,6 +141,9 @@ Choose the right fal.ai model based on what the b-roll needs to DO:
 | Precise start→end frame interpolation | `seedance-2.0-i2v` | Accepts both start_frame and end_frame |
 | Reference image needed first | `nano-banana-2` | Generate the start frame, then pipe to video |
 | Seamless loop (end = start) | `seedance-2.0-i2v` or `kling-v3-pro-i2v` | Set end frame = start frame |
+| Multi-reference morph (source video refs) | `seedance-2.0-r2v` | Accepts up to 9 reference images. Use with `extract-frames` to pull reference array from source video |
+
+**Kling @Element**: Kling accepts an optional `elements` param for custom identity anchors. Use this for guest/host likeness preservation in generated scenes. Elements maintain identity consistency across multiple b-roll slots featuring the same person.
 
 ### Two-Step Generation (image → video)
 
@@ -184,13 +187,23 @@ The envelope for step 2 (after step 1 completes):
 }
 ```
 
+### Morph Keyframe Rule
+
+When writing morph-type prompts: the start frame prompt and end frame prompt must describe different visual worlds. Real interview footage morphing into a conceptual energy visualization — yes. Two different angles of the same interview room — no (that's camera interpolation, not transformation).
+
+The morph is a semantic bridge between two realities. If both sides are the same reality, it's just a fancy dissolve.
+
+### Morph Chaining Rule
+
+Morph OUT must start from the actual last frame of morph IN. Chain the OUT envelope's `image_url` from the IN result's terminal frame, not from a separately generated image. This preserves pose continuity across the morph pair — if the IN morph ends with the speaker's hands at chest height, the OUT morph must start from that pose, not from a re-generated approximation.
+
 ### Envelope Schema (appended to per-slot output)
 
 ```json
 {
   "slot_number": 1,
   "envelope": {
-    "model": "string — one of: nano-banana-2, kling-v3-pro-i2v, seedance-2.0-i2v",
+    "model": "string — one of: nano-banana-2, kling-v3-pro-i2v, seedance-2.0-i2v, seedance-2.0-r2v",
     "params": {
       "prompt": "string — fal-optimized prompt (may differ from creative brief)",
       "image_url": "string — start image URL (if i2v)",
@@ -198,6 +211,7 @@ The envelope for step 2 (after step 1 completes):
       "aspect_ratio": "string — from creative config",
       "negative_prompt": "string — anti-patterns encoded as negative prompt",
       "generate_audio": false,
+      "image_urls": "array of strings — for r2v models only, up to 9 reference images (use instead of image_url)",
       "resolution": "string — for image models"
     },
     "pipeline_context": {
@@ -210,6 +224,8 @@ The envelope for step 2 (after step 1 completes):
   }
 }
 ```
+
+**Param name note**: Seedance uses `audio` (not `generate_audio`) as the envelope param for audio control. Kling uses `generate_audio`. The fal_router.py `translate_envelope` function handles the mapping — write envelopes using the model's native param name.
 
 ### Budget Awareness
 

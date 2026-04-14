@@ -32,7 +32,7 @@ profiles/
 
 ```json
 {
-  "schema_version": "1.0.0",
+  "schema_version": "1.1.0",
   "profile_id": "uuid",
   "show_name": "string — the show's name",
   "show_slug": "string — filesystem-safe identifier",
@@ -83,6 +83,38 @@ profiles/
     "tribal_signals": "float 0-1 — weight for audience-identity language"
   },
   
+  "team": [
+    {
+      "name": "string — team member name",
+      "role": "string — role in the show (host, writer, producer, editor)",
+      "bio": "string — brief description relevant to creative decisions"
+    }
+  ],
+  
+  "show_stats": {
+    "episodes": "int — total episodes released",
+    "countries": "string — reach description (e.g., '25+ countries')",
+    "platforms": "int — number of distribution platforms",
+    "ai_knowledge_entries": "int — number of AI knowledge base entries, if applicable"
+  },
+  
+  "release_schedule": [
+    {
+      "name": "string — content type name (e.g., 'Full Episode')",
+      "day": "string — day of week",
+      "platform": "string — primary platform for this release",
+      "notes": "string — additional context"
+    }
+  ],
+  
+  "studio": "string — physical studio location description",
+  
+  "guest_deliverable": "string — description of what the pipeline produces FOR the guest",
+  
+  "website": "string — show website URL",
+  
+  "rss_feed": "string — podcast RSS feed URL",
+  
   "creatives": []
 }
 ```
@@ -123,7 +155,8 @@ profiles/
   "broll_direction": "string — overall b-roll philosophy for this creative",
   "copy_tone": "string — how the post copy sounds (conversational, authoritative, vulnerable, provocative)",
   
-  "video_gen_tool": "seedance | veo | happyhorse | kling | runway | none",
+  "video_gen_tool": "seedance-2.0-i2v | seedance-2.0-r2v | kling-v3-pro-i2v | nano-banana-2 | none",
+  // Must match a key in fal_router.py MODELS dict exactly. Abstract names (e.g. 'seedance', 'kling') will break envelope generation.
   "video_gen_notes": "string — tool-specific prompt optimization notes",
   
   "adjudication_config": {
@@ -140,6 +173,13 @@ profiles/
   }
 }
 ```
+
+### Adjudication Model Tier Guidance
+
+The `model_tier` field in `adjudication_config` maps to Overshoot model selection:
+- **medium** (default) — uses `qwen3.5-9b` for source and generated assessment. Fast, strong vision benchmarks.
+- **large** — uses `qwen3.5-27b` for draft review. Best quality for final editorial judgment. Recommended for the `draft_review` preset.
+- **small** — uses `qwen3.5-4b`. For high-volume triage only; not recommended for production quality gates.
 
 ## Profile Creation Flow
 

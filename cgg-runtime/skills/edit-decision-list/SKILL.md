@@ -59,6 +59,8 @@ You receive:
 - The full profile + active creative
 - The audience context object
 - Timestamp range (if available)
+- **Timestamp drift note**: If transcript timestamps have not been verified (Phase 1c), all beat timestamps may be 3-5s off from actual audio. Account for this when setting beat `timestamp_start`/`timestamp_end` values. Flag the drift status in `editorial_notes`.
+- (Optional) Overshoot source analysis — if Phase 1d source analysis is available, use visual hinge locations and face-priority windows to inform beat placement and b-roll slot positioning. Visual hinges are natural cut points; face-priority windows are moments to keep the speaker on screen.
 
 ## Process
 
@@ -93,6 +95,10 @@ Identify where b-roll should appear. B-roll is not decoration — it is a visual
 - **Min uninterrupted seconds**: For animated/morphing slots, the minimum duration that must be preserved. A morph transition (reality → generated scene → reality) is an atomic unit — cutting into it mid-flow produces visible disruption.
 - **Transition in/out**: What cut type leads into and out of this b-roll slot
 
+### Step 5: A-Roll Extraction Notes
+
+The EDL implies an A-roll extraction step: the raw source video must be trimmed to the EDL's `segment_start`/`segment_end` range. Note the source video path and extraction time range in `editorial_notes`. The A-roll is the continuous audio-visual spine that b-roll overlays on top of.
+
 ### B-Roll Boundary Constraints
 
 **Morph transitions are not cuts.** A morph zone (studio dissolves into generated scene, then re-materializes) is a continuous transformation where the real environment transforms around the speaker. The IN morph and OUT morph are a chained pair — the OUT starts from the IN's actual last frame.
@@ -103,6 +109,10 @@ Identify where b-roll should appear. B-roll is not decoration — it is a visual
 3. NEVER cut into the middle of a morph — it creates a visible continuity break where the dissolve starts but doesn't complete
 
 **Visual adjudication:** After assembly, run `overshoot_router.py analyze --preset draft_review` on the assembled timeline. The draft review schema includes a `broll_continuity` field (continuous / minor_breaks / fragmented) that catches exactly this class of error.
+
+### Morph Keyframe Constraint
+
+For morph-type b-roll slots: start frame and end frame MUST come from different visual worlds. Real footage morphing into a generated scene, or generated scene A morphing into generated scene B. Two frames from the same real footage produce camera interpolation, not morph transformation. This is the difference between a dissolve and a morph.
 
 ## Output Schema
 

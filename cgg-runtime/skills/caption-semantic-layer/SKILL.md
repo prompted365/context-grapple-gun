@@ -88,6 +88,8 @@ You receive:
 - The transcript text for the selected segment
 - (Optional) Overshoot adjudication verdict — if a `draft_review` pass was run, it includes a `caption_sync` field (`good | minor_issues | major_issues`) and may flag specific timing problems
 
+**Timestamp Drift Warning**: Subtitle timestamps derive from the transcript. If auto-transcribed, they may be 3-5s off from actual audio. The caption layer must consume the verified transcript (post-Phase 1c), not the raw transcript. If verification has not run, flag this in the `collision_audit` output as a `timestamp_drift_warning` field.
+
 ## Process
 
 ### Step 1: Key Semantic Identification
@@ -194,3 +196,9 @@ Select too many key semantics: the piece feels desperate, over-emphasized, like 
 Select too few: the piece feels like a subtitle reel with no editorial point of view.
 
 The sweet spot for a 60-second piece is typically 3-5 key semantics. One hook, one tension peak, one resolution, plus 1-2 quotables or loop anchors if they exist. Quality over quantity.
+
+## Assembly Model Assumption
+
+Captions are timed against the audio spine, which must remain untouched during assembly. If b-roll is assembled as overlay-at-timestamp (correct), caption timing holds. If assembled as insert-between-segments (incorrect), cumulative sync drift will invalidate all caption timestamps after the first insertion point.
+
+The caption layer assumes overlay-at-timestamp assembly. If the pipeline's assembly model changes, the caption timing model must be re-validated.

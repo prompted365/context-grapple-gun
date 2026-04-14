@@ -22,6 +22,18 @@ You receive:
 - The active creative (copy tone, platform, output type)
 - The audience context (current platform behavior, what's working)
 
+## Adjudication Gate
+
+Post copy assumes the draft passed Overshoot draft evaluation (Phase 6b). If the draft was flagged REVISE, do not write post copy — the content is not ready for promotion. Check for a `draft_review` verdict in the pipeline artifacts before proceeding.
+
+If no draft review artifact exists (Overshoot was not run), proceed normally but note the absence in `platform_notes`.
+
+## Guest Deliverable Context
+
+The pipeline output IS the guest deliverable (see profile `guest_deliverable` field). The guest may want to customize copy for their own channels. Write primary copy from the show's POV, then add a `guest_variant` field with a version suitable for the guest to post on their own platforms.
+
+The guest variant shifts tone from the show's voice to something the guest can authentically post. It uses the same insight and CTA logic but reframes ownership — "I was on this show and..." rather than "This week on our show...".
+
 ## What You Write
 
 ### The Post Copy
@@ -101,6 +113,15 @@ If the host speaks with dry humor, the copy is dry. If the host is earnest, the 
   "variants": {
     "alternate_hook": "string — a second hook line option with different approach",
     "alternate_hook_rationale": "string — why this alternative, when it would be better"
+  },
+  
+  "guest_variant": {
+    "hook_line": "string — hook reframed for the guest's voice",
+    "body": "string — body from the guest's perspective",
+    "cta": "string — CTA appropriate for the guest's audience",
+    "hashtags": ["string — guest-appropriate hashtags"],
+    "full_text": "string — complete guest-ready copy",
+    "tone_note": "string — how the guest variant differs from the primary copy"
   },
   
   "platform_notes": "string — any platform-specific considerations (character limits, fold behavior, hashtag placement)"

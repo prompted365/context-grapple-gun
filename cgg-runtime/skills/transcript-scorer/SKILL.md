@@ -17,6 +17,11 @@ You receive:
 - A loaded show profile (creative worldview)
 - An active creative config (output parameters)
 - An audience context object (current platform intelligence)
+- (Optional) Overshoot source analysis — if Phase 1d source analysis is available, read it. Visual hinges, face-priority windows, and reaction moments inform segment selection. A segment with a strong visual hinge at its climax scores higher than one where the speaker is looking away. Visual context is additive — its absence does not degrade scoring, but its presence sharpens editorial judgment.
+
+## Timestamp Drift Warning
+
+Auto-transcribed timestamps (Whisper, Descript, etc.) drift 3-5 seconds from actual audio position. If the transcript has not passed through the Transcript Verification Gate (Phase 1c), note this in each candidate's `concerns` field. Downstream stages (EDL, captions, A-roll extraction) depend on these timestamps — drift compounds through the pipeline.
 
 ## What You Do
 
@@ -63,6 +68,10 @@ For each candidate segment (any 30-90 second window with potential):
 3. **Read it through the audience context** — does this work on this platform right now?
 4. **Score it holistically** — a single editorial confidence rating (1-10)
 5. **Write the rationale** — 2-3 sentences explaining why this score, what works, what doesn't
+
+## Speaker-Turn Handling
+
+For multi-speaker transcripts, note speaker turn boundaries within each candidate segment. J/L cut timing depends on knowing who is speaking when. In the `dimension_notes`, flag moments where speaker turns create natural visual cut opportunities — these are editorial gold for the EDL stage.
 
 ## Output Schema
 

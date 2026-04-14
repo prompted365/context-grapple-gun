@@ -34,6 +34,17 @@ The HTML report contains every major decision made across the pipeline with full
 - What the runner-up offered that the winner didn't
 - "The one that got away" — a brilliant moment that didn't fit constraints
 
+### Section 3.5: Source Video & A-Roll Status
+
+- Source video path (if provided)
+- Selected time range (segment_start to segment_end from EDL)
+- Whether A-roll was extracted from the source video, and the extraction file path
+- Overshoot source analysis summary (if Phase 1d ran):
+  - Visual hinges found (count and notable moments)
+  - Face-priority windows (high-expression segments flagged)
+  - Edit grammar suggestions from the adjudicator
+- If no source analysis was run, note that it is available via `overshoot_router.py --preset source_assessment`
+
 ### Section 4: Edit Decision List
 - The full EDL presented visually — a timeline-style representation
 - Each cut with its type and stated intention
@@ -45,7 +56,7 @@ The HTML report contains every major decision made across the pipeline with full
 - Status: PASS (cut achieves its stated goal), FLAG (technically correct but intention could be stronger), FIX (cut doesn't achieve what it claims)
 - For any FLAG or FIX: what specifically could be different
 
-### Section 5.5: Visual Adjudication (if available)
+### Section 5.5: Visual Adjudication Layer Summary
 
 If the pipeline ran an Overshoot adjudication pass (via `overshoot_router.py`), include the results:
 
@@ -57,7 +68,25 @@ If the pipeline ran an Overshoot adjudication pass (via `overshoot_router.py`), 
 - **Arc expression score**: How well the final edit expresses the intended emotional arc (0-1)
 - **Revision notes**: If verdict is REVISE, present each revision note as an actionable item with the relevant pipeline stage that should re-run
 
+The Visual Adjudication Layer operates across three pipeline touchpoints, not just one. Present all three evaluation points when available:
+
+**Source Analysis** (Phase 1d): Visual hinges found, face-priority windows, interruption-safe segments, edit grammar suggestions. This informed the EDL's cut placement and b-roll slot positioning.
+
+**Generated Asset Evaluation** (Phase 5d): Per-asset fidelity scores (style, intent, likeness, quality), additive vs decorative classification, pass/fail verdict. Failed assets were flagged for regeneration.
+
+**Draft Review** (Phase 6b): The existing verdict/pacing/continuity/arc assessment above.
+
+Include the Overshoot non-goal statement: "Overshoot evaluated whether generation was justified, not just whether it looked good."
+
 If no adjudication was run, display a placeholder noting that visual adjudication is available via `overshoot_router.py --preset draft_review` and what it would assess.
+
+### Section 5.6: Reference Frame Extraction
+
+If the r2v (reference-to-video) morph workflow was used in this run:
+- Document the `extract-frames` output: frame count, time range, output directory
+- Show which extracted frames were selected as morph references
+- Note the source video segment these frames came from
+- If r2v was not used, omit this section entirely (do not show an empty placeholder)
 
 ### Section 6: B-Roll Prompts
 - Each prompt with its creative brief
@@ -78,6 +107,7 @@ If no adjudication was run, display a placeholder noting that visual adjudicatio
 - Platform-specific notes
 
 ### Section 9: Speculative Notes
+- **Surprise assessment**: "Did anything in this pipeline run surprise you?" -- an honest assessment of whether anything unexpected emerged. If 10 consecutive runs produce "not surprised," that absence of surprise is itself the signal that epistemic novelty has collapsed. This is not a request for surprise -- it is a request for honesty about whether surprise occurred.
 - Expansion opportunities noticed during this run
 - If trend signals were found in audience research that could inform a variant creative
 - Pattern observations if this is not the first run for this show

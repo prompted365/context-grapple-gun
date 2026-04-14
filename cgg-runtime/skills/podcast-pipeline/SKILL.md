@@ -20,6 +20,13 @@ You are not doing the work alone. You are managing a team of specialists. Your j
                     [PHASE 0]  [PHASE 1a]  [PHASE 1b]
                     Profile    Audience     Transcript
                     Load       Research     Ingest
+                                  |          |
+                                  |     [PHASE 1c]
+                                  |     Transcript
+                                  |     Verification Gate
+                                  |          |
+                                  |     [PHASE 1d] (conditional)
+                                  |     Overshoot Source Analysis
                         \         |          /
                          \   [PHASE 2]      /
                           \  Scoring  -----/
@@ -45,7 +52,10 @@ You are not doing the work alone. You are managing a team of specialists. Your j
                     \             /
                      \  [PHASE 6]
                       \ Cut Audit
-                       \    |      /
+                        \   |
+                      [PHASE 6b] (conditional)
+                      Overshoot Draft Review
+                        \   |      /
                       [PHASE 7a] [PHASE 7b]
                       Post Copy   Report Assembly
                            \        /
@@ -72,10 +82,22 @@ phases:
     blocked_by: [phase_0_profile]
     parallel_with: [phase_1a_audience]
     
+  phase_1c_transcript_verification:
+    agents: [lead_inline]
+    blocked_by: [phase_1b_transcript]
+    note: "Compare auto-generated timestamps against audio waveform peaks. Flag drift >3s for re-alignment. Output: verified transcript with drift_correction_applied field."
+    
+  phase_1d_source_analysis:
+    agents: [lead_inline]
+    blocked_by: [phase_1c_transcript_verification]
+    parallel_with: [phase_2_scoring]
+    note: "Overshoot source analysis — visual hinges, face-priority windows, reaction moments. Output feeds scoring and EDL as visual context. Run: overshoot_router.py analyze <source_video> --preset source_assessment"
+    
   phase_2_scoring:
     agents: [transcript-scorer]
     model: opus
-    blocked_by: [phase_1a_audience, phase_1b_transcript]
+    blocked_by: [phase_1a_audience, phase_1c_transcript_verification]
+    note: "If source video provided, also waits for phase_1d_source_analysis (visual context is additive, not blocking)"
     
   phase_3_selection:
     agents: [lead_inline]
@@ -116,10 +138,15 @@ phases:
     blocked_by: [phase_4_edl, phase_5a_broll, phase_5b_captions, phase_5d_adjudication]
     note: "Different agent than EDL builder — fresh eyes. Includes adjudication verdicts."
     
+  phase_6b_draft_review:
+    agents: [lead_inline]
+    blocked_by: [phase_6_cut_audit]
+    note: "Overshoot draft evaluation — pacing, transitions, arc expression. Advisory only (flags for human review, not auto-reject). Run: overshoot_router.py analyze <draft_path> --preset draft_review"
+    
   phase_7a_post_copy:
     agents: [post-copy-writer]
     model: opus
-    blocked_by: [phase_3_selection, phase_1a_audience]
+    blocked_by: [phase_3_selection, phase_1a_audience, phase_6b_draft_review]
     parallel_with: [phase_7b_report]
     
   phase_7b_report:
@@ -167,6 +194,27 @@ While audience research runs, you:
 - Save parsed transcript to ./output/{show_slug}/transcript_parsed.json
 
 Wait for audience-researcher to complete before proceeding.
+
+### Phase 1c: Transcript Verification Gate (lead inline)
+
+After transcript ingest, verify timestamp accuracy:
+1. Compare auto-generated timestamps against audio waveform peaks (if raw audio/video is available)
+2. Check word-boundary timing, speaker turn boundaries, and silence gap accuracy
+3. Measure drift magnitude — if >3s systematic drift detected, re-align before proceeding
+4. Output: verified transcript with `drift_correction_applied` field (boolean) and `drift_magnitude_seconds` (float or null)
+5. Save to `./output/{show_slug}/transcript_verified.json`
+
+If no raw audio is available for verification, proceed with unverified timestamps but set `drift_correction_applied: false` and flag in the report.
+
+### Phase 1d: Overshoot Source Analysis (lead inline, conditional)
+
+If raw source video was provided:
+1. Run source analysis: `python3 overshoot_router.py analyze <source_video> --preset source_assessment`
+2. Collect results: visual hinges, face-priority windows, interruption-safe windows, reaction moments, edit grammar suggestions
+3. Save to `./output/{show_slug}/{date}-source-analysis.json`
+4. This output is fed to the transcript-scorer (Phase 2) and EDL builder (Phase 4) as optional visual context
+
+If no source video: skip this phase. Visual context is additive — its absence does not degrade downstream stages.
 
 ### Phase 2: Scoring
 
@@ -251,9 +299,16 @@ After b-roll envelopes are written:
    ...
    ```
 6. Report job IDs to user
+
+**Reference frame extraction** (for r2v morph workflows): If any b-roll slot uses `seedance-2.0-r2v`, extract reference frames from source video first:
+```bash
+python3 fal_router.py extract-frames <source_video> --count 8 --output-dir ./output/{show_slug}/ref-frames [--start <segment_start>] [--end <segment_end>]
+```
+Upload extracted frames and use their URLs as the `image_urls` array in the r2v envelope.
+
 7. Note: generation is async — continue with cut audit while media generates
 
-### Phase 5d: Visual Adjudication (lead inline)
+### Phase 5d: Visual Adjudication Layer — Generated Assets (lead inline)
 
 After generated assets arrive from fal.ai:
 1. For each generated asset (morph clip, scene image, b-roll video):
@@ -268,6 +323,8 @@ After generated assets arrive from fal.ai:
 **Note:** Overshoot is streaming-only (no batch/chat endpoint). The router uses FileSource with real-time pacing. Each asset analysis takes roughly the asset's duration. Token budget: `delay_seconds * 128` max output tokens — the `generated_assessment` structured schema fits within this at 2s delay (256 tokens).
 
 **Note:** Overshoot results for consecutive static shots will be highly repetitive (no inter-clip memory). When consuming results, coalesce near-identical descriptions — the signal is in the *changes* between clips, not the repeated descriptions.
+
+**Assembly model**: B-roll assembly uses overlay-at-timestamp on the continuous audio spine. NOT insert-between-segments. The audio track must remain untouched; visual layers overlay at EDL-specified timestamp windows. Insert-based assembly adds duration to the video track without adding duration to the audio track, causing cumulative sync drift after every insertion.
 
 ### Phase 6: Cut Audit
 
@@ -287,6 +344,17 @@ Prompt includes:
   atomic. Be honest — the editor won't improve if you're nice.
 - Output: write cut-audit.json to ./output/{show_slug}/
 ```
+
+### Phase 6b: Overshoot Draft Review (lead inline, conditional)
+
+After cut audit, if a draft assembly exists:
+1. Run draft review: `python3 overshoot_router.py analyze <draft_path> --preset draft_review`
+2. Review verdict: PASS or REVISE
+3. If REVISE: present revision notes to user with specific re-run recommendations. Do NOT auto-reject — this is advisory.
+4. If PASS: proceed to post copy and report
+5. Save to `./output/{show_slug}/{date}-draft-review.json`
+
+The draft review checks pacing coherence, transition coherence, b-roll continuity, visual overreach/underreach, arc expression, and caption sync. It uses `qwen3.5-27b` (large tier) for best editorial judgment.
 
 ### Phase 7: Parallel Copy + Report
 
@@ -392,6 +460,9 @@ If no timestamps: proceed with content-based boundaries, flag reduced precision 
 | Nano Banana 2 | `nano-banana-2` | image | $0.08/img | Reference frames |
 | Kling v3 Pro | `kling-v3-pro-i2v` | video | $0.11-0.17/sec | Character consistency (@Element) |
 | Seedance 2.0 | `seedance-2.0-i2v` | video | $0.30/sec | Cinematic atmosphere |
+| Seedance 2.0 r2v | `seedance-2.0-r2v` | video | $0.30/sec | Multi-reference morph (up to 9 images) |
+
+**Seedance face-blocking warning**: Seedance degrades or blocks real human likenesses. For b-roll depicting real people, use Kling with @Element for identity consistency. Use Seedance for abstract/environmental/conceptual scenes only.
 
 ### Budget Controls
 - **Spend cap**: $25/24h window (configurable)

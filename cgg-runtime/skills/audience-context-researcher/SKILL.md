@@ -133,3 +133,9 @@ If research fails (network unavailable, rate limited, no useful results):
 ## Research Duration Target
 
 This should take 2-5 minutes of active research, not 20. You're building a working picture, not writing a thesis. Prioritize actionable signals over comprehensive coverage.
+
+## Future Integration: Adjudication Feed-Forward
+
+The audience context's aesthetic signals could inform Overshoot's style evaluation prompt. Currently the adjudicator uses fixed style descriptions from the profile. A future integration opportunity: pass `audience_context.aesthetic_signals` to the `generated_assessment` prompt for platform-aware style fidelity scoring.
+
+This is an integration opportunity, not a current requirement. The adjudicator operates independently of audience context today.

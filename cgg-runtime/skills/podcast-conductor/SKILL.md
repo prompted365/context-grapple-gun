@@ -12,6 +12,22 @@ This is the system manual for the podcast editorial intelligence pipeline. If yo
 
 ## System Map
 
+### Two Governing Lanes
+
+Every pipeline run is governed by two parallel truth lanes:
+
+```
+1. Local Transcript Verification Gate
+   → establishes section-local lexical and timing truth
+   → "what is actually being said here, exactly, and where?"
+
+2. Overshoot Visual Adjudication Layer
+   → establishes visual and stylistic truth across source, generated, and assembled artifacts
+   → "what is visually happening here, what should be done with it, and did the resulting assets stay true to intent and canon?"
+```
+
+Together they govern whether the pipeline is reasoning over the right material before AND after transformation.
+
 ```
 SKILLS (editorial intelligence)
 ├── /podcast-conductor     ← YOU ARE HERE. System guide. Read-first.
@@ -31,11 +47,17 @@ INFRASTRUCTURE
 │   ├── budget enforcement (cap + window + per-job max)
 │   └── completion events → audit-logs/media-router/completions/
 │
-├── overshoot_router.py    ← Visual adjudication egress (Overshoot)
-│   ├── analyze / status / results / models / presets / budget
-│   ├── 3 modes: source (footage), generated (assets), draft (assembled)
-│   ├── streaming-only (LiveKit + WebSocket, no chat completions)
-│   └── default model: Qwen/Qwen3.5-9B
+├── overshoot_router.py    ← Visual Adjudication Layer (Overshoot)
+│   ├── CLI: analyze / status / results / models / presets / budget / profile
+│   ├── 3 responsibility surfaces:
+│   │   ├── source: visual hinges, face-priority windows, reaction moments, edit grammar
+│   │   ├── generated: style/intent/likeness fidelity, quality, additive vs decorative
+│   │   └── draft: pacing, transitions, b-roll continuity, arc expression, caption sync
+│   ├── 3 structured presets: source_assessment / generated_assessment / draft_review
+│   ├── streaming via Overshoot SDK (FileSource + realtime pacing)
+│   ├── default model: qwen3.5-9b (medium tier)
+│   └── NOT the generation engine — the visual authority that governs when
+│       generation is justified and whether generated outputs are acceptable
 │
 ├── profiles/              ← Show profile JSON files (per-project)
 │   └── {show-slug}.profile.json
@@ -165,6 +187,11 @@ FAL_KEY is in `canonical/.env`. The router reads it automatically.
 | Nano Banana 2 | `nano-banana-2` | `fal-ai/nano-banana-2` | image | prompt + aspect_ratio + resolution |
 | Kling v3 Pro i2v | `kling-v3-pro-i2v` | `fal-ai/kling-video/v3/pro/image-to-video` | video | start_image_url + prompt + duration |
 | Seedance 2.0 i2v | `seedance-2.0-i2v` | `bytedance/seedance-2.0/image-to-video` | video | start_frame + prompt + duration |
+| Seedance 2.0 r2v | `seedance-2.0-r2v` | `bytedance/seedance-2.0/reference-to-video` | video | image_urls[] + video_urls[] + prompt |
+
+Seedance r2v accepts up to 9 reference images, 3 reference videos, and 3 audio clips. Use with `extract-frames` to build the reference array from source video.
+
+Kling v3 Pro accepts an optional `elements` param for @Element custom identity anchors — use this for likeness preservation when generating scenes featuring real people (guest/host).
 
 ### Envelope Format
 
@@ -205,6 +232,9 @@ python3 fal_router.py status fal_abc123
 
 # Get result (blocks until done)
 python3 fal_router.py result fal_abc123
+
+# Extract reference frames from source video (for r2v workflows)
+python3 fal_router.py extract-frames <source_video> --count 8 --output-dir ./output/ref-frames [--start 10.5] [--end 25.0]
 ```
 
 ### Budget Enforcement (physics layer)
@@ -236,6 +266,8 @@ The b-roll prompt engineer handles this — it writes two envelopes per slot whe
 | 10s Kling video (with audio) | $1.68 |
 | 5s Seedance video | $1.51 |
 | 10s Seedance video | $3.02 |
+| 5s Seedance r2v video | $1.51 |
+| 10s Seedance r2v video | $3.02 |
 | Full 4-slot run (image + 5s Kling each) | ~$2.56 |
 | Full 4-slot run (image + 5s Seedance each) | ~$6.36 |
 
@@ -268,6 +300,101 @@ python3 fal_router.py budget              # View
 python3 fal_router.py budget set --cap 50 # Adjust
 python3 fal_router.py budget reset        # Reset window
 ```
+
+## Overshoot Visual Adjudication Layer
+
+Overshoot is not a step in the pipeline — it is a governing lane. It appears three times, as one authority operating over different artifact states:
+
+### Pipeline Touchpoints
+
+```
+source media
+→ local transcript verification
+→ Overshoot source analysis (Phase 1d)
+→ editorial decision
+→ optional generation / augmentation
+→ Overshoot generated-asset evaluation (Phase 5d)
+→ assembly
+→ Overshoot draft evaluation (Phase 6b)
+→ final audit / delivery
+```
+
+### Responsibility Surfaces
+
+**1. Source footage assessment** (Phase 1d, preset: `source_assessment`)
+- Visual hinge detection — moments where visual energy shifts
+- Face-priority windows — well-lit, in-focus, emotionally expressive segments
+- Interruption-safe windows — where cutting to b-roll won't disrupt flow
+- Reaction moments — visible reactions from the non-speaking person
+- Edit grammar suggestions — J-cut and L-cut points from visual energy
+
+**2. Generated asset assessment** (Phase 5d, preset: `generated_assessment`)
+- Style fidelity — does it match the show's visual language?
+- Intent fidelity — does it serve editorial meaning, not just illustrate?
+- Likeness / identity fidelity — if a person is depicted, does it preserve their identity?
+- Semantic relevance — is the asset connected to what's being said?
+- Quality / coherence / artifact detection — technical quality check
+- Whether asset is additive or decorative — does it add meaning or is it wallpaper?
+
+**3. Draft-level assessment** (Phase 6b, preset: `draft_review`)
+- Pacing coherence — does the rhythm serve the content?
+- Transition coherence — do visual transitions serve the arc?
+- B-roll continuity — is generated imagery continuous or fragmented mid-motion?
+- Visual overreach / underreach — too much or too little visual support?
+- Arc expression — does the final edit still express the intended emotional arc?
+- Caption sync — are captions timed to speech?
+
+### Non-Goal
+
+Overshoot is not the generation engine. It is the visual authority that governs when generation is justified and whether generated outputs are acceptable.
+
+### CLI
+
+```bash
+# Source analysis
+python3 overshoot_router.py analyze <video_path> --preset source_assessment
+
+# Generated asset evaluation
+python3 overshoot_router.py analyze <asset_path> --preset generated_assessment
+
+# Draft review
+python3 overshoot_router.py analyze <draft_path> --preset draft_review
+
+# Resolve a show profile for adjudication context
+python3 overshoot_router.py profile <show-slug>
+```
+
+### Processing Presets
+
+| Preset | FPS | Clip Length | Delay | Max Tokens | Use |
+|--------|-----|------------|-------|------------|-----|
+| snappy | 6 | 0.5s | 0.5s | 64 | Triage |
+| balanced | 6 | 1.0s | 1.0s | 128 | Default |
+| detailed | 10 | 2.0s | 1.5s | 192 | Deep analysis |
+
+### Model Tier Guidance
+
+- **medium** (qwen3.5-9b) — default for source and generated assessment. Fast, strong vision.
+- **large** (qwen3.5-27b) — use for draft review. Best quality for final editorial judgment.
+- **small** (qwen3.5-4b) — use for high-volume triage only.
+
+## Transcript Verification Gate
+
+The transcript verification gate is the pipeline's parallel truth lane for lexical and timing accuracy.
+
+### Purpose
+Establish section-local lexical and timing truth before any editorial decision is made. Auto-transcription tools (Whisper, Descript, etc.) produce timestamps that drift 3-5 seconds from actual audio position.
+
+### Staged Verification
+1. **Ingest** — raw transcript with auto-generated timestamps
+2. **Re-align** — compare word boundaries and speaker turns against audio waveform peaks
+3. **Confirm** — verify timing accuracy against audio; flag drift magnitude
+
+### Output
+A verified transcript with a `drift_correction_applied` field indicating whether timestamps were adjusted and by how much.
+
+### Relationship to Overshoot
+Together, transcript verification and the Overshoot Visual Adjudication Layer govern whether the pipeline is reasoning over the right material. Transcript verification handles the lexical/timing truth ("what is being said, when"); Overshoot handles the visual truth ("what is being shown, how does it serve the message").
 
 ## What This System Is Really Doing
 
