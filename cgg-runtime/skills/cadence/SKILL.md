@@ -233,16 +233,53 @@ Use the `EnterPlanMode` tool to switch to Claude Code's native plan mode. This i
 #### Step 4: Write the Handoff as the Plan
 Generate a NEW native plan. The plan content IS the handoff — a **bridge surface** carrying session state between contexts, not authoring truth or constitutional record. This is the ONE AND ONLY place the handoff gets written. Claude Code auto-saves the plan to `~/.claude/plans/` when approved, and references it in the next session.
 
+The plan is a **context grapple gun projection** — it carries two structurally distinct payloads across the session boundary:
+
+1. **Governance State** (auto-captured) — tic, signals, conformations, mandate, queue status. This is the sidecar. It feeds hooks and governance cycles.
+2. **Session Projection** (human-validated) — roadmap goals, production intent, creative direction. This is the grapple. It carries what the human actually wants to accomplish across N sessions.
+
+The structural separation is load-bearing. Without it, governance chores (queue_refresh, signal_scan) and production goals (test the pipeline, build the adapter) render as a flat list — and governance chores win attention because they auto-trigger via hooks while production goals silently decay.
+
 The plan must include:
 - `<!-- cgg-handoff -->` block with handoff_id, project_dir, trigger_version, generated_at
 - User Intent, Agent Interpretation, Interpretation Concerns
 - Working State (citation-laden, file:line references)
+- **Session Projection** (see below)
 - Session Learning & ROI with Time Saved Estimates
 - Friction (Signals): any new `<!-- --signal -->` blocks for unresolved technical debt
-- Next Actions (concrete, numbered)
+- **Governance Next Actions** (concrete, numbered — governance chores only)
 - Conformation summary
 - Cadence due markers (see below)
 - `<!-- cgg-evaluate -->` trigger block at the very bottom — `pending_cprs_expected` must match the exact number of CogPRs from Step 2
+
+#### Session Projection (mandatory section)
+
+The Session Projection is the primary activation payload of the handoff. It answers: "What is the human trying to accomplish that spans sessions?" This section is NOT auto-generated from governance state — it requires session context awareness and human validation.
+
+```markdown
+## Session Projection
+
+### Active Roadmap Goals
+<!-- Goals that span multiple sessions. Carry forward until explicitly completed or deferred. -->
+1. [GOAL] — status, last touched tic, next concrete step
+2. [GOAL] — status, last touched tic, next concrete step
+
+### Production Next Actions
+<!-- The actual work. These are NOT governance chores. -->
+1. [ACTION] — concrete, scoped, ready to execute
+2. [ACTION] — concrete, scoped, ready to execute
+
+### Deferred Goals
+<!-- Goals intentionally parked with reason and re-evaluation tic. -->
+- [GOAL] — reason, re-eval at tic N
+```
+
+**Authoring rules:**
+- Active Roadmap Goals persist across handoffs until explicitly completed or deferred. They are NOT dropped when a session ends without touching them.
+- Production Next Actions are the session's real work queue. Governance chores (mandate consumption, signal scans) go in the separate Governance Next Actions section.
+- Deferred Goals carry a re-evaluation tic. When `current_tic >= re_eval_tic`, the goal resurfaces to Active.
+- The projection section is positioned BEFORE governance sections in the handoff to establish priority — the grapple fires first, the sidecar follows.
+- When the prior handoff included a Session Projection, carry forward its Active Roadmap Goals verbatim unless status changed. Do not silently drop goals.
 
 #### Mogul Mandate Cascade
 
@@ -333,22 +370,24 @@ The ripple-assessor runs HEADLESS on next session start (background, non-blockin
 
 ## Handoff Consumption Protocol
 
-When a new session receives a handoff plan (via `implement_plan` or plan-mode exit), the **Next Actions** section is the session's primary work queue. The handoff is not just state documentation — it is a TODO list with a governance sidecar.
+When a new session receives a handoff plan (via `implement_plan` or plan-mode exit), the plan carries two distinct payloads: the **Session Projection** (what the human wants to accomplish) and the **Governance State** (what the system needs to maintain). The projection is the primary work queue; governance is the sidecar.
 
 ### Session-start ordering
 
-1. **Consume the Mogul mandate** (mechanical cycles script-routed, deliberative cycles team-routed). This is governance overhead — do it first and report compactly.
-2. **Surface the Next Actions** from the handoff as a numbered TODO list in the first substantive response. This is the user's actual work queue. Present it visibly — not buried in a mandate receipt.
-3. **Proceed with the user's intent.** If the user's message is "implement the plan," the Next Actions ARE the plan. Execute them in priority order, checking each against current state before acting (items may have been completed in prior sessions).
+1. **Surface the Session Projection** from the handoff as the primary work context. Active Roadmap Goals and Production Next Actions are the session's real agenda. Present them first and visibly — not buried in governance receipts.
+2. **Consume the Mogul mandate** (mechanical cycles script-routed, deliberative cycles team-routed). This is governance overhead — handle it compactly, do not let it displace the projection.
+3. **Proceed with the user's intent.** If the user's message is "implement the plan," the Production Next Actions ARE the plan. Execute them in priority order, checking each against current state before acting (items may have been completed in prior sessions). Governance Next Actions execute in background or after production work unless explicitly prioritized.
 
-### Next Actions are carry-forward by default
+### Session Projection carry-forward rules
 
-If a session completes some Next Actions but not all, the remaining items carry forward into the next handoff's Next Actions section. Items are only dropped when:
-- Explicitly completed (mark done)
-- Explicitly deferred (move to a `## Deferred` section with reason)
-- Superseded by new work (note what replaced them)
+- **Active Roadmap Goals** persist across handoffs by default. They are only dropped when explicitly completed, explicitly deferred (with re-eval tic), or explicitly superseded.
+- **Production Next Actions** carry forward if incomplete. Completed items are marked done; new items from the current session append after carried items.
+- **Deferred Goals** resurface to Active when `current_tic >= re_eval_tic`.
+- **Governance Next Actions** do NOT carry forward — they are recomputed each cadence from mandate state and due markers. Stale governance chores from prior handoffs are dropped.
 
-New Next Actions from the current session are appended after carried items. The ordering reflects priority, not chronology.
+### Priority inversion guard
+
+If governance chores are consuming session attention at the expense of production goals for 2+ consecutive sessions, that IS a signal — the governance overhead is displacing the work the system exists to enable. Surface it as a friction signal in the handoff. The substrate exists to absorb coordination so participants experience freedom without losing coherence — if governance is the bottleneck, the substrate is failing.
 
 ---
 
@@ -409,8 +448,11 @@ Keep it COMPACT (each section 5 lines max):
 ## Working State (compact)
 <What was being worked on — files touched, decisions made, blockers hit. Max 5 lines.>
 
-## Next Actions
-<Concrete next steps. Max 5 items.>
+## Session Projection (compact)
+<Active roadmap goals + production next actions. Max 5 items total. Carry forward from prior handoff.>
+
+## Governance Next Actions
+<Governance chores only. Max 3 items.>
 
 ## Carried Signals
 <List active signal IDs + volumes from memory. If unknown, write "See /siren status".>

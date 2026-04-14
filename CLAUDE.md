@@ -584,6 +584,10 @@ When two engines share state through a registry file, the producing engine must 
 
 <!-- promoted from CogPR-151 (tic 136→138). Source: session:tic-136. Evidence: 14 cycles of biome→trust invisible failure. Each engine individually correct; integration surface unverified. Extends CogPR-79 to inter-engine integration. Band: COGNITIVE. Confidence: 0.92. -->
 
+- **Integration loop closure requires explicit invocation wiring** — each engine individually correct and sharing correct-format state is necessary but not sufficient for integration. The data-producing engine must explicitly invoke the data-consuming engine after state persistence. Invocation IS the integration, not data format. This extends CogPR-151 (format compliance) to call-path presence: engines may share perfectly formatted data yet produce silent zero-output because no engine calls the next one. The protection is an explicit orchestrator (e.g., trust-progression-cycle.py) that sequences produce → persist → consume as a single governed pipeline. (Validated: biome→trust→standing loop — 3 engines, correct formats, 18 cycles of interaction data, 0 trust computed. Root cause: no call path connected them. Orchestrator closed the loop immediately.)
+
+<!-- promoted from CogPR-178 (tic 145→146). Source: session:visitor-phase1-dry-run. -->
+
 ## Named-Is-Not-Landed Gate
 
 A complement surfaced in a prior mode but not yet materialized remains a valid complement. The structural relevance test must evaluate complement state (built vs named vs unnamed), not just recent-output presence. First calibration evidence from /complement invocation log — the gate correction shapes skill behavior by requiring materialization state assessment before declaring a complement irrelevant.
@@ -647,3 +651,19 @@ B-roll assembly must use overlay-at-timestamp (video replaces speaker footage at
 Morph transitions are atomic compound operations: (1) keyframes must come from different visual worlds — two real frames produce camera interpolation, not transformation; (2) OUT morph chains from IN morph's actual last frame (pose continuity); (3) editorial trims must not land inside morphing zones — cutting mid-morph produces visible breaks. EDL needs continuity_type per b-roll slot.
 
 <!-- promoted from CogPR-155/167 merged (tic 139-141→143). Source: session:podcast-pipeline-ep31 + Ep31 reel analysis. Depends on: CogPR-158 (overlay method). Band: COGNITIVE. detection_affordance: pending. -->
+
+## Temporal Scope Discipline
+
+- **Federation-scoped tic resolution for duration measurement** — governance functions measuring duration in federation tics must resolve from the canonical tic log (`audit-logs/tics/*.jsonl`, field: `domain_counter_after`), not from domain-scoped counters in data files. Domain data files store domain-local cycle counters that do not map to federation time. The failure mode is silent zero-output: a duration function reads a biome-scoped `cycle` counter instead of the federation tic log's `domain_counter_after`, returning 0 for all entities despite 14+ tics elapsed. The rule: any function parameterized by federation tics must source its temporal data from the tic log. (Validated: standing-engine time-at-standing returned 0 for all visitors. Registry stored biome-scoped cycle counter; engine needed federation tic log's domain_counter_after. Silent zero-output for 14+ tics.)
+
+<!-- promoted from CogPR-179 (tic 145→146). Source: session:visitor-phase1-dry-run. -->
+
+- **Grace period temporal scope must match governance clock** — when governance functions define grace periods or deadlines, the temporal scope must bind to the governance clock (federation tics), not simulation clocks (biome cycles, generation counters). A full multi-cycle simulation (e.g., 50 biome cycles) may execute within a single federation tic. If grace were measured in simulation cycles, it would expire during a single simulation run, violating the governance intent: give the system time to observe and respond across governance review windows, not just simulate. The distinction between governance clock and simulation clock is fundamental to any system that runs multi-cycle simulations within governance-paced review windows. (Validated: demotion grace period of 5 federation tics correctly survives 50-cycle biome generations that execute within single tics.)
+
+<!-- promoted from CogPR-181 (tic 146→146). Source: demotion lifecycle build. -->
+
+## Governed Bridge Mechanics
+
+- **Loneliness intervention as governed bridge mechanic** — isolated nodes in proximity-based networks experience self-reinforcing isolation: no neighbors means no interactions, no interactions means no trust accumulation, no trust means no promotion, no promotion means continued isolation. The intervention is a governed bridge: a weak edge, metadata-marked with `intervention_type`, that creates opportunity for trust accumulation without bypassing the trust system. The bridge does not grant trust — it creates the conditions under which trust can be earned. The constraint is "opportunity without bypass": the bridge must emit a governance signal, carry audit metadata, and use weak-edge weight so natural interactions can strengthen or replace it. (Validated: Flint isolated 20 cycles in sector 4 — no natural interaction partners. Loneliness bridge created weak cross-sector edge at cycle 20. Flint progressed guest→tourist→foreign_delegate by cycle 23, 3 cycles post-bridge. Bridge metadata and signal preserved full audit trail.)
+
+<!-- promoted from CogPR-180 (tic 145→146). Source: session:visitor-phase1-dry-run. -->
