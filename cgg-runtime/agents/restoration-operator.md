@@ -55,7 +55,7 @@ Execute in this order. Do not invert.
 
 ### Verification
 - Run stress test: fire session-restore 5-10 times, verify no signal growth or WAIT file creation
-- Run `repo-sweep.sh` to verify all repos clean
+- Run `scripts/git-cycle.sh --check` to verify all repos clean
 
 ## Execution Protocol
 

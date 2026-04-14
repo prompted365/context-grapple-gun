@@ -74,7 +74,7 @@ resolve_script() {
 
 | Tier | Path | Resolves? | Why |
 |------|------|-----------|-----|
-| 1 | `$ZONE_ROOT/scripts/` | No (for CGG scripts) | Only contains `repo-sweep.sh` |
+| 1 | `$ZONE_ROOT/scripts/` | No (for CGG scripts) | Contains `git-cycle.sh` (federation tooling, not CGG runtime) |
 | 2 | `$CGG_PLUGIN_ROOT/cgg-runtime/scripts/` | **No** | `CLAUDE_PLUGIN_ROOT` is unset; fallback computes `~/cgg-runtime/scripts/` which doesn't exist |
 | 3 | `$HOME/.claude/cgg-runtime/scripts/` | **Yes** | Active execution surface (synced from canonical) |
 
