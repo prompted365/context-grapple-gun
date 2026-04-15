@@ -73,31 +73,73 @@ Read through the selected segment and map its audio shape:
 - Where does it breathe after the peak?
 - Where is the resolution?
 
-### Step 2: Beat Identification
+### Step 2: Beat Identification — Grounded in Transcript
 
 Mark every beat transition — where the segment's internal energy shifts. Each beat boundary is a potential cut point.
 
-### Step 3: Cut Decisions
+**For every beat, you MUST cite the exact transcript lines with their source timestamps.** This is not optional. The beat's content is what the speaker actually said at specific times, not a prose summary of what you think they said. Copy the transcript lines verbatim. Include the timestamps. This is the evidence that everything downstream attaches to.
+
+For each beat, produce:
+- **Transcript citation**: the exact lines from the transcript that comprise this beat, with their source timestamps
+- **Key phrases**: specific words/phrases that carry narrative weight in this beat — these are the words that b-roll, captions, and the viewer's attention attach to
+- **Source window**: the timestamp range that contains ALL cited lines (first line start → last line end)
+
+### Step 3: Excluded Material Gate
+
+Before designing cuts, identify ALL transcript lines within the segment range that must be excluded (cuts_from_raw). For each excluded line:
+- Note its exact source timestamp range
+- Verify it does NOT overlap with any beat's source window
+- If an excluded line falls inside a beat's source window, you MUST adjust the beat's source_in/source_out to route around it — split the beat into sub-extractions if necessary
+
+**Hard rule: cuts_from_raw is a hard exclusion constraint on source ranges, not a post-hoc note.** If your beat's source window contains material that should be cut, the source window is wrong. Fix it before proceeding.
+
+### Step 4: Reel Duration Feasibility Check
+
+For each edit point, calculate:
+- **source_duration** = source_out - source_in (how much raw material you're pulling from)
+- **reel_duration** = timecode_out - timecode_in (how much time it occupies in the final reel)
+
+**Hard rule: reel_duration ≤ source_duration.** You cannot play more source material than the reel window allows. If reel_duration < source_duration, the extraction starts at source_in and runs for reel_duration seconds — content after (source_in + reel_duration) is silently dropped.
+
+**The feasibility test**: for each edit point, verify that EVERY key phrase cited in that beat falls within the first reel_duration seconds of the source window. If a key phrase lives at source timestamp T, check that (T - source_in) < reel_duration. If it doesn't fit, either:
+1. Expand the reel window (adjust adjacent beats to make room)
+2. Move the source_in earlier to capture the phrase
+3. Accept that the phrase is cut and remove it from key_phrases, content_summary, and all downstream references (b-roll, captions)
+
+Do not write an EDL that references phrases the reel can't physically contain. That is hallucination.
+
+### Step 5: Cut Decisions
 
 For each beat boundary, decide:
 - **Cut type**: J-cut, L-cut, or hard cut
-- **Cut intention**: WHY this cut type at this moment — what is it doing to the viewer
+- **Cut intention**: WHY this cut type at this moment — what is it doing to the viewer's experience of the specific words being spoken at this transition
 - **Visual state**: What is on screen before and after the cut (speaker / b-roll slot / title card)
 - **Timing offset**: For J and L cuts, how much audio overlap (in approximate seconds)
 
-### Step 4: B-Roll Slot Mapping
+### Step 6: B-Roll Slot Mapping
 
 Identify where b-roll should appear. B-roll is not decoration — it is a visual argument. Mark each b-roll slot with:
-- **Start/end in the audio timeline**
+- **Start/end in the reel timeline** (timecode_in/timecode_out)
+- **Anchor phrase**: the specific spoken words the b-roll is keyed to — cite the exact transcript line and its verified position in the reel timeline
 - **Emotional register**: What is the speaker's emotional state at this moment
 - **Visual function**: illustrate / contrast / abstract / amplify / ground
 - **Continuity type**: static / animated / morphing — determines whether the slot can be trimmed into
 - **Min uninterrupted seconds**: For animated/morphing slots, the minimum duration that must be preserved. A morph transition (reality → generated scene → reality) is an atomic unit — cutting into it mid-flow produces visible disruption.
 - **Transition in/out**: What cut type leads into and out of this b-roll slot
 
-### Step 5: A-Roll Extraction Notes
+### Step 7: A-Roll Extraction Notes
 
-The EDL implies an A-roll extraction step: the raw source video must be trimmed to the EDL's `segment_start`/`segment_end` range. Note the source video path and extraction time range in `editorial_notes`. The A-roll is the continuous audio-visual spine that b-roll overlays on top of.
+The EDL implies an A-roll extraction step: the raw source video must be trimmed per the edit_decision_list entries' source_in/source_out ranges. Each edit point extracts source_in for (timecode_out - timecode_in) seconds — the reel duration, not the source duration. Note the source video path in `editorial_notes`. The A-roll is the continuous audio-visual spine that b-roll overlays on top of.
+
+### Step 8: Narrative Flow Self-Check
+
+Before writing the final EDL, read through the beats in sequence as if you are the viewer hearing this for the first time. Ask:
+- Does the emotional arc actually flow, or did the cuts create gaps where meaning evaporates?
+- Are the key phrases — the ones that b-roll and captions will attach to — actually present and landed in the reel?
+- Would a viewer who has never heard this conversation understand the arc from the edit alone?
+- Does the loop bridge work — does the opening hit differently on second listen because of what the viewer now knows?
+
+If the answer to any of these is no, adjust the beats and cuts. The narrative must survive the edit, not just the timestamps.
 
 ### B-Roll Boundary Constraints
 
@@ -118,7 +160,7 @@ For morph-type b-roll slots: start frame and end frame MUST come from different 
 
 ```json
 {
-  "edl_version": "1.0.0",
+  "edl_version": "2.0.0",
   "profile_id": "string",
   "creative_id": "string",
   "segment_start": "HH:MM:SS or content marker",
@@ -135,10 +177,23 @@ For morph-type b-roll slots: start frame and end frame MUST come from different 
   "beats": [
     {
       "beat_number": 1,
-      "timestamp_approx": "HH:MM:SS or 'segment +Ns'",
+      "label": "string — HOOK / BRIDGE / REFRAME / STORY / PEAK / RECOGNITION / LOOP_BRIDGE",
+      "timestamp_approx": "string — reel timecode range e.g. '0-7s'",
+      "source_timestamp": "string — source range e.g. '948.2-955.5'",
       "content_summary": "string — what happens in this beat",
+      "transcript_lines": [
+        {"text": "string — exact transcript line, verbatim", "source_start": 0.0, "source_end": 0.0}
+      ],
+      "key_phrases": ["string — specific words that carry narrative weight, cited from transcript_lines"],
       "energy_level": "string — low/building/high/peak/descending/resolved",
-      "duration_approx": "string"
+      "duration_approx": "string",
+      "speaker": "string",
+      "feasibility_check": {
+        "source_duration": 0.0,
+        "reel_duration": 0.0,
+        "all_key_phrases_within_reel_window": true,
+        "excluded_material_in_window": ["string — any cuts_from_raw lines that overlap, or empty"]
+      }
     }
   ],
   
@@ -187,12 +242,33 @@ For morph-type b-roll slots: start frame and end frame MUST come from different 
     "intention": "string — what state the viewer is left in"
   },
   
-  "editorial_notes": "string — anything worth flagging about the edit structure"
+  "cuts_from_raw": [
+    {
+      "text": "string — exact phrase or line to exclude",
+      "source_start": 0.0,
+      "source_end": 0.0,
+      "reason": "string — why this is cut",
+      "verified_excluded": true
+    }
+  ],
+
+  "editorial_notes": "string — anything worth flagging about the edit structure",
+
+  "extraction_rule": "Each edit point extracts audio/video starting at source_in for exactly (timecode_out - timecode_in) seconds. Content after source_in + reel_duration is not in the edit. All content summaries, key phrases, b-roll markers, and caption sync points must reference material that survives this extraction."
 }
 ```
 
 ## Quality Standard
 
+### Narrative Test
 Every cut in the EDL must pass this test: if someone asks "why did you cut here, and why this type of cut?", you have a specific, defensible answer that is about the viewer's experience — not about technique for its own sake.
 
 A J-cut because "J-cuts create momentum" is not an answer. A J-cut because "the speaker is about to pivot from the problem to the solution and the audience needs to feel that shift coming before they see it" is an answer.
+
+### Grounding Test
+Every beat must pass this test: can you point to the exact transcript lines, with timestamps, that contain the content you summarized? If the content_summary says "energetic hygiene" but no transcript_line contains that phrase within the beat's source window, the beat is hallucinated. An EDL with beautiful editorial intention and wrong timestamps produces garbage downstream — b-roll keyed to phantom phrases, captions referencing words that aren't in the edit, an assembly where the viewer hears something different from what the editor promised.
+
+The grounding test is not busywork. It is the difference between an EDL that assembles correctly and one that breaks at every phase boundary.
+
+### Collision Test
+No edit point's source range may contain material from cuts_from_raw. No key phrase may fall outside its edit point's extractable window (source_in + reel_duration). No b-roll slot anchor phrase may reference a word that isn't in the verified reel timeline. Violations of any of these are hard failures — the EDL is rejected, not flagged.

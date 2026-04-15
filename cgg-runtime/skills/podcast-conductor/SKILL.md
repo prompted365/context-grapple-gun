@@ -182,16 +182,18 @@ FAL_KEY is in `canonical/.env`. The router reads it automatically.
 
 ### Models Available
 
-| Model | Router Key | fal.ai ID | Type | Input |
-|-------|-----------|-----------|------|-------|
-| Nano Banana 2 | `nano-banana-2` | `fal-ai/nano-banana-2` | image | prompt + aspect_ratio + resolution |
-| Kling v3 Pro i2v | `kling-v3-pro-i2v` | `fal-ai/kling-video/v3/pro/image-to-video` | video | start_image_url + prompt + duration |
-| Seedance 2.0 i2v | `seedance-2.0-i2v` | `bytedance/seedance-2.0/image-to-video` | video | start_frame + prompt + duration |
-| Seedance 2.0 r2v | `seedance-2.0-r2v` | `bytedance/seedance-2.0/reference-to-video` | video | image_urls[] + video_urls[] + prompt |
+| Model | Router Key | fal.ai ID | Type | Start Frame | End Frame | References |
+|-------|-----------|-----------|------|-------------|-----------|------------|
+| Nano Banana 2 | `nano-banana-2` | `fal-ai/nano-banana-2` | image | N/A | N/A | N/A |
+| Kling v3 Pro i2v | `kling-v3-pro-i2v` | `fal-ai/kling-video/v3/pro/image-to-video` | video | `start_image_url` (required) | `end_image_url` (optional) | `elements[]` (identity anchors) |
+| Seedance 2.0 i2v | `seedance-2.0-i2v` | `bytedance/seedance-2.0/image-to-video` | video | `image_url` (required) | `end_image_url` (optional) | NONE |
+| Seedance 2.0 r2v | `seedance-2.0-r2v` | `bytedance/seedance-2.0/reference-to-video` | video | NONE | NONE | `image_urls[]` up to 9 |
 
-Seedance r2v accepts up to 9 reference images, 3 reference videos, and 3 audio clips. Use with `extract-frames` to build the reference array from source video.
+**Seedance i2v** is the morph workhorse — deterministic start+end frame interpolation. No reference channel. The prompt carries all aesthetic intent.
 
-Kling v3 Pro accepts an optional `elements` param for @Element custom identity anchors — use this for likeness preservation when generating scenes featuring real people (guest/host).
+**Seedance r2v** is for style transfer and mood boards — reference images guide the aesthetic, but you have zero control over start/end frames. The model decides temporal placement. NOT suitable for morph transitions where frame binding is required.
+
+**Kling v3 Pro** accepts frame binding + identity anchors (`elements`). Use for character-preservation scenes where the speaker's likeness must be maintained in generated footage. The only model with partial frame binding + identity reference in one call.
 
 ### Envelope Format
 
@@ -248,13 +250,44 @@ Budget state: `audit-logs/media-router/budget.json`
 Job records: `audit-logs/media-router/jobs/{job_id}.json`
 Completion events: `audit-logs/media-router/completions/{job_id}.json`
 
-### Two-Step Pattern (most common)
+### Morph Transition Grammar
 
-Most b-roll slots need a reference image first:
-1. `nano-banana-2` → generates start frame ($0.08, ~10s)
-2. `seedance-2.0-i2v` or `kling-v3-pro-i2v` → animates it ($0.56-1.50 for 5s)
+Morph transitions (speaker dissolves into abstract energy and back) use a **3-frame deterministic chain**. This is the canonical morph architecture for the pipeline.
 
-The b-roll prompt engineer handles this — it writes two envelopes per slot when needed, with `step: "reference_frame"` and `step: "video_generation"` marked in pipeline_context.
+**Three frames per morph slot:**
+1. **Departure frame** — last A-roll frame before b-roll IN. Extracted from locked base track at `(IN timestamp - 0.033s)`. Reframed to output aspect ratio (e.g., 9:16).
+2. **Midpoint image** — abstract/conceptual target. Generated via Nano Banana at show palette. This serves as the END frame of Clip A and START frame of Clip B.
+3. **Return frame** — first A-roll frame after b-roll OUT. Extracted from locked base track at OUT timestamp. Reframed to output aspect ratio.
+
+**Two clips per morph slot, both using Seedance i2v deterministic path:**
+- **Clip A (IN morph)**: `image_url`=departure, `end_image_url`=midpoint. Reality → abstraction.
+- **Clip B (OUT morph)**: `image_url`=midpoint, `end_image_url`=return. Abstraction → reality.
+- Clip B's `image_url` MUST be the same file as Clip A's `end_image_url` (the midpoint image). Different files = visible seam at crossover.
+- Trim each clip to half the overlay window duration, concat, overlay on base track.
+
+**API constraint — deterministic vs reference modes are mutually exclusive:**
+
+| Model | Start frame | End frame | Reference images | Morph-safe |
+|-------|------------|-----------|-----------------|------------|
+| Seedance i2v | `image_url` | `end_image_url` | NONE | YES — deterministic frame binding |
+| Seedance r2v | NONE | NONE | `image_urls[]` up to 9 | NO — no frame binding, model decides temporal placement |
+| Kling v3 Pro | `start_image_url` | `end_image_url` | `elements[]` (identity) | PARTIAL — frame binding + identity anchors |
+
+You cannot pass reference images AND start/end frames in the same Seedance call. For morph transitions, frame binding wins. The prompt carries all aesthetic intent.
+
+The midpoint image prompt is load-bearing — it must produce the exact aesthetic target because there is no reference channel to enforce palette or style alongside the deterministic frame path.
+
+**Non-morph slots (animated/static)** use the simpler two-step pattern below.
+
+### Two-Step Pattern (non-morph slots)
+
+Non-morph b-roll slots need a scene image first:
+1. `nano-banana-2` → generates scene image ($0.08, ~10s)
+2. `seedance-2.0-i2v` → animates from scene image as start frame, no end frame ($1.51 for 5s)
+
+The b-roll prompt engineer handles this — it writes two envelopes per non-morph slot with `step: "scene_image"` and `step: "video_generation"` marked in pipeline_context.
+
+For morph slots, three envelopes: `midpoint_image`, `morph_clip_a`, `morph_clip_b`.
 
 ### Cost Reference
 

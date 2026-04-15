@@ -229,11 +229,15 @@ def translate_envelope(envelope):
             "prompt": params["prompt"],
             "duration": str(params.get("duration", "5")),
         }
-        for opt in ["aspect_ratio", "resolution", "audio", "end_frame"]:
+        for opt in ["aspect_ratio", "resolution", "audio"]:
             if opt in params:
                 fal_params[opt] = params[opt]
-        if "end_image_url" in params and "end_frame" not in params:
-            fal_params["end_frame"] = params["end_image_url"]
+        # end_image_url is the fal API param name for the end frame
+        if "end_image_url" in params:
+            fal_params["end_image_url"] = params["end_image_url"]
+        elif "end_frame" in params:
+            # Legacy envelope compat: end_frame maps to end_image_url
+            fal_params["end_image_url"] = params["end_frame"]
         return fal_id, fal_params
 
     elif model_key == "seedance-2.0-r2v":

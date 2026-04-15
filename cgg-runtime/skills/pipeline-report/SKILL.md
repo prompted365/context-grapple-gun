@@ -80,13 +80,36 @@ Include the Overshoot non-goal statement: "Overshoot evaluated whether generatio
 
 If no adjudication was run, display a placeholder noting that visual adjudication is available via `overshoot_router.py --preset draft_review` and what it would assess.
 
-### Section 5.6: Reference Frame Extraction
+### Section 5.6: Morph Transition Integrity
 
-If the r2v (reference-to-video) morph workflow was used in this run:
-- Document the `extract-frames` output: frame count, time range, output directory
-- Show which extracted frames were selected as morph references
-- Note the source video segment these frames came from
-- If r2v was not used, omit this section entirely (do not show an empty placeholder)
+For each b-roll slot with `continuity_type: "morphing"`, report:
+
+**Per-slot morph audit table:**
+
+| Field | Report |
+|-------|--------|
+| Slot | Slot number and anchor phrase |
+| Transition type | morphing / animated / static |
+| Frame binding method | Seedance i2v (start+end deterministic) or Seedance r2v (reference only) or Kling (start+end+elements) |
+| Departure frame | Filename, extraction timestamp from base track, 9:16 reframe applied (yes/no) |
+| Midpoint image | Filename, generation model (Nano Banana), prompt summary |
+| Return frame | Filename, extraction timestamp from base track, 9:16 reframe applied (yes/no) |
+| Clip A (IN morph) | Model, image_url source, end_image_url source, duration, job_id |
+| Clip B (OUT morph) | Model, image_url source, end_image_url source, duration, job_id |
+| Chaining verified | Clip B's image_url matches Clip A's end_image_url (same file: yes/no) |
+| Reference images used alongside frame binding | **Must be NO** — Seedance i2v deterministic path has no reference channel. If yes, flag as architecture violation. |
+| Trim plan | Clip A trimmed to Xs, Clip B trimmed to Xs, combined = overlay window duration |
+| Overlay command | FFmpeg overlay filter string |
+
+**Integrity flags:**
+- If any morph slot used r2v instead of i2v: flag — no frame binding, morph start/end are non-deterministic
+- If any morph slot passed reference images alongside start/end frames: flag — API modes are mutually exclusive
+- If Clip B's start frame is NOT the same file as Clip A's end frame: flag — seam at midpoint crossover
+- If departure/return frames were not reframed to output aspect ratio before generation: flag — distortion risk
+
+For non-morph slots (animated/static), report model and generation method without the morph-specific fields.
+
+If no morph slots exist in this run, omit this section.
 
 ### Section 6: B-Roll Prompts
 - Each prompt with its creative brief

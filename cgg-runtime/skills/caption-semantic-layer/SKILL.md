@@ -119,6 +119,9 @@ Walk through the full timeline and verify:
 - No moment has overlapping key semantics
 - Text placement doesn't collide with b-roll focal points (check against b-roll composition notes)
 - Overall text density is appropriate (not too much text on screen at any moment)
+- **Morph zone clearance**: No key semantic animation (kinetic entrance/exit, scale change, position shift) may fire during an active morph transition window. Check the EDL's b-roll slots for `continuity_type: "morphing"` — during those timestamp ranges, the visual is mid-transformation between real footage and abstract energy (or vice versa). Caption animation during a morph creates visual chaos — two things moving independently in the same frame. Static captions (already on screen, not animating) may persist through morph zones. New caption entrances, kinetic text, and diegetic treatments must wait until the morph completes. Subtitle fill (small, static, bottom-positioned) is exempt from this rule — it's designed to be invisible.
+
+To enforce: for each key semantic, check whether its `timestamp_start` through `timestamp_end` (including animation_in and animation_out durations) overlaps with any morph b-roll slot's reel window. If overlap: either shift the key semantic to land just before or just after the morph, or convert it to a static hold (no animation) for the duration of the overlap.
 
 ### Step 5: Overshoot Caption Sync Reconciliation (conditional)
 
@@ -179,6 +182,15 @@ Record the reconciliation result in the output's `collision_audit` — add a `ca
         "timestamp": "string",
         "issue": "string — what collision was detected",
         "resolution": "string — how it was resolved"
+      }
+    ],
+    "morph_zone_clearance": [
+      {
+        "slot": "int — b-roll slot number",
+        "morph_window": "string — e.g. '16.8-20.5s'",
+        "captions_in_window": ["string — caption IDs active during this window"],
+        "conflicts": ["string — caption IDs with animation overlap"],
+        "resolution": "string — shifted / converted to static hold / exempt (subtitle fill)"
       }
     ],
     "text_density_assessment": "string — overall assessment of text load"

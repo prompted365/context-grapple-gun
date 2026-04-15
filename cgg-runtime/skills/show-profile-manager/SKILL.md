@@ -159,6 +159,17 @@ profiles/
   // Must match a key in fal_router.py MODELS dict exactly. Abstract names (e.g. 'seedance', 'kling') will break envelope generation.
   "video_gen_notes": "string — tool-specific prompt optimization notes",
   
+  "morph_config": {
+    "enabled": "boolean — whether morph transitions are used for this creative (default true for morphing b-roll slots)",
+    "generation_model": "seedance-2.0-i2v — deterministic start+end frame binding. Only model that guarantees morph endpoints. Do NOT use r2v for morphs (no frame binding).",
+    "midpoint_model": "nano-banana-2 — generates the abstract midpoint image at show palette",
+    "frame_binding": "deterministic — image_url (start) + end_image_url (end). No reference images alongside frame binding (API modes are mutually exclusive on Seedance).",
+    "clip_duration_minimum": "4 — Seedance minimum. Generate at 5s, trim to fit overlay window half.",
+    "departure_frame_offset": "-0.033 — seconds before b-roll IN timestamp (one frame at 30fps)",
+    "return_frame_offset": "0.0 — at b-roll OUT timestamp exactly",
+    "reframe_before_generation": "true — departure and return frames must be cropped/reframed to output aspect ratio before use as start/end frames"
+  },
+
   "adjudication_config": {
     "enabled": "boolean — whether visual adjudication runs for this creative (default true)",
     "preset": "source_assessment | generated_assessment | draft_review — which adjudication preset to run",

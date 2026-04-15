@@ -37,6 +37,9 @@ You are not doing the work alone. You are managing a team of specialists. Your j
                          [PHASE 4]
                            EDL
                               |
+                        [PHASE 4b]
+                        Timeline Lock Gate (you — inline)
+                              |
                     /---------+---------\
                [PHASE 5a]          [PHASE 5b]
                B-Roll Prompts      Caption Layer
@@ -63,6 +66,131 @@ You are not doing the work alone. You are managing a team of specialists. Your j
                          Surface to User (you — inline)
 ```
 
+## Gate Contracts
+
+Each phase declares its inputs, outputs, and unlock conditions. A phase CANNOT start until its unlock gate passes. This is not advisory — the orchestrator must check each gate before spawning the next phase.
+
+```yaml
+gate_contracts:
+  phase_0_profile:
+    inputs: [profiles_dir]
+    outputs:
+      - file: "{output_dir}/profile_loaded.json"
+        schema: "profile schema with creative selected"
+    unlock: "file exists AND creative_id is non-null"
+
+  phase_1a_audience:
+    inputs: [phase_0_profile.outputs]
+    outputs:
+      - file: "{output_dir}/{date}-{creative}-audience-context.json"
+        schema: "platform, algorithm_signals[], audience_tribe"
+    unlock: "file exists AND algorithm_signals.length > 0"
+
+  phase_1b_transcript:
+    inputs: [phase_0_profile.outputs, source_file]
+    outputs:
+      - file: "{output_dir}/{date}-transcript-parsed.json"
+        schema: "segments[] with start, end, text"
+    unlock: "file exists AND segments.length > 0"
+
+  phase_1c_transcript_verification:
+    inputs: [phase_1b_transcript.outputs, source_file]
+    outputs:
+      - file: "{output_dir}/{date}-transcript-verified.json"
+        schema: "segments[] with start, end, text, words[]; drift_correction_applied, drift_magnitude_seconds"
+    unlock: "file exists AND drift_magnitude_seconds < 5.0"
+
+  phase_1d_source_analysis:
+    inputs: [phase_1c_transcript_verification.outputs, source_file]
+    outputs:
+      - file: "{output_dir}/{date}-source-analysis.json"
+        schema: "visual_hinges[], face_windows[], reaction_moments[]"
+    unlock: "file exists (optional phase — skip if no source video)"
+
+  phase_2_scoring:
+    inputs: [phase_1a_audience.outputs, phase_1c_transcript_verification.outputs]
+    outputs:
+      - file: "{output_dir}/{date}-{creative}-scoring.json"
+        schema: "candidates[] with segment_id, score, rationale, beats[]"
+    unlock: "file exists AND candidates.length > 0 AND all candidates have score"
+
+  phase_3_selection:
+    inputs: [phase_2_scoring.outputs]
+    outputs:
+      - file: "{output_dir}/{date}-{creative}-selection.json"
+        schema: "segment with beats[], cuts_from_raw[], hook_moment, tension_peak, resolution"
+    unlock: "file exists AND segment.beats.length > 0 AND user confirmed"
+
+  phase_4_edl:
+    inputs: [phase_3_selection.outputs, phase_1c_transcript_verification.outputs]
+    outputs:
+      - file: "{output_dir}/{date}-{creative}-edl.json"
+        schema: "edl_version >= 2.0.0, beats[] with transcript_lines + key_phrases + feasibility_check, edit_decision_list[], b_roll_slots[], cuts_from_raw[] with verified_excluded"
+    unlock: "file exists AND edl_version >= 2.0.0 AND all beats have transcript_lines AND all feasibility_check.all_key_phrases_within_reel_window == true AND all cuts_from_raw.verified_excluded == true"
+
+  phase_4b_timeline_lock:
+    inputs: [phase_4_edl.outputs, phase_1c_transcript_verification.outputs]
+    outputs:
+      - file: "{output_dir}/{date}-{creative}-edl.json (updated with timeline_lock field)"
+        schema: "timeline_lock.locked == true"
+      - file: "{output_dir}/assembly/base_track_v3.wav"
+        schema: "audio file at locked reel duration"
+      - file: "{output_dir}/assembly/base_track_v3.json"
+        schema: "whisper transcript with word-level timestamps"
+    unlock: "timeline_lock.locked == true AND all key phrases verified present in base track transcript AND no cuts_from_raw material in base track transcript"
+
+  phase_5a_broll:
+    inputs: [phase_4b_timeline_lock.outputs, profile, creative]
+    outputs:
+      - files: "{output_dir}/{date}-{creative}-broll-prompts.json"
+        schema: "per slot: creative_brief, composition_notes, envelopes[] (morph slots: 3 envelopes; animated slots: 2 envelopes)"
+      - files: "{output_dir}/assembly/slot_N_departure.png, slot_N_return.png (for morph slots)"
+        schema: "extracted frames from locked base track at b-roll boundary timestamps"
+    unlock: "broll-prompts.json exists AND every morph slot has frame_extraction timestamps AND every slot has at least one envelope"
+
+  phase_5b_captions:
+    inputs: [phase_4b_timeline_lock.outputs]
+    outputs:
+      - file: "{output_dir}/{date}-{creative}-captions.json"
+        schema: "key_semantic[] + subtitle_fill[], all timecodes within locked reel range"
+    unlock: "file exists AND all caption timecodes < total reel duration"
+
+  phase_5c_broll_dispatch:
+    inputs: [phase_5a_broll.outputs, departure/return frames extracted]
+    outputs:
+      - files: "audit-logs/media-router/jobs/*.json"
+        schema: "fal job records with job_id, status"
+    unlock: "all envelopes dispatched AND job_ids recorded AND budget check passed"
+
+  phase_5d_adjudication:
+    inputs: [phase_5c_broll_dispatch.outputs (completed jobs)]
+    outputs:
+      - file: "{output_dir}/{date}-adjudication.json"
+        schema: "per asset: verdict (PASS/FAIL), fidelity_scores"
+    unlock: "all assets adjudicated AND no FAIL verdicts (or FAIL assets re-dispatched)"
+
+  phase_6_cut_audit:
+    inputs: [phase_4b_timeline_lock.outputs, phase_5a_broll.outputs, phase_5b_captions.outputs, phase_5d_adjudication.outputs]
+    outputs:
+      - file: "{output_dir}/{date}-{creative}-cut-audit.json"
+        schema: "per cut: verdict, flags[]"
+    unlock: "file exists AND no REJECT verdicts"
+
+  phase_7a_post_copy:
+    inputs: [phase_3_selection.outputs, phase_1a_audience.outputs]
+    outputs:
+      - file: "{output_dir}/{date}-{creative}-post-copy.json"
+        schema: "options[] with text, strategy, platform_optimization"
+    unlock: "file exists AND options.length > 0"
+
+  phase_7b_report:
+    inputs: [all prior phase outputs]
+    outputs:
+      - file: "{output_dir}/{date}-{creative}-report.html"
+        schema: "full HTML editorial report"
+    unlock: "file exists"
+```
+
 ## Dependency DAG
 
 ```yaml
@@ -73,7 +201,7 @@ phases:
     
   phase_1a_audience:
     agents: [audience-researcher]
-    model: sonnet
+    model: opus
     blocked_by: [phase_0_profile]
     parallel_with: [phase_1b_transcript]
     
@@ -109,17 +237,22 @@ phases:
     model: opus
     blocked_by: [phase_3_selection]
     
+  phase_4b_timeline_lock:
+    agents: [lead_inline]
+    blocked_by: [phase_4_edl]
+    note: "Timeline Lock gate — verify EDL grounding before generation. See Phase 4b section."
+
   phase_5a_broll:
     agents: [broll-prompt-engineer]
-    model: sonnet
-    blocked_by: [phase_4_edl]
+    model: opus
+    blocked_by: [phase_4b_timeline_lock]
     parallel_with: [phase_5b_captions]
     note: "May spawn N sub-subagents for N b-roll slots in parallel"
     
   phase_5b_captions:
     agents: [caption-layer]
     model: opus
-    blocked_by: [phase_4_edl]
+    blocked_by: [phase_4b_timeline_lock]
     parallel_with: [phase_5a_broll]
     
   phase_5c_broll_dispatch:
@@ -255,6 +388,33 @@ Prompt includes:
 - Instructions: run /edit-decision-list protocol
 - Output: write edl.json to ./output/{show_slug}/
 ```
+
+### Phase 4b: Timeline Lock Gate (lead inline)
+
+After the EDL is written, verify its grounding before anything generates from it. This gate exists because the EDL builder can produce beautiful editorial intention with wrong timestamps — downstream phases (b-roll, captions, assembly) will all build on phantom references if the EDL's source ranges don't contain the content it claims.
+
+**Verification steps:**
+
+1. **Read the EDL's beats and their transcript_lines** — confirm each beat cites actual transcript lines with source timestamps
+2. **For each edit point, verify the feasibility check:**
+   - reel_duration ≤ source_duration
+   - All key_phrases fall within (source_in + reel_duration)
+   - No cuts_from_raw material overlaps with the source window
+3. **For each b-roll slot, verify the anchor phrase:**
+   - The specific words the b-roll is keyed to actually exist in the reel timeline at the claimed position
+   - The reel timecodes (reel_start/reel_end) match the edit_decision_list timecodes for that window
+4. **For each caption sync point (if captions are co-generated), verify the phrase exists at the claimed reel position**
+
+**If any check fails:**
+- Identify the specific failure (which phrase, which timestamp, what the gap is)
+- Re-run Phase 4 with a corrected prompt that includes the specific failures as constraints
+- Do NOT proceed to Phase 5 with an ungrounded EDL
+
+**If all checks pass:**
+- Write a `timeline_lock` field to the EDL file: `{"locked": true, "locked_at": "<timestamp>", "verification": "all_beats_grounded"}`
+- Proceed to Phase 5
+
+This gate is the bridge between editorial intent and assembly reality. Without it, you will generate b-roll for phantom phrases, write captions for missing words, and produce an assembly that doesn't match the edit.
 
 ### Phase 5: Parallel B-Roll + Captions
 
@@ -400,12 +560,11 @@ After all phases complete:
 ## Agent Spawning Rules
 
 1. **Never Haiku.** Not for any agent, not for any purpose.
-2. **Opus for editorial judgment**: scoring, EDL, captions, cut audit, post copy, report
-3. **Sonnet for research and structured craft**: audience research, b-roll prompt writing
-4. **All agents get the full profile.** Every subagent needs the show's identity to make decisions.
-5. **All agents write to `./output/{show_slug}/`** — one directory, one truth.
-6. **Agent prompts must be self-contained.** Include the actual data (profile JSON, transcript text, prior stage outputs), not just file paths. Agents don't inherit your context.
-7. **Background for parallel work, foreground when you need the result to decide.** Phase 2 (scoring) is foreground because you need it for Phase 3 (your selection). Phase 5a+5b are background because they're independent.
+2. **Opus for everything.** Every agent in this pipeline runs on Opus until the pipeline is proven reliable. Optimize to Sonnet later — correctness first, cost second.
+3. **All agents get the full profile.** Every subagent needs the show's identity to make decisions.
+4. **All agents write to `./output/{show_slug}/`** — one directory, one truth.
+5. **Agent prompts must be self-contained.** Include the actual data (profile JSON, transcript text, prior stage outputs), not just file paths. Agents don't inherit your context.
+6. **Background for parallel work, foreground when you need the result to decide.** Phase 2 (scoring) is foreground because you need it for Phase 3 (your selection). Phase 5a+5b are background because they're independent.
 
 ## Profile Resolution
 

@@ -2,7 +2,7 @@
 name: broll-prompt-engineer
 description: Scene-aware, aesthetically-anchored b-roll prompt crafting — writes prompts that serve meaning, not just illustration.
 user-invocable: true
-model: sonnet
+model: opus
 tools: Read, Write, Glob, Grep, Bash
 ---
 
@@ -134,94 +134,314 @@ Each b-roll prompt must also produce a **router-ready envelope** — a JSON file
 
 Choose the right fal.ai model based on what the b-roll needs to DO:
 
-| Need | Model | Why |
-|------|-------|-----|
-| Abstract/mood, cinematic motion | `seedance-2.0-i2v` | Best at atmospheric, fluid motion |
-| Consistent character/subject across shots | `kling-v3-pro-i2v` | @Element custom elements maintain identity |
-| Precise start→end frame interpolation | `seedance-2.0-i2v` | Accepts both start_frame and end_frame |
-| Reference image needed first | `nano-banana-2` | Generate the start frame, then pipe to video |
-| Seamless loop (end = start) | `seedance-2.0-i2v` or `kling-v3-pro-i2v` | Set end frame = start frame |
-| Multi-reference morph (source video refs) | `seedance-2.0-r2v` | Accepts up to 9 reference images. Use with `extract-frames` to pull reference array from source video |
+| Need | Model | Why | Frame control |
+|------|-------|-----|---------------|
+| **Morph transition** (reality ↔ abstraction) | `seedance-2.0-i2v` | Deterministic start+end frame binding | `image_url` (start) + `end_image_url` (end) — NO reference images |
+| Abstract mood, cinematic motion (no frame binding) | `seedance-2.0-i2v` | Best at atmospheric, fluid motion | `image_url` (start only) — Seedance animates freely |
+| Style transfer from multiple references | `seedance-2.0-r2v` | Up to 9 reference images for aesthetic guidance | `image_urls[]` — NO start/end frame control, model decides temporal placement |
+| Character-consistent scenes | `kling-v3-pro-i2v` | @Element identity anchors alongside frame binding | `start_image_url` + `end_image_url` + `elements[]` |
+| Generate a still frame (midpoint, scene) | `nano-banana-2` | Fast ($0.08), consistent | N/A — image only |
 
-**Kling @Element**: Kling accepts an optional `elements` param for custom identity anchors. Use this for guest/host likeness preservation in generated scenes. Elements maintain identity consistency across multiple b-roll slots featuring the same person.
+**Critical constraint: deterministic frame binding and reference images are mutually exclusive on Seedance.** Seedance i2v gives you start+end frames but no reference channel. Seedance r2v gives you up to 9 reference images but no frame binding. You cannot have both in one call. For morph transitions, frame binding wins — the prompt carries the aesthetic intent.
 
-### Two-Step Generation (image → video)
+**Kling exception**: Kling v3 Pro accepts `start_image_url` + `end_image_url` (frame binding) alongside `elements` (identity anchors — not full reference images, but persistent character/object identity). This is the only model that offers partial frame binding + identity reference in one call. Use for character-preservation morphs where the speaker's likeness must be maintained.
 
-When no source image exists for a b-roll slot:
-1. Generate a reference frame via `nano-banana-2` (fast, cheap: $0.08)
-2. Use that image URL as the start frame for video generation
+### Morph Transition Architecture (3-Frame Chain)
 
-The envelope for step 1:
+Each morph b-roll overlay window uses a **departure → midpoint → return** frame chain. The viewer sees: real podcast dissolves INTO abstract energy, holds, dissolves BACK to real podcast. The audio spine is untouched — only the visual changes.
+
+**Three frames per slot (all must exist as image files before generation):**
+1. **Departure frame** (`slot_N_departure.png`) — the last A-roll frame before the b-roll window starts. Extracted from the locked base track video at `(b-roll IN timestamp - 0.033s)`. This is real footage of the speaker.
+2. **Midpoint image** (`slot_N_midpoint.png`) — the abstract/conceptual target. Generated via Nano Banana from the creative brief. This is the visual "world" the morph transitions into. It serves as the END FRAME of Clip A and the START FRAME of Clip B — it is NOT a reference image in the r2v sense.
+3. **Return frame** (`slot_N_return.png`) — the first A-roll frame after the b-roll window ends. Extracted from the locked base track video at `(b-roll OUT timestamp)`. This is real footage of the speaker returning.
+
+**Two clips per slot, both using the DETERMINISTIC path (Seedance i2v with start + end frames):**
+- **Clip A (IN morph)**: `image_url` = departure frame, `end_image_url` = midpoint image. Seedance interpolates the speaker dissolving INTO the abstract energy.
+- **Clip B (OUT morph)**: `image_url` = midpoint image, `end_image_url` = return frame. Seedance interpolates the abstract energy dissolving BACK to the speaker.
+- Combined Clip A + Clip B = overlay window duration exactly.
+
+**Why the deterministic path, not r2v:** The morph needs frame-exact start and end binding. Seedance r2v accepts `image_urls` as style/identity references but gives you ZERO control over which frame is start vs end — the model decides temporal placement. Seedance i2v's `image_url` + `end_image_url` is the only path that guarantees the interpolation starts from the departure frame and ends on the midpoint (or starts from midpoint and ends on the return frame). The trade-off: no reference image channel for aesthetic guidance. The prompt must carry ALL the aesthetic intent.
+
+### API Constraint — Deterministic vs Reference Modes Are Mutually Exclusive
+
+| Model | Start frame | End frame | Reference images | Use for |
+|-------|------------|-----------|-----------------|---------|
+| Seedance i2v | `image_url` (required) | `end_image_url` (optional) | NONE | Morph clips — deterministic start/end binding |
+| Seedance r2v | NONE | NONE | `image_urls` up to 9 (style guidance) | Style transfer, mood boards — no frame binding |
+| Kling v3 Pro | `start_image_url` (required) | `end_image_url` (optional) | `elements` (identity anchors) | Character-consistent scenes |
+
+**Hard rule:** You cannot pass reference images AND deterministic start/end frames in the same Seedance call. Seedance i2v gives you frame binding without references. Seedance r2v gives you references without frame binding. Choose one. For morph transitions, frame binding wins — the prompt does the aesthetic work.
+
+This means the Nano Banana midpoint image prompt is load-bearing. It must produce an image that:
+1. Is visually distinct enough from the real footage that Seedance interpolates a TRANSFORMATION, not a camera move
+2. Is aesthetically anchored to the show's palette (navy/gold/cyan, organic motion, no stock meditation) — because there's no reference channel to enforce this
+3. Composes correctly at 9:16 — the midpoint image IS what the viewer sees at the morph crossover
+
+### Frame Extraction Step (before generation)
+
+Before generating anything, extract departure and return frames from the locked base track video:
+
+```bash
+# Departure frame: last A-roll frame before b-roll window
+ffmpeg -ss <broll_IN_seconds - 0.033> -i base_track_v3_video.mp4 -frames:v 1 -q:v 2 slot_N_departure.png
+
+# Return frame: first A-roll frame after b-roll window
+ffmpeg -ss <broll_OUT_seconds> -i base_track_v3_video.mp4 -frames:v 1 -q:v 2 slot_N_return.png
+```
+
+These are REAL frames from the locked edit. They anchor the morph to what the viewer was seeing before and will see after. Without them, the morph starts and ends in generated space and the transition back to A-roll is a hard cut, not a dissolve.
+
+**Both frames must be reframed to the output aspect ratio (e.g., 9:16 center crop with blurred fill) BEFORE being used as start/end frames for generation.** Seedance will generate video at whatever aspect ratio its input frame is — if you feed it 16:9 frames and ask for 9:16 output, the result will be distorted or cropped unpredictably.
+
+### Midpoint Image Generation
+
+Generate the abstract midpoint via Nano Banana. This image must be at 9:16 and at the show's palette:
+
 ```json
 {
   "model": "nano-banana-2",
   "params": {
-    "prompt": "the scene description from your creative brief",
+    "prompt": "[FULL creative brief scene description — palette, motion feel, texture, emotional register. This prompt carries ALL aesthetic intent because the deterministic path has no reference channel.]",
     "aspect_ratio": "9:16",
     "resolution": "1K"
   },
   "pipeline_context": {
     "slot": 1,
-    "step": "reference_frame",
-    "next_model": "seedance-2.0-i2v"
+    "step": "midpoint_image",
+    "next_steps": ["morph_clip_a", "morph_clip_b"],
+    "estimated_cost_usd": 0.08
   }
 }
 ```
 
-The envelope for step 2 (after step 1 completes):
+### Morph Clip Envelopes (two per slot)
+
+After `slot_N_departure.png`, `slot_N_midpoint.png`, and `slot_N_return.png` are all in hand AND reframed to 9:16:
+
+**Clip A (IN morph) — reality dissolves into abstraction:**
+
+File inputs:
+- `image_url`: `slot_N_departure.png` (reframed to 9:16)
+- `end_image_url`: `slot_N_midpoint.png` (generated at 9:16)
+
 ```json
 {
   "model": "seedance-2.0-i2v",
   "params": {
-    "image_url": "RESULT_URL_FROM_STEP_1",
-    "prompt": "motion direction, camera movement, atmospheric evolution",
+    "image_url": "URL_OF_slot_N_departure_9x16.png",
+    "end_image_url": "URL_OF_slot_N_midpoint.png",
+    "prompt": "smooth organic transformation, [describe the speaker's current pose and setting] gradually dissolving into [describe the abstract energy scene from the midpoint]. Fluid, continuous, no hard cuts. The real environment transforms around the figure — not a cut, a metamorphosis.",
     "duration": "5",
     "aspect_ratio": "9:16",
     "audio": false
   },
   "pipeline_context": {
     "slot": 1,
-    "step": "video_generation",
-    "edl_beat": 2
+    "step": "morph_clip_a",
+    "edl_beat": 2,
+    "chain_position": "IN",
+    "estimated_cost_usd": 1.51
   }
 }
 ```
 
+**Clip B (OUT morph) — abstraction dissolves back to reality:**
+
+File inputs:
+- `image_url`: `slot_N_midpoint.png` (same image that was Clip A's end frame)
+- `end_image_url`: `slot_N_return.png` (reframed to 9:16)
+
+```json
+{
+  "model": "seedance-2.0-i2v",
+  "params": {
+    "image_url": "URL_OF_slot_N_midpoint.png",
+    "end_image_url": "URL_OF_slot_N_return_9x16.png",
+    "prompt": "smooth organic transformation, [describe the abstract energy scene] gradually resolving, clearing, reforming into [describe the speaker's returning pose and setting]. The abstraction condenses and grounds back into reality. Fluid return, no hard cuts.",
+    "duration": "5",
+    "aspect_ratio": "9:16",
+    "audio": false
+  },
+  "pipeline_context": {
+    "slot": 1,
+    "step": "morph_clip_b",
+    "edl_beat": 2,
+    "chain_position": "OUT",
+    "estimated_cost_usd": 1.51
+  }
+}
+```
+
+### Duration and Trimming
+
+Seedance minimum duration is 4s. Most morph overlay windows are 3-4s total (half per clip = 1.5-2s each). Since 4s is the minimum per clip, generate at 5s each and trim:
+- Clip A: trim to first `(window_duration / 2)` seconds
+- Clip B: trim to last `(window_duration / 2)` seconds
+
+For longer windows (8s+), generate each clip at half the window duration if it exceeds 4s.
+
 ### Morph Keyframe Rule
 
-When writing morph-type prompts: the start frame prompt and end frame prompt must describe different visual worlds. Real interview footage morphing into a conceptual energy visualization — yes. Two different angles of the same interview room — no (that's camera interpolation, not transformation).
-
-The morph is a semantic bridge between two realities. If both sides are the same reality, it's just a fancy dissolve.
+Start frame and end frame MUST be from different visual worlds. Departure frame (real footage) → midpoint image (abstract energy) = correct morph. Two real footage frames from the same interview = camera interpolation, not transformation. The morph is a semantic bridge between two realities. If Seedance produces a smooth camera pan instead of a visual transformation, the midpoint image wasn't distinct enough — regenerate with more contrast.
 
 ### Morph Chaining Rule
 
-Morph OUT must start from the actual last frame of morph IN. Chain the OUT envelope's `image_url` from the IN result's terminal frame, not from a separately generated image. This preserves pose continuity across the morph pair — if the IN morph ends with the speaker's hands at chest height, the OUT morph must start from that pose, not from a re-generated approximation.
+Clip B's start frame (`image_url`) MUST be the exact same file as Clip A's end frame (`end_image_url`) — the midpoint image. This preserves visual continuity at the crossover. If you generate a new midpoint image for Clip B, the two clips will have a visible seam at the join.
+
+### Non-Morph Slots (animated/static)
+
+For b-roll slots with `continuity_type: "animated"` or `"static"` (not morphing), the simpler chain applies:
+1. Generate midpoint/scene image via Nano Banana (9:16, show palette)
+2. Use as `image_url` (start frame) for Seedance i2v — no `end_image_url`
+3. Let Seedance animate freely from the start frame based on the motion prompt
+
+These slots don't need departure/return frame extraction because they're overlaid as visual effects with hard cuts (or J/L cuts) at boundaries, not seamless morphs.
 
 ### Envelope Schema (appended to per-slot output)
+
+For **morph slots** (continuity_type: "morphing"), produce THREE envelopes per slot plus frame extraction instructions:
 
 ```json
 {
   "slot_number": 1,
-  "envelope": {
-    "model": "string — one of: nano-banana-2, kling-v3-pro-i2v, seedance-2.0-i2v, seedance-2.0-r2v",
-    "params": {
-      "prompt": "string — fal-optimized prompt (may differ from creative brief)",
-      "image_url": "string — start image URL (if i2v)",
-      "duration": "string — '5' or '10'",
-      "aspect_ratio": "string — from creative config",
-      "negative_prompt": "string — anti-patterns encoded as negative prompt",
-      "generate_audio": false,
-      "image_urls": "array of strings — for r2v models only, up to 9 reference images (use instead of image_url)",
-      "resolution": "string — for image models"
+  "continuity_type": "morphing",
+  "frame_extraction": {
+    "departure_frame": {
+      "file": "slot_1_departure.png",
+      "source": "base_track_v3_video.mp4",
+      "timestamp": 16.767,
+      "note": "Last A-roll frame before b-roll IN (IN timestamp minus one frame at 30fps = minus 0.033s)",
+      "reframe_to": "9:16 center crop with gaussian blur fill BEFORE use as image_url"
     },
-    "pipeline_context": {
-      "slot": "int — EDL slot number",
-      "step": "string — reference_frame | video_generation | single_step",
-      "edl_beat": "int — which beat this serves",
-      "visual_function": "string — from EDL slot",
-      "estimated_cost_usd": "float — pre-calculated"
+    "return_frame": {
+      "file": "slot_1_return.png",
+      "source": "base_track_v3_video.mp4",
+      "timestamp": 20.500,
+      "note": "First A-roll frame after b-roll OUT",
+      "reframe_to": "9:16 center crop with gaussian blur fill BEFORE use as end_image_url"
     }
+  },
+  "envelopes": [
+    {
+      "step": "midpoint_image",
+      "model": "nano-banana-2",
+      "unlock": "departure_frame and return_frame extracted and reframed to 9:16",
+      "input_files": [],
+      "output_file": "slot_1_midpoint.png",
+      "params": {
+        "prompt": "string — FULL aesthetic description: palette, texture, emotional register. This prompt carries ALL visual intent because the deterministic i2v path has no reference image channel.",
+        "aspect_ratio": "9:16",
+        "resolution": "1K"
+      },
+      "pipeline_context": {
+        "slot": 1,
+        "step": "midpoint_image",
+        "next_steps": ["morph_clip_a", "morph_clip_b"],
+        "estimated_cost_usd": 0.08
+      }
+    },
+    {
+      "step": "morph_clip_a",
+      "model": "seedance-2.0-i2v",
+      "unlock": "slot_1_midpoint.png exists",
+      "input_files": ["slot_1_departure_9x16.png", "slot_1_midpoint.png"],
+      "output_file": "slot_1_clip_a.mp4",
+      "params": {
+        "image_url": "URL of slot_1_departure_9x16.png (start frame: real speaker footage, reframed to 9:16)",
+        "end_image_url": "URL of slot_1_midpoint.png (end frame: abstract midpoint, already 9:16)",
+        "prompt": "string — IN morph: describe the speaker dissolving into the abstract scene. Fluid, continuous metamorphosis.",
+        "duration": "5",
+        "aspect_ratio": "9:16",
+        "audio": false
+      },
+      "pipeline_context": {
+        "slot": 1,
+        "step": "morph_clip_a",
+        "chain_position": "IN",
+        "edl_beat": "int",
+        "estimated_cost_usd": 1.51
+      }
+    },
+    {
+      "step": "morph_clip_b",
+      "model": "seedance-2.0-i2v",
+      "unlock": "slot_1_clip_a.mp4 exists (Clip B starts from Clip A's end frame = midpoint)",
+      "input_files": ["slot_1_midpoint.png", "slot_1_return_9x16.png"],
+      "output_file": "slot_1_clip_b.mp4",
+      "params": {
+        "image_url": "URL of slot_1_midpoint.png (start frame: SAME image that was Clip A's end_image_url)",
+        "end_image_url": "URL of slot_1_return_9x16.png (end frame: real speaker footage returning, reframed to 9:16)",
+        "prompt": "string — OUT morph: describe the abstract scene resolving back into the speaker. The abstraction condenses and grounds back to reality.",
+        "duration": "5",
+        "aspect_ratio": "9:16",
+        "audio": false
+      },
+      "pipeline_context": {
+        "slot": 1,
+        "step": "morph_clip_b",
+        "chain_position": "OUT",
+        "edl_beat": "int",
+        "estimated_cost_usd": 1.51
+      }
+    }
+  ],
+  "assembly": {
+    "overlay_window": {"start": 16.8, "end": 20.5, "duration": 3.7},
+    "trim_clip_a": "first 1.85s of slot_1_clip_a.mp4",
+    "trim_clip_b": "last 1.85s of slot_1_clip_b.mp4",
+    "concat": "trimmed_clip_a + trimmed_clip_b → slot_1_overlay.mp4 (3.7s exactly)",
+    "ffmpeg_overlay": "overlay=0:0:enable='between(t,16.8,20.5)'"
   }
+}
+```
+
+For **animated/static slots** (no frame binding needed), produce TWO envelopes:
+
+```json
+{
+  "slot_number": 1,
+  "continuity_type": "animated",
+  "envelopes": [
+    {
+      "step": "scene_image",
+      "model": "nano-banana-2",
+      "unlock": "timeline locked",
+      "input_files": [],
+      "output_file": "slot_1_scene.png",
+      "params": {
+        "prompt": "string — scene description at show palette",
+        "aspect_ratio": "9:16",
+        "resolution": "1K"
+      },
+      "pipeline_context": {
+        "slot": 1,
+        "step": "scene_image",
+        "next_steps": ["video_generation"],
+        "estimated_cost_usd": 0.08
+      }
+    },
+    {
+      "step": "video_generation",
+      "model": "seedance-2.0-i2v",
+      "unlock": "slot_1_scene.png exists",
+      "input_files": ["slot_1_scene.png"],
+      "output_file": "slot_1_video.mp4",
+      "params": {
+        "image_url": "URL of slot_1_scene.png (start frame only — no end frame, Seedance animates freely)",
+        "prompt": "string — motion direction, camera movement, atmospheric evolution",
+        "duration": "5",
+        "aspect_ratio": "9:16",
+        "audio": false
+      },
+      "pipeline_context": {
+        "slot": 1,
+        "step": "video_generation",
+        "edl_beat": "int",
+        "visual_function": "string",
+        "estimated_cost_usd": 1.51
+      }
+    }
+  ]
 }
 ```
 

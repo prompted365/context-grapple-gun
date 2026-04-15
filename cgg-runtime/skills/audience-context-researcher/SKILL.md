@@ -2,7 +2,7 @@
 name: audience-context-researcher
 description: Runtime platform intelligence — researches current demographics, algorithm behavior, format conventions, and trend signals for the active creative's target platform.
 user-invocable: true
-model: sonnet
+model: opus
 tools: Read, Write, Glob, Grep, Bash, WebSearch, WebFetch
 ---
 
