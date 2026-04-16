@@ -88,6 +88,8 @@ You receive:
 - The transcript text for the selected segment
 - (Optional) Overshoot adjudication verdict — if a `draft_review` pass was run, it includes a `caption_sync` field (`good | minor_issues | major_issues`) and may flag specific timing problems
 
+**Input contract**: Captions render AFTER b-roll assembly (Phase 5e). Your input video is the b-roll-assembled clip, not the raw base track. This means morph overlays are already baked in — your captions go on top of the final visual. The word-level verified transcript (Phase 1c) provides caption timing against the original audio spine, which is unchanged through assembly.
+
 **Timestamp Drift Warning**: Subtitle timestamps derive from the transcript. If auto-transcribed, they may be 3-5s off from actual audio. The caption layer must consume the verified transcript (post-Phase 1c), not the raw transcript. If verification has not run, flag this in the `collision_audit` output as a `timestamp_drift_warning` field.
 
 ## Process

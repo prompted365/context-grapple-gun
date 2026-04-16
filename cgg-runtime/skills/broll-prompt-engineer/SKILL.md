@@ -143,10 +143,12 @@ Choose the right fal.ai model based on what the b-roll needs to DO:
 
 | Need | Model | Why | Frame control |
 |------|-------|-----|---------------|
-| **Morph transition** (reality ↔ abstraction) | `seedance-2.0-i2v` | Deterministic start+end frame binding | `image_url` (start) + `end_image_url` (end) — NO reference images |
+| **Morph transition — cinematic** | `veo3.1-fast-flf` | Google Veo 3.1, best visual quality, up to 4K, 4-8s | `first_frame_url` (start) + `last_frame_url` (end) — both REQUIRED |
+| **Morph transition — fast/affordable** | `kling-v2.6-pro-i2v` | Strong quality, 5-10s, native audio option | `start_image_url` (start) + `end_image_url` (end, optional) |
+| **Morph transition — product** | `seedance-2.0-i2v` | Deterministic start+end frame binding | `image_url` (start) + `end_image_url` (end) — NO reference images |
+| Character-consistent scenes | `kling-v3-pro-i2v` | @Element identity anchors alongside frame binding | `start_image_url` + `end_image_url` + `elements[]` |
 | Abstract mood, cinematic motion (no frame binding) | `seedance-2.0-i2v` | Best at atmospheric, fluid motion | `image_url` (start only) — Seedance animates freely |
 | Style transfer from multiple references | `seedance-2.0-r2v` | Up to 9 reference images for aesthetic guidance | `image_urls[]` — NO start/end frame control, model decides temporal placement |
-| Character-consistent scenes | `kling-v3-pro-i2v` | @Element identity anchors alongside frame binding | `start_image_url` + `end_image_url` + `elements[]` |
 | Generate a still frame (midpoint, scene) | `nano-banana-2` | Fast ($0.08), consistent | N/A — image only |
 
 **Critical constraint: deterministic frame binding and reference images are mutually exclusive on Seedance.** Seedance i2v gives you start+end frames but no reference channel. Seedance r2v gives you up to 9 reference images but no frame binding. You cannot have both in one call. For morph transitions, frame binding wins — the prompt carries the aesthetic intent.

@@ -50,21 +50,28 @@ You are not doing the work alone. You are managing a team of specialists. Your j
                         [PHASE 4b]
                         Timeline Lock Gate (you — inline)
                               |
-                    /---------+---------\
-               [PHASE 5a]          [PHASE 5b]
-               B-Roll Prompts      Caption Layer
-               (per-slot parallel)       |
-                    |                    |
-               [PHASE 5c]               |
-               B-Roll Dispatch          |
-               (fal.ai router)         |
-                    |                  /
-               [PHASE 5d]            /
-               Asset Adjudication   /
-               (overshoot_router)  /
-                    \             /
-                     \  [PHASE 6]
-                      \ Cut Audit (adversarial retrieval)
+                         [PHASE 5a]
+                         B-Roll Prompts
+                         (per-slot parallel)
+                              |
+                         [PHASE 5c]
+                         B-Roll Dispatch
+                         (fal.ai router — Kling v2.6 morphs)
+                              |
+                         [PHASE 5d]
+                         Asset Adjudication
+                         (overshoot_router)
+                              |
+                         [PHASE 5e]
+                         B-Roll Assembly
+                         (overlay-at-timestamp onto caption-free base)
+                              |
+                         [PHASE 5b]
+                         Caption Layer                     ← AFTER assembly
+                         (on top of assembled visual)
+                              |
+                         [PHASE 6]
+                         Cut Audit (adversarial retrieval)
                         \   |
                       [PHASE 6b] (conditional)
                       Overshoot Draft Review
@@ -177,13 +184,6 @@ gate_contracts:
         schema: "extracted frames from locked base track at b-roll boundary timestamps"
     unlock: "broll-prompts.json exists AND every morph slot has frame_extraction timestamps AND every slot has at least one envelope"
 
-  phase_5b_captions:
-    inputs: [phase_4b_timeline_lock.outputs]
-    outputs:
-      - file: "{output_dir}/{date}-{creative}-captions.json"
-        schema: "key_semantic[] + subtitle_fill[], all timecodes within locked reel range"
-    unlock: "file exists AND all caption timecodes < total reel duration"
-
   phase_5c_broll_dispatch:
     inputs: [phase_5a_broll.outputs, departure/return frames extracted]
     outputs:
@@ -197,6 +197,24 @@ gate_contracts:
       - file: "{output_dir}/{date}-adjudication.json"
         schema: "per asset: verdict (PASS/FAIL), fidelity_scores"
     unlock: "all assets adjudicated AND no FAIL verdicts (or FAIL assets re-dispatched)"
+
+  phase_5e_broll_assembly:
+    inputs: [phase_5d_adjudication.outputs, phase_4b_timeline_lock.outputs]
+    outputs:
+      - file: "{output_dir}/assembly/{clip_name}_broll.mp4"
+        schema: "caption-free base with morph overlays at b-roll windows, audio spine untouched"
+    unlock: "file exists AND duration matches base track AND audio stream is copy (not re-encoded)"
+    note: "Input clips must be caption-free. B-roll overlay uses tpad-delayed concat streams with overlay-at-timestamp. Captions are added in phase_5b AFTER this assembly."
+
+  phase_5b_captions:
+    inputs: [phase_5e_broll_assembly.outputs, phase_4b_timeline_lock.outputs]
+    outputs:
+      - file: "{output_dir}/{date}-{creative}-captions.json"
+        schema: "key_semantic[] + subtitle_fill[], all timecodes within locked reel range"
+      - file: "{output_dir}/assembly/{clip_name}_final.mp4"
+        schema: "b-roll assembled clip with captions rendered on top"
+    unlock: "file exists AND all caption timecodes < total reel duration"
+    note: "Captions render AFTER b-roll assembly. This prevents caption artifacts in morph departure/return frames. Morph zone clearance still applies — no kinetic caption animation during morph transition windows."
 
   phase_6_cut_audit:
     inputs: [phase_4b_timeline_lock.outputs, phase_5a_broll.outputs, phase_5b_captions.outputs, phase_5d_adjudication.outputs]
@@ -294,28 +312,33 @@ phases:
     agents: [broll-prompt-engineer]
     model: opus
     blocked_by: [phase_4b_timeline_lock]
-    parallel_with: [phase_5b_captions]
     retrieval_rights: gap-fill
-    note: "May spawn N sub-subagents for N b-roll slots in parallel. May verify morph frame availability and API model constraints."
-    
-  phase_5b_captions:
-    agents: [caption-layer]
-    model: opus
-    blocked_by: [phase_4b_timeline_lock]
-    parallel_with: [phase_5a_broll]
-    retrieval_rights: committed-only
+    note: "May spawn N sub-subagents for N b-roll slots in parallel. May verify morph frame availability and API model constraints. Input clips MUST be caption-free — captions are added after b-roll assembly."
     
   phase_5c_broll_dispatch:
     agents: [lead_inline]
     blocked_by: [phase_5a_broll]
     retrieval_rights: none
-    note: "Lead dispatches envelopes to fal router, monitors completions"
+    note: "Lead dispatches envelopes to fal router (Kling v2.6 Pro for morphs), monitors completions"
     
   phase_5d_adjudication:
     agents: [lead_inline]
     blocked_by: [phase_5c_broll_dispatch]
     retrieval_rights: committed-only
     note: "Run overshoot_router.py analyze --preset generated_assessment on each generated asset. Pass/fail verdict. Failed assets flagged for regeneration."
+
+  phase_5e_broll_assembly:
+    agents: [lead_inline]
+    blocked_by: [phase_5d_adjudication]
+    retrieval_rights: none
+    note: "Overlay morph clips onto caption-free base using tpad-delayed concat streams. Audio spine is copy (untouched). Output is the visual assembly ready for caption rendering."
+
+  phase_5b_captions:
+    agents: [caption-layer]
+    model: opus
+    blocked_by: [phase_5e_broll_assembly]
+    retrieval_rights: committed-only
+    note: "Captions render ONTO the b-roll assembled clip, not the raw base. This prevents caption artifacts in morph departure/return frames. Morph zone clearance (no kinetic animation during morph windows) still applies."
     
   phase_6_cut_audit:
     agents: [cut-auditor]

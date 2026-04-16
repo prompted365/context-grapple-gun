@@ -76,6 +76,35 @@ MODELS = {
         "max_videos": 3,
         "max_audio": 3,
     },
+    "kling-v2.6-pro-i2v": {
+        "fal_id": "fal-ai/kling-video/v2.6/pro/image-to-video",
+        "type": "video",
+        "cost_per_unit": 0.07,  # per second, audio off
+        "cost_per_unit_audio": 0.14,  # per second, audio on
+        "cost_per_unit_voice": 0.168,  # per second, audio on + voice control
+        "unit": "second",
+    },
+    "veo3.1-fast-i2v": {
+        "fal_id": "fal-ai/veo3.1/fast/image-to-video",
+        "type": "video",
+        "cost_per_unit": 0.10,  # per second at 720p/1080p, no audio
+        "cost_per_unit_audio": 0.15,  # per second at 720p/1080p, with audio
+        "cost_per_unit_4k": 0.30,  # per second at 4k, no audio
+        "cost_per_unit_4k_audio": 0.35,  # per second at 4k, with audio
+        "unit": "second",
+        "durations": ["4s", "6s", "8s"],
+        "resolutions": ["720p", "1080p", "4k"],
+        "note": "Single image_url input only — no end frame binding. For morph transitions use kling-v2.6-pro-i2v or veo3.1-fast-flf.",
+    },
+    "veo3.1-fast-flf": {
+        "fal_id": "fal-ai/veo3.1/fast/first-last-frame-to-video",
+        "type": "video",
+        "cost_per_unit": 0.10,  # assumed same pricing tier as i2v
+        "cost_per_unit_audio": 0.15,
+        "unit": "second",
+        "durations": ["4s", "6s", "8s"],
+        "resolutions": ["720p", "1080p", "4k"],
+    },
 }
 
 # Reverse lookup: fal_id -> our model key
@@ -254,6 +283,47 @@ def translate_envelope(envelope):
         for opt in ["aspect_ratio", "resolution", "duration", "generate_audio", "seed"]:
             if opt in params:
                 fal_params[opt] = params[opt]
+        return fal_id, fal_params
+
+    elif model_key == "kling-v2.6-pro-i2v":
+        # Same param shape as v3 — start_image_url + optional end_image_url
+        fal_params = {
+            "start_image_url": params["image_url"],
+            "prompt": params["prompt"],
+            "duration": str(params.get("duration", "5")),
+        }
+        for opt in ["negative_prompt", "generate_audio", "voice_ids"]:
+            if opt in params:
+                fal_params[opt] = params[opt]
+        # End frame binding
+        if "end_image_url" in params:
+            fal_params["end_image_url"] = params["end_image_url"]
+        elif "end_frame" in params:
+            fal_params["end_image_url"] = params["end_frame"]
+        # Default audio off for pipeline morphs
+        if "generate_audio" not in fal_params:
+            fal_params["generate_audio"] = False
+        return fal_id, fal_params
+
+    elif model_key == "veo3.1-fast-flf":
+        # Veo 3.1 first-last-frame: both frames required
+        fal_params = {
+            "first_frame_url": params["image_url"],
+            "last_frame_url": params["end_image_url"],
+            "prompt": params["prompt"],
+        }
+        for opt in ["aspect_ratio", "resolution", "negative_prompt",
+                     "generate_audio", "seed", "safety_tolerance", "auto_fix"]:
+            if opt in params:
+                fal_params[opt] = params[opt]
+        # Duration: "4s", "6s", "8s" — Veo expects string with 's' suffix
+        dur = params.get("duration", "8s")
+        if not str(dur).endswith("s"):
+            dur = f"{dur}s"
+        fal_params["duration"] = dur
+        # Default audio off for pipeline morphs
+        if "generate_audio" not in fal_params:
+            fal_params["generate_audio"] = False
         return fal_id, fal_params
 
     else:
