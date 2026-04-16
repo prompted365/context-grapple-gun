@@ -63,22 +63,33 @@ INFRASTRUCTURE
 │   └── {show-slug}.profile.json
 │
 └── output/{show_slug}/    ← Pipeline run artifacts (per-run)
+    ├── *-evidence-scaffold.json   ← Phase 0b: shared retrieval seed
+    ├── *-evidence-surface.json    ← Checkpoint A: committed evidence plane
+    ├── *-audience-context.json
+    ├── *-transcript-parsed.json
+    ├── *-transcript-verified.json
+    ├── *-source-analysis.json     (conditional)
     ├── *-scoring.json
-    ├── *-selection.json
+    ├── *-selection.json           (includes editorial_thesis, trade_offs)
     ├── *-edl.json
     ├── *-broll-prompts.json
     ├── *-captions.json
+    ├── *-adjudication.json
     ├── *-cut-audit.json
+    ├── *-draft-review.json        (conditional)
     ├── *-post-copy.json
-    ├── *-audience-context.json
     ├── *-report.html
-    └── envelopes/         ← Router-ready fal.ai dispatch envelopes
-        └── broll_slot_{N}.json
+    ├── envelopes/         ← Router-ready fal.ai dispatch envelopes
+    │   └── broll_slot_{N}.json
+    └── assembly/          ← Locked base track + extracted frames
+        ├── base_track_v3.wav
+        ├── base_track_v3.json
+        └── slot_N_*.png
 ```
 
-## The Three Intelligence Layers
+## The Intelligence Stack
 
-Every decision in this pipeline flows through three layers that must be loaded before work begins:
+Every decision in this pipeline flows through four layers. The first three establish identity and context. The fourth commits evidence before reasoning begins.
 
 ### Layer 1: Profile (stable)
 The show's permanent creative worldview. Set once via `/show-profile-manager create`. Rarely changes. Contains: mission, audience tribe, aesthetic invariants, editorial voice, growth scoring weights, anti-patterns, platform stack.
@@ -91,7 +102,10 @@ A specific output configuration within a profile. One creative = one output type
 ### Layer 3: Audience Context (runtime, fresh)
 Live platform intelligence built by `/audience-context-researcher` at the start of every run. Never persisted. Contains: current demographics, algorithm behavior, format conventions, aesthetic trust signals, trend signals, scoring implications.
 
-**These three layers assemble into a fully grounded editorial intelligence before the transcript is ever touched.**
+### Layer 4: Evidence Surface (runtime, committed)
+The canonical evidence plane committed at Checkpoint A after all Phase 1 discovery completes. Contains references to all gathered evidence (verified transcript, audience context, source analysis), declares what is NOT available (evidence gaps), and assigns retrieval rights per downstream lane. Every Phase 2+ agent receives this surface — it ensures all agents reason from the same committed evidence basis.
+
+**These four layers assemble into a fully grounded editorial intelligence. Layers 1-3 establish identity and context. Layer 4 commits the evidence plane before reasoning begins.**
 
 ## How Skills Chain
 
@@ -101,17 +115,20 @@ Each skill reads from and writes to `./output/{show_slug}/`. The dependency chai
 
 | Skill | Reads | Writes |
 |-------|-------|--------|
-| `/show-profile-manager` | user input | `profiles/{slug}.profile.json` |
-| `/audience-context-researcher` | profile, creative | `audience-context.json` |
-| `/transcript-scorer` | transcript, profile, creative, audience-context | `scoring.json` |
-| Lead (segment selection) | scoring.json | `selection.json` |
-| `/edit-decision-list` | selection, profile, creative, audience-context | `edl.json` |
-| `/broll-prompt-engineer` | edl, profile, creative, audience-context | `broll-prompts.json` + `envelopes/*.json` |
+| Lead (profile load) | profiles dir | `profile_loaded.json` |
+| Lead (evidence scaffold) | profile, creative, source paths | `evidence-scaffold.json` |
+| `/audience-context-researcher` | scaffold, profile, creative | `audience-context.json` |
+| Lead (transcript ingest+verify) | source file, scaffold | `transcript-parsed.json`, `transcript-verified.json` |
+| Lead (Checkpoint A) | scaffold, audience-context, verified transcript | `evidence-surface.json` |
+| `/transcript-scorer` | evidence-surface, transcript, profile, creative, audience-context | `scoring.json` |
+| Lead (segment selection) | scoring.json | `selection.json` (with editorial_thesis, trade_offs) |
+| `/edit-decision-list` | selection, verified transcript, scaffold, profile, creative, audience-context | `edl.json` |
+| `/broll-prompt-engineer` | edl, scaffold, profile, creative, audience-context | `broll-prompts.json` + `envelopes/*.json` |
 | `/caption-semantic-layer` | edl, selection, scoring, profile, creative | `captions.json` |
-| Visual adjudication | generated media, assembled draft | `adjudication-*.json` (via overshoot_router.py) |
-| Cut auditor | edl, broll-prompts, captions, adjudication | `cut-audit.json` |
+| Visual adjudication | generated media, assembled draft | `adjudication.json` (via overshoot_router.py) |
+| Cut auditor | edl, broll-prompts, captions, adjudication, **verified transcript**, evidence-surface, selection | `cut-audit.json` |
 | `/post-copy-generator` | selection, scoring, edl, profile, creative, audience-context | `post-copy.json` |
-| `/pipeline-report` | ALL prior outputs | `report.html` |
+| `/pipeline-report` | ALL prior outputs + evidence-scaffold + evidence-surface | `report.html` |
 
 ### Parallel Opportunities
 
@@ -123,11 +140,89 @@ These pairs have no dependency on each other and can run simultaneously:
 ### Dependency Gates
 
 These stages MUST wait:
-- Scoring waits for BOTH audience context AND transcript
-- EDL waits for segment selection
-- B-roll AND captions both wait for EDL
-- Cut audit waits for EDL + b-roll + captions (it reviews the composite)
+- Scoring waits for BOTH audience context AND verified transcript (via Checkpoint A evidence surface)
+- EDL waits for segment selection (which now includes editorial thesis and trade-offs)
+- B-roll AND captions both wait for timeline-locked EDL
+- Cut audit waits for EDL + b-roll + captions + adjudication (it reviews the composite with adversarial retrieval rights)
 - Report waits for everything
+
+## Retrieval Architecture
+
+The pipeline implements a hybrid retrieval pattern: shared seed first, then lane-local augmentation, then checkpoint before downstream reasoning.
+
+### The Organizing Invariant
+
+> Do not organize by who gets to retrieve. Organize by what evidence must be shared before the next reasoning layer is allowed to become real.
+
+### Retrieval Shape
+
+```
+Phase 0b: Shared Retrieval Seed (evidence scaffold)
+  Profile identity + common constraints + load-bearing context + retrieval rights map
+  → committed before any agent spawns
+
+Phase 1: Lane-Local Discovery (parallel)
+  1a: External discovery — audience research (retrieval: EXPECTED)
+  1b: Internal file read — transcript ingest (retrieval: EXPECTED)
+  1c: Tool verification — transcript + audio comparison (retrieval: EXPECTED)
+  1d: External tool — Overshoot source analysis (retrieval: EXPECTED)
+
+Checkpoint A: Evidence Surface Commit
+  Canonical evidence plane — all Phase 2+ agents reason from this
+  → verified transcript + audience context + source analysis + evidence gaps
+
+Phase 2-4: Specialized Reasoning (synthesis from committed evidence)
+  2: Scoring (retrieval: GAP-FILL — may re-read transcript sections)
+  3: Selection (lead inline — commits editorial thesis + trade-offs)
+  4: EDL (retrieval: GAP-FILL — may re-read verified transcript)
+
+Phase 4b: Timeline Lock Checkpoint
+  Verifies EDL grounding against actual base track
+  → prevents phantom references from cascading into generation
+
+Phase 5: Execution + Generation (committed evidence only)
+  5a: B-roll prompts (retrieval: GAP-FILL — may verify API constraints)
+  5b: Captions (retrieval: COMMITTED-ONLY)
+  5c: Dispatch (retrieval: NONE)
+  5d: Adjudication (retrieval: COMMITTED-ONLY)
+
+Phase 6: Adversarial Validation
+  6: Cut audit (retrieval: ADVERSARIAL — may re-read originals to challenge claims)
+  6b: Draft review (retrieval: COMMITTED-ONLY — tool-mediated)
+
+Phase 7-8: Final Synthesis + Surface
+  7a: Post copy (retrieval: COMMITTED-ONLY)
+  7b: Report (retrieval: COMMITTED-ONLY — reads all artifacts)
+  8: Surface (lead inline)
+```
+
+### Retrieval Rights Table
+
+| Phase | Lane Type | Retrieval Right | Why |
+|-------|-----------|-----------------|-----|
+| 0/0b | Infrastructure | File read | Establishing scaffold |
+| 1a | Discovery | Expected | Platform intelligence needs live data |
+| 1b/1c | Verification | Expected | Transcript truth requires source material |
+| 1d | Discovery | Expected | Visual evidence from Overshoot tool |
+| 2 | Synthesis | Gap-fill | May need to re-read ambiguous transcript sections |
+| 3 | Lead judgment | Inline | Lead reads scoring + makes selection |
+| 4 | Design | Gap-fill | Must verify timestamp-to-content mappings |
+| 4b | Checkpoint | Verification | Re-transcribes edited base track via Whisper |
+| 5a | Design | Gap-fill | May verify API model constraints |
+| 5b | Synthesis | Committed-only | Captions from locked EDL, no fresh retrieval |
+| 5c | Execution | None | Dispatch only |
+| 5d | Verification | Committed-only | Tool-mediated asset assessment |
+| 6 | Adversarial | Adversarial | Re-reads originals to challenge editor claims |
+| 6b | Verification | Committed-only | Tool-mediated draft assessment |
+| 7a | Synthesis | Committed-only | Copy from committed editorial decisions |
+| 7b | Synthesis | Committed-only | Report reads all artifact files directly |
+
+### What Changes for Subagent Prompts
+
+Every subagent prompt now includes:
+1. Its **retrieval rights** declaration (expected / gap-fill / adversarial / committed-only / none)
+2. A reference to or content from the **evidence scaffold** (Phase 0b) and **evidence surface** (Checkpoint A)
+3. For Phase 6 (cut auditor): the **original verified transcript** alongside the EDL, so it can independently verify claims
 
 ## Subagent Briefing Protocol
 
@@ -139,8 +234,10 @@ When `/podcast-pipeline` spawns a subagent, the prompt must be **self-contained*
 4. **Profile**: the full show profile JSON
 5. **Creative**: the active creative config
 6. **Audience context**: the runtime intelligence object (if available at this phase)
-7. **Output instructions**: exact file path to write, exact schema to follow
-8. **Model constraint**: "You are running as Opus/Sonnet. No Haiku anywhere in this pipeline."
+7. **Evidence surface**: the Checkpoint A evidence surface (for Phase 2+ agents — the committed evidence plane)
+8. **Retrieval rights**: explicitly state what the agent is allowed to retrieve (expected / gap-fill / adversarial / committed-only)
+9. **Output instructions**: exact file path to write, exact schema to follow
+10. **Model constraint**: "You are running as Opus/Sonnet. No Haiku anywhere in this pipeline."
 
 ### Example subagent prompt (transcript-scorer):
 

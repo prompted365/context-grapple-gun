@@ -16,21 +16,31 @@ You are not doing the work alone. You are managing a team of specialists. Your j
 
 ```
                            YOU (Lead / Opus)
-                          /        |         \
-                    [PHASE 0]  [PHASE 1a]  [PHASE 1b]
-                    Profile    Audience     Transcript
-                    Load       Research     Ingest
-                                  |          |
-                                  |     [PHASE 1c]
-                                  |     Transcript
-                                  |     Verification Gate
-                                  |          |
-                                  |     [PHASE 1d] (conditional)
-                                  |     Overshoot Source Analysis
-                        \         |          /
-                         \   [PHASE 2]      /
-                          \  Scoring  -----/
-                           \    |
+                                |
+                          [PHASE 0]
+                          Profile Load
+                                |
+                          [PHASE 0b]                    ← NEW
+                          Evidence Scaffold (you — inline)
+                                |
+                    /-----------+-----------\
+               [PHASE 1a]            [PHASE 1b]
+               Audience               Transcript
+               Research                Ingest
+                    |                     |
+                    |                [PHASE 1c]
+                    |                Transcript
+                    |                Verification Gate
+                    |                     |
+                    |                [PHASE 1d] (conditional)
+                    |                Overshoot Source Analysis
+                    \                     /
+                     \  [CHECKPOINT A]   /              ← NEW
+                      \ Evidence Surface Commit
+                        \    |          /
+                         [PHASE 2]
+                         Scoring
+                              |
                          [PHASE 3]
                          Segment Selection (you — inline)
                               |
@@ -54,7 +64,7 @@ You are not doing the work alone. You are managing a team of specialists. Your j
                (overshoot_router)  /
                     \             /
                      \  [PHASE 6]
-                      \ Cut Audit
+                      \ Cut Audit (adversarial retrieval)
                         \   |
                       [PHASE 6b] (conditional)
                       Overshoot Draft Review
@@ -79,15 +89,22 @@ gate_contracts:
         schema: "profile schema with creative selected"
     unlock: "file exists AND creative_id is non-null"
 
+  phase_0b_evidence_scaffold:
+    inputs: [phase_0_profile.outputs, source_file_path_or_null]
+    outputs:
+      - file: "{output_dir}/{date}-evidence-scaffold.json"
+        schema: "global_facts, common_constraints, canonical_docs, load_bearing_context, retrieval_rights"
+    unlock: "file exists AND global_facts.transcript_available is boolean AND common_constraints.creative_id is non-null"
+
   phase_1a_audience:
-    inputs: [phase_0_profile.outputs]
+    inputs: [phase_0b_evidence_scaffold.outputs]
     outputs:
       - file: "{output_dir}/{date}-{creative}-audience-context.json"
         schema: "platform, algorithm_signals[], audience_tribe"
     unlock: "file exists AND algorithm_signals.length > 0"
 
   phase_1b_transcript:
-    inputs: [phase_0_profile.outputs, source_file]
+    inputs: [phase_0b_evidence_scaffold.outputs, source_file]
     outputs:
       - file: "{output_dir}/{date}-transcript-parsed.json"
         schema: "segments[] with start, end, text"
@@ -107,8 +124,18 @@ gate_contracts:
         schema: "visual_hinges[], face_windows[], reaction_moments[]"
     unlock: "file exists (optional phase — skip if no source video)"
 
+  checkpoint_a_evidence_surface:
+    inputs: [phase_1a_audience.outputs, phase_1c_transcript_verification.outputs, phase_0b_evidence_scaffold.outputs]
+    optional_inputs: [phase_1d_source_analysis.outputs]
+    outputs:
+      - file: "{output_dir}/{date}-evidence-surface.json"
+        schema: "scaffold_ref, verified_transcript_ref, audience_context_ref, source_analysis_ref_or_null, evidence_gaps[], retrieval_rights_per_lane"
+    unlock: "file exists AND scaffold_ref is non-null AND verified_transcript_ref is non-null AND audience_context_ref is non-null"
+    note: "This is the canonical evidence surface. All Phase 2+ agents receive a reference to this artifact. It ensures every agent reasons from the same committed evidence basis."
+
   phase_2_scoring:
-    inputs: [phase_1a_audience.outputs, phase_1c_transcript_verification.outputs]
+    inputs: [checkpoint_a_evidence_surface.outputs]
+    retrieval_rights: "gap-fill — may re-read transcript sections to resolve scoring ambiguity"
     outputs:
       - file: "{output_dir}/{date}-{creative}-scoring.json"
         schema: "candidates[] with segment_id, score, rationale, beats[]"
@@ -118,11 +145,12 @@ gate_contracts:
     inputs: [phase_2_scoring.outputs]
     outputs:
       - file: "{output_dir}/{date}-{creative}-selection.json"
-        schema: "segment with beats[], cuts_from_raw[], hook_moment, tension_peak, resolution"
-    unlock: "file exists AND segment.beats.length > 0 AND user confirmed"
+        schema: "segment with beats[], cuts_from_raw[], hook_moment, tension_peak, resolution, editorial_thesis, trade_offs[], alternatives_rejected[]"
+    unlock: "file exists AND segment.beats.length > 0 AND editorial_thesis is non-empty AND user confirmed"
 
   phase_4_edl:
     inputs: [phase_3_selection.outputs, phase_1c_transcript_verification.outputs]
+    retrieval_rights: "gap-fill — may re-read verified transcript to confirm timestamp-to-content mappings before committing beats"
     outputs:
       - file: "{output_dir}/{date}-{creative}-edl.json"
         schema: "edl_version >= 2.0.0, beats[] with transcript_lines + key_phrases + feasibility_check, edit_decision_list[], b_roll_slots[], cuts_from_raw[] with verified_excluded"
@@ -141,6 +169,7 @@ gate_contracts:
 
   phase_5a_broll:
     inputs: [phase_4b_timeline_lock.outputs, profile, creative]
+    retrieval_rights: "gap-fill — may verify morph frame availability and API model constraints against fal_router model table"
     outputs:
       - files: "{output_dir}/{date}-{creative}-broll-prompts.json"
         schema: "per slot: creative_brief, composition_notes, envelopes[] (morph slots: 3 envelopes; animated slots: 2 envelopes)"
@@ -171,6 +200,7 @@ gate_contracts:
 
   phase_6_cut_audit:
     inputs: [phase_4b_timeline_lock.outputs, phase_5a_broll.outputs, phase_5b_captions.outputs, phase_5d_adjudication.outputs]
+    retrieval_rights: "adversarial — may re-read original transcript, source timestamps, and any prior phase output to challenge EDL claims"
     outputs:
       - file: "{output_dir}/{date}-{creative}-cut-audit.json"
         schema: "per cut: verdict, flags[]"
@@ -199,43 +229,61 @@ phases:
     agents: [lead_inline]
     blocked_by: []
     
+  phase_0b_evidence_scaffold:
+    agents: [lead_inline]
+    blocked_by: [phase_0_profile]
+    note: "Commit the shared retrieval seed — global facts, common constraints, canonical docs, load-bearing context, retrieval rights per lane. All downstream agents reference this artifact."
+
   phase_1a_audience:
     agents: [audience-researcher]
     model: opus
-    blocked_by: [phase_0_profile]
+    blocked_by: [phase_0b_evidence_scaffold]
     parallel_with: [phase_1b_transcript]
+    retrieval_rights: expected
     
   phase_1b_transcript:
     agents: [lead_inline]
-    blocked_by: [phase_0_profile]
+    blocked_by: [phase_0b_evidence_scaffold]
     parallel_with: [phase_1a_audience]
+    retrieval_rights: expected
     
   phase_1c_transcript_verification:
     agents: [lead_inline]
     blocked_by: [phase_1b_transcript]
+    retrieval_rights: expected
     note: "Compare auto-generated timestamps against audio waveform peaks. Flag drift >3s for re-alignment. Output: verified transcript with drift_correction_applied field."
     
   phase_1d_source_analysis:
     agents: [lead_inline]
     blocked_by: [phase_1c_transcript_verification]
-    parallel_with: [phase_2_scoring]
+    parallel_with: [checkpoint_a_evidence_surface]
+    retrieval_rights: expected
     note: "Overshoot source analysis — visual hinges, face-priority windows, reaction moments. Output feeds scoring and EDL as visual context. Run: overshoot_router.py analyze <source_video> --preset source_assessment"
+
+  checkpoint_a_evidence_surface:
+    agents: [lead_inline]
+    blocked_by: [phase_1a_audience, phase_1c_transcript_verification]
+    optional_wait: [phase_1d_source_analysis]
+    note: "Commit the canonical evidence surface — all Phase 2+ agents reason from this. Contains refs to scaffold, verified transcript, audience context, source analysis. Declares evidence gaps explicitly."
     
   phase_2_scoring:
     agents: [transcript-scorer]
     model: opus
-    blocked_by: [phase_1a_audience, phase_1c_transcript_verification]
-    note: "If source video provided, also waits for phase_1d_source_analysis (visual context is additive, not blocking)"
+    blocked_by: [checkpoint_a_evidence_surface]
+    retrieval_rights: gap-fill
+    note: "Reads evidence surface. If source video provided, source analysis is included. May re-read transcript sections to resolve scoring ambiguity."
     
   phase_3_selection:
     agents: [lead_inline]
     blocked_by: [phase_2_scoring]
-    note: "Lead makes the final selection call — this is judgment, not delegation"
+    note: "Lead makes the final selection call — this is judgment, not delegation. Must commit editorial_thesis, trade_offs, and alternatives_rejected alongside the segment selection."
     
   phase_4_edl:
     agents: [edl-builder]
     model: opus
     blocked_by: [phase_3_selection]
+    retrieval_rights: gap-fill
+    note: "May re-read verified transcript to confirm timestamp-to-content mappings. Do NOT trust memory of transcript — re-read specific sections when a beat feels shaky."
     
   phase_4b_timeline_lock:
     agents: [lead_inline]
@@ -247,33 +295,39 @@ phases:
     model: opus
     blocked_by: [phase_4b_timeline_lock]
     parallel_with: [phase_5b_captions]
-    note: "May spawn N sub-subagents for N b-roll slots in parallel"
+    retrieval_rights: gap-fill
+    note: "May spawn N sub-subagents for N b-roll slots in parallel. May verify morph frame availability and API model constraints."
     
   phase_5b_captions:
     agents: [caption-layer]
     model: opus
     blocked_by: [phase_4b_timeline_lock]
     parallel_with: [phase_5a_broll]
+    retrieval_rights: committed-only
     
   phase_5c_broll_dispatch:
     agents: [lead_inline]
     blocked_by: [phase_5a_broll]
+    retrieval_rights: none
     note: "Lead dispatches envelopes to fal router, monitors completions"
     
   phase_5d_adjudication:
     agents: [lead_inline]
     blocked_by: [phase_5c_broll_dispatch]
+    retrieval_rights: committed-only
     note: "Run overshoot_router.py analyze --preset generated_assessment on each generated asset. Pass/fail verdict. Failed assets flagged for regeneration."
     
   phase_6_cut_audit:
     agents: [cut-auditor]
     model: opus
     blocked_by: [phase_4_edl, phase_5a_broll, phase_5b_captions, phase_5d_adjudication]
-    note: "Different agent than EDL builder — fresh eyes. Includes adjudication verdicts."
+    retrieval_rights: adversarial
+    note: "Different agent than EDL builder — fresh eyes. Has adversarial retrieval rights: may re-read original transcript, check source timestamps, and query any prior phase output to challenge EDL claims."
     
   phase_6b_draft_review:
     agents: [lead_inline]
     blocked_by: [phase_6_cut_audit]
+    retrieval_rights: committed-only
     note: "Overshoot draft evaluation — pacing, transitions, arc expression. Advisory only (flags for human review, not auto-reject). Run: overshoot_router.py analyze <draft_path> --preset draft_review"
     
   phase_7a_post_copy:
@@ -281,17 +335,46 @@ phases:
     model: opus
     blocked_by: [phase_3_selection, phase_1a_audience, phase_6b_draft_review]
     parallel_with: [phase_7b_report]
+    retrieval_rights: committed-only
     
   phase_7b_report:
     agents: [report-assembler]
     model: opus
     blocked_by: [phase_6_cut_audit, phase_5a_broll, phase_5b_captions, phase_7a_post_copy]
+    retrieval_rights: committed-only
+    note: "Reads all prior artifacts. References evidence scaffold and checkpoints for traceability."
     
   phase_8_surface:
     agents: [lead_inline]
     blocked_by: [phase_7b_report]
     note: "Lead surfaces work as conversation, not delivery"
 ```
+
+## Retrieval Rights
+
+Each lane in the pipeline has a declared retrieval permission. This governs what evidence gathering the agent is allowed to perform beyond the data injected in its prompt.
+
+| Right | Meaning | Lanes |
+|-------|---------|-------|
+| **expected** | Actively retrieve — this is a discovery lane | Phase 1a, 1b, 1c, 1d |
+| **gap-fill** | Retrieve only if blocked or ambiguous — re-read source material, not broad search | Phase 2, 4, 5a |
+| **adversarial** | Retrieve to challenge claims — re-read originals, verify timestamps, query prior outputs | Phase 6 |
+| **committed-only** | Operate on provided evidence, no fresh retrieval | Phase 5b, 5d, 7a, 7b |
+| **none** | Execution only, no retrieval | Phase 5c |
+
+The organizing invariant: **do not organize by who gets to retrieve — organize by what evidence must be shared before the next reasoning layer is allowed to become real.**
+
+When spawning a subagent, include its retrieval rights in the prompt so the agent knows its permission boundary.
+
+## Lead Context Management
+
+The lead's context accumulates all phase outputs. Every phase artifact flows through the lead for sequencing decisions. This is the binding budget constraint — not any single agent's turn count.
+
+**Context pressure mitigation:**
+1. The evidence scaffold (Phase 0b) and evidence surface (Checkpoint A) are NEVER summarized — they are the shared evidence plane
+2. For runs exceeding ~80k tokens of accumulated lead context, phase outputs beyond Phase 4b should be referenced by key decisions only, not retained in full
+3. If context degradation is detected (lead missing details from earlier phases), re-read the evidence scaffold and checkpoint A before proceeding
+4. The report assembler (Phase 7b) receives all artifacts directly via file reads — it does not depend on the lead's memory of those artifacts
 
 ## Execution Protocol
 
@@ -304,17 +387,79 @@ Before spawning anyone:
 4. Read source transcript (path from user or prompt for it)
 5. Confirm inputs with user: "Running [show_name] / [creative_name] on [transcript]. Proceed?"
 
+### Phase 0b: Evidence Scaffold (lead inline)
+
+After profile load and user confirmation, commit the shared retrieval seed before any reasoning begins. Write `{date}-evidence-scaffold.json` to `./output/{show_slug}/`:
+
+```json
+{
+  "global_facts": {
+    "transcript_available": true,
+    "transcript_format": "SRT|VTT|plain",
+    "transcript_path": "/path/to/source",
+    "estimated_duration_seconds": null,
+    "speaker_count": null,
+    "source_video_available": true,
+    "source_video_path": "/path/or/null",
+    "timestamp_precision": "unknown"
+  },
+  "common_constraints": {
+    "creative_id": "reel-v1",
+    "duration_target": {"min": 30, "max": 90, "sweet_spot": 60},
+    "platform": "instagram",
+    "output_ratio": "9:16",
+    "budget_ceiling_usd": 25.00,
+    "morph_enabled": true
+  },
+  "canonical_docs": {
+    "profile_slug": "show-slug",
+    "mission": "from profile",
+    "audience_tribe": "from profile",
+    "anti_patterns": ["from profile"],
+    "forbidden_moves": ["from profile"],
+    "editorial_voice": {"host_sensibility": "...", "what_the_show_rewards": "...", "what_bores_the_show": "..."},
+    "aesthetic_invariants": {"grain_vs_clean": 0.7, "color_anchors": [], "motion_style": "...", "typography_personality": "..."},
+    "growth_scoring_weights": {"hook_density": 0.2, "quotability": 0.15, "...": "..."}
+  },
+  "load_bearing_context": {
+    "morph_config": {"from creative or null"},
+    "video_gen_tool": "seedance-2.0-i2v",
+    "adjudication_enabled": true,
+    "adjudication_model_tier": "medium"
+  },
+  "retrieval_rights": {
+    "phase_1a": "expected",
+    "phase_1b": "expected",
+    "phase_1c": "expected",
+    "phase_1d": "expected",
+    "phase_2": "gap-fill",
+    "phase_4": "gap-fill",
+    "phase_5a": "gap-fill",
+    "phase_5b": "committed-only",
+    "phase_5c": "none",
+    "phase_5d": "committed-only",
+    "phase_6": "adversarial",
+    "phase_7a": "committed-only",
+    "phase_7b": "committed-only"
+  }
+}
+```
+
+This scaffold is the shared evidence seed. Every subagent prompt includes it (or a reference to it) so all agents reason from the same base. Fields marked `null` are populated during Phase 1 and committed at Checkpoint A.
+
 ### Phase 1: Parallel Research + Ingest
 
 Spawn **two agents in a single message** (parallel):
 
-**Agent: audience-researcher** (sonnet, background)
+**Agent: audience-researcher** (opus, background)
 ```
 Prompt includes:
 - Target platform (from creative)
 - Content category (from profile)
 - Audience tribe (from profile)
+- Evidence scaffold (from Phase 0b — the shared retrieval seed)
 - Instructions: run /audience-context-researcher protocol
+- Retrieval rights: EXPECTED — actively research current platform state
 - Output: write audience_context.json to ./output/{show_slug}/
 ```
 
@@ -349,6 +494,40 @@ If raw source video was provided:
 
 If no source video: skip this phase. Visual context is additive — its absence does not degrade downstream stages.
 
+### Checkpoint A: Evidence Surface Commit (lead inline)
+
+After all Phase 1 outputs are ready, commit the canonical evidence surface before any reasoning begins. This is the single evidence reference for all Phase 2+ agents.
+
+1. Verify all Phase 1 gates passed (1a audience context exists, 1c verified transcript exists)
+2. Update the evidence scaffold's `null` fields with discovered values (duration, speaker count, timestamp precision)
+3. Write `{date}-evidence-surface.json` to `./output/{show_slug}/`:
+
+```json
+{
+  "scaffold_ref": "{date}-evidence-scaffold.json",
+  "verified_transcript_ref": "{date}-transcript-verified.json",
+  "audience_context_ref": "{date}-{creative}-audience-context.json",
+  "source_analysis_ref": "{date}-source-analysis.json or null",
+  "evidence_gaps": [
+    "list what is NOT available — e.g. no source video, no visual evidence, unverified timestamps"
+  ],
+  "global_facts_resolved": {
+    "total_duration_seconds": 3600,
+    "speaker_count": 2,
+    "timestamp_precision": "word-level",
+    "topic_map": ["topic1", "topic2"]
+  },
+  "retrieval_rights_per_lane": {
+    "phase_2_scoring": "gap-fill — may re-read transcript sections to resolve ambiguity",
+    "phase_4_edl": "gap-fill — may re-read verified transcript to confirm timestamp mappings",
+    "phase_5a_broll": "gap-fill — may verify API model constraints",
+    "phase_6_cut_audit": "adversarial — may re-read original transcript and prior outputs to challenge claims"
+  }
+}
+```
+
+This artifact is the canonical evidence plane. When spawning Phase 2+ agents, include it (or its content) in the agent prompt. If an agent needs to know what evidence exists, it reads this — not the lead's memory of prior phases.
+
 ### Phase 2: Scoring
 
 Spawn **one agent** (opus, foreground — you need the result):
@@ -356,10 +535,13 @@ Spawn **one agent** (opus, foreground — you need the result):
 **Agent: transcript-scorer** (opus)
 ```
 Prompt includes:
-- Parsed transcript (full text)
+- Evidence surface (from Checkpoint A — the committed evidence plane)
+- Parsed transcript (full text from verified transcript ref)
 - Loaded profile (full JSON)
 - Active creative config
 - Audience context (from Phase 1a output)
+- Source analysis (from Phase 1d, if available — from evidence surface ref)
+- Retrieval rights: GAP-FILL — may re-read specific transcript sections if scoring reveals ambiguity
 - Instructions: run /transcript-scorer protocol
 - Output: write scoring.json to ./output/{show_slug}/
 ```
@@ -370,8 +552,9 @@ This is YOUR call. Read the scoring output and make the selection:
 1. Review all candidates, their scores, their rationale
 2. Select the primary segment (or override the scorer's recommendation if your judgment disagrees)
 3. Document: hook moment, build beat, tension peak, resolution, loop potential
-4. Write selection.json to ./output/{show_slug}/
-5. Brief the user on what you picked and why (one paragraph, invite pushback before continuing)
+4. **Commit the editorial thesis**: write WHY this segment was chosen — what it serves, what was sacrificed, what alternatives were rejected and why, how the hook strategy connects to audience context
+5. Write selection.json to ./output/{show_slug}/ — must include `editorial_thesis`, `trade_offs[]`, and `alternatives_rejected[]`
+6. Brief the user on what you picked and why (one paragraph, invite pushback before continuing)
 
 **Gate**: Wait for user confirmation or redirect before proceeding. If they want a different segment, adjust and continue.
 
@@ -382,9 +565,14 @@ Spawn **one agent** (opus, foreground):
 **Agent: edl-builder** (opus)
 ```
 Prompt includes:
-- Selected segment (from Phase 3)
+- Selected segment (from Phase 3 — includes editorial_thesis, trade_offs, alternatives_rejected)
 - Full profile + creative
 - Audience context
+- Verified transcript (from evidence surface ref — the agent must have the full verified transcript to cite from)
+- Evidence scaffold (common constraints, load-bearing context)
+- Retrieval rights: GAP-FILL — you may re-read the verified transcript to confirm
+  timestamp-to-content mappings. Do NOT trust your memory of the transcript.
+  If a beat feels shaky, re-read the specific section before committing.
 - Instructions: run /edit-decision-list protocol
 - Output: write edl.json to ./output/{show_slug}/
 ```
@@ -420,13 +608,18 @@ This gate is the bridge between editorial intent and assembly reality. Without i
 
 Spawn **two agents in a single message** (parallel):
 
-**Agent: broll-prompt-engineer** (sonnet, background)
+**Agent: broll-prompt-engineer** (opus, background)
 ```
 Prompt includes:
 - EDL (from Phase 4 — every b-roll slot)
 - Full profile (aesthetic invariants, anti-patterns)
-- Active creative (b-roll direction, video_gen_tool)
+- Active creative (b-roll direction, video_gen_tool, morph_config)
 - Audience context (platform aesthetics)
+- Evidence scaffold load_bearing_context (morph_config, video_gen_tool, adjudication config)
+- Retrieval rights: GAP-FILL — you may verify morph frame availability and
+  API model constraints. If the creative config references a generation model,
+  verify the model's constraint table in the fal_router MODELS before producing
+  envelopes. Do not guess API param names.
 - Instructions: run /broll-prompt-engineer protocol
   PLUS: produce router-ready envelopes for each slot
 - Output: write broll-prompts.json + envelopes/*.json to ./output/{show_slug}/
@@ -439,6 +632,7 @@ Prompt includes:
 - Selected segment transcript text
 - Scoring output (which moments were identified as hooks, peaks, etc.)
 - Full profile + creative (caption style configs)
+- Retrieval rights: COMMITTED-ONLY — operate on provided evidence, no fresh retrieval
 - Instructions: run /caption-semantic-layer protocol
 - Output: write captions.json to ./output/{show_slug}/
 ```
@@ -497,6 +691,15 @@ Prompt includes:
 - B-roll prompts (from Phase 5a — what visuals are intended)
 - Caption layer (from Phase 5b — where text lands)
 - Adjudication verdicts (from Phase 5d — asset quality assessment)
+- Verified transcript (from evidence surface ref — the ORIGINAL transcript, not the EDL's version of it)
+- Evidence surface (from Checkpoint A — so you know what evidence basis the pipeline was reasoning from)
+- Selection rationale (from Phase 3 — editorial_thesis, trade_offs, alternatives_rejected)
+- Retrieval rights: ADVERSARIAL — you have full re-read access to the original
+  transcript, source timestamps, and ALL prior phase outputs. Your job is to
+  find what the editor got wrong, not to confirm what they got right. You are
+  not limited to what was injected in this prompt. Re-read source material.
+  Verify timestamp claims against the verified transcript. Check that the
+  editorial thesis from Phase 3 actually manifests in the EDL structure.
 - Instructions: You are a CRITIC, not the editor. Review every J and L cut
   against its stated intention. Flag anything abrupt, unmotivated, or
   technically incorrect. Check that no editorial trims land inside morphing
@@ -523,10 +726,11 @@ Spawn **two agents in a single message** (parallel):
 **Agent: post-copy-writer** (opus, background)
 ```
 Prompt includes:
-- Selected segment + scoring rationale
+- Selected segment + scoring rationale (includes editorial_thesis, trade_offs)
 - EDL structure
 - Full profile + creative (editorial voice, copy tone)
 - Audience context
+- Retrieval rights: COMMITTED-ONLY — write from committed editorial decisions, no fresh retrieval
 - Instructions: run /post-copy-generator protocol
 - Output: write post-copy.json to ./output/{show_slug}/
 ```
@@ -535,7 +739,9 @@ Prompt includes:
 ```
 Prompt includes:
 - ALL prior stage outputs (scoring, selection, edl, broll prompts, captions, cut audit, post copy)
+- Evidence scaffold (Phase 0b) and evidence surface (Checkpoint A) — for traceability
 - Full profile (for aesthetic report styling)
+- Retrieval rights: COMMITTED-ONLY — reads all artifact files, no fresh retrieval
 - Instructions: run /pipeline-report protocol
 - Output: write report.html to ./output/{show_slug}/
 ```
@@ -565,6 +771,8 @@ After all phases complete:
 4. **All agents write to `./output/{show_slug}/`** — one directory, one truth.
 5. **Agent prompts must be self-contained.** Include the actual data (profile JSON, transcript text, prior stage outputs), not just file paths. Agents don't inherit your context.
 6. **Background for parallel work, foreground when you need the result to decide.** Phase 2 (scoring) is foreground because you need it for Phase 3 (your selection). Phase 5a+5b are background because they're independent.
+7. **Declare retrieval rights per agent.** Every subagent prompt must state its retrieval permission: `expected` (actively retrieve), `gap-fill` (retrieve only if blocked or ambiguous), `adversarial` (retrieve to challenge claims), or `committed-only` (operate on provided evidence, no fresh retrieval). The rights come from the DAG and the evidence scaffold.
+8. **All Phase 2+ agents reference the evidence surface.** Include the Checkpoint A evidence surface (or its content) in every post-Phase-1 agent prompt so all agents reason from the same committed evidence basis.
 
 ## Profile Resolution
 
@@ -592,18 +800,32 @@ If no timestamps: proceed with content-based boundaries, flag reduced precision 
 
 ```
 ./output/{show_slug}/
+  {date}-evidence-scaffold.json              ← Phase 0b: shared retrieval seed
+  {date}-evidence-surface.json               ← Checkpoint A: committed evidence plane
+  {date}-{creative_name}-audience-context.json
+  {date}-transcript-parsed.json
+  {date}-transcript-verified.json
+  {date}-source-analysis.json                 (conditional)
   {date}-{creative_name}-scoring.json
-  {date}-{creative_name}-selection.json
+  {date}-{creative_name}-selection.json       (includes editorial_thesis, trade_offs)
   {date}-{creative_name}-edl.json
   {date}-{creative_name}-broll-prompts.json
   {date}-{creative_name}-captions.json
+  {date}-adjudication.json
   {date}-{creative_name}-cut-audit.json
+  {date}-draft-review.json                    (conditional)
   {date}-{creative_name}-post-copy.json
-  {date}-{creative_name}-audience-context.json
   {date}-{creative_name}-report.html
   envelopes/
     broll_slot_1.json
     broll_slot_2.json
+    ...
+  assembly/
+    base_track_v3.wav
+    base_track_v3.json
+    slot_N_departure.png
+    slot_N_midpoint.png
+    slot_N_return.png
     ...
 ```
 

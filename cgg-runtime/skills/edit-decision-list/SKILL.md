@@ -52,12 +52,20 @@ This means:
 3. Place cuts to serve the audio rhythm, not arbitrary visual timing
 4. Let the audio's emotional shape drive when to show the speaker vs. when to cut to b-roll
 
+## Retrieval Rights: gap-fill
+
+You may re-read the verified transcript to confirm timestamp-to-content mappings before committing beats. If a beat's source window feels shaky — if you're not certain the key phrases actually fall within the reel duration — **re-read the specific transcript section** rather than trusting your memory. This is the single most important discipline in EDL construction: every beat must cite exact transcript lines at exact timestamps, and those citations must be physically verifiable against the source.
+
+Do NOT do broad external research. Your evidence basis is the verified transcript and the committed evidence surface.
+
 ## Input
 
 You receive:
-- The selected segment (from transcript-scorer output)
+- The selected segment (from transcript-scorer output — includes editorial_thesis, trade_offs, alternatives_rejected)
 - The full profile + active creative
 - The audience context object
+- The verified transcript (full text with word-level timestamps — this is your primary evidence source for beat construction)
+- The evidence scaffold (common constraints, load-bearing context from Phase 0b)
 - Timestamp range (if available)
 - **Timestamp drift note**: If transcript timestamps have not been verified (Phase 1c), all beat timestamps may be 3-5s off from actual audio. Account for this when setting beat `timestamp_start`/`timestamp_end` values. Flag the drift status in `editorial_notes`.
 - (Optional) Overshoot source analysis — if Phase 1d source analysis is available, use visual hinge locations and face-priority windows to inform beat placement and b-roll slot positioning. Visual hinges are natural cut points; face-priority windows are moments to keep the speaker on screen.
