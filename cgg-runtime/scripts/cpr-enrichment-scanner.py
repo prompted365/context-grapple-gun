@@ -217,11 +217,13 @@ def gather_source_stability(cpr, project_dir):
     source_file = source.split(":")[0] if ":" in source else source
     source_path = Path(project_dir) / source_file
 
-    if not source_path.exists() and "MEMORY.md" in source_file:
+    if not source_path.exists():
+        # Memory files live in ~/.claude/projects/<project_key>/memory/
         project_key = project_dir.replace("/", "-")
-        source_path = (
-            Path.home() / ".claude" / "projects" / project_key / "memory" / "MEMORY.md"
-        )
+        memory_dir = Path.home() / ".claude" / "projects" / project_key / "memory"
+        memory_candidate = memory_dir / source_file
+        if memory_candidate.exists():
+            source_path = memory_candidate
 
     if source_path.exists():
         try:

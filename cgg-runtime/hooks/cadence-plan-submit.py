@@ -100,13 +100,16 @@ def run_tdelta(session: str) -> dict:
     if not TMUX_DELTA_BIN.exists():
         return {"returncode": 127, "stdout": "", "stderr": "tmux-delta-dump not found"}
 
-    result = subprocess.run(
-        [str(TMUX_DELTA_BIN), session],
-        capture_output=True,
-        text=True,
-        check=False,
-        timeout=30,
-    )
+    try:
+        result = subprocess.run(
+            [str(TMUX_DELTA_BIN), session],
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=30,
+        )
+    except subprocess.TimeoutExpired:
+        return {"returncode": -1, "dump_path": "", "stdout": "", "stderr": "tmux-delta-dump timed out"}
 
     # Extract dump path from stdout (first line with a path)
     dump_path = ""
