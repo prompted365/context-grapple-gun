@@ -4,7 +4,7 @@ CPR Enrichment Scanner — deterministic evidence gatherer for holding CPRs.
 
 Scans queue.jsonl for CPRs at enrichment_needed or enrichment_eligible,
 gathers evidence (git commits, test files, signal correlation, source stability,
-cross-references), appends enrichment entries to queue.jsonl.
+cross-references), updates enrichment entries in-place in queue.jsonl.
 
 No LLM. Background-safe. Designed to run at SessionStart from session-restore.sh.
 
@@ -449,22 +449,42 @@ def scan_and_enrich(project_dir, dry_run=False, quiet=False):
             )
 
     if entries_to_append and not dry_run:
+        # Update-in-place: replace existing entries by ID instead of appending
+        # duplicates. Read all lines, substitute matching IDs, write back.
+        update_map = {e["id"]: e for e in entries_to_append}
+        p = Path(queue_path)
         os.makedirs(os.path.dirname(queue_path), exist_ok=True)
-        try:
-            from lib.atomic_append import atomic_append_jsonl
-            for entry in entries_to_append:
-                atomic_append_jsonl(queue_path, entry)
-        except ImportError:
-            import fcntl
-            lockfile = queue_path + ".lock"
-            with open(lockfile, "w") as lf:
-                fcntl.flock(lf.fileno(), fcntl.LOCK_EX)
-                try:
-                    with open(queue_path, "a", encoding="utf-8") as f:
-                        for entry in entries_to_append:
-                            f.write(json.dumps(entry, separators=(",", ":")) + "\n")
-                finally:
-                    fcntl.flock(lf.fileno(), fcntl.LOCK_UN)
+
+        import fcntl
+        lockfile = queue_path + ".lock"
+        with open(lockfile, "w") as lf:
+            fcntl.flock(lf.fileno(), fcntl.LOCK_EX)
+            try:
+                lines = p.read_text(encoding="utf-8").splitlines() if p.exists() else []
+                new_lines = []
+                replaced_ids = set()
+                for line in lines:
+                    line_s = line.strip()
+                    if not line_s:
+                        new_lines.append(line)
+                        continue
+                    try:
+                        d = json.loads(line_s)
+                        eid = d.get("id", "")
+                        if eid in update_map:
+                            new_lines.append(json.dumps(update_map[eid], separators=(",", ":"), default=str))
+                            replaced_ids.add(eid)
+                        else:
+                            new_lines.append(line)
+                    except json.JSONDecodeError:
+                        new_lines.append(line)
+                # Append any entries whose IDs were not found in existing lines
+                for eid, entry in update_map.items():
+                    if eid not in replaced_ids:
+                        new_lines.append(json.dumps(entry, separators=(",", ":"), default=str))
+                p.write_text("\n".join(new_lines) + "\n", encoding="utf-8")
+            finally:
+                fcntl.flock(lf.fileno(), fcntl.LOCK_UN)
 
     if not quiet:
         print(f"{updated_count}")
