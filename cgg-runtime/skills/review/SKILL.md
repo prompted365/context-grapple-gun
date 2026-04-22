@@ -1,6 +1,57 @@
 ---
 name: review
-description: Review and apply CogPR promotions + Warrant triage across CLAUDE.md scopes. Human-gated constitutional reviewer.
+description: |
+  Constitutional judgment surface for the CGG signal manifold — pending CogPRs into doctrine, active warrants into action.
+
+  CENTROID:
+  human-gated constitutional judgment for CogPRs and warrants
+
+  IS:
+  - the promotion gate from pending CogPR to inscribed doctrine
+  - the warrant triage surface from active signal to bounded action
+  - the lattice integrity check across docket entries (relations, refinements, contradictions)
+
+  IS NOT:
+    collapse_zones:
+      - queue mutator (review-execute applies; review judges)
+      - signal emitter (cadence emits, siren classifies, review evaluates)
+      - mandate spawner (cadence writes mandates; review must not)
+      - inline doctrine inscription (verdicts route through review-execute, not review's own writes)
+      - autonomous reviewer (every promotion requires human gate)
+    sibling_overlaps:
+      - /siren (signal triage)
+      - /complement (closure-inference lattice gap)
+      - review-execute agent (mechanical apply)
+
+  WHEN:
+  - when the queue contains decision-ready CogPRs (extracted, enrichment_eligible, or born_truth_captured)
+  - when active warrants exist and require triage
+  - when a docket has been pre-clustered for a bounded pass
+  - on explicit operator invocation
+
+  NOT WHEN:
+  - during /cadence (cadence captures, review judges; same boundary cannot do both)
+  - when the bench packet is stale (Step 5.5 blocks regardless; do not invoke)
+  - mid-implementation (read-then-judge; mid-edit invocation produces unstable verdicts)
+  - when queue.pending == 0 AND warrants.active == 0 (empty docket — skip)
+
+  RELATES TO:
+  - /cadence (clock — cadence captures lessons, review inscribes them; cadence writes, review judges)
+  - /siren (signal classifier — siren classifies condition and tick, review evaluates whether classification warrants doctrinal action)
+  - review-execute agent (mechanical executor — review produces verdicts, executor applies; review judges, executor mutates)
+  - Mogul bench packet (upstream enrichment — Mogul pre-strengthens weak packets; review compensates with blocking bench-prep when absent)
+
+  ARGS:
+    stance: dispatch
+    off_envelope: ask
+    # off_envelope rationale: /review is the constitutional judgment surface; an undeclared
+    # arg most likely signals a caller confused about which review surface (review vs
+    # ultrareview vs review-execute). Ask prevents silent misroute.
+    core_dispatch_rays:
+      - "" → full docket walk (CogPR proposals + warrant triage)
+    secondary_modulation_axes:
+      - emphasis: cogprs | warrants | both
+      - mode: standard | dry-run
 user-invocable: true
 ---
 
