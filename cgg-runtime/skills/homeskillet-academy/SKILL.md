@@ -1,6 +1,54 @@
 ---
 name: homeskillet-academy
-description: Interactive CGG tutorial — Claude teaches governance primitives through narrative simulations, live demos, and conversational understanding checks.
+description: |
+  Interactive CGG tutorial — Claude teaches governance primitives through narrative simulations, live demos, and conversational understanding checks.
+
+  CENTROID:
+  extended interactive tutorial scaffold for CGG governance primitives
+
+  IS:
+  - five-chapter narrative curriculum scaffold (append-only, dedup, signals, review, completion)
+  - live-run simulations with conversational understanding checks
+  - ephemeral academy directory — created fresh, not merged into production zone
+
+  IS NOT:
+    collapse_zones:
+      - doctrine source (teaches via scenarios; constitutional authority lives in CLAUDE.md)
+      - production governance participant (tutorial scaffold; never emits tics, signals, or warrants)
+      - install surface (/init-governance installs runtime; academy only scaffolds tutorial files)
+      - code-writing exercise (student follows the story; does not author CGG primitives)
+      - standalone governance runtime (the academy is a teaching scratch space, not a live federation zone)
+    sibling_overlaps:
+      - /mini-swarm-onboard (short-form triangulation demo — academy is deeper extended course)
+      - /init-governance (both create directory trees — academy is ephemeral, init-governance is durable)
+
+  WHEN:
+  - on first-time CGG exposure where an operator wants extended hands-on intuition
+  - when teaching governance primitives to a new collaborator
+  - when demonstrating each chapter's mechanic in sequence for a visitor
+
+  NOT WHEN:
+  - inside a production zone where tutorial scaffolding could pollute runtime state
+  - for advanced users past the intuition-building phase (the scaffolding is pedagogical weight, not ongoing value)
+  - as a substitute for /init-governance (install vs tutorial are different surfaces)
+
+  RELATES TO:
+  - /mini-swarm-onboard (quick triangulation demo — academy is the extended course, mini-swarm is the trailer)
+  - /init-governance (install tool — academy is pedagogy, init-governance is bootstrap)
+  - /review (governance judgment — academy teaches the pattern; /review is the real gate)
+
+  ARGS:
+    stance: dispatch
+    off_envelope: proceed-with-note
+    # off_envelope rationale: /homeskillet-academy's default is "run the tutorial
+    # from chapter 1." Undeclared-arg most commonly means "apply default scaffold"
+    # rather than caller confusion — proceed-with-note preserves learner flow.
+    core_dispatch_rays:
+      - ""            → scaffold + start chapter 1
+      - "chapter N"   → jump directly to chapter N
+      - "reset"       → wipe the local academy scaffold and re-init
+    secondary_modulation_axes:
+      - narration: guided | self-paced
 ---
 
 # /homeskillet-academy

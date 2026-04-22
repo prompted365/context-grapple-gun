@@ -1,15 +1,55 @@
 ---
 name: mini-swarm-onboard
-description: Quick CGG onboarding through governed triangulation — three agents debate which CGG mechanic matters most
+description: |
+  Quick CGG onboarding through governed triangulation — three agents debate which CGG mechanic matters most.
+
+  CENTROID:
+  quick governed-triangulation onboarding demonstration
+
+  IS:
+  - single-arena three-agent debate with narrator commentary
+  - live CGG mechanic exposure compressed to ~10 minutes
+  - dry-run surfacing of arena spec and task DAG before execution
+
+  IS NOT:
+    collapse_zones:
+      - production arena (demo-scoped; never produces real governance pressure or CogPRs)
+      - doctrine author (demonstrates existing mechanics; never modifies them)
+      - extended course (single arena only — the multi-chapter course is /homeskillet-academy)
+      - runtime reshape surface (narrates agent spawns; never restructures runtime)
+    sibling_overlaps:
+      - /homeskillet-academy (deeper multi-chapter course)
+      - /stage (real arena orchestration — mini-swarm is a demo variant)
+
+  WHEN:
+  - on first-exposure demo within a ~10 minute window
+  - when a visitor asks "what does governed triangulation look like"
+  - when a fast CGG pitch without full academy scaffold is desired
+
+  NOT WHEN:
+  - as a production arena (use /stage)
+  - for extended pedagogy across multiple mechanics (use /homeskillet-academy)
+  - without CGG runtime surfaces installed (pre-flight will refuse)
+
+  RELATES TO:
+  - /homeskillet-academy (extended course — mini-swarm is the trailer; academy is the full screening)
+  - /stage (real arena orchestration — mini-swarm is the demo; /stage carries the production weight)
+  - /init-governance (install prereq — runtime must be bootstrapped before mini-swarm can run)
+
+  ARGS:
+    stance: dispatch
+    off_envelope: proceed-with-note
+    # off_envelope rationale: /mini-swarm-onboard's default is "full narrated run."
+    # Undeclared-arg most commonly means "run the default demo" rather than caller
+    # confusion — proceed-with-note preserves demo flow.
+    core_dispatch_rays:
+      - ""          → full run with narration gates
+      - "--quick"   → compressed narration (single-line summaries)
+      - "--dry-run" → print arena spec and task DAG, then exit
+    secondary_modulation_axes:
+      - pacing: guided | rapid
 tools: Read, Grep, Glob, Agent, Bash
 trigger: /mini-swarm-onboard
-arguments:
-  - name: --quick
-    description: Compress narration to single lines
-    required: false
-  - name: --dry-run
-    description: Print the arena spec without executing
-    required: false
 ---
 
 # /mini-swarm-onboard — Learn CGG by Watching Governance in Action

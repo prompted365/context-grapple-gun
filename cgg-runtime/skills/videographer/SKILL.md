@@ -1,6 +1,58 @@
 ---
 name: videographer
-description: Directed capture and narrative export — compose keyframe stories, record video (WebM/MP4), capture hi-res snapshots from the 3D substrate.
+description: |
+  Directed capture and narrative export — compose keyframe stories, record video (WebM/MP4), capture hi-res snapshots from the 3D substrate.
+
+  CENTROID:
+  directed capture and narrative export surface for the 3D substrate
+
+  IS:
+  - keyframe story composition with camera, overlay, and duration capture
+  - video recording in WebM (VP9) or MP4 (H.264) at 1080p / 2K / 4K
+  - hi-res and screen-resolution still snapshots
+  - prep-mode playback with overlay cross-fade
+
+  IS NOT:
+    collapse_zones:
+      - scene mutator (captures substrate state; never modifies the scene graph)
+      - governance emitter (narrative capture only; no signal, tic, or warrant writes)
+      - asset publisher (records locally; distribution belongs to downstream pipelines)
+      - runtime scene editor (prep-mode captures configuration; never reshapes the live scene)
+      - editorial pipeline (substrate capture is distinct from the podcast shortform pipeline)
+    sibling_overlaps:
+      - /pipeline-report (both produce visual artifacts — pipeline-report is editorial HTML, videographer is 3D substrate capture)
+      - /statusline (both are observation surfaces — statusline reads conformation text, videographer captures scene video)
+      - /podcast-pipeline (production media path — distinct domain, different asset lineage)
+
+  WHEN:
+  - when a substrate scene is composed and narrative export is needed
+  - when demoing or narrating a substrate tour
+  - when a publication-quality snapshot of substrate state is required
+
+  NOT WHEN:
+  - without a loaded substrate scene (nothing to capture)
+  - as a signal-emission or governance-mutation surface
+  - for non-substrate content (editorial video belongs to the podcast pipeline)
+
+  RELATES TO:
+  - /statusline (both observe — statusline is textual ambient; videographer is visual capture)
+  - /podcast-pipeline (production media — videographer serves substrate demos; pipeline serves editorial shortform)
+  - /pipeline-report (adjacent visual output — report is HTML-summary; videographer is video-narrative)
+
+  ARGS:
+    stance: dispatch
+    off_envelope: proceed-with-note
+    # off_envelope rationale: /videographer's established default is "capture the
+    # current scene" with no args. Undeclared-arg most commonly means "apply default
+    # capture" rather than caller confusion — proceed-with-note preserves flow.
+    core_dispatch_rays:
+      - ""         → prep-mode capture (compose + preview current scene)
+      - "record"   → begin video recording at configured resolution
+      - "snapshot" → hi-res still at selected resolution
+    secondary_modulation_axes:
+      - format: webm | mp4
+      - resolution: 1080p | 2K | 4K
+      - overlays: on | off
 user-invocable: true
 ---
 
