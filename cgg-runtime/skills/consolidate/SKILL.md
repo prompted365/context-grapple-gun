@@ -1,6 +1,68 @@
 ---
 name: consolidate
-description: Context consolidation pipeline — concatenate any file surface into a single LLM-consumable indexed markdown dump. Works with local dirs, glob patterns, git repos (ours or public), and conversational intent targets.
+description: |
+  Context consolidation pipeline — concatenate any file surface into a single LLM-consumable indexed markdown dump. Works with local dirs, glob patterns, git repos (ours or public), and conversational intent targets.
+
+  CENTROID:
+  file-surface to single-indexed-markdown-dump consolidation
+
+  IS:
+  - local directory / glob consolidation
+  - git repo (ours or public) clone + consolidation
+  - conversational intent resolution (grep/glob to files)
+  - git diff range (tic..tic) consolidation
+  - arena spec reference resolution
+  - harpoon target prep with anchor-assessment preamble
+
+  IS NOT:
+    collapse_zones:
+      - file authoring surface (consolidate reads and concatenates; never writes to source)
+      - doctrine judgment (consolidate packages for other agents; never judges content)
+      - opinionated content filter (skip-binary and exclude-pattern are rules, not curation)
+      - lossy compressor (truncation at 500KB is a transparency boundary, not a curation choice)
+      - archivist (archivist persists typed records; consolidate produces one-shot agent context)
+    sibling_overlaps:
+      - /inbox (both package content — inbox routes to entity, consolidate builds agent context)
+      - pattern mining (both aggregate across surfaces)
+      - archivist (both assemble multi-source state)
+
+  WHEN:
+  - when an arena needs a consolidated spec context surface
+  - when a harpoon assessment needs an anchor-spot dump
+  - when cross-repo analysis requires a single merged surface
+  - when packaging project state for handoff to another agent or session
+  - when preparing review context for a tic range (git diff mode)
+  - on explicit operator invocation
+
+  NOT WHEN:
+  - when the target is a single file (read it directly — consolidation is overhead)
+  - when the target is binary or non-text (consolidate skips binaries; use direct tools)
+  - when the operator just wants a directory listing (use ls/find)
+  - mid-implementation when current focus requires narrow scope (consolidate widens by design)
+
+  RELATES TO:
+  - /inbox (package + route — consolidate produces the dump; inbox delivers it to an entity)
+  - pattern mining (both aggregate — pattern mining extracts statistical shape; consolidate preserves full surface)
+  - archivist (both assemble — archivist is for persistence; consolidate is for one-shot context)
+
+  ARGS:
+    stance: dispatch
+    off_envelope: ask
+    # off_envelope rationale: /consolidate has multiple dispatch modes with very
+    # different behavior (local dir vs git repo vs arena spec vs harpoon target).
+    # Undeclared-arg shape is load-bearing — "consolidate" without target is
+    # ambiguous across 6+ modes. Ask prevents silent misroutes.
+    core_dispatch_rays:
+      - ""           → interactive (ask target)
+      - "<path>"     → local directory or glob
+      - "<url>"      → git repo (clone + consolidate)
+      - "--arena"    → arena spec resolution
+      - "--harpoon"  → harpoon prep (anchor-spot preamble)
+      - "--diff"     → git diff range
+    secondary_modulation_axes:
+      - output_location: default-inbox | custom-path
+      - include_pattern: default | custom
+      - exclude_pattern: default | custom
 user-invocable: true
 ---
 

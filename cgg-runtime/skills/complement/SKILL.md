@@ -1,6 +1,60 @@
 ---
 name: complement
-description: Closure inference and response-geometry disclosure — direction-agnostic, scope-aware detection of materially missing expressions around an active move.
+description: |
+  Closure inference and response-geometry disclosure — direction-agnostic, scope-aware detection of materially missing expressions around an active move.
+
+  CENTROID:
+  closure inference at the point of an active move
+
+  IS:
+  - post-landing closure check (detect non-local incompleteness after a move lands)
+  - origin-shape detection (dual-ray structure at response formulation, before commit)
+  - surface/defer/suppress decision routing via the structural-relevance gate
+
+  IS NOT:
+    collapse_zones:
+      - follow-up helper (complement does not generate next-steps unprompted)
+      - pattern mining lite (complement is local coherence, not statistical surface)
+      - documentation helper (complement does not restructure existing content)
+      - decorative expander (must willingly say "current focus is sufficient" more often than surface)
+      - autonomous widener (origin-shape yields shaping choice to the user; never commits the geometry)
+    sibling_overlaps:
+      - /review (constitutional judgment at the pattern level)
+      - /siren (persistent-condition signal emission)
+      - pattern mining (statistical surface discovery)
+
+  WHEN:
+  - after a local closure event that may hide non-local incompleteness
+  - at the point of formulating a response with apparent dual-ray structure
+  - when an artifact lands and the caller suspects it is partial
+  - on explicit operator invocation
+
+  NOT WHEN:
+  - after every trivial step (gates are narrow by design)
+  - when the move is within a bounded scope already (compile fix, single-file edit)
+  - when current focus must be protected (Mode C suppression is the most important mode)
+  - when the candidate complement is decorative (no change to implementation, governance, proof, boundary, or sequencing)
+
+  RELATES TO:
+  - /review (constitutional judgment — review promotes lattice-gap findings; complement surfaces closure-geometry gaps)
+  - /siren (signal emission — siren records persistent conditions; complement surfaces missing expressions in the active move)
+  - pattern mining (statistical — pattern mining scans populations; complement operates on a single active move)
+
+  ARGS:
+    stance: lens
+    off_envelope: proceed-with-note
+    # off_envelope rationale: /complement has an established default (scan current
+    # move, conversation-only context). Undeclared-arg most commonly means
+    # "apply the default" rather than caller confusion — proceed-with-note
+    # preserves the default while logging the invocation for calibration.
+    core_dispatch_rays:
+      - ""              → post-landing (scan current move)
+      - "--origin"      → origin-shape (detect dual-ray before response commits)
+      - "--governance"  → post-landing with governance context (signals + CogPRs)
+      - "--full"        → post-landing with full context (+ pattern-mining briefing)
+    secondary_modulation_axes:
+      - emphasis: surface | defer | suppress
+      - context_depth: conversation-only | governance | full
 user-invocable: true
 ---
 

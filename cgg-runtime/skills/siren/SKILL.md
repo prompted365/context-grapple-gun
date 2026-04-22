@@ -1,6 +1,66 @@
 ---
 name: siren
-description: Signal emission, tick advancement, and triage dashboard for the CGG v3 signal manifold. Operational companion to /review.
+description: |
+  Signal emission, tick advancement, and triage dashboard for the CGG v3 signal manifold. Operational companion to /review.
+
+  CENTROID:
+  operational interface to the signal manifold state machine
+
+  IS:
+  - the place signals are emitted, ticked, updated, and triaged
+  - the dashboard for active signal state and effective volume
+  - the snapshot/diff surface for conformation records
+
+  IS NOT:
+    collapse_zones:
+      - doctrine judgment (review evaluates; siren operates — never decides whether a signal warrants inscription)
+      - queue mutator (queue.jsonl belongs to review pipeline; siren must not write to CogPR queue)
+      - mandate spawner (cadence writes mandates; siren carries signals, not mandates)
+      - warrant auto-acknowledger (warrants require /review human gate; siren mints via threshold but never acks)
+      - CogPR extractor (extraction is cpr-extract-hook territory; siren emits signals, never CogPRs)
+      - timestamp-based transition driver (tic is the time authority — timestamps are observability only)
+    sibling_overlaps:
+      - /review (warrant triage)
+      - /cadence (tic authority)
+      - archivist (typed-record persistence)
+
+  WHEN:
+  - when session start reports active signals to triage
+  - when an actor needs to emit a new signal for a persistent condition
+  - when tic has advanced and signals need volume accrual or decay
+  - when a signal's state needs to change (acknowledged/working/resolved/dismissed)
+  - when a conformation snapshot is needed at a tic boundary
+  - on explicit operator invocation
+
+  NOT WHEN:
+  - during /cadence (cadence writes tic events; siren ticks against them; same boundary cannot do both)
+  - when the correct surface is /review (CogPR promotion or warrant judgment — route there)
+  - mid-constitutional-modification (siren records condition; doctrine change belongs to /review)
+  - for ephemeral in-session state (signals represent persistent conditions, not transient observations)
+
+  RELATES TO:
+  - /review (constitutional judgment — siren operates the manifold; review judges what must become doctrine or bounded action)
+  - /cadence (session epoch boundary — cadence advances the tic count; siren ticks signals against the advanced count)
+  - /complement (response-geometry inference — different surface; complement is local closure, siren is manifold ops)
+  - archivist (typed-record persistence — archivist is downstream; siren is the live operational store)
+
+  ARGS:
+    stance: dispatch
+    off_envelope: ask
+    # off_envelope rationale: /siren is the signal manifold operational surface.
+    # Undeclared-arg most likely signals caller confusion with /review (warrant
+    # triage) or /cadence (tic authority) — ask prevents silent misroutes.
+    core_dispatch_rays:
+      - ""                   → status (dashboard)
+      - "tick"               → advance volume accrual and decay
+      - "emit"               → create new signal (kind/band/subsystem/message)
+      - "update"             → signal state transition (signal_id + status)
+      - "history"            → resolved/dismissed view
+      - "conformation"       → tic-boundary snapshot
+      - "conformation diff"  → diff two snapshots
+    secondary_modulation_axes:
+      - scope: all | active | warrants-only
+      - target_actor: interactive_orchestrator | <role>
 user-invocable: true
 ---
 
