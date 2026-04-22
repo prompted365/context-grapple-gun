@@ -414,6 +414,27 @@ def scan_and_enrich(project_dir, dry_run=False, quiet=False):
         all_evidence.extend(gather_target_absence(cpr, project_dir))
 
         if not all_evidence:
+            # Record scan metadata even with zero evidence — the prior silent
+            # skip hid genuine zero-evidence state (missing source_date,
+            # subsystem config absent) as indistinguishable from "not scanned."
+            # Confidence scoring remains unchanged; only audit trail is added.
+            missing = [
+                f for f in ("source", "source_date", "subsystem",
+                            "recommended_scopes", "lesson")
+                if not cpr.get(f)
+            ]
+            reason = (
+                f"no gatherer produced evidence (missing: {', '.join(missing)})"
+                if missing else "no gatherer produced evidence"
+            )
+            updated_entry = {**cpr}
+            updated_entry["enrichment_scanned_at"] = now
+            updated_entry["enrichment_scan_count"] = cpr.get("enrichment_scan_count", 0) + 1
+            updated_entry["no_evidence_reason"] = reason
+            entries_to_append.append(updated_entry)
+            updated_count += 1
+            if not quiet:
+                print(f"  {cpr_id}: 0 evidence ({reason})")
             continue
 
         existing_enrichment = cpr.get("enrichment", [])
@@ -438,6 +459,7 @@ def scan_and_enrich(project_dir, dry_run=False, quiet=False):
         updated_entry["enrichment_confidence"] = round(
             compute_enrichment_confidence(merged_enrichment), 4
         )
+        updated_entry.pop("no_evidence_reason", None)
 
         entries_to_append.append(updated_entry)
         updated_count += 1
