@@ -1,6 +1,61 @@
 ---
 name: init-governance
-description: Bootstrap or repair CGG governance surfaces in a project. Creates .ticzone, audit directories, installs runtime (skills, agents, hooks), validates sync.
+description: |
+  Bootstrap or repair CGG governance surfaces in a project. Creates .ticzone, audit directories, installs runtime (skills, agents, hooks), validates sync.
+
+  CENTROID:
+  governance surface bootstrap and runtime sync authority
+
+  IS:
+  - zone configuration creation (.ticzone, .ticignore, audit-logs tree)
+  - runtime surface install from canonical source under user or project scope
+  - sync validation and drift repair across installed vs canonical copies
+  - convention block and hook registration into scope-appropriate settings
+
+  IS NOT:
+    collapse_zones:
+      - user content overwriter (never replaces CLAUDE.md/MEMORY.md/.ticzone content)
+      - governance judgment (installs surfaces; never evaluates them)
+      - enterprise policy override (managed policy has highest precedence and is respected)
+      - runtime author (copies canonical as truth; never invents install content)
+      - cadence participant (surface creator, not tic emitter — `--tic` is opt-in bootstrap only)
+    sibling_overlaps:
+      - /statusline (statusline install writes settings; init-governance orchestrates the broader install)
+      - /cadence (tic authority — init-governance creates the zone; cadence ticks inside it)
+      - runtime-sync.py (mechanical post-install parity check)
+
+  WHEN:
+  - on fresh project bootstrap where no .ticzone exists
+  - when canonical-vs-installed drift is suspected and a resync pass is needed
+  - when a new scope (user or project) requires runtime surface install
+  - when a rung marker or initial tic needs to be stamped at zone root
+
+  NOT WHEN:
+  - when installed surfaces already hash-match canonical (no work to do)
+  - inside an enterprise managed-policy environment where installs are administrator-controlled
+  - mid-session when the federation is not at a boundary capable of absorbing install output
+
+  RELATES TO:
+  - /statusline (scoped install — statusline installs a single display script; init-governance installs the whole runtime)
+  - /cadence (tic authority — init-governance lays the surfaces cadence writes into)
+  - runtime-sync.py (mechanical parity — init-governance is the governed install gate; runtime-sync is the ongoing parity probe)
+
+  ARGS:
+    stance: dispatch
+    off_envelope: ask
+    # off_envelope rationale: /init-governance mutates installed runtime and
+    # writes settings. An undeclared flag could land in the wrong scope,
+    # trigger unintended overwrite, or misbind a rung marker — ask is required.
+    core_dispatch_rays:
+      - ""                                 → fresh install or repair under user scope (default)
+      - "--dry-run"                        → report planned actions without writing
+      - "--scope user"                     → install runtime into ~/.claude/
+      - "--scope project"                  → install runtime into $ZONE_ROOT/.claude/
+      - "--tic"                            → stamp initial tic after install
+      - "--rung domain|estate|federation"  → stamp rung marker at zone root
+      - "--target <subdir>"                → override runtime install directory
+    secondary_modulation_axes:
+      - interactivity: headless | interactive
 user-invocable: true
 ---
 

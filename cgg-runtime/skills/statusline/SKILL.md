@@ -1,6 +1,58 @@
 ---
 name: statusline
-description: Configure the CGG acoustic statusline — a read-only conformation radar with soft-toggle modes (OFF/LITE/FULL).
+description: |
+  Configure the CGG acoustic statusline — a read-only conformation radar with soft-toggle modes (OFF/LITE/FULL).
+
+  CENTROID:
+  read-only observability configuration surface for ambient conformation display
+
+  IS:
+  - statusline script install and uninstall under user or project scope
+  - mode toggle across OFF | LITE | FULL
+  - cache clear and current-configuration inspection
+
+  IS NOT:
+    collapse_zones:
+      - governance runtime (never emits signals, advances tics, or mints warrants)
+      - truth reconstructor (never scans raw JSONL ledgers for state inference)
+      - cadence participant (statusline observes; cadence writes)
+      - CogPR extractor (never captures lessons from display context)
+      - summary author (reads conformation snapshots; never produces them)
+    sibling_overlaps:
+      - /governance-check (same read axis — poll-triggered instead of ambient)
+      - /init-governance (runtime surface installer)
+      - conformation write path (produces the summaries statusline consumes)
+
+  WHEN:
+  - after /init-governance when conformation surface exists and ambient radar is desired
+  - when statusline mode needs toggling between OFF / LITE / FULL
+  - when verifying current statusline configuration or clearing its cache
+
+  NOT WHEN:
+  - as a source of truth for governance decisions (reads summaries — never authoritative)
+  - inside an enterprise managed-policy environment where statusLine is administrator-pinned
+  - during /cadence or /review (mutation surfaces; statusline is pure observability)
+
+  RELATES TO:
+  - /governance-check (both observability — statusline is ambient, governance-check is on-demand poll)
+  - /init-governance (bootstrap — init-governance sets up the surfaces statusline reads)
+  - /cadence (statusline consumes conformation; cadence helps produce it)
+
+  ARGS:
+    stance: dispatch
+    off_envelope: ask
+    # off_envelope rationale: /statusline mutates settings files under `install`
+    # and toggles per-project state. An undeclared sub-command could land in
+    # the wrong scope or write unintended global config — ask prevents misfire.
+    core_dispatch_rays:
+      - ""                   → show current configuration
+      - "install"            → install into project-local settings
+      - "install --global"   → install into ~/.claude/settings.json
+      - "uninstall"          → remove from scope-appropriate settings
+      - "mode OFF|LITE|FULL" → toggle display mode
+      - "clear"              → delete per-project cache files
+    secondary_modulation_axes:
+      - scope: project | global
 user-invocable: true
 ---
 
