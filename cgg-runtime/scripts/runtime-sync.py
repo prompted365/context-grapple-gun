@@ -781,6 +781,119 @@ def cmd_sync(surfaces, zone_root, plugin_root, commit_sha=None, commit_msg=None)
     return post_results
 
 
+def resolve_drift_signals_on_sync(zone_root, synced_surface_names, commit_sha=None):
+    """Close active detected_drift signals whose surface-set is a subset of the synced set.
+
+    Machine-emission lifecycle closure: runtime-sync emits drift signals on detection
+    via emit_drift_signal, but without a resolution write-back path, signals remain
+    `active` in the manifold after their underlying drift has been reconciled. This
+    function walks today's JSONL and the active-manifest, finds any active drift
+    signal whose payload.surfaces is a subset of the just-synced surface names, and
+    appends a `status: resolved` entry with resolved_reason=auto-sync.
+
+    Evidence-based resolution — no human gate required. Append-only writes; latest
+    entry per signal ID wins.
+    """
+    if not synced_surface_names:
+        return []
+
+    al_path = find_audit_logs(zone_root)
+    if not al_path:
+        return []
+
+    signal_dir = os.path.join(al_path, "signals")
+    if not os.path.isdir(signal_dir):
+        return []
+
+    now = datetime.now(timezone.utc)
+    date_str = now.strftime("%Y-%m-%d")
+    signal_file = os.path.join(signal_dir, f"{date_str}.jsonl")
+    manifest_path = os.path.join(signal_dir, "active-manifest.jsonl")
+
+    synced_set = set(synced_surface_names)
+
+    latest_state = {}
+    for path in (signal_file, manifest_path):
+        if not os.path.isfile(path):
+            continue
+        try:
+            with open(path, "r", encoding="utf-8") as f:
+                for line in f:
+                    line = line.strip()
+                    if not line:
+                        continue
+                    try:
+                        entry = json.loads(line)
+                    except json.JSONDecodeError:
+                        continue
+                    sid = entry.get("id") or entry.get("signal_id")
+                    if not sid or not sid.startswith("sig_"):
+                        continue
+                    latest_state[sid] = entry
+        except (OSError, IOError):
+            continue
+
+    resolved_ids = []
+    for sid, entry in latest_state.items():
+        if entry.get("status") != "active":
+            continue
+        payload = entry.get("payload") or {}
+        if payload.get("severity") != "detected_drift":
+            continue
+        entry_surfaces = set(payload.get("surfaces") or [])
+        if not entry_surfaces or not entry_surfaces.issubset(synced_set):
+            continue
+
+        resolution_note = (
+            f"auto-sync reconciled all {len(entry_surfaces)} surfaces to parity "
+            f"at commit {commit_sha[:8] if commit_sha else 'HEAD'}"
+        )
+        resolved_entry = dict(entry)
+        resolved_entry["status"] = "resolved"
+        resolved_entry["resolved_at"] = now.isoformat()
+        resolved_entry["resolved_by"] = "runtime-sync.py:cmd_auto_sync"
+        resolved_entry["resolved_reason"] = "auto-sync"
+        resolved_entry["resolution_note"] = resolution_note
+        if commit_sha:
+            resolved_entry["resolved_commit"] = commit_sha
+
+        try:
+            from lib.atomic_append import atomic_append_jsonl
+            atomic_append_jsonl(str(signal_file), resolved_entry)
+        except ImportError:
+            import fcntl
+            lockfile = str(signal_file) + ".lock"
+            with open(lockfile, "w") as lf:
+                fcntl.flock(lf.fileno(), fcntl.LOCK_EX)
+                try:
+                    with open(signal_file, "a", encoding="utf-8") as f:
+                        f.write(json.dumps(resolved_entry, separators=(",", ":")) + "\n")
+                finally:
+                    fcntl.flock(lf.fileno(), fcntl.LOCK_UN)
+
+        manifest_entry = {
+            "signal_id": sid,
+            "kind": resolved_entry.get("kind", "TENSION"),
+            "band": resolved_entry.get("band", "COGNITIVE"),
+            "status": "resolved",
+            "volume": resolved_entry.get("volume"),
+            "source_file": os.path.relpath(signal_file, os.path.dirname(al_path)),
+            "summary": payload.get("summary", ""),
+            "resolved_tic": None,
+            "resolution": resolution_note,
+        }
+        try:
+            from lib.atomic_append import atomic_append_jsonl
+            atomic_append_jsonl(str(manifest_path), manifest_entry)
+        except ImportError:
+            with open(manifest_path, "a", encoding="utf-8") as mf:
+                mf.write(json.dumps(manifest_entry, separators=(",", ":")) + "\n")
+
+        resolved_ids.append(sid)
+
+    return resolved_ids
+
+
 def cmd_auto_sync(surfaces, zone_root, plugin_root, commit_sha=None):
     """Post-commit auto-sync: discover, compare, selectively sync, log.
 
@@ -789,7 +902,8 @@ def cmd_auto_sync(surfaces, zone_root, plugin_root, commit_sha=None):
     2. Compares canonical vs installed
     3. Syncs only changed/new surfaces
     4. Logs the sync event with commit pointer
-    5. Prints a compact summary for hook output
+    5. Closes active drift signals whose surfaces are now in parity
+    6. Prints a compact summary for hook output
     """
     if not commit_sha and plugin_root:
         commit_sha, commit_msg = get_current_commit(plugin_root)
@@ -802,6 +916,10 @@ def cmd_auto_sync(surfaces, zone_root, plugin_root, commit_sha=None):
 
     if not needs_sync:
         print(f"[CGG-SYNC] All {synced_count} surfaces in sync @ {commit_sha[:8] if commit_sha else 'HEAD'}")
+        all_surface_names = [r["name"] for r in results if r["status"] == "synced"]
+        resolved_ids = resolve_drift_signals_on_sync(zone_root, all_surface_names, commit_sha)
+        if resolved_ids:
+            print(f"[CGG-SYNC] Closed {len(resolved_ids)} stale drift signals: {', '.join(resolved_ids)}")
         return results
 
     # Sync and log
@@ -821,6 +939,13 @@ def cmd_auto_sync(surfaces, zone_root, plugin_root, commit_sha=None):
     if synced_items:
         write_sync_log(zone_root, plugin_root, synced_items, commit_sha, commit_msg)
 
+    # Close drift signals whose surfaces just reached parity
+    parity_surface_names = (
+        [r["name"] for r in synced_items]
+        + [r["name"] for r in results if r["status"] == "synced"]
+    )
+    resolved_ids = resolve_drift_signals_on_sync(zone_root, parity_surface_names, commit_sha)
+
     # Compact summary for hook output
     new_surfaces = [r for r in needs_sync if r["status"] == "missing_installed"]
     updated_surfaces = [r for r in needs_sync if r["status"] == "drifted"]
@@ -832,6 +957,8 @@ def cmd_auto_sync(surfaces, zone_root, plugin_root, commit_sha=None):
     summary = ", ".join(parts)
     names = [r["name"] for r in synced_items]
     print(f"[CGG-SYNC] {summary}: {', '.join(names)} @ {commit_sha[:8] if commit_sha else 'HEAD'}")
+    if resolved_ids:
+        print(f"[CGG-SYNC] Closed {len(resolved_ids)} stale drift signals: {', '.join(resolved_ids)}")
 
     return results
 
