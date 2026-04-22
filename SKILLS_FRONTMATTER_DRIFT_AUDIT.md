@@ -195,6 +195,20 @@ description: |
 
 ---
 
+## 5a. Compatibility Note — Sections 4 and 5 (tic-164)
+
+**Status as of tic-164:** Sections 4 and 5 above are the *proposal record* for the duality-lane description schema. They remain authoritative as historical reference and rationale.
+
+**Authoritative shape going forward:** The canonical v2.1 schema, three-tier stratification, field definitions, worked `/cadence` example, authority path, failure modes, rollback procedure, and substrate deferral section now live in:
+
+> `canonical_developer/context-grapple-gun/AUTHORING_CONVENTION.md`
+
+`AUTHORING_CONVENTION.md` supersedes Sections 4 and 5 as the normative specification for skill frontmatter authoring. When authoring or auditing skill frontmatter, consult `AUTHORING_CONVENTION.md` as the single source of truth. Sections 4 and 5 here are preserved for lineage context only — do not use them to resolve schema questions.
+
+**Pilot status:** `/cadence` is the first skill to adopt the v2.1 convention (PILOT APPLIED, tic-164, Run 2, Agent β). The `/cadence` `SKILL.md` frontmatter now carries the full v2.1 shape including `CENTROID`, `IS`, `IS NOT` (with `collapse_zones` and `sibling_overlaps`), `WHEN`, `NOT WHEN`, `RELATES TO`, and `ARGS` (with `core_dispatch_rays` and `secondary_modulation_axes`). The drift risk table in Section 1 for the `cadence` entry retains its historical HIGH classification; its drift status post-pilot is governed by the ladder auditor via `AUTHORING_CONVENTION.md` audit phases.
+
+---
+
 ## 6. Recommended Next Actions
 
 Ordered by leverage.

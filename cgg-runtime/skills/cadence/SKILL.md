@@ -1,6 +1,51 @@
 ---
 name: cadence
-description: Session epoch boundary — emits canonical tic, captures lessons, writes handoff. Default is downbeat; use "double-time" for emergency syncopate.
+description: |
+  Session epoch boundary event — emits canonical tic, captures lessons, writes handoff.
+
+  CENTROID:
+  session epoch boundary event
+
+  IS:
+  - the ONE place the handoff is written; the clock of the governance system
+
+  IS NOT:
+    collapse_zones:
+      - memory write
+      - signal emitter
+      - CogPR extractor
+      - Mogul spawner
+      - inline governance mutation
+    sibling_overlaps:
+      - /review worker
+      - /siren ticker
+      - chore executor
+
+  WHEN:
+  - once per tic at session end
+  - on mid-session epoch boundaries when posture shifts materially
+
+  NOT WHEN:
+  - during chores (chores are appetizer, real work happens alongside)
+  - after single-step edits
+  - when the active plan already covers the thread
+
+  RELATES TO:
+  - /review (governance judgment — not a /review worker; /cadence is the clock, /review is the judge)
+  - /siren (signal ops — not a /siren ticker; /cadence writes, /siren classifies)
+  - Mogul mandate (cadence writes, Mogul consumes)
+
+  ARGS:
+    stance: dispatch
+    off_envelope: ask
+    # off_envelope rationale: /cadence is load-bearing; an undeclared arg may indicate
+    # a caller who is confused about skill identity — ask prevents silent misfires.
+    core_dispatch_rays:
+      - ""           → downbeat (full session hygiene)
+      - "double-time" → syncopate (≤5% context emergency variant)
+    secondary_modulation_axes:
+      - detail: normal | high
+      - emphasis: governance | production | projection
 user-invocable: true
 ---
 
