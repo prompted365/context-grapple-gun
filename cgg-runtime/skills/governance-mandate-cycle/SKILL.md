@@ -1,6 +1,63 @@
 ---
 name: governance-mandate-cycle
-description: "Execute pending Mogul governance mandate using the mandate-pattern-triangulation team. Spawns Mogul as background agent to consume mandate cycles."
+description: |
+  Execute pending Mogul governance mandate using the mandate-pattern-triangulation team. Spawns Mogul as background agent to consume mandate cycles.
+
+  CENTROID:
+  Mogul mandate execution interface
+
+  IS:
+  - foreground mandate dispatch (wraps Mogul spawning with mandate context)
+  - status-check surface for current mandate
+  - explicit-deferral surface (skip with reason)
+  - blocking/non-blocking execution control
+
+  IS NOT:
+    collapse_zones:
+      - mandate author (cadence writes mandates; this skill consumes them)
+      - governance judgment (Mogul produces disposition; /review promotes pattern candidates)
+      - autonomous mandate runner (activation fabric runs at SessionStart; this skill is the manual trigger)
+      - doctrine modifier (Mogul is read-only on CLAUDE.md/MEMORY.md by design)
+      - team-topology authority (mandate-pattern-triangulation is referenced here but owned by Mogul)
+    sibling_overlaps:
+      - /cadence (mandate authoring side)
+      - /review (constitutional judgment)
+      - Mogul agent (the thing this skill dispatches)
+
+  WHEN:
+  - when a pending mandate exists and was not auto-consumed at SessionStart
+  - when a blocking (synchronous) mandate run is operationally required
+  - when status inspection without execution is needed
+  - when the operator explicitly defers the current mandate with rationale
+  - on explicit operator invocation
+
+  NOT WHEN:
+  - when the mandate is already `started` or `completed`
+  - when no pending mandate exists
+  - during /cadence (cadence writes the mandate; this skill consumes — same boundary cannot do both)
+  - when the activation fabric has already dispatched in background (check status first)
+
+  RELATES TO:
+  - /cadence (mandate authoring — cadence writes; this skill consumes; distinct boundaries)
+  - /review (constitutional judgment — Mogul produces disposition; review inscribes pattern candidates)
+  - Mogul agent (execution vehicle — this skill is the dispatcher; Mogul is the worker)
+
+  ARGS:
+    stance: dispatch
+    off_envelope: ask
+    # off_envelope rationale: /governance-mandate-cycle routes to dispatch,
+    # status-check, or defer — three distinct operations. Undeclared-arg may
+    # indicate caller confused between this skill and /cadence (which writes
+    # mandates, not consumes them) — ask prevents silent misroutes.
+    core_dispatch_rays:
+      - ""            → execute current mandate (background, non-blocking)
+      - "--blocking"  → execute and wait for completion
+      - "--status"    → report current mandate state without executing
+      - "--skip"      → explicitly defer with reason
+    secondary_modulation_axes:
+      - team_topology: mandate-pattern-triangulation | <other>
+      - depth_profile: verification | active | hazard | post-review
+      - output_location: default | <path>
 user-invocable: true
 ---
 

@@ -1,6 +1,64 @@
 ---
 name: swarm
-description: "Orchestrate governed parallel agent work. Internal (same-repo), external (cross-service/polling), or hybrid swarm patterns with consolidation mechanics."
+description: |
+  Orchestrate governed parallel agent work. Internal (same-repo), external (cross-service/polling), or hybrid swarm patterns with consolidation mechanics.
+
+  CENTROID:
+  parallel deliverable orchestration with governed consolidation
+
+  IS:
+  - internal swarm (same-repo agents, shared context, artifact consolidation)
+  - external swarm (cross-service, polling-based, async completion)
+  - hybrid swarm (internal agents + external polling + inbox consolidation)
+  - dependency-gated task DAG execution (blocked_by lists)
+
+  IS NOT:
+    collapse_zones:
+      - adversarial reasoning (use /stage — arenas produce governance pressure; swarm produces deliverables)
+      - single-agent wrapper (swarm implies ≥2 parallel agents with consolidation)
+      - autonomous consolidator (lead holds consolidation authority; agents do not merge)
+      - scope mutator (swarm coordinates work; does not promote, inscribe, or cross governance boundaries)
+      - silent dispatch (every swarm writes a spec YAML before execution)
+    sibling_overlaps:
+      - /stage (governed reasoning orchestration)
+      - /loop (polling primitive used inside external/hybrid swarm)
+      - /review (constitutional judgment)
+
+  WHEN:
+  - when work can genuinely run in parallel (no strict sequencing across the whole)
+  - when multiple file/module/service surfaces must be touched together
+  - when cross-repo or external-service coordination requires async consolidation
+  - on explicit operator invocation
+
+  NOT WHEN:
+  - for adversarial reasoning (use /stage)
+  - for single-agent work (overhead exceeds benefit)
+  - mid-arena (arena has its own phase execution; swarming inside an arena double-orchestrates)
+  - when the workload is sequential by nature (each step depends on the prior result)
+
+  RELATES TO:
+  - /stage (orchestration — stage runs adversarial reasoning; swarm runs parallel deliverables)
+  - /loop (polling — external/hybrid swarms use /loop for external-completion polling)
+  - /review (constitutional judgment — swarm produces artifacts; review evaluates any surface claiming promotion)
+
+  ARGS:
+    stance: dispatch
+    off_envelope: ask
+    # off_envelope rationale: /swarm has three distinct patterns (internal/external/
+    # hybrid) with very different execution mechanics. Undeclared-arg may indicate
+    # caller confused between /swarm patterns or between /swarm and /stage —
+    # ask prevents silent misroutes.
+    core_dispatch_rays:
+      - ""          → interactive (describe work, infer pattern)
+      - "internal"  → same-repo parallel agents with shared task list
+      - "external"  → cross-service with polling-based consolidation
+      - "hybrid"    → internal agents + external polling + inbox consolidation
+      - "--plan"    → generate swarm spec without executing
+      - "--spec"    → resume from existing swarm spec
+    secondary_modulation_axes:
+      - consolidation_mode: artifact | return-value | inbox
+      - dependency_style: dag | linear | free
+      - polling_interval: <duration>
 user-invocable: true
 ---
 

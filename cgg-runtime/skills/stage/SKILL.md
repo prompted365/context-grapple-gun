@@ -1,6 +1,64 @@
 ---
 name: stage
-description: "Orchestrate governed reasoning arenas. Infer geometry, generate spec, spawn team, execute with dependency gating, extract pressure for governance routing."
+description: |
+  Orchestrate governed reasoning arenas. Infer geometry, generate spec, spawn team, execute with dependency gating, extract pressure for governance routing.
+
+  CENTROID:
+  governed reasoning arena orchestration
+
+  IS:
+  - arena geometry inference (dyadic, triangulation, tournament-lattice, CRX, VPL, OA-VPL-T)
+  - show spec generation (YAML: agents, positions, capture policy, pressure path)
+  - team spawning with dependency-gated phase execution
+  - pressure extraction and routing to governance surfaces
+
+  IS NOT:
+    collapse_zones:
+      - doctrine judgment (arenas produce CogPRs and signals; /review judges them — stage does not promote)
+      - deliverable orchestrator (stage spawns reasoning agents; /swarm spawns deliverable agents)
+      - ambient signal emitter (stage emits arena-scoped pressure; /siren emits ambient signals)
+      - human-gated review surface (arenas produce governance input; the human gate is /review)
+      - autonomous arena closer (arenas close on phase completion, not author discretion)
+    sibling_overlaps:
+      - /swarm (parallel orchestration)
+      - /review (constitutional judgment)
+      - pattern mining (cross-surface analysis)
+
+  WHEN:
+  - when a decision has ≥2 distinct positions requiring adversarial examination
+  - when ambient reasoning is insufficient and governance input requires structured pressure
+  - when arena geometry is known or can be inferred from decision space
+  - on explicit operator invocation
+
+  NOT WHEN:
+  - for parallel deliverable work (use /swarm — adversarial vs coordinated orchestration)
+  - for decisions with <2 distinct positions (no pressure to extract)
+  - for work already committed to a single approach (arena would be theater)
+  - mid-implementation when the arena's pressure cannot be routed back to an open surface
+
+  RELATES TO:
+  - /swarm (orchestration — swarm is parallel deliverable; stage is adversarial reasoning)
+  - /review (constitutional judgment — stage produces CogPRs and signals; review promotes them)
+  - pattern mining (cross-surface — pattern mining scans populations; stage produces per-arena pressure)
+
+  ARGS:
+    stance: mixed
+    off_envelope: ask
+    # off_envelope rationale: /stage has ray ambiguity (interactive vs --decision
+    # vs --spec resume vs --template vs --mode). Undeclared-arg may indicate
+    # caller confused between /stage (reasoning arena) and /swarm (parallel
+    # delivery) — ask prevents silent misroutes into the wrong orchestration.
+    core_dispatch_rays:
+      - ""            → interactive (ask decision + positions, infer geometry)
+      - "--decision"  → direct mode (skip interactive prompt)
+      - "--spec"      → resume or inspect existing show spec
+      - "--template"  → override geometry inference
+      - "--mode"      → arena mode (operational | experimental)
+      - "--dry-run"   → generate spec without spawning team
+    secondary_modulation_axes:
+      - template: tri | lattice | crx | vpl | oa-vpl-t
+      - mode: operational | experimental
+      - positions: 2 | 3 | 4 | 5 | 6 | 7
 user-invocable: true
 ---
 
