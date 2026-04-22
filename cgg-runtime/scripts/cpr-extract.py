@@ -128,8 +128,12 @@ def load_existing_hashes(queue_file):
     return hashes
 
 
-def find_governance_files(project_dir, excludes):
-    """Find CLAUDE.md and MEMORY.md files, respecting .ticignore."""
+def find_governance_files(project_dir, excludes, plan_file=None):
+    """Find CLAUDE.md and MEMORY.md files, respecting .ticignore.
+
+    If plan_file is given, append that single plan file to the scan set —
+    scope is the ACTIVE plan only (caller is responsible for selecting it).
+    """
     gov_files = []
     for name in ["CLAUDE.md", "MEMORY.md"]:
         for f in Path(project_dir).rglob(name):
@@ -149,6 +153,13 @@ def find_governance_files(project_dir, excludes):
         # Avoid double-counting if auto_memory is somehow also in project_dir
         if auto_memory not in gov_files:
             gov_files.append(auto_memory)
+
+    # Active plan file (optional) — caller-selected via session-restore.sh's
+    # LATEST_PLAN discovery. Never scans the whole plans directory.
+    if plan_file:
+        p = Path(plan_file)
+        if p.is_file() and p not in gov_files:
+            gov_files.append(p)
 
     return gov_files
 
@@ -175,7 +186,7 @@ def get_tic_count(project_dir):
     return tic_count
 
 
-def extract_cprs(project_dir, dry_run=False):
+def extract_cprs(project_dir, dry_run=False, plan_file=None):
     """Main extraction: scan governance files, dedup, append to queue."""
     project_dir = os.path.abspath(project_dir)
     tz_config = load_ticzone(project_dir)
@@ -183,7 +194,7 @@ def extract_cprs(project_dir, dry_run=False):
     queue_file = os.path.join(al_path, "cprs", "queue.jsonl")
     excludes = load_ticignore(project_dir)
     existing_hashes = load_existing_hashes(queue_file)
-    gov_files = find_governance_files(project_dir, excludes)
+    gov_files = find_governance_files(project_dir, excludes, plan_file=plan_file)
     tic_count = get_tic_count(project_dir)
     topo = birth_topology(project_dir)
     now = datetime.now(timezone.utc).isoformat()
@@ -274,12 +285,22 @@ def main():
         "--project-dir",
         default=None,
     )
+    parser.add_argument(
+        "--plan-file",
+        default=None,
+        help="Optional absolute path to the active plan file (single file). "
+             "Session-restore.sh selects this via LATEST_PLAN discovery.",
+    )
     parser.add_argument("--dry-run", action="store_true")
     parser.add_argument("--verbose", action="store_true")
     args = parser.parse_args()
 
     project_dir = args.project_dir or resolve_zone_root()
-    new_entries = extract_cprs(project_dir, dry_run=args.dry_run)
+    new_entries = extract_cprs(
+        project_dir,
+        dry_run=args.dry_run,
+        plan_file=args.plan_file,
+    )
 
     if args.verbose:
         for e in new_entries:

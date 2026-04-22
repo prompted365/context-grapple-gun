@@ -118,13 +118,23 @@ fi
 # CogPR counting: inline blocks + queue.jsonl
 # ============================================================================
 
-# Block-aware CogPR counter for inline <!-- --agnostic-candidate --> blocks
+# Block-aware CogPR counter for inline <!-- --agnostic-candidate --> blocks.
+# Tolerates quoted and unquoted status values — authoring variance is real
+# and a silent undercount blinds the gate that triggers cpr-extract.py.
 count_pending_cprs() {
   awk '
+    function status_val(s,   v) {
+      v = s
+      sub(/.*status:[[:space:]]*/, "", v)
+      gsub(/["'\''[:space:]]/, "", v)
+      return v
+    }
     /<!-- --agnostic-candidate/ { in_block=1; pending=0; example=0 }
-    in_block && /status:[[:space:]]*"pending"/ { pending=1 }
-    in_block && /status:[[:space:]]*"enrichment_eligible"/ { pending=1 }
-    in_block && /status:[[:space:]]*"example"/ { example=1 }
+    in_block && /status:/ {
+      sv = status_val($0)
+      if (sv == "pending" || sv == "enrichment_eligible") pending=1
+      if (sv == "example") example=1
+    }
     in_block && /-->/ { if (pending && !example) c++; in_block=0 }
     END { print c+0 }
   ' "$1"
@@ -157,6 +167,13 @@ MEMORY_FILE="$HOME/.claude/projects/$PROJECT_KEY/memory/MEMORY.md"
 if [ -f "$MEMORY_FILE" ]; then
   _mem_count=$(count_pending_cprs "$MEMORY_FILE")
   CPR_COUNT=$(( CPR_COUNT + _mem_count ))
+fi
+
+# Active plan file (caller-selected by LATEST_PLAN discovery above).
+# Active plan only — never scans the whole plans directory.
+if [ -n "$LATEST_PLAN" ] && [ -f "$LATEST_PLAN" ]; then
+  _plan_count=$(count_pending_cprs "$LATEST_PLAN")
+  CPR_COUNT=$(( CPR_COUNT + _plan_count ))
 fi
 
 # Queue.jsonl counting (latest-entry-per-ID, non-terminal statuses)
@@ -204,7 +221,11 @@ resolve_script() {
 
 CPR_EXTRACT=$(resolve_script "cpr-extract.py")
 if [ -n "$CPR_EXTRACT" ] && [ "$TOTAL_CPRS" -gt 0 ]; then
-  python3 "$CPR_EXTRACT" --project-dir "$PROJECT_DIR" 2>/dev/null || true
+  if [ -n "$LATEST_PLAN" ] && [ -f "$LATEST_PLAN" ]; then
+    python3 "$CPR_EXTRACT" --project-dir "$PROJECT_DIR" --plan-file "$LATEST_PLAN" 2>/dev/null || true
+  else
+    python3 "$CPR_EXTRACT" --project-dir "$PROJECT_DIR" 2>/dev/null || true
+  fi
 fi
 
 # ============================================================================
