@@ -667,3 +667,79 @@ Morph transitions are atomic compound operations: (1) keyframes must come from d
 - **Loneliness intervention as governed bridge mechanic** — isolated nodes in proximity-based networks experience self-reinforcing isolation: no neighbors means no interactions, no interactions means no trust accumulation, no trust means no promotion, no promotion means continued isolation. The intervention is a governed bridge: a weak edge, metadata-marked with `intervention_type`, that creates opportunity for trust accumulation without bypassing the trust system. The bridge does not grant trust — it creates the conditions under which trust can be earned. The constraint is "opportunity without bypass": the bridge must emit a governance signal, carry audit metadata, and use weak-edge weight so natural interactions can strengthen or replace it. (Validated: Flint isolated 20 cycles in sector 4 — no natural interaction partners. Loneliness bridge created weak cross-sector edge at cycle 20. Flint progressed guest→tourist→foreign_delegate by cycle 23, 3 cycles post-bridge. Bridge metadata and signal preserved full audit trail.)
 
 <!-- promoted from CogPR-180 (tic 145→146). Source: session:visitor-phase1-dry-run. -->
+
+## Gate Contracts (Not Vibes)
+
+A gate is a contract surface, not a vibe or preference. Gate inputs must be explicitly declared (what goes in), outputs must be verifiable (what comes out), preconditions must be stateable (when it can run), and post-checks must be automatable (whether it succeeded). Spec-first execution with operator review gates works because the gate is a stated contract: inputs (spec text), outputs (binary proceed/halt decision), preconditions (spec authored and approved), post-checks (human review of applicability before unlock). Gates without declared contracts become vibe-based ("does this feel like a good implementation?"), producing endless renegotiation and operator cognitive overload. Pipeline phase dependencies must be structured gate contracts using this pattern.
+
+<!-- promoted from cpr_gate_contracts_not_vibes_tic150 (tic 150→167). Source: tic-164-165-166 duality-lane authoring + Run 2 execution. Evidence: gate_b2 mechanism failure (tic 165) was diagnosable only because the gate had declared contract (preserve body byte-identical); absence of declared input made "was the gate input correct?" answerable. Band: COGNITIVE. -->
+
+## Shape Fingerprint Provenance
+
+Composite shape hash `sha256(content_hash + ctime + birthtime + inode)` creates a deterministic fingerprint robust to single-axis spoofing. File content alone can be mutated without changing hash (if the mutator knows the hash). File metadata alone can be spoofed (ctime touched, birthtime forged). Inode alone can change during file operations (copy, mv with recreation). The composite prevents an adversary from controlling all four axes simultaneously without triggering visible divergence. This forms one leg of a sentinel-integrity triple with Read-Side Verification Complement and Context-Aware Severity Classification.
+
+<!-- promoted from cpr_shape_fingerprint_provenance_tic155 (tic 155→167). Source: pipeline integrity audit (tic 155). Sentinel-integrity triple cross-reference: Read-Side Verification Complement and Context-Aware Severity Classification (tic 155→167). Band: COGNITIVE. -->
+
+## Read-Side Verification Complement
+
+Append-only ledgers provide write-side integrity but without read-side chain verification a malicious or buggy reader can present out-of-order entries as canonical. Read-side verification closes the loop: chain-hash check (each line's hash includes prior line's hash), sequence number validation (entries appear in declared order), and monotonicity enforcement (no sequence number skips). This is the verification complement to JSONL Atomic Writes (CogPR-8), which addresses write-side integrity only. Read-side verification ensures the consumer sees the ledger as written, not a reshuffled or truncated version the reader chose to present.
+
+<!-- promoted from cpr_read_side_verification_complement_tic155 (tic 155→167). Source: pipeline integrity audit (tic 155). Refines JSONL Atomic Writes (CogPR-8). Sentinel-integrity triple: pairs with Shape Fingerprint Provenance and Context-Aware Severity Classification. Band: COGNITIVE. -->
+
+## Context-Aware Severity Classification
+
+Pattern-matching severity ("if path contains X then critical") produces false escalation under remediation-era state changes. A file path containing "malware" is not inherently critical if the context is "archived forensic report" or "historical threat database." Context-aware classification requires knowing: what is this file for, who owns its lifecycle, what operational state is active now. A path appearing in active infection context is critical; the same path in post-remediation archival context is informational. This reduces noise while preserving signal. Validated against tic 159 runtime_drift_check: 71 findings, 0 critical (correctly downgraded from pattern-match false positives), 16 warning, 55 info. Sentinel-integrity triple: completes the integrity verification surface with Shape Fingerprint Provenance and Read-Side Verification Complement.
+
+<!-- promoted from cpr_context_aware_severity_tic155 (tic 155→167). Source: tic-159 runtime_drift_check validation. Sentinel-integrity triple: Shape Fingerprint Provenance, Read-Side Verification Complement, Context-Aware Severity Classification. Band: COGNITIVE. -->
+
+## Inbox Triple-Source Sync
+
+Inbox archive operations must propagate across three sources of truth: (1) filesystem (WAIT/ACTIVE/DONE prefixes on files), (2) inbox-registry.json (canonical state enumeration), (3) hook-detection state (what the hooks know about). Failure to sync produces phantom state where one source disagrees with the others and hooks re-detect already-archived items as stale. The three sources can diverge silently: a file moved from WAIT to DONE (filesystem state correct), registry updated (registry state correct), but hook-detection still thinks it's WAIT because the hook fired before the registry update and cached its findings. Protection: any archive operation that modifies one source must atomically update all three. Validating archive completeness requires comparing across all three sources, not trusting any one surface.
+
+<!-- promoted from cpr_inbox_triple_source_sync_tic160 (tic 160→167). Source: inbox operations audit (tic 160). Operationalizes atomic writes principle (CogPR-8) at the multi-surface level. Band: COGNITIVE. -->
+
+## Two-Run Spec-Gate Geometry
+
+Spec-first with operator review gate between Run 1 (spec authoring) and Run 2 (execution) materially separates spec production from execution risk. Cost: extra swarm cycle + operator review budget. Benefit: spec drift is caught at review time rather than at execution time, and the spec becomes a standalone artifact operators can reference, amend, or reject without collateral damage to execution agents. This geometry is operationally distinct from Spec-First Parallel Swarm (CogPR-140): the latter is one run with the spec as scaffold; this is two runs with the spec itself as a reviewable deliverable. Once a constitutional pattern is validated at n=1 (pilot survives operator gate + first execution boundary), subsequent adopters use lighter-cadence rollout (single-pass author + verify) until the convention shows transferability stress.
+
+<!-- promoted from cpr_two_run_spec_gate_validated_tic165 (tic 164-165→167). Source: tic-164 spec swarm + tic-165 Run 2 execution. Validated geometry at 5-agent swarm scale. Band: COGNITIVE. -->
+
+## Constitutional-Office Swarm Differentiation
+
+Constitutional-office swarm agents with distinct jurisdictional lenses (Ladder Auditor/coherence, Civil Engineer/mechanics, CBUX Steward/encounter, Videographer/narrative) produce genuinely differentiated spec fragments — not just same-output-in-different-voice. Jurisdictional distance matters more than apparent topical relevance. When selecting offices for spec-writing swarms, a narrative lens on a schema question surfaces structural failures that pure governance lenses cannot see. Validated: Videographer's narrative-capture lens identified a structural tier-boundary visibility concern that all three governance-facing offices missed despite reading the same anchor inputs.
+
+<!-- promoted from cpr_constitutional_lens_differentiation_tic165 (tic 165→167). Source: tic-164 spec swarm. Refines Spec-First Parallel Swarm (CogPR-140). Band: COGNITIVE. -->
+
+## Open Question Classification (Probe-First Test)
+
+Open questions in specs classify by what resolves them: (a) operator-judgment (require human decision), (b) evidence-probe (resolvable by small filesystem or state inspection), (c) deferred (non-blocking, carry to later tic). Type (b) should not present as operator-blocking. Protection: when drafting OQs during synthesis, apply a probe-first test — can this be answered in one bash command? If yes, classify as evidence-probe and resolve inline rather than routing to operator. This prevents false-blocking pressure at review gates.
+
+<!-- promoted from cpr_oq_filesystem_probe_tic165 (tic 165→167). Source: tic-164 spec synthesis. Band: COGNITIVE. -->
+
+## Spec as Tone Exemplar
+
+When a spec also functions as the tone exemplar for downstream deliverables that will imitate it, spec-level tone discipline matters more than discipline on comparable non-exemplar specs. A spec that says "do not use metaphors in procedural sections" while itself using metaphors licenses downstream agents to do the same. Protection: apply the spec's own tone rules to the spec itself before operator review, not just to the deliverable. Cost: one surgical edit. Benefit: prevents drift of the norms the rollout is establishing.
+
+<!-- promoted from cpr_spec_as_tone_exemplar_tic165 (tic 165→167). Source: tic-164 spec swarm. Validated in practice. Band: COGNITIVE. -->
+
+## Boundary-Aware Body Extraction
+
+Spec validation gates that use hardcoded line offsets for body extraction (sed -n 'N,$p' with fixed N) break silently when the mutation being validated changes the boundary position. Protection: use boundary-aware extraction anchored on structural delimiters (awk on '---' fences, closing tag markers, etc.) rather than line-number offsets. The fragility is not sed per se — it's the implicit assumption that the mutation preserves the line position of the boundary being measured across. Any spec gate that encodes "verify content below line N" inherits this assumption.
+
+<!-- promoted from cpr_spec_gate_line_offset_fragility_tic165 (tic 165→167). Source: tic-165 Run 2 execution, spec.yaml gate_b2 mechanism failure. Band: COGNITIVE. -->
+
+## Verifier Install Path via Sync Manifest
+
+Verifier gates that diff canonical source against runtime-installed artifacts must discover the install target via the same mechanism as the syncing tool (sync-manifest.json lookup), not hardcode a parallel path assumption. Specs assuming an install path create a second source of truth that can drift from the actual sync mechanism without either side detecting the drift. Protection: any Gate-E-class parity check should resolve the install target from runtime-sync's manifest, inheriting the sync tool's canonical knowledge of where files land.
+
+<!-- promoted from cpr_verifier_install_path_via_sync_manifest_tic165 (tic 165→167). Source: tic-165 Run 2 execution, spec.yaml gate_e mechanism. Extends CogPR-37 (Runtime Sync Parity Verification) and CogPR-40 (envelope pattern). Band: COGNITIVE. -->
+
+## Lighter-Cadence Rollout Post-Validation
+
+Once a constitutional pattern is validated at n=1 (pilot survives operator gate + first execution boundary), subsequent adopters should use lighter-cadence rollout (single-pass author + verify, no two-run gate geometry) until the convention shows transferability stress. The two-run gate exists to catch mechanism bugs at the spec↔execution seam during initial constitutional bootstrapping. Once the seam is exercised under load, the cost of repeating the geometry per-adopter is operator-attention drain that returns no marginal safety value. Verification gates remain mandatory; the adversarial swarm structure does not.
+
+<!-- promoted from cpr_lighter_cadence_post_validation_tic166 (tic 166→167). Source: tic-166 Run 3 rollout (/review and /inbox adoption). Band: COGNITIVE. -->
+
+## Sentinel-Integrity Triple Summary
+
+Three validations form a coherent integrity surface: (1) Shape Fingerprint Provenance — hash composition prevents single-axis spoofing, (2) Read-Side Verification Complement — ledger reading verifies chain integrity, (3) Context-Aware Severity — classification prevents false escalation from stale paths. Applied together, they form a multi-layer detection surface. Each layer catches what the others miss: content tampering, reader manipulation, and context-blind pattern matching.
