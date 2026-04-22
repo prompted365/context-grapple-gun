@@ -1,6 +1,64 @@
 ---
 name: inbox
-description: "Inbox management for all entities with mailboxes — audit state, process unreads, draft responses, organize, and send. Any citizen or office can use this."
+description: |
+  Entity mailbox interaction surface — state audit, trigger delivery, processing progression, and hygiene for any entity with a mailbox.
+
+  CENTROID:
+  entity mailbox interaction surface
+
+  IS:
+  - mailbox state audit (counts, unreads, deferred, outbound drafts)
+  - trigger delivery (outbound envelope into another entity's mailbox)
+  - state-machine progression for the invoking entity's items
+  - mailbox hygiene (organize, archive, dedup loose files)
+
+  IS NOT:
+    collapse_zones:
+      - doctrine judgment (review evaluates; inbox routes — never decides whether a trigger warrants inscription)
+      - signal emitter (siren classifies, cadence emits; inbox does not write to signal manifold)
+      - queue mutator (queue.jsonl belongs to review pipeline; inbox must not write to it)
+      - mandate spawner (cadence writes mandates; inbox carries triggers, does not author them)
+      - autonomous read-and-respond (operator or activation fabric initiates; inbox does not act on content without invocation)
+    sibling_overlaps:
+      - /siren (signal triage)
+      - /review (constitutional judgment)
+      - archivist (typed-record persistence)
+
+  WHEN:
+  - when an entity needs to process its mailbox
+  - when delivering a trigger envelope to another entity
+  - when session-start reports inbound backlog
+  - on explicit operator invocation
+
+  NOT WHEN:
+  - during /cadence (cadence captures and emits; inbox routes; same boundary cannot do both)
+  - when the trigger is purely local, synchronous, and non-delegative (direct activation is exception-only per Trigger Routing Mandatory invariant)
+  - when the artifact belongs in queue.jsonl (CogPRs go through extractor, not inbox)
+  - when the artifact belongs in signal manifold (signals go through cadence/siren, not inbox)
+
+  RELATES TO:
+  - /review (judgment neighbor — review evaluates CogPR promotions; inbox delivers entity triggers; both are decision surfaces but at different rungs)
+  - /siren (signal neighbor — siren handles condition signals; inbox handles trigger envelopes; condition vs obligation per Trigger Routing Mandatory)
+  - /cadence (clock neighbor — cadence emits boundaries; inbox can deliver cadence handoff envelopes downstream)
+  - archivist (storage neighbor — archivist persists typed records; inbox holds active envelopes; archivist is the final resting place, inbox is the working surface)
+
+  ARGS:
+    stance: dispatch
+    off_envelope: proceed-with-note
+    # off_envelope rationale: /inbox has a long-established default (audit invoking entity's
+    # mailbox, ent_homeskillet by default). An undeclared arg most commonly means "audit me,"
+    # not caller confusion. Preserve default behavior; log undeclared-arg note for telemetry.
+    core_dispatch_rays:
+      - ""                  → full inbox audit for invoking entity
+      - "status"            → compact status summary (counts only)
+      - "<entity_id>"       → audit specific entity's inbox
+      - "process"           → interactive state-machine progression
+      - "organize"          → sort and clean inbound surface
+      - "draft <recipient>" → draft outbound message
+      - "send"              → review and send pending outbound drafts
+    secondary_modulation_axes:
+      - format: detailed | compact
+      - direction: inbound | outbound | both
 user-invocable: true
 ---
 
