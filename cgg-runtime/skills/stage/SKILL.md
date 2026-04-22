@@ -71,42 +71,85 @@ Orchestrate adversarial reasoning through governed arenas. Arenas produce high-c
 - **`/stage`** — interactive mode. Ask what the user is deciding, infer arena geometry.
 - **`/stage --decision "<statement>"`** — direct mode. Skip interactive prompt.
 - **`/stage --spec <path>`** — resume or inspect an existing show spec.
-- **`/stage --template tri|lattice`** — override geometry inference.
+- **`/stage --template tri|lattice|crx|vpl|oa-vpl-t|evidence-rebuttal|harpoon`** — override geometry inference.
 - **`/stage --mode operational|experimental`** — set arena mode (default: operational).
 - **`/stage --dry-run`** — generate spec without spawning team.
 
-## Arena Geometry Inference
+## Arena Geometry Selection
 
-Count distinct positions in the decision space:
+Geometry selection is **question-type-driven and role/office-driven**, not position-count-driven. Constitutional actors fill roles; positions materialize from their jurisdictional mandates, values, priorities, and evidence bases — not from assigned stance labels. Labels-only geometry produces theater (advocates checklist-optimize against assigned criteria); role-driven geometry produces authentic, resilient, honestly adversarial pressure.
 
-| Positions | Arena | Template |
-|-----------|-------|----------|
-| 2 | Dyadic (head-to-head) | `governed-triangulation` with 2 agents |
-| 3 | Governed Triangulation | `governed-triangulation` |
-| 4–5 | Tournament Lattice (5-agent) | `tournament-lattice` |
-| 6 | Tournament Lattice (6-agent) | `tournament-lattice` (two full triangles) |
-| 7 | Tournament Lattice (7-agent) | `tournament-lattice` (two triangles + wildcard auditor) |
-| 8+ | Error | Ask user to cluster into ≤7 positions |
+### Geometry selection by question type
 
-If the user provides fewer than 2 or more than 7 positions, ask them to adjust.
+| Question type | Geometry | Template | Actors |
+|---|---|---|---|
+| Operational decision (bounded scope, clear tradeoffs) | Governed Triangulation | `governed-triangulation` | Offices with stake in the decision (3 actors typical; 2 agents for dyadic) |
+| Constitutional question (federation shape, rights, obligations, authority) | Value-Position Lattice | `value-lattice` | Constitutional actors: Mogul, Crisis Steward, CBUX Steward, Civil Engineer, Ladder Auditor (+ wildcard chain-coherence challenger) |
+| Cross-rung / cross-jurisdictional exploration | Cross-Rung Orientation | `cross-rung-orientation` | Domain triad + meta-pair (expansion / constraint constitutional emissaries) + ecotone synthesis |
+| Office-autonomous with temporal tension | OA-VPL-T | `office-autonomous-vpl` | Offices self-derive positions from mandate (Phase 0a/0b); T0-T5 temporal modeling |
+| Hypothesis testing (coincidence / mechanism / counterfactual) | Evidence-Rebuttal (Epistemic Triangulation) | `evidence-rebuttal` | Claim advocate + evidence advocate + rebuttal/counterfactual advocate |
+| External-system adoption assessment | Governed Harpoon Triangulation | `governed-harpoon-triangulation` | PASS / NO / CATALYZE advocates |
+| Tournament across 4-7 opposing positions | Tournament Lattice | `tournament-lattice` | Bracket-isolated advocates with wildcard chain-coherence challenger |
+
+### Role / office-driven advocacy
+
+Prefer constitutional actors over generic labels whenever a question has jurisdictional stake. An actor's mandate IS its value centroid; its operational data IS its evidence base. Authenticity compounds: an actor reasoning from genuine stake produces convergence when convergence is warranted and stalemate when stalemate is warranted — not both collapsed into compliance theater.
+
+For Governed Triangulation and Tournament Lattice, actors may be offices, domain experts, or generic advocates — but if a constitutional actor has stake, prefer that actor.
+
+For VPL and OA-VPL-T, constitutional-actor framing is load-bearing. Do not substitute generic labels.
+
+### Position count is downstream
+
+Position count follows from geometry + actor selection, not the reverse. Do not pre-commit to a geometry by counting positions. Classify the question first, identify actors with jurisdictional stake, then select the geometry that fits that class. If the result yields 8+ positions, reconsider whether bracket isolation (VPL, Tournament Lattice) handles the spread.
+
+### Right-sizing — avoid default-to-max
+
+Do not default to 7-wide or 11-wide tournaments. Large-scale geometry is correct for federation-shape questions with genuinely wide opposing-constitutional-actor fields; it is not correct for design review, pattern discrepancy, ambiguity resolution, or focused problem solving. A **lean arena** (e.g., 2 actors + wildcard, or governed-triangulation with 3 actors) is often the right geometry — fast, focused, honestly adversarial, and cheap to run.
+
+Use lean arenas for:
+- targeted design or implementation decisions
+- pattern discrepancy / ambiguity resolution
+- /complement closure-inference challenges
+- /consolidate context-scope verification
+- small-scope problem solving where actors and question are clear
+
+Use wide arenas (VPL, tournament-lattice, OA-VPL-T) only when the question genuinely requires broad constitutional surface coverage. Arena cost scales nonlinearly with advocate count — lead context accumulation (per Lead Context as Binding Constraint) is the real ceiling, not advocate capability.
+
+### Actor-backed belief systems vs spec-crafted opposing values
+
+Prefer **actor-backed value divergence**: when constitutional actors have jurisdictional stake, their values naturally diverge from their mandates and evidence bases. The disagreement is organic, not framed.
+
+**Spec-crafted opposing-values geometry** (where the show spec assigns values like "completeness vs coherence vs efficiency" to generic advocates) is a fallback pattern for cases where no naturally-diverging actors are available. It works, but is susceptible to framing bias — whoever authored the spec chose which values oppose which, and that framing silently shapes advocacy.
+
+When both are available (an actor-backed geometry and a spec-crafted one), prefer the actor-backed. Reserve spec-crafted opposing-values for cases where actor stakes don't naturally pull apart on the question.
 
 ## Execution Steps
 
-### Step 1: Gather Context
+### Step 1: Classify Question and Identify Actors
 
 **Interactive mode** (no `--decision`):
 1. Ask: "What are you deciding? Describe the decision space."
-2. Ask: "What are the distinct positions or approaches being considered?"
-3. Count positions. If ambiguous, confirm with user.
+2. Classify the question type (operational / constitutional / cross-rung / office-temporal / hypothesis / harpoon / tournament).
+3. Identify jurisdictionally-relevant constitutional actors (Mogul, Crisis Steward, CBUX Steward, Civil Engineer, Ladder Auditor) when the question has federation-level stake. Prefer constitutional actors over generic labels.
+4. Confirm the geometry selection with the user. Positions will materialize from actors' mandates and evidence bases; do not pre-assign stance labels.
 
 **Direct mode** (`--decision`):
 1. Parse decision statement.
-2. Infer positions from the statement.
-3. Confirm position count with user unless `--positions N` is explicit.
+2. Classify the question type from the statement.
+3. Propose actors (constitutional preference when jurisdictional stake applies) and the matching geometry.
+4. Confirm with user unless `--template` is explicit.
 
 ### Step 2: Resolve Template
 
-1. Determine arena size from position count (see table above).
+1. Select the template directory name from the Geometry Selection table in §Arena Geometry Selection. Template names on disk:
+   - `governed-triangulation`
+   - `tournament-lattice`
+   - `cross-rung-orientation` (CRX)
+   - `value-lattice` (VPL)
+   - `office-autonomous-vpl` (OA-VPL-T)
+   - `evidence-rebuttal`
+   - `governed-harpoon-triangulation`
 2. Locate template directory:
    - Search `$CGG_PLUGIN_ROOT/stage/templates/arenas/<template>/`
    - Fallback: `$ZONE_ROOT/stage/templates/arenas/<template>/`
@@ -316,14 +359,19 @@ The report pipeline is archivist-envelope-compliant:
 
 ## Critical Invariants
 
-1. **No skipping phases** — enforced at agent spawn via task blockers
-2. **Lead stays neutral** — orchestrator, not advocate
-3. **Synthesis waits for all rebuttals** — dependency gating
-4. **Pressure extraction is mandatory** — arena incomplete without it
-5. **Governance mutation is human-gated** — all routing to `/review`, no auto-update to CLAUDE.md
-6. **Convergent discoveries are high-confidence signal** — independently discovered by opposed agents
-7. **Experimental mode blocks subject lessons** — only process/meta lessons route to governance
-8. **Arena registry is append-only** — audit trail
+1. **Role/office-driven, not position-assigned** — positions materialize from actors' jurisdictional mandates, values, priorities, and evidence bases. Generic label-assigned positions produce theater (checklist-optimization against assigned criteria); role-driven positions produce authentic, resilient, honestly adversarial pressure. Constitutional actors (Mogul, Crisis Steward, CBUX Steward, Civil Engineer, Ladder Auditor) have natural value centroids from their mandates and natural evidence bases from operational data — prefer them whenever jurisdictional stake applies.
+2. **Actor-backed belief systems over spec-crafted opposing values** — prefer naturally-diverging actor values over spec-assigned opposing-value labels. Spec-crafted opposing-values geometry works but carries framing bias from the spec author. Use it only when no naturally-diverging actors are available for the question.
+3. **Question-type-driven geometry selection** — classify the question first (operational / constitutional / cross-rung / office-temporal / hypothesis / harpoon / tournament), then pick the geometry that fits. Position count is downstream of geometry + actor selection, never the primary axis.
+4. **Right-sized arenas — avoid default-to-max** — do not default to 7-wide or 11-wide tournaments. Lean arenas (2 + wildcard, governed-triangulation with 3) are often the right geometry for design review, pattern discrepancy, ambiguity resolution, and focused problem solving. Reserve wide geometries for genuinely federation-surface-wide questions. Lead context is the binding constraint, not advocate capability.
+5. **No skipping phases** — enforced at agent spawn via task blockers
+6. **Lead stays neutral** — orchestrator, not advocate
+7. **Synthesis waits for all rebuttals** — dependency gating
+8. **Pressure extraction is mandatory** — arena incomplete without it
+9. **Governance mutation is human-gated** — all routing to `/review`, no auto-update to CLAUDE.md
+10. **Convergent discoveries are high-confidence signal** — independently discovered by opposed agents
+11. **Experimental mode blocks subject lessons** — only process/meta lessons route to governance
+12. **Arena registry is append-only** — audit trail
+13. **Post-hoc invariant conformation** — do not score advocate positions against invariants during their turns; score after advocacy completes. In-arena scoring collapses advocacy into checklist-optimization.
 
 ## Directory Structure
 
