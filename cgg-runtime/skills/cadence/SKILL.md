@@ -413,6 +413,18 @@ The ripple-assessor runs HEADLESS on next session start (background, non-blockin
 
 ---
 
+## Handoff Retrieval Map Section
+
+Decision briefs, meta-analyses, peer review captures — land them in the inbox envelope. The handoff must include a Retrieval Map section that teaches future-me the retrieval patterns (commands + thread_id + envelope_id) and points at the inbox as the first substrate to check, not as an afterthought.
+
+<!-- promoted from CogPR-N (tic B->R). Source: <source_file>. <additional context if present in the CogPR>. -->
+
+## Multi-Abstraction-Layer Handoff Preservation
+
+When a session produces CogPR candidates that span multiple abstraction layers, the handoff must preserve each layer distinctly. The extraction pipeline can cluster, split, or promote selectively at /review time — but it cannot reconstitute lost layering. Preservation is cheap (a few extra bullet points per candidate); collapse is irreversible. This block demonstrates its own pattern: it names the preservation rule, the authoring discipline, the anti-pattern it closes, and the meta-validation fact.
+
+<!-- promoted from CogPR-N (tic B->R). Source: <source_file>. <additional context if present in the CogPR>. -->
+
 ## Handoff Consumption Protocol
 
 When a new session receives a handoff plan (via `implement_plan` or plan-mode exit), the plan carries two distinct payloads: the **Session Projection** (what the human wants to accomplish) and the **Governance State** (what the system needs to maintain). The projection is the primary work queue; governance is the sidecar.
@@ -433,6 +445,12 @@ When a new session receives a handoff plan (via `implement_plan` or plan-mode ex
 ### Priority inversion guard
 
 If governance chores are consuming session attention at the expense of production goals for 2+ consecutive sessions, that IS a signal — the governance overhead is displacing the work the system exists to enable. Surface it as a friction signal in the handoff. The substrate exists to absorb coordination so participants experience freedom without losing coherence — if governance is the bottleneck, the substrate is failing.
+
+### Handoff Three Co-Equal Lanes
+
+When a cadence handoff carries an operator-pending decision, format the handoff's position as three co-equal lanes: (1) position, (2) rationale, (3) steelmanned opposition with multiple counter-arguments. Do NOT collapse the adversarial lane into a tiebreaker summary — preserve the tension for operator review. This extends the existing surprise-assessment invariant (CogPR on review dockets requiring honest novelty assessment) from review surfaces to handoff surfaces: the handoff is ALSO a judgment surface, and the recommendation is weaker when it silently absorbs its opposition. The adversarial lane names what the recommendation is NOT addressing — opposition 1 (scope), opposition 2 (premature inscription), opposition 3 (staging-duration as signal), opposition 4 (framing-bias of the recommender). Each must make its strongest case. Operator then decides with full access to both lanes rather than a pre-collapsed recommendation. The cost is handoff density; the benefit is epistemic honesty that survives into the next session.
+
+<!-- promoted from CogPR-N (tic B->R). Source: <source_file>. <additional context if present in the CogPR>. -->
 
 ---
 

@@ -148,6 +148,20 @@ Source-repo correctness does not imply runtime correctness. Hook-invoked scripts
 
 <!-- promoted from CogPR-65 runtime-parity finding (tic 91). Band: COGNITIVE. Source: three-layer containment — trigger manifest + registry purge + script sync. Evidence: 571 phantom signals per session, 3 sessions of failed cleanup before root cause identified. -->
 
+- **Runtime-Invokable Scripts Must Register in Sync Manifest** — any script installed to `~/.claude/` that is invoked by hooks or other runtime machinery must appear in `sync-manifest.json` with the canonical source path. Scripts absent from the manifest are orphaned at install time — they exist at runtime but sync-parity checks cannot track them, creating a silent divergence surface. If a hook calls a script not listed in the manifest, sync-verify will not re-verify that script's byte-identity post-update.
+
+<!-- promoted from cpr_biome_trust_scripts_absent_from_sync_manifest_tic170 (tic 171→172). Source: session:visitor-phase1-sync-audit. -->
+
+- **Installed-Only Orphan Files** — files present in the installed location (`~/.claude/`) but absent from both the canonical source repo and `sync-manifest.json` are structural orphans. They persist across sync cycles without re-verification or removal. Detection requires explicit diff: canonical repo + manifest contents vs. installed filesystem. A single untracked installed file can silently persist through multiple purge cycles if no removal mechanism is triggered.
+
+<!-- promoted from CogPR-185 (tic 172→172). Source: session:sync-verify-tic172. -->
+
+## Cycle-Based Windows in Mixed-Frequency Event Streams
+
+When multiple event streams operate at different frequencies (e.g., governance tics at ~1 per hour, biome cycles at 50 per minute during simulation), windows for analysis must anchor to a common reference clock and explicitly specify frequency-relative boundaries. A "last 10 cycles" query is ambiguous: last 10 tics, last 10 biome cycles, or last 10 of the slowest-clock? Use explicit window syntax: `window_type: "tic", window_size: 10, anchor_tic: 172` for federation-scoped windows. For domain-local simulation queries, declare the window against the simulation clock with explicit cycle counter boundaries. Silent frequency-mismatch produces off-by-one results in cycle-based aggregations.
+
+<!-- promoted from cpr_1c573c6a1002deba (tic 171→172). Source: session:event-stream-analysis-tic170. Band: COGNITIVE. -->
+
 ## Signal ID Determinism
 
 Signal IDs must be deterministic and condition-stable — derived from the condition being signaled (entity, state, source), not from emission timestamp or session ID. A signal for the same condition across poll cycles must resolve to the same ID so that dedup infrastructure can suppress duplicates.
@@ -588,6 +602,10 @@ When two engines share state through a registry file, the producing engine must 
 
 <!-- promoted from CogPR-178 (tic 145→146). Source: session:visitor-phase1-dry-run. -->
 
+- **Backfill After Emission-Gap Closure** — when an emission gap closes (previously missing signal generator becomes active), backfill the signal queue with synthesized entries for the gap period, keyed on the prior inferred state. Backfill entries must carry `synthesized: true` and reference the gap resolution tic. Without backfill, the gap period appears quiescent when it was actually blind, creating false confidence in the completeness of the historical signal surface.
+
+<!-- promoted from cpr_66abdac2db1ffd6c (tic 171→172). Source: session:visitor-phase1-gap-closure. -->
+
 ## Named-Is-Not-Landed Gate
 
 A complement surfaced in a prior mode but not yet materialized remains a valid complement. The structural relevance test must evaluate complement state (built vs named vs unnamed), not just recent-output presence. First calibration evidence from /complement invocation log — the gate correction shapes skill behavior by requiring materialization state assessment before declaring a complement irrelevant.
@@ -743,3 +761,81 @@ Once a constitutional pattern is validated at n=1 (pilot survives operator gate 
 ## Sentinel-Integrity Triple Summary
 
 Three validations form a coherent integrity surface: (1) Shape Fingerprint Provenance — hash composition prevents single-axis spoofing, (2) Read-Side Verification Complement — ledger reading verifies chain integrity, (3) Context-Aware Severity — classification prevents false escalation from stale paths. Applied together, they form a multi-layer detection surface. Each layer catches what the others miss: content tampering, reader manipulation, and context-blind pattern matching.
+
+## Centroid-Ray Semantic Primitive
+
+A centroid is the weighted average position of a semantic cluster in a high-dimensional space (e.g., value position, computational cost, governance scope). A ray is a direction vector from the centroid toward an edge case or boundary condition. Centroid-ray analysis decomposes complex multi-dimensional design questions into (1) where is the gravitational center of this design space? and (2) what are the critical rays we must defend against? This primitive is reusable across arena design, capability assessment, and specification synthesis. First validated in VPL arena geometry (value-position lattice) with 8 constitutional actors; generalized to agenda conflict analysis and scope boundary definitions.
+
+<!-- promoted from cpr_ec5e0bb4676a6867 (tic 171→172). Source: session:vpl-centroid-ray-formalization. Band: COGNITIVE. -->
+
+## Collapse Zone vs Sibling Overlap Distinction
+
+In multi-axis design spaces, a collapse zone is a region where multiple axes converge such that orthogonality breaks down (e.g., two previously independent variables become correlated). Sibling overlap is a region where two design entities share a boundary but maintain distinct identities. The distinction matters: collapse zones are failure modes that demand refactoring; sibling overlaps are natural boundaries that may be acceptable design interfaces. Failure to distinguish produces either over-design (treating normal overlap as catastrophic) or blindness to genuine collapse hazards.
+
+<!-- promoted from cpr_e067f0e9efb86951 (tic 171→172). Source: session:vpl-centroid-ray-formalization. Band: COGNITIVE. -->
+
+## Negative Contour Via Is-Not Clause
+
+When defining a semantic boundary (what a concept is), explicit is-not clauses often sharpen meaning better than positive definition. A data structure is NOT a service (no stateful lifecycle), is NOT a schema (no validation), is NOT a contract (no guarantee) — these negations together create a boundary that positive definitions might miss. Particularly useful when a concept is frequently confused with neighbors. Applies to spec writing, CLAUDE.md boundaries, and architecture documentation.
+
+<!-- promoted from cpr_2d42a4621f4cc4b1 (tic 171→172). Source: session:vpl-centroid-ray-formalization. Band: COGNITIVE. -->
+
+## Semantic Primitives Precede Mathematical Closure
+
+In specification design, establish semantic primitives (named concepts with boundaries) before deriving mathematical models. Attempting to derive formulas without semantic agreement produces math that is technically correct but semantically incoherent — the formula is closed but it measures the wrong thing. Order: (1) name the thing, (2) define what it is and what it is NOT, (3) identify the dimensions, (4) then derive mathematical models. Validated in VPL bracket design where semantic confusion about "value" appeared twice before term definitions were formally inscribed.
+
+<!-- promoted from cpr_9271cbb793058ebd (tic 171→172). Source: session:vpl-centroid-ray-formalization. Band: COGNITIVE. -->
+
+## Cross-Centroid Ray Recurrence Mining
+
+When the same ray (same boundary condition, same edge case) appears in multiple semantic clusters (multiple domain problems, multiple specification contexts), it becomes a general principle worth mining and naming. Recurrence is the signal that a ray is structural, not accidental. Three cross-domain instances of the same ray justifies extracting it as a reusable primitive. Applied to pattern mining and CogPR extraction: rays that recur across 3+ problem domains are federation-level doctrine candidates.
+
+<!-- promoted from cpr_705787965bf1712e (tic 171→172). Source: session:vpl-centroid-ray-formalization. Band: COGNITIVE. -->
+
+## Skill Body Is Sole Arg Parser
+
+Claude Code skill runtime does NOT enforce argument schemas declared in frontmatter `arguments:` field. The frontmatter field is documentation and CI hint, not a parser. The skill body itself is the sole argument parser — the skill code receives raw `arguments` string and must parse it according to whatever grammar the skill implements. Do not assume the runtime pre-validates or pre-parses arguments against the schema. This is a design principle, not a limitation — it lets skills implement context-aware parsing strategies that a fixed schema validator cannot support.
+
+<!-- promoted from cpr_5b4fc68a54f05b2d (tic 171→172). Source: session:skill-invocation-audit-tic170. Band: COGNITIVE. -->
+
+## Undeclared Args Classify by Projection
+
+When a skill is invoked with arguments not declared in the `arguments:` frontmatter field, those arguments appear in the skill body as part of the raw `arguments` string. The skill must classify them by projection: (1) intentional extra args that the caller knows about (call site competence signal), (2) accidental extra args from caller confusion (possible bug), (3) reserved args for future use (forward compatibility). Projection is a skill-level decision, not a runtime validation. Undeclared args are not errors unless the skill chooses to treat them as such.
+
+<!-- promoted from cpr_7e2a40d83256d618 (tic 171→172). Source: session:skill-invocation-audit-tic170. Band: COGNITIVE. -->
+
+## Arguments Frontmatter Is Decorative
+
+The `arguments:` field in skill frontmatter is decorative for governance and documentation purposes. It is NOT enforced by the runtime and does NOT restrict what callers can pass. Skills should document their expected arguments in frontmatter for clarity, but the skill body must handle the actual runtime `arguments` string with full parser responsibility. Callers are not restricted to documented arguments — undeclared args pass through silently. This design allows skills to be forward-compatible with future argument additions without runtime parser changes.
+
+<!-- promoted from cpr_6e68f18c7ca09069 (tic 171→172). Source: session:skill-invocation-audit-tic170. Band: COGNITIVE. -->
+
+## Extractor Surface Schema Contract
+
+Tools that extract governance artifacts (CogPRs, signals, bench packets) from canonical surfaces must declare their input schema contract — which files they read, what section markers they search for, what output structure they produce. Without declared contracts, extractors silently miss new surfaces or emit incomplete results when sources change. The contract is a typed specification that extractors can validate against at load time, preventing silent starvation. Extend CogPR-140 (Spec-First Parallel Swarm) to include surface contracts as part of spec commitment.
+
+<!-- promoted from cpr_5cf38169077f731d (tic 171→172). Source: session:enrichment-pipeline-audit-tic171. Band: COGNITIVE. -->
+
+## Extractor Anomaly Self-Reporting
+
+Extractors that produce zero output or anomalous counts (extreme divergence from expected range) must emit explicit diagnostic output to stderr or a dedicated anomaly log, not silence. Silent zero-output is worse than failure — it looks like success. Implement anomaly self-reporting as a fallback pathway: if output count is 0 or N times the expected range, switch to diagnostic mode and dump what was searched, what was matched, and what boundary conditions failed.
+
+<!-- promoted from cpr_1cb129067984ef9d (tic 171→172). Source: session:enrichment-pipeline-audit-tic171. Band: COGNITIVE. -->
+
+## Queue Index Status Coverage Discipline
+
+When building indexed views of the queue (e.g., build_queue_index.py), the coverage must be explicit: which status values are indexed, which are aggregated, which are ignored. Each query against the index must declare what status categories it includes. A query "how many promotions were approved this tic?" is answering a different question than "how many promotion candidates existed?" — the first counts promoted entries, the second counts promoted + deferred + pending. Index metadata must enumerate what the index covers so downstream consumers can verify they are using the correct view.
+
+<!-- promoted from cpr_915fd5c4bdfc47b0 (tic 171→172). Source: session:enrichment-pipeline-audit-tic171. Band: COGNITIVE. -->
+
+## Emitter-Surface Declaration Contract
+
+Governance surfaces that can emit artifacts (MEMORY.md, arena reports, bench packets, session transcripts, decision briefs) must declare themselves as emitter surfaces in a registry. Without a registry, artifact extractors have no way to discover new emission surfaces — they remain hardcoded to legacy surfaces. The registry entry specifies: surface location, emission frequency, output format, artifact type, status field presence. This enables the extractor to validate and adapt when new emission surfaces come online.
+
+<!-- promoted from cpr_564ecfbdb1ab6b39 (tic 171→172). Source: session:enrichment-pipeline-audit-tic171. Band: COGNITIVE. -->
+
+## Enrichment Pipeline Silent Starvation Surface
+
+When an enrichment tool is meant to run periodically (e.g., pattern mining, queue analysis) but no invocation schedule exists, the tool operates in a starvation state: dormant but not erroring. Silent starvation produces zero output without signaling that nothing ran. Prevention requires: (1) explicit schedule declaration (when should this run?), (2) invocation audit trail (did it run last time it was supposed to?), (3) staleness detection (has output aged beyond expected cadence?). Without these three, enrichment tools fail silently and queue analysis degrades across tics without anyone noticing.
+
+<!-- promoted from cpr_c1b5aaf9f9bb8742 (tic 171→172). Source: session:enrichment-pipeline-audit-tic171. Band: COGNITIVE. -->

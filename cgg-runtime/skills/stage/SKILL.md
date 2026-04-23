@@ -388,6 +388,12 @@ audit-logs/arenas/
   registry.jsonl                # Completed arena run metadata
 ```
 
+## Designer-Reasoner Forbidden-Files Guard
+
+When the SAME reasoner has (a) designed the arena spec, (b) authored supporting synthesis documents, and (c) recommended the arena pairing strategy, running paired arenas first risks confirmation-finding: each arena's prompt reflects the designer's framing, and cross-arena convergence confirms the framing rather than testing it. Protection: run ONE arena solo FIRST with an explicit forbidden-files list that names the designer-authored synthesis documents by path — the agent is constitutionally blocked from reading its own designer's narrative. If the solo arena's findings converge with the synthesis, the synthesis is validated; if they diverge, the synthesis has framing bias the designer missed. Only THEN run the second arena (paired or otherwise). Sequence matters because parallel paired arenas amplify whatever bias is in the prompts, while solo-first produces the independent-variable check. Validated at tic 170: the HT_operationtorque_field_shaping solo run (with synthesis-tuning-map.md and canonical-prior-dissection.md on a forbidden list) produced counter-evidence against the meta-principle CPR the same designer had minted at tic 169 — specifically recommending DO NOT inscribe 'governance shapes the field' as a meta-invariant, with only one narrow extractable primitive (cross-clade precedence-authority envelopes) surviving arbiter scrutiny. Without solo-first sequencing, this counter-evidence likely would not have surfaced.
+
+<!-- promoted from CogPR-N (tic B->R). Source: <source_file>. <additional context if present in the CogPR>. -->
+
 ## Ownership
 
 This skill owns:

@@ -276,6 +276,18 @@ Skills therefore carry no substrate render obligation in the Anchorage 3D scene.
 
 ---
 
+## Structured YAML Literal-Block Description
+
+Structured YAML literal-block description replacing ~35-token flat descriptions. Slots carry constitutional identity (CENTROID, IS, IS NOT.collapse_zones), semi-constitutional interface contracts (core dispatch rays, off-envelope default), and tunable modulations (WHEN, NOT WHEN, RELATES TO, sibling_overlaps, secondary axes).
+
+<!-- promoted from CogPR-N (tic B->R). Source: <source_file>. <additional context if present in the CogPR>. -->
+
+## Field Stratification → Authority Assignment
+
+Field stratification that maps to authority assignment and iteration cadence. Constitutional: CENTROID, IS, IS NOT.collapse_zones. Semi-constitutional: core dispatch rays, off-envelope default for load-bearing skills. Tunable: WHEN, NOT WHEN, RELATES TO, sibling_overlaps, secondary arg modulation axes.
+
+<!-- promoted from CogPR-N (tic B->R). Source: <source_file>. <additional context if present in the CogPR>. -->
+
 ## Schema Status — Frozen vs Open
 
 **Frozen (do not modify without `/review`):**
@@ -290,6 +302,30 @@ Skills therefore carry no substrate render obligation in the Anchorage 3D scene.
 - Pole structure for dialectical skills (for example, Complement C10 skills) — consult current convention doc version before adding
 
 Adding any field beyond this canonical schema to a normative frontmatter requires human review before the field enters convention. Adding it as provisional with an explicit annotation is permitted.
+
+## recommended_resolution_mode Typed Vocabulary
+
+Councils declare `recommended_resolution_mode` as typed vocabulary for how dialectical tension resolves. Skills with genuine internal tension (e.g., /swarm internal↔external, /stage adversarial↔synthesis) could adopt similar vocabulary as declared ARG axes. Shared vocabulary hardens quickly — apply skill-locally first.
+
+<!-- promoted from CogPR-N (tic B->R). Source: <source_file>. <additional context if present in the CogPR>. -->
+
+## Poles Structure for Multi-Centroid Skills
+
+Some skills have multiple legitimate centroids (structurally distinct, not modal variation). For those, adopt the councils' pole structure: `poles: {a: ..., b: ...}` inside the skill's centroid declaration. Enables per-pole ranking at the ranker layer when it ships. Misapplication risk: every skill declaring poles for non-dialectical variation → apply only where tension is real.
+
+<!-- promoted from CogPR-N (tic B->R). Source: <source_file>. <additional context if present in the CogPR>. -->
+
+## Amendment File Alongside V1 Inside Inbox Envelope
+
+When post-delivery review of an inbox artifact produces surgical edits rather than reframing, author an amendment file inside the same envelope (e.g., amendment_v2_1.md alongside v2 artifact + review_verbatim.md). Preserves the reviewed state AND the sharpened view AND the review's lineage. Three files, one envelope.
+
+<!-- promoted from CogPR-N (tic B->R). Source: <source_file>. <additional context if present in the CogPR>. -->
+
+## Appended Addendum for Operator-Reviewed Docs
+
+Operator-reviewed governance documents should receive state updates via appended addendum sections with preserved original bodies, not in-place rewrites. The pattern: when a dated artifact (e.g., telos-immersive-rfc-binder-tic115.md) needs current-state refresh, append a clearly-marked 'TIC N STATE ADDENDUM' section that (1) references the original body unchanged, (2) updates each original Open Question / decision with current status, (3) enumerates new decisions since the original compilation, (4) cross-references authoritative state documents produced since. This protects the review provenance of the original while making state current. In-place rewrite blurs the review boundary — future readers cannot distinguish operator-reviewed content from subsequent edits. The addendum preserves the audit trail and makes time-of-decision legible. Also validates: handoff documents are bridge surfaces (transient), RFC binders are archive surfaces (permanent), and the difference matters structurally.
+
+<!-- promoted from CogPR-N (tic B->R). Source: <source_file>. <additional context if present in the CogPR>. -->
 
 ---
 
