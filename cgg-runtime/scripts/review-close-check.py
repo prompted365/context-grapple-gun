@@ -66,18 +66,57 @@ def read_file_safe(path):
 # Consistency checks
 # ---------------------------------------------------------------------------
 
-def check_promoted(cpr_id, cpr, project_dir):
-    """Verify promoted CPR text landed in target file."""
-    findings = []
-    lesson = cpr.get("lesson", "")
-    scopes = cpr.get("recommended_scopes", [])
-    target = cpr.get("promotion_target", "")
+_PATH_CHARS = re.compile(r"^[~./\w-]+(?:/[~./\w-]+)*\.[a-zA-Z]+$")
 
-    # Determine target files to check
+
+def _looks_like_file_path(s):
+    """Heuristic: does this string look like a file path (vs natural-language description)?"""
+    if not s or not isinstance(s, str):
+        return False
+    s = s.strip()
+    if " " in s:
+        return False
+    if not _PATH_CHARS.match(s):
+        return False
+    return True
+
+
+def check_promoted(cpr_id, cpr, project_dir, inscribed_ids=None):
+    """Verify promoted CPR text landed in target file.
+
+    Verification axes (any one resolves):
+      1. cpr_id appears in inscribed_ids index (provenance-comment scan of governance files)
+      2. cpr_id (or CogPR-N alt) appears in any target file
+      3. lesson snippet appears in any target file (legacy fallback)
+
+    Targets, in priority order: promoted_to (verdict-side authoritative),
+    promotion_target (legacy), recommended_scopes (filtered to file-path-shaped entries).
+    """
+    findings = []
+
+    # Historical-artifact bypass — triaged legacy entries
+    if cpr.get("historical_artifact"):
+        return findings
+
+    # Provenance-index axis — strongest signal
+    if inscribed_ids and cpr_id in inscribed_ids:
+        return findings
+
+    lesson = cpr.get("lesson", "")
+    promoted_to = cpr.get("promoted_to", "")
+    target = cpr.get("promotion_target", "")
+    scopes = cpr.get("recommended_scopes", [])
+
     targets = []
+    if isinstance(promoted_to, str) and promoted_to:
+        targets.append(promoted_to)
+    elif isinstance(promoted_to, list):
+        targets.extend([p for p in promoted_to if isinstance(p, str) and p])
     if target:
         targets.append(target)
-    targets.extend(scopes)
+    for s in scopes:
+        if _looks_like_file_path(s):
+            targets.append(s)
 
     if not targets:
         findings.append({
@@ -88,15 +127,9 @@ def check_promoted(cpr_id, cpr, project_dir):
         })
         return findings
 
-    # Check if the CogPR reference or lesson snippet exists in any target
     cpr_ref = cpr_id
-    # Also try CogPR-N format
     num_match = re.search(r"(\d+)", cpr_id)
-    if num_match:
-        cpr_ref_alt = f"CogPR-{num_match.group(1)}"
-    else:
-        cpr_ref_alt = None
-
+    cpr_ref_alt = f"CogPR-{num_match.group(1)}" if num_match else None
     snippet = lesson[:50] if lesson else ""
     found_in_any = False
 
@@ -111,7 +144,6 @@ def check_promoted(cpr_id, cpr, project_dir):
         if not content:
             continue
 
-        # Check for CogPR reference or lesson snippet
         if cpr_ref and cpr_ref in content:
             found_in_any = True
             break
@@ -132,6 +164,51 @@ def check_promoted(cpr_id, cpr, project_dir):
         })
 
     return findings
+
+
+_PROVENANCE_RE = re.compile(r"<!--\s*promoted from\s+(cpr_[A-Za-z0-9_]+|CogPR-\d+)", re.IGNORECASE)
+
+
+def build_inscribed_index(project_dir):
+    """Scan governance files for `<!-- promoted from <id>` markers.
+
+    Returns set of CPR ids that have provenance comments anywhere in the
+    federation governance surface. Used by check_promoted as the strongest
+    verification axis — surviving the comment is sufficient evidence of
+    inscription, regardless of whether the queue entry's `promoted_to` field
+    points at the correct file.
+    """
+    inscribed = set()
+    candidate_paths = [
+        os.path.join(project_dir, "CLAUDE.md"),
+        os.path.join(project_dir, "INDEX.md"),
+        os.path.expanduser("~/.claude/CLAUDE.md"),
+    ]
+    # Sweep canonical_developer subtree CLAUDE.md surfaces (CGG, capture-studio, etc.)
+    cd_dir = os.path.join(project_dir, "canonical_developer")
+    if os.path.isdir(cd_dir):
+        for root, _dirs, files in os.walk(cd_dir):
+            if "/.git/" in root or "/node_modules/" in root:
+                continue
+            for fn in files:
+                if fn in ("CLAUDE.md", "AUTHORING_CONVENTION.md") or fn.endswith("SKILL.md"):
+                    candidate_paths.append(os.path.join(root, fn))
+    # Also sweep autonomous_kernel and ak_control_room if present
+    for sub in ("autonomous_kernel", "ak_control_room"):
+        sd = os.path.join(project_dir, sub)
+        if os.path.isdir(sd):
+            for root, _dirs, files in os.walk(sd):
+                for fn in files:
+                    if fn == "CLAUDE.md":
+                        candidate_paths.append(os.path.join(root, fn))
+
+    for path in candidate_paths:
+        content = read_file_safe(path)
+        if not content:
+            continue
+        for m in _PROVENANCE_RE.finditer(content):
+            inscribed.add(m.group(1))
+    return inscribed
 
 
 def check_deferred(cpr_id, cpr):
@@ -167,34 +244,52 @@ def check_skipped(cpr_id, cpr):
     return findings
 
 
-def check_orphans(queue, project_dir):
-    """Find CPRs marked promoted in queue but missing from all target files."""
+def check_orphans(queue, project_dir, inscribed_ids=None):
+    """Find CPRs marked promoted in queue but missing from all governance files.
+
+    Verification axes (any one resolves):
+      1. Historical-artifact bypass (triaged legacy entries)
+      2. cpr_id appears in inscribed_ids index
+      3. cpr_id, CogPR-N alt, or lesson snippet appears in promoted_to /
+         recommended_scopes / common governance locations
+    """
     findings = []
 
     for cpr_id, cpr in queue.items():
         if cpr.get("status") != "promoted":
             continue
 
+        if cpr.get("historical_artifact"):
+            continue
+
+        if inscribed_ids and cpr_id in inscribed_ids:
+            continue
+
         lesson = cpr.get("lesson", "")
         if not lesson:
             continue
 
-        # Check if the CPR reference exists anywhere in governance files
         cpr_num = re.search(r"(\d+)", cpr_id)
-        if not cpr_num:
-            continue
-
-        cpr_ref = f"CogPR-{cpr_num.group(1)}"
+        cpr_ref = f"CogPR-{cpr_num.group(1)}" if cpr_num else cpr_id
         snippet = lesson[:50]
 
-        # Check common governance locations
         check_paths = [
             os.path.join(project_dir, "CLAUDE.md"),
             os.path.expanduser("~/.claude/CLAUDE.md"),
         ]
 
-        # Also check recommended_scopes
+        promoted_to = cpr.get("promoted_to", "")
+        if isinstance(promoted_to, str) and promoted_to:
+            check_paths.append(promoted_to if os.path.isabs(promoted_to)
+                               else os.path.join(project_dir, promoted_to))
+        elif isinstance(promoted_to, list):
+            for p in promoted_to:
+                if isinstance(p, str) and p:
+                    check_paths.append(p if os.path.isabs(p) else os.path.join(project_dir, p))
+
         for scope in cpr.get("recommended_scopes", []):
+            if not _looks_like_file_path(scope):
+                continue
             if scope.startswith("~"):
                 check_paths.append(os.path.expanduser(scope))
             elif not os.path.isabs(scope):
@@ -205,7 +300,7 @@ def check_orphans(queue, project_dir):
         found = False
         for path in check_paths:
             content = read_file_safe(path)
-            if content and (cpr_ref in content or snippet in content):
+            if content and (cpr_id in content or cpr_ref in content or snippet in content):
                 found = True
                 break
 
@@ -215,7 +310,7 @@ def check_orphans(queue, project_dir):
                 "severity": "error",
                 "cpr_id": cpr_id,
                 "cpr_ref": cpr_ref,
-                "message": f"{cpr_ref} marked promoted in queue but text not found in any governance file",
+                "message": f"{cpr_id} marked promoted in queue but text not found in any governance file",
             })
 
     return findings
@@ -234,6 +329,8 @@ def run_check(project_dir, dry_run=False):
     queue_path = os.path.join(al_path, "cprs", "queue.jsonl")
     queue = load_queue(queue_path)
 
+    inscribed_ids = build_inscribed_index(project_dir)
+
     all_findings = []
 
     # Check each CPR based on its status
@@ -241,7 +338,7 @@ def run_check(project_dir, dry_run=False):
         status = cpr.get("status", "")
 
         if status == "promoted":
-            all_findings.extend(check_promoted(cpr_id, cpr, project_dir))
+            all_findings.extend(check_promoted(cpr_id, cpr, project_dir, inscribed_ids))
 
         elif status in ("deferred", "enrichment_eligible"):
             # Deferred CPRs should have a review_tic
@@ -252,7 +349,7 @@ def run_check(project_dir, dry_run=False):
             all_findings.extend(check_skipped(cpr_id, cpr))
 
     # Orphan check across all promoted
-    all_findings.extend(check_orphans(queue, project_dir))
+    all_findings.extend(check_orphans(queue, project_dir, inscribed_ids))
 
     # Build report
     severity_counts = {}
@@ -270,11 +367,15 @@ def run_check(project_dir, dry_run=False):
     deferred_count = sum(1 for c in queue.values() if c.get("status") in ("deferred", "enrichment_eligible") and c.get("review_tic"))
     skipped_count = sum(1 for c in queue.values() if c.get("status") == "skipped")
 
+    historical_count = sum(1 for c in queue.values() if c.get("historical_artifact"))
+
     report = {
         "check_type": "review_close_check",
         "generated_at": datetime.now(timezone.utc).isoformat(),
         "queue_path": queue_path,
         "total_cprs": len(queue),
+        "inscribed_index_size": len(inscribed_ids),
+        "historical_artifacts": historical_count,
         "verdict_counts": {
             "promoted": promoted_count,
             "deferred": deferred_count,
