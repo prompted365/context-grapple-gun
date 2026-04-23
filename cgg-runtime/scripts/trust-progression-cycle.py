@@ -367,7 +367,7 @@ def run_trust_progression(entity_filter=None, dry_run=False, verbose=False):
             if verbose:
                 div = trust_result.get("diversity", {})
                 print(f"  {vid}: trust={ts:.4f}, diversity={div.get('entropy', 0):.3f} "
-                      f"({div.get('types_observed', 0)} types), "
+                      f"({div.get('types_active', 0)} types), "
                       f"decay={'yes' if trust_result['decay_applied'] else 'no'}")
                 for comp, val in trust_result["components"].items():
                     print(f"    {comp}: {val}")

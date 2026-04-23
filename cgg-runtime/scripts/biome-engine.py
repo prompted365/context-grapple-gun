@@ -1043,12 +1043,21 @@ def attempt_bond_formation(topology, organisms, environment):
         bond_count_by_visitor[pid] += 1
         new_bonds += 1
 
+        # Bond formation is a cross-federation collaboration event — emit for both
+        # partners so the behavioral-diversity engine sees it as a distinct type.
+        emit_edge_interactions(
+            vid, pid, "collaboration", cycle, bond_id,
+            event_type="bond_formation", act=act,
+            season=environment.get("season"),
+        )
+
     return new_bonds
 
 
 def update_bond_health(organisms, environment):
     """Update bond health metrics each cycle. Detect parasitism. Handle dissolution."""
     cycle = environment.get("cycle", 0)
+    act = environment.get("act", "act_3")
     season = environment.get("season", "spring")
     multipliers = get_season_multipliers(season)
     stability = multipliers.get("bond_stability", 1.0)
@@ -1060,6 +1069,7 @@ def update_bond_health(organisms, environment):
             continue
 
         health = bond["bond_health"]
+        partners = bond.get("partners", [])
 
         # Simulate interaction: mutualism fluctuates based on random interaction quality
         if bond["bond_status"] in ("forming", "active", "strained"):
@@ -1067,6 +1077,14 @@ def update_bond_health(organisms, environment):
             # Forming bonds trend toward active
             if bond["bond_status"] == "forming":
                 bond["bond_status"] = "active"
+
+            # Bond cycle interaction is cross-federation teaching — emit both sides.
+            if len(partners) == 2:
+                emit_edge_interactions(
+                    partners[0], partners[1], "teaching", cycle, bond["bond_id"],
+                    event_type="bond_interaction", flow=interaction_quality,
+                    act=act, season=season,
+                )
 
             # Update mutualism_score (weighted moving average)
             health["mutualism_score"] = (
@@ -1122,6 +1140,13 @@ def update_bond_health(organisms, environment):
                     "cycle": cycle,
                 })
 
+                # Collaborative insight is a creation event for both partners.
+                if len(partners) == 2:
+                    emit_edge_interactions(
+                        partners[0], partners[1], "creation", cycle, insight_id,
+                        event_type="bond_insight", act=act, season=season,
+                    )
+
     return signals_emitted
 
 
@@ -1132,6 +1157,8 @@ def update_bond_health(organisms, environment):
 def mature_bonds(organisms, environment):
     """Check bonds for soredium maturation eligibility."""
     cycle = environment.get("cycle", 0)
+    act = environment.get("act", "act_4")
+    season = environment.get("season", "spring")
     matured = 0
     for bond in organisms.get("bonds", []):
         if bond["bond_status"] not in ("active",):
@@ -1142,6 +1169,14 @@ def mature_bonds(organisms, environment):
                 and len(bond["insights_produced"]) >= 1):
             bond["bond_status"] = "mature"
             matured += 1
+
+            # Maturation is a reflective milestone — emit for both partners.
+            partners = bond.get("partners", [])
+            if len(partners) == 2:
+                emit_edge_interactions(
+                    partners[0], partners[1], "reflection", cycle, bond["bond_id"],
+                    event_type="bond_matured", act=act, season=season,
+                )
     return matured
 
 

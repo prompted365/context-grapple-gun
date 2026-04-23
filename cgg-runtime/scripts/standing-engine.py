@@ -717,20 +717,32 @@ def _compute_endorsement_strength(endorsements):
 def _compute_interaction_history_score(interactions, entity_id, zone_root=None):
     """Compute time-weighted interaction history score.
 
-    Exponential decay weighting: recent activity counts more.
+    Exponential decay weighting by actual cycle distance from the most recent
+    activity anywhere in the registry — an entity that stopped participating
+    N cycles ago decays even if its own last 20 records are bunched together.
+
     Returns float [0.0, 1.0].
     """
     if not interactions:
         return 0.0
 
-    # Weight by recency — most recent interactions count more
-    n = len(interactions)
-    half_life = CONFIG["decay_half_life_tics"]
+    # "Now" reference: latest cycle observed across whole registry, so inactive
+    # entities decay relative to the rest of the biome, not their own last record.
+    records = _load_jsonl(_registry_path(zone_root))
+    current_cycle = 0
+    for rec in records:
+        c = rec.get("cycle", 0)
+        if isinstance(c, (int, float)) and c > current_cycle:
+            current_cycle = c
+    if current_cycle == 0:
+        current_cycle = max((r.get("cycle", 0) for r in interactions), default=0)
 
+    half_life = CONFIG["decay_half_life_tics"]
     weighted_sum = 0.0
-    for i, rec in enumerate(interactions):
-        # Position-based decay: item at end of list is most recent
-        age = n - 1 - i
+    for rec in interactions:
+        age = current_cycle - rec.get("cycle", 0)
+        if age < 0:
+            age = 0
         weight = math.pow(0.5, age / max(half_life, 1))
         weighted_sum += weight
 
