@@ -311,7 +311,11 @@ def _get_entity_standing(entity_id, zone_root=None):
 def _get_entity_interactions(entity_id, window_cycles=None, zone_root=None):
     """Load interaction history for an entity from the visa registry.
 
-    Returns a list of interaction records within the sliding window.
+    Returns a list of interaction records within the sliding window. The window
+    is cycle-based (last N cycles by record.cycle), not record-count-based, so
+    high-frequency event types (e.g. per-cycle resource_flow) can't crowd out
+    lower-frequency types within the same cycle range.
+
     Each record should have at minimum: {"type": "<interaction_type>", "cycle": N}
     """
     if window_cycles is None:
@@ -325,12 +329,22 @@ def _get_entity_interactions(entity_id, window_cycles=None, zone_root=None):
         if rec.get("entity_id") == entity_id and rec.get("interaction_type"):
             interactions.append(rec)
 
-    # Apply sliding window — keep only the last N cycles
     if interactions and window_cycles > 0:
-        # Sort by cycle/timestamp, keep last window
-        interactions.sort(key=lambda r: r.get("cycle", r.get("timestamp", "")))
-        if len(interactions) > window_cycles:
-            interactions = interactions[-window_cycles:]
+        interactions.sort(key=lambda r: r.get("cycle", 0))
+        # "Now" = latest cycle observed anywhere in the registry, so an entity
+        # that stopped participating N cycles ago decays relative to the biome,
+        # not its own last record.
+        now_cycle = 0
+        for rec in records:
+            c = rec.get("cycle", 0)
+            if isinstance(c, (int, float)) and c > now_cycle:
+                now_cycle = c
+        if now_cycle > 0:
+            lower = now_cycle - window_cycles + 1
+            interactions = [
+                r for r in interactions
+                if r.get("cycle", 0) >= lower
+            ]
 
     return interactions
 
