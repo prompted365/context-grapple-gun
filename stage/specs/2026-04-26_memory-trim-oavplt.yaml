@@ -1,0 +1,254 @@
+id: "2026-04-26_memory-trim-oavplt"
+title: "What is the minimum-viable shape of MEMORY.md (currently ~1192 lines) that preserves cold-pickup function while honoring the federation's lesson lineage?"
+arena: office-autonomous-vpl-temporal
+arena_mode: operational
+status: pending
+template_ref: "stage/templates/arenas/office-autonomous-vpl/spec.md"
+created_at: "2026-04-26T08:00:00Z"
+created_tic: 179
+operator_authorization: "Tic 179 cadence handoff (~/.claude/plans/shimmering-tumbling-dawn.md), Action B — Stage MEMORY.md trim arena"
+sign_off_gate: "Operator-pending sign-off REQUIRED before execution. This spec authors only — no advocate spawning, no trim mutation, no LEAD synthesis until operator approves."
+
+decision_context: |
+  MEMORY.md at ~/.claude/projects/-Users-breydentaylor-canonical/memory/MEMORY.md
+  is the index file always loaded into Claude Code session context. Target was
+  ~200 lines. Current state: ~1192 lines, ~30KB+. The harness reports truncation
+  at line ~200 already during cold load, which means later index entries are
+  silently dropped from session context.
+
+  The trim is multi-tic overdue. Two prior CogPR candidates already exist and
+  bear on the question (pre-publication audit gate, authored-persona-substrate-
+  capacity), and may absorb several existing entries by themselves on promotion.
+
+  This is NOT "should we trim?" — the operator has authorized it. The question
+  is HOW: what stays, what moves to topic files, what archives to cogpr-archive.md,
+  what deletes outright, and what reasoning grounds each call.
+
+  The arena does NOT prescribe a stance. Each actor receives the seed evidence
+  and derives position from the invariant their mandate makes them care about.
+  No trim ratio, no default disposition, no entry classification is prescribed
+  by this spec. The LEAD synthesizes from the actors' independent proposals;
+  the operator approves before any trim executes.
+
+  The wildcard is a temporal-perspective stress test: a future operator on cold
+  pickup at tic 250 (~70 tics out), reading MEMORY.md to figure out what is
+  still load-bearing. This wildcard catches composite tensions invisible to
+  bracket-isolated advocates per Composite Mutation Assessment at LEAD level.
+
+seed_evidence:
+  primary:
+    - path: "/Users/breydentaylor/.claude/projects/-Users-breydentaylor-canonical/memory/MEMORY.md"
+      description: "The file under question — ~1192 lines, ~30KB, truncated at ~200 in session load"
+    - path: "/Users/breydentaylor/.claude/projects/-Users-breydentaylor-canonical/memory/"
+      description: "Sibling memory files (feedback_*, project_*, reference_*, user_*, cogpr-archive.md) — possible move-to targets"
+  doctrine:
+    - path: "canonical/CLAUDE.md"
+      description: "Federation Key Invariants (rationale connective tissue, internal memory TTL/probe, governance is instrumental)"
+    - path: "canonical_developer/context-grapple-gun/CLAUDE.md"
+      description: "Session Learning Protocol — born truth (MEMORY.md) vs in-force truth (CLAUDE.md) discipline"
+    - path: "/Users/breydentaylor/.claude/CLAUDE.md"
+      description: "Auto-memory architecture — MEMORY.md as one-line index, topic files for detail"
+  operational_state:
+    - path: "/Users/breydentaylor/.claude/projects/-Users-breydentaylor-canonical/memory/cogpr-archive.md"
+      description: "Existing archive surface — possible target for terminal lessons"
+    - path: "/Users/breydentaylor/.claude/projects/-Users-breydentaylor-canonical/memory/feedback_cold-start-pickup.md"
+      description: "Cold pickup protocol — the user surface MEMORY.md must serve"
+    - path: "audit-logs/cprs/queue.jsonl"
+      description: "12 pending CogPRs in queue.jsonl + ~45 inline candidates in MEMORY.md — extraction state matters for trim"
+
+decision_question: |
+  Given MEMORY.md as a substrate that MUST serve cold-pickup retrieval at tic 250
+  while honoring the federation's lesson lineage, what is its minimum-viable shape?
+
+  Output deliverable: trim plan with per-entry decisions
+  (KEEP / MOVE_TO_TOPIC_FILE / ARCHIVE_TO_COGPR_ARCHIVE / DELETE),
+  reasoning grounded in the surfaced office invariants (no prescribed stance),
+  composite assessment at LEAD level, and temporal tension forecast across
+  five future tics.
+
+actors:
+  # Six constitutional actors. Each carries a distinct invariant.
+  # NO ASSIGNED ADVOCACY STANCE — mandate_lens describes what the office cares
+  # about, not what position to advocate. The pitch IS the position (Phase 0a/0b).
+
+  - entity_id: ent_pattern_curator
+    office: "Pattern Curator (Direct)"
+    invariant_held: "lesson preservation — what has been learned must remain accessible"
+    mandate_lens: |
+      What body of learned WHAT (workarounds, local truths, compensations, drift
+      corrections) does MEMORY.md hold today, and which entries embody learning
+      that has not yet promoted into in-force doctrine? An entry whose lesson is
+      not retrievable elsewhere is load-bearing for preservation.
+    seed_focus: "MEMORY.md inline CogPR candidates, born-truth lessons, feedback_* files referenced from index"
+
+  - entity_id: ent_pattern_curator
+    office: "Pattern Curator (Meta)"
+    invariant_held: "pipeline coherence — how the system learns must remain undegraded"
+    mandate_lens: |
+      Does the index shape support the meta-learning pipeline (extraction, mining,
+      promotion, ladder audit)? Which entries are pipeline scaffolding (status
+      pointers, cycle markers, retrieval hints) versus content lessons? A trim
+      that fragments the meta-process is a different failure mode than one that
+      drops a lesson.
+    seed_focus: "topic file index entries, retrieval hints, cycle/cadence references, the index-vs-content split"
+
+  - entity_id: ent_archivist
+    office: "The Archivist"
+    invariant_held: "retrieval integrity — typed records, indexed access; archive is not delete"
+    mandate_lens: |
+      Where do moved or archived entries land such that retrieval remains intact?
+      Which entries already have typed-record homes elsewhere (queue.jsonl,
+      cogpr-archive.md, topic files), and which would lose retrievability if
+      removed from MEMORY.md without an alternate home? Archive ≠ delete; the
+      retrieval surface is the contract.
+    seed_focus: "cogpr-archive.md, queue.jsonl coverage, topic file inventory, what is recoverable from where"
+
+  - entity_id: ent_cbux_steward
+    office: "CollabUX Steward"
+    invariant_held: "encounter quality — the agent reading MEMORY.md cold; cold-pickup time-to-first-action is load-bearing"
+    mandate_lens: |
+      How does an agent (Claude or future agent variant) actually USE MEMORY.md
+      at cold load? Which entries shape the agent's first 30 seconds of
+      orientation, and which are reference hits the agent only needs when
+      explicitly cued? Truncation at line 200 is already a real encounter
+      degradation; the trim is a quality-of-encounter intervention.
+    seed_focus: "feedback_cold-start-pickup.md flow, top-of-file orientation entries, the truncation horizon"
+
+  - entity_id: ent_mogul
+    office: "Mogul"
+    invariant_held: "estate operational coherence — cognitive budget against MEMORY.md size; right-size for actual session use"
+    mandate_lens: |
+      What size is MEMORY.md actually serving sessions at, against what cognitive
+      budget regime? An index that costs ~30KB of context per session, of which
+      only the first ~200 lines actually load, is paying full cost for partial
+      delivery. Where do operational primitives (active pipeline, queue snapshot,
+      review execution protocol) deserve KEEP because they shape every session?
+    seed_focus: "Active Pipeline section, Review Execution Protocol, governance-tool sections, operational primitives"
+
+  - entity_id: ent_ladder_auditor
+    office: "Ladder Auditor"
+    invariant_held: "parent-child coherence — does the trim break references in CLAUDE.md, handoff plans, sibling memory entries"
+    mandate_lens: |
+      Which MEMORY.md entries are referenced by canonical/CLAUDE.md, by other
+      memory files, by handoff plans in ~/.claude/plans/, by topic files? A trim
+      that drops an entry referenced upward or laterally is a coherence break
+      across the rung chain. The audit is structural reachability, not content
+      judgment.
+    seed_focus: "cross-references from CLAUDE.md, references from sibling memory files, handoff plan citations"
+
+  # Wildcard — temporal-perspective stress test (NOT an agency-invariant office)
+  - entity_id: synthetic_future_operator
+    office: "Future Operator at tic 250"
+    role: wildcard
+    note: "NOT registered in actor-registry.json. Synthetic temporal-perspective wildcard required by Composite Mutation Assessment + Wildcard Chain Coherence rules. The wildcard is the trim's downstream user 70+ tics from now, with no in-the-room context, reading MEMORY.md cold to figure out what is still load-bearing."
+    invariant_held: "composite coherence across temporal distance — does the trim hold up when the in-the-room context that motivated it has fully decayed?"
+    mandate_lens: |
+      You are reading MEMORY.md in tic 250 (April 2026 + ~70 tics). You have no
+      memory of the trim arena that produced this shape. You are starting a
+      session and the index is your orientation surface. Which entries land for
+      you as load-bearing TODAY? Which read as fossilized scaffolding from a
+      decision context you can no longer reconstruct? Which are missing — entries
+      you would expect to find that are not there? Catch composite failures none
+      of the 6 bracket-isolated offices can detect alone.
+    seed_focus: "the trim plan as proposed by the LEAD synthesis; review for cold-readability and missing-load-bearing"
+
+expected_brackets:
+  preservation:
+    question: "What lesson lineage and retrieval integrity must be preserved through the trim?"
+    expected_offices: [ent_pattern_curator (Direct), ent_archivist, ent_pattern_curator (Meta)]
+    dependencies: "none — establishes preservation floor"
+    note: "Expected per OA-VPL-T table; emergent from Phase 0b dependency declarations."
+
+  pickup:
+    question: "What does cold-load encounter quality and operational session use require?"
+    expected_offices: [ent_cbux_steward, ent_mogul, ent_ladder_auditor]
+    dependencies: "preservation floor must be known to right-size what remains"
+    note: "Expected per OA-VPL-T table; emergent from Phase 0b dependency declarations."
+
+  wildcard:
+    question: "Does the proposed trim hold up across temporal distance with full context decay?"
+    expected_offices: [synthetic_future_operator]
+    dependencies: "both brackets must produce a synthesized trim plan"
+
+temporal_windows:
+  T0_trim_execution: |
+    Trim plan applied. Per-entry decisions (KEEP / MOVE / ARCHIVE / DELETE)
+    executed. MEMORY.md size reduced, topic files updated, cogpr-archive.md
+    appended, sibling memory files cross-referenced.
+  T1_tic_180: |
+    Tic 180 /review Pass 3 work — does the trimmed MEMORY.md support the docket
+    chunking plan? Are the ~19 candidates (12 queue.jsonl + ~7 inline expected
+    to extract via cpr-extract hook) still discoverable from the trimmed index?
+  T2_tic_181: |
+    Tic 181 enrichment cycle — do enrichment_eligible entries find their
+    promotion targets without relying on entries that were trimmed?
+  T3_tic_184: |
+    Tic 184 deep audit — does the trimmed index survive a deep estate audit
+    (queue distribution, signal manifold, ladder coherence)? Do topic files
+    receive the audit attention their entries earn?
+  T4_tic_185: |
+    Tic 185 next memory mining — does pattern mining produce useful candidates
+    against the trimmed surface? Has the smaller MEMORY.md changed the mining
+    surface area in a way that produces new false positives or false negatives?
+  T5_tic_187: |
+    Tic 187 next ladder audit — does the trimmed CLAUDE.md ↔ MEMORY.md ↔
+    topic-file lattice still verify? Are upward references intact? Are
+    downward references still resolvable?
+
+constraints:
+  - "Stance NOT prescribed — actors derive position from their invariants, not from spec authorial direction"
+  - "VPL Separation Principle (CogPR-114) — advocates do NOT see invariants/scoring; LEAD-side machinery only"
+  - "Composite Mutation Assessment at LEAD level mandatory (CogPR-117 invisibility rule)"
+  - "Wildcard Chain Coherence rule — Future Operator at tic 250 is the temporal-perspective stress test"
+  - "Born truth vs in-force truth — MEMORY.md is born-truth surface; trim must NOT promote unpromoted lessons to in-force without going through /review"
+  - "Internal memory TTL discipline — entries KEPT must justify freshness or carry explicit timestamp/TTL marking"
+  - "Operator-pending sign-off REQUIRED before any trim executes — the spec authors only"
+  - "Trim is reversible at the line-item level — pre-trim MEMORY.md backed up before mutation"
+
+output_artifacts:
+  - type: "trim_plan"
+    description: "Per-entry decisions (KEEP / MOVE_TO_TOPIC_FILE / ARCHIVE_TO_COGPR_ARCHIVE / DELETE), with reasoning grounded in surfaced office invariants"
+  - type: "preservation_audit"
+    description: "Pattern Curator Direct + Archivist verification that lessons earmarked for MOVE/ARCHIVE/DELETE retain retrievability through their target home"
+  - type: "encounter_quality_audit"
+    description: "CBUX Steward verification that the trimmed first-200-lines load supports cold-pickup time-to-first-action"
+  - type: "ladder_coherence_report"
+    description: "Cross-reference verification from CLAUDE.md, sibling memory files, handoff plans into the trimmed index — broken references explicitly listed"
+  - type: "composite_mutation_assessment"
+    description: "LEAD synthesis of bracket outputs — composite failures invisible to any single bracket"
+  - type: "temporal_tension_forecast"
+    description: "T0-T5 (5 future tics) tension curve — does the trim hold across review/enrichment/audit/mining/ladder cycles"
+  - type: "wildcard_cold_pickup_review"
+    description: "Future Operator at tic 250 review — load-bearing today, fossilized scaffolding, missing-expected"
+  - type: "rollback_plan"
+    description: "How to revert the trim if T1-T5 evidence shows degradation; backup path and restore procedure"
+
+budget:
+  advocates: 6
+  wildcard: 1
+  phases: 10
+  estimated_tasks: 38
+  lead_context_ceiling: "200K tokens"
+  regime: STANDARD
+
+show_spec:
+  title: "MEMORY.md Minimum-Viable Shape — OA-VPL-T Arena"
+  geometry: "OA-VPL-T (Office-Autonomous Value-Position Lattice with Temporal Modeling)"
+  seed: "MEMORY.md at ~1192 lines + sibling memory files + canonical doctrine references"
+  question: "What is the minimum-viable shape of MEMORY.md that preserves cold-pickup function while honoring lesson lineage?"
+  actors: 6
+  wildcard: 1
+  brackets: 3
+  temporal_windows: 6
+
+operator_sign_off:
+  status: pending
+  required_before:
+    - "Phase 0a self-interpretation spawn"
+    - "Phase 0b strategy + dependency declaration spawn"
+    - "Any agent invocation against this spec"
+    - "Any mutation of MEMORY.md or sibling memory files"
+  approval_target: "operator (Breyden) explicit approval at tic 180 or later"
+  spec_review_artifacts:
+    - "this yaml file"
+    - "tic 179 cadence handoff Post-Approval Operator-Authorized Actions section (~/.claude/plans/shimmering-tumbling-dawn.md)"
