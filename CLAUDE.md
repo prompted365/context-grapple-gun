@@ -244,9 +244,9 @@ Mandate lifecycle has three structural defects that refine the Mandate Consumpti
 2. **SessionStart recomputes instead of reconciling** — recomputes cadence from tic modulo instead of reconciling with previous mandate `tic_context`. Creates mandate duplication on session restore. **Mitigated**: `trigger-manifest.yaml` idempotency key changed from `mandate_{tic}_{session_id}` to `mandate_{tic}` with `first_wins` policy. **Fixed** (tic 108): collapsed into reconcile-first in session-restore.sh.
 3. **No concurrency guard on inline Mogul spawn** — the review skill can inline-spawn Mogul without checking whether a loop-backed Mogul is already active. **Fixed** (tic 108): concurrency guard added to `/review` SKILL.md steps 5.5 and 8.5 — checks `current.json` status before writing mandates. Race guard added to cgg-gate.sh inline consumption.
 
-**Idempotency key constraint**: The mandate idempotency key must NOT include `session_id` — per-session UUIDs defeat dedup because every session generates a unique ID, making every emission appear novel. The correct granularity is `mandate_{tic}` with `first_wins` policy. Evidence: tic-87 produced 269 inbox messages, 200+ report files, and 328 signal entries from a single-tic runaway caused by `{session_id}` in the key template.
+**Idempotency key constraint**: The mandate idempotency key must NOT include `session_id` — per-session UUIDs defeat dedup because every session generates a unique ID, making every emission appear novel. The correct granularity is `mandate_{tic}` with `first_wins` policy. Evidence: tic-87 produced 269 inbox messages, 200+ report files, and 328 signal entries from a single-tic runaway caused by `{session_id}` in the key template. **Additional defect (tic 179)**: Session-start auto-mandate logic may merge+expand a manually-written mid-session mandate when session_start fires (e.g., via UserPromptSubmit hook). The merge is non-lossy (cycles absorbed, mandate_id recorded in `merged_from`) but the absorbing mandate runs ALL its cycles. Operator scope expansion: a narrow mid-session mandate may seed a next-session-start-expanded mandate.
 
-<!-- promoted from CogPR-57 (tic 75→80), extended by CogPR-65 (tic 91). Source: external-audit-verified + mandate runaway containment. Refines CogPR-26 (mandate consumption) and CogPR-47 (mandate depth scaling). Band: COGNITIVE. -->
+<!-- promoted from CogPR-57 (tic 75→80), extended by CogPR-65 (tic 91). Source: external-audit-verified + mandate runaway containment. Refines CogPR-26 (mandate consumption) and CogPR-47 (mandate depth scaling). Band: COGNITIVE. Merged with cpr_ee28b41183d01e30 (tic 179). -->
 
 ## Promotion Scope Discipline
 
@@ -537,6 +537,56 @@ When a governance configuration surface is consumed by the mechanism it governs,
 Live evidence: `sync-manifest.json` consumed by `sync-weigh-check.py` which checks manifest drift; `active-manifest.jsonl` created as fix for signal scan blind spot.
 
 CGG scope — promote to federation if second subsystem instantiation emerges.
+
+<!-- promoted from cpr_recursive_self_observation_tic179 (tic ?? → 179). Source: arena:2026-04-26_memory-trim-oavplt. Band: COGNITIVE. -->
+
+## Atomic-Commit Discipline (Multi-File Mutations)
+
+Atomic-commit (multi-file mutations bound into single commit unit with pre-commit validation) is required CGG-scope discipline. Pattern recurs: sync manifest dual-writes, registry-content-source triples, memory-trim MOVE = destination + forward pointer + referrer patches in same commit. CGG-scope distinct from CogPR-8 (intra-file atomic JSONL writes) — this is inter-file atomicity.
+
+<!-- promoted from cpr_atomic_commit_discipline_scope_tic179 (tic 179 → 179). Source: arena:2026-04-26_memory-trim-oavplt. Band: COGNITIVE. -->
+
+## MEMORY.md Inline Entry Location Lock (REVIEW_PINNED)
+
+MEMORY.md inline entries with `status: pending` are operationally treated as location-locked until /review processes them. Functions as second pin axis (REVIEW_PINNED, Disposition 0b orthogonal to constitutional-pin Disposition 0). Memory-trim cycles must respect this lock.
+
+<!-- promoted from cpr_review_pinned_location_lock_tic179 (tic 179 → 179). Source: arena:2026-04-26_memory-trim-oavplt. Band: COGNITIVE. -->
+
+## User-Space Handoff Referrer Surface
+
+User-space handoff plans (`~/.claude/plans/*.md`) live OUTSIDE federation commit boundary, accumulate ~70+ files over many tics, and each cites MEMORY.md sections from its authoring era. Memory-trim reference audits AND ladder-audit cycles must include this referrer axis or they silently sever the handoff chain.
+
+<!-- promoted from cpr_user_space_handoff_referrer_surface_tic179 (tic 179 → 179). Source: arena:2026-04-26_memory-trim-oavplt. Band: COGNITIVE. -->
+
+## Memory-Trim Staged Execution Pattern
+
+High-composite-load memory-surface trims (composite mutation count >5) execute across multiple tics, not single-tic. Pattern: 4-tic staged window — Stage 0 (Probe + Inscribe), Stage 1 (Audit + Pin List), Stage 2 (Trim execution), Stage 3 (Re-stamp + Verification). Schedule decompression preserves operator absorption capacity AND prevents composite cascade failure.
+
+<!-- promoted from cpr_memory_trim_staged_execution_pattern_tic179 (tic 179 → 179). Source: arena:2026-04-26_memory-trim-oavplt. Band: COGNITIVE. -->
+
+## Signal Resolution Writeback Atomicity (Dual-Surface)
+
+When signals are resolved in daily files (`audit-logs/signals/YYYY-MM-DD.jsonl`), the active-manifest may not receive a corresponding write — divergence between daily file truth and manifest curation. Resolution writeback must be atomic across both surfaces, or a sweep-style reconciliation must run on cadence.
+
+<!-- promoted from cpr_cmd_auto_sync_writeback_gap_tic171 (tic 171 → 179). Source: arena:2026-04-26_memory-trim-oavplt. Band: COGNITIVE. -->
+
+## Precedence-Authority Envelopes (Cross-Clade Typed)
+
+Cross-clade typed envelopes that carry precedence-ordering authority as a first-class field. Surviving primitive from OT solo arena (tic 170). Refines existing envelope-pattern invariant — when envelopes cross jurisdictional boundaries, precedence-authority must be explicit, not implied by sequence.
+
+<!-- promoted from cpr_precedence_authority_envelopes_ot_tic170 (tic 170 → 179). Source: arena:2026-04-26_memory-trim-oavplt. Band: COGNITIVE. -->
+
+## Queue Metadata Schema Declaration
+
+Queue metadata schema is implicit. Producer (review-skill, review-execute, mandate-runner, cpr-extract-hook) and consumer (build-queue-index, bench-packet-prep, /governance-check) conventions drift silently. Schema-declaration discipline must be explicit across producers/consumers. Complement to Emitter-Surface Declaration Contract (CogPR-160) and Extractor Surface Schema Contract (CogPR-149).
+
+<!-- promoted from cpr_4cc73a735df78a1b (tic 179 → 179). Source: arena:2026-04-26_memory-trim-oavplt. Band: COGNITIVE. -->
+
+## Cross-Estate Integration Assessment Triple Test
+
+Cross-estate integration assessments should use a triple-intersection test (federation invariants × estate's mandate × concrete operational evidence) to distinguish viable adoption from incidental compatibility. Two-axis tests miss "looks compatible but evidence base is wrong" failures.
+
+<!-- promoted from cpr_fbfabe0b5eb9e0d2 (tic 179 → 179). Source: arena:2026-04-26_memory-trim-oavplt. Band: COGNITIVE. -->
 
 <!-- promoted from CogPR-133 (tic 122→128). Source: arena:sync-weigh-friction-oavplt — triple convergence (Pattern Curator Meta, cbUX, Videographer). Non-derivability vs CogPR-100 adjudicated: PASS. Resolves sig_2026-04-08_arena_fi7_nonderivability_open. Band: COGNITIVE. -->
 
