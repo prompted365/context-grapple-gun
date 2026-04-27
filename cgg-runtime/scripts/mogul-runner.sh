@@ -148,6 +148,20 @@ print(json.dumps(t))
 echo "Status -> running at $NOW"
 
 # ============================================================================
+# Pre-spawn: prune active-manifest of resolved entries
+#
+# Mechanizes "Signal Resolution Writeback Atomicity (Dual-Surface)" — keeps
+# Mogul's signal_scan reading curated truth instead of stale resolved entries.
+# Idempotent and cheap; safe to run before every mandate.
+# ============================================================================
+
+PRUNE_SCRIPT="$SCRIPT_DIR/manifest-prune.py"
+if [ -f "$PRUNE_SCRIPT" ]; then
+  python3 "$PRUNE_SCRIPT" --zone-root "$ZONE_ROOT" --quiet || \
+    echo "WARN: manifest-prune failed (non-fatal); continuing" >&2
+fi
+
+# ============================================================================
 # Compute artifact paths (needed by prompt and verification)
 # ============================================================================
 
@@ -187,7 +201,7 @@ $MANDATE_CONTENT
 1. Read and execute ONLY the cycles in cycle_request.run_now: $CYCLES
 2. For each cycle, produce evidence artifacts:
    - queue_refresh: scan audit-logs/cprs/queue.jsonl, report state. First run: python3 \$ZONE_ROOT/vendor/context-grapple-gun/cgg-runtime/scripts/arena-pressure-ingest.py --zone-root \$ZONE_ROOT --quiet to discover arena candidates before scanning.
-   - signal_scan: scan audit-logs/signals/*.jsonl, report active/decayed
+   - signal_scan: read audit-logs/signals/active-manifest.jsonl as the curated truth; count signals with status in {active, acknowledged, working} only (resolved entries are pruned by the runner pre-spawn). Daily files audit-logs/signals/*.jsonl are raw emissions, not authoritative state.
    - memory_mining: scan MEMORY.md chain for recurring patterns, write findings
    - pattern_mining: run scripts/pattern_miner.py, output to audit-logs/patterns/
    - enrichment_scan: run scripts/cpr-enrichment-scanner.py, assess enrichment-eligible CPRs

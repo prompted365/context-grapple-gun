@@ -486,10 +486,12 @@ def emit_drift_signal(zone_root, drifted_surfaces, severity="detected_drift",
 
     surface_names = sorted(s["name"] for s in drifted_surfaces)
     # Deterministic ID: derived from condition (severity + surfaces), not timestamp.
-    # Same condition across poll cycles resolves to same ID for dedup.
+    # Same condition across poll cycles AND across days resolves to same ID — recurring
+    # drift accrues volume on a stable signal instead of spawning new IDs per day.
+    # Per CogPR-66 Signal ID Determinism: IDs must not embed emission timestamps.
     id_content = f"{severity}:{'|'.join(surface_names)}"
     id_hash = hashlib.sha256(id_content.encode()).hexdigest()[:12]
-    signal_id = f"sig_{date_str}_{severity}_{id_hash}"
+    signal_id = f"sig_{severity}_{id_hash}"
 
     # Unresolved drift after sync is more severe
     volume = 60 if severity == "unresolved_drift" else 45
