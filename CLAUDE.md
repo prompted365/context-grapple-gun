@@ -566,9 +566,9 @@ High-composite-load memory-surface trims (composite mutation count >5) execute a
 
 ## Signal Resolution Writeback Atomicity (Dual-Surface)
 
-When signals are resolved in daily files (`audit-logs/signals/YYYY-MM-DD.jsonl`), the active-manifest may not receive a corresponding write — divergence between daily file truth and manifest curation. Resolution writeback must be atomic across both surfaces, or a sweep-style reconciliation must run on cadence.
+When signals are resolved in daily files (`audit-logs/signals/YYYY-MM-DD.jsonl`), the active-manifest may not receive a corresponding write — divergence between daily file truth and manifest curation. Resolution writeback must be atomic across both surfaces, or a sweep-style reconciliation must run on cadence. **Mechanism (tic 182):** `cgg-runtime/scripts/manifest-prune.py` provides atomic, idempotent, archive-preserving sweep — moves resolved entries from active-manifest to `audit-logs/signals/resolved-archive.jsonl`. Wired into `mogul-runner.sh` as pre-spawn invocation. Validated tic 182: 20 stale-resolved entries swept to 3 active, matching session-start banner exactly. The doctrine is now mechanism-implemented, not merely named.
 
-<!-- promoted from cpr_cmd_auto_sync_writeback_gap_tic171 (tic 171 → 179). Source: arena:2026-04-26_memory-trim-oavplt. Band: COGNITIVE. -->
+<!-- promoted from cpr_cmd_auto_sync_writeback_gap_tic171 (tic 171 → 179). Source: arena:2026-04-26_memory-trim-oavplt. Band: COGNITIVE. Refined with cpr_active_manifest_resolution_sweep_tic182 (tic 182→183) — named-doctrine to mechanism-implemented. -->
 
 ## Precedence-Authority Envelopes (Cross-Clade Typed)
 
@@ -889,3 +889,9 @@ Governance surfaces that can emit artifacts (MEMORY.md, arena reports, bench pac
 When an enrichment tool is meant to run periodically (e.g., pattern mining, queue analysis) but no invocation schedule exists, the tool operates in a starvation state: dormant but not erroring. Silent starvation produces zero output without signaling that nothing ran. Prevention requires: (1) explicit schedule declaration (when should this run?), (2) invocation audit trail (did it run last time it was supposed to?), (3) staleness detection (has output aged beyond expected cadence?). Without these three, enrichment tools fail silently and queue analysis degrades across tics without anyone noticing.
 
 <!-- promoted from cpr_c1b5aaf9f9bb8742 (tic 171→172). Source: session:enrichment-pipeline-audit-tic171. Band: COGNITIVE. -->
+
+## Consolidate Pre-Flight Discipline
+
+When `/consolidate` runs against an estate-spanning surface, two pre-flight disciplines apply before the consolidation produces an authoritative artifact. (1) **Pre-consolidation drift reconciliation** — when a surface contains internal drift between authoritative sources (e.g., spine.md says "X" while extended schema says "X′"), the drift must be reconciled against current state BEFORE consolidation flattens the surface; consolidating with unresolved drift inscribes contradictory claims into a single artifact. (2) **Scope walks repository tiers explicitly** — initial `/consolidate` invocations often scope to a single tier (e.g., one repo's docs) when the actual coherence boundary spans federation root + estate + domain + module; scope must walk repository tiers explicitly and the scope walk must be declared as a checklist before consolidation begins. The two disciplines compose: walk the tiers, reconcile the drift, then consolidate. Without pre-flight, consolidate produces lossy compression that looks authoritative.
+
+<!-- promoted from cpr_pre_consolidation_drift_reconciliation_tic182 + cpr_consolidation_scope_walks_repository_tiers_tic182 (tic 182→183, MERGE_PROMOTE). Source: tic 182 cadence — Sovereign Starter source-level reconciliation; initial /consolidate scope walked one tier (canonical/) before architect correction expanded to canonical+canonical_developer+canonical_user. Tier=tentative→reinforced (2 instances on same surface). Companion to Volatility Handling Law L0-L5. Band: COGNITIVE. -->
