@@ -14,5 +14,8 @@ stage/shows/*
 *.showlog
 *.prompt.expanded
 
+# Consolidate-skill output (transient agent-context dumps)
+stage/consolidations/
+
 # Example/demo specs (not shipped — arena primitives in templates/ are canonical)
 stage/specs/franchise-triangulation-demo.yaml
