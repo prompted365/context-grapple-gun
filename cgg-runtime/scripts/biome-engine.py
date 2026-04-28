@@ -28,6 +28,23 @@ State persistence (3-file layout):
 Snapshots at act boundaries:
   audit-logs/biome/snapshots/tic-{tic}-act-{act_id}.json
 
+Pre-seed backup discipline (PRIMITIVE band — destructive simulation seed):
+  --seed REPLACES rather than EXTENDS working state. organisms.json is rewritten
+  wholesale; the script does not append a new generation alongside existing
+  state. Without an explicit pre-seed backup, fresh-gen runs destroy working
+  memory of the prior generation. The audit lineage of permanent events
+  (registry.jsonl, conformations) survives because it is append-only, but the
+  operational state (organisms.json, agent-index.json) does not.
+
+  Required before any --seed invocation:
+    cp audit-logs/biome/state/organisms.json   .bak-pre-seed-{operation}-{tic}
+    cp audit-logs/biome/state/registry.jsonl   .bak-pre-seed-{operation}-{tic}
+    cp audit-logs/biome/state/agent-index.json .bak-pre-seed-{operation}-{tic}
+
+  Promoted from cpr_destructive_simulation_seed_requires_state_backup_tic173
+  (tic 173 → tic 188 review). Source: tic 173 fresh-gen seed loss incident.
+  Band: PRIMITIVE.
+
 References:
   biome-simulation-spec.md, physarum-simulation-spec.md,
   lichen-simulation-spec.md, act-completion-schema.md,

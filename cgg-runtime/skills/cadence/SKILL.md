@@ -326,6 +326,16 @@ The Session Projection is the primary activation payload of the handoff. It answ
 - The projection section is positioned BEFORE governance sections in the handoff to establish priority — the grapple fires first, the sidecar follows.
 - When the prior handoff included a Session Projection, carry forward its Active Roadmap Goals verbatim unless status changed. Do not silently drop goals.
 
+#### Long-Form Artifact Authoring Discipline (paired in-session + headless analytical pass)
+
+For long-form analytical or autobiographical artifacts (state-of-the-federation reports, autobiographies, multi-tic retrospectives), pairing **direct in-session authoring** with a **headless `claude -p` analytical pass** produces measurably better output than either alone.
+
+- The in-session author operates with continuity of voice and active session memory.
+- The headless pass operates on fresh context with structured analytical instructions and surfaces quantified observations the direct draft can miss (manifold counts, retrospective deltas, regime arcs).
+- Companion artifacts (analytical sibling alongside narrative voice) should be committed as siblings rather than absorbed monolithically — preserving both lenses.
+
+Promoted from `cpr_headless_claude_p_as_analytical_co_author_tic173` (tic 173 → tic 188 review). Source: tic 173 insights-report companion to state-of-federation autobiography. Apply when a deliverable spans multiple tics or requires both narrative coherence and quantitative scope. Band: COGNITIVE.
+
 #### Mogul Mandate Cascade
 
 After computing due markers (below), write a Mogul activation mandate for any newly-due cycles. This is the primary clock trigger for governance maintenance — /cadence computes what became due, writes the mandate, and lets the next session's activation fabric consume it.

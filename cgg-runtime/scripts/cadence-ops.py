@@ -260,6 +260,21 @@ def extract_governance_enrichment(gq_responses: list) -> dict:
                 "resolved": resolved,
                 "dismissed": dismissed,
             }
+            # manifold_state is a pure count threshold:
+            #   active == 0    -> CLEAR
+            #   active in 1..2 -> ACTIVE
+            #   active > 2     -> HAZARD
+            #
+            # Caveat (cpr_hazard_label_under_discriminates_tic173,
+            # tic 173 -> tic 188 review): the label has NO severity / band /
+            # kind weighting. A federation with 7 WATCH-band hygiene signals
+            # gets the same HAZARD label as one with 7 PRIMITIVE BEACONs. The
+            # label reads as danger but mechanically means "more than two
+            # signals are being tracked." Under-discriminates between
+            # `unattended-emergency` and `tracked-hygiene` regimes. Refining
+            # this is open work (weight by band/kind, subtract held-class
+            # signals, or split into orthogonal axes count + severity).
+            # Band: COGNITIVE.
             enrichment["manifold_state"] = (
                 "CLEAR" if active == 0
                 else "HAZARD" if active > 2
