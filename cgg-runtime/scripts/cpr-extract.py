@@ -109,23 +109,51 @@ def should_exclude(rel_path, excludes):
     return False
 
 
-def load_existing_hashes(queue_file):
-    """Load dedup hashes from existing queue.jsonl."""
+# Terminal status set — once a CPR id has reached one of these, the extractor
+# must NOT append a new "extracted" row for it. Doing so re-surfaces an already
+# settled CPR into the bench packet (CogPR-162 schema-implicit territory).
+TERMINAL_STATUSES = frozenset({
+    "promoted", "absorbed", "superseded", "rejected",
+    "deferred", "dismissed", "resolved", "skipped",
+})
+
+
+def load_existing_state(queue_file):
+    """Load dedup hashes AND terminal ids from existing queue.jsonl.
+
+    Returns (hashes, terminal_ids):
+      hashes       — set of all dedup_hash values seen (for source:lesson dedup)
+      terminal_ids — set of ids whose latest entry is in a terminal status
+
+    JSONL is append-only; latest entry per id wins. A CPR may appear with
+    status=extracted, then later status=promoted; the second row is the
+    canonical state. Re-extracting after terminal would inject a stale
+    "extracted" row that bench-packet-prep would prefer over the terminal.
+    """
     hashes = set()
+    latest_status_by_id = {}
     if not os.path.isfile(queue_file):
-        return hashes
+        return hashes, set()
     for line in open(queue_file, encoding="utf-8"):
         line = line.strip()
         if not line:
             continue
         try:
             d = json.loads(line)
-            h = d.get("dedup_hash", "")
-            if h:
-                hashes.add(h)
         except json.JSONDecodeError:
             continue
-    return hashes
+        h = d.get("dedup_hash", "")
+        if h:
+            hashes.add(h)
+        eid = d.get("id", "")
+        if eid:
+            # JSONL append-only: each subsequent occurrence overwrites
+            latest_status_by_id[eid] = d.get("status", "")
+    terminal_ids = {
+        eid for eid, status in latest_status_by_id.items()
+        if status in TERMINAL_STATUSES
+    }
+    return hashes, terminal_ids
 
 
 def find_governance_files(project_dir, excludes, plan_file=None):
@@ -186,20 +214,41 @@ def get_tic_count(project_dir):
     return tic_count
 
 
-def extract_cprs(project_dir, dry_run=False, plan_file=None):
-    """Main extraction: scan governance files, dedup, append to queue."""
+def extract_cprs(project_dir, dry_run=False, plan_file=None, anomaly_threshold=0.5):
+    """Main extraction: scan governance files, dedup, append to queue.
+
+    Schema gate is intentionally narrow — status=="pending" AND source AND
+    lesson must all be present. Widening the accepted schema (title/evidence
+    or lesson-only) is a doctrine question that must route through /review,
+    not be silently expanded here. (See architect's Patch E direction.)
+
+    Dedup is two-axis:
+      1. dedup_hash (sha256(source:lesson)[:16]) — same content, same row
+      2. explicit/derived id in TERMINAL_STATUSES — already-settled CPR
+    Either match skips extraction.
+
+    Anomaly report fires to stderr when extracted < blocks_found * threshold.
+    """
     project_dir = os.path.abspath(project_dir)
     tz_config = load_ticzone(project_dir)
     al_path = audit_logs_path(project_dir, tz_config)
     queue_file = os.path.join(al_path, "cprs", "queue.jsonl")
     excludes = load_ticignore(project_dir)
-    existing_hashes = load_existing_hashes(queue_file)
+    existing_hashes, terminal_ids = load_existing_state(queue_file)
     gov_files = find_governance_files(project_dir, excludes, plan_file=plan_file)
     tic_count = get_tic_count(project_dir)
     topo = birth_topology(project_dir)
     now = datetime.now(timezone.utc).isoformat()
 
     new_entries = []
+    counters = {
+        "blocks_found": 0,
+        "blocks_extracted": 0,
+        "skipped_status_not_pending": 0,
+        "skipped_missing_source_or_lesson": 0,
+        "skipped_dedup_hash_match": 0,
+        "skipped_terminal_id_match": 0,
+    }
 
     for gov_file in gov_files:
         try:
@@ -208,25 +257,44 @@ def extract_cprs(project_dir, dry_run=False, plan_file=None):
             continue
 
         for match in BLOCK_RE.finditer(text):
+            counters["blocks_found"] += 1
             block = parse_cpr_block(match.group(1))
             status = block.get("status", "")
             if status != "pending":
+                counters["skipped_status_not_pending"] += 1
                 continue
 
             source = block.get("source", "")
             lesson = block.get("lesson", "")
             if not source or not lesson:
+                counters["skipped_missing_source_or_lesson"] += 1
                 continue
 
             dedup_hash = hashlib.sha256(
                 f"{source}:{lesson}".encode()
             ).hexdigest()[:16]
             if dedup_hash in existing_hashes:
+                counters["skipped_dedup_hash_match"] += 1
+                continue
+
+            # Preserve explicit author-supplied id when present; otherwise
+            # derive from dedup hash. Explicit ids carry author intent
+            # (e.g., "CogPR-186") and were previously silently overwritten.
+            explicit_id = str(block.get("id", "")).strip()
+            entry_id = explicit_id if explicit_id else f"cpr_{dedup_hash}"
+
+            # Terminal-state valve: if this id has already reached a terminal
+            # status in the queue, do not append a new extracted row. Doing so
+            # would re-surface a settled CPR into bench-packet (the bug minted
+            # as cpr_bench_packet_must_filter_by_latest_non_extracted_status_tic183).
+            if entry_id in terminal_ids:
+                counters["skipped_terminal_id_match"] += 1
                 continue
 
             entry = {
                 "type": "cpr",
-                "id": f"cpr_{dedup_hash}",
+                "id": entry_id,
+                "id_origin": "explicit" if explicit_id else "hash_derived",
                 "dedup_hash": dedup_hash,
                 "status": "extracted",
                 "lesson": lesson,
@@ -255,6 +323,7 @@ def extract_cprs(project_dir, dry_run=False, plan_file=None):
 
             new_entries.append(entry)
             existing_hashes.add(dedup_hash)
+            counters["blocks_extracted"] += 1
 
     if new_entries and not dry_run:
         os.makedirs(os.path.dirname(queue_file), exist_ok=True)
@@ -274,7 +343,21 @@ def extract_cprs(project_dir, dry_run=False, plan_file=None):
                 finally:
                     fcntl.flock(lf.fileno(), fcntl.LOCK_UN)
 
-    return new_entries
+    # Anomaly self-reporting (CogPR-150). Fires to stderr when blocks_found
+    # is materially greater than blocks_extracted. The default 0.5 threshold
+    # is intentionally permissive — most non-extractions are legitimate
+    # (status not pending, missing schema, dedup match). The signal exists
+    # so silent zero-extraction at scale becomes visible.
+    bf = counters["blocks_found"]
+    bx = counters["blocks_extracted"]
+    if bf > 0 and bx < bf * (1.0 - anomaly_threshold):
+        print(
+            f"cpr-extract anomaly: blocks_found={bf} blocks_extracted={bx} "
+            f"counters={json.dumps(counters)}",
+            file=sys.stderr,
+        )
+
+    return new_entries, counters
 
 
 def main():
@@ -296,7 +379,7 @@ def main():
     args = parser.parse_args()
 
     project_dir = args.project_dir or resolve_zone_root()
-    new_entries = extract_cprs(
+    new_entries, counters = extract_cprs(
         project_dir,
         dry_run=args.dry_run,
         plan_file=args.plan_file,
@@ -304,7 +387,9 @@ def main():
 
     if args.verbose:
         for e in new_entries:
-            print(f"  {e['id']}: {e['lesson'][:60]}...")
+            origin = e.get("id_origin", "?")
+            print(f"  {e['id']} [{origin}]: {e['lesson'][:60]}...")
+        print(f"  counters: {json.dumps(counters)}", file=sys.stderr)
 
     # Print count (consumed by hook wrapper)
     print(len(new_entries))

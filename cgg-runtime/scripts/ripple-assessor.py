@@ -260,29 +260,69 @@ QUEUE_ACTIVE_STATUSES = {
     "enrichment_in_progress", "enrichment_eligible", "promotable",
 }
 
+# Mirrors bench-packet-prep.TERMINAL_STATUSES — terminal-state preference must
+# agree across both queue readers, or grapple-proposals can resurrect a CPR
+# whose disposition has already settled in the bench packet.
+TERMINAL_STATUSES = frozenset({
+    "promoted", "absorbed", "superseded", "rejected",
+    "deferred", "dismissed", "resolved", "skipped",
+})
+
 
 def load_queue(queue_path):
-    """Load CPR queue (latest-entry-per-ID-wins). Returns dict of id->entry."""
-    entries = {}
+    """Load CPR queue with terminal-state preference.
+
+    For each id, returns:
+      - the LATEST entry whose status is in TERMINAL_STATUSES, if any exist
+      - otherwise the latest entry overall (preserves the prior
+        latest-entry-per-id-wins behaviour for non-terminal ids)
+
+    Mirrors bench-packet-prep.load_queue() so the proposal surface and the
+    bench surface classify a duplicate-terminal case identically. Without this,
+    a later duplicate-extracted row can mask an already-settled disposition
+    in grapple-proposals while bench-packet correctly skips it.
+    """
     p = Path(queue_path)
     if not p.exists():
-        return entries
+        return {}
+
+    by_id = {}  # id -> list of entries in append order
     for line in p.read_text(encoding="utf-8").splitlines():
         line = line.strip()
         if not line:
             continue
         try:
             d = json.loads(line)
-            eid = d.get("id", "")
-            if eid:
-                entries[eid] = d
         except json.JSONDecodeError:
             continue
-    return entries
+        eid = d.get("id", "")
+        if eid:
+            by_id.setdefault(eid, []).append(d)
+
+    canonical = {}
+    for eid, entries_list in by_id.items():
+        terminal_entries = [
+            e for e in entries_list
+            if e.get("status", "") in TERMINAL_STATUSES
+        ]
+        if terminal_entries:
+            # Latest terminal entry is the canonical disposition
+            canonical[eid] = terminal_entries[-1]
+        else:
+            # No terminal yet — fall back to latest overall
+            canonical[eid] = entries_list[-1]
+    return canonical
 
 
 def queue_to_cprs(queue_entries):
-    """Convert queue entries to the CPR format expected by compile_proposals."""
+    """Convert queue entries to the CPR format expected by compile_proposals.
+
+    Conductor-score-runtime parity: enrichment fields written by
+    cpr-enrichment-scanner.py to queue.jsonl must reach classify_cpr_readiness().
+    Stripping them here makes the readiness gate read empty evidence even when
+    evidence exists. The passthrough set is the union of fields the readiness
+    gate, dossier builder, and downstream review consumers can read.
+    """
     cprs = []
     for eid, entry in queue_entries.items():
         status = entry.get("status", "")
@@ -297,6 +337,22 @@ def queue_to_cprs(queue_entries):
             "birth_tic": entry.get("birth_tic", 0),
             "band": entry.get("band", "COGNITIVE"),
             "subsystem": entry.get("subsystem", ""),
+            # Enrichment evidence written by cpr-enrichment-scanner.py
+            "enrichment": entry.get("enrichment", []),
+            "enrichment_confidence": entry.get("enrichment_confidence"),
+            "enrichment_scanned_at": entry.get("enrichment_scanned_at"),
+            "enrichment_scan_count": entry.get("enrichment_scan_count", 0),
+            "enrichment_rung": entry.get("enrichment_rung"),
+            "no_evidence_reason": entry.get("no_evidence_reason"),
+            # Lifecycle / classification fields
+            "pending_class": entry.get("pending_class"),
+            "maturity_window_tics": entry.get("maturity_window_tics"),
+            "regression_count": entry.get("regression_count", 0),
+            # Relational / semantic fields
+            "relations": entry.get("relations", {}),
+            "lesson_type": entry.get("lesson_type"),
+            "confidence_tier": entry.get("confidence_tier"),
+            "origin_context": entry.get("origin_context"),
         })
     return cprs
 

@@ -32,24 +32,58 @@ from zone_root import resolve_zone_root, load_ticzone, audit_logs_path, birth_to
 # Data loading
 # ---------------------------------------------------------------------------
 
+# Terminal-state set: once an id has reached one of these, the canonical
+# state IS that terminal entry — even if a later "extracted" row appears
+# (e.g., from re-extraction after schema change). The terminal-state valve
+# protects bench-packet from surfacing settled CPRs as live candidates.
+TERMINAL_STATUSES = frozenset({
+    "promoted", "absorbed", "superseded", "rejected",
+    "deferred", "dismissed", "resolved", "skipped",
+})
+
+
 def load_queue(queue_path):
-    """Load CPR queue (latest-entry-per-ID-wins). Returns dict of id->entry."""
-    entries = {}
+    """Load CPR queue with terminal-state preference.
+
+    For each id, returns:
+      - the LATEST entry whose status is in TERMINAL_STATUSES, if any exist
+      - otherwise the latest entry overall (preserves the prior
+        latest-entry-per-id-wins behaviour for non-terminal ids)
+
+    This prevents a later duplicate-extracted row from masking an already-
+    settled disposition. Born from the bug minted as
+    cpr_bench_packet_must_filter_by_latest_non_extracted_status_tic183.
+    """
     p = Path(queue_path)
     if not p.exists():
-        return entries
+        return {}
+
+    by_id = {}  # id -> list of entries in append order
     for line in p.read_text(encoding="utf-8").splitlines():
         line = line.strip()
         if not line:
             continue
         try:
             d = json.loads(line)
-            eid = d.get("id", "")
-            if eid:
-                entries[eid] = d
         except json.JSONDecodeError:
             continue
-    return entries
+        eid = d.get("id", "")
+        if eid:
+            by_id.setdefault(eid, []).append(d)
+
+    canonical = {}
+    for eid, entries_list in by_id.items():
+        terminal_entries = [
+            e for e in entries_list
+            if e.get("status", "") in TERMINAL_STATUSES
+        ]
+        if terminal_entries:
+            # Latest terminal entry is the canonical disposition
+            canonical[eid] = terminal_entries[-1]
+        else:
+            # No terminal yet — fall back to latest overall
+            canonical[eid] = entries_list[-1]
+    return canonical
 
 
 def load_signal_store(signal_dir):
@@ -256,11 +290,27 @@ def build_bench_packet(project_dir, dry_run=False):
             "subsystem": cpr.get("subsystem", ""),
             "recommended_scopes": cpr.get("recommended_scopes", []),
             "review_hints": cpr.get("review_hints", ""),
+            # Enrichment fields — preserved end-to-end so reviewers see
+            # the evidence cpr-enrichment-scanner gathered, not just the
+            # confidence score. The full set is the same as ripple-assessor's
+            # passthrough (conductor-score-runtime parity, single source).
+            "enrichment": cpr.get("enrichment", []),
             "enrichment_confidence": cpr.get("enrichment_confidence"),
+            "enrichment_scanned_at": cpr.get("enrichment_scanned_at"),
+            "enrichment_scan_count": cpr.get("enrichment_scan_count", 0),
+            "enrichment_rung": cpr.get("enrichment_rung"),
+            "no_evidence_reason": cpr.get("no_evidence_reason"),
+            "pending_class": cpr.get("pending_class"),
+            "maturity_window_tics": cpr.get("maturity_window_tics"),
+            "regression_count": cpr.get("regression_count", 0),
+            "lesson_type": cpr.get("lesson_type"),
+            "confidence_tier": cpr.get("confidence_tier"),
+            "origin_context": cpr.get("origin_context"),
             "relations": {
                 "sibling_cprs": related,
                 "active_signals": related_signals,
                 "already_in_doctrine": doctrine_ref,
+                "queue_relations": cpr.get("relations", {}),
             },
         }
         pending_cogprs.append(dossier)

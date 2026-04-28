@@ -37,5 +37,21 @@
     "README.md",
     "__pycache__",
     "*.pyc"
+  ],
+  "_tracked_external_scripts_doc": "Runtime-invokable scripts that live OUTSIDE cgg-runtime/ by intentional placement (e.g., path-locked to a data location). Not subject to ~/.claude install/sync, but registered here so runtime-sync awareness includes them. Declares ownership without forcing relocation. See CogPR for Runtime-Invokable Scripts Must Register in Sync Manifest.",
+  "tracked_external_scripts": [
+    {
+      "path": "audit-logs/cprs/build_queue_index.py",
+      "owner": "cgg-runtime",
+      "category": "indexer",
+      "invoked_by": [
+        "skill:governance-check",
+        "Mogul cycle: queue_refresh"
+      ],
+      "writes": "audit-logs/cprs/queue-index.json",
+      "install_target": null,
+      "install_reason": "project-local; uses Path(__file__).parent to resolve queue.jsonl as sibling — relocation breaks path lock",
+      "schema_coverage_limit": "TERMINAL_STATUSES is narrower than federation terminal set; widening is a doctrine question (CogPR-159), not silent expansion"
+    }
   ]
 }
