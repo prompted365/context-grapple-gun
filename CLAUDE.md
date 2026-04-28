@@ -712,13 +712,23 @@ External media API routers (generation + adjudication) should share a single rou
 
 B-roll assembly must use overlay-at-timestamp (video replaces speaker footage at specific time windows), not insert-between-segments (video spliced into the timeline). Insert-based assembly adds duration to the video track without adding duration to the audio track, causing cumulative sync drift after every insertion. The audio spine is continuous and untouched; the visual layer swaps at precise windows.
 
+**Audio spine duration derivation**: When extracting audio for the composite track, use reel durations (the final edited sequence duration), not source durations (the unedited source material). Audio extracted at source durations (13.5s) while video uses reel durations (10s) from the same EDL produces progressive drift after every cut point. Correct sequence: extract audio_in to audio_out for exactly (reel_out - reel_in) seconds duration.
+
 <!-- promoted from CogPR-158 (tic 139→143). Source: session:podcast-pipeline-ep31. Band: COGNITIVE. detection_affordance: pending. -->
+
+<!-- promoted from CogPR-186 (tic 149→188). Source: MEMORY.md inline candidate. Audio spine duration must use reel durations, not source durations. Evidence: tic 149 assembly produced 13.5s audio clip from 10s reel — progressive drift after each cut point. Fix: extract audio at source_in for exactly (reel_out - reel_in) seconds. Band: COGNITIVE. Confidence_tier: tentative. -->
 
 ## Morph Transition Grammar
 
 Morph transitions are atomic compound operations: (1) keyframes must come from different visual worlds — two real frames produce camera interpolation, not transformation; (2) OUT morph chains from IN morph's actual last frame (pose continuity); (3) editorial trims must not land inside morphing zones — cutting mid-morph produces visible breaks. EDL needs continuity_type per b-roll slot.
 
 <!-- promoted from CogPR-155/167 merged (tic 139-141→143). Source: session:podcast-pipeline-ep31 + Ep31 reel analysis. Depends on: CogPR-158 (overlay method). Band: COGNITIVE. detection_affordance: pending. -->
+
+## Timeline Lock and Base Track Preparation
+
+Timeline lock (freezing the edited base track before generation) requires re-transcription of the edited base track BEFORE locking. If the edit trims key phrases from the base track, the b-roll markers and captions remain locked to their original (now-phantom) timestamps. Correct sequence: (1) build base track → (2) edit for content coherence → (3) re-transcribe edited track at 0.001s granularity → (4) verify all markers match edited content → (5) lock timeline → (6) THEN generate b-roll/morph content. Skipping step 3 produces silent content loss: key phrases ('energetic hygiene', 'you think it's yours') vanish from the reel while markers reference them.
+
+<!-- promoted from CogPR-188 (tic 149→188). Source: MEMORY.md inline candidate. Timeline lock + base track preparation discipline. Evidence: tic 149 edit trimmed key phrases from base track; captions + b-roll markers referenced phantom content. Root cause: re-transcription skipped between edit and lock. Correct sequence: edit → re-transcribe → verify → lock → generate. Band: COGNITIVE. Confidence_tier: tentative. -->
 
 ## Temporal Scope Discipline
 
