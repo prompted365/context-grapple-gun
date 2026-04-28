@@ -160,6 +160,7 @@ agents:
     model: "sonnet | haiku | opus"
     isolation: "worktree | none"
     blocked_by: []
+    owns_regions: []         # optional — region-level ownership for sub-file parallelism (e.g. ["lights/*", "cameras/*"]); empty implies file-level ownership per blocked_by
     output_path: "<where results go>"
     timeout_minutes: <number>
 
