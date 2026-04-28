@@ -214,13 +214,89 @@ def get_tic_count(project_dir):
     return tic_count
 
 
-def extract_cprs(project_dir, dry_run=False, plan_file=None, anomaly_threshold=0.5):
-    """Main extraction: scan governance files, dedup, append to queue.
+def _classify_tier(block, status):
+    """Patch E tiered classification.
 
-    Schema gate is intentionally narrow — status=="pending" AND source AND
-    lesson must all be present. Widening the accepted schema (title/evidence
-    or lesson-only) is a doctrine question that must route through /review,
-    not be silently expanded here. (See architect's Patch E direction.)
+    Returns (tier, decision) where tier ∈ {"tier1","tier2","tier3","skip_status",
+    "skip_no_status","skip_schema_incomplete"}.
+
+    Tier 1 — canonical:        status=pending AND lesson AND source
+    Tier 2 — title+evidence:   (status=pending OR status absent) AND title AND evidence
+    Tier 3 — lesson-only:      status=pending AND lesson AND NOT source
+                               AND NOT (title AND evidence)
+    Skip variants:
+      skip_status              status set but != pending and not Tier 2
+      skip_no_status           status absent and not Tier 2
+      skip_schema_incomplete   status=pending but no extractable shape
+    """
+    has_lesson = bool(block.get("lesson", ""))
+    has_source = bool(block.get("source", ""))
+    has_title = bool(block.get("title", ""))
+    # evidence may be string or list — both count as present
+    evidence_val = block.get("evidence", "")
+    has_evidence = bool(evidence_val) if not isinstance(evidence_val, list) else len(evidence_val) > 0
+    has_title_and_evidence = has_title and has_evidence
+
+    if status == "pending":
+        if has_lesson and has_source:
+            return "tier1"
+        if has_title_and_evidence:
+            return "tier2"
+        if has_lesson:
+            return "tier3"
+        return "skip_schema_incomplete"
+
+    # status absent or anything other than pending
+    if has_title_and_evidence:
+        return "tier2"
+    if status == "":
+        return "skip_no_status"
+    return "skip_status"
+
+
+def _block_line_number(text, match_start):
+    """Compute 1-indexed line number of the block start in the source file."""
+    return text.count("\n", 0, match_start) + 1
+
+
+def _origin_context_for(gov_file):
+    """Detect origin_context from source file path.
+
+    memory_inline — auto-memory MEMORY.md or any path containing memory/MEMORY.md
+    session       — anything else (CLAUDE.md, plan files, project-local MEMORY.md)
+    """
+    p = str(gov_file)
+    if "memory/MEMORY.md" in p or p.endswith("/.claude/projects") or "/memory/MEMORY.md" in p:
+        return "memory_inline"
+    return "session"
+
+
+def extract_cprs(project_dir, dry_run=False, plan_file=None, anomaly_threshold=0.5):
+    """Main extraction: scan governance files, classify by tier, dedup, append.
+
+    Patch E (tic 188) widens the accepted schema with tiered capture. The
+    extractor's job is to move candidate material into the queue with honest
+    metadata, not to make weak candidates look strong:
+
+      Tier 1 — canonical:       status=pending + lesson + source
+                                → status=extracted, no enrichment flag
+      Tier 2 — title+evidence:  status pending OR absent + title + evidence
+                                → status=enrichment_needed
+                                  pending_class=evidence_scoped
+                                  lesson := title (if lesson missing)
+                                  source := source if present else source_file:block_line
+                                  evidence preserved in queue metadata
+      Tier 3 — lesson-only:     status=pending + lesson, no source, no title+evidence
+                                → status=enrichment_needed
+                                  pending_class=schema_incomplete
+                                  source := source_file:block_line
+                                  no_evidence_reason=lesson_only_candidate_requires_enrichment
+                                  do NOT infer recommended_scopes
+
+    Hard constraints:
+      - no-status + lesson-only is NOT extractable
+      - missing fields are not permission to invent source, scope, or evidence
+      - confidence_tier := tentative for Tier 2/3 unless declared
 
     Dedup is two-axis:
       1. dedup_hash (sha256(source:lesson)[:16]) — same content, same row
@@ -244,10 +320,15 @@ def extract_cprs(project_dir, dry_run=False, plan_file=None, anomaly_threshold=0
     counters = {
         "blocks_found": 0,
         "blocks_extracted": 0,
+        "extracted_canonical": 0,
+        "extracted_title_evidence": 0,
+        "extracted_lesson_only": 0,
+        "explicit_id_preserved": 0,
         "skipped_status_not_pending": 0,
-        "skipped_missing_source_or_lesson": 0,
+        "skipped_no_status": 0,
+        "skipped_schema_incomplete": 0,
         "skipped_dedup_hash_match": 0,
-        "skipped_terminal_id_match": 0,
+        "terminal_duplicate_skipped": 0,
     }
 
     for gov_file in gov_files:
@@ -260,15 +341,42 @@ def extract_cprs(project_dir, dry_run=False, plan_file=None, anomaly_threshold=0
             counters["blocks_found"] += 1
             block = parse_cpr_block(match.group(1))
             status = block.get("status", "")
-            if status != "pending":
+            tier = _classify_tier(block, status)
+
+            if tier == "skip_status":
                 counters["skipped_status_not_pending"] += 1
                 continue
-
-            source = block.get("source", "")
-            lesson = block.get("lesson", "")
-            if not source or not lesson:
-                counters["skipped_missing_source_or_lesson"] += 1
+            if tier == "skip_no_status":
+                counters["skipped_no_status"] += 1
                 continue
+            if tier == "skip_schema_incomplete":
+                counters["skipped_schema_incomplete"] += 1
+                continue
+
+            block_line = _block_line_number(text, match.start())
+            block_locator = f"{gov_file}:{block_line}"
+
+            # Resolve source/lesson per tier — never invent
+            if tier == "tier1":
+                source = block.get("source", "")
+                lesson = block.get("lesson", "")
+                queue_status = "extracted"
+                pending_class = ""
+                no_evidence_reason = ""
+            elif tier == "tier2":
+                # source: existing source OR block locator (never invented from elsewhere)
+                source = block.get("source", "") or block_locator
+                # lesson: existing lesson OR title (never invented; title is author-supplied)
+                lesson = block.get("lesson", "") or block.get("title", "")
+                queue_status = "enrichment_needed"
+                pending_class = "evidence_scoped"
+                no_evidence_reason = ""
+            else:  # tier3 — lesson-only
+                source = block_locator
+                lesson = block.get("lesson", "")
+                queue_status = "enrichment_needed"
+                pending_class = "schema_incomplete"
+                no_evidence_reason = "lesson_only_candidate_requires_enrichment"
 
             dedup_hash = hashlib.sha256(
                 f"{source}:{lesson}".encode()
@@ -278,32 +386,45 @@ def extract_cprs(project_dir, dry_run=False, plan_file=None, anomaly_threshold=0
                 continue
 
             # Preserve explicit author-supplied id when present; otherwise
-            # derive from dedup hash. Explicit ids carry author intent
-            # (e.g., "CogPR-186") and were previously silently overwritten.
+            # derive from dedup hash. Explicit ids carry author intent.
             explicit_id = str(block.get("id", "")).strip()
             entry_id = explicit_id if explicit_id else f"cpr_{dedup_hash}"
 
             # Terminal-state valve: if this id has already reached a terminal
-            # status in the queue, do not append a new extracted row. Doing so
-            # would re-surface a settled CPR into bench-packet (the bug minted
-            # as cpr_bench_packet_must_filter_by_latest_non_extracted_status_tic183).
+            # status in the queue, do not append a new row.
             if entry_id in terminal_ids:
-                counters["skipped_terminal_id_match"] += 1
+                counters["terminal_duplicate_skipped"] += 1
                 continue
+
+            # Tier 3 must NOT infer recommended_scopes — preserve only what
+            # the author supplied (which for tier 3 is typically empty).
+            recommended_scopes = block.get("recommended_scopes", [])
+            if not isinstance(recommended_scopes, list):
+                recommended_scopes = [recommended_scopes] if recommended_scopes else []
+
+            # confidence_tier — tentative for tier2/tier3 unless declared
+            declared_confidence = block.get("confidence_tier", "")
+            if tier == "tier1":
+                confidence_tier = declared_confidence  # may be empty; tier1 doesn't impose
+            else:
+                confidence_tier = declared_confidence or "tentative"
+
+            origin_context = block.get("origin_context", "") or _origin_context_for(gov_file)
 
             entry = {
                 "type": "cpr",
                 "id": entry_id,
                 "id_origin": "explicit" if explicit_id else "hash_derived",
                 "dedup_hash": dedup_hash,
-                "status": "extracted",
+                "status": queue_status,
+                "tier": tier,  # tier1|tier2|tier3 — provenance for readers
                 "lesson": lesson,
                 "source": source,
                 "source_date": block.get("source_date", ""),
                 "band": block.get("band", "COGNITIVE"),
                 "motivation_layer": block.get("motivation_layer", "COGNITIVE"),
                 "subsystem": block.get("subsystem", ""),
-                "recommended_scopes": block.get("recommended_scopes", []),
+                "recommended_scopes": recommended_scopes,
                 "rationale": block.get("rationale", ""),
                 "review_hints": block.get("review_hints", ""),
                 "birth_tic": block.get("birth_tic", tic_count),
@@ -311,9 +432,25 @@ def extract_cprs(project_dir, dry_run=False, plan_file=None, anomaly_threshold=0
                 "extracted_at": now,
                 "extracted_by": "cpr-extract-hook",
                 "source_file": str(gov_file),
+                "source_block_line": block_line,
                 "birth_rung": topo["birth_rung"],
                 "birth_scope_path": topo["birth_scope_path"],
             }
+
+            # Tier 2 carries title + evidence into queue metadata
+            if tier == "tier2":
+                entry["title"] = block.get("title", "")
+                entry["evidence"] = block.get("evidence", "")
+
+            # Tier 2/3 metadata
+            if pending_class:
+                entry["pending_class"] = pending_class
+            if no_evidence_reason:
+                entry["no_evidence_reason"] = no_evidence_reason
+            if confidence_tier:
+                entry["confidence_tier"] = confidence_tier
+            if origin_context:
+                entry["origin_context"] = origin_context
 
             # Parse birth_tic as int if it came from block as string
             try:
@@ -324,6 +461,14 @@ def extract_cprs(project_dir, dry_run=False, plan_file=None, anomaly_threshold=0
             new_entries.append(entry)
             existing_hashes.add(dedup_hash)
             counters["blocks_extracted"] += 1
+            if tier == "tier1":
+                counters["extracted_canonical"] += 1
+            elif tier == "tier2":
+                counters["extracted_title_evidence"] += 1
+            else:
+                counters["extracted_lesson_only"] += 1
+            if explicit_id:
+                counters["explicit_id_preserved"] += 1
 
     if new_entries and not dry_run:
         os.makedirs(os.path.dirname(queue_file), exist_ok=True)
