@@ -104,6 +104,64 @@ def dedup_signal_append(target: str, signal: dict, manifest_path: str = None) ->
             fcntl.flock(lock_fd.fileno(), fcntl.LOCK_UN)
 
 
+def dedup_queue_append(target: str, entry: dict) -> bool:
+    """Append a CPR queue entry only if its id doesn't already exist in the
+    target file. Returns True if written, False if deduplicated.
+
+    Implements Dedup-at-Write doctrine (CogPR-117) for the CPR queue: dedup
+    enforcement happens at the write boundary, keyed on canonical record
+    identity (entry id). Mirrors dedup_signal_append for queue.jsonl.
+
+    The function reads the target under exclusive lock, scans existing ids,
+    and only writes if the new entry's id is absent. This catches duplication
+    at the physics layer regardless of why the caller is attempting to write
+    the same id again (race, loop bug, missed upstream check).
+
+    For terminal-state preservation, callers should verify the existing entry
+    is not already terminal BEFORE invoking this function — once an id is
+    written, this function will never overwrite. The Terminal-State Valve
+    pattern (CogPR-188) is the read-side complement.
+    """
+    eid = entry.get("id", "")
+    if not eid:
+        # No ID — fall back to plain append; caller is responsible
+        atomic_append_jsonl(target, entry)
+        return True
+
+    os.makedirs(os.path.dirname(target), exist_ok=True)
+    lockfile = target + ".lock"
+
+    with open(lockfile, "w") as lock_fd:
+        fcntl.flock(lock_fd.fileno(), fcntl.LOCK_EX)
+        try:
+            existing_ids = set()
+            if os.path.isfile(target):
+                with open(target, "r", encoding="utf-8") as f:
+                    for line in f:
+                        line = line.strip()
+                        if not line:
+                            continue
+                        try:
+                            d = json.loads(line)
+                            existing = d.get("id", "")
+                            if existing:
+                                existing_ids.add(existing)
+                        except (json.JSONDecodeError, ValueError):
+                            pass
+
+            if eid in existing_ids:
+                return False
+
+            line = json.dumps(entry, separators=(",", ":")) + "\n"
+            with open(target, "a", encoding="utf-8") as f:
+                f.write(line)
+                f.flush()
+                os.fsync(f.fileno())
+            return True
+        finally:
+            fcntl.flock(lock_fd.fileno(), fcntl.LOCK_UN)
+
+
 if __name__ == "__main__":
     import sys
     if len(sys.argv) == 3:

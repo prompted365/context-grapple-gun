@@ -472,19 +472,55 @@ def extract_cprs(project_dir, dry_run=False, plan_file=None, anomaly_threshold=0
 
     if new_entries and not dry_run:
         os.makedirs(os.path.dirname(queue_file), exist_ok=True)
+        # Dedup-at-Write (CogPR-117): use dedup_queue_append at the physics
+        # layer. The dedup_hash check earlier in this function catches most
+        # duplicates, but defense in depth is required because (a) races
+        # between concurrent extracts can both pass the dedup_hash check on
+        # snapshots taken before either writes, (b) loop or path-discovery
+        # bugs upstream of this loop can produce multiple identical entries
+        # in new_entries that all pass the dedup_hash check (the check
+        # prevents re-extraction across runs but does not prevent duplicate
+        # entries within a single run's new_entries list). The id-based
+        # write-boundary check catches both classes.
         try:
-            from lib.atomic_append import atomic_append_jsonl
+            from lib.atomic_append import dedup_queue_append
+            written = 0
+            deduped = 0
             for entry in new_entries:
-                atomic_append_jsonl(queue_file, entry)
+                if dedup_queue_append(queue_file, entry):
+                    written += 1
+                else:
+                    deduped += 1
+            counters["written_to_queue"] = written
+            counters["deduped_at_write"] = deduped
         except ImportError:
+            # Fallback path: manual dedup-by-id under file lock.
             import fcntl
             lockfile = queue_file + ".lock"
             with open(lockfile, "w") as lf:
                 fcntl.flock(lf.fileno(), fcntl.LOCK_EX)
                 try:
+                    existing_ids = set()
+                    if os.path.isfile(queue_file):
+                        for line in open(queue_file, encoding="utf-8"):
+                            line = line.strip()
+                            if not line:
+                                continue
+                            try:
+                                d = json.loads(line)
+                                eid = d.get("id", "")
+                                if eid:
+                                    existing_ids.add(eid)
+                            except json.JSONDecodeError:
+                                continue
                     with open(queue_file, "a", encoding="utf-8") as f:
                         for entry in new_entries:
+                            eid = entry.get("id", "")
+                            if eid and eid in existing_ids:
+                                continue
                             f.write(json.dumps(entry, separators=(",", ":")) + "\n")
+                            if eid:
+                                existing_ids.add(eid)
                 finally:
                     fcntl.flock(lf.fileno(), fcntl.LOCK_UN)
 
