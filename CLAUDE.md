@@ -522,6 +522,23 @@ This refines the Three-Form CGG Boundary (canonical/CLAUDE.md) with an operation
 
 <!-- promoted from CogPR-130 (tic 122→128). Source: arena:sync-weigh-friction-oavplt — 5/7 office convergence. Ladder Auditor structural anchor framing validated. DIRECT-D enrichment: one structural anchor with derived rules is a tighter promotion footprint than seven independent inscriptions. Band: COGNITIVE. -->
 
+## Claimed Install-State Requires Auditable Sync-Log Proof
+
+**Claimed install-state is not real until post-commit sync proves byte parity across all targets and emits an auditable sync log.**
+
+Refines Install Boundary as Governance Transition: the install boundary is a **proof-required** transition, not merely a re-verification site. State assertions ("synced," "current," "matches canonical") have no constitutional weight without a sync-log entry tying the claim to a specific commit and surface set. "No drift detected" output alone is insufficient — silent abort can produce that observation while leaving install untouched.
+
+Required proof artifacts for any claim that install-state matches canonical:
+1. Commit SHA the sync ran against
+2. Hook fired (traceable in stdout, sync log, or install-target ctime updates)
+3. auto-sync completed the full pipeline (compare → copy → log-write → drift-signal-resolution)
+4. Byte equality verifiable across all enumerated install targets
+5. Sync log entry at `audit-logs/services/cgg-sync-log.jsonl` carrying timestamp + commit + synced surface list
+
+The queue write path, commit discipline, and install propagation path are coupled, not assumed — each stage must produce its own proof artifact.
+
+<!-- promoted from cpr_claimed_install_state_requires_sync_log_proof_tic209 (tic 209→209). Source: operator-named invariant during /review tic 209 hook coverage audit. Validated tic 209: post-commit-sync hook fired on /review commits but resolve_drift_signals_on_sync crashed on undefined find_audit_logs (CGG commit a948a71 patched it) — install was not updated despite "no drift detected" output. Manual byte-equality check exposed the silent abort. Constitutional lesson: trust the proof artifact, not the printed claim. Band: COGNITIVE. -->
+
 ## Detection Affordance Tracking
 
 Promoted invariants should carry `detection_affordance` metadata tracking whether a detection mechanism exists. This is advisory at review time, not a blocking gate. Entries marked `"pending"` generate queue-refresh follow-up obligations. The metadata tracks the gap between inscription and enforcement — an invariant without a detection mechanism is a mandate without mechanism (F-2 pattern).
