@@ -137,42 +137,45 @@ if [ "$MODE" = "LITE" ]; then
   exit 0
 fi
 
-# --- FULL mode: conformation radar (30s cache) ---
-# Source: latest canonical conformation snapshot only.
-# Never scan raw ledgers. If no snapshot exists, degrade gracefully.
+# --- FULL mode: telos radar (30s cache) ---
+# Sources (read-only):
+#   - latest conformation snapshot (signals, warrants, CPR pipeline distribution)
+#   - audit-logs/harmony/disposition-current.json (theory-of-mind injection)
+# Never scan raw ledgers. If a source is missing, degrade gracefully.
 CONF_CACHE="${CACHE_PREFIX}-conf"
 CONF_LINE=""
 if cache_fresh "$CONF_CACHE" 30; then
   CONF_LINE=$(cat "$CONF_CACHE")
 else
   CONF_STATUS=""
-  SIG_COUNT=""
-  WRN_COUNT=""
-  CPR_COUNT=""
+  SIG_DOTS=""           # one ● per active signal, colored by volume tier
+  WRN_COUNT=""          # warrants stay numeric; boundaries are not "ambient"
+  PIPE_E=""; PIPE_N=""; PIPE_R=""  # extracted ▸ enrichment_needed ▸ enrichment_eligible
+  HARMONY_PART=""
 
   # Find latest conformation snapshot by tic number
   CONF_DIR="$ZONE_ROOT/audit-logs/conformations"
   if [ -d "$CONF_DIR" ]; then
     LATEST_CONF=$(ls -1 "$CONF_DIR"/tic-*.json 2>/dev/null | awk -F'tic-' '{n=$2; sub(/\.json$/,"",n); print n"\t"$0}' | sort -n | tail -1 | cut -f2)
     if [ -n "$LATEST_CONF" ] && [ -f "$LATEST_CONF" ]; then
-      # Support two conformation schemas:
-      #   v1 (tic-209 style): .counts.active_signals / .counts.active_warrants / .counts.pending_cogprs
-      #   v2 (tic-210 style): .signals.active[] / .warrants.active[] / .cprs.enrichment_eligible
-      SIG_COUNT=$(jq -r '.counts.active_signals // empty' "$LATEST_CONF" 2>/dev/null || true)
-      if [ -z "$SIG_COUNT" ]; then
-        # v2: count non-dismissed/non-resolved signals
-        SIG_COUNT=$(jq -r '[.signals.active // [] | .[] | select(.status != "dismissed" and .status != "resolved")] | length' "$LATEST_CONF" 2>/dev/null || echo "0")
-      fi
-      WRN_COUNT=$(jq -r '.counts.active_warrants // empty' "$LATEST_CONF" 2>/dev/null || true)
-      if [ -z "$WRN_COUNT" ]; then
-        WRN_COUNT=$(jq -r '.warrants.active // [] | length' "$LATEST_CONF" 2>/dev/null || echo "0")
-      fi
-      CPR_COUNT=$(jq -r '.counts.pending_cogprs // empty' "$LATEST_CONF" 2>/dev/null || true)
-      if [ -z "$CPR_COUNT" ]; then
-        CPR_COUNT=$(jq -r '.cprs.enrichment_eligible // 0' "$LATEST_CONF" 2>/dev/null || echo "0")
-      fi
-      # Conformation health: clean if no active signals/warrants
-      if [ "${SIG_COUNT:-0}" = "0" ] && [ "${WRN_COUNT:-0}" = "0" ]; then
+      # Severity dots — one per active signal, colored by volume tier
+      # vol >= 40: red, 20-39: yellow, < 20: green
+      SIG_DOTS=$(jq -r '
+        ([.active_signals // .signals.active // [] | .[] | select(.status != "dismissed" and .status != "resolved") | (.volume // 0)] // [])
+        | map(if . >= 40 then "R" elif . >= 20 then "Y" else "G" end)
+        | join("")
+      ' "$LATEST_CONF" 2>/dev/null || echo "")
+
+      WRN_COUNT=$(jq -r '(.active_warrants // .warrants.active // []) | length' "$LATEST_CONF" 2>/dev/null || echo "0")
+
+      # Pipeline distribution from pending_cogprs list
+      PIPE_E=$(jq -r '[.pending_cogprs // [] | .[] | select(.status == "extracted")] | length' "$LATEST_CONF" 2>/dev/null || echo "0")
+      PIPE_N=$(jq -r '[.pending_cogprs // [] | .[] | select(.status == "enrichment_needed")] | length' "$LATEST_CONF" 2>/dev/null || echo "0")
+      PIPE_R=$(jq -r '[.pending_cogprs // [] | .[] | select(.status == "enrichment_eligible")] | length' "$LATEST_CONF" 2>/dev/null || echo "0")
+
+      # Conformation health: clean if no signals AND no warrants
+      SIG_LEN=${#SIG_DOTS}
+      if [ "${SIG_LEN}" = "0" ] && [ "${WRN_COUNT:-0}" = "0" ]; then
         CONF_STATUS="clean"
       else
         CONF_STATUS="active"
@@ -180,22 +183,33 @@ else
     fi
   fi
 
-  # Cost + duration formatting
-  COST_STR=""
-  if [ -n "$COST" ] && [ "$COST" != "null" ]; then
-    COST_STR=$(printf '$%.2f' "$COST" 2>/dev/null || true)
-  fi
-  DUR_STR=""
-  if [ -n "$DURATION_MS" ] && [ "$DURATION_MS" != "null" ]; then
-    DUR_TOTAL_SECS=${DURATION_MS%.*}
-    DUR_TOTAL_SECS=$((DUR_TOTAL_SECS / 1000))
-    if [ "${DUR_TOTAL_SECS:-0}" -ge 3600 ] 2>/dev/null; then
-      DUR_STR="$((DUR_TOTAL_SECS / 3600))h$((DUR_TOTAL_SECS % 3600 / 60))m"
-    elif [ "${DUR_TOTAL_SECS:-0}" -ge 60 ] 2>/dev/null; then
-      DUR_STR="$((DUR_TOTAL_SECS / 60))m"
+  # Harmony disposition (theory-of-mind injection)
+  HARMONY_FILE="$ZONE_ROOT/audit-logs/harmony/disposition-current.json"
+  if [ -f "$HARMONY_FILE" ]; then
+    H_TIC=$(jq -r '.tic // 0' "$HARMONY_FILE" 2>/dev/null)
+    H_STATE=$(jq -r '.meaning_state // "unknown"' "$HARMONY_FILE" 2>/dev/null)
+    H_SNR=$(jq -r '.snr // 0' "$HARMONY_FILE" 2>/dev/null)
+    H_STANCE=$(jq -r '.stance // "idle"' "$HARMONY_FILE" 2>/dev/null)
+    # Compress stance: "hold-open-with-boundary" → "hold open"
+    H_STANCE_SHORT=$(printf '%s' "$H_STANCE" | sed 's/-with-boundary//; s/-/ /g' | cut -c1-12)
+    # Freshness: current tic vs disposition tic
+    H_AGE=$(( ${TIC_COUNT:-0} - ${H_TIC:-0} ))
+    [ "$H_AGE" -lt 0 ] && H_AGE=0
+    # Color by meaning_state
+    case "$H_STATE" in
+      held|clear|coherent) H_COLOR="$C_GREEN" ;;
+      strained|tense)      H_COLOR="$C_YELLOW" ;;
+      dissonant|broken)    H_COLOR="$C_RED" ;;
+      *)                   H_COLOR="$C_ASH" ;;
+    esac
+    if [ "$H_AGE" -le 0 ]; then
+      H_GLYPH="⊙"; H_FRESH=""
+    elif [ "$H_AGE" -le 3 ]; then
+      H_GLYPH="◐"; H_FRESH=" (t-${H_AGE})"
     else
-      DUR_STR="${DUR_TOTAL_SECS}s"
+      H_GLYPH="·"; H_FRESH=" stale t-${H_AGE}"
     fi
+    HARMONY_PART="${H_COLOR}harmony ${H_GLYPH} ${H_STATE} ${H_SNR}${H_FRESH} \"${H_STANCE_SHORT}\"${C_RESET}"
   fi
 
   # Build conformation radar line with colors
@@ -207,18 +221,36 @@ else
     else
       C_BADGE="$C_BG_RED"
     fi
-    # Color counts: green if 0, red/yellow if nonzero
-    C_SIG="$C_GREEN"; [ "${SIG_COUNT:-0}" != "0" ] && C_SIG="$C_RED"
-    C_WRN="$C_GREEN"; [ "${WRN_COUNT:-0}" != "0" ] && C_WRN="$C_RED"
-    C_CPR="$C_GREEN"; [ "${CPR_COUNT:-0}" != "0" ] && C_CPR="$C_YELLOW"
+    # Render severity dots with per-tier color
+    DOTS_RENDERED=""
+    i=0
+    while [ $i -lt ${#SIG_DOTS} ]; do
+      ch="${SIG_DOTS:$i:1}"
+      case "$ch" in
+        R) DOTS_RENDERED="${DOTS_RENDERED}${C_RED}●${C_RESET}" ;;
+        Y) DOTS_RENDERED="${DOTS_RENDERED}${C_YELLOW}●${C_RESET}" ;;
+        G) DOTS_RENDERED="${DOTS_RENDERED}${C_GREEN}●${C_RESET}" ;;
+      esac
+      i=$((i+1))
+    done
+    [ -z "$DOTS_RENDERED" ] && DOTS_RENDERED="${C_GREEN}○${C_RESET}"
 
-    CONF_LINE="${C_BADGE} ${CONF_STATUS} ${C_RESET} ${C_SIG}sig ${SIG_COUNT}${C_RESET} ${C_ASH}|${C_RESET} ${C_WRN}wrn ${WRN_COUNT}${C_RESET} ${C_ASH}|${C_RESET} ${C_CPR}cpr ${CPR_COUNT}${C_RESET}"
+    # Pipeline gauge: extracted ▸ enrichment_needed ▸ enrichment_eligible
+    # Right-most (eligible) is docket-ready — color it green
+    PIPE_GAUGE="${C_ASH}pipe ${PIPE_E}▸${PIPE_N}▸${C_RESET}${C_GREEN}${PIPE_R}${C_RESET}"
+
+    # Warrant indicator: only show if nonzero (otherwise omit — boundary, not ambient)
+    WRN_PART=""
+    if [ "${WRN_COUNT:-0}" != "0" ]; then
+      WRN_PART=" ${C_ASH}|${C_RESET} ${C_RED}wrn ${WRN_COUNT}${C_RESET}"
+    fi
+
+    CONF_LINE="${C_BADGE} ${CONF_STATUS} ${C_RESET} ${PIPE_GAUGE} ${C_ASH}|${C_RESET} sig ${DOTS_RENDERED}${WRN_PART}"
   fi
-  if [ -n "$COST_STR" ]; then
-    CONF_LINE="${CONF_LINE:+$CONF_LINE ${C_ASH}|${C_RESET} }${C_YELLOW}${COST_STR}${C_RESET}"
-  fi
-  if [ -n "$DUR_STR" ]; then
-    CONF_LINE="${CONF_LINE:+$CONF_LINE ${C_ASH}|${C_RESET} }${C_ASH}${DUR_STR}${C_RESET}"
+
+  # Append harmony disposition (theory-of-mind injection)
+  if [ -n "$HARMONY_PART" ]; then
+    CONF_LINE="${CONF_LINE:+$CONF_LINE ${C_ASH}|${C_RESET} }${HARMONY_PART}"
   fi
 
   printf '%s' "$CONF_LINE" > "$CONF_CACHE"
