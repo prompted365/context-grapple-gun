@@ -36,7 +36,8 @@
   "exclude_patterns": [
     "README.md",
     "__pycache__",
-    "*.pyc"
+    "*.pyc",
+    "deprec_*"
   ],
   "_tracked_external_scripts_doc": "Runtime-invokable scripts that live OUTSIDE cgg-runtime/ by intentional placement (e.g., path-locked to a data location). Not subject to ~/.claude install/sync, but registered here so runtime-sync awareness includes them. Declares ownership without forcing relocation. See CogPR for Runtime-Invokable Scripts Must Register in Sync Manifest.",
   "tracked_external_scripts": [
