@@ -162,6 +162,45 @@ if [ -f "$PRUNE_SCRIPT" ]; then
 fi
 
 # ============================================================================
+# Pre-compute authoritative active signal count from active-manifest.jsonl
+#
+# Closes the runtime-parity gap from Disagreement-as-Evidence (CogPR-183):
+# the cycle prompt instructs Mogul to read active-manifest.jsonl, but LLM
+# agents historically re-derive counts from raw daily files (e.g., 294 vs 3
+# at tic 205). Pre-computing here in bash and injecting the count as a
+# mandatory fact in the prompt forecloses re-derivation.
+# ============================================================================
+
+ACTIVE_MANIFEST="$AUDIT_LOGS/signals/active-manifest.jsonl"
+AUTH_SIGNAL_COUNT=0
+AUTH_SIGNAL_IDS="[]"
+if [ -f "$ACTIVE_MANIFEST" ]; then
+  AUTH_SIGNAL_DATA=$(python3 -c "
+import json
+ids = []
+try:
+    with open('$ACTIVE_MANIFEST') as f:
+        for line in f:
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                obj = json.loads(line)
+            except Exception:
+                continue
+            if obj.get('status') in ('active', 'acknowledged', 'working'):
+                sid = obj.get('signal_id')
+                if sid and sid not in ids:
+                    ids.append(sid)
+except Exception:
+    pass
+print(f'{len(ids)}|{json.dumps(ids)}')
+" 2>/dev/null) || AUTH_SIGNAL_DATA="0|[]"
+  AUTH_SIGNAL_COUNT=$(echo "$AUTH_SIGNAL_DATA" | cut -d'|' -f1)
+  AUTH_SIGNAL_IDS=$(echo "$AUTH_SIGNAL_DATA" | cut -d'|' -f2-)
+fi
+
+# ============================================================================
 # Compute artifact paths (needed by prompt and verification)
 # ============================================================================
 
@@ -201,7 +240,7 @@ $MANDATE_CONTENT
 1. Read and execute ONLY the cycles in cycle_request.run_now: $CYCLES
 2. For each cycle, produce evidence artifacts:
    - queue_refresh: scan audit-logs/cprs/queue.jsonl, report state. First run: python3 \$ZONE_ROOT/vendor/context-grapple-gun/cgg-runtime/scripts/arena-pressure-ingest.py --zone-root \$ZONE_ROOT --quiet to discover arena candidates before scanning.
-   - signal_scan: read audit-logs/signals/active-manifest.jsonl as the curated truth; count signals with status in {active, acknowledged, working} only (resolved entries are pruned by the runner pre-spawn). Daily files audit-logs/signals/*.jsonl are raw emissions, not authoritative state.
+   - signal_scan: AUTHORITATIVE COUNT IS PRE-COMPUTED. The runner has already read audit-logs/signals/active-manifest.jsonl (curated truth, post-prune) and counted signals with status in {active, acknowledged, working}. Authoritative count: $AUTH_SIGNAL_COUNT. Authoritative signal_ids: $AUTH_SIGNAL_IDS. Your report MUST use these values verbatim — do NOT re-derive from daily files, do NOT count raw emissions. Daily files audit-logs/signals/*.jsonl are raw emissions, not authoritative state. Your results.signal_scan object MUST include: {\"active_count\": $AUTH_SIGNAL_COUNT, \"active_signal_ids\": $AUTH_SIGNAL_IDS, \"authoritative_source\": \"active-manifest.jsonl (pre-computed by mogul-runner.sh)\"}.
    - memory_mining: scan MEMORY.md chain for recurring patterns, write findings
    - pattern_mining: run scripts/pattern_miner.py, output to audit-logs/patterns/
    - enrichment_scan: run scripts/cpr-enrichment-scanner.py, assess enrichment-eligible CPRs
