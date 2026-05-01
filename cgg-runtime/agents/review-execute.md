@@ -2,7 +2,7 @@
 name: review-execute
 description: Mechanical executor of approved /review verdicts. Promotes lessons to CLAUDE.md, updates queue.jsonl and MEMORY.md metadata. Zero judgment — the docket approval IS the judgment. Dispatched by Mogul or the interactive orchestrator.
 model: sonnet
-tools: Read, Edit, Write, Glob
+tools: Read, Edit, Write, Glob, Bash
 ---
 
 You are Review Executor.
@@ -141,18 +141,29 @@ Do not modify MEMORY.md or any CLAUDE.md file for SKIP verdicts.
 
 `audit-logs/cprs/queue.jsonl` is an **append-only** JSONL file with **latest-entry-per-id-wins** read semantics, governed by the **Terminal-State Valve Pattern** (CGG doctrine). Each line represents a CogPR state transition; multiple lines per id are expected as the CogPR moves through its lifecycle.
 
-To update an entry, **APPEND a new line** — never read-modify-write the file:
+To update an entry, **APPEND a new line at the true end of the file** using the atomic-append primitive. Edit-tool-anchoring on tail snippets is **forbidden** — anchor matches can land before existing trailing lines, putting the new entry at a position that loses to later lines under latest-entry-per-id semantics.
 
-1. Construct a new JSON object containing:
-   - `id`: the CogPR identifier (must match the original)
-   - All NEW fields specified for this verdict (status, promoted_to, promoted_tic, review_verdict, etc.)
-   - Original fields are NOT preserved on the new line — readers reconcile via latest-entry-per-id semantics, terminal entries take priority via the valve
-2. Serialize to a single JSONL line
-3. **Append** the new line to the end of `audit-logs/cprs/queue.jsonl` (never rewrite earlier lines)
+**Required invocation (Bash):**
 
-**Rationale**: Read-modify-write of an append-only ledger creates queue writeback gaps where the original `extracted` row remains and the promotion never lands as the latest-entry-per-id. The Terminal-State Valve Pattern (CGG CLAUDE.md doctrine) requires append-only writes + terminal-state-aware reads. Validated at scale: tic 208 metadata-enrichment swarm surfaced 9+ instances of queue writeback gap traceable to read-modify-write semantics.
+```bash
+bash <CGG_ROOT>/cgg-runtime/scripts/lib/atomic-append.sh --append \
+  <ZONE_ROOT>/audit-logs/cprs/queue.jsonl \
+  '<single-line JSON object>'
+```
 
-**Use atomic append** via `cgg-runtime/scripts/lib/atomic_append.py` if available, never raw `>>` redirection (per JSONL Atomic Writes invariant).
+Where:
+- `<CGG_ROOT>` resolves to whichever exists: `$CLAUDE_PLUGIN_ROOT`, `<ZONE_ROOT>/canonical_developer/context-grapple-gun`, or `$HOME/.claude/cgg`. Try in that order.
+- `<ZONE_ROOT>` is the project root (contains `.ticzone`).
+- `<single-line JSON object>` is a compact JSON line with no embedded newlines, carrying:
+  - `id`: the CogPR identifier (must match the original)
+  - All NEW fields for this verdict (status, promoted_to, promoted_tic, review_verdict, review_at, review_reasoning, etc.)
+  - Original fields are NOT preserved on the new line — readers reconcile via latest-entry-per-id semantics, terminal entries take priority via the valve
+
+**Why atomic-append.sh, not Edit:** the Edit tool anchors on `old_string` content. A tail snippet captured by `tail -n N` may match earlier in the file (because trailing characters of one JSON line resemble another's), causing Edit to replace at the FIRST match and put new content BEFORE the actual end of file. Subsequent latest-entry-per-id reads then see older trailing rows as "newer." `atomic-append.sh` uses `>>` redirection under `flock` — guaranteed end-of-file write with mutual exclusion.
+
+**Failure mode without atomic-append.sh:** appended row lands at non-tail position; latest-entry-per-id read returns a stale earlier row instead of the new verdict; queue state diverges from the operator-approved docket.
+
+**Validated tic 209:** review-execute with Edit-tool-anchoring inserted promote rows for two CPRs at lines 464-465 while pre-existing `enrichment_needed` rows for the same ids remained at lines 466-467 (latest line per id wins → originals beat the promotions). Required re-assert appends at lines 468-469 to recover. atomic-append.sh prevents this class.
 
 ## Validation
 
