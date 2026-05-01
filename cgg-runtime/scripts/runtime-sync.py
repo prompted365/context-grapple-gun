@@ -799,7 +799,8 @@ def resolve_drift_signals_on_sync(zone_root, synced_surface_names, commit_sha=No
     if not synced_surface_names:
         return []
 
-    al_path = find_audit_logs(zone_root)
+    tz_config = load_ticzone(zone_root)
+    al_path = audit_logs_path(zone_root, tz_config)
     if not al_path:
         return []
 
