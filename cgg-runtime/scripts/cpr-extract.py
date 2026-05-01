@@ -46,6 +46,27 @@ def parse_cpr_block(block_text):
         key, val = line.split(":", 1)
         key = key.strip()
         val = val.strip()
+        if val == "|":
+            # YAML block scalar — collect indented lines until dedent
+            # (Patched tic 207: prior version stored "|" literally as the value,
+            # producing the evidence: "|" placeholder bug surfaced by Tier 1 swarm.)
+            block_lines = []
+            i += 1
+            while i < len(lines):
+                raw = lines[i]
+                if raw.startswith("  ") or raw.startswith("\t"):
+                    block_lines.append(raw.lstrip())
+                    i += 1
+                elif not raw.strip():
+                    block_lines.append("")
+                    i += 1
+                else:
+                    break
+            # Trim trailing blank lines but preserve internal structure
+            while block_lines and not block_lines[-1]:
+                block_lines.pop()
+            result[key] = "\n".join(block_lines).strip()
+            continue
         if val == "":
             # List value — collect indented items
             items = []
@@ -255,7 +276,16 @@ def _classify_tier(block, status):
 
 
 def _block_line_number(text, match_start):
-    """Compute 1-indexed line number of the block start in the source file."""
+    """Compute 1-indexed line number of the block start in the source file.
+
+    NOTE: Line numbers stored in queue entries are POINT-IN-TIME — they reflect
+    the source file as of extraction. Source files (especially MEMORY.md) grow
+    after extraction; the recorded line number drifts relative to current state.
+    Tier 1 enrichment swarm at tic 207 confirmed off-by-5-to-12 across many
+    queue entries — this is expected drift, NOT an off-by-N bug. Consumers that
+    need current line numbers must re-locate the block by content, not by
+    stored line number.
+    """
     return text.count("\n", 0, match_start) + 1
 
 

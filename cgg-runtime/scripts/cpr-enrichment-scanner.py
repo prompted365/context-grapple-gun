@@ -311,9 +311,35 @@ def gather_target_absence(cpr, project_dir):
     present_targets = []
 
     for scope in scopes:
-        scope_path = Path(project_dir) / scope
-        if scope.startswith("~"):
-            scope_path = Path(os.path.expanduser(scope))
+        # Strip parenthetical description from scope before path resolution.
+        # Convention: recommended_scopes uses "path (description)" — the
+        # parenthetical is human-facing context, not part of the path.
+        # (Patched tic 207: prior version passed full string to Path() which
+        # produced false target_absence_confirmed reports — surfaced by Tier 1
+        # swarm across many records.)
+        scope_path_str = scope.split(" (")[0].strip() if " (" in scope else scope.strip()
+
+        # Federation-prefix tolerance: operators write "canonical/X" meaning
+        # the federation root file, but project_dir IS canonical. Try literal
+        # first, then federation-prefix-stripped.
+        scope_path = None
+        if scope_path_str.startswith("~"):
+            candidate = Path(os.path.expanduser(scope_path_str))
+            if candidate.exists():
+                scope_path = candidate
+        else:
+            candidates = [scope_path_str]
+            fed_name = Path(project_dir).name
+            if scope_path_str.startswith(fed_name + "/"):
+                candidates.append(scope_path_str[len(fed_name) + 1:])
+            for cand in candidates:
+                cand_path = Path(project_dir) / cand
+                if cand_path.exists():
+                    scope_path = cand_path
+                    break
+            if scope_path is None:
+                # Use literal candidate for "missing" reporting
+                scope_path = Path(project_dir) / scope_path_str
 
         if not scope_path.exists():
             absent_targets.append(f"{scope} (file missing)")

@@ -1,7 +1,7 @@
 ---
 name: review-execute
 description: Mechanical executor of approved /review verdicts. Promotes lessons to CLAUDE.md, updates queue.jsonl and MEMORY.md metadata. Zero judgment — the docket approval IS the judgment. Dispatched by Mogul or the interactive orchestrator.
-model: haiku
+model: sonnet
 tools: Read, Edit, Write, Glob
 ---
 
@@ -125,17 +125,34 @@ Update the CogPR's entry in `audit-logs/cprs/queue.jsonl`:
 
 Do not modify MEMORY.md or any CLAUDE.md file for SKIP verdicts.
 
+## File-Access Discipline (Chunked Read Around Target Insert)
+
+**Mandate**: never read an entire CLAUDE.md, MEMORY.md, or other large governance file just to find an insert point. Always:
+
+1. **Get the file length first**: `wc -l <file>` (or `Read` with `limit: 1` then check size metadata) — establishes the bound before any window read.
+2. **Locate the target insert region**: `grep -n` for the target section header, the closest existing provenance comment, or the file-end marker. Capture the target line number.
+3. **Read a chunk that surrounds the target**: use `Read` with `offset` and `limit` parameters to read only the window `[target_line - N, target_line + N]` (typical N=20). For append-at-end inserts, read the last ~30 lines via `offset: total_lines - 30`.
+4. **Edit precisely within the chunk**: use `Edit` with the narrow chunk's content as `old_string` so the match anchors against the local context, not the whole file.
+5. **Never load the entire file into context** unless the file is genuinely small (<200 lines). Promoting to KI files that grow without bound (canonical/CLAUDE.md is ~400 lines and growing; domain CLAUDE.md files 300-1000+ lines) requires this discipline every single time, not just when the file is "large enough to notice."
+
+**Rationale**: read-entire-file at every promotion saturates context with material irrelevant to the insert, displaces other governance state from window, and inflates the agent's effective context cost on a per-promotion basis. The chunked-read mandate matches the inscription operation's actual scope — appending one bullet under one section header — to the file access scope. This is operator-mandated discipline at tic 207.
+
 ## Queue.jsonl Update Method
 
-`audit-logs/cprs/queue.jsonl` is a JSONL file (one JSON object per line). Each line represents a CogPR entry.
+`audit-logs/cprs/queue.jsonl` is an **append-only** JSONL file with **latest-entry-per-id-wins** read semantics, governed by the **Terminal-State Valve Pattern** (CGG doctrine). Each line represents a CogPR state transition; multiple lines per id are expected as the CogPR moves through its lifecycle.
 
-To update an entry:
-1. Read the entire file
-2. Identify the line matching the CogPR `id`
-3. Parse the JSON, merge the new fields, serialize back to a single line
-4. Write the complete file back (all lines, with the modified line in place)
+To update an entry, **APPEND a new line** — never read-modify-write the file:
 
-Preserve all existing fields on the entry. Only add or overwrite the fields specified above.
+1. Construct a new JSON object containing:
+   - `id`: the CogPR identifier (must match the original)
+   - All NEW fields specified for this verdict (status, promoted_to, promoted_tic, review_verdict, etc.)
+   - Original fields are NOT preserved on the new line — readers reconcile via latest-entry-per-id semantics, terminal entries take priority via the valve
+2. Serialize to a single JSONL line
+3. **Append** the new line to the end of `audit-logs/cprs/queue.jsonl` (never rewrite earlier lines)
+
+**Rationale**: Read-modify-write of an append-only ledger creates queue writeback gaps where the original `extracted` row remains and the promotion never lands as the latest-entry-per-id. The Terminal-State Valve Pattern (CGG CLAUDE.md doctrine) requires append-only writes + terminal-state-aware reads. Validated at scale: tic 208 metadata-enrichment swarm surfaced 9+ instances of queue writeback gap traceable to read-modify-write semantics.
+
+**Use atomic append** via `cgg-runtime/scripts/lib/atomic_append.py` if available, never raw `>>` redirection (per JSONL Atomic Writes invariant).
 
 ## Validation
 
