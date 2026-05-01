@@ -326,6 +326,27 @@ The Session Projection is the primary activation payload of the handoff. It answ
 - The projection section is positioned BEFORE governance sections in the handoff to establish priority — the grapple fires first, the sidecar follows.
 - When the prior handoff included a Session Projection, carry forward its Active Roadmap Goals verbatim unless status changed. Do not silently drop goals.
 
+#### Discernment-at-Penning Discipline (mandatory; lowest-cost moment)
+
+The carry-forward rules above are not a passive copy — they require active discernment AT THE MOMENT OF PENNING THE NEW HANDOFF. This step has the lowest cost and the highest accuracy: the prior session's completion state is in current context. Deferring it makes the next session re-derive completion state from git log + audit logs, which is multi-x more expensive and error-prone.
+
+The discipline:
+
+1. **Read the prior plan file** (whatever its current name in `~/.claude/plans/`). It is the source-of-truth for what was carried into this session. If multiple plan files exist, take the most recent by mtime.
+
+2. **For each Active Roadmap Goal, Production Next Action, and Deferred Goal in the prior plan**, assess current completion state against this session's actual work:
+   - Did this session complete it? → mark `Completed` in this handoff (either drop from Active or move to a brief acknowledgment in Session Learning).
+   - Did this session advance it but not finish? → carry forward as `Active` with updated "last touched tic" and "next concrete step" reflecting the new state.
+   - Did this session render it obsolete or superseded by new work? → mark `Superseded` with a one-line pointer to the superseding item.
+   - Did this session leave it untouched and conditions still hold? → carry forward unchanged.
+   - Did this session leave it untouched but conditions changed? → either re-scope (rewrite the next step) or move to Deferred (with reason and re-eval tic).
+
+3. **Carry forward with status updated explicitly.** Every prior item must appear in one of: Active (rewritten or unchanged), Completed (with brief acknowledgment), Deferred (with reason + re-eval tic), Superseded (with pointer). NEVER silently drop. NEVER silently duplicate (a goal cannot appear in both Active and Deferred — pick one).
+
+4. **The discernment cost is paid once, NOW.** If you defer it, the next session pays it as re-derivation: walking git log since the prior handoff's `generated_at`, reading audit logs, opening files to check state. That re-derivation costs significantly more than doing it now while the session's work is still in active context. The substrate exists to absorb coordination so participants experience freedom without losing coherence — silently dropping items shifts coordination cost forward in time, where it compounds.
+
+The discipline is already practiced naturally by attentive writers. Naming it explicitly prevents drift when a future session has a less-attentive writer or when context pressure makes shortcuts attractive.
+
 #### Long-Form Artifact Authoring Discipline (paired in-session + headless analytical pass)
 
 For long-form analytical or autobiographical artifacts (state-of-the-federation reports, autobiographies, multi-tic retrospectives), pairing **direct in-session authoring** with a **headless `claude -p` analytical pass** produces measurably better output than either alone.
