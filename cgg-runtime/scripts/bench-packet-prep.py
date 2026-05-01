@@ -184,6 +184,112 @@ def extract_promoted_ids(claude_md_paths):
 
 
 # ---------------------------------------------------------------------------
+# Enrichment artifact loading (Tier 1 metadata-enrichment swarm output, tic 207)
+# ---------------------------------------------------------------------------
+
+# Key axes from schema v2 to surface in dossiers as decision-support evidence.
+# These are the axes that, when present in agreements, materially inform a
+# /review verdict (lesson_class drives doctrine routing; certainty_axis drives
+# confidence; scope_axis drives applicability).
+KEY_ENRICHMENT_AXES = (
+    "lesson_class",
+    "speculative_applicability.scope_axis",
+    "speculative_applicability.certainty_axis",
+    "birth_slice.harmony_disposition_at_birth.stance",
+    "birth_slice.harmony_disposition_at_birth.meaning_state",
+    "birth_slice.mode",
+    "birth_slice.posture",
+    "birth_slice.birth_evidence_anchor",
+)
+
+
+def load_enrichment_artifacts(audit_logs_path):
+    """Load consolidated enrichment atoms keyed by record_id.
+
+    Source: audit-logs/governance/enrichment/<record_id>.consolidated.json
+    Authored by the Tier 1 metadata-enrichment swarm at tic 207 under
+    SCHEMA-tic208-v2.md.
+    """
+    enrichment_dir = Path(audit_logs_path) / "governance" / "enrichment"
+    if not enrichment_dir.exists():
+        return {}
+
+    artifacts = {}
+    for f in sorted(enrichment_dir.glob("*.consolidated.json")):
+        try:
+            data = json.loads(f.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            continue
+        rid = data.get("record_id")
+        if not rid:
+            continue
+        key_agreements = {}
+        for agreement in data.get("agreements", []):
+            axis = agreement.get("axis", "")
+            if axis in KEY_ENRICHMENT_AXES:
+                key_agreements[axis] = agreement.get("value")
+        artifacts[rid] = {
+            "consolidated_path": str(f.relative_to(audit_logs_path)),
+            "consolidated_at_tic": data.get("consolidated_at_tic"),
+            "agreements_count": data.get("agreements_count", 0),
+            "divergences_count": data.get("divergences_count", 0),
+            "lens_a_path": data.get("lens_a_path", ""),
+            "lens_b_path": data.get("lens_b_path", ""),
+            "key_agreements": key_agreements,
+        }
+    return artifacts
+
+
+def load_enrichment_hotspots(audit_logs_path):
+    """Load conflict hotspots grouped by record_id.
+
+    Each entry is a per-axis disagreement between lens-A (Harmony-disposition
+    emphasis) and lens-B (temporal-pressure emphasis). Hotspots ARE the
+    "patterns in processing" — surfacing them per pending CPR gives the
+    reviewer the conflict surfaces the swarm found.
+    """
+    enrichment_dir = Path(audit_logs_path) / "governance" / "enrichment"
+    if not enrichment_dir.exists():
+        return {}
+
+    by_record = {}
+    for f in sorted(enrichment_dir.glob("conflict-hotspots-*.jsonl")):
+        for line in f.read_text(encoding="utf-8").splitlines():
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                d = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            rid = d.get("record_id")
+            if not rid:
+                continue
+            by_record.setdefault(rid, []).append({
+                "axis": d.get("axis", ""),
+                "lens_a_value": d.get("lens_a_value"),
+                "lens_b_value": d.get("lens_b_value"),
+                "kind": d.get("kind", ""),
+                "magnitude": d.get("magnitude"),
+                "tier": d.get("tier", ""),
+            })
+    return by_record
+
+
+def discover_synthesis_refs(audit_logs_path):
+    """List enrichment-swarm synthesis documents available to the reviewer."""
+    enrichment_dir = Path(audit_logs_path) / "governance" / "enrichment"
+    if not enrichment_dir.exists():
+        return []
+    refs = []
+    for pattern in ("SCHEMA-*.md", "TIER*-SYNTHESIS-*.md", "SCHEMA-FRICTION-*.md",
+                    "source-fidelity-correction-*.md"):
+        for f in sorted(enrichment_dir.glob(pattern)):
+            refs.append(str(f.relative_to(audit_logs_path)))
+    return refs
+
+
+# ---------------------------------------------------------------------------
 # Bench packet assembly
 # ---------------------------------------------------------------------------
 
@@ -265,6 +371,12 @@ def build_bench_packet(project_dir, dry_run=False):
     claude_md_chain = find_claude_md_chain(project_dir)
     already_promoted_refs = extract_promoted_ids(claude_md_chain)
 
+    # Tier 1 enrichment swarm artifacts (tic 207). Loading is best-effort —
+    # absence is normal in zones that haven't run the swarm.
+    enrichment_artifacts = load_enrichment_artifacts(al_path)
+    enrichment_hotspots = load_enrichment_hotspots(al_path)
+    synthesis_refs = discover_synthesis_refs(al_path)
+
     pending = get_pending_cprs(queue)
     recently_promoted = get_recently_promoted(queue)
 
@@ -280,6 +392,14 @@ def build_bench_packet(project_dir, dry_run=False):
         # Check if a CogPR reference already exists in doctrine
         cpr_num = re.search(r"CogPR-(\d+)", cpr_id)
         doctrine_ref = cpr_id in already_promoted_refs if cpr_num else False
+
+        # Tier 1 enrichment evidence — surface the swarm's per-record findings
+        # so reviewers get lesson_class, scope_axis, certainty_axis as decision
+        # support rather than re-deriving them. Absent for CPRs not in the
+        # tic 207 swarm corpus (which is normal — only 77 of N pending were
+        # processed).
+        enrichment_evidence = enrichment_artifacts.get(cpr_id, {})
+        cpr_hotspots = enrichment_hotspots.get(cpr_id, [])
 
         dossier = {
             "id": cpr_id,
@@ -312,6 +432,8 @@ def build_bench_packet(project_dir, dry_run=False):
                 "already_in_doctrine": doctrine_ref,
                 "queue_relations": cpr.get("relations", {}),
             },
+            "enrichment_evidence": enrichment_evidence if enrichment_evidence else None,
+            "enrichment_hotspots": cpr_hotspots,
         }
         pending_cogprs.append(dossier)
 
@@ -338,10 +460,43 @@ def build_bench_packet(project_dir, dry_run=False):
         for eid, entry in recently_promoted.items()
     ]
 
-    # Recommended review order: enrichment confidence desc, then birth_tic asc
-    review_order = sorted(
-        pending_cogprs,
-        key=lambda x: (-(x.get("enrichment_confidence") or 0), x.get("birth_tic", 0)),
+    # Recommended review order: enrichment confidence desc, then birth_tic asc.
+    # Tiebreak: prefer pending CPRs that have schema-v2 enrichment evidence
+    # (Tier 1 swarm coverage) over those without — the swarm-covered ones have
+    # decision-support data the reviewer can lean on.
+    def review_sort_key(c):
+        conf = -(c.get("enrichment_confidence") or 0)
+        has_swarm = 0 if c.get("enrichment_evidence") else 1  # 0 sorts first
+        return (conf, has_swarm, c.get("birth_tic", 0))
+
+    review_order = sorted(pending_cogprs, key=review_sort_key)
+
+    # Cluster pending CPRs by lesson_class (from enrichment evidence) to give
+    # the reviewer recommended cluster geometries for batch processing. CPRs
+    # without enrichment evidence land in the "uncovered" bucket — these need
+    # foreground judgment without swarm decision support.
+    clusters = {
+        "doctrinal": [],
+        "engineering": [],
+        "capacity_demonstration": [],
+        "paradigm_locked": [],
+        "uncovered": [],
+        "other": [],
+    }
+    for c in pending_cogprs:
+        ev = c.get("enrichment_evidence")
+        if not ev:
+            clusters["uncovered"].append(c["id"])
+            continue
+        lesson_class = ev.get("key_agreements", {}).get("lesson_class")
+        bucket = lesson_class if lesson_class in clusters else "other"
+        clusters[bucket].append(c["id"])
+
+    # Enrichment coverage stats
+    pending_with_enrichment = sum(1 for c in pending_cogprs if c.get("enrichment_evidence"))
+    enrichment_coverage_pct = (
+        round(100 * pending_with_enrichment / len(pending_cogprs), 1)
+        if pending_cogprs else 0.0
     )
 
     packet = {
@@ -352,10 +507,31 @@ def build_bench_packet(project_dir, dry_run=False):
         "active_signals": active_signals,
         "promoted_since_last_review": promoted_since,
         "recommended_review_order": [c["id"] for c in review_order],
+        # Enrichment-aware metadata (Tier 1 swarm output, tic 207).
+        # Synthesis refs point reviewers to ground material when a verdict
+        # benefits from broader context than the per-CPR dossier carries.
+        "enrichment_metadata": {
+            "synthesis_refs": synthesis_refs,
+            "coverage_pct": enrichment_coverage_pct,
+            "pending_with_enrichment": pending_with_enrichment,
+            "pending_without_enrichment": len(pending_cogprs) - pending_with_enrichment,
+            "total_hotspots": sum(len(v) for v in enrichment_hotspots.values()),
+            "schema_version": "SCHEMA-tic208-v2 (LOCKED at tic 207)",
+        },
+        "review_clusters": {
+            "doctrinal": clusters["doctrinal"],
+            "engineering": clusters["engineering"],
+            "capacity_demonstration": clusters["capacity_demonstration"],
+            "paradigm_locked": clusters["paradigm_locked"],
+            "uncovered": clusters["uncovered"],
+            "other": clusters["other"],
+        },
         "summary": {
             "total_pending": len(pending_cogprs),
             "total_active_signals": len(active_signals),
             "total_recently_promoted": len(promoted_since),
+            "enrichment_covered": pending_with_enrichment,
+            "enrichment_coverage_pct": enrichment_coverage_pct,
         },
     }
 
@@ -391,11 +567,20 @@ def main():
     if args.output_json:
         print(json.dumps(packet, indent=2))
     elif not args.quiet:
-        print(f"Bench packet: {packet['summary']['total_pending']} pending, "
-              f"{packet['summary']['total_active_signals']} signals, "
-              f"{packet['summary']['total_recently_promoted']} recently promoted")
+        s = packet["summary"]
+        print(f"Bench packet: {s['total_pending']} pending, "
+              f"{s['total_active_signals']} signals, "
+              f"{s['total_recently_promoted']} recently promoted")
+        print(f"Enrichment coverage: {s['enrichment_covered']}/{s['total_pending']} "
+              f"({s['enrichment_coverage_pct']}%)")
+        clusters = packet.get("review_clusters", {})
+        cluster_summary = ", ".join(
+            f"{k}={len(v)}" for k, v in clusters.items() if v
+        )
+        if cluster_summary:
+            print(f"Review clusters: {cluster_summary}")
         if packet["recommended_review_order"]:
-            print(f"Review order: {', '.join(packet['recommended_review_order'][:5])}")
+            print(f"Review order (top 5): {', '.join(packet['recommended_review_order'][:5])}")
 
     return 0
 
