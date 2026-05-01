@@ -29,9 +29,12 @@ INPUT=$(cat)
 
 CWD=$(printf '%s' "$INPUT" | jq -r '.workspace.current_dir // empty' 2>/dev/null)
 MODEL=$(printf '%s' "$INPUT" | jq -r '.model.display_name // empty' 2>/dev/null)
+# Strip vendor-appended " (1M context)" — redundant once ctx% is visible
+MODEL="${MODEL% (1M context)}"
 PROJECT_DIR=$(printf '%s' "$INPUT" | jq -r '.workspace.project_dir // empty' 2>/dev/null)
 COST=$(printf '%s' "$INPUT" | jq -r '.cost.total_cost_usd // empty' 2>/dev/null)
 DURATION_MS=$(printf '%s' "$INPUT" | jq -r '.cost.total_duration_ms // empty' 2>/dev/null)
+CTX_PCT=$(printf '%s' "$INPUT" | jq -r '.context_window.used_percentage // empty' 2>/dev/null)
 
 # Use project_dir for resolution; fall back to cwd
 RESOLVE_DIR="${PROJECT_DIR:-$CWD}"
@@ -130,7 +133,21 @@ C_BG_GREEN='\033[42;30m'    # green bg, black text
 C_BG_RED='\033[41;97m'      # red bg, bright white text
 
 # --- LITE mode output ---
-LITE_LINE="${C_AMBER}[${MODEL}]${C_RESET} ${C_FLAME}${PROJ_NAME}${C_RESET} ${C_EMBER}${GIT_INFO:+$GIT_INFO }${C_RESET}${C_ASH}|${C_RESET} ${C_AMBER}tic ${TIC_COUNT}${C_RESET}"
+# Context percentage — color-coded by used: green <50, yellow 50-80, red >80
+CTX_PART=""
+if [ -n "$CTX_PCT" ] && [ "$CTX_PCT" != "null" ]; then
+  CTX_INT=${CTX_PCT%.*}
+  if [ "${CTX_INT:-0}" -ge 80 ] 2>/dev/null; then
+    CTX_COLOR="$C_RED"
+  elif [ "${CTX_INT:-0}" -ge 50 ] 2>/dev/null; then
+    CTX_COLOR="$C_YELLOW"
+  else
+    CTX_COLOR="$C_GREEN"
+  fi
+  CTX_PART=" ${C_ASH}·${C_RESET} ${CTX_COLOR}ctx ${CTX_INT}%${C_RESET}"
+fi
+
+LITE_LINE="${C_AMBER}[${MODEL}]${C_RESET} ${C_FLAME}${PROJ_NAME}${C_RESET} ${C_EMBER}${GIT_INFO:+$GIT_INFO }${C_RESET}${C_ASH}|${C_RESET} ${C_AMBER}tic ${TIC_COUNT}${C_RESET}${CTX_PART}"
 
 if [ "$MODE" = "LITE" ]; then
   printf '%b' "$LITE_LINE"
@@ -190,8 +207,10 @@ else
     H_STATE=$(jq -r '.meaning_state // "unknown"' "$HARMONY_FILE" 2>/dev/null)
     H_SNR=$(jq -r '.snr // 0' "$HARMONY_FILE" 2>/dev/null)
     H_STANCE=$(jq -r '.stance // "idle"' "$HARMONY_FILE" 2>/dev/null)
-    # Compress stance: "hold-open-with-boundary" → "hold open"
-    H_STANCE_SHORT=$(printf '%s' "$H_STANCE" | sed 's/-with-boundary//; s/-/ /g' | cut -c1-12)
+    # Compress stance: "hold-open-with-boundary" → "hold-open"
+    H_STANCE_SHORT=$(printf '%s' "$H_STANCE" | sed 's/-with-boundary//' | cut -c1-12)
+    # SNR as .NN (drop leading 0, two decimals)
+    H_SNR_SHORT=$(printf '%s' "$H_SNR" | awk '{printf ".%02d", int(($1 + 0.005) * 100)}' 2>/dev/null || printf ".??")
     # Freshness: current tic vs disposition tic
     H_AGE=$(( ${TIC_COUNT:-0} - ${H_TIC:-0} ))
     [ "$H_AGE" -lt 0 ] && H_AGE=0
@@ -205,11 +224,11 @@ else
     if [ "$H_AGE" -le 0 ]; then
       H_GLYPH="⊙"; H_FRESH=""
     elif [ "$H_AGE" -le 3 ]; then
-      H_GLYPH="◐"; H_FRESH=" (t-${H_AGE})"
+      H_GLYPH="◐"; H_FRESH=" t-${H_AGE}"
     else
-      H_GLYPH="·"; H_FRESH=" stale t-${H_AGE}"
+      H_GLYPH="·"; H_FRESH=" stale"
     fi
-    HARMONY_PART="${H_COLOR}harmony ${H_GLYPH} ${H_STATE} ${H_SNR}${H_FRESH} \"${H_STANCE_SHORT}\"${C_RESET}"
+    HARMONY_PART="${H_COLOR}${H_GLYPH} ${H_STATE} ${H_SNR_SHORT} ${H_STANCE_SHORT}${H_FRESH}${C_RESET}"
   fi
 
   # Build conformation radar line with colors
