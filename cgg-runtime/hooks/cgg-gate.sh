@@ -175,11 +175,19 @@ except: print('error')
       for cycle in "${LW_CYCLES[@]}"; do
         case "$cycle" in
           queue_refresh)
-            # Re-index CPR queue
+            # Count pending CPRs using the canonical pending lifecycle set.
+            #
+            # The pending statuses are: pending, enrichment_needed, enrichment_eligible,
+            # extracted, review_ready. Mirrors bench-packet-prep.py canonical set.
+            # The exclusion-only filter (status not in {promoted,skipped,absorbed,rejected})
+            # silently included 'superseded', 'deferred', 'dismissed', 'resolved', etc.
+            # as pending — telemetry inflation. Inclusion set is more robust against
+            # future status additions.
             QUEUE_FILE="$ZONE_ROOT/$AUDIT_LOGS_REL/cprs/queue.jsonl"
             if [ -f "$QUEUE_FILE" ]; then
               PENDING=$(python3 -c "
 import json
+PENDING_STATUSES = {'pending', 'enrichment_needed', 'enrichment_eligible', 'extracted', 'review_ready'}
 seen = {}
 for line in open('$QUEUE_FILE'):
     line = line.strip()
@@ -188,7 +196,7 @@ for line in open('$QUEUE_FILE'):
         e = json.loads(line)
         seen[e.get('id','')] = e
     except: pass
-pending = [v for v in seen.values() if v.get('review_verdict','') == '' and v.get('status','') not in ('promoted','skipped','absorbed','rejected')]
+pending = [v for v in seen.values() if v.get('status','') in PENDING_STATUSES]
 print(len(pending))
 " 2>/dev/null)
               LIGHTWEIGHT_RESULTS="${LIGHTWEIGHT_RESULTS}queue_refresh=${PENDING:-0}_pending,"
@@ -197,26 +205,43 @@ print(len(pending))
             fi
             ;;
           signal_scan)
-            # Count active signals
-            SIGNAL_DIR="$ZONE_ROOT/$AUDIT_LOGS_REL/signals"
-            if [ -d "$SIGNAL_DIR" ]; then
+            # Count active signals from authoritative source (active-manifest.jsonl).
+            #
+            # Per CogPR-183 (Disagreement-as-Evidence) + CogPR-184 (Signal Resolution
+            # Writeback Atomicity Dual-Surface): daily files audit-logs/signals/*.jsonl
+            # are raw emissions, not authoritative state. Reading them with strict
+            # status=='active' filter produces inflated counts because historical
+            # signals whose conditions cleared were never explicitly marked
+            # resolved/dismissed in the daily files (resolution writeback is to the
+            # active-manifest, not the daily file lineage).
+            #
+            # Mirrors mogul-runner.sh AUTH_SIGNAL_COUNT logic: read active-manifest.jsonl
+            # only, latest-per-id, filter status in {active, acknowledged, working}.
+            ACTIVE_MANIFEST="$ZONE_ROOT/$AUDIT_LOGS_REL/signals/active-manifest.jsonl"
+            if [ -f "$ACTIVE_MANIFEST" ]; then
               ACTIVE_SIGS=$(python3 -c "
-import json, glob, os
+import json
 seen = {}
-for f in sorted(glob.glob(os.path.join('$SIGNAL_DIR', '*.jsonl'))):
-    for line in open(f):
-        line = line.strip()
-        if not line: continue
-        try:
-            e = json.loads(line)
-            seen[e.get('id','')] = e
-        except: pass
-active = [v for v in seen.values() if v.get('status','active') == 'active' and v.get('type','') == 'signal']
+try:
+    with open('$ACTIVE_MANIFEST') as f:
+        for line in f:
+            line = line.strip()
+            if not line: continue
+            try:
+                e = json.loads(line)
+            except Exception:
+                continue
+            sid = e.get('id') or e.get('signal_id')
+            if sid:
+                seen[sid] = e
+except Exception:
+    pass
+active = [v for v in seen.values() if v.get('status') in ('active', 'acknowledged', 'working')]
 print(len(active))
 " 2>/dev/null)
               LIGHTWEIGHT_RESULTS="${LIGHTWEIGHT_RESULTS}signal_scan=${ACTIVE_SIGS:-0}_active,"
             else
-              LIGHTWEIGHT_RESULTS="${LIGHTWEIGHT_RESULTS}signal_scan=no_signals,"
+              LIGHTWEIGHT_RESULTS="${LIGHTWEIGHT_RESULTS}signal_scan=no_manifest,"
             fi
             ;;
           *)
