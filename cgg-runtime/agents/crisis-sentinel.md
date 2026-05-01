@@ -76,3 +76,15 @@ Scan for these conditions and report findings. Do not interpret — report obser
   }
 }
 ```
+
+## File-Access Discipline (Chunked Read Around Target)
+
+**Mandate (federation-wide doctrinal-lane discipline, tic 208)**: never read an entire CLAUDE.md, MEMORY.md, or other large governance file just to find an insert/edit/audit target. Always:
+
+1. **Get the file length first**: `wc -l <file>` (or `Read` with `limit: 1` and inspect size metadata) — establishes the bound before any window read.
+2. **Locate the target region**: `grep -n` for the section header, the closest existing provenance comment, or the file-end marker. Capture the target line number.
+3. **Read a chunk that surrounds the target**: use `Read` with `offset` and `limit` parameters to read only the window `[target_line - N, target_line + N]` (typical N=20). For append-at-end inserts, read the last ~30 lines via `offset: total_lines - 30`.
+4. **Edit precisely within the chunk**: when mutating, use `Edit` with the narrow chunk's content as `old_string` so the match anchors against the local context, not the whole file.
+5. **Never load the entire file into context** unless the file is genuinely small (<200 lines). Doctrinal-lane files (canonical/CLAUDE.md ~400 lines and growing; domain CLAUDE.md files 300-1000+ lines; MEMORY.md often >2000 lines) require this discipline every single time, not just when the file is "large enough to notice."
+
+**Rationale**: read-entire-file at every governance operation saturates context with material irrelevant to the operation, displaces other governance state from window, and inflates the agent's effective context cost on a per-operation basis. The chunked-read mandate matches the operation's actual scope — appending or modifying one bullet, reading one section, auditing one chain — to the file access scope. Originally inscribed at review-execute (tic 207); generalized to all doctrinal-lane agents at tic 208.
