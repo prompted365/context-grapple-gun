@@ -1,5 +1,7 @@
 # Context Grapple Gun — Domain CLAUDE.md
 
+> Before performing any action, read the [federation CLAUDE.md](../../CLAUDE.md) to understand governance hierarchy. CGG is a developer-estate authoring domain governed by canonical federation doctrine; references flow downward only (federation → estate → domain → module).
+
 ## Epistemic Volatility Notice
 
 Claude Code hook format, plugin manifest schema, and install semantics are **externally versioned by Anthropic**. Treat as a volatile contract surface. Do not promote session-inferred schema understanding to doctrine without validating against current docs/schema.
