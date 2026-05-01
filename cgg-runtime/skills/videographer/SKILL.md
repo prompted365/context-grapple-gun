@@ -18,11 +18,10 @@ description: |
       - governance emitter (narrative capture only; no signal, tic, or warrant writes)
       - asset publisher (records locally; distribution belongs to downstream pipelines)
       - runtime scene editor (prep-mode captures configuration; never reshapes the live scene)
-      - editorial pipeline (substrate capture is distinct from the podcast shortform pipeline)
+      - editorial deliverable pipeline (substrate capture is distinct from any future media-egress pipeline; current scope is substrate-only)
     sibling_overlaps:
-      - /pipeline-report (both produce visual artifacts — pipeline-report is editorial HTML, videographer is 3D substrate capture)
       - /statusline (both are observation surfaces — statusline reads conformation text, videographer captures scene video)
-      - /podcast-pipeline (production media path — distinct domain, different asset lineage)
+      - fal_router.py / overshoot_router.py (vendor-trajectory media lanes — distinct asset lineage; videographer captures from substrate, routers dispatch to/from external vendors)
 
   WHEN:
   - when a substrate scene is composed and narrative export is needed
@@ -32,12 +31,11 @@ description: |
   NOT WHEN:
   - without a loaded substrate scene (nothing to capture)
   - as a signal-emission or governance-mutation surface
-  - for non-substrate content (editorial video belongs to the podcast pipeline)
+  - for non-substrate content (external editorial video flows through the vendor-trajectory media routers, not videographer)
 
   RELATES TO:
   - /statusline (both observe — statusline is textual ambient; videographer is visual capture)
-  - /podcast-pipeline (production media — videographer serves substrate demos; pipeline serves editorial shortform)
-  - /pipeline-report (adjacent visual output — report is HTML-summary; videographer is video-narrative)
+  - fal_router.py / overshoot_router.py (vendor-trajectory media routing — videographer serves substrate; routers serve external vendor capability surface)
 
   ARGS:
     stance: dispatch
