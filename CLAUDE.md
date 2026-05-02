@@ -468,6 +468,12 @@ Do not fork the event type. The distinction is counting mode, not event existenc
 
 If timestamps are not canonical, they must never be used as authoritative ordering fields. Use tic, phase, dependency completion, or explicit operator-metadata labels instead. Canonical progression is determined by counted tic progression, not by wall-clock timestamps.
 
+## Doctrine Surface Frontmatter Sweep Methodology
+
+Doctrine surfaces that accrete >30 specs without frontmatter render uniformly dense to readers (Mogul, ladder-auditor, agents) regardless of whether each spec is active, forward-looking, or dormant. Federation KI overlap (which spec implements which Key Invariant) is unlabeled, creating Authority Vacuum at the doctrine layer. A one-shot mechanical sweep adding `status: active|forward|dormant` + `last_validated_tic: N` + `implements: <federation KI>` frontmatter scales to 70+ files in one Python pass with rule-based heuristic + manual override map. Validated tic 214: 73 AK specs patched (61 active / 9 forward / 3 JSON sidecars); 33 cross-linked to federation KIs. The pattern is reusable for any doctrine surface that has crossed the dense-without-discrimination threshold.
+
+<!-- promoted from CogPR-cpr_doctrine_surface_frontmatter_sweep_methodology_tic214 (tic 214→216). Source: ~.claude/projects/-Users-breydentaylor-canonical/memory/MEMORY.md. -->
+
 For arena reports and other non-canonical surfaces, prefer tic-based closure:
 ```json
 {"source_tic": 9, "completion_tic": 9, "phase_closure": {"context": "complete", ...}}
