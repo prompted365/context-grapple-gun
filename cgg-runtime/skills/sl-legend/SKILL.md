@@ -126,7 +126,7 @@ One dot per active signal. Sorted by appearance in conformation; not by severity
 |---|---|---|
 | `⊙` | fresh | disposition tic == current tic |
 | `◐` | aging | 1-3 tics old; suffix shows `t-N` |
-| `·` | stale | > 3 tics old; renders `· stale` |
+| `·` | stale | > 3 tics old; renders `· stale t-N` and the entire harmony block dims to ash regardless of `meaning_state` color (a calm "preserved" or "clear" must not read as currently-true when it is N-tic carry-forward) |
 
 ### Harmony meaning state colors
 
@@ -201,6 +201,15 @@ Current radar (tic 205, posture OPS/DIRECT, mode FULL):
       meaning     = strained (yellow)     ← .meaning_state
       SNR         = 0.762                 ← .snr
       stance      = hold-open             ← .stance compressed
+```
+
+Stale example (>3 tics behind current; entire harmony block dims to ash so a calm meaning_state doesn't misread as currently-true):
+
+```
+    harmony       = · stale, t-7          ← disposition.tic 208, current 215
+      meaning     = preserved (ash)       ← .meaning_state, color overridden by stale
+      SNR         = .68 (ash)             ← .snr, dimmed
+      stance      = carry-forward (ash)   ← .stance compressed, dimmed
 ```
 
 ## Compact glossary (`/sl-legend lite`)

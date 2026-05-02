@@ -226,7 +226,9 @@ else
     elif [ "$H_AGE" -le 3 ]; then
       H_GLYPH="◐"; H_FRESH=" t-${H_AGE}"
     else
-      H_GLYPH="·"; H_FRESH=" stale"
+      # Stale: dim everything in the harmony block so a calm meaning_state
+      # color (e.g. green for "preserved") doesn't read as currently-true.
+      H_GLYPH="·"; H_FRESH=" stale t-${H_AGE}"; H_COLOR="$C_ASH"
     fi
     HARMONY_PART="${H_COLOR}${H_GLYPH} ${H_STATE} ${H_SNR_SHORT} ${H_STANCE_SHORT}${H_FRESH}${C_RESET}"
   fi
