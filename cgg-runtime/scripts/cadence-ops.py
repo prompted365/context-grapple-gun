@@ -422,6 +422,12 @@ def compute_due_cycles(tic: int) -> list:
         cycles.append("cache_refresh")
     if tic % 4 == 0:
         cycles.append("pattern_mining")
+        # harmony_invoke fires at the same cadence as pattern_mining —
+        # both are heavy-but-cheap kernel-class probes; piggybacking
+        # avoids cycle proliferation. Closes the doctrine-runtime parity
+        # gap surfaced in audit-logs/governance/ak-harmony-review-tic213.md
+        # finding B.1 (kernel registered, not on calendar).
+        cycles.append("harmony_invoke")
     if tic % 5 == 0:
         cycles.extend(["ladder_audit", "runtime_drift_check"])
     if tic % 8 == 0:

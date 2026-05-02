@@ -243,6 +243,7 @@ $MANDATE_CONTENT
    - signal_scan: AUTHORITATIVE COUNT IS PRE-COMPUTED. The runner has already read audit-logs/signals/active-manifest.jsonl (curated truth, post-prune) and counted signals with status in {active, acknowledged, working}. Authoritative count: $AUTH_SIGNAL_COUNT. Authoritative signal_ids: $AUTH_SIGNAL_IDS. Your report MUST use these values verbatim — do NOT re-derive from daily files, do NOT count raw emissions. Daily files audit-logs/signals/*.jsonl are raw emissions, not authoritative state. Your results.signal_scan object MUST include: {\"active_count\": $AUTH_SIGNAL_COUNT, \"active_signal_ids\": $AUTH_SIGNAL_IDS, \"authoritative_source\": \"active-manifest.jsonl (pre-computed by mogul-runner.sh)\"}.
    - memory_mining: scan MEMORY.md chain for recurring patterns, write findings
    - pattern_mining: run scripts/pattern_miner.py, output to audit-logs/patterns/
+   - harmony_invoke: run scripts/harmony-invoke.sh (kernel-class autonomous_kernel.meaning.disposition; produces disposition packet to audit-logs/harmony/disposition-tic-N.json + appends invocations.jsonl audit trail). Read-only kernel; does not mutate governance state.
    - enrichment_scan: run scripts/cpr-enrichment-scanner.py, assess enrichment-eligible CPRs
    - ladder_audit: audit CLAUDE.md chain coherence
    - runtime_drift_check: compare installed vs canonical runtime surfaces
@@ -413,6 +414,19 @@ print('yes' if 'pattern_mining' in r.get('results', {}) else 'no')
           if [ "$HAS_PATTERN_RESULT" != "yes" ]; then
             ARTIFACT_ERRORS="${ARTIFACT_ERRORS}pattern_mining: not in structured report results. "
           fi
+        fi
+        ;;
+      harmony_invoke)
+        # Verify disposition file exists for this tic + entry appended to
+        # invocations.jsonl. The kernel itself is read-only; the runner
+        # invokes harmony-invoke.sh which produces the audit artifact.
+        HARMONY_DISPOSITION="$AUDIT_LOGS/harmony/disposition-tic-$CURRENT_TIC.json"
+        HARMONY_INVOCATIONS="$AUDIT_LOGS/harmony/invocations.jsonl"
+        if [ ! -f "$HARMONY_DISPOSITION" ]; then
+          ARTIFACT_ERRORS="${ARTIFACT_ERRORS}harmony_invoke: disposition-tic-$CURRENT_TIC.json missing. "
+        fi
+        if [ ! -f "$HARMONY_INVOCATIONS" ]; then
+          ARTIFACT_ERRORS="${ARTIFACT_ERRORS}harmony_invoke: invocations.jsonl missing. "
         fi
         ;;
       enrichment_scan)
