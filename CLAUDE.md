@@ -537,6 +537,69 @@ Required proof artifacts for any claim that install-state matches canonical:
 
 The queue write path, commit discipline, and install propagation path are coupled, not assumed — each stage must produce its own proof artifact.
 
+<!-- promoted from CogPR-209 (tic 209→211). Source: tic-209 /review Pass 1 closeout — operator-named upgrade. Band: COGNITIVE. -->
+
+## Multi-Stage Governance Pipeline Stages Must Be Coupled with Proof Artifacts
+
+Governance pipelines with N stages each capable of silent failure (queue write → commit → install propagation → audit) collapse into "trust the pipeline ran" unless each stage produces its own auditable proof artifact AND the absence of any stage's proof artifact is itself a detectable signal — not a pipeline that "looks fine."
+
+The /review pipeline at tic 209 had three silent-failure stages: (a) queue write via Edit-tool-anchoring could insert before existing trailing lines and lose to latest-entry-per-id; (b) commit-after-execute was assumed but not codified, so the post-commit-sync hook had nothing to fire on; (c) auto-sync ran but its drift-signal-resolution side routine crashed on an undefined name, silently aborting before propagation completed. Each stage individually appeared to "work" — the pipeline as a whole did not propagate truth.
+
+The fix coupled all three: atomic-append.sh as the queue-write proof artifact, Step 8.6 commit-after-execute as the commit-discipline proof artifact, and runtime-sync.py NameError patch + sync-log entry as the install-propagation proof artifact. Each stage now produces a verifiable trace; absence of any trace is the signal.
+
+The pattern generalizes beyond /review. Any governance pipeline that mutates multiple state surfaces in sequence is vulnerable to the same failure class: one stage's silent abort being invisible to the others. The discipline is to identify each stage, name its proof artifact, and require its presence in the pipeline's success condition. This is the constitutional implementation of "Claimed install-state is not real until post-commit sync proves byte parity across all targets and emits an auditable sync log" — generalized from the specific install-state instance to any multi-stage pipeline.
+
+<!-- promoted from cpr_governance_pipeline_stages_coupled_with_proof_artifacts_tic209 (tic 209→211). -->
+
+## Remote-vs-Local Verification Scope Split for Scheduled Agents
+
+When scheduling a remote agent (Anthropic cloud routine) to verify a system whose state is partly local-only — install state under `~/.claude/`, machine ctimes, hooks registered to the operator's settings.json — the verification must be explicitly split into remote-checkable and local-required halves. The remote agent CANNOT see local install state; it can only see what's committed to the repo it checks out. Pretending otherwise produces verification reports that confirm what the remote agent CAN see while the actual question (did the local hook fire?) is invisible to it.
+
+The split discipline:
+1. Enumerate the proof requirements (operator-stated or derived).
+2. Classify each requirement as remote-checkable, local-required, or hybrid.
+3. Remote agent verifies its half autonomously and writes a structured docket to a known repo path (e.g., audit-logs/governance/<verification-name>.md).
+4. Docket explicitly enumerates what the operator must verify locally, with exact commands and expected outputs.
+5. Verdict classification must include "ZERO ACTIVITY TO TEST AGAINST" as a distinct outcome — not collapsed into success or failure. Zero activity is not proof; it requires a manual exercise plan to forcibly trigger the verification path.
+
+The pattern is not specific to post-commit-sync. It applies to any scheduled remote agent verifying: local hook firing (PostToolUse, SessionStart, etc.), local install state (~/.claude/skills/, ~/.claude/agents/), operator-machine-bound resources (file ctimes, process state, MCP connections), or cross-repo coupling (federation root + nested CGG repo).
+
+Without the explicit split, scheduled agents either (a) report misleading success on the half they can see, or (b) get stuck waiting for state they can never observe. The split makes both halves first-class.
+
+<!-- promoted from cpr_remote_vs_local_verification_scope_split_tic209 (tic 209→211). Refines Cross-Agent Artifact Authority Deferral (canonical KI) by extending the boundary discipline to scheduled remote agents. -->
+
+## Manual-Ceremony-as-Pipeline-Substitute Discipline
+
+When a manual ceremony substitutes for an autonomous workflow (e.g., 12-agent swarm replacing cpr-enrichment-scanner.py), the manual ceremony must complete the FULL output contract of the autonomous workflow it replaced — not merely the visible artifacts.
+
+The autonomous version of cpr-enrichment-scanner does two things atomically: (1) produce lens-A.json + lens-B.json + consolidated.json artifacts on disk, (2) append `enrichment_eligible` status writeback rows to queue.jsonl. Both steps are part of the producer→consumer contract. The manual swarm did (1) and skipped (2), so 63 enriched CPRs were invisible to bench-packet-prep and /review for an entire tic cycle.
+
+This is structurally distinct from drift (system bug) — it is manual-process-bypassed-pipeline-contract. Same write-failure shape, different cause, different remediation class. The fix shape: mechanical atomic-append of the missing status rows with explicit provenance metadata (`enriched_by`, `enrichment_artifact`, `writeback_reason`) to preserve lineage integrity per federation invariant.
+
+The discipline: when designing manual ceremonies that substitute for autonomous workflows, audit the autonomous workflow's complete output contract (artifacts produced AND state mutations performed AND signals emitted) and ensure the manual ceremony produces ALL of them, not just the visible artifacts. Skipped state mutations create silent invisibility — the work exists but the manifold doesn't see it.
+
+Refines Conductor-Score-Runtime Parity (federation KI): the parity problem has a manual-ceremony variant. When doctrine names a discipline AND the runtime enforces it AND the manual substitute bypasses it, the parity violation is human-side, not system-side. Same diagnostic frame, different remediation locus.
+
+<!-- promoted from cpr_manual_ceremony_must_complete_autonomous_workflow_output_contract_tic210 (tic 210→211). -->
+
+## Handoff Carry-Forward Probe Discipline
+
+Handoffs themselves are L3-class snapshots under the Volatility Handling Law. When a handoff carries an obligation of the form "wait until <future event> to assess <state>", that obligation encodes an unprobed hypothesis about current substrate state. The substrate may already contain decisive evidence that the handoff didn't have when it was authored — typically because the authoring context preceded the substrate event.
+
+Concrete instance (tic 209 → tic 211): The tic 209/210 handoff carried routing decision tic-209-seq-2 with `outcome: null` and an explicit carry-forward instruction to "backfill at next session ≥ 2026-05-04 with verification agent's report status." The decision had scheduled a remote routine to verify the post-commit-sync hook fire. At the time the handoff was written, no local evidence had been collected.
+
+When the operator asked at tic 210 "trigger bench-packet-prep and backfill the routing decision or tell me why not", a 30-second substrate probe (`tail audit-logs/services/cgg-sync-log.jsonl`) revealed two CONFIRMED-class sync events on a specific commit — both showing `drifted → synced`, with `commit_message` captured in the first event. The hook had ALREADY fired successfully, three days before the scheduled remote-routine verification. Backfilling outcome with `verdict_class: CONFIRMED` was honest, cheap, and amendable.
+
+The operator's question forced a substrate check the handoff hadn't done. Without it, the routing decision would have carried `outcome: null` for three more days while the answer sat in plain text in the sync log.
+
+The discipline: any handoff carry-forward item of the shape "wait until <future event> to verify <state>" should be treated as a candidate for substrate probe at the start of the next session, not passively re-deferred. The probe is cheap (one tail or one grep), the reward is freeing the obligation from the calendar to the present, and the cost of being wrong (probing finds no evidence yet) is zero.
+
+Generalizes Verify-Before-Remediate External Friction (federation KI) from external surfaces (insights reports, partner complaints) to internal surfaces (handoff carry-forwards, scheduled obligations, deferred goals). Same family — verify against source before narrating, before remediating, before re-deferring. Same family as Probe-First Discipline (federation KI) applied to inherited handoff narrative rather than session narrative.
+
+Mechanism: at /cadence handoff-consumption time (or at any moment when a carry-forward item surfaces), apply the test: "Could the substrate already contain the evidence this item is waiting for?" If yes, probe before re-deferring. If no, leave the item carried.
+
+<!-- promoted from cpr_handoff_carry_forward_items_must_probe_substrate_before_redeferring_tic211 (tic 211→211). -->
+
 <!-- promoted from cpr_claimed_install_state_requires_sync_log_proof_tic209 (tic 209→209). Source: operator-named invariant during /review tic 209 hook coverage audit. Validated tic 209: post-commit-sync hook fired on /review commits but resolve_drift_signals_on_sync crashed on undefined find_audit_logs (CGG commit a948a71 patched it) — install was not updated despite "no drift detected" output. Manual byte-equality check exposed the silent abort. Constitutional lesson: trust the proof artifact, not the printed claim. Band: COGNITIVE. -->
 
 ## Detection Affordance Tracking
