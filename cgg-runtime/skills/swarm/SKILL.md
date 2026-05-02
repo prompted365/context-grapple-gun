@@ -28,7 +28,7 @@ description: |
   - when work can genuinely run in parallel (no strict sequencing across the whole)
   - when multiple file/module/service surfaces must be touched together
   - when cross-repo or external-service coordination requires async consolidation
-  - on explicit operator invocation
+  - on explicit Architect invocation
 
   NOT WHEN:
   - for adversarial reasoning (use /stage)
@@ -277,7 +277,7 @@ All swarm activity is logged to `audit-logs/swarms/<id>/`:
 
 If a swarm exceeds timeout or agents fail:
 - Emit TENSION signal with payload `{swarm_id, failed_agents, timeout_exceeded}`
-- Lead decides: retry, skip, or escalate to operator
+- Lead decides: retry, skip, or escalate to the Architect
 
 ## Relationship to /stage
 

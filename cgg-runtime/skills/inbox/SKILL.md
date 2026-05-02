@@ -18,7 +18,7 @@ description: |
       - signal emitter (siren classifies, cadence emits; inbox does not write to signal manifold)
       - queue mutator (queue.jsonl belongs to review pipeline; inbox must not write to it)
       - mandate spawner (cadence writes mandates; inbox carries triggers, does not author them)
-      - autonomous read-and-respond (operator or activation fabric initiates; inbox does not act on content without invocation)
+      - autonomous read-and-respond (Architect or activation fabric initiates; inbox does not act on content without invocation)
     sibling_overlaps:
       - /siren (signal triage)
       - /review (constitutional judgment)
@@ -28,7 +28,7 @@ description: |
   - when an entity needs to process its mailbox
   - when delivering a trigger envelope to another entity
   - when session-start reports inbound backlog
-  - on explicit operator invocation
+  - on explicit Architect invocation
 
   NOT WHEN:
   - during /cadence (cadence captures and emits; inbox routes; same boundary cannot do both)
@@ -152,7 +152,7 @@ INBOX: {entity_id} — tic {current_tic}
 For each unprocessed inbound item (in order of priority, then age):
 
 1. Read the envelope and content (README.md)
-2. Present a summary to the operator
+2. Present a summary to the Architect
 3. Offer actions:
    - **claim** — move to `processing/ACTIVE_{name}/`, update state to `claimed`
    - **defer** — move to `deferred/DEFER_{name}/`, set `reminder_tic`

@@ -28,8 +28,8 @@ description: |
   - when a pending mandate exists and was not auto-consumed at SessionStart
   - when a blocking (synchronous) mandate run is operationally required
   - when status inspection without execution is needed
-  - when the operator explicitly defers the current mandate with rationale
-  - on explicit operator invocation
+  - when the Architect explicitly defers the current mandate with rationale
+  - on explicit Architect invocation
 
   NOT WHEN:
   - when the mandate is already `started` or `completed`

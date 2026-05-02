@@ -32,12 +32,12 @@ description: |
   - when cross-repo analysis requires a single merged surface
   - when packaging project state for handoff to another agent or session
   - when preparing review context for a tic range (git diff mode)
-  - on explicit operator invocation
+  - on explicit Architect invocation
 
   NOT WHEN:
   - when the target is a single file (read it directly — consolidation is overhead)
   - when the target is binary or non-text (consolidate skips binaries; use direct tools)
-  - when the operator just wants a directory listing (use ls/find)
+  - when the Architect just wants a directory listing (use ls/find)
   - mid-implementation when current focus requires narrow scope (consolidate widens by design)
 
   RELATES TO:

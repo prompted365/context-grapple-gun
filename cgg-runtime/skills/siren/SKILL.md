@@ -30,7 +30,7 @@ description: |
   - when tic has advanced and signals need volume accrual or decay
   - when a signal's state needs to change (acknowledged/working/resolved/dismissed)
   - when a conformation snapshot is needed at a tic boundary
-  - on explicit operator invocation
+  - on explicit Architect invocation
 
   NOT WHEN:
   - during /cadence (cadence writes tic events; siren ticks against them; same boundary cannot do both)
@@ -220,7 +220,7 @@ Create a new signal from arguments:
      "tick_count": 0
    }
    ```
-5. **Zombie guard** (warrant-eligible kinds only): if `max_volume < escalation.warrant_threshold`, clamp `warrant_threshold` down to `max_volume` and warn the operator.
+5. **Zombie guard** (warrant-eligible kinds only): if `max_volume < escalation.warrant_threshold`, clamp `warrant_threshold` down to `max_volume` and warn the Architect.
 6. **Non-warrant kinds**: if `kind` is not in `warrant_eligible_kinds`, set `escalation.warrant_threshold` to `null` — these signals cannot warrant via volume. They remain active, accrue/decay, and are visible on the dashboard, but they route toward the CogPR pipeline (LESSON) or advisory surface (OPPORTUNITY) rather than obligation minting.
 7. Defaults can be overridden — if the user provides additional context like `volume:50` or `decay:5`, honor those overrides
 8. Write to `audit-logs/signals/YYYY-MM-DD.jsonl` (append)

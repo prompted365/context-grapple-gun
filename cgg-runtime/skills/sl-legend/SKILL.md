@@ -5,7 +5,8 @@ description: |
 
   CENTROID:
   read-only legend surface that decodes statusline glyphs, positions, colors,
-  and source attributions for the operator at glance speed
+  and source attributions for the Architect at glance speed (the Architect
+  perception substrate)
 
   IS:
   - static legend (glyph + position + color tier reference)
@@ -24,10 +25,10 @@ description: |
       - /governance-check (read-only governance snapshot — different aperture)
 
   WHEN:
-  - on first encounter with the radar (operator doesn't remember what ⊙ means)
-  - when a glyph changes and the operator wants to confirm semantics
+  - on first encounter with the radar (Architect doesn't remember what ⊙ means)
+  - when a glyph changes and the Architect wants to confirm semantics
   - when explaining the radar to someone else
-  - on explicit operator invocation
+  - on explicit Architect invocation
 
   NOT WHEN:
   - to change statusline behavior (use /statusline)
@@ -239,6 +240,48 @@ If the radar shows something the legend says shouldn't happen, suspect drift:
 Drift between the rendered statusline and the legend's claims is itself
 disagreement-as-evidence — surface it via /siren or capture as a CogPR for
 /review tic processing.
+
+## Tic 214 Architect-perception markers (forward decoder)
+
+The current statusline format remains operational and is the load-bearing rendered surface. Tic 214 added substrate-class state that is not yet rendered as compact markers; this section is the forward decoder so the Architect can recognize the markers when they are added and drill down via direct file reads in the meantime.
+
+### Marker glossary
+
+| Marker | Meaning | Direct source |
+|---|---|---|
+| `arch:active` | Architect perception substrate active; Architect-facing interpretation surface | derived from posture banner + tic counter |
+| `disp:<state> .NN` | Harmony disposition meaning state + SNR (e.g., `disp:preserved .68`) | `audit-logs/harmony/disposition-current.json` `.meaning_state` + `.snr` |
+| `sub:bound` | substrate sub-telos resolved and active as a binding target | `autonomous_kernel/telos/sub_telos.yaml` (substrate parent + 7 children present) |
+| `harmony:substrate.kernel-runtime` | Harmony bound as kernel-class runtime / `meaning.disposition` | `autonomous_kernel/harmony_engine_v0/KERNEL_REGISTRATION.md` Telos Binding |
+| `carto:shell` | Cartography declared at `substrate.cartography`; Phase A shell present; not yet computing splat retrieval | `autonomous_kernel/cartography/KERNEL_REGISTRATION.md` |
+| `gap11:declared` | Wisdom-pressure layer first-class and parallel-capable; not yet active runtime wisdom | `autonomous_kernel/harmony_engine_v0/V1_DOCTRINE_COMPLETION_CHECKLIST.md` Gap 11 |
+
+### What these markers do NOT claim
+
+The markers are status indicators of declaration state, not runtime activation. The render must NOT show:
+
+- `wisdom:active` before Gap 11 is implemented in v1 engine code
+- `carto:retrieving` or `carto:active` before splat-emergence machinery exists
+- `harmony:wisdom-active` before the wisdom-pressure subpacket is wired
+
+If a marker reads beyond declaration state into runtime claims it does not have evidence for, it is overstating — file a /siren signal under TENSION/COGNITIVE.
+
+### Recommended target shape (when statusline render is upgraded)
+
+LITE target, one line:
+
+```
+[Opus 4.7] canonical(main*) | tic 214 | ctx 33% | arch:active | disp:preserved .68 | sub:bound | carto:shell | gap11:declared
+```
+
+FULL target, two lines:
+
+```
+[Opus 4.7] canonical(main*) | tic 214 | ctx 33% | arch:active | disp:preserved .68 | carry-forward
+pipe 0▸0▸34 | sig ●●● | harmony:substrate.kernel-runtime | carto:substrate.cartography/shell | gap11:wisdom-pressure pending
+```
+
+Until these compact markers are wired into the rendering script, the Architect can drill down by reading the source files directly per the table above.
 
 ## Related skills
 

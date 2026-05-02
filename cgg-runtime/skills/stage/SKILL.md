@@ -28,7 +28,7 @@ description: |
   - when a decision has ≥2 distinct positions requiring adversarial examination
   - when ambient reasoning is insufficient and governance input requires structured pressure
   - when arena geometry is known or can be inferred from decision space
-  - on explicit operator invocation
+  - on explicit Architect invocation
 
   NOT WHEN:
   - for parallel deliverable work (use /swarm — adversarial vs coordinated orchestration)

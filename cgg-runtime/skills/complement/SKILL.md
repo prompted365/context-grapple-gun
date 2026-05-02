@@ -27,7 +27,7 @@ description: |
   - after a local closure event that may hide non-local incompleteness
   - at the point of formulating a response with apparent dual-ray structure
   - when an artifact lands and the caller suspects it is partial
-  - on explicit operator invocation
+  - on explicit Architect invocation
 
   NOT WHEN:
   - after every trivial step (gates are narrow by design)

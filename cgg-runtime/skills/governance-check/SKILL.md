@@ -43,7 +43,7 @@ description: |
     off_envelope: proceed-with-note
     # off_envelope rationale: /governance-check is read-only; an undeclared arg
     # cannot cause state damage. proceed-with-note lets future ray additions
-    # surface without blocking operator flow.
+    # surface without blocking Architect flow.
     core_dispatch_rays:
       - ""  → full snapshot (mandate + signals + queue + cadence)
     secondary_modulation_axes:

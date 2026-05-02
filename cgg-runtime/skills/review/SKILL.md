@@ -27,7 +27,7 @@ description: |
   - when the queue contains decision-ready CogPRs (extracted, enrichment_eligible, or born_truth_captured)
   - when active warrants exist and require triage
   - when a docket has been pre-clustered for a bounded pass
-  - on explicit operator invocation
+  - on explicit Architect invocation
 
   NOT WHEN:
   - during /cadence (cadence captures, review judges; same boundary cannot do both)
@@ -91,7 +91,7 @@ From the response, extract:
 - **Signals**: count of active signals/warrants — pre-populates Section A and B expectations
 - **Conformation**: latest conformation content — current estate posture and manifold state
 
-If the governance query returns `queue.pending == 0` AND `signals.active == 0`, the docket will be empty (Sections A-C all clear). Report this to the operator and skip to Step 9 unless the operator wants to proceed with a maintenance review.
+If the governance query returns `queue.pending == 0` AND `signals.active == 0`, the docket will be empty (Sections A-C all clear). Report this to the Architect and skip to Step 9 unless the Architect wants to proceed with a maintenance review.
 
 Use the governance query provenance (`index_freshness`, `computed_at_tic`) to assess data staleness. If `index_freshness == "stale"`, note this in the docket header.
 
@@ -152,8 +152,8 @@ Before presenting the docket, verify that Section C (CogPR Review) has fresh Mog
 2. If a bench packet exists and its `created_at` is within the last 2 tics of the current tic count, proceed — it is fresh enough
 3. If the bench packet is stale or missing:
    a. **Concurrency guard** (CogPR-57 fix #2): Before writing a mandate, read `audit-logs/mogul/mandates/current.json` and check its `status` field:
-      - If `"running"`: do NOT overwrite. Report to operator: "Mogul mandate already running (ID: X). Cannot spawn bench-prep. Proceed in degraded mode or wait?"
-      - If `"pending"`: do NOT overwrite. Surface the existing mandate to operator.
+      - If `"running"`: do NOT overwrite. Report to the Architect: "Mogul mandate already running (ID: X). Cannot spawn bench-prep. Proceed in degraded mode or wait?"
+      - If `"pending"`: do NOT overwrite. Surface the existing mandate to the Architect.
       - If `"consumed"`, `"failed"`, or missing: safe to write new mandate.
    b. Write a **blocking** Mogul mandate for `bench_packet_prep`:
       ```json
@@ -176,7 +176,7 @@ Before presenting the docket, verify that Section C (CogPR Review) has fresh Mog
    d. After completion, re-check for fresh bench packet
 
 **Degraded mode:** If bench-prep cannot complete (Mogul unavailable, timeout, missing infrastructure), /review may proceed WITHOUT Section C bench context ONLY if:
-- The operator explicitly acknowledges degraded mode
+- The Architect explicitly acknowledges degraded mode
 - The docket header includes: `**DEGRADED: Section C presented without Mogul bench packet. Estate assessment is inline/ad-hoc, not constitutionally prepared.**`
 - This is a constitutional degradation — not a normal operating mode
 
