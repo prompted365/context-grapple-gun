@@ -287,6 +287,27 @@ For adversarial pattern mining: cross-elimination verdicts (NOVEL/DUPLICATE/PART
 
 For ladder/drift findings (T1, T2): these are independent first-pass audits. Check for contradictions/reinforcements between ladder findings, drift findings, and surviving pattern candidates during Mogul synthesis (T11).
 
+### Subdelegation doctrine briefing (mandatory pre-spawn)
+
+Before spawning any teammate that will touch a domain-specific governance surface (ladder-auditor reading domain CLAUDE.md, pattern curators mining domain authoring surfaces, ripple-assessor checking domain runtime drift), assemble a rung-aware doctrine briefing for that teammate's target path:
+
+```bash
+python3 <CGG_ROOT>/cgg-runtime/scripts/lib/load_doctrine_chain.py <target_path>
+```
+
+The helper walks up from `<target_path>` through rung markers (`.federation-root`, `.estate-root`, `.domain-root`, `.site-root` / `.ticzone`), concatenates each rung's `CLAUDE.md` into a single briefing, applies highest-rung-wins on path collision, and truncates per-rung at ~12,000 chars by default.
+
+**When to brief**:
+- Ladder-auditor when its scope includes any non-federation rung (estate or domain CLAUDE.md)
+- Pattern-curators when mining any non-federation MEMORY.md or CLAUDE.md chain
+- Any deliverable-team subagent whose work touches a domain implementation surface
+
+**When NOT to brief**:
+- Federation-only audits (federation root CLAUDE.md auto-loads in every Claude Code session)
+- Tasks confined to `audit-logs/` data surfaces with no doctrine reading
+
+**Closes the runtime-side gap** surfaced by tic 211 zone-marker investigation (`audit-logs/governance/zone-marker-utilization-audit-tic211.md`): zone markers exist and 24+ scripts consume them for write-side governance scoping, but read-side dispatch briefing was unimplemented until `load_doctrine_chain.py` (tic 211, CGG `61344ae`). The helper is the runtime mechanism for the Conductor-Score-Runtime Parity invariant (mechanism class 4) at the subdelegation boundary.
+
 ## Maturity and enrichment
 
 <!-- ref: cgg-runtime/reference/maturity-model.md -->

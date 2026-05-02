@@ -213,6 +213,18 @@ Canonical source is intent until sync + verify completes.
 
 If you observe discrepancies between installed and canonical surfaces, record them as drift hazards. Do not silently assume canonical is active.
 
+## Domain Doctrine Briefing (Pre-Mining)
+
+Before mining any non-federation surface (estate or domain CLAUDE.md / MEMORY.md), invoke the rung-aware doctrine briefing helper:
+
+```bash
+python3 <CGG_ROOT>/cgg-runtime/scripts/lib/load_doctrine_chain.py <surface_path>
+```
+
+The helper walks rung markers from `<surface_path>` up to federation root and concatenates each rung's `CLAUDE.md`. Mining direct-class patterns without the briefing produces false-positive workaround candidates (compensations that already exist as inscribed law) and misses real direct-class patterns (workarounds for already-named gaps that the curator can't see without the chain).
+
+**Briefing IS pre-mining context**, not output. Do not include the briefing in your candidate seeds — it shapes which workarounds you flag, not which you report. Skip the briefing only when mining is confined to `audit-logs/` data surfaces with no CLAUDE.md or MEMORY.md reads in scope.
+
 ## File-Access Discipline (Chunked Read Around Target)
 
 **Mandate (federation-wide doctrinal-lane discipline, tic 208)**: never read an entire CLAUDE.md, MEMORY.md, or other large governance file just to find an insert/edit/audit target. Always:

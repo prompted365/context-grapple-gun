@@ -206,10 +206,11 @@ polling:  # only for external/hybrid
 ### Step 3: Spawn Agents
 
 For each agent with no unmet blockers:
-1. Spawn via `Agent()` with `run_in_background: true`.
-2. Pass agent-specific prompt including: role, output_path, constraints.
-3. If `isolation: "worktree"`, use worktree mode to avoid file conflicts.
-4. Record agent spawn in `audit-logs/swarms/<id>/status.jsonl`.
+1. **Assemble domain doctrine briefing** (if agent's `output_path` or read scope touches a non-federation rung): invoke `python3 <CGG_ROOT>/cgg-runtime/scripts/lib/load_doctrine_chain.py <agent_target_path>` and prepend the briefing to the agent's prompt. The helper walks rung markers up to federation root and concatenates each rung's `CLAUDE.md`. Federation root auto-loads in every Claude Code session; estate and domain rungs do not — without the briefing, swarm workers see only federation doctrine and miss the rung-specific governing chain. Skip briefing only when the agent's scope is purely federation-rung or confined to `audit-logs/` data surfaces.
+2. Spawn via `Agent()` with `run_in_background: true`.
+3. Pass agent-specific prompt including: doctrine briefing (from step 1, if applicable), role, output_path, constraints.
+4. If `isolation: "worktree"`, use worktree mode to avoid file conflicts.
+5. Record agent spawn in `audit-logs/swarms/<id>/status.jsonl`.
 
 ### Step 4: Monitor & Gate
 
