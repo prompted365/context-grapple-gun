@@ -125,15 +125,22 @@ All script resolution goes through tier 3. If tier 3 is not synced with canonica
 |-------|---------|-----------------|
 | `pending` | Created, not yet executing | session-restore.sh, /cadence, /review |
 | `running` | Mogul runner has started execution | mogul-runner.sh |
-| `consumed` | All mandated cycles completed successfully | mogul-runner.sh |
+| `consumed` | All mandated cycles completed successfully | mogul-runner.sh **or** cgg-gate.sh (lightweight-only mandates) |
 | `failed` | Execution encountered an error | mogul-runner.sh |
 | `superseded` | A newer mandate replaced this one (ID recorded in `supersedes`) | mandate-write.py |
 
-### Lightweight mandate gap
+### Lightweight mandate consumer (RESOLVED)
 
-**Current defect**: When a mandate contains only lightweight cycles (`queue_refresh`, `signal_scan`), `cgg-gate.sh` surfaces the message but never transitions state. The mandate stays `pending` indefinitely, producing `[MOGUL MANDATE: lightweight]` on every prompt until the next `/cadence` overwrites it.
+**Status:** Resolved at commit `92e84a4` (Mar 13 2026); race-guard hardened at `354f8ab`; authoritative-source refined at `2f74ea1` (tic 208). The original defect was that a lightweight-only mandate stayed `pending` indefinitely because `cgg-gate.sh` had no consumer for it.
 
-**Required fix**: Lightweight mandates need an explicit consumer — either inline execution or immediate consumption with audit note.
+**Current behavior**: When a mandate contains only lightweight cycles (`queue_refresh`, `signal_scan`), `cgg-gate.sh` Branch A executes them inline with race-guard re-validation, then transitions the mandate to `consumed` with a `lightweight_results` audit field carrying the per-cycle outputs. When a mandate contains heavy cycles (with or without lightweight), the heavy branch spawns `mogul-runner.sh` which consumes the full mandate (heavy + lightweight) under one lifecycle.
+
+**Implementation locations:**
+- `cgg-runtime/hooks/cgg-gate.sh` lines ~177-298 (lightweight inline consumer + race guard + status transition)
+- `cgg-runtime/scripts/mogul-runner.sh` lines ~488 (heavy-branch lightweight handling under same runner)
+- `tests/test_lightweight_mandate_consumer.py` (regression-prevention fixture, tic 214)
+
+**Authoritative-source discipline:** The `signal_scan` cycle reads from `audit-logs/signals/active-manifest.jsonl` (curated), not raw daily emissions, per Disagreement-as-Evidence (federation KI) and CogPR-184 (Signal Resolution Writeback Atomicity). The `queue_refresh` cycle counts unique IDs by latest-status using the canonical PENDING_STATUSES set per CogPR-205 (Authoritative-Set Readers Must Read the Manifest). Both consumers mirror the equivalent logic in `mogul-runner.sh` so heavy and lightweight paths produce comparable counts.
 
 ## 6. Execution Classes
 
@@ -146,7 +153,7 @@ Deterministic, low-cost, no agent spawn required.
 | `queue_refresh` | Re-scan CPR queue, update indices |
 | `signal_scan` | Check signal volumes, accrue, check warrant thresholds |
 
-**Current handler**: None (gap). Should be handled inline in `cgg-gate.sh` or via a lightweight runner.
+**Handler**: `cgg-gate.sh` Branch A executes lightweight cycles inline when a mandate is lightweight-only (no heavy cycles present), then transitions the mandate to `consumed` with `lightweight_results` audit metadata. When heavy cycles are also present, `mogul-runner.sh` consumes the full mandate (heavy + lightweight) under one lifecycle. Race-guard re-validates mandate status before consumption to avoid contention with `mogul-runner.sh` if it picked up the mandate first. Resolved at commit `92e84a4`; see Section 5 "Lightweight mandate consumer (RESOLVED)".
 
 ### 6.2 Heavy cycles
 
@@ -243,9 +250,10 @@ session-restore.sh fires (SessionStart hook)
 cgg-gate.sh fires (UserPromptSubmit hook)
   │
   ├─ Branch A: Mandate check (independent)
-  │   ├─ Read current.json → parse status, cycles
-  │   ├─ If pending + heavy: spawn mogul-runner.sh (background)
-  │   ├─ If pending + lightweight only: surface message (NO CONSUMER)
+  │   ├─ Read current.json → parse status, cycles, classify heavy vs lightweight
+  │   ├─ If pending + heavy: spawn mogul-runner.sh (background, owns full lifecycle)
+  │   ├─ If pending + lightweight-only: race-guard re-check, execute inline,
+  │   │                                 transition to consumed + lightweight_results
   │   ├─ If running: surface in-flight message
   │   └─ If failed: surface failure alert
   │
@@ -283,8 +291,8 @@ User invokes /review
                               │
 session-restore ──merges──▶ mandate (pending, merged cycles)
                               │
-cgg-gate ──routes──▶ mogul-runner.sh (heavy) ──▶ consumed/failed
-                  or ──▶ [surfaces only] (lightweight) ──▶ stays pending ⚠️
+cgg-gate ──routes──▶ mogul-runner.sh (heavy + any lightweight) ──▶ consumed/failed
+                  or ──▶ inline consume (lightweight-only) ──▶ consumed
                               │
 /review ──creates──▶ mandate (pending, review_close_check)
                               │
@@ -297,8 +305,8 @@ next session-restore ──merges──▶ mandate (pending, merged)
 |-------|---------|----------|----------|----------|------------|
 | /cadence | Yes (merge-aware) | No | No | No | Via merge |
 | session-restore | Yes (merge-aware) | Yes (context injection) | No | No | Via merge |
-| cgg-gate | No | Yes (every prompt) | Yes (heavy via runner) | No (runner does) | No |
-| mogul-runner.sh | No | No | Yes | Yes | No |
+| cgg-gate | No | Yes (every prompt) | Yes (heavy via runner; lightweight inline) | Yes (lightweight-only mandates inline) | No |
+| mogul-runner.sh | No | No | Yes | Yes (heavy + mixed mandates) | No |
 | /review | Yes (review_close_check) | No | Yes (blocking bench-prep) | No | No |
 
 ## 8. Drift History
@@ -338,13 +346,13 @@ Manual sync of all 22 scripts to `~/.claude/cgg-runtime/scripts/`. Hooks confirm
 **Fix**: Add `scripts` to `INSTALL_TARGETS` so `runtime-sync auto-sync` keeps `~/.claude/cgg-runtime/scripts/` current.
 **Effect**: Prevents future drift. Makes manual sync unnecessary.
 
-### 9.2 Lifecycle fix
+### 9.2 Lifecycle fix (RESOLVED)
 
-**Problem**: Lightweight mandates (`queue_refresh`, `signal_scan`) have no consumer. They stay `pending` forever, producing `[MOGUL MANDATE: lightweight]` on every prompt.
-**Fix**: Add a lightweight mandate consumer in `cgg-gate.sh` that either:
-- Executes the lightweight cycles inline (preferred — they're deterministic and cheap)
-- Or marks consumed after first surface with audit note (acceptable fallback)
-**Effect**: Mandate lifecycle becomes symmetrical — both heavy and lightweight paths have explicit state transitions.
+**Status:** Resolved. Original problem: lightweight mandates (`queue_refresh`, `signal_scan`) had no consumer; they stayed `pending` forever, producing `[MOGUL MANDATE: lightweight]` on every prompt.
+**Fix landed:** `cgg-gate.sh` Branch A executes lightweight cycles inline when no heavy cycles are present, then transitions the mandate to `consumed` with `lightweight_results` audit metadata. Race-guard re-validates status before consumption to avoid contention with `mogul-runner.sh`.
+**Implementation history:** `92e84a4` (initial inline consumer + topology doc, Mar 13 2026), `354f8ab` (CogPR-57 race-guard hardening), `2f74ea1` (authoritative-source reading per CogPR-205, tic 208).
+**Regression protection:** `tests/test_lightweight_mandate_consumer.py` (added tic 214) exercises the consumer end-to-end against synthetic mandates and asserts status transition + audit fields.
+**Effect:** Mandate lifecycle is symmetrical — both heavy and lightweight paths have explicit state transitions; lightweight mandates do not leak as pending across sessions.
 
 ### 9.3 Hygiene fix
 
