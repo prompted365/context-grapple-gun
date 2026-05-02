@@ -222,6 +222,10 @@ What does not belong in ARGS: capability descriptions, output descriptions, or f
 
 `secondary_modulation_axes` (tunable): named axes that modulate how the skill executes within a ray. For `/cadence`, `detail: normal | high` and `emphasis: governance | production | projection` are modulation axes. Author owns. No gate at authoring time.
 
+**Description length calibration (n=9 evidence, tic 168):** Description-length distribution at n=9 adopters: 50, 56, 63, 60, 54, 62, 58, 58, 57 lines. Range: 50-63. Median: 58. Variance tracks ray count + sibling-overlap complexity + collapse_zone depth, NOT post-hoc richness drift. /inbox at 63 (7 rays + 4 siblings) sits at top of envelope; /cadence at 50 (2 rays + 3 siblings) sits at bottom. Novel stance values introduced at tic 168 (lens via /complement, mixed via /stage) did not produce length inflation. Empirical upper bound at roughly 1.3× observed median (≈75 lines) with bloat-trigger signal at richness-per-line dropping below 0.7 (semantic-load divided by total lines). Do NOT legislate a fixed line-count ceiling — length grows monotonically with legitimate complexity within the envelope, never drifting upward for decorative reasons. This n=9 distribution supersedes the n=3 calibration from tic 166.
+
+<!-- promoted from cpr_description_length_calibration_n9_tic168 (tic 168→211). Source: tic-168-convention-calibration. Resolves CBUX-Q4 (description-length ceiling) deferral from tic 165. Empirical upper bound ≈75 lines; bloat-trigger when richness-per-line drops below 0.7. Band: COGNITIVE. -->
+
 ---
 
 ## Authority Path
@@ -326,6 +330,16 @@ When post-delivery review of an inbox artifact produces surgical edits rather th
 Operator-reviewed governance documents should receive state updates via appended addendum sections with preserved original bodies, not in-place rewrites. The pattern: when a dated artifact (e.g., telos-immersive-rfc-binder-tic115.md) needs current-state refresh, append a clearly-marked 'TIC N STATE ADDENDUM' section that (1) references the original body unchanged, (2) updates each original Open Question / decision with current status, (3) enumerates new decisions since the original compilation, (4) cross-references authoritative state documents produced since. This protects the review provenance of the original while making state current. In-place rewrite blurs the review boundary — future readers cannot distinguish operator-reviewed content from subsequent edits. The addendum preserves the audit trail and makes time-of-decision legible. Also validates: handoff documents are bridge surfaces (transient), RFC binders are archive surfaces (permanent), and the difference matters structurally.
 
 <!-- promoted from CogPR-N (tic B->R). Source: <source_file>. <additional context if present in the CogPR>. -->
+
+---
+
+## v2.1 Conversion Body-Alignment Check
+
+AUTHORING_CONVENTION v2.1 produces a previously-undocumented secondary benefit beyond skill identity clarity: it surfaces body-frontmatter drift on converted skills because the formal IS list, collapse_zones, and core_dispatch_rays become machine-comparable claims against the body's actual prose. The /stage conversion at tic 168 documented 6 arena geometries in IS (dyadic, triangulation, tournament-lattice, CRX, VPL, OA-VPL-T) while the body's Arena Geometry Inference table documented only 2 (governed-triangulation, tournament-lattice) and routed geometry by position count alone. The drift was real and predated the conversion — CRX had been doctrinal since tic 93, VPL and OA-VPL-T since tic 121 — but the v2.1 conversion is what made the drift auditable.
+
+**Required step in all v2.1 conversion runs:** After completing the frontmatter schema fill, perform a body-frontmatter alignment check: compare each entry in `IS`, `collapse_zones`, and `core_dispatch_rays` against the skill's body prose. If the body does not reflect a declared IS entry or core dispatch ray, it is a body-drift finding. HIGH-tier governance skills (where doctrinal scope is wide) are especially likely to have accumulated doctrinal updates scattered across CogPRs but not absorbed back into the skill body. Document body-drift findings inline in the conversion commit message; resolve in the same commit or open a follow-up CogPR.
+
+<!-- promoted from cpr_v21_convention_surfaces_body_drift_tic168 (tic 168→211). Source: tic-168 /stage audit after Run 6 v2.1 conversion. Body-alignment check as standard step in v2.1 conversion runs catches real doctrinal staleness, not just cosmetic drift. Band: COGNITIVE. -->
 
 ---
 
