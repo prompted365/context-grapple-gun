@@ -246,7 +246,7 @@ $MANDATE_CONTENT
    - harmony_invoke: run scripts/harmony-invoke.sh (kernel-class autonomous_kernel.meaning.disposition; produces disposition packet to audit-logs/harmony/disposition-tic-N.json + appends invocations.jsonl audit trail). Read-only kernel; does not mutate governance state.
    - enrichment_scan: run scripts/cpr-enrichment-scanner.py, assess enrichment-eligible CPRs
    - ladder_audit: audit CLAUDE.md chain coherence
-   - runtime_drift_check: compare installed vs canonical runtime surfaces
+   - runtime_drift_check: compare installed vs canonical runtime surfaces. ALSO run scripts/check-harmony-readonly.py --json — verifies harmony engine src/harmony/*.ts modules contain no forbidden imports (atomic_append/queue/signals/manifest-prune/mandate/conformation) or write patterns (writeFileSync/appendFileSync/.write()). Surface any violations as drift findings (treat as TENSION/COGNITIVE per existing drift severity classification).
    - prompt_stack_audit: run scripts/prompt-stack-audit.py, scan CLAUDE.md chain for conflicts
    - cache_refresh: run \$ZONE_ROOT/vendor/context-grapple-gun/cgg-runtime/scripts/visitor-economy-monitor.py --cache-refresh \$TIC, report cache state + standing decay + biome health
    - deep_audit: comprehensive multi-rung scan
