@@ -17,7 +17,24 @@
 #
 # Mandate lifecycle:
 #   pending → running → consumed | failed
-cat > /dev/null
+
+# Capture stdin payload (Claude Code 2.1.69+ ships agent_id/agent_type here when
+# the hook is fired from a subagent context). Empty when fired by orchestrator.
+INPUT=$(cat)
+AGENT_ID=$(echo "$INPUT" | python3 -c "
+import sys, json
+try:
+    print(json.load(sys.stdin).get('agent_id') or '')
+except Exception:
+    print('')
+" 2>/dev/null)
+AGENT_TYPE=$(echo "$INPUT" | python3 -c "
+import sys, json
+try:
+    print(json.load(sys.stdin).get('agent_type') or '')
+except Exception:
+    print('')
+" 2>/dev/null)
 
 # Wire cutter — emergency kill switch
 [ -f ~/.claude/wire-cutter.sh ] && source ~/.claude/wire-cutter.sh && wire_check gate
@@ -65,12 +82,18 @@ PROCESSED_IDS="$HOME/.claude/cgg-processed-handoff-ids.txt"
 META_LOG="$HOME/.claude/grapple-meta-log.jsonl"
 TIMESTAMP=$(date -Iseconds)
 
-# Safe JSONL append wrapper
+# Safe JSONL append wrapper.
+# Auto-injects agent_id/agent_type fields (federation KI: bounded-delegation
+# default masking — preserve agent identity in audit trail). Strips trailing }
+# from caller's JSON, appends agent fields, re-closes.
 log_meta() {
+  local payload="$1"
+  local body="${payload%\}}"
+  payload="${body},\"agent_id\":\"${AGENT_ID:-}\",\"agent_type\":\"${AGENT_TYPE:-}\"}"
   if type atomic_append &>/dev/null; then
-    atomic_append "$META_LOG" "$1"
+    atomic_append "$META_LOG" "$payload"
   else
-    echo "$1" >> "$META_LOG"
+    echo "$payload" >> "$META_LOG"
   fi
 }
 

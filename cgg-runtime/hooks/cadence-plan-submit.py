@@ -130,7 +130,14 @@ def run_tdelta(session: str) -> dict:
 # Event logging
 # ---------------------------------------------------------------------------
 
-def log_event(plan_hash: str, delta_result: dict):
+def log_event(plan_hash: str, delta_result: dict, agent_id: str = "", agent_type: str = ""):
+    """Log a hook-fire event to EVENT_LOG.
+
+    agent_id / agent_type captured from Claude Code 2.1.69+ hook payload to
+    distinguish orchestrator-fired vs subagent-fired hook events. Empty when
+    fired by orchestrator or older harness. Federation KI: bounded-delegation
+    default masking — preserve agent identity in audit trail.
+    """
     ts = datetime.now(timezone.utc).isoformat()
     event = {
         "type": "hook_event",
@@ -139,6 +146,8 @@ def log_event(plan_hash: str, delta_result: dict):
         "plan_hash": plan_hash,
         "tdelta_rc": delta_result.get("returncode"),
         "tdelta_path": delta_result.get("dump_path", ""),
+        "agent_id": agent_id,
+        "agent_type": agent_type,
     }
     HOOK_STATE_DIR.mkdir(parents=True, exist_ok=True)
     with EVENT_LOG.open("a", encoding="utf-8") as f:
@@ -199,6 +208,11 @@ def main():
     except (json.JSONDecodeError, ValueError):
         payload = {}
 
+    # Extract agent identity (Claude Code 2.1.69+). Empty for orchestrator-fired
+    # or older harness — preserved as schema field for downstream provenance.
+    agent_id = payload.get("agent_id") or ""
+    agent_type = payload.get("agent_type") or ""
+
     # Extract plan text from the EnterPlanMode tool input
     tool_input = payload.get("tool_input", payload)
     plan_text = ""
@@ -233,8 +247,8 @@ def main():
     # Persist to memory
     append_memory(plan_text, plan_hash, delta_result.get("dump_path", ""))
 
-    # Log event
-    log_event(plan_hash, delta_result)
+    # Log event (with agent identity captured from hook payload)
+    log_event(plan_hash, delta_result, agent_id=agent_id, agent_type=agent_type)
 
     # Update dedup state
     seen["last_plan_hash"] = plan_hash

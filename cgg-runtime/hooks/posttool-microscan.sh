@@ -14,8 +14,29 @@
 #   - Writes to file only (no stdout bloat)
 #   - Must not exceed 2 second runtime
 
-# Read stdin (tool result JSON) — we need the file path
+# Read stdin (tool result JSON) — we need the file path AND agent identity
 INPUT=$(cat)
+
+# Extract agent_id / agent_type from payload (Claude Code 2.1.69+).
+# Empty when fired by orchestrator (no agent context) or older Claude Code.
+# Captured into audit logs to distinguish orchestrator-fired vs subagent-fired
+# hook events — closes the bounded-delegation-default-masking gap (federation KI).
+AGENT_ID=$(echo "$INPUT" | python3 -c "
+import sys, json
+try:
+    d = json.load(sys.stdin)
+    print(d.get('agent_id') or '')
+except Exception:
+    print('')
+" 2>/dev/null)
+AGENT_TYPE=$(echo "$INPUT" | python3 -c "
+import sys, json
+try:
+    d = json.load(sys.stdin)
+    print(d.get('agent_type') or '')
+except Exception:
+    print('')
+" 2>/dev/null)
 
 # Wire cutter — emergency kill switch
 [ -f ~/.claude/wire-cutter.sh ] && source ~/.claude/wire-cutter.sh && wire_check microscan
@@ -148,9 +169,11 @@ if [ -n "$SCRIPTS_DIR" ]; then
     | python3 -c "import sys,json; print(json.load(sys.stdin).get('current_rung','unknown'))" 2>/dev/null) || BIRTH_RUNG="unknown"
 fi
 
-# Append finding — lightweight JSON, no signal emission
-MICROSCAN_JSON=$(printf '{"type":"microscan","finding":"%s","file":"%s","birth_rung":"%s","timestamp":"%s"}' \
-  "$FINDING_TYPE" "$FILE_PATH" "$BIRTH_RUNG" "$TIMESTAMP")
+# Append finding — lightweight JSON, no signal emission.
+# agent_id / agent_type captured from payload (federation KI: bounded-delegation
+# default masking — preserve agent identity in audit trail).
+MICROSCAN_JSON=$(printf '{"type":"microscan","finding":"%s","file":"%s","birth_rung":"%s","timestamp":"%s","agent_id":"%s","agent_type":"%s"}' \
+  "$FINDING_TYPE" "$FILE_PATH" "$BIRTH_RUNG" "$TIMESTAMP" "$AGENT_ID" "$AGENT_TYPE")
 if type atomic_append &>/dev/null; then
   atomic_append "$STAGING_FILE" "$MICROSCAN_JSON"
 else
