@@ -16,7 +16,27 @@
 # - Signals do not expire. Only resolved/dismissed are terminal.
 # - Tic count is the time authority. Timestamps are observability only.
 # - Warrant eligibility is kind-gated (configurable via .ticzone).
-cat > /dev/null
+
+# Capture stdin payload. Claude Code 2.1.69+ ships agent_id/agent_type when
+# SessionStart fires for a subagent context (Agent tool spawn). Empty when the
+# harness fires for the primary orchestrator. Captured into mandate-history
+# writes below for cross-agent provenance (federation KI: bounded-delegation
+# default masking).
+INPUT=$(cat)
+AGENT_ID=$(echo "$INPUT" | python3 -c "
+import sys, json
+try:
+    print(json.load(sys.stdin).get('agent_id') or '')
+except Exception:
+    print('')
+" 2>/dev/null)
+AGENT_TYPE=$(echo "$INPUT" | python3 -c "
+import sys, json
+try:
+    print(json.load(sys.stdin).get('agent_type') or '')
+except Exception:
+    print('')
+" 2>/dev/null)
 
 # Wire cutter — emergency kill switch
 [ -f ~/.claude/wire-cutter.sh ] && source ~/.claude/wire-cutter.sh && wire_check session
@@ -506,7 +526,15 @@ print(json.dumps(mandate, indent=2))
       if [ -n "$MANDATE_JSON" ]; then
         mkdir -p "$MANDATE_DIR" "$MANDATE_HISTORY_DIR"
         echo "$MANDATE_JSON" > "$MANDATE_FILE"
-        MANDATE_COMPACT=$(echo "$MANDATE_JSON" | python3 -c "import json,sys; print(json.dumps(json.load(sys.stdin), separators=(',',':')))" 2>/dev/null)
+        # Inject agent identity into the mandate-history compact write
+        # (preserves which agent context spawned the session if present).
+        MANDATE_COMPACT=$(echo "$MANDATE_JSON" | AGENT_ID="$AGENT_ID" AGENT_TYPE="$AGENT_TYPE" python3 -c "
+import json, sys, os
+m = json.load(sys.stdin)
+m['agent_id'] = os.environ.get('AGENT_ID') or ''
+m['agent_type'] = os.environ.get('AGENT_TYPE') or ''
+print(json.dumps(m, separators=(',',':')))
+" 2>/dev/null)
         TODAY=$(date +%Y-%m-%d)
         if [ -n "$MANDATE_COMPACT" ] && type atomic_append &>/dev/null; then
           atomic_append "$MANDATE_HISTORY_DIR/$TODAY.jsonl" "$MANDATE_COMPACT"

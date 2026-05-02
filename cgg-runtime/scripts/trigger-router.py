@@ -251,6 +251,8 @@ def route_trigger(
     expires_at_tic: int | None = None,
     escalation_condition: dict | None = None,
     dry_run: bool = False,
+    agent_id: str = "",
+    agent_type: str = "",
 ) -> dict:
     """Route a trigger through the manifest to inbox delivery.
 
@@ -367,7 +369,8 @@ def route_trigger(
         result["target"] = target_id
         results.append(result)
 
-    # 8. Log routing decision
+    # 8. Log routing decision (agent identity threaded from upstream hook
+    # payload — federation KI: bounded-delegation default masking).
     _log_routing(audit_root, {
         "trigger_type": trigger_type,
         "source_event": source_event,
@@ -378,6 +381,8 @@ def route_trigger(
         "idempotency_key": idem_key,
         "dedupe_policy": dedupe,
         "results": [{"target": r["target"], "status": r["status"]} for r in results],
+        "agent_id": agent_id or "",
+        "agent_type": agent_type or "",
     })
 
     delivered = [r for r in results if r.get("status") == "delivered"]
@@ -439,6 +444,8 @@ def cmd_route(args):
         expires_at_tic=args.expires_at_tic,
         escalation_condition=esc_condition,
         dry_run=args.dry_run,
+        agent_id=getattr(args, 'agent_id', ''),
+        agent_type=getattr(args, 'agent_type', ''),
     )
     print(json.dumps(result, indent=2))
     sys.exit(0 if result["status"] in ("routed", "dry_run") else 1)
@@ -491,6 +498,8 @@ def main():
     r.add_argument("--priority", default=None, help="Override manifest priority")
     r.add_argument("--expires-at-tic", type=int, default=None)
     r.add_argument("--escalation-band", default=None, help="Band for escalation check")
+    r.add_argument("--agent-id", default="", help="Hook payload agent_id (Claude Code 2.1.69+); empty when orchestrator-fired")
+    r.add_argument("--agent-type", default="", help="Hook payload agent_type (Claude Code 2.1.69+); empty when orchestrator-fired")
     r.add_argument("--dry-run", action="store_true", help="Validate without writing")
     r.set_defaults(func=cmd_route)
 

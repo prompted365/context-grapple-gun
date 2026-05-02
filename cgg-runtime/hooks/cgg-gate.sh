@@ -412,6 +412,8 @@ print(json.dumps(body))
       --subject "Ripple assessment — handoff $HANDOFF_ID" \
       --body "$RIPPLE_BODY_JSON" \
       --session-id "$(python3 -c "import uuid; print(uuid.uuid4().hex[:12])" 2>/dev/null)" \
+      --agent-id "$AGENT_ID" \
+      --agent-type "$AGENT_TYPE" \
       2>/dev/null)
 
     ROUTE_STATUS=$(echo "$ROUTE_RESULT" | python3 -c "import json,sys; print(json.load(sys.stdin).get('status',''))" 2>/dev/null)

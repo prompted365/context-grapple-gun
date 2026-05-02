@@ -14,6 +14,25 @@ set -euo pipefail
 # Read tool input from stdin
 INPUT=$(cat)
 
+# Extract agent identity (Claude Code 2.1.69+) — threaded to runtime-sync.py
+# via CLI args so the cgg-sync-log entry knows which agent context fired
+# the underlying git commit. Federation KI: bounded-delegation default
+# masking — capture identity at the audit boundary.
+AGENT_ID=$(echo "$INPUT" | python3 -c "
+import sys, json
+try:
+    print(json.load(sys.stdin).get('agent_id') or '')
+except Exception:
+    print('')
+" 2>/dev/null)
+AGENT_TYPE=$(echo "$INPUT" | python3 -c "
+import sys, json
+try:
+    print(json.load(sys.stdin).get('agent_type') or '')
+except Exception:
+    print('')
+" 2>/dev/null)
+
 # Wire cutter — emergency kill switch
 [ -f ~/.claude/wire-cutter.sh ] && source ~/.claude/wire-cutter.sh && wire_check sync
 
@@ -115,12 +134,15 @@ if echo "$CHANGED_FILES" | grep -q 'sync-manifest.json'; then
     fi
 fi
 
-# Run auto-sync
+# Run auto-sync. agent_id/agent_type passed through so write_sync_log can
+# stamp them into the cgg-sync-log entry.
 if [ -f "$SCRIPT_DIR/runtime-sync.py" ]; then
     RESULT=$(python3 "$SCRIPT_DIR/runtime-sync.py" auto-sync \
         --project-dir "$ZONE_ROOT" \
         --plugin-root "${CGG_ROOT:-$ZONE_ROOT}" \
-        --commit "$COMMIT_SHA" 2>&1) || true
+        --commit "$COMMIT_SHA" \
+        --agent-id "$AGENT_ID" \
+        --agent-type "$AGENT_TYPE" 2>&1) || true
     if [ -n "$RESULT" ]; then
         echo "$RESULT"
     fi

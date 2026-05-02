@@ -395,8 +395,15 @@ def get_current_commit(repo_dir):
 # Sync log
 # ---------------------------------------------------------------------------
 
-def write_sync_log(zone_root, plugin_root, synced_surfaces, commit_sha, commit_msg):
-    """Append a sync event to the sync log with commit pointer."""
+def write_sync_log(zone_root, plugin_root, synced_surfaces, commit_sha, commit_msg,
+                   agent_id="", agent_type=""):
+    """Append a sync event to the sync log with commit pointer.
+
+    agent_id / agent_type stamped from the upstream hook payload (Claude Code
+    2.1.69+) so audit forensics can distinguish orchestrator-fired vs
+    subagent-fired sync events. Empty when fired by orchestrator or older
+    Claude Code. Federation KI: bounded-delegation default masking.
+    """
     tz_config = load_ticzone(zone_root)
     al_path = audit_logs_path(zone_root, tz_config)
     log_dir = os.path.join(al_path, "services")
@@ -421,6 +428,8 @@ def write_sync_log(zone_root, plugin_root, synced_surfaces, commit_sha, commit_m
         ],
         "surface_count": len(synced_surfaces),
         "source": "runtime-sync.py",
+        "agent_id": agent_id or "",
+        "agent_type": agent_type or "",
     }
 
     try:
@@ -718,7 +727,8 @@ def cmd_diff(surfaces, plugin_root, output_json=False):
     return results
 
 
-def cmd_sync(surfaces, zone_root, plugin_root, commit_sha=None, commit_msg=None):
+def cmd_sync(surfaces, zone_root, plugin_root, commit_sha=None, commit_msg=None,
+             agent_id="", agent_type=""):
     """Copy canonical to installed for drifted/missing surfaces, verify, log."""
     results = [compare_surface(s) for s in surfaces]
     needs_sync = [r for r in results if r["status"] in ("drifted", "missing_installed")]
@@ -766,10 +776,11 @@ def cmd_sync(surfaces, zone_root, plugin_root, commit_sha=None, commit_msg=None)
     print()
     print(f"  Synced {len(synced_items)}/{len(needs_sync)} surfaces")
 
-    # Write sync log with commit pointer
+    # Write sync log with commit pointer (agent identity threaded from hook)
     if synced_items:
         log_file = write_sync_log(zone_root, plugin_root, synced_items,
-                                  commit_sha, commit_msg)
+                                  commit_sha, commit_msg,
+                                  agent_id=agent_id, agent_type=agent_type)
         print(f"  Sync log: {log_file}")
 
     # Re-check for any remaining drift — escalated severity
@@ -897,7 +908,8 @@ def resolve_drift_signals_on_sync(zone_root, synced_surface_names, commit_sha=No
     return resolved_ids
 
 
-def cmd_auto_sync(surfaces, zone_root, plugin_root, commit_sha=None):
+def cmd_auto_sync(surfaces, zone_root, plugin_root, commit_sha=None,
+                  agent_id="", agent_type=""):
     """Post-commit auto-sync: discover, compare, selectively sync, log.
 
     This is the hook-triggered entry point. It:
@@ -938,9 +950,10 @@ def cmd_auto_sync(surfaces, zone_root, plugin_root, commit_sha=None):
         if new_hash == r["canonical_hash"]:
             synced_items.append(r)
 
-    # Log
+    # Log (agent identity threaded from upstream hook payload)
     if synced_items:
-        write_sync_log(zone_root, plugin_root, synced_items, commit_sha, commit_msg)
+        write_sync_log(zone_root, plugin_root, synced_items, commit_sha, commit_msg,
+                       agent_id=agent_id, agent_type=agent_type)
 
     # Close drift signals whose surfaces just reached parity
     parity_surface_names = (
@@ -1033,6 +1046,10 @@ def main():
                         help="Output structured JSON (check/diff/discover)")
     parser.add_argument("--commit", default=None, dest="commit_sha",
                         help="Git commit SHA to record in sync log (auto-sync)")
+    parser.add_argument("--agent-id", default="", dest="agent_id",
+                        help="Hook payload agent_id (Claude Code 2.1.69+); empty when orchestrator-fired")
+    parser.add_argument("--agent-type", default="", dest="agent_type",
+                        help="Hook payload agent_type (Claude Code 2.1.69+); empty when orchestrator-fired")
     parser.add_argument("--enrich", action="store_true",
                         help="Enrich drift detection with commit history context (check)")
     args = parser.parse_args()
@@ -1070,7 +1087,8 @@ def main():
     elif args.command == "sync":
         cmd_sync(surfaces, zone_root, plugin_root)
     elif args.command == "auto-sync":
-        cmd_auto_sync(surfaces, zone_root, plugin_root, commit_sha=args.commit_sha)
+        cmd_auto_sync(surfaces, zone_root, plugin_root, commit_sha=args.commit_sha,
+                      agent_id=args.agent_id, agent_type=args.agent_type)
     elif args.command == "discover":
         cmd_discover(surfaces, plugin_root, zone_root, output_json=args.output_json)
 
