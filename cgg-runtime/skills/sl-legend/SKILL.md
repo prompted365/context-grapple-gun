@@ -46,7 +46,9 @@ ARGS:
   off_envelope: ignore
   core_dispatch_rays:
     - ""        → static legend (full glyph + position decoder)
-    - "live"    → annotate current rendered statusline values inline
+    - "live"    → annotate current rendered statusline values inline + tic 214 markers source-backed
+    - "lite"    → compact tic 214 marker glossary only (glance-speed recall)
+    - "review"  → Architect perception substrate audit checklist (overclaim + naming drift detection)
     - "sources" → source attribution table (which file each value reads)
 ---
 
@@ -200,6 +202,56 @@ Current radar (tic 205, posture OPS/DIRECT, mode FULL):
       SNR         = 0.762                 ← .snr
       stance      = hold-open             ← .stance compressed
 ```
+
+## Compact glossary (`/sl-legend lite`)
+
+Glance-speed recall of the tic 214 Architect-perception markers. Use when the full table is too dense and the Architect needs a one-look reminder.
+
+```
+arch:active                        Architect perception substrate active
+disp:<state> .NN                   harmony disposition + SNR (e.g., disp:preserved .68)
+sub:bound                          substrate sub-telos resolved + bound
+harmony:substrate.kernel-runtime   harmony bound as kernel-class runtime
+carto:shell                        cartography Phase A shell present, no splat retrieval
+gap11:declared                     wisdom-pressure first-class, parallel-capable, not active
+```
+
+Forbidden until runtime exists:
+
+```
+wisdom:active           — only after Gap 11 is implemented in v1 engine code
+carto:retrieving        — only after splat-emergence machinery exists
+harmony:wisdom-active   — only after the wisdom-pressure subpacket is wired
+```
+
+Drilldown to full table: `/sl-legend` (no arg). Drilldown to current state: `/sl-legend live`.
+
+## Architect-perception audit (`/sl-legend review`)
+
+Drift checklist for the Architect-perception substrate. Run when statusline rendering, sl-legend body, skill SKILL.md surfaces, or doctrine inscriptions are suspected of overclaiming or naming drift.
+
+The audit asks six binary questions; any "no" is a /siren signal candidate under TENSION/COGNITIVE.
+
+| # | Check | Expected | Failure signal |
+|---|---|---|---|
+| 1 | No Breyden-as-operator language in live-facing surfaces | yes | `Breyden-as-operator drift detected at <path>` (operator-language sweep regressed) |
+| 2 | No `wisdom:active` rendered before Gap 11 engine implementation | yes | `wisdom:active overclaim — Gap 11 still declared, not active` |
+| 3 | No `carto:retrieving` rendered before splat retrieval machinery exists | yes | `carto:retrieving overclaim — Phase A shell only, no splat machinery` |
+| 4 | No `harmony:wisdom-active` rendered before wisdom-pressure subpacket is wired | yes | `harmony:wisdom-active overclaim — subpacket schema declared, not engine-wired` |
+| 5 | No claim that cartography owns meaning attribution | yes | `cartography slice violation — meaning belongs to Harmony per weak-slice tic 214 adjudication` |
+| 6 | No claim that Harmony owns terrain/census/cartography implementation | yes | `Harmony slice violation — implementation belongs to substrate.cartography per weak-slice tic 214 adjudication` |
+
+Audit verb in checks 5 and 6 references the tic 214 weak-slice adjudication: *Harmony has exclusive semantic jurisdiction over meaning-state attribution; cartography, census, terrain, splats, quivers, and basin detection are upstream/shared substrate surfaces.* See `audit-logs/governance/harmony-v1-multiplane-plan-tic213.md` ARCHITECT ADJUDICATION TIC 214 header.
+
+How to run the audit:
+
+1. Sweep live-facing doctrine + skill surfaces for `\boperators?\b` patterns referring to Breyden (federation/control-room/substrate contexts). Frozen schema literals (`operator_observed`, `"operator|peer|subordinate|visitor"`) and non-Breyden referents (Mogul-as-mandate-executor, Skyward AI layer in `vendor-capability-surface.md`) are KEEP.
+2. Confirm rendered statusline does not include any forbidden marker (`wisdom:active`, `carto:retrieving`, `carto:active`, `harmony:wisdom-active`).
+3. Read `autonomous_kernel/cartography/KERNEL_REGISTRATION.md` non-ownership rules — confirm cartography spec does not claim meaning attribution.
+4. Read `autonomous_kernel/harmony_engine_v0/V1_DOCTRINE_COMPLETION_CHECKLIST.md` Gap 11 — confirm wisdom layer is described as `Major for v1 doctrine-complete admission; not blocking Phase A cartography extraction` and not as active runtime.
+5. Read `audit-logs/governance/harmony-v1-multiplane-plan-tic213.md` adjudication header — confirm weak-slice reading is preserved.
+
+If all six checks pass: Architect-perception substrate is coherent. If any check fails: emit signal + queue CogPR for next /review.
 
 ## Source attribution (`/sl-legend sources`)
 
