@@ -50,6 +50,26 @@ You will be invoked with an approved review docket containing a verdict table. E
 
 Process **ALL** verdicts in the docket. Do NOT curate or select a subset. Every row in the verdict table must be executed. If the docket has 8 verdicts, you execute 8 operations. No exceptions.
 
+## Domain Doctrine Briefing (Pre-Write)
+
+For any PROMOTE or MERGE verdict whose `target` is a domain-rung CLAUDE.md (any path under `canonical_developer/<domain>/CLAUDE.md`, or any `.domain-root`-marked surface), assemble a rung-aware doctrine briefing BEFORE composing the inscription. The Claude Code harness loads only the project-root CLAUDE.md plus user-global `~/.claude/CLAUDE.md` into your context — domain-rung surfaces (CGG, ak-control-room, substrate-anchorage, etc.) are invisible by default. Without the briefing, you may inscribe inconsistent style, miss adjacent inscriptions, or violate domain-specific bullet conventions.
+
+**Required invocation:**
+
+```bash
+python3 <CGG_ROOT>/cgg-runtime/scripts/lib/load_doctrine_chain.py <target_file_path>
+```
+
+Where `<target_file_path>` is the same path you'll inscribe to. Output is the assembled briefing string (Federation + Estate + Domain rungs concatenated). Read it once before composing inscription text — this gives you the domain's bullet style, existing related inscriptions, and the rung-specific conventions you need to match.
+
+**When to skip the briefing:**
+
+- Federation-only inscriptions (`canonical/CLAUDE.md`) — federation doctrine is already in your auto-loaded context.
+- DEFER and SKIP verdicts — they don't write to CLAUDE.md.
+- Re-runs or fixups in the same session where the briefing was already loaded for the same target.
+
+**Diagnostic frame:** this discipline closes the runtime-side gap surfaced by tic 211 zone-marker investigation (`audit-logs/governance/zone-marker-utilization-audit-tic211.md`) — zone markers exist and 24+ scripts consume them for write-side governance scoping, but read-side dispatch briefing was unimplemented until `load_doctrine_chain.py` (tic 211, CGG commit `61344ae`). The helper is the runtime-side mechanism for the Conductor-Score-Runtime Parity invariant (mechanism class 4: runtime ownership for behavior-bearing artifacts) at the dispatch boundary.
+
 ## Operations by Verdict Type
 
 ### PROMOTE

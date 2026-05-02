@@ -101,7 +101,20 @@ def signal_governance(ticzone_config):
     }
 
 
-# Rung topology markers — ordered from lowest (nearest) to highest
+# Rung topology markers — ordered from lowest (nearest) to highest.
+#
+# LEGACY SEMANTICS NOTE (tic 211, see audit-logs/governance/zone-marker-utilization-audit-tic211.md
+# and audit-logs/governance/rung-layering-audit-tic211.md F4): `.ticzone` is mapped to "site"
+# rung here for historical reasons, but `.ticzone` is operationally a zone *configuration* file
+# (timezone, bands, muffling-per-hop) that lives at multiple rungs — it can appear at federation
+# root (canonical/.ticzone) as well as site sub-zones (e.g., stage/.ticzone). When a single
+# directory carries both `.ticzone` and a higher-rung marker (e.g., canonical/ has both
+# `.ticzone` and `.federation-root`), `resolve_rung_position()` returns it under both labels
+# in the topology dict. The canonical resolution lives at the consumer side: load_doctrine_chain.py
+# applies "highest-rung-wins on path collision" so federation isn't shadowed by site at the
+# federation root. Future cleanup (deferred per "lucky alignment is structural drift" CogPR-205)
+# would either rename `.ticzone` to a non-rung-marker config file or split the rung-tagging
+# concern from the zone-config concern. Until then, consumers must apply collision-aware reads.
 RUNG_MARKERS = {
     ".ticzone": "site",
     ".domain-root": "domain",
