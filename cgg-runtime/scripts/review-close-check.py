@@ -54,6 +54,37 @@ def load_queue(queue_path):
     return entries
 
 
+def load_lesson_fallbacks(queue_path):
+    """Collect lesson text from ALL queue entries per id (not just latest).
+
+    Some promoted writeback rows are minimal records with no lesson field.
+    Earlier entries for the same id (e.g., enrichment_eligible rows) may carry
+    the full lesson text.  This mapping provides a fallback lesson source for
+    check_promoted when the latest (promoted) entry has an empty lesson.
+
+    Returns: dict of id -> str (first non-empty lesson found for that id,
+             scanning the file in order — earlier entries win for lesson lookup
+             because the enrichment-eligible row carries the full text).
+    """
+    lessons = {}
+    p = Path(queue_path)
+    if not p.exists():
+        return lessons
+    for line in p.read_text(encoding="utf-8").splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        try:
+            d = json.loads(line)
+            eid = d.get("id", "")
+            lesson = d.get("lesson", "")
+            if eid and lesson and eid not in lessons:
+                lessons[eid] = lesson
+        except json.JSONDecodeError:
+            continue
+    return lessons
+
+
 def read_file_safe(path):
     """Read file content, return empty string on failure."""
     try:
@@ -68,26 +99,107 @@ def read_file_safe(path):
 
 _PATH_CHARS = re.compile(r"^[~./\w-]+(?:/[~./\w-]+)*\.[a-zA-Z]+$")
 
+# Matches a parenthesized scope hint appended AFTER the file path.
+# E.g. "canonical/CLAUDE.md (refined 'Constitutional schema must precede rendering layer')"
+# The path ends at the first " (" that is NOT part of the filesystem path itself.
+# We only strip when the "(" is preceded by a space — absolute/tilde paths with embedded
+# parentheses are extremely rare and excluded by the leading-space guard.
+_SCOPE_HINT_RE = re.compile(r"^(.*?)\s+\(.*\)$", re.DOTALL)
+
+
+def _strip_scope_hint(s):
+    """Strip a trailing parenthesized scope hint from a target string.
+
+    Preserves the original string for reporting; returns only the bare path
+    for filesystem resolution.  Only strips when the parenthetical follows a
+    space so that paths with embedded parentheses (unlikely but possible) are
+    not mangled.
+
+    Examples:
+        "canonical/CLAUDE.md (refined 'X')"  -> "canonical/CLAUDE.md"
+        "canonical/CLAUDE.md"                 -> "canonical/CLAUDE.md"  (unchanged)
+    """
+    m = _SCOPE_HINT_RE.match(s.strip())
+    if m:
+        return m.group(1)
+    return s
+
 
 def _looks_like_file_path(s):
     """Heuristic: does this string look like a file path (vs natural-language description)?"""
     if not s or not isinstance(s, str):
         return False
-    s = s.strip()
-    if " " in s:
+    # Strip parenthetical scope hint before checking path shape
+    bare = _strip_scope_hint(s.strip())
+    if " " in bare:
         return False
-    if not _PATH_CHARS.match(s):
+    if not _PATH_CHARS.match(bare):
         return False
     return True
 
 
-def check_promoted(cpr_id, cpr, project_dir, inscribed_ids=None):
+def _read_target(target_str, project_dir, project_basename=None):
+    """Resolve a target string to a filesystem path and return its content.
+
+    Applies two normalizations before resolving:
+      1. Parenthetical scope-hint stripping — "canonical/CLAUDE.md (refined 'X')"
+         becomes "canonical/CLAUDE.md".
+      2. Federation-prefix stripping — when the first path segment matches the
+         federation repo's basename (e.g. "canonical/CLAUDE.md" where the repo
+         is named "canonical"), strip that segment and resolve relative to
+         project_dir.  This handles queue entries that record paths relative to
+         the parent of the federation root rather than relative to it.
+
+    Returns file content as str, or "" if the file cannot be read.
+    """
+    bare = _strip_scope_hint(target_str)
+
+    if bare.startswith("~"):
+        path = os.path.expanduser(bare)
+        return read_file_safe(path)
+
+    if os.path.isabs(bare):
+        return read_file_safe(bare)
+
+    # Relative path: resolve against project_dir
+    path = os.path.join(project_dir, bare)
+    content = read_file_safe(path)
+    if content:
+        return content
+
+    # Federation-prefix fallback: if the leading segment of the relative path
+    # matches the repo's own basename, strip it and retry.
+    # E.g. project_dir=/…/canonical, bare="canonical/CLAUDE.md"
+    #   -> retry with "CLAUDE.md" -> /…/canonical/CLAUDE.md
+    if project_basename:
+        parts = bare.replace("\\", "/").split("/")
+        if parts and parts[0] == project_basename:
+            stripped = "/".join(parts[1:])
+            if stripped:
+                path2 = os.path.join(project_dir, stripped)
+                content2 = read_file_safe(path2)
+                if content2:
+                    return content2
+
+    return ""
+
+
+def check_promoted(cpr_id, cpr, project_dir, inscribed_ids=None, lesson_fallbacks=None):
     """Verify promoted CPR text landed in target file.
 
     Verification axes (any one resolves):
       1. cpr_id appears in inscribed_ids index (provenance-comment scan of governance files)
       2. cpr_id (or CogPR-N alt) appears in any target file
-      3. lesson snippet appears in any target file (legacy fallback)
+      3. lesson snippet appears in any target file
+         - lesson sourced from the promoted entry when non-empty
+         - lesson sourced from lesson_fallbacks (earlier queue entries for same id) when
+           the promoted entry is a minimal writeback row with no lesson field
+      4. (fallback) promoted_to is a tilde path that resolves to an existing non-empty file
+         for entries where the lesson cannot be recovered from any queue row
+
+    Parenthesized scope hints in target paths (e.g.
+    "canonical/CLAUDE.md (refined 'X' Key Invariant)") are stripped before
+    filesystem resolution but preserved in the targets_checked report field.
 
     Targets, in priority order: promoted_to (verdict-side authoritative),
     promotion_target (legacy), recommended_scopes (filtered to file-path-shaped entries).
@@ -103,6 +215,12 @@ def check_promoted(cpr_id, cpr, project_dir, inscribed_ids=None):
         return findings
 
     lesson = cpr.get("lesson", "")
+    # Fallback: recover lesson from an earlier queue entry when the promoted writeback
+    # is a minimal row without lesson text (convention: enrichment_eligible rows carry
+    # the full lesson; promoted writeback rows sometimes omit it).
+    if not lesson and lesson_fallbacks:
+        lesson = lesson_fallbacks.get(cpr_id, "")
+
     promoted_to = cpr.get("promoted_to", "")
     target = cpr.get("promotion_target", "")
     scopes = cpr.get("recommended_scopes", [])
@@ -133,14 +251,11 @@ def check_promoted(cpr_id, cpr, project_dir, inscribed_ids=None):
     snippet = lesson[:50] if lesson else ""
     found_in_any = False
 
-    for t in targets:
-        path = t
-        if t.startswith("~"):
-            path = os.path.expanduser(t)
-        elif not os.path.isabs(t):
-            path = os.path.join(project_dir, t)
+    # Federation-repo basename for prefix-stripping fallback (see _resolve_target_path).
+    project_basename = os.path.basename(project_dir)
 
-        content = read_file_safe(path)
+    for t in targets:
+        content = _read_target(t, project_dir, project_basename)
         if not content:
             continue
 
@@ -177,11 +292,21 @@ def build_inscribed_index(project_dir):
     verification axis — surviving the comment is sufficient evidence of
     inscription, regardless of whether the queue entry's `promoted_to` field
     points at the correct file.
+
+    Scanned surfaces (patch tic 216):
+    - canonical/CLAUDE.md, INDEX.md, GIT_RULES.md — federation root governance docs
+    - ~/.claude/CLAUDE.md — global user governance surface
+    - canonical_developer/ subtree — CLAUDE.md, AUTHORING_CONVENTION.md, SKILL.md files
+    - autonomous_kernel/ and ak_control_room/ subtrees — CLAUDE.md files
+    - auto-memory directory (~/.claude/projects/-Users-breydentaylor-canonical/memory/)
+      — feedback, session-lesson, and topic files that are promotion targets
     """
     inscribed = set()
     candidate_paths = [
         os.path.join(project_dir, "CLAUDE.md"),
         os.path.join(project_dir, "INDEX.md"),
+        # GIT_RULES.md carries <!-- promoted from --> comments for git-workflow CPRs
+        os.path.join(project_dir, "GIT_RULES.md"),
         os.path.expanduser("~/.claude/CLAUDE.md"),
     ]
     # Sweep canonical_developer subtree CLAUDE.md surfaces (CGG, capture-studio, etc.)
@@ -201,6 +326,14 @@ def build_inscribed_index(project_dir):
                 for fn in files:
                     if fn == "CLAUDE.md":
                         candidate_paths.append(os.path.join(root, fn))
+    # Auto-memory directory — feedback_*.md, session_lessons_*.md, project_*.md, etc.
+    # These files are direct promotion targets for auto-memory CPRs and may carry
+    # <!-- promoted from --> markers.
+    auto_memory_dir = Path.home() / ".claude" / "projects" / "-Users-breydentaylor-canonical" / "memory"
+    if auto_memory_dir.is_dir():
+        for fpath in auto_memory_dir.iterdir():
+            if fpath.suffix == ".md" and fpath.is_file():
+                candidate_paths.append(str(fpath))
 
     for path in candidate_paths:
         content = read_file_safe(path)
@@ -328,6 +461,9 @@ def run_check(project_dir, dry_run=False):
 
     queue_path = os.path.join(al_path, "cprs", "queue.jsonl")
     queue = load_queue(queue_path)
+    # Lesson fallbacks: recover lesson text from earlier (pre-writeback) queue rows
+    # when the latest (promoted) entry is a minimal writeback with no lesson field.
+    lesson_fallbacks = load_lesson_fallbacks(queue_path)
 
     inscribed_ids = build_inscribed_index(project_dir)
 
@@ -338,7 +474,7 @@ def run_check(project_dir, dry_run=False):
         status = cpr.get("status", "")
 
         if status == "promoted":
-            all_findings.extend(check_promoted(cpr_id, cpr, project_dir, inscribed_ids))
+            all_findings.extend(check_promoted(cpr_id, cpr, project_dir, inscribed_ids, lesson_fallbacks))
 
         elif status in ("deferred", "enrichment_eligible"):
             # Deferred CPRs should have a review_tic
