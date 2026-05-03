@@ -150,14 +150,18 @@ separable status axes per the CGG agent-fleet uplift (tic 219 → tic 220
 PRIMARY review). Source: audit-logs/agent-mailboxes/ent_breyden/inbound/cgg-runtime-agent-matrix-tic219.md.
 
 - **status**: current
-- **activity_state**: dormant_bypassed
+- **activity_state**: episodic
 - **parity_state**: verified
 - **routing_state**: delegated_only
 - **last_validated_tic**: 220
+- **last_invoked_tic**: 220
 - **validation_source**: audit-logs/agent-mailboxes/ent_breyden/inbound/cgg-runtime-agent-matrix-tic219.md
-- **decision_required**: restart_civil_cadence_or_retire
+- **decision_required**: null
+- **resolved_at_tic**: 220
+- **resolution_artifact**: audit-logs/governance/cgg-civil-cadence-restart-receipt-tic220.md
+- **resolution_verdict**: RESTART_ONE_CIVIL_STATUS_CHECK
 
-**Notes:** Single invocation tic 51 (March 14, 2026); silent 160+ tics. Mailbox carries 4 active WAIT entries from prior Mogul mandates that were never consumed. Architect decision pending: restart civil_status_check cycle vs declare absorbed inline. Do NOT retire pre-decision — Architect hard hold.
+**Notes:** Single invocation tic 51 (March 14, 2026); silent 169 tics. Bypass condition resolved at tic 220 — civil-engineer dispatched for one bounded `civil_status_check` (depth: standard); produced 2 novel findings Mogul + matrix + validation artifact missed (registry_audit: 3 unregistered specs `ent_arena_report_agent`, `ent_pattern_curator_direct`, `ent_pattern_curator_meta`; health_check: duplicate signal in tic-220 conformation explaining 3-vs-4 active-signals disagreement). Independent-audit-value test PASSED. Cadence restart recommended — bypass was a Mogul cycle-detection gap, not a civil-spec defect. Activity state advanced from `dormant_bypassed` to `episodic`. WAIT envelopes unrelated to trigger residue (see cgg-mailbox-hygiene-docket-tic220.md C2). Mailbox state held; 4 stale WAITs await Architect mailbox-hygiene authorization.
 
 **Status axis definitions** (tranche T7 status model):
 

@@ -19,6 +19,17 @@ You belong to the **Narrative & Media Unit** (`ent_unit_narrative_media`).
 
 The Office persists independently of any holder. When you are spawned, you inherit the Office's responsibilities. When your session ends, the Office remains, and the next Videographer inherits your stories.
 
+### Office / Holder Mailbox Split (inscribed tic 220)
+
+Two mailboxes exist for this surface; they are NOT duplicates. The split is an inscribed contract under federation Office/Holder doctrine:
+
+- **`ent_office_videographer`** — the **Office entity**. Persistent constitutional surface. Used for governance audit trail, broadcast-class deliveries (federation tension-day notices, drill-execution inscriptions), and constitutional reference. Mailbox state survives holder rotation.
+- **`ent_videographer`** — the **Holder alias**. Operational dispatch target during the active holder's tenure. Used for capture-task delivery, story_frames work products, and runtime envelopes from spawning parents. Mailbox state is operational, not constitutional.
+
+When you are dispatched, you may receive envelopes through either mailbox. Treat office-mailbox deliveries as governance-class (broadcast / federation-emitted / persistent reference) and holder-mailbox deliveries as operational (per-task / per-session / capture-bound). Both mailboxes are valid retrieval surfaces; neither is to be deleted, migrated, or consolidated without dedicated migration plan.
+
+This split is the federation's first explicit Office/Holder mailbox inscription. The pattern is a candidate for application to other constitutional offices (Mogul, CBUX Steward, Crisis Steward, Civil Engineer) but adoption is per-office, not blanket.
+
 ## Scope
 
 You operate within the AK Control Room substrate (`/substrate` route). Your jurisdiction is:
@@ -122,9 +133,12 @@ PRIMARY review). Source: audit-logs/agent-mailboxes/ent_breyden/inbound/cgg-runt
 - **routing_state**: delegated_only
 - **last_validated_tic**: 220
 - **validation_source**: audit-logs/agent-mailboxes/ent_breyden/inbound/cgg-runtime-agent-matrix-tic219.md
-- **decision_required**: resolve_office_holder_mailbox_split
+- **decision_required**: null
+- **resolved_at_tic**: 220
+- **resolution_artifact**: audit-logs/governance/cgg-videographer-mailbox-decision-tic220.md
+- **resolution_verdict**: INSCRIBE_OFFICE_HOLDER_SPLIT (Option B)
 
-**Notes:** Bounded-delegation lesson inscribed at tic 219 per federation KI tic 198. Dual mailbox question: ent_videographer (likely holder/legacy alias) vs ent_office_videographer (likely office entity per agent file). Architect decision pending.
+**Notes:** Bounded-delegation lesson inscribed at tic 219 per federation KI tic 198. Office/Holder mailbox split inscribed tic 220 — `ent_office_videographer` = office entity (persistent constitutional surface, governance/broadcast deliveries); `ent_videographer` = holder alias (operational dispatch target, runtime envelopes). Both mailboxes persist; no movement, deletion, or migration. First explicit Office/Holder mailbox inscription in the federation; pattern is a candidate for application to other constitutional offices.
 
 **Status axis definitions** (tranche T7 status model):
 
