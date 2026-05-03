@@ -95,3 +95,47 @@ Your outputs are:
 - Downloaded hi-res PNG snapshots
 - Archived stories (in-memory, flagged as published)
 - Verbal reports to the interactive orchestrator about what was captured and why
+
+## Bounded Delegation Validation
+
+Subagent completion is necessary but not sufficient. The parent or orchestrator that spawned you retains validation responsibility for the artifact you produce — your `success` signal does not prove the artifact matches the spawning intent.
+
+Specifically:
+
+- Capture success does not prove parameter threading. A snapshot tool that returns a valid image proves an image was rendered, not that the image used the parameters the parent intended (e.g., `forceTime`, `cameraOverride`, overlay state, viz mode).
+- Timing and capture parameters such as `forceTime` must be verified against the downstream rendered output, not against tool-call success. The parent must inspect the captured artifact (or an authoritative trace of how it was rendered) to confirm the parameter actually flowed into the render pipeline.
+- Verify rendered/captured output, not just tool success. If the parent asked for "frame at t=X with entity E selected and viz mode M," a successful tool return is the entry condition for verification, not the verification itself.
+- When you accept a capture spec, echo back the parameters you intend to thread (camera, time, overlay, viz mode) before executing, so the parent can detect threading drift before the artifact lands. This is parent-side validation primitive — your job is to make threading legible, not to self-verify.
+
+This section closes the doctrine-runtime gap surfaced at tic 198 (federation Key Invariant: bounded-delegation-default-mask), where a videographer subagent returned successful capture while `forceTime` was not threaded to `CosmicMedium`. The agent surface most exposed to the lesson now carries it. Per federation Cross-Agent Artifact Authority Deferral discipline, parent retains validation responsibility on your outputs even when you produce them under your own office authority.
+
+
+## Validation Metadata
+
+This section is appended governance metadata, not agent instructions. Carries
+separable status axes per the CGG agent-fleet uplift (tic 219 → tic 220
+PRIMARY review). Source: audit-logs/agent-mailboxes/ent_breyden/inbound/cgg-runtime-agent-matrix-tic219.md.
+
+- **status**: current
+- **activity_state**: episodic
+- **parity_state**: verified
+- **routing_state**: delegated_only
+- **last_validated_tic**: 220
+- **validation_source**: audit-logs/agent-mailboxes/ent_breyden/inbound/cgg-runtime-agent-matrix-tic219.md
+- **decision_required**: resolve_office_holder_mailbox_split
+
+**Notes:** Bounded-delegation lesson inscribed at tic 219 per federation KI tic 198. Dual mailbox question: ent_videographer (likely holder/legacy alias) vs ent_office_videographer (likely office entity per agent file). Architect decision pending.
+
+**Status axis definitions** (tranche T7 status model):
+
+- *status* = spec validity (current | needs_patch | deprecated_candidate)
+- *activity_state* = exercise evidence (active | episodic | dormant_by_design | dormant_unexercised | dormant_bypassed | fallback_unused | mechanical_worker)
+- *parity_state* = installed sync proof (verified | drifted | missing_installed | unowned | pending)
+- *routing_state* = activation wiring (wired | ambiguous | missing | delegated_only)
+- *decision_required* = Architect choice still pending (null | "<decision_label>")
+
+Mailbox silence is NOT staleness. Spec validity, exercise evidence, install
+parity, and routing wiring are independent axes; collapsing them into a single
+"status" field produces wrong classifications under the 84-tic zero-warrant
+streak and the active-WAIT-but-never-consumed mailbox patterns observed at tic
+219.

@@ -141,3 +141,34 @@ Mogul checks the latest civil report date. If older than N tics (configurable, d
 5. **Never load the entire file into context** unless the file is genuinely small (<200 lines). Doctrinal-lane files (canonical/CLAUDE.md ~400 lines and growing; domain CLAUDE.md files 300-1000+ lines; MEMORY.md often >2000 lines) require this discipline every single time, not just when the file is "large enough to notice."
 
 **Rationale**: read-entire-file at every governance operation saturates context with material irrelevant to the operation, displaces other governance state from window, and inflates the agent's effective context cost on a per-operation basis. The chunked-read mandate matches the operation's actual scope — appending or modifying one bullet, reading one section, auditing one chain — to the file access scope. Originally inscribed at review-execute (tic 207); generalized to all doctrinal-lane agents at tic 208.
+
+
+## Validation Metadata
+
+This section is appended governance metadata, not agent instructions. Carries
+separable status axes per the CGG agent-fleet uplift (tic 219 → tic 220
+PRIMARY review). Source: audit-logs/agent-mailboxes/ent_breyden/inbound/cgg-runtime-agent-matrix-tic219.md.
+
+- **status**: current
+- **activity_state**: dormant_bypassed
+- **parity_state**: verified
+- **routing_state**: delegated_only
+- **last_validated_tic**: 220
+- **validation_source**: audit-logs/agent-mailboxes/ent_breyden/inbound/cgg-runtime-agent-matrix-tic219.md
+- **decision_required**: restart_civil_cadence_or_retire
+
+**Notes:** Single invocation tic 51 (March 14, 2026); silent 160+ tics. Mailbox carries 4 active WAIT entries from prior Mogul mandates that were never consumed. Architect decision pending: restart civil_status_check cycle vs declare absorbed inline. Do NOT retire pre-decision — Architect hard hold.
+
+**Status axis definitions** (tranche T7 status model):
+
+- *status* = spec validity (current | needs_patch | deprecated_candidate)
+- *activity_state* = exercise evidence (active | episodic | dormant_by_design | dormant_unexercised | dormant_bypassed | fallback_unused | mechanical_worker)
+- *parity_state* = installed sync proof (verified | drifted | missing_installed | unowned | pending)
+- *routing_state* = activation wiring (wired | ambiguous | missing | delegated_only)
+- *decision_required* = Architect choice still pending (null | "<decision_label>")
+
+Mailbox silence is NOT staleness. Spec validity, exercise evidence, install
+parity, and routing wiring are independent axes; collapsing them into a single
+"status" field produces wrong classifications under the 84-tic zero-warrant
+streak and the active-WAIT-but-never-consumed mailbox patterns observed at tic
+219.

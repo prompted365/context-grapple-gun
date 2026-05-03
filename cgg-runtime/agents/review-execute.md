@@ -248,3 +248,34 @@ Loaded runtime wins.
 Canonical source is intent until sync + verify completes.
 
 If you observe discrepancies between the docket's claimed state and actual file state, report them as execution anomalies. Do not silently resolve discrepancies.
+
+
+## Validation Metadata
+
+This section is appended governance metadata, not agent instructions. Carries
+separable status axes per the CGG agent-fleet uplift (tic 219 → tic 220
+PRIMARY review). Source: audit-logs/agent-mailboxes/ent_breyden/inbound/cgg-runtime-agent-matrix-tic219.md.
+
+- **status**: current
+- **activity_state**: active
+- **parity_state**: verified
+- **routing_state**: delegated_only
+- **last_validated_tic**: 220
+- **validation_source**: audit-logs/agent-mailboxes/ent_breyden/inbound/cgg-runtime-agent-matrix-tic219.md
+- **decision_required**: null
+
+**Notes:** /review skill subagent dispatch. Sync evidence at tic 209 + tic 210. Properly upgraded haiku → sonnet per tic 207 federation alignment. Exemplar mechanical executor.
+
+**Status axis definitions** (tranche T7 status model):
+
+- *status* = spec validity (current | needs_patch | deprecated_candidate)
+- *activity_state* = exercise evidence (active | episodic | dormant_by_design | dormant_unexercised | dormant_bypassed | fallback_unused | mechanical_worker)
+- *parity_state* = installed sync proof (verified | drifted | missing_installed | unowned | pending)
+- *routing_state* = activation wiring (wired | ambiguous | missing | delegated_only)
+- *decision_required* = Architect choice still pending (null | "<decision_label>")
+
+Mailbox silence is NOT staleness. Spec validity, exercise evidence, install
+parity, and routing wiring are independent axes; collapsing them into a single
+"status" field produces wrong classifications under the 84-tic zero-warrant
+streak and the active-WAIT-but-never-consumed mailbox patterns observed at tic
+219.
