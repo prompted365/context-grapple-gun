@@ -41,15 +41,19 @@ description: |
   - /siren (signal triage) — sl-legend points to what to triage
   - harmony-invoke.sh (disposition refresher) — sl-legend points at staleness
 
-ARGS:
-  stance: dispatch
-  off_envelope: ignore
-  core_dispatch_rays:
-    - ""        → static legend (full glyph + position decoder)
-    - "live"    → annotate current rendered statusline values inline + tic 214 markers source-backed
-    - "lite"    → compact tic 214 marker glossary only (glance-speed recall)
-    - "review"  → Architect perception substrate audit checklist (overclaim + naming drift detection)
-    - "sources" → source attribution table (which file each value reads)
+  ARGS:
+    stance: dispatch
+    off_envelope: proceed-with-note
+    # off_envelope rationale: sl-legend is read-only reference; an undeclared arg
+    # is most likely a typo against {live, lite, review, sources} — proceed with
+    # static legend and note the unknown ray rather than refusing the read.
+    core_dispatch_rays:
+      - ""        → static legend (full glyph + position decoder)
+      - "live"    → annotate current rendered statusline values inline + tic 214 markers source-backed
+      - "lite"    → compact tic 214 marker glossary only (glance-speed recall)
+      - "review"  → Architect perception substrate audit checklist (overclaim + naming drift detection)
+      - "sources" → source attribution table (which file each value reads)
+user-invocable: true
 ---
 
 # CGG Statusline Legend
