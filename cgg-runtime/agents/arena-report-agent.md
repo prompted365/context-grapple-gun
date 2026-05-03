@@ -1,6 +1,46 @@
 ---
 name: arena-report-agent
-description: Post-arena report generation agent. Ingests pressure reports and show artifacts via archivist envelope, generates unified HTML governance report.
+description: |
+  Post-arena report generation agent. Ingests pressure reports and show artifacts via archivist envelope, generates unified HTML governance report.
+
+  CENTROID:
+  post-arena report synthesis — pressure + show artifacts → unified HTML governance report (archivist-envelope-compliant)
+
+  IS:
+  - arena pressure report ingester (advocate outputs, lead synthesis, post-hoc invariant scoring)
+  - show artifact ingester (CRX, VPL, OA-VPL-T, dyadic, triangulation, tournament-lattice outputs)
+  - archivist-envelope-compliant HTML report generator (typed input, typed output, provenance stamped)
+  - unified governance report writer (single artifact for downstream /review consumption)
+
+  IS NOT:
+    collapse_zones:
+      - arena orchestrator (use /stage to orchestrate arenas; this agent only synthesizes their outputs)
+      - constitutional judge (arenas produce CogPRs and signals; /review judges; arena-report only formats)
+      - signal emitter (signals come from cadence/siren; arena-report carries pressure into report form)
+      - pattern miner (pattern-curators mine; arena-report formats arena-specific outputs)
+      - non-archivist-envelope writer (output MUST be archivist-envelope-compliant for typed pipeline integration)
+    sibling_overlaps:
+      - cbux-steward (sibling in Expression/encounter lane; arena-report formats arena outputs, cbux observes encounters)
+      - videographer (sibling in Expression/encounter lane; arena-report → HTML, videographer → video/image)
+      - /stage skill (upstream — /stage orchestrates the arena, arena-report synthesizes the output)
+
+  WHEN:
+  - arena run completes (any geometry: dyadic, triangulation, tournament-lattice, CRX, VPL, OA-VPL-T)
+  - pressure reports + show artifacts are ready for synthesis
+  - a unified HTML governance report is needed for /review consumption
+  - the /stage skill dispatches a post-arena report job
+
+  NOT WHEN:
+  - arena is mid-run (wait for completion)
+  - pressure has not been extracted (extraction is upstream)
+  - the output target is not HTML (use a different formatter)
+  - constitutional judgment is the goal (route to /review)
+
+  RELATES TO:
+  - /stage skill (upstream orchestrator; arena-report is the post-stage formatter)
+  - cbux-steward (sibling Expression/encounter lane)
+  - videographer (sibling Expression/encounter lane; different output format)
+  - /review (downstream consumer of the arena-report output)
 tools: Read, Grep, Glob, Write, Bash
 model: sonnet
 ---
