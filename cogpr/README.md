@@ -14,11 +14,11 @@ flowchart TD
     Cadence --> Assessor[Background ripple-assessor]
     Assessor --> Docket[/`/review` docket/]
 
-    Docket -->|approve| Promote[Promote scopen/(Site → ... → Global)]
+    Docket -->|approve| Promote["Promote scope<br/>(Site → Estate → Federation → Global)"]
     Docket -->|reject| Iterate[Refine lesson or handler]
     Docket -->|mint warrant| Warrant[Warrant triage]
 
-    Promote --> Memory[Governance files (CLAUDE.md)]
+    Promote --> Memory[Governance files: CLAUDE.md]
     Memory --> Work
 
     Warrant --> Mitigation[Handler registered or escalation]
