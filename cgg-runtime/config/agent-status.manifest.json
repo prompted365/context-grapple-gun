@@ -1,7 +1,7 @@
 {
   "$schema_version": "1.0.0",
-  "generated_at_tic": 221,
-  "generated_at_iso": "2026-05-03T16:36:12.524229Z",
+  "generated_at_tic": 222,
+  "generated_at_iso": "2026-05-03T21:30:00.000000+00:00",
   "doctrine": "Externalized status manifest for the CGG agent fleet. Per-agent runtime status metadata (status, activity_state, parity_state, routing_state, validation source, decision_required, resolution lineage). Source-of-truth: this manifest. Agent prompt bodies carry only a status_ref pointer to this file.",
   "axes": {
     "status": "spec validity (current | needs_patch | deprecated_candidate)",
@@ -26,10 +26,13 @@
       "activity_state": "dormant_unexercised",
       "parity_state": "verified",
       "routing_state": "wired",
-      "last_validated_tic": 220,
-      "validation_source": "audit-logs/agent-mailboxes/ent_breyden/inbound/cgg-runtime-agent-matrix-tic219.md",
-      "decision_required": "activation_probe_when_useful",
-      "notes": "Trigger-manifest cbux.feedback_ingress + cbux.experience_audit; mailbox carries 4 active WAIT routing entries. Bootstrapped tic 89; never operationally exercised. Activation probe candidate when useful (do NOT retire \u2014 Architect hard hold)."
+      "last_validated_tic": 222,
+      "validation_source": "audit-logs/governance/cgg-review-tic222-decisions.md",
+      "decision_required": null,
+      "notes": "Trigger-manifest cbux.feedback_ingress + cbux.experience_audit; mailbox carries 4 active WAIT routing entries. Bootstrapped tic 89; never operationally exercised. Activation probe candidate when useful (do NOT retire \u2014 Architect hard hold).",
+      "resolved_at_tic": 222,
+      "resolution_artifact": "audit-logs/governance/cgg-review-tic222-decisions.md",
+      "resolution_verdict": "APPROVE BOUNDED ACTIVATION PROBE; HARD HOLD on retirement"
     },
     "civil-engineer": {
       "status": "current",
@@ -130,10 +133,13 @@
       "activity_state": "fallback_unused",
       "parity_state": "verified",
       "routing_state": "delegated_only",
-      "last_validated_tic": 220,
-      "validation_source": "audit-logs/agent-mailboxes/ent_breyden/inbound/cgg-runtime-agent-matrix-tic219.md",
-      "decision_required": "archive_or_clarify",
-      "notes": "Functionally superseded by adversarial pair (pattern-curator-direct + pattern-curator-meta) in standard governance flows. Architect decision pending: archive or clarify the tier-1/2-only fallback contract."
+      "last_validated_tic": 222,
+      "validation_source": "audit-logs/governance/cgg-review-tic222-decisions.md",
+      "decision_required": null,
+      "notes": "Functionally superseded by adversarial pair (pattern-curator-direct + pattern-curator-meta) in standard governance flows. Architect decision pending: archive or clarify the tier-1/2-only fallback contract.",
+      "resolved_at_tic": 222,
+      "resolution_artifact": "audit-logs/governance/cgg-review-tic222-decisions.md",
+      "resolution_verdict": "CLARIFY (no archive)"
     },
     "prevention-architect": {
       "status": "current",
@@ -160,10 +166,13 @@
       "activity_state": "dormant_unexercised",
       "parity_state": "verified",
       "routing_state": "delegated_only",
-      "last_validated_tic": 220,
-      "validation_source": "audit-logs/agent-mailboxes/ent_breyden/inbound/cgg-runtime-agent-matrix-tic219.md",
-      "decision_required": "crisis_tabletop_validation",
-      "notes": "Triple-source-sync discipline (registry + filesystem + hook-detection state) is named but never exercised under real crisis conditions. Tabletop validation candidate."
+      "last_validated_tic": 222,
+      "validation_source": "audit-logs/governance/cgg-review-tic222-decisions.md",
+      "decision_required": null,
+      "notes": "Triple-source-sync discipline (registry + filesystem + hook-detection state) is named but never exercised under real crisis conditions. Tabletop validation candidate.",
+      "resolved_at_tic": 222,
+      "resolution_artifact": "audit-logs/governance/cgg-review-tic222-decisions.md",
+      "resolution_verdict": "APPROVE TABLETOP SPEC AUTHORING (not live drill)"
     },
     "review-execute": {
       "status": "current",
@@ -179,11 +188,14 @@
       "status": "current",
       "activity_state": "active",
       "parity_state": "verified",
-      "routing_state": "ambiguous",
-      "last_validated_tic": 220,
-      "validation_source": "audit-logs/agent-mailboxes/ent_breyden/inbound/cgg-runtime-agent-matrix-tic219.md",
-      "decision_required": "ripple_assessor_mailbox_create_or_routing_clarify",
-      "notes": "Trigger-manifest declares ripple.assessment routing to ent_ripple_assessor, but the mailbox does not exist. Output flows to ~/.claude/grapple-proposals/latest.md per agent hard constraint. Decision needed: create mailbox or clarify trigger declaration."
+      "routing_state": "wired",
+      "last_validated_tic": 222,
+      "validation_source": "audit-logs/governance/cgg-review-tic222-decisions.md",
+      "decision_required": null,
+      "notes": "Trigger-manifest declares ripple.assessment routing to ent_ripple_assessor, but the mailbox does not exist. Output flows to ~/.claude/grapple-proposals/latest.md per agent hard constraint. Decision needed: create mailbox or clarify trigger declaration.",
+      "resolved_at_tic": 222,
+      "resolution_artifact": "audit-logs/governance/cgg-review-tic222-decisions.md",
+      "resolution_verdict": "CLARIFY + RECEIPT MIRROR (primary deterministic path preserved; mirror added)"
     },
     "videographer": {
       "status": "current",
