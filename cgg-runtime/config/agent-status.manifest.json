@@ -1,0 +1,202 @@
+{
+  "$schema_version": "1.0.0",
+  "generated_at_tic": 221,
+  "generated_at_iso": "2026-05-03T16:36:12.524229Z",
+  "doctrine": "Externalized status manifest for the CGG agent fleet. Per-agent runtime status metadata (status, activity_state, parity_state, routing_state, validation source, decision_required, resolution lineage). Source-of-truth: this manifest. Agent prompt bodies carry only a status_ref pointer to this file.",
+  "axes": {
+    "status": "spec validity (current | needs_patch | deprecated_candidate)",
+    "activity_state": "exercise evidence (active | episodic | dormant_by_design | dormant_unexercised | dormant_bypassed | fallback_unused | mechanical_worker)",
+    "parity_state": "installed sync proof (verified | drifted | missing_installed | unowned | pending)",
+    "routing_state": "activation wiring (wired | ambiguous | missing | delegated_only)",
+    "decision_required": "Architect choice still pending (null | <decision_label>)"
+  },
+  "agents": {
+    "arena-report-agent": {
+      "status": "current",
+      "activity_state": "episodic",
+      "parity_state": "verified",
+      "routing_state": "wired",
+      "last_validated_tic": 220,
+      "validation_source": "audit-logs/agent-mailboxes/ent_breyden/inbound/cgg-runtime-agent-matrix-tic219.md",
+      "decision_required": null,
+      "notes": "Trigger-manifest arena.pressure + arena.harpoon_assessment. Post-arena pressure-report ingest. Sync evidence at tic 188."
+    },
+    "cbux-steward": {
+      "status": "current",
+      "activity_state": "dormant_unexercised",
+      "parity_state": "verified",
+      "routing_state": "wired",
+      "last_validated_tic": 220,
+      "validation_source": "audit-logs/agent-mailboxes/ent_breyden/inbound/cgg-runtime-agent-matrix-tic219.md",
+      "decision_required": "activation_probe_when_useful",
+      "notes": "Trigger-manifest cbux.feedback_ingress + cbux.experience_audit; mailbox carries 4 active WAIT routing entries. Bootstrapped tic 89; never operationally exercised. Activation probe candidate when useful (do NOT retire \u2014 Architect hard hold)."
+    },
+    "civil-engineer": {
+      "status": "current",
+      "activity_state": "episodic",
+      "parity_state": "verified",
+      "routing_state": "delegated_only",
+      "last_validated_tic": 220,
+      "last_invoked_tic": 220,
+      "validation_source": "audit-logs/agent-mailboxes/ent_breyden/inbound/cgg-runtime-agent-matrix-tic219.md",
+      "decision_required": null,
+      "resolved_at_tic": 220,
+      "resolution_artifact": "audit-logs/governance/cgg-civil-cadence-restart-receipt-tic220.md",
+      "resolution_verdict": "RESTART_ONE_CIVIL_STATUS_CHECK",
+      "notes": "Single invocation tic 51 (March 14, 2026); silent 169 tics. Bypass condition resolved at tic 220 \u2014 civil-engineer dispatched for one bounded `civil_status_check` (depth: standard); produced 2 novel findings Mogul + matrix + validation artifact missed (registry_audit: 3 unregistered specs `ent_arena_report_agent`, `ent_pattern_curator_direct`, `ent_pattern_curator_meta`; health_check: duplicate signal in tic-220 conformation explaining 3-vs-4 active-signals disagreement). Independent-audit-value test PASSED. Cadence restart recommended \u2014 bypass was a Mogul cycle-detection gap, not a civil-spec defect. Activity state advanced from `dormant_bypassed` to `episodic`. WAIT envelopes unrelated to trigger residue (see cgg-mailbox-hygiene-docket-tic220.md C2). Mailbox state held; 4 stale WAITs await Architect mailbox-hygiene authorization."
+    },
+    "containment-operator": {
+      "status": "current",
+      "activity_state": "dormant_by_design",
+      "parity_state": "verified",
+      "routing_state": "delegated_only",
+      "last_validated_tic": 220,
+      "validation_source": "audit-logs/agent-mailboxes/ent_breyden/inbound/cgg-runtime-agent-matrix-tic219.md",
+      "decision_required": null,
+      "notes": "Steward-directed wire-cut arming. Constitutional affordance; absence of use reflects operational health."
+    },
+    "cpr-stepper": {
+      "status": "current",
+      "activity_state": "mechanical_worker",
+      "parity_state": "verified",
+      "routing_state": "delegated_only",
+      "last_validated_tic": 220,
+      "validation_source": "audit-logs/agent-mailboxes/ent_breyden/inbound/cgg-runtime-agent-matrix-tic219.md",
+      "decision_required": null,
+      "notes": "Model upgraded haiku \u2192 sonnet at tic 219 per federation KI tic 207 (spec-runtime alignment). /loop skill target. Append-only queue.jsonl semantics with latest-entry-per-id-wins read."
+    },
+    "crisis-sentinel": {
+      "status": "current",
+      "activity_state": "dormant_by_design",
+      "parity_state": "verified",
+      "routing_state": "wired",
+      "last_validated_tic": 220,
+      "validation_source": "audit-logs/agent-mailboxes/ent_breyden/inbound/cgg-runtime-agent-matrix-tic219.md",
+      "decision_required": null,
+      "notes": "Trigger-manifest crisis.signal_storm_detected + crisis.mandate_pileup_detected. Boundary with /siren skill: skill operates manifold; sentinel scans for crisis patterns. Distinct."
+    },
+    "crisis-steward": {
+      "status": "current",
+      "activity_state": "dormant_by_design",
+      "parity_state": "verified",
+      "routing_state": "delegated_only",
+      "last_validated_tic": 220,
+      "validation_source": "audit-logs/agent-mailboxes/ent_breyden/inbound/cgg-runtime-agent-matrix-tic219.md",
+      "decision_required": null,
+      "notes": "Architect-gated; 84-tic zero-warrant streak reflects operational stability, not vestigiality. Office of Crisis Response holder."
+    },
+    "ladder-auditor": {
+      "status": "current",
+      "activity_state": "episodic",
+      "parity_state": "verified",
+      "routing_state": "delegated_only",
+      "last_validated_tic": 220,
+      "validation_source": "audit-logs/agent-mailboxes/ent_breyden/inbound/cgg-runtime-agent-matrix-tic219.md",
+      "decision_required": null,
+      "notes": "Mogul team T1 + T9; 5-tic ladder cycle (tic % 5 == 0); team-merged output."
+    },
+    "mogul": {
+      "status": "current",
+      "activity_state": "active",
+      "parity_state": "verified",
+      "routing_state": "wired",
+      "last_validated_tic": 220,
+      "validation_source": "audit-logs/agent-mailboxes/ent_breyden/inbound/cgg-runtime-agent-matrix-tic219.md",
+      "decision_required": null,
+      "notes": "Trigger-manifest mogul.mandate; SessionStart mandate emission; cycle-reports/2026-05-03T011856-tic-218.report.json confirms tic 218 run."
+    },
+    "pattern-curator-direct": {
+      "status": "current",
+      "activity_state": "episodic",
+      "parity_state": "verified",
+      "routing_state": "delegated_only",
+      "last_validated_tic": 220,
+      "validation_source": "audit-logs/agent-mailboxes/ent_breyden/inbound/cgg-runtime-agent-matrix-tic219.md",
+      "decision_required": null,
+      "notes": "Mogul team T4; 4-tic pattern_mining cycle (next tic 220). Blindness Rule enforced."
+    },
+    "pattern-curator-meta": {
+      "status": "current",
+      "activity_state": "episodic",
+      "parity_state": "verified",
+      "routing_state": "delegated_only",
+      "last_validated_tic": 220,
+      "validation_source": "audit-logs/agent-mailboxes/ent_breyden/inbound/cgg-runtime-agent-matrix-tic219.md",
+      "decision_required": null,
+      "notes": "Mogul team T3; 4-tic pattern_mining cycle (next tic 220). Blindness Rule enforced."
+    },
+    "pattern-curator": {
+      "status": "current",
+      "activity_state": "fallback_unused",
+      "parity_state": "verified",
+      "routing_state": "delegated_only",
+      "last_validated_tic": 220,
+      "validation_source": "audit-logs/agent-mailboxes/ent_breyden/inbound/cgg-runtime-agent-matrix-tic219.md",
+      "decision_required": "archive_or_clarify",
+      "notes": "Functionally superseded by adversarial pair (pattern-curator-direct + pattern-curator-meta) in standard governance flows. Architect decision pending: archive or clarify the tier-1/2-only fallback contract."
+    },
+    "prevention-architect": {
+      "status": "current",
+      "activity_state": "dormant_by_design",
+      "parity_state": "verified",
+      "routing_state": "delegated_only",
+      "last_validated_tic": 220,
+      "validation_source": "audit-logs/agent-mailboxes/ent_breyden/inbound/cgg-runtime-agent-matrix-tic219.md",
+      "decision_required": null,
+      "notes": "Read-only CogPR distillation surface; routes through /review pipeline. Distinct from resolution-analyst."
+    },
+    "resolution-analyst": {
+      "status": "current",
+      "activity_state": "dormant_by_design",
+      "parity_state": "verified",
+      "routing_state": "delegated_only",
+      "last_validated_tic": 220,
+      "validation_source": "audit-logs/agent-mailboxes/ent_breyden/inbound/cgg-runtime-agent-matrix-tic219.md",
+      "decision_required": null,
+      "notes": "Steward-dispatched post-restoration root-cause investigation. Distinct from prevention-architect (cause vs pattern)."
+    },
+    "restoration-operator": {
+      "status": "current",
+      "activity_state": "dormant_unexercised",
+      "parity_state": "verified",
+      "routing_state": "delegated_only",
+      "last_validated_tic": 220,
+      "validation_source": "audit-logs/agent-mailboxes/ent_breyden/inbound/cgg-runtime-agent-matrix-tic219.md",
+      "decision_required": "crisis_tabletop_validation",
+      "notes": "Triple-source-sync discipline (registry + filesystem + hook-detection state) is named but never exercised under real crisis conditions. Tabletop validation candidate."
+    },
+    "review-execute": {
+      "status": "current",
+      "activity_state": "active",
+      "parity_state": "verified",
+      "routing_state": "delegated_only",
+      "last_validated_tic": 220,
+      "validation_source": "audit-logs/agent-mailboxes/ent_breyden/inbound/cgg-runtime-agent-matrix-tic219.md",
+      "decision_required": null,
+      "notes": "/review skill subagent dispatch. Sync evidence at tic 209 + tic 210. Properly upgraded haiku \u2192 sonnet per tic 207 federation alignment. Exemplar mechanical executor."
+    },
+    "ripple-assessor": {
+      "status": "current",
+      "activity_state": "active",
+      "parity_state": "verified",
+      "routing_state": "ambiguous",
+      "last_validated_tic": 220,
+      "validation_source": "audit-logs/agent-mailboxes/ent_breyden/inbound/cgg-runtime-agent-matrix-tic219.md",
+      "decision_required": "ripple_assessor_mailbox_create_or_routing_clarify",
+      "notes": "Trigger-manifest declares ripple.assessment routing to ent_ripple_assessor, but the mailbox does not exist. Output flows to ~/.claude/grapple-proposals/latest.md per agent hard constraint. Decision needed: create mailbox or clarify trigger declaration."
+    },
+    "videographer": {
+      "status": "current",
+      "activity_state": "episodic",
+      "parity_state": "verified",
+      "routing_state": "delegated_only",
+      "last_validated_tic": 220,
+      "validation_source": "audit-logs/agent-mailboxes/ent_breyden/inbound/cgg-runtime-agent-matrix-tic219.md",
+      "decision_required": null,
+      "resolved_at_tic": 220,
+      "resolution_artifact": "audit-logs/governance/cgg-videographer-mailbox-decision-tic220.md",
+      "resolution_verdict": "INSCRIBE_OFFICE_HOLDER_SPLIT (Option B)",
+      "notes": "Bounded-delegation lesson inscribed at tic 219 per federation KI tic 198. Office/Holder mailbox split inscribed tic 220 \u2014 `ent_office_videographer` = office entity (persistent constitutional surface, governance/broadcast deliveries); `ent_videographer` = holder alias (operational dispatch target, runtime envelopes). Both mailboxes persist; no movement, deletion, or migration. First explicit Office/Holder mailbox inscription in the federation; pattern is a candidate for application to other constitutional offices."
+    }
+  }
+}

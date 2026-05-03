@@ -123,33 +123,12 @@ This section closes the doctrine-runtime gap surfaced at tic 198 (federation Key
 
 ## Validation Metadata
 
-This section is appended governance metadata, not agent instructions. Carries
-separable status axes per the CGG agent-fleet uplift (tic 219 → tic 220
-PRIMARY review). Source: audit-logs/agent-mailboxes/ent_breyden/inbound/cgg-runtime-agent-matrix-tic219.md.
+**Status manifest**: see `cgg-runtime/config/agent-status.manifest.json#videographer`.
 
-- **status**: current
-- **activity_state**: episodic
-- **parity_state**: verified
-- **routing_state**: delegated_only
-- **last_validated_tic**: 220
-- **validation_source**: audit-logs/agent-mailboxes/ent_breyden/inbound/cgg-runtime-agent-matrix-tic219.md
-- **decision_required**: null
-- **resolved_at_tic**: 220
-- **resolution_artifact**: audit-logs/governance/cgg-videographer-mailbox-decision-tic220.md
-- **resolution_verdict**: INSCRIBE_OFFICE_HOLDER_SPLIT (Option B)
-
-**Notes:** Bounded-delegation lesson inscribed at tic 219 per federation KI tic 198. Office/Holder mailbox split inscribed tic 220 — `ent_office_videographer` = office entity (persistent constitutional surface, governance/broadcast deliveries); `ent_videographer` = holder alias (operational dispatch target, runtime envelopes). Both mailboxes persist; no movement, deletion, or migration. First explicit Office/Holder mailbox inscription in the federation; pattern is a candidate for application to other constitutional offices.
-
-**Status axis definitions** (tranche T7 status model):
-
-- *status* = spec validity (current | needs_patch | deprecated_candidate)
-- *activity_state* = exercise evidence (active | episodic | dormant_by_design | dormant_unexercised | dormant_bypassed | fallback_unused | mechanical_worker)
-- *parity_state* = installed sync proof (verified | drifted | missing_installed | unowned | pending)
-- *routing_state* = activation wiring (wired | ambiguous | missing | delegated_only)
-- *decision_required* = Architect choice still pending (null | "<decision_label>")
-
-Mailbox silence is NOT staleness. Spec validity, exercise evidence, install
-parity, and routing wiring are independent axes; collapsing them into a single
-"status" field produces wrong classifications under the 84-tic zero-warrant
-streak and the active-WAIT-but-never-consumed mailbox patterns observed at tic
-219.
+The manifest carries the separable status axes (status, activity_state,
+parity_state, routing_state, last_validated_tic, last_invoked_tic,
+validation_source, decision_required, resolved_at_tic, resolution_artifact,
+resolution_verdict, notes) per the CGG agent-fleet uplift (tic 219 → tic 220
+PRIMARY review). Externalized at tic 221 to remove governance status data
+from agent prompt bodies — status is runtime metadata, not behavioral
+instruction.

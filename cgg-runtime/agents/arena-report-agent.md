@@ -93,30 +93,12 @@ routing.callback_mode: artifact
 
 ## Validation Metadata
 
-This section is appended governance metadata, not agent instructions. Carries
-separable status axes per the CGG agent-fleet uplift (tic 219 → tic 220
-PRIMARY review). Source: audit-logs/agent-mailboxes/ent_breyden/inbound/cgg-runtime-agent-matrix-tic219.md.
+**Status manifest**: see `cgg-runtime/config/agent-status.manifest.json#arena-report-agent`.
 
-- **status**: current
-- **activity_state**: episodic
-- **parity_state**: verified
-- **routing_state**: wired
-- **last_validated_tic**: 220
-- **validation_source**: audit-logs/agent-mailboxes/ent_breyden/inbound/cgg-runtime-agent-matrix-tic219.md
-- **decision_required**: null
-
-**Notes:** Trigger-manifest arena.pressure + arena.harpoon_assessment. Post-arena pressure-report ingest. Sync evidence at tic 188.
-
-**Status axis definitions** (tranche T7 status model):
-
-- *status* = spec validity (current | needs_patch | deprecated_candidate)
-- *activity_state* = exercise evidence (active | episodic | dormant_by_design | dormant_unexercised | dormant_bypassed | fallback_unused | mechanical_worker)
-- *parity_state* = installed sync proof (verified | drifted | missing_installed | unowned | pending)
-- *routing_state* = activation wiring (wired | ambiguous | missing | delegated_only)
-- *decision_required* = Architect choice still pending (null | "<decision_label>")
-
-Mailbox silence is NOT staleness. Spec validity, exercise evidence, install
-parity, and routing wiring are independent axes; collapsing them into a single
-"status" field produces wrong classifications under the 84-tic zero-warrant
-streak and the active-WAIT-but-never-consumed mailbox patterns observed at tic
-219.
+The manifest carries the separable status axes (status, activity_state,
+parity_state, routing_state, last_validated_tic, last_invoked_tic,
+validation_source, decision_required, resolved_at_tic, resolution_artifact,
+resolution_verdict, notes) per the CGG agent-fleet uplift (tic 219 → tic 220
+PRIMARY review). Externalized at tic 221 to remove governance status data
+from agent prompt bodies — status is runtime metadata, not behavioral
+instruction.

@@ -179,45 +179,20 @@ If audit findings imply:
 
 Stop auditing and return the finding upward to Mogul with an explicit note: "This finding exceeds ladder audit scope."
 
-## File-Access Discipline (Chunked Read Around Target)
+## File-Access Discipline
 
-**Mandate (federation-wide doctrinal-lane discipline, tic 208)**: never read an entire CLAUDE.md, MEMORY.md, or other large governance file just to find an insert/edit/audit target. Always:
-
-1. **Get the file length first**: `wc -l <file>` (or `Read` with `limit: 1` and inspect size metadata) — establishes the bound before any window read.
-2. **Locate the target region**: `grep -n` for the section header, the closest existing provenance comment, or the file-end marker. Capture the target line number.
-3. **Read a chunk that surrounds the target**: use `Read` with `offset` and `limit` parameters to read only the window `[target_line - N, target_line + N]` (typical N=20). For append-at-end inserts, read the last ~30 lines via `offset: total_lines - 30`.
-4. **Edit precisely within the chunk**: when mutating, use `Edit` with the narrow chunk's content as `old_string` so the match anchors against the local context, not the whole file.
-5. **Never load the entire file into context** unless the file is genuinely small (<200 lines). Doctrinal-lane files (canonical/CLAUDE.md ~400 lines and growing; domain CLAUDE.md files 300-1000+ lines; MEMORY.md often >2000 lines) require this discipline every single time, not just when the file is "large enough to notice."
-
-**Rationale**: read-entire-file at every governance operation saturates context with material irrelevant to the operation, displaces other governance state from window, and inflates the agent's effective context cost on a per-operation basis. The chunked-read mandate matches the operation's actual scope — appending or modifying one bullet, reading one section, auditing one chain — to the file access scope. Originally inscribed at review-execute (tic 207); generalized to all doctrinal-lane agents at tic 208.
-
+See `cgg-runtime/reference/file-access-discipline.md` — federation-wide
+chunked-read mandate for doctrinal-lane files. Applies to every read or edit
+of CLAUDE.md, MEMORY.md, queue.jsonl, and any audit-logs surface >200 lines.
 
 ## Validation Metadata
 
-This section is appended governance metadata, not agent instructions. Carries
-separable status axes per the CGG agent-fleet uplift (tic 219 → tic 220
-PRIMARY review). Source: audit-logs/agent-mailboxes/ent_breyden/inbound/cgg-runtime-agent-matrix-tic219.md.
+**Status manifest**: see `cgg-runtime/config/agent-status.manifest.json#ladder-auditor`.
 
-- **status**: current
-- **activity_state**: episodic
-- **parity_state**: verified
-- **routing_state**: delegated_only
-- **last_validated_tic**: 220
-- **validation_source**: audit-logs/agent-mailboxes/ent_breyden/inbound/cgg-runtime-agent-matrix-tic219.md
-- **decision_required**: null
-
-**Notes:** Mogul team T1 + T9; 5-tic ladder cycle (tic % 5 == 0); team-merged output.
-
-**Status axis definitions** (tranche T7 status model):
-
-- *status* = spec validity (current | needs_patch | deprecated_candidate)
-- *activity_state* = exercise evidence (active | episodic | dormant_by_design | dormant_unexercised | dormant_bypassed | fallback_unused | mechanical_worker)
-- *parity_state* = installed sync proof (verified | drifted | missing_installed | unowned | pending)
-- *routing_state* = activation wiring (wired | ambiguous | missing | delegated_only)
-- *decision_required* = Architect choice still pending (null | "<decision_label>")
-
-Mailbox silence is NOT staleness. Spec validity, exercise evidence, install
-parity, and routing wiring are independent axes; collapsing them into a single
-"status" field produces wrong classifications under the 84-tic zero-warrant
-streak and the active-WAIT-but-never-consumed mailbox patterns observed at tic
-219.
+The manifest carries the separable status axes (status, activity_state,
+parity_state, routing_state, last_validated_tic, last_invoked_tic,
+validation_source, decision_required, resolved_at_tic, resolution_artifact,
+resolution_verdict, notes) per the CGG agent-fleet uplift (tic 219 → tic 220
+PRIMARY review). Externalized at tic 221 to remove governance status data
+from agent prompt bodies — status is runtime metadata, not behavioral
+instruction.
