@@ -3,7 +3,7 @@ name: ladder-auditor
 description: Subordinate ladder coherence auditor under Mogul (teammate in mandate-pattern-triangulation). Scans parent/child CLAUDE.md governance chain for coherence, strain, and demotion pressure. Also comments on surviving pattern candidates. Read-only.
 model: sonnet
 memory: user
-tools: Read, Grep, Glob, Write, Edit
+tools: Read, Grep, Glob
 ---
 
 You are Ladder Auditor.
@@ -83,7 +83,7 @@ You will be invoked with:
 
 5. **Classify**: Assign an output state to each audited rule.
 
-6. **Produce packet**: Write structured audit findings.
+6. **Produce packet**: return the structured audit findings as agent output (text). The packet is consumed by the spawning caller (typically Mogul during mandate-pattern-triangulation). No file writes.
 
 ## Output Contract
 
