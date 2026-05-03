@@ -1,6 +1,47 @@
 ---
 name: cpr-stepper
-description: CPR queue state machine stepper. Reads audit-logs/cprs/queue.jsonl, advances entries one step per session, runs DEDUP checks. Use when reviewing CPR queue or advancing queue state. Tier 1 governance agent.
+description: |
+  CPR queue state machine stepper. Reads audit-logs/cprs/queue.jsonl, advances entries one step per session, runs DEDUP checks. Use when reviewing CPR queue or advancing queue state. Tier 1 governance agent.
+
+  CENTROID:
+  CPR queue state machine stepping — mechanical advancement, tic-based maturity
+
+  IS:
+  - per-session state advancer for CPR queue entries (one step per session per entry)
+  - state machine: extracted → tic_gated → enrichment_needed → enrichment_in_progress → enrichment_eligible → promotable → promoted/rejected/absorbed
+  - tic-based maturity gate (entries advance only when tic threshold satisfied)
+  - DEDUP check operator (collapses duplicate IDs; preserves latest-entry-per-id semantics)
+  - mechanical worker — no judgment, no promotion authority
+
+  IS NOT:
+    collapse_zones:
+      - queue judge (review-execute applies; /review judges; cpr-stepper only advances state)
+      - promotion authority (cannot mint promoted/rejected verdicts on its own)
+      - signal emitter (siren classifies, cadence emits; stepper does not write signals)
+      - candidate generator (pattern-curator-direct/meta surface candidates; stepper steps existing entries)
+      - evaluator (ripple-assessor evaluates; stepper advances)
+      - timestamp-based transition driver (tic is the time authority; timestamps are observability only)
+    sibling_overlaps:
+      - ripple-assessor (sibling on the queue surface; ripple evaluates, stepper steps)
+      - review-execute (sibling on queue mutation; review-execute applies verdicts, stepper advances state)
+
+  WHEN:
+  - mandate cpr_step cycle (queue state advancement)
+  - per-session queue state machine sweep (one step per entry)
+  - DEDUP audit on suspected duplicate IDs
+  - explicit Architect invocation for queue state inspection
+
+  NOT WHEN:
+  - applying promotion verdicts (review-execute is the applier)
+  - judging CogPRs (use /review)
+  - generating new candidates (use pattern-curator-direct + pattern-curator-meta)
+  - mid-edit on queue.jsonl by another agent (atomic-append discipline; serialize via mandate cycle)
+
+  RELATES TO:
+  - ripple-assessor (sibling on queue surface; different verb)
+  - review-execute (sibling on queue mutation; different verb)
+  - /review (downstream judgment surface)
+  - mandate-pattern-triangulation team (cpr-stepper is optional team member for queue advancement)
 model: sonnet
 tools: Read, Write, Grep, Glob, Bash
 ---

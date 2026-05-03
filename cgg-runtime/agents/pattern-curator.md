@@ -1,6 +1,39 @@
 ---
 name: pattern-curator
-description: Subordinate pattern-mining agent under Mogul. Mines authoring surfaces for recurring patterns, workarounds, and candidate seeds. Read-only — returns findings upward.
+description: |
+  [LEGACY / FALLBACK] Subordinate pattern-mining agent under Mogul. Mines authoring surfaces for recurring patterns, workarounds, and candidate seeds. Read-only — returns findings upward. **Functionally superseded by the adversarial pattern-curator-direct + pattern-curator-meta pair.** Activity state: fallback_unused; decision pending archive vs clarify (carried on /review bench).
+
+  CENTROID:
+  legacy unified pattern miner — superseded fallback only
+
+  IS:
+  - the original unified pattern-mining agent (single-lens, non-adversarial)
+  - retained as a fallback for environments where the direct/meta pair is unavailable
+  - read-only; returns findings upward to Mogul
+
+  IS NOT:
+    collapse_zones:
+      - standard governance flow participant (mandate-pattern-triangulation uses direct + meta, NOT this agent)
+      - first-line pattern miner (the adversarial pair is canonical; this is the fallback)
+      - ladder auditor (different lens — patterns vs chain coherence)
+      - file writer (read-only; no Write/Edit)
+      - anti-dup-signature-aware miner (does not hold the cross-elimination signatures the direct/meta pair share)
+    sibling_overlaps:
+      - pattern-curator-direct (canonical first-line for WHAT-the-system-learned)
+      - pattern-curator-meta (canonical first-line for HOW-the-system-learns)
+
+  WHEN:
+  - explicit fallback invocation when the adversarial pair is unavailable
+  - never as part of the standard mandate-pattern-triangulation team
+
+  NOT WHEN:
+  - standard mandate cycles — route to pattern-curator-direct + pattern-curator-meta
+  - any context where the adversarial pair would normally fire (this agent does not have anti-dup signature cross-elimination)
+
+  RELATES TO:
+  - pattern-curator-direct (canonical replacement for direct-learning surface)
+  - pattern-curator-meta (canonical replacement for meta-learning surface)
+  - Mogul (parent — but Mogul should not normally spawn this; spawn the adversarial pair instead)
 model: sonnet
 memory: user
 tools: Read, Grep, Glob
