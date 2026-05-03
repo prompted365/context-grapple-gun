@@ -247,18 +247,29 @@ Create runtime surface directories under `$INSTALL_ROOT` as needed.
 Do not copy `init-gun` or `init-cogpr` unless explicitly requested for legacy compatibility.
 
 **Copy hooks:**
-- `vendor/context-grapple-gun/cgg-runtime/hooks/session-restore.sh` -> `$INSTALL_ROOT/hooks/session-restore.sh`
-- `vendor/context-grapple-gun/cgg-runtime/hooks/session-restore-patch.sh` -> `$INSTALL_ROOT/hooks/session-restore-patch.sh`
-- `vendor/context-grapple-gun/cgg-runtime/hooks/cgg-gate.sh` -> `$INSTALL_ROOT/hooks/cgg-gate.sh`
-- `vendor/context-grapple-gun/cgg-runtime/hooks/posttool-microscan.sh` -> `$INSTALL_ROOT/hooks/posttool-microscan.sh`
+
+Authoritative discovery: `cgg-runtime/sync-manifest.json` →
+`install_targets.hooks` (`pattern: "*.sh *.py"`,
+`installed_subdir: ".claude/hooks"`,
+`install_path_overrides` for any non-default paths). Sync each
+matching file from `vendor/context-grapple-gun/cgg-runtime/hooks/`
+to `$INSTALL_ROOT/hooks/`. Current hook count: 11 (mix of `.sh` and
+`.py`). For the canonical list and any path overrides (e.g.,
+`wire-cutter.sh → $INSTALL_ROOT/wire-cutter.sh`), read the manifest
+— do not maintain a parallel hardcoded list here.
 
 Make copied hooks executable.
 
 **Copy agents:**
-- `vendor/context-grapple-gun/cgg-runtime/agents/ripple-assessor.md` -> `$INSTALL_ROOT/agents/ripple-assessor.md`
-- `vendor/context-grapple-gun/cgg-runtime/agents/mogul.md` -> `$INSTALL_ROOT/agents/mogul.md`
-- `vendor/context-grapple-gun/cgg-runtime/agents/ladder-auditor.md` -> `$INSTALL_ROOT/agents/ladder-auditor.md`
-- `vendor/context-grapple-gun/cgg-runtime/agents/pattern-curator.md` -> `$INSTALL_ROOT/agents/pattern-curator.md`
+
+Authoritative discovery: `cgg-runtime/sync-manifest.json` →
+`install_targets.agents` (`pattern: "*.md"`,
+`installed_subdir: ".claude/agents"`). Sync each matching file from
+`vendor/context-grapple-gun/cgg-runtime/agents/` to
+`$INSTALL_ROOT/agents/`. Current agent count: 18 (full Mogul team +
+Crisis Office + Expression/encounter lane). For the canonical
+roster, read `cgg-runtime/config/agent-status.manifest.json` (per-
+agent runtime status) or `ls cgg-runtime/agents/`.
 
 **Create project-local governance zone surfaces at `ZONE_ROOT`:**
 - `.ticzone` (if missing)

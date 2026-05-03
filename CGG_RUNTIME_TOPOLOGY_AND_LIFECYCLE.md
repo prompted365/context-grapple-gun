@@ -20,13 +20,34 @@ All of these are interdependent. Hooks call scripts. Scripts depend on libraries
 
 ```
 canonical_developer/context-grapple-gun/cgg-runtime/
-├── hooks/          # 4 shell hooks (session-restore, cgg-gate, posttool-microscan, post-commit-sync)
-├── scripts/        # 22 Python scripts + mogul-runner.sh + lib/
-├── skills/         # Skill specs (*/SKILL.md)
-└── agents/         # Agent specs (*.md)
+├── hooks/          # 11 hook files (mix of .sh + .py)
+├── scripts/        # 56 script files (50 .py + 6 .sh) + lib/ + media-router/
+├── skills/         # 22 top-level skill dirs (21 with SKILL.md; 1 nested-archive: deprec_podcast_pipeline)
+├── agents/         # 18 agent specs (*.md)
+├── reference/      # 11 reference docs (file-access-discipline, delegation-boundaries, etc.)
+└── config/         #  4 config files (agent-status.manifest.json, mogul-mandate.schema.json, subsystems.{example,schema}.json)
 ```
 
+**Hook inventory** (current):
+- `cadence-plan-submit.py` — UserPromptSubmit cadence detection
+- `cgg-gate.sh` — UserPromptSubmit mandate gate (lightweight inline / heavy → mogul)
+- `post-commit-sync.sh` — git post-commit canonical→installed sync
+- `posttool-microscan.sh` — PostToolUse signal microscan
+- `posttool-sync-weigh.sh` — PostToolUse manifest drift detection
+- `posttool-tsc-check.sh` — PostToolUse TypeScript check
+- `pre-planmode-tdelta.sh` — PrePlanMode tmux-delta capture
+- `session-restore.sh` — SessionStart restore + extraction
+- `session-restore-patch.sh` — SessionStart-precondition patch
+- `sync-weigh-check.py` — sync-manifest drift verifier
+- `wire-cutter.sh` — containment-affordance wire-cut operator (installs to `~/.claude/wire-cutter.sh` per sync-manifest.install_path_overrides)
+
 This is the only surface where authoring occurs. All other locations are mirrors.
+
+**Inventory authority**: count and surface enumeration above is a tic-221
+snapshot. The authoritative discovery lives in `cgg-runtime/sync-manifest.json`
+(`install_targets.{skills,agents,hooks,scripts}` patterns). When in doubt
+about what is governance-bearing, read the manifest, not this snapshot —
+this section is human-readable orientation, not ground truth.
 
 ### 2.2 Installed Hooks (`~/.claude/hooks/`)
 
@@ -46,9 +67,42 @@ Mirror of canonical agent spec .md files. Used by the Agent tool when spawning n
 
 ### 2.6 Plugin Cache (`~/.claude/plugins/cache/cgg/`) — ARCHIVED
 
-Historical residue from the plugin-install era (v4.0.1, created 2026-03-08). CGG was unregistered from `installed_plugins.json` when the installation model shifted to direct hook wiring. The cache contains 17 scripts (5 fewer than current canonical) and a stale `mogul-runner.sh`.
+Historical residue from the plugin-install era (v4.0.1, created 2026-03-08). CGG was unregistered from `installed_plugins.json` when the installation model shifted to direct hook wiring. The cache contains a frozen subset of scripts (last counted ~17 at archival time) and a stale `mogul-runner.sh`. Current canonical has ~56 scripts; the cache is many tics behind and not authoritative.
 
 **Status: non-authoritative, non-executing, scheduled for cleanup.**
+
+### 2.7 Sync-Manifest Authority Reconciliation
+
+`cgg-runtime/sync-manifest.json` is framed (line 2 `_doc`) as **single
+source of truth for canonical→installed surface mapping**. The manifest
+declares: pattern globs per surface (`skills: */SKILL.md`,
+`agents: *.md`, `hooks: *.sh *.py`, `scripts: *.py *.sh`), excluded
+patterns (`README.md`, `__pycache__`, `*.pyc`, `deprec_*`), explicit
+install-path overrides (`hooks/wire-cutter.sh → .claude/wire-cutter.sh`),
+and tracked-external-scripts (path-locked outside `cgg-runtime/`,
+e.g., `audit-logs/cprs/build_queue_index.py`).
+
+The two consumers honor the manifest:
+- `runtime-sync.py` reads the manifest and walks the declared
+  `canonical_subdir` per surface, applying `pattern` + `exclude_patterns`
+  + `install_path_overrides`.
+- `posttool-sync-weigh.sh` (via `sync-weigh-check.py`) reads the same
+  manifest for drift detection.
+
+**Reconciliation note (Architect tic 221 audit)**: Discovery behavior
+is partly conventional and partly hardcoded around one-level skill
+discovery and declared subdirectories. The manifest's
+`scripts.subdirectories: ["lib", "media-router"]` declares which
+nested dirs sync; nested skills (e.g., `deprec_podcast_pipeline/*/SKILL.md`)
+are NOT picked up by `*/SKILL.md` (single-level glob). This is by
+design — the deprecated podcast pipeline is nested specifically so
+Claude Code does not register it as live. The single-source-of-truth
+claim is correct **for the surfaces the manifest declares**; anything
+authored outside those declared shapes is intentionally unowned by sync.
+
+If a new surface class is added (e.g., `templates/`, `workflows/`),
+extend the manifest's `install_targets` first, then sync consumers will
+honor it — no consumer-code changes needed for declared-pattern surfaces.
 
 ## 3. Script Resolution Chain
 
