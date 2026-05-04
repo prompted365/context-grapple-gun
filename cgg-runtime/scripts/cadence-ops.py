@@ -321,6 +321,21 @@ def write_conformation(zone_root: str, tic_count: int, tic_timestamp: str,
                 continue
 
     active_signal_statuses = {"active", "acknowledged", "working"}
+
+    # Latest-entry-per-signal_id collapse. active-manifest.jsonl is append-only
+    # under Terminal-State Valve discipline; multiple rows for the same signal
+    # accumulate as state transitions land (active -> acknowledged -> working
+    # -> resolved). Without dedup, the conformation reports stale rows
+    # alongside their successors — observed as the recurring 6 raw / 3 unique
+    # gap across tic 222-224 conformations. Mirrors the latest-entry-per-id
+    # discipline already applied to warrants via load_latest_per_id().
+    latest_by_signal_id = {}
+    for s in manifest_entries:
+        sid = s.get("signal_id") or s.get("id", "")
+        if not sid:
+            continue
+        latest_by_signal_id[sid] = s
+
     active_signals = [
         {
             "id": s.get("signal_id", s.get("id", "")),
@@ -330,7 +345,7 @@ def write_conformation(zone_root: str, tic_count: int, tic_timestamp: str,
             "status": s.get("status", ""),
             "subsystem": s.get("subsystem", ""),
         }
-        for s in manifest_entries
+        for s in latest_by_signal_id.values()
         if s.get("status") in active_signal_statuses
     ]
 

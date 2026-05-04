@@ -30,6 +30,17 @@ BLOCK_RE = re.compile(
 )
 
 
+# Closed-form marker: `<!-- --agnostic-candidate -->` with the comment closed
+# on the opener line. BLOCK_RE requires a newline after the marker name, so
+# closed-form blocks silently bypass extraction. Validated tic 224: 6 CogPR
+# candidates inscribed with the closed form passed Edit-tool authorship but
+# scanned to zero by cpr-extract; only surfaced when the operator audited
+# queue.jsonl after a /cadence cycle expected to extract them. The fix here
+# is detection-and-warn — emit stderr when the closed form appears in any
+# scanned file, so future authoring traps are loud, not silent.
+CLOSED_FORM_RE = re.compile(r"<!--\s*--agnostic-candidate\s*-->")
+
+
 def parse_cpr_block(block_text):
     """Parse YAML-ish CPR block into dict."""
     result = {}
@@ -359,6 +370,7 @@ def extract_cprs(project_dir, dry_run=False, plan_file=None, anomaly_threshold=0
         "skipped_schema_incomplete": 0,
         "skipped_dedup_hash_match": 0,
         "terminal_duplicate_skipped": 0,
+        "closed_form_markers_warned": 0,
     }
 
     for gov_file in gov_files:
@@ -366,6 +378,32 @@ def extract_cprs(project_dir, dry_run=False, plan_file=None, anomaly_threshold=0
             text = gov_file.read_text(encoding="utf-8")
         except Exception:
             continue
+
+        # Closed-form marker detection (warn-only). Surface authoring traps
+        # before they accumulate in source files; do NOT extract from them
+        # (the comment is closed on the opener, so the candidate body lives
+        # outside any HTML comment context — extracting would invent shape).
+        # Skip occurrences that fall inside valid open-form block bodies —
+        # those are lesson prose quoting the pattern, not authoring errors.
+        block_spans = [(m.start(), m.end()) for m in BLOCK_RE.finditer(text)]
+        for cf_match in CLOSED_FORM_RE.finditer(text):
+            cf_pos = cf_match.start()
+            inside_valid_block = any(
+                start <= cf_pos < end for start, end in block_spans
+            )
+            if inside_valid_block:
+                continue
+            cf_line = _block_line_number(text, cf_pos)
+            print(
+                f"cpr-extract warning: closed-form CogPR marker at "
+                f"{gov_file}:{cf_line} — `<!-- --agnostic-candidate -->` "
+                f"closes the comment on the opener and silently fails "
+                f"extraction. Use `<!-- --agnostic-candidate` (no closing "
+                f"`-->` on opener) and place the closing `-->` on its own "
+                f"line after the candidate body.",
+                file=sys.stderr,
+            )
+            counters["closed_form_markers_warned"] += 1
 
         for match in BLOCK_RE.finditer(text):
             counters["blocks_found"] += 1
