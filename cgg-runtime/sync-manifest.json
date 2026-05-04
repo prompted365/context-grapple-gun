@@ -53,6 +53,20 @@
       "install_target": null,
       "install_reason": "project-local; uses Path(__file__).parent to resolve queue.jsonl as sibling — relocation breaks path lock",
       "schema_coverage_limit": "TERMINAL_STATUSES is narrower than federation terminal set; widening is a doctrine question (CogPR-159), not silent expansion"
+    },
+    {
+      "path": "audit-logs/cprs/queue_state_compile.py",
+      "owner": "cgg-runtime",
+      "category": "state_compiler",
+      "invoked_by": [
+        "cgg-runtime/scripts/bench-packet-prep.py",
+        "Mogul cycle: bench_packet_prep (transitively)",
+        "skill:review preflight (transitively via bench-packet-prep)"
+      ],
+      "writes": "audit-logs/cprs/effective-state/{effective_state.json,effective_state.md,strike_stack_candidates.json,anomaly_report.md,maturity_index.json}",
+      "install_target": null,
+      "install_reason": "project-local; co-located with queue.jsonl per build_queue_index convention; uses path resolution from script location",
+      "promotion_lineage": "tic 222 compile-lane upgrade — ONE_SHOT_ONLY → PARTIAL → PRODUCTIZED. Composes with queue/state/stack distinction (Architect-named tic 222) and Terminal-State Valve Pattern (CGG-rung doctrine)."
     }
   ]
 }

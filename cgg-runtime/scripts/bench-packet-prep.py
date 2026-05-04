@@ -19,6 +19,7 @@ import argparse
 import json
 import os
 import re
+import subprocess
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
@@ -40,6 +41,69 @@ TERMINAL_STATUSES = frozenset({
     "promoted", "absorbed", "superseded", "rejected",
     "deferred", "dismissed", "resolved", "skipped",
 })
+
+
+def invoke_compiler_and_load_effective_state(al_path, current_tic):
+    """Invoke queue_state_compile.py and load its outputs.
+
+    Per Architect (tic 222 compile-lane upgrade): bench-packet-prep MUST
+    consume effective_state outputs as the state source rather than reading
+    raw queue rows directly. The compiler is the canonical state derivation
+    path; bench-packet-prep is the consumer.
+
+    Returns (effective_state_dict, strike_stack_dict, status_label).
+    Status is "PRODUCTIZED" on success, "DEGRADED_*" on any failure.
+
+    Failure is visible (stderr write); no silent fallback. Existing
+    load_queue path remains as the explicitly-labeled DEGRADED fallback.
+    """
+    compiler_path = os.path.join(al_path, "cprs", "queue_state_compile.py")
+    if not os.path.exists(compiler_path):
+        sys.stderr.write(
+            f"[bench-packet-prep] WARNING: compiler not found at {compiler_path}\n"
+            f"[bench-packet-prep] DEGRADED MODE — using raw queue interpretation.\n"
+        )
+        return None, None, "DEGRADED_NO_COMPILER"
+
+    try:
+        result = subprocess.run(
+            ["python3", compiler_path, "compile", "--current-tic", str(current_tic)],
+            capture_output=True,
+            text=True,
+            timeout=60,
+            check=False,
+        )
+    except (subprocess.TimeoutExpired, FileNotFoundError, OSError) as e:
+        sys.stderr.write(
+            f"[bench-packet-prep] ERROR invoking compiler: {e}\n"
+            f"[bench-packet-prep] DEGRADED MODE.\n"
+        )
+        return None, None, "DEGRADED_INVOCATION_FAILED"
+
+    if result.returncode != 0:
+        sys.stderr.write(
+            f"[bench-packet-prep] ERROR compiler exited {result.returncode}:\n"
+            f"{result.stderr}\n"
+            f"[bench-packet-prep] DEGRADED MODE.\n"
+        )
+        return None, None, "DEGRADED_COMPILE_FAILED"
+
+    es_path = os.path.join(al_path, "cprs", "effective-state", "effective_state.json")
+    ss_path = os.path.join(al_path, "cprs", "effective-state", "strike_stack_candidates.json")
+
+    try:
+        with open(es_path) as f:
+            effective_state = json.load(f)
+        with open(ss_path) as f:
+            strike_stack = json.load(f)
+    except (OSError, json.JSONDecodeError) as e:
+        sys.stderr.write(
+            f"[bench-packet-prep] ERROR loading compiler outputs: {e}\n"
+            f"[bench-packet-prep] DEGRADED MODE.\n"
+        )
+        return None, None, "DEGRADED_OUTPUT_LOAD_FAILED"
+
+    return effective_state, strike_stack, "PRODUCTIZED"
 
 
 def load_queue(queue_path):
@@ -366,6 +430,17 @@ def build_bench_packet(project_dir, dry_run=False):
     queue_path = os.path.join(al_path, "cprs", "queue.jsonl")
     signal_dir = os.path.join(al_path, "signals")
 
+    # Compute current tic first — compiler needs it as required arg.
+    tic = count_physical_tics(al_path)
+
+    # Compile lane integration (tic 222 PRODUCTIZED). The compiler is the
+    # canonical state derivation path; bench-packet consumes its outputs
+    # rather than reading raw queue rows directly. Failure is explicitly
+    # labeled DEGRADED; no silent fallback.
+    effective_state, strike_stack, compile_lane_status = (
+        invoke_compiler_and_load_effective_state(al_path, tic)
+    )
+
     queue = load_queue(queue_path)
     signals = load_signal_store(signal_dir)
     claude_md_chain = find_claude_md_chain(project_dir)
@@ -379,9 +454,7 @@ def build_bench_packet(project_dir, dry_run=False):
 
     pending = get_pending_cprs(queue)
     recently_promoted = get_recently_promoted(queue)
-
-    # Get current tic from physical tic event count (authoritative)
-    tic = count_physical_tics(al_path)
+    # tic was computed earlier (before compiler invocation)
 
     # Build per-CPR dossier
     pending_cogprs = []
@@ -499,10 +572,46 @@ def build_bench_packet(project_dir, dry_run=False):
         if pending_cogprs else 0.0
     )
 
+    # Compile-lane cross-check: existing pending (from load_queue's terminal-
+    # valve) vs effective_state.live_now (from compiler's stricter terminal-
+    # valve). Disagreement-as-Evidence per federation KI; both readings valid
+    # on declared filter axes.
+    compile_lane_cross_check = None
+    if effective_state:
+        compiler_live_now_ids = {
+            sid for sid, s in effective_state.get("states", {}).items()
+            if s.get("bucket") == "live_now"
+        }
+        existing_pending_ids = {c["id"] for c in pending_cogprs}
+        compile_lane_cross_check = {
+            "existing_pending_count": len(existing_pending_ids),
+            "compiler_live_now_count": len(compiler_live_now_ids),
+            "intersection_count": len(existing_pending_ids & compiler_live_now_ids),
+            "only_in_existing_pending": sorted(existing_pending_ids - compiler_live_now_ids)[:10],
+            "only_in_compiler_live_now": sorted(compiler_live_now_ids - existing_pending_ids)[:10],
+            "axis_note": (
+                "existing_pending uses bench-packet-prep's terminal-valve "
+                "(treats 'deferred' as terminal-eligible-for-surface); "
+                "compiler_live_now uses strict terminal-state valve "
+                "(deferred items with re_eval_tic > current_tic = parked). "
+                "Both readings valid on declared filter axes."
+            ),
+        }
+
     packet = {
         "tic": tic,
         "generated_at": datetime.now(timezone.utc).isoformat(),
         "birth_rung": topo["birth_rung"],
+        # Compile-lane status (tic 222 PRODUCTIZED). PRODUCTIZED means
+        # bench-packet successfully consumed compiler outputs; DEGRADED_*
+        # means raw queue interpretation was used (each variant logs the
+        # specific failure to stderr).
+        "compile_lane_status": compile_lane_status,
+        "effective_state_summary": (
+            effective_state.get("meta") if effective_state else None
+        ),
+        "strike_stack_candidates": strike_stack,
+        "compile_lane_cross_check": compile_lane_cross_check,
         "pending_cogprs": pending_cogprs,
         "active_signals": active_signals,
         "promoted_since_last_review": promoted_since,
