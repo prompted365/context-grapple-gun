@@ -50,9 +50,14 @@ SCENE_CENSUS = (
 )
 TIC_COUNTER = pathlib.Path.home() / ".claude" / "cgg-tic-counter.json"
 HARMONY_DIR = REPO_ROOT / "audit-logs" / "harmony"
+RTCH_PACKETS_DIR = REPO_ROOT / "audit-logs" / "rtch" / "packets"
 
 CHUNK_TEXT_MAX = 600  # per-chunk text cap (preserves intent without flooding)
 TOP_SUBSYSTEMS = 12   # match fixture cardinality
+# RTCH packet ingestion — bounds (Ship 2 of three-layer terrain proposal tic 223)
+RTCH_PACKET_LIMIT = 12         # cap of fresh packets ingested per build (prevents flood)
+RTCH_STUB_LIMIT = 24           # cap of historical_packet_stub entries surfaced per build
+RTCH_DEFAULT_TTL_TICS = 30     # fallback if packet lacks ttl_tics field
 
 
 def read_json(path: pathlib.Path) -> Any:
@@ -160,6 +165,165 @@ def build_chunk_from_warrant(wrn: dict[str, Any]) -> dict[str, Any]:
         "signalKindHint": "BOUNDARY",
         "bandHint": "GRAVITY",
         "relayDepth": 1,
+    }
+
+
+def load_rtch_packets(current_tic_value: int) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    """Read RTCH packets from audit-logs/rtch/packets/, partition into
+    (fresh, expired) per packet's ttl_tics + expires_at_tic.
+
+    Fresh packets carry decay_weight in (0.0, 1.0]. Expired packets carry
+    decay_weight = 0.0 and become historical_packet_stub chunks per
+    three-layer terrain doctrine (Ship 2 of tic-223 proposal):
+      - Layer 1 verbatim retention (the file stays at audit-logs/rtch/packets/)
+      - Layer 3 hot-path force = 0
+      - Layer 2 stub pointer with current_claim_force=none
+
+    Per binder §12.7: skipped/truncated surfaces must surface, not hide.
+    """
+    fresh: list[dict[str, Any]] = []
+    expired: list[dict[str, Any]] = []
+    if not RTCH_PACKETS_DIR.is_dir():
+        return fresh, expired
+    for p in sorted(RTCH_PACKETS_DIR.glob("rtch_packet_*.json")):
+        try:
+            with open(p) as f:
+                pkt = json.load(f)
+        except (OSError, json.JSONDecodeError):
+            continue
+        generated = int(pkt.get("generated_at_tic") or 0)
+        ttl = int(pkt.get("ttl_tics") or RTCH_DEFAULT_TTL_TICS)
+        expires = int(pkt.get("expires_at_tic") or (generated + ttl))
+        remaining = expires - current_tic_value
+        if remaining <= 0:
+            pkt["_decay_weight"] = 0.0
+            pkt["_age_tics"] = max(0, current_tic_value - generated)
+            pkt["_packet_path"] = str(p)
+            expired.append(pkt)
+        else:
+            decay_weight = max(0.0, min(1.0, remaining / ttl)) if ttl > 0 else 0.0
+            pkt["_decay_weight"] = decay_weight
+            pkt["_age_tics"] = max(0, current_tic_value - generated)
+            pkt["_packet_path"] = str(p)
+            fresh.append(pkt)
+    # Order fresh by decay_weight desc (freshest first); expired by age asc (most recent first)
+    fresh.sort(key=lambda x: x.get("_decay_weight", 0.0), reverse=True)
+    expired.sort(key=lambda x: x.get("_age_tics", 0))
+    return fresh, expired
+
+
+def build_chunk_from_rtch_packet(pkt: dict[str, Any]) -> dict[str, Any]:
+    """A fresh RTCH packet becomes a returnedChunk anchored at the
+    rtch.discovery centroid. Pressure scales with TTL decay_weight.
+
+    Per three-layer terrain doctrine: Layer 3 hot-path eligibility is
+    decay_weight in (0, 1]; Layer 1 verbatim packet at packet_path is
+    untouched.
+    """
+    pid = pkt.get("packet_id") or "rtch_unknown"
+    decay = float(pkt.get("_decay_weight", 1.0))
+    age = int(pkt.get("_age_tics", 0))
+    intake = pkt.get("intake", {}) or {}
+    goal = (intake.get("goal") or "")[:140]
+    profile = intake.get("target_profile", "?")
+    fanout = intake.get("fanout_level", "?")
+    selected = pkt.get("selected_surfaces", []) or []
+    halting = pkt.get("halting_reason", "?")
+    unresolved_n = len(pkt.get("unresolved_questions", []) or [])
+    chunks_n = len(pkt.get("hydrated_chunks", []) or [])
+    text = (
+        f"RTCH packet {pid} (age {age}t, decay_weight {decay:.2f}). "
+        f"Intake goal: {goal} (profile={profile}, fanout={fanout}). "
+        f"Selected {len(selected)} surfaces; {chunks_n} hydrated chunks; "
+        f"{unresolved_n} unresolved questions; halted on {halting}. "
+        f"Layer-3 hot-path force scales with decay_weight."
+    )[:CHUNK_TEXT_MAX]
+    # Signal-kind heuristic: discovery freshness reads as LESSON when high,
+    # REPAIR when faded (still useful but acknowledging staleness)
+    kind = "LESSON" if decay > 0.5 else "REPAIR"
+    return {
+        "chunkId": f"rtch.{pid}",
+        "source": "council",
+        "text": text,
+        "sourceCentroid": {
+            "centroidId": "centroid.rtch.discovery",
+            "rung": "federation",
+            "label": "Tactical Hydration Discovery",
+            "embedding": embed_band_kind("COGNITIVE", kind, int(decay * 100)),
+            "collapseZones": [
+                "discovery vs packaging confusion",
+                "stale evidence read as current",
+                "doctrine claim from grep alone",
+            ],
+            "siblingOverlaps": ["signal", "CPR pipeline", "/consolidate handoff"],
+        },
+        "provenance": {
+            "sourceId": pkt.get("_packet_path", f"audit-logs/rtch/packets/{pid}.json"),
+            "tic": int(pkt.get("generated_at_tic") or 0),
+        },
+        "signalKindHint": kind,
+        "bandHint": "ACOUSTIC",
+        "relayDepth": 2,
+        # Three-layer terrain extension fields (Ship 2 of tic-223 proposal):
+        "chunkType": "tactical_hydration_packet",
+        "decayWeight": decay,
+        "ttlState": "active" if decay >= 0.66 else "aging" if decay > 0.0 else "expired",
+        "currentClaimForce": "allowed_if_source_bearing",
+        "expiresAtTic": int(pkt.get("expires_at_tic") or 0),
+        "selectedSurfaceCount": len(selected),
+    }
+
+
+def build_chunk_from_expired_rtch_packet(pkt: dict[str, Any]) -> dict[str, Any]:
+    """An expired RTCH packet becomes a historical_packet_stub chunk.
+
+    Per three-layer terrain doctrine: Layer 1 verbatim retention is
+    invariant (packet file stays at packet_path); Layer 3 hot-path force
+    = 0 (pressure 0, no claim weight); Layer 2 stub pointer with
+    current_claim_force=none. Harmony sees the stub but cannot weigh it
+    as current evidence. Rehydration (Ship 4) is the bridge back.
+    """
+    pid = pkt.get("packet_id") or "rtch_unknown"
+    age = int(pkt.get("_age_tics", 0))
+    expires = int(pkt.get("expires_at_tic") or 0)
+    generated = int(pkt.get("generated_at_tic") or 0)
+    text = (
+        f"Historical packet stub {pid} (generated tic {generated}, expired tic {expires}, "
+        f"age {age}t). Layer 1 verbatim preserved at {pkt.get('_packet_path','?')}. "
+        f"Layer 3 hot-path force = 0 (current_claim_force=none). Allowed uses: lineage, "
+        f"route memory, drift comparison, rehydration candidate. NOT a current claim."
+    )[:CHUNK_TEXT_MAX]
+    return {
+        "chunkId": f"rtch_stub.{pid}",
+        "source": "council",
+        "text": text,
+        "sourceCentroid": {
+            "centroidId": "centroid.rtch.historical",
+            "rung": "federation",
+            "label": "Historical Packet Stub",
+            "embedding": embed_band_kind("COGNITIVE", "REPAIR", 0),
+            "collapseZones": [
+                "expired packet read as current",
+                "stub treated as claim",
+                "Layer 1 deletion on Layer 3 expiry",
+            ],
+            "siblingOverlaps": ["past slice", "route memory", "drift comparison"],
+        },
+        "provenance": {
+            "sourceId": pkt.get("_packet_path", f"audit-logs/rtch/packets/{pid}.json"),
+            "tic": generated,
+        },
+        "signalKindHint": "REPAIR",
+        "bandHint": "ACOUSTIC",
+        "relayDepth": 3,
+        # Three-layer terrain extension fields (Ship 2 of tic-223 proposal):
+        "chunkType": "historical_packet_stub",
+        "decayWeight": 0.0,
+        "ttlState": "expired_requires_rehydration",
+        "currentClaimForce": "none",
+        "expiresAtTic": expires,
+        "allowedUses": ["lineage", "route_memory", "drift_comparison", "rehydration_candidate"],
+        "blockedUses": ["current_truth", "doctrine_claim", "harmony_hot_path_weight"],
     }
 
 
@@ -303,6 +467,16 @@ def build_returned_chunks(conf: dict[str, Any], queue_lookup: dict[str, dict[str
     for c in conf.get("pending_cogprs", []) or []:
         if c.get("status") == "enrichment_eligible":
             chunks.append(build_chunk_from_cpr(c, queue_lookup))
+    # RTCH packet ingestion (Ship 2 of tic-223 three-layer terrain proposal).
+    # Fresh packets contribute Layer 3 hot-path pressure scaled by TTL decay_weight.
+    # Expired packets surface as historical_packet_stub (Layer 2 pointer, Layer 3 force=0).
+    # Layer 1 verbatim packet file at audit-logs/rtch/packets/ is invariant.
+    cur_tic = int(conf.get("tic_count_physical") or 0)
+    fresh_packets, expired_packets = load_rtch_packets(cur_tic)
+    for pkt in fresh_packets[:RTCH_PACKET_LIMIT]:
+        chunks.append(build_chunk_from_rtch_packet(pkt))
+    for pkt in expired_packets[:RTCH_STUB_LIMIT]:
+        chunks.append(build_chunk_from_expired_rtch_packet(pkt))
     return chunks
 
 
