@@ -44,6 +44,7 @@ def compute_due_markers(tic: int) -> dict:
         "memory_mining_due_tic": tic + (3 - tic % 3) if tic % 3 != 0 else tic + 3,
         "pattern_mining_due_tic": tic + (4 - tic % 4) if tic % 4 != 0 else tic + 4,
         "ladder_audit_due_tic": tic + (5 - tic % 5) if tic % 5 != 0 else tic + 5,
+        "civil_check_due_tic": tic + (10 - tic % 10) if tic % 10 != 0 else tic + 10,
         "deep_audit_due_tic": tic + (8 - tic % 8) if tic % 8 != 0 else tic + 8,
     }
 
