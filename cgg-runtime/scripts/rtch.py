@@ -1144,7 +1144,8 @@ def build_packet(intake: dict[str, Any], zone: dict[str, Any], scout: dict[str, 
     for f in scout.get("candidate_filenames", []):
         if f["path"] not in seen_paths:
             try:
-                lc = sum(1 for _ in open(f["path"], encoding="utf-8", errors="ignore"))
+                with open(f["path"], encoding="utf-8", errors="ignore") as fh:
+                    lc = sum(1 for _ in fh)
             except OSError:
                 continue
             if lc > SMALL_FILE_LIMIT:
