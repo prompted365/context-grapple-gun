@@ -382,7 +382,8 @@ def generate_grep_patterns(files: list, has_harpoon: bool = False) -> str:
 
 def write_dump(files: list, output_path: str, title: str = "Context Consolidation",
                description: str = "", harpoon: bool = False, arena: str = None,
-               git_commit: str = None, mode: str = "full"):
+               git_commit: str = None, mode: str = "full",
+               rtch_packet_id: str = None):
     """Write the consolidated dump file."""
     # Classify files
     classified = []
@@ -407,6 +408,8 @@ def write_dump(files: list, output_path: str, title: str = "Context Consolidatio
             out.write(f"> Source: {description}\n")
         if git_commit:
             out.write(f"> Git commit: {git_commit}\n")
+        if rtch_packet_id:
+            out.write(f"> **RTCH source selection**: rtch_packet_id={rtch_packet_id}\n")
         out.write("\n")
 
         # Harpoon preamble
@@ -481,6 +484,8 @@ def main():
                              "head (front only), tail (back only), split (front+back)")
     parser.add_argument("--max-file-size", type=int, default=500000, help="Max file size threshold for non-full modes (bytes)")
     parser.add_argument("--base-dir", help="Base directory for relative paths (default: cwd)")
+    parser.add_argument("--rtch-packet-id", default=None,
+                        help="RTCH packet ID for provenance (set when invoked via /tactical-hydration handoff)")
     args = parser.parse_args()
 
     MAX_FILE_SIZE = args.max_file_size
@@ -580,6 +585,7 @@ def main():
         arena=args.arena,
         git_commit=git_commit,
         mode=args.mode,
+        rtch_packet_id=args.rtch_packet_id,
     )
 
     size = os.path.getsize(output)
