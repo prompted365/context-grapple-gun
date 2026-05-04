@@ -430,19 +430,23 @@ def write_conformation(zone_root: str, tic_count: int, tic_timestamp: str,
 
 def compute_due_cycles(tic: int) -> list:
     """Compute which governance cycles are due at this tic."""
-    cycles = ["queue_refresh", "signal_scan"]  # always due
+    # harmony_invoke joins the always-due lane alongside queue_refresh +
+    # signal_scan. Slice doctrine (Slice as Bounded World Preservation,
+    # federation CLAUDE.md tic 226) names harmony as a Layer-1 slice
+    # contributor; mod-4 cadence left ~75% of slices with stale or absent
+    # harmony refs. Tic-226 probe confirmed cost: 0.42s wall-clock + ~207KB
+    # artifact per fire — cheap enough for per-tic cadence. Pairs with
+    # queue_refresh as the lightest existing per-tic cycle rather than
+    # opening a standalone harmony lane. pattern_mining stays decoupled
+    # at mod 4 (the original tic-213 piggyback rationale was cycle
+    # proliferation avoidance, not pattern_mining coupling per se).
+    cycles = ["queue_refresh", "signal_scan", "harmony_invoke"]  # always due
 
     if tic % 3 == 0:
         cycles.append("memory_mining")
         cycles.append("cache_refresh")
     if tic % 4 == 0:
         cycles.append("pattern_mining")
-        # harmony_invoke fires at the same cadence as pattern_mining —
-        # both are heavy-but-cheap kernel-class probes; piggybacking
-        # avoids cycle proliferation. Closes the doctrine-runtime parity
-        # gap surfaced in audit-logs/governance/ak-harmony-review-tic213.md
-        # finding B.1 (kernel registered, not on calendar).
-        cycles.append("harmony_invoke")
     if tic % 5 == 0:
         cycles.extend(["ladder_audit", "runtime_drift_check"])
     if tic % 8 == 0:
