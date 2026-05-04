@@ -42,12 +42,26 @@ def resolve_signal_dir(project_dir=None):
     return Path(al_path) / "signals", tz_config
 
 
-def load_all_entries(signal_dir):
-    """Load all JSONL entries from the signal store, preserving file origin."""
+# Terminal statuses per CGG Terminal-State Valve Pattern (federation KI):
+# at the read boundary, a terminal-state entry MUST win over any non-terminal
+# entry for the same id, regardless of file ordering or write recency.
+TERMINAL_STATUSES = frozenset({"resolved", "dismissed", "superseded"})
+
+
+def load_all_entries(signal_dir, include_resolved_archive=True):
+    """Load all JSONL entries from the signal store, preserving file origin.
+
+    By default also includes resolved-archive.jsonl so terminal-state-valve
+    filtering can suppress historical residue (e.g., the tic 91 inbox-runaway
+    277 unique signal_ids) without mutating raw daily files.
+    """
     entries = []
     if not signal_dir.is_dir():
         return entries
+    # Daily emission files (raw, append-only — never modified)
     for fpath in sorted(signal_dir.glob("*.jsonl")):
+        if fpath.name == "resolved-archive.jsonl" or fpath.name == "active-manifest.jsonl":
+            continue  # handled separately or not part of daily-emit set
         with open(fpath) as f:
             for lineno, line in enumerate(f, 1):
                 line = line.strip()
@@ -60,16 +74,54 @@ def load_all_entries(signal_dir):
                     entries.append(obj)
                 except json.JSONDecodeError:
                     continue
+    # Resolved archive (terminal-state entries — drives Terminal-State Valve)
+    if include_resolved_archive:
+        archive = signal_dir / "resolved-archive.jsonl"
+        if archive.exists():
+            with open(archive) as f:
+                for lineno, line in enumerate(f, 1):
+                    line = line.strip()
+                    if not line:
+                        continue
+                    try:
+                        obj = json.loads(line)
+                        obj["_source_file"] = archive.name
+                        obj["_source_lineno"] = lineno
+                        entries.append(obj)
+                    except json.JSONDecodeError:
+                        continue
     return entries
 
 
 def latest_per_id(entries):
-    """Apply latest-entry-per-ID-wins. Returns dict {id: entry}."""
-    latest = {}
+    """Apply latest-entry-per-ID-wins WITH Terminal-State Valve.
+
+    Per CGG Terminal-State Valve Pattern (federation KI): a terminal-state
+    entry (status in resolved/dismissed/superseded) MUST win over non-terminal
+    entries for the same id regardless of file ordering. This prevents historical
+    raw-file emissions (e.g., tic-91 inbox-runaway 285 raw lines / 277 unique IDs
+    that were resolved post-hoc via entropy-maintenance backfill) from being
+    counted as live pressure by forensic readers.
+
+    Algorithm:
+      1. First pass: collect terminal entries per id.
+      2. Second pass: for ids without a terminal, take the latest non-terminal.
+    """
+    terminal = {}
+    non_terminal = {}
     for e in entries:
         eid = e.get("id") or e.get("signal_id")
-        if eid:
-            latest[eid] = e
+        if not eid:
+            continue
+        status = e.get("status")
+        if status in TERMINAL_STATUSES:
+            # Latest terminal wins (in case of multiple terminal records)
+            terminal[eid] = e
+        else:
+            non_terminal[eid] = e
+    # Terminal wins; non-terminal only fills ids without a terminal
+    latest = dict(non_terminal)
+    latest.update(terminal)
     return latest
 
 
