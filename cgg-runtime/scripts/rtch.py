@@ -1309,7 +1309,273 @@ def _current_tic(zone: dict[str, Any]) -> int:
     return 0
 
 
+# ─────────────────────────────────────────────────────────────────────────────
+# Rehydrate subcommand (D4 — Ship 4)
+# ─────────────────────────────────────────────────────────────────────────────
+#
+# Per cpr_ttl_governs_heat_not_memory_tic223: TTL governs Layer 3 hot-path
+# eligibility, never Layer 1 verbatim retention. Rehydration is the explicit
+# bridge from Layer 1 historical entry back into Layer 3 hot-path eligibility
+# — invocation-driven, probe-based, with explicit diff outcomes.
+#
+# Outcomes:
+#   refreshed             — selected_surfaces verified present + content sha256
+#                           matches archive; packet returns to hot-path
+#   drift_detected        — surfaces present but content sha256 changed; packet
+#                           returns CAUTION, not truth — Architect must reconcile
+#   superseded            — newer packet (same goal/seeds) found in packets/;
+#                           rehydration declined; original past-slice intact
+#   failed_rehydration    — packet not found OR all selected_surfaces missing;
+#                           drift/caution emit, no hot-path force
+
+
+def _locate_packet(packets_dir: Path, packet_ref: str) -> Optional[Path]:
+    """Resolve packet_id (full or prefix) to packet path."""
+    if not packets_dir.exists():
+        return None
+    # Exact match first
+    exact = packets_dir / f"{packet_ref}.json"
+    if exact.exists():
+        return exact
+    # Prefix / substring match
+    matches = [p for p in packets_dir.glob("*.json") if packet_ref in p.stem]
+    if len(matches) == 1:
+        return matches[0]
+    if len(matches) > 1:
+        # Ambiguous — caller treats as failed_rehydration with reason
+        return None
+    return None
+
+
+def _hash_surface(path: Path, max_bytes: int = 50 * 1024 * 1024) -> Optional[str]:
+    """sha256 of file content, capped. Returns None for non-files."""
+    if not path.exists() or not path.is_file():
+        return None
+    h = hashlib.sha256()
+    size = 0
+    try:
+        with path.open("rb") as f:
+            while True:
+                chunk = f.read(64 * 1024)
+                if not chunk:
+                    break
+                size += len(chunk)
+                if size > max_bytes:
+                    return f"sha256:partial-over-{max_bytes}"
+                h.update(chunk)
+    except OSError:
+        return None
+    return f"sha256:{h.hexdigest()}"
+
+
+def _detect_supersession(packets_dir: Path, packet: dict) -> Optional[str]:
+    """Look for newer packet with same goal that's emitted post-original.
+
+    Returns superseding packet_id if found, else None.
+    """
+    if not packets_dir.exists():
+        return None
+    original_id = packet.get("packet_id")
+    original_tic = packet.get("current_tic")
+    original_goal = (packet.get("intake") or {}).get("goal", "").strip()
+    if not original_goal:
+        return None
+    for p in packets_dir.glob("*.json"):
+        if p.stem == original_id:
+            continue
+        try:
+            other = json.loads(p.read_text())
+        except (json.JSONDecodeError, OSError):
+            continue
+        other_goal = (other.get("intake") or {}).get("goal", "").strip()
+        other_tic = other.get("current_tic")
+        if other_goal == original_goal and other_tic is not None and original_tic is not None:
+            if other_tic > original_tic:
+                return other.get("packet_id")
+    return None
+
+
+def rehydrate_main(argv: list[str]) -> int:
+    """rtch.py rehydrate --packet <id> — Layer 1 → Layer 3 bridge."""
+    parser = argparse.ArgumentParser(
+        prog="rtch.py rehydrate",
+        description="Rehydrate an RTCH packet from past-slice with diff outcomes",
+    )
+    parser.add_argument("--packet", required=True,
+                        help="packet_id (full or unique prefix)")
+    parser.add_argument("--zone-root", default=None,
+                        help="federation zone root (default: discover)")
+    parser.add_argument("--current-tic", type=int, default=None,
+                        help="override current tic (default: discover)")
+    parser.add_argument("--ttl-tics", type=int, default=30,
+                        help="default TTL window (default 30 tics per binder Q.3)")
+    args = parser.parse_args(argv)
+
+    # Zone discovery
+    if args.zone_root:
+        zone_root = args.zone_root
+    else:
+        zone = orient_zone({"goal": "rehydrate", "seeds": [], "profile": "tactical",
+                            "fanout": "bounded", "risk": "low",
+                            "output_kind": "evidence_packet", "enough": "rehydrate_complete",
+                            "known_target": None, "forbid": [], "neighbor": []})
+        zone_root = zone["zone_root"]
+
+    packets_dir = Path(zone_root) / "audit-logs" / "rtch" / "packets"
+
+    # Locate packet
+    packet_path = _locate_packet(packets_dir, args.packet)
+    if packet_path is None:
+        outcome = {
+            "rehydrate_outcome": "failed_rehydration",
+            "reason": "packet_not_found_or_ambiguous",
+            "packet_ref": args.packet,
+            "current_claim_force": "none",
+            "past_slice_preserved": True,  # we did not touch any file
+            "rule": "TTL governs Layer 3 only; original packet remains in past-slice",
+        }
+        print(json.dumps(outcome, indent=2))
+        return 0  # informational, not an error
+
+    # Load packet (read-only)
+    try:
+        packet = json.loads(packet_path.read_text())
+    except (json.JSONDecodeError, OSError) as e:
+        outcome = {
+            "rehydrate_outcome": "failed_rehydration",
+            "reason": f"packet_unreadable: {e}",
+            "packet_path": str(packet_path),
+            "past_slice_preserved": True,
+        }
+        print(json.dumps(outcome, indent=2))
+        return 0
+
+    packet_id = packet.get("packet_id")
+    birth_tic = packet.get("current_tic") or packet.get("emission_tic") or 0
+    current_tic = args.current_tic if args.current_tic is not None else _current_tic({"zone_root": zone_root})
+
+    # TTL state
+    ttl = packet.get("ttl_tics", args.ttl_tics)
+    expires_at = birth_tic + ttl
+    expired = current_tic > expires_at
+
+    # Supersession check
+    superseded_by = _detect_supersession(packets_dir, packet)
+    if superseded_by:
+        outcome = {
+            "rehydrate_outcome": "superseded",
+            "packet_id": packet_id,
+            "superseded_by": superseded_by,
+            "birth_tic": birth_tic,
+            "current_tic": current_tic,
+            "past_slice_preserved": True,
+            "rule": "Original packet remains as past-slice verbatim; rehydration declines in favor of newer packet",
+            "next_action": f"rehydrate --packet {superseded_by} (or accept supersession)",
+        }
+        print(json.dumps(outcome, indent=2))
+        return 0
+
+    # Re-probe selected_surfaces
+    selected = packet.get("selected_surfaces") or []
+    surface_results = []
+    refreshed_count = 0
+    drift_count = 0
+    missing_count = 0
+    chunks = packet.get("chunks") or []
+    chunk_by_path = {}
+    for ch in chunks:
+        sp = ch.get("source_path") or ch.get("path")
+        if sp:
+            chunk_by_path.setdefault(sp, []).append(ch)
+
+    for surface in selected:
+        # selected_surfaces entries can be string paths or richer dicts
+        if isinstance(surface, dict):
+            surface_path = surface.get("path") or surface.get("source_path")
+        else:
+            surface_path = surface
+        if not surface_path:
+            continue
+        full = Path(surface_path)
+        if not full.is_absolute():
+            full = Path(zone_root) / surface_path
+        if not full.exists():
+            surface_results.append({"path": surface_path, "status": "missing"})
+            missing_count += 1
+            continue
+        # Drift check: compare current sha256 against archived chunk sha if present
+        current_hash = _hash_surface(full)
+        archived_hashes = []
+        for ch in chunk_by_path.get(surface_path, []):
+            for k in ("sha256", "content_sha256", "hash"):
+                if ch.get(k):
+                    archived_hashes.append(ch[k])
+        if archived_hashes and current_hash and current_hash not in archived_hashes:
+            surface_results.append({"path": surface_path, "status": "drift",
+                                    "current_hash": current_hash,
+                                    "archived_hashes": archived_hashes})
+            drift_count += 1
+        else:
+            # No archive hash to compare OR matches archive
+            note = "verified" if archived_hashes else "present_no_archive_hash"
+            surface_results.append({"path": surface_path, "status": "present", "note": note,
+                                    "current_hash": current_hash})
+            if archived_hashes:
+                refreshed_count += 1
+
+    # Determine outcome
+    total = len(selected)
+    if total == 0:
+        rehydrate_outcome = "failed_rehydration"
+        reason = "packet_has_no_selected_surfaces"
+    elif missing_count == total:
+        rehydrate_outcome = "failed_rehydration"
+        reason = "all_surfaces_missing"
+    elif drift_count > 0:
+        rehydrate_outcome = "drift_detected"
+        reason = f"{drift_count}/{total}_surfaces_drifted"
+    else:
+        rehydrate_outcome = "refreshed"
+        reason = f"{refreshed_count}/{total}_surfaces_verified" if refreshed_count else f"{total}/{total}_surfaces_present"
+
+    # Hot-path force allocation
+    if rehydrate_outcome == "refreshed":
+        current_claim_force = "restored_with_caveat" if expired else "active"
+    elif rehydrate_outcome == "drift_detected":
+        current_claim_force = "caution_only"
+    else:
+        current_claim_force = "none"
+
+    outcome_record = {
+        "rehydrate_outcome": rehydrate_outcome,
+        "reason": reason,
+        "packet_id": packet_id,
+        "packet_path": str(packet_path.relative_to(zone_root)) if str(packet_path).startswith(zone_root) else str(packet_path),
+        "birth_tic": birth_tic,
+        "current_tic": current_tic,
+        "expires_at_tic": expires_at,
+        "ttl_window_status": "expired" if expired else "active",
+        "current_claim_force": current_claim_force,
+        "surface_summary": {
+            "total": total,
+            "refreshed": refreshed_count,
+            "drift": drift_count,
+            "missing": missing_count,
+        },
+        "surface_results": surface_results,
+        "past_slice_preserved": True,
+        "rule": "Failed/drifted rehydration emits caution, not truth. Layer 1 packet untouched.",
+    }
+    print(json.dumps(outcome_record, indent=2))
+    return 0
+
+
 def main(argv: Optional[list[str]] = None) -> int:
+    raw = argv if argv is not None else sys.argv[1:]
+    # Subcommand dispatch (additive — preserves legacy single-mode invocation)
+    if raw and raw[0] == "rehydrate":
+        return rehydrate_main(raw[1:])
+
     p = argparse.ArgumentParser(description="RTCH — runtime tactical context hydration")
     p.add_argument("--goal")
     p.add_argument("--profile", choices=sorted(VALID_TARGET_PROFILES))
@@ -1327,7 +1593,7 @@ def main(argv: Optional[list[str]] = None) -> int:
     p.add_argument("--handoff-to-consolidate", action="store_true", dest="handoff")
     p.add_argument("--json", action="store_true", help="emit packet JSON to stdout (default)")
 
-    args = p.parse_args(argv)
+    args = p.parse_args(raw)
 
     intake = parse_intake(args)
     zone = orient_zone(intake)
