@@ -25,6 +25,7 @@ description: |
       - /inbox (both package content — inbox routes to entity, consolidate builds agent context)
       - pattern mining (both aggregate across surfaces)
       - archivist (both assemble multi-source state)
+      - /tactical-hydration (RTCH selects; consolidate packages — distinct boundaries; consolidate consumes RTCH selected_surfaces, does not duplicate discovery)
 
   WHEN:
   - when an arena needs a consolidated spec context surface
@@ -32,6 +33,7 @@ description: |
   - when cross-repo analysis requires a single merged surface
   - when packaging project state for handoff to another agent or session
   - when preparing review context for a tic range (git diff mode)
+  - when /tactical-hydration has emitted a packet whose selected_surfaces need to be consumed as a dump
   - on explicit Architect invocation
 
   NOT WHEN:
@@ -39,11 +41,13 @@ description: |
   - when the target is binary or non-text (consolidate skips binaries; use direct tools)
   - when the Architect just wants a directory listing (use ls/find)
   - mid-implementation when current focus requires narrow scope (consolidate widens by design)
+  - when discovery is needed first (the agent does not yet know which surfaces to package) — invoke /tactical-hydration to select targets first; do not blind-consolidate
 
   RELATES TO:
   - /inbox (package + route — consolidate produces the dump; inbox delivers it to an entity)
   - pattern mining (both aggregate — pattern mining extracts statistical shape; consolidate preserves full surface)
   - archivist (both assemble — archivist is for persistence; consolidate is for one-shot context)
+  - /tactical-hydration (compose — tactical-hydration is the discovery lane that selects targets; consolidate is the packaging lane that consumes those targets. Discovery and packaging do not collapse into one confidence claim. Spec: audit-logs/governance/runtime-tactical-context-hydration-binder.md)
 
   ARGS:
     stance: dispatch
