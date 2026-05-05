@@ -28,6 +28,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import math
 import os
 import pathlib
 import subprocess
@@ -419,17 +420,105 @@ def build_terrain_slice(census: dict[str, Any], tic: int, posture: str, mode: st
     }
 
 
+def build_manifold_active(sigs: list[dict[str, Any]], cur_tic: int) -> dict[str, Any]:
+    """Shape-bearing manifold_active object (P2 spec, tic 228 closeout).
+
+    Replaces input-boundary collapse where pressure = max(volumes)/100 was
+    Harmony's only reading of the active signal manifold. Emits the 12
+    required minimum fields. pressure_scalar_compat is preserved for
+    back-compat consumers but MUST NOT be the only field downstream reads.
+
+    Spec: audit-logs/governance/p2-harmony-manifold-input-patch-handoff-tic228.md
+    """
+    if not sigs:
+        return {
+            "active_signal_count": 0,
+            "unique_signal_count": 0,
+            "volume_max": 0,
+            "volume_sum": 0,
+            "volume_mean": 0.0,
+            "volume_entropy": 0.0,
+            "volume_gini": 0.0,
+            "cluster_count": 0,
+            "oldest_active_age_tics": 0,
+            "newest_active_age_tics": 0,
+            "recurrence_count": 0,
+            "pressure_scalar_compat": 0.0,
+        }
+
+    volumes = [int(s.get("volume", 0) or 0) for s in sigs]
+    ids = [s.get("id") for s in sigs if s.get("id")]
+    clusters = {(s.get("band") or "?", s.get("kind") or "?") for s in sigs}
+
+    vol_sum = sum(volumes)
+    vol_max = max(volumes)
+    vol_mean = vol_sum / len(volumes)
+
+    # Shannon entropy over normalized volume distribution (nats).
+    entropy = 0.0
+    if vol_sum > 0:
+        for v in volumes:
+            if v > 0:
+                p = v / vol_sum
+                entropy -= p * math.log(p)
+
+    # Gini coefficient over volumes (0 = perfect equality).
+    gini = 0.0
+    if vol_sum > 0:
+        sorted_vols = sorted(volumes)
+        n = len(sorted_vols)
+        cumulative = sum((i + 1) * v for i, v in enumerate(sorted_vols))
+        gini = (2 * cumulative) / (n * vol_sum) - (n + 1) / n
+
+    # Age: signals carry a 'tic' field on emit; conformation copies may omit it.
+    # Skip rather than fabricate when the source is silent.
+    ages = [
+        max(0, cur_tic - int(s.get("tic", 0) or 0))
+        for s in sigs
+        if int(s.get("tic", 0) or 0) > 0 and cur_tic > 0
+    ]
+    oldest = max(ages) if ages else 0
+    newest = min(ages) if ages else 0
+
+    # Recurrence: prefer per-signal recurrence_count; fall back to id collisions.
+    recurrence = sum(int(s.get("recurrence_count", 0) or 0) for s in sigs)
+    if recurrence == 0 and ids:
+        recurrence = len(ids) - len(set(ids))
+
+    pressure_scalar_compat = round((vol_max or 1) / 100.0, 2)
+
+    return {
+        "active_signal_count": len(sigs),
+        "unique_signal_count": len(set(ids)) if ids else 0,
+        "volume_max": vol_max,
+        "volume_sum": vol_sum,
+        "volume_mean": round(vol_mean, 3),
+        "volume_entropy": round(entropy, 4),
+        "volume_gini": round(gini, 4),
+        "cluster_count": len(clusters),
+        "oldest_active_age_tics": oldest,
+        "newest_active_age_tics": newest,
+        "recurrence_count": recurrence,
+        "pressure_scalar_compat": pressure_scalar_compat,
+    }
+
+
 def build_council_pressure(conf: dict[str, Any]) -> list[dict[str, Any]]:
     sigs = conf.get("active_signals", []) or []
     wrns = conf.get("active_warrants", []) or []
+    cur_tic = int(conf.get("tic_count_physical") or 0)
     poles: list[dict[str, Any]] = []
     if sigs:
-        max_vol = max(int(s.get("volume", 0) or 0) for s in sigs) or 1
+        manifold_shape = build_manifold_active(sigs, cur_tic)
+        max_vol = manifold_shape["volume_max"] or 1
         poles.append({
             "poleId": "council.manifold_active",
             "poleName": "Active Manifold",
-            "pressure": round(max_vol / 100.0, 2),
+            # pressure preserved as derived/compat for unaudited downstream consumers.
+            # Authoritative shape lives in manifold_active below.
+            "pressure": manifold_shape["pressure_scalar_compat"],
             "direction": "strains" if max_vol > 30 else "holds",
+            "manifold_active": manifold_shape,
         })
     if wrns:
         poles.append({
