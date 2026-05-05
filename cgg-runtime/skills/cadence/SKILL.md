@@ -273,6 +273,18 @@ This is a 2-minute journaling step. If the session had zero delegations, skip. W
 ### Phase 2: PLAN MODE — The Handoff (Steps 3-4)
 
 #### Step 3: Enter Plan Mode
+
+**Step 3a — Read the active plan file FIRST (Look-First gate, mandatory).**
+Before invoking `EnterPlanMode`, locate the most-recent file in `~/.claude/plans/` (by mtime) and **Read it via the Read tool**. The Claude Code plan-write surface (`Updated plan` / native plan UI write) is hard-gated by the harness: it refuses to update a plan file unless that file has been Read in the current session. Globbing, `ls`, or referring to it from prior context does not satisfy the gate — only an explicit Read tool invocation does. Skipping this step produces a `File has not been read yet. Read it first before writing to it.` error mid-write, costing the session a retry and a stalled plan emission. The Read also feeds Discernment-at-Penning Discipline (below) — same act, two purposes.
+
+```bash
+# Locate by mtime
+ACTIVE_PLAN=$(ls -t ~/.claude/plans/*.md 2>/dev/null | head -1)
+echo "Active plan file: $ACTIVE_PLAN"
+# Then Read tool: Read(file_path=$ACTIVE_PLAN)
+```
+
+**Step 3b — Invoke EnterPlanMode.**
 Use the `EnterPlanMode` tool to switch to Claude Code's native plan mode. This is mandatory and mechanical — call the tool, do not just declare the shift.
 
 #### Step 4: Write the Handoff as the Plan
@@ -519,6 +531,10 @@ Use the same `$CADENCE_OPS` resolution from the downbeat Step 0.5 section.
 
 #### Step 3: Enter Plan Mode
 
+**Step 3a — Read the active plan file FIRST (Look-First gate, mandatory).**
+Before invoking `EnterPlanMode`, locate the most-recent file in `~/.claude/plans/` (by mtime) and **Read it via the Read tool**. The plan-write surface is hard-gated by the harness: it refuses to update a plan file unless that file has been Read in the current session. Skipping this step produces a `File has not been read yet. Read it first before writing to it.` error mid-write. Same gate, same fix as the downbeat path — even in emergency syncopate cadence, this 1-tool-call cost is mandatory.
+
+**Step 3b — Invoke EnterPlanMode.**
 Use the `EnterPlanMode` tool to switch to Claude Code's native plan mode. This is mandatory and mechanical — call the tool, do not just declare the shift.
 
 #### Step 4: Write the Handoff as the Plan
