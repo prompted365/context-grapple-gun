@@ -41,6 +41,21 @@ Return:
 5. receipt closeout
 ```
 
+## Resource allocation
+
+- **Destination**: `publications/tic230-probity-<descriptor>-frederick-grant.md`
+- **Thoroughness target**: 8–20KB; focused passage on a runtime probity event
+- **Tactical hydration intake** (Stage 02 binding):
+  - `target_profile`: `audit_history`
+  - `fanout_level`: `normal`
+  - `mutation_risk`: `read_only`
+  - `expected_output`: `hydration_packet`
+  - `explicit_seeds` (typical): audit-logs/governance/p[12]-*-receipt-tic230.md + audit-logs/governance/rtch-design-lane/thermal-ttl-extension-tic227.md + audit-logs/harmony/input-tic-230.json
+  - Apply full-file-read shortcuts per `reference/hydration-protocol.md`.
+  - Block composition until RTCH halts with `enough_evidence_definition_satisfied`.
+
+See `reference/output-destinations.md` for the destination convention and editor's marginalia placement; see `reference/hydration-protocol.md` for the full intake template and full-file-read shortcuts.
+
 ## Closeout
 
 End by naming what landed, what remains unresolved, and what would change the verdict.

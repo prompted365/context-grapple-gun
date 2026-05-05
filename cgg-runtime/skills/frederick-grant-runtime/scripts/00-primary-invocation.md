@@ -41,6 +41,21 @@ Return:
 5. receipt closeout
 ```
 
+## Resource allocation
+
+- **Destination**: `(per resolved register)`
+- **Thoroughness target**: Per resolved register; defer to the class the work resolves to
+- **Tactical hydration intake** (Stage 02 binding):
+  - `target_profile`: `mixed`
+  - `fanout_level`: `normal`
+  - `mutation_risk`: `read_only`
+  - `expected_output`: `hydration_packet`
+  - `explicit_seeds` (typical): task-dependent
+  - Apply full-file-read shortcuts per `reference/hydration-protocol.md`.
+  - Block composition until RTCH halts with `enough_evidence_definition_satisfied`.
+
+See `reference/output-destinations.md` for the destination convention and editor's marginalia placement; see `reference/hydration-protocol.md` for the full intake template and full-file-read shortcuts.
+
 ## Closeout
 
 End by naming what landed, what remains unresolved, and what would change the verdict.

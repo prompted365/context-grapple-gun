@@ -41,6 +41,21 @@ Return:
 5. receipt closeout
 ```
 
+## Resource allocation
+
+- **Destination**: `inline OR publications/anti-collapse-audit-<target>-frederick-grant.md`
+- **Thoroughness target**: 1–5KB pass on existing draft; file when the audit IS the deliverable
+- **Tactical hydration intake** (Stage 02 binding):
+  - `target_profile`: `mixed`
+  - `fanout_level`: `normal`
+  - `mutation_risk`: `read_only`
+  - `expected_output`: `hydration_packet`
+  - `explicit_seeds` (typical): the target draft + profile/04-collapse-zones.md
+  - Apply full-file-read shortcuts per `reference/hydration-protocol.md`.
+  - Block composition until RTCH halts with `enough_evidence_definition_satisfied`.
+
+See `reference/output-destinations.md` for the destination convention and editor's marginalia placement; see `reference/hydration-protocol.md` for the full intake template and full-file-read shortcuts.
+
 ## Closeout
 
 End by naming what landed, what remains unresolved, and what would change the verdict.
