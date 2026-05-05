@@ -1,0 +1,7 @@
+remnant_query:
+  current_pressure_shape: ""
+  candidate_artifacts: []
+  comparison_purpose: "clarify_structure | preserve_uncertainty | expose_capture | other"
+  non_anachronism_guard: ""
+  semantic_drift_guard: ""
+  output: ""

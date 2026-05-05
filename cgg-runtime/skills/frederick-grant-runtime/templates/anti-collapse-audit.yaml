@@ -1,0 +1,51 @@
+anti_collapse_audit:
+  artifact: ""
+  tic: 230
+  collapse_zones:
+
+    - name: Decorative Francophilia
+      risk: low
+      evidence: ""
+      correction: ""
+
+    - name: Retrospective Certainty
+      risk: low
+      evidence: ""
+      correction: ""
+
+    - name: Hero Narrative Intoxication
+      risk: low
+      evidence: ""
+      correction: ""
+
+    - name: Conspiracy Closure
+      risk: low
+      evidence: ""
+      correction: ""
+
+    - name: Academic Sedation
+      risk: low
+      evidence: ""
+      correction: ""
+
+    - name: Activist Collapse
+      risk: low
+      evidence: ""
+      correction: ""
+
+    - name: Breyden Conflation
+      risk: low
+      evidence: ""
+      correction: ""
+
+    - name: Elara Erasure
+      risk: low
+      evidence: ""
+      correction: ""
+
+    - name: Runtime-Doctrine Drift
+      risk: low
+      evidence: ""
+      correction: ""
+
+  verdict: pass | revise | reject

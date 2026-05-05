@@ -65,6 +65,8 @@ INSTALL_TARGETS = _MANIFEST["install_targets"]
 
 SYNC_EXCLUDE = set(_MANIFEST.get("sync_exclude", []))
 
+EXCLUDE_PATTERNS = list(_MANIFEST.get("exclude_patterns", []))
+
 # Overrides in manifest use relative paths (~/.claude/...); expand to absolute
 INSTALL_PATH_OVERRIDES = {
     k: os.path.join(os.path.expanduser("~"), v)
@@ -89,20 +91,68 @@ def discover_surfaces(plugin_root, zone_root):
             continue
 
         if category == "skills":
-            # Skills: each subdirectory with a SKILL.md
+            # Skills: each subdirectory with a SKILL.md (entrypoint).
+            # Multi-file skills: any sibling files/dirs alongside SKILL.md
+            # (profile/, stages/, scripts/, reference/, templates/, tools/,
+            # evals/, README.md, etc.) are also synced so persona-runtime
+            # skills with rich layouts install completely. Sub-files appear
+            # as individual surfaces named "skill:<entry>:<rel_path>" so
+            # drift is reported per-file.
             for entry in sorted(os.listdir(canonical_dir)):
-                skill_file = os.path.join(canonical_dir, entry, "SKILL.md")
-                if os.path.isfile(skill_file):
-                    installed = os.path.join(
-                        home_dir, spec["installed_subdir"], entry, "SKILL.md"
-                    )
-                    surfaces.append({
-                        "name": f"skill:{entry}",
-                        "canonical": skill_file,
-                        "installed": installed,
-                        "type": spec["type"],
-                        "category": category,
-                    })
+                skill_dir = os.path.join(canonical_dir, entry)
+                skill_file = os.path.join(skill_dir, "SKILL.md")
+                if not os.path.isfile(skill_file):
+                    continue
+                # Entrypoint surface (canonical name preserved for log compat).
+                installed_entry_dir = os.path.join(
+                    home_dir, spec["installed_subdir"], entry
+                )
+                surfaces.append({
+                    "name": f"skill:{entry}",
+                    "canonical": skill_file,
+                    "installed": os.path.join(installed_entry_dir, "SKILL.md"),
+                    "type": spec["type"],
+                    "category": category,
+                })
+                # Recurse into skill subdirectory and pick up every other
+                # file as its own surface. Multi-file skills require this;
+                # single-file skills produce no extra surfaces.
+                #
+                # Skill-internal files (including README.md, profile/, etc.)
+                # are content of the skill, NOT category-level orphans, so
+                # the manifest-level EXCLUDE_PATTERNS (which target top-of-
+                # category cruft like a stray README.md or __pycache__) do
+                # not apply at this depth. Only structural excludes (build
+                # artifacts, version-control dirs, hidden dotfiles) are
+                # honored here.
+                _SKILL_INTERNAL_DIR_EXCLUDE = {
+                    ".git", "node_modules", "__pycache__", ".pytest_cache",
+                }
+                _SKILL_INTERNAL_FILE_SUFFIX_EXCLUDE = (
+                    ".pyc", ".pyo", ".DS_Store",
+                )
+                for root, dirs, files in os.walk(skill_dir):
+                    dirs[:] = [
+                        d for d in dirs
+                        if d not in _SKILL_INTERNAL_DIR_EXCLUDE
+                        and not d.startswith(".")
+                    ]
+                    for fname in files:
+                        if root == skill_dir and fname == "SKILL.md":
+                            continue  # already added as entrypoint
+                        if fname.startswith("."):
+                            continue  # hidden file
+                        if fname.endswith(_SKILL_INTERNAL_FILE_SUFFIX_EXCLUDE):
+                            continue  # build artifact
+                        canonical_path = os.path.join(root, fname)
+                        rel = os.path.relpath(canonical_path, skill_dir)
+                        surfaces.append({
+                            "name": f"skill:{entry}:{rel}",
+                            "canonical": canonical_path,
+                            "installed": os.path.join(installed_entry_dir, rel),
+                            "type": spec["type"],
+                            "category": category,
+                        })
         elif category == "agents":
             # Agents: each .md file in agents/
             for entry in sorted(os.listdir(canonical_dir)):

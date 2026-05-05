@@ -1,0 +1,24 @@
+{
+  "source_video": "substrate-story-1777821849095.mp4",
+  "retained_media": false,
+  "duration_seconds_approx": 9.57,
+  "resolution": "3840x2160",
+  "frame_rate": 30,
+  "sampling": "temporary 12-frame contact sheet, descriptions only retained",
+  "overall_read": "Navigable substrate-city or Telos-Anchorage abstraction object with central centroid, radial/cable geometry, suspended signal bodies, and cold surrounding basin.",
+  "frames": [
+    {"frame": 1, "approx_time": "0.0s", "description": "Wide central island/city with tower, cyan panels, dark basin, distant hills.", "structural_read": "central centroid established"},
+    {"frame": 2, "approx_time": "0.8s", "description": "Closer view of tower, lower scaffolding, ring paths, radial light lines.", "structural_read": "approach from map-level to traversable layer"},
+    {"frame": 3, "approx_time": "1.6s", "description": "Understructure with green rods, purple spheres, pale orbs, support columns.", "structural_read": "manifold pressure layer exposed"},
+    {"frame": 4, "approx_time": "2.4s", "description": "Dense rods, spheres, white columns, shadowed voids.", "structural_read": "inside cable/ray forest"},
+    {"frame": 5, "approx_time": "3.2s", "description": "Large pale orb, multiple purple signal nodes, vertical rods.", "structural_read": "materialized pressure field"},
+    {"frame": 6, "approx_time": "4.0s", "description": "Dense underside and rods with repeated suspended nodes.", "structural_read": "chorus/manifold not scalar"},
+    {"frame": 7, "approx_time": "4.8s", "description": "Underside, dark void, prominent purple sphere at right.", "structural_read": "unresolved basin / dependency shadow"},
+    {"frame": 8, "approx_time": "5.6s", "description": "Side emergence, spiral/ribbed architecture, cyan panel, satellite ring.", "structural_read": "transition to exterior and sub-centroid"},
+    {"frame": 9, "approx_time": "6.4s", "description": "Wide coherent city view with glowing orbit lines and ring object.", "structural_read": "full object coherence returns"},
+    {"frame": 10, "approx_time": "7.2s", "description": "Stable wide orbit with tower, panels, hills.", "structural_read": "holding geometry"},
+    {"frame": 11, "approx_time": "8.0s", "description": "Wide tower and radial platform view.", "structural_read": "centroid stabilization"},
+    {"frame": 12, "approx_time": "8.8s", "description": "Closing high-wide view with central tower, two cyan panels, ring object.", "structural_read": "central centroid plus rays and satellite visible"}
+  ],
+  "avoid": ["flat infographic reduction", "retained extracted images", "single orb as full manifold", "dashboard UI aesthetic"]
+}

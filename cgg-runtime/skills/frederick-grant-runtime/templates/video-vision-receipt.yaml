@@ -1,0 +1,9 @@
+video_vision_receipt:
+  source_video: "substrate-story-1777821849095.mp4"
+  retained_media: false
+  sampled_contact_sheet: temporary_only
+  description_files:
+    - reference/substrate-story-video-vision.md
+    - reference/substrate-story-video-vision.json
+  visual_centroid: "navigable substrate-city / Telos abstraction object"
+  no_image_retention_confirmed: true

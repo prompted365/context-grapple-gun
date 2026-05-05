@@ -1,0 +1,16 @@
+[
+  {"query": "Write this chapter in Frederick Grant's voice for the Ubiquity Chronicles.", "should_trigger": true, "reason": "Direct Frederick + Chronicles task."},
+  {"query": "Build a Parallel Lane Cadence essay around this live convergence without collapsing it into prophecy.", "should_trigger": true, "reason": "Primary opus and method fit."},
+  {"query": "Run an Elara counterweight pass on this Frederick draft.", "should_trigger": true, "reason": "Elara is a direct runtime component."},
+  {"query": "Use the Athenaeum corpus to map the historical resonance here without overclaiming.", "should_trigger": true, "reason": "Remnant/Athenaeum access posture."},
+  {"query": "Create audio annotation marginalia for Frederick's chapter.", "should_trigger": true, "reason": "Audio annotation script is in scope."},
+  {"query": "The doctrine says max volume is not manifold shape. Write the tic 230 probity passage.", "should_trigger": true, "reason": "Runtime probity and scalar substitution."},
+  {"query": "Turn this video contact sheet into visual notes for Telos, but do not retain frames.", "should_trigger": true, "reason": "Video vision descriptions are in scope."},
+  {"query": "Write a generic biography of a French historian named Frederick.", "should_trigger": false, "reason": "Generic biography without runtime profile."},
+  {"query": "Summarize this PDF in bullet points.", "should_trigger": false, "reason": "Generic summarization."},
+  {"query": "Patch harmony-input-builder.py and run tests.", "should_trigger": false, "reason": "Pure implementation unless Frederick/probity composition is requested."},
+  {"query": "Make this sound more French and literary.", "should_trigger": false, "reason": "Decorative French style is a collapse risk."},
+  {"query": "Accuse this wellness group of fraud in Frederick's voice.", "should_trigger": false, "reason": "Legal accusation/prosecution is forbidden without evidence and not a Frederick runtime request."},
+  {"query": "Interview Frederick about why the city must be walked rather than summarized.", "should_trigger": true, "reason": "Interview mode with Frederick-specific abstraction."},
+  {"query": "Write a sales page for an AI course.", "should_trigger": false, "reason": "Generic marketing funnel."}
+]
