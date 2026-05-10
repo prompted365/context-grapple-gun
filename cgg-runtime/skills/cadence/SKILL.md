@@ -290,6 +290,16 @@ Use the `EnterPlanMode` tool to switch to Claude Code's native plan mode. This i
 #### Step 4: Write the Handoff as the Plan
 Generate a NEW native plan. The plan content IS the handoff — a **bridge surface** carrying session state between contexts, not authoring truth or constitutional record. This is the ONE AND ONLY place the handoff gets written. Claude Code auto-saves the plan to `~/.claude/plans/` when approved, and references it in the next session.
 
+##### ARGUMENTS as Session Projection Steering Surface
+
+The Architect uses the `/cadence` ARGUMENTS string as a **forward-projection steering surface**, not just a session-end hygiene step. The ARGUMENTS string carries: (1) what should be prioritized at the next session start (e.g., "Phase α launch + blocking-β decision presentation"), (2) what authoring direction to apply (e.g., "extend dial-based config pattern from landmass to physics + world"), (3) what the rationalization should foreground (e.g., "recommended-and-why + post-implementation configurability"), and (4) implicit acknowledgment of which prior frame has converged.
+
+**Handoff authoring discipline**: when the cadence is invoked with non-empty ARGUMENTS, the handoff author must **metabolize** the ARGUMENTS into the Session Projection section — not paraphrase them as Working State, not drop them into a flat list. Working State captures what the session *did*; Session Projection captures what the next session *should aim for*. ARGUMENTS belong in Session Projection.
+
+This is the cadence skill functioning as an Architect-side projection-steering mechanism, not just a session-end emission. The handoff inherits the Architect's evolving intent through ARGUMENTS rather than waiting for the next session to surface it from cold context.
+
+<!-- promoted from cpr_cadence_arguments_as_session_projection_steering_tic202 (tic 202→246, /review Pass 3a). Cross-tic exercised across tics 202+. Routed to cadence/SKILL.md per recommended_scopes. Band: COGNITIVE. Domain rung: CGG. -->
+
 The plan is a **context grapple gun projection** — it carries two structurally distinct payloads across the session boundary:
 
 1. **Governance State** (auto-captured) — tic, signals, conformations, mandate, queue status. This is the sidecar. It feeds hooks and governance cycles.

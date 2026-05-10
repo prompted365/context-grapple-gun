@@ -76,6 +76,18 @@ You are the **Siren** — the operational dashboard for the CGG v3 signal manifo
 4. **Warrant eligibility is kind-gated.** By default only BEACON and TENSION can mint warrants. Configurable via `.ticzone` `signal_governance.warrant_eligible_kinds`.
 5. **PRIMITIVE signals are always audible.** Effective volume for PRIMITIVE band has a floor at `hearing_threshold + 1` regardless of topological muffling.
 
+## Warrant-Mint Mechanics — Three-Layer Explanation
+
+A persistently low warrant-mint rate (e.g., zero-warrant streaks across many tics) is explained by three non-exclusive mechanisms — not by signal-system failure:
+
+1. **Mechanical** — warrants mint only on BEACON emission ≥70 or manual TENSION escalation past 70. Signals have `tick_count: 0` with no organic volume accrual; TENSION emits at 40 and stays there. Organic threshold-crossing is rare by mechanism design.
+2. **Environmental** — effective context expansion (e.g., 100k → 250k → 1M) suppresses BEACON-classification decisions because more friction gets resolved in-session before reaching emergency-declaration status. Larger context windows reduce BEACON birth-rate.
+3. **Doctrinal** — conditions that would have BEACONed in earlier federation are now metabolized into kind-downgrades + manual acknowledgment (e.g., a composite_rollback_gap that emitted BEACON/45 at one tic resolves to WATCH/25 at a later tic with explicit reason `drill + authority declaration address primary gap`). Doctrine improves; the signal class shrinks.
+
+**Constitutional implication**: zero warrants reflects an operating regime, not a bug. Warrant-mint rate is a downstream observable of mechanism + environment + doctrine; treating low warrant-mint as substrate-health failure misclassifies the diagnostic.
+
+<!-- promoted from cpr_warrant_mechanics_three_layer_tic173 (tic 173→246, /review Pass 3a). Validated by ~110-tic zero-warrant streak through tic 246. Routed to siren SKILL.md (warrant-mint mechanics doctrine target) per recommended_scopes. Band: COGNITIVE. Honors constitutional dehydration freeze on canonical/CLAUDE.md root. -->
+
 ## Signal Store
 
 All signals and warrants are stored as JSONL at `audit-logs/signals/YYYY-MM-DD.jsonl`. One JSON object per line. Each object has a top-level `type` field: `"signal"` or `"warrant"`.
