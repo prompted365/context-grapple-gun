@@ -453,6 +453,30 @@ def check_orphans(queue, project_dir, inscribed_ids=None):
 # Main pipeline
 # ---------------------------------------------------------------------------
 
+def load_mandate_id(al_path):
+    """Read (mandate_id, tic) from audit-logs/mogul/mandates/current.json.
+
+    Returns (None, None) when current.json is absent or unreadable. The caller
+    falls back to timestamp-keyed identity and emits a stderr warning so the
+    canonical-identity instability is visible per T4c spec.
+    """
+    mandate_path = Path(al_path) / "mogul" / "mandates" / "current.json"
+    try:
+        data = json.loads(mandate_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return (None, None)
+    mandate_id = data.get("mandate_id")
+    tic = data.get("tic")
+    if tic is None:
+        tic_ctx = data.get("tic_context") or {}
+        tic = tic_ctx.get("current_tic")
+    if tic is None and isinstance(mandate_id, str):
+        m = re.match(r"tic-(\d+)-", mandate_id)
+        if m:
+            tic = int(m.group(1))
+    return (mandate_id, tic)
+
+
 def run_check(project_dir, dry_run=False):
     """Run the full review-close consistency check."""
     project_dir = os.path.abspath(project_dir)
@@ -527,12 +551,72 @@ def run_check(project_dir, dry_run=False):
     }
 
     if not dry_run:
+        # T4c spec: canonical artifact identity is mandate-keyed, not timestamp-keyed.
+        # Filesystem enforces per-mandate uniqueness so N=2 is structurally impossible;
+        # N=0 remains operational concern (script not running) and is upstream of this gate.
+        from lib.atomic_append import atomic_append_jsonl
+
         report_dir = os.path.join(al_path, "mogul", "cycle-reports", "review-close-checks")
         os.makedirs(report_dir, exist_ok=True)
-        timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H%M%S")
-        output_path = os.path.join(report_dir, f"{timestamp}-check.json")
-        Path(output_path).write_text(json.dumps(report, indent=2), encoding="utf-8")
+
+        mandate_id, mandate_tic = load_mandate_id(al_path)
+        if mandate_id:
+            output_filename = f"{mandate_id}-check.json"
+        else:
+            timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H%M%S")
+            output_filename = f"{timestamp}-check.json"
+            print(
+                "WARNING: review_close_check write without mandate_id; "
+                "falling back to timestamp identity (canonical artifact identity unstable).",
+                file=sys.stderr,
+            )
+        output_path = os.path.join(report_dir, output_filename)
+
+        decision = "write"
+        if mandate_id and os.path.exists(output_path):
+            try:
+                prior = json.loads(Path(output_path).read_text(encoding="utf-8"))
+                if prior.get("findings") == report["findings"]:
+                    decision = "skip"
+                else:
+                    decision = "replace"
+            except (OSError, json.JSONDecodeError):
+                # Corrupt or unreadable prior — overwrite under latest-wins semantics.
+                decision = "replace"
+
+        if decision == "skip":
+            print(
+                f"INFO: review_close_check skipped (identical report exists for mandate {mandate_id}).",
+                file=sys.stderr,
+            )
+        else:
+            Path(output_path).write_text(json.dumps(report, indent=2), encoding="utf-8")
+            if decision == "replace":
+                print(
+                    f"INFO: review_close_check replaced existing report for mandate {mandate_id} (findings changed).",
+                    file=sys.stderr,
+                )
+            elif mandate_id:
+                print(
+                    f"INFO: review_close_check wrote consistency report for mandate {mandate_id}.",
+                    file=sys.stderr,
+                )
+
         report["_output_path"] = output_path
+
+        log_entry = {
+            "mandate_id": mandate_id,
+            "tic": mandate_tic,
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "decision": decision,
+            "report_path": output_path,
+            "findings_count": len(report["findings"]),
+            "consistent": report["summary"]["consistent"],
+        }
+        atomic_append_jsonl(
+            os.path.join(al_path, "services", "review-close-check-log.jsonl"),
+            log_entry,
+        )
 
     return report
 
