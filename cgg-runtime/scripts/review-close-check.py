@@ -106,6 +106,19 @@ _PATH_CHARS = re.compile(r"^[~./\w-]+(?:/[~./\w-]+)*\.[a-zA-Z]+$")
 # parentheses are extremely rare and excluded by the leading-space guard.
 _SCOPE_HINT_RE = re.compile(r"^(.*?)\s+\(.*\)$", re.DOTALL)
 
+# Receipt-closure annotation: parenthetical of the form "(already inscribed ...)" or
+# "(... already inscribed ...)" signals that the doctrine is inscribed at a prior tic
+# in a sibling surface. Presence is a strong receipt-closure signal — the gate then
+# verifies via filesystem-existence-of-target rather than literal-content match.
+_RECEIPT_CLOSURE_ANNOTATION_RE = re.compile(r"\(\s*[^)]*\balready\s+inscribed\b[^)]*\)", re.IGNORECASE)
+
+# Anchor/line-range suffix on a target path:
+#   file.md:N-M  or  file.md:N   (line range)
+#   file.md#heading-anchor       (markdown heading anchor)
+#   file.yaml#path.to.field      (YAML key path anchor)
+# Stripped before filesystem resolution; preserved in reporting.
+_PATH_ANCHOR_RE = re.compile(r"^([^#:\s]+\.[A-Za-z]+)(?:[#:][^\s]*)?$")
+
 
 def _strip_scope_hint(s):
     """Strip a trailing parenthesized scope hint from a target string.
@@ -125,6 +138,49 @@ def _strip_scope_hint(s):
     return s
 
 
+def _strip_path_anchor(s):
+    """Strip line-range, heading anchor, or YAML key-path suffix from a target.
+
+    Receipt-closure PROMOTES often point at specific locations inside a file
+    (e.g. "file.md:389-391", "file.md#section", "envelopes.yaml#cockpit.intent.field").
+    The suffix is structurally meaningful (it names the inscription location) but
+    must be stripped before filesystem resolution. Suffix is preserved in the
+    targets_checked report field; only the bare file path is used for resolution.
+
+    Examples:
+        "file.md:389-391"               -> "file.md"
+        "file.md#anchor-name"           -> "file.md"
+        "envelopes.yaml#path.to.field"  -> "envelopes.yaml"
+        "file.md"                       -> "file.md"  (unchanged)
+    """
+    m = _PATH_ANCHOR_RE.match(s.strip())
+    if m:
+        return m.group(1)
+    return s
+
+
+def _split_compound_targets(s):
+    """Split a compound `+`-joined target string into individual targets.
+
+    Receipt-closure PROMOTES sometimes name multiple co-inscription surfaces
+    in a single promoted_to string joined by ` + `. Each split component is
+    a candidate target in its own right.
+
+    Example:
+        "file.md (estate doctrine) + dir.ts (StructureCategory union)"
+            -> ["file.md (estate doctrine)", "dir.ts (StructureCategory union)"]
+        "file.md"  -> ["file.md"]  (no split needed)
+    """
+    if " + " not in s:
+        return [s]
+    return [part.strip() for part in s.split(" + ") if part.strip()]
+
+
+def _has_receipt_closure_annotation(s):
+    """Detect '(already inscribed ...)' parenthetical receipt-closure marker."""
+    return bool(_RECEIPT_CLOSURE_ANNOTATION_RE.search(s))
+
+
 def _looks_like_file_path(s):
     """Heuristic: does this string look like a file path (vs natural-language description)?"""
     if not s or not isinstance(s, str):
@@ -141,10 +197,14 @@ def _looks_like_file_path(s):
 def _read_target(target_str, project_dir, project_basename=None):
     """Resolve a target string to a filesystem path and return its content.
 
-    Applies two normalizations before resolving:
+    Applies three normalizations before resolving:
       1. Parenthetical scope-hint stripping — "canonical/CLAUDE.md (refined 'X')"
          becomes "canonical/CLAUDE.md".
-      2. Federation-prefix stripping — when the first path segment matches the
+      2. Path-anchor stripping — "file.md:389-391", "file.md#anchor",
+         "file.yaml#field.path" all reduce to their bare file path. The anchor
+         suffix is structurally meaningful (names the inscription location) but
+         is not a filesystem path component.
+      3. Federation-prefix stripping — when the first path segment matches the
          federation repo's basename (e.g. "canonical/CLAUDE.md" where the repo
          is named "canonical"), strip that segment and resolve relative to
          project_dir.  This handles queue entries that record paths relative to
@@ -153,6 +213,7 @@ def _read_target(target_str, project_dir, project_basename=None):
     Returns file content as str, or "" if the file cannot be read.
     """
     bare = _strip_scope_hint(target_str)
+    bare = _strip_path_anchor(bare)
 
     if bare.startswith("~"):
         path = os.path.expanduser(bare)
@@ -184,6 +245,43 @@ def _read_target(target_str, project_dir, project_basename=None):
     return ""
 
 
+def _target_exists(target_str, project_dir, project_basename=None):
+    """Return True if target resolves to an existing file or directory.
+
+    Used by the receipt-closure axis: when a target carries the
+    "(already inscribed ...)" annotation, existence-of-target is sufficient
+    evidence that the inscription has a real referent — the actual doctrine
+    content lives in a sibling surface (prior tic's commit) and the
+    promoted_to string is a pointer to where it was inscribed, not a
+    verification target for literal-content match.
+
+    Applies the same normalizations as _read_target but checks os.path.exists
+    rather than reading content. Handles trailing slashes (directory targets)
+    by stripping them before lookup.
+    """
+    bare = _strip_scope_hint(target_str).rstrip("/")
+    bare = _strip_path_anchor(bare)
+
+    if bare.startswith("~"):
+        return os.path.exists(os.path.expanduser(bare))
+
+    if os.path.isabs(bare):
+        return os.path.exists(bare)
+
+    path = os.path.join(project_dir, bare)
+    if os.path.exists(path):
+        return True
+
+    if project_basename:
+        parts = bare.replace("\\", "/").split("/")
+        if parts and parts[0] == project_basename:
+            stripped = "/".join(parts[1:])
+            if stripped and os.path.exists(os.path.join(project_dir, stripped)):
+                return True
+
+    return False
+
+
 def check_promoted(cpr_id, cpr, project_dir, inscribed_ids=None, lesson_fallbacks=None):
     """Verify promoted CPR text landed in target file.
 
@@ -196,10 +294,24 @@ def check_promoted(cpr_id, cpr, project_dir, inscribed_ids=None, lesson_fallback
            the promoted entry is a minimal writeback row with no lesson field
       4. (fallback) promoted_to is a tilde path that resolves to an existing non-empty file
          for entries where the lesson cannot be recovered from any queue row
+      5. RECEIPT-CLOSURE axis: target carries an "(already inscribed ...)" parenthetical
+         annotation AND the bare-path target resolves to an existing file/directory.
+         Receipt-closure PROMOTES point at sibling surfaces where the doctrine was
+         inscribed in a prior tic; the promoted_to string is a pointer, not a literal-
+         content verification target. Existence-of-target is sufficient evidence under
+         this axis. (Refines federation KI "Verification-gate drift requires dual fix"
+         — extends the dual-fix pattern from legacy stale targets to structurally-typed
+         sibling-surface receipt-closure targets per
+         cpr_verification_gate_drift_receipt_closure_instance_tic259.)
 
-    Parenthesized scope hints in target paths (e.g.
-    "canonical/CLAUDE.md (refined 'X' Key Invariant)") are stripped before
-    filesystem resolution but preserved in the targets_checked report field.
+    Target normalization:
+      - Parenthesized scope hints stripped before path resolution
+        ("file.md (refined 'X')" -> "file.md")
+      - Anchor/line-range/YAML-key-path suffixes stripped
+        ("file.md:N-M", "file.md#anchor", "file.yaml#field.path" -> "file.md")
+      - Compound `+`-joined targets split into individual components
+        ("file.md + dir.ts" -> ["file.md", "dir.ts"])
+      - Federation-prefix stripping retried when bare path fails
 
     Targets, in priority order: promoted_to (verdict-side authoritative),
     promotion_target (legacy), recommended_scopes (filtered to file-path-shaped entries).
@@ -225,16 +337,24 @@ def check_promoted(cpr_id, cpr, project_dir, inscribed_ids=None, lesson_fallback
     target = cpr.get("promotion_target", "")
     scopes = cpr.get("recommended_scopes", [])
 
-    targets = []
+    # Collect raw target strings (compound-aware: split `+`-joined targets).
+    raw_targets = []
     if isinstance(promoted_to, str) and promoted_to:
-        targets.append(promoted_to)
+        raw_targets.append(promoted_to)
     elif isinstance(promoted_to, list):
-        targets.extend([p for p in promoted_to if isinstance(p, str) and p])
+        raw_targets.extend([p for p in promoted_to if isinstance(p, str) and p])
     if target:
-        targets.append(target)
+        raw_targets.append(target)
     for s in scopes:
         if _looks_like_file_path(s):
-            targets.append(s)
+            raw_targets.append(s)
+
+    # Split compound targets ("A + B") into individual components, preserving
+    # original raw strings for reporting via targets_checked.
+    targets = []
+    for raw in raw_targets:
+        for component in _split_compound_targets(raw):
+            targets.append(component)
 
     if not targets:
         findings.append({
@@ -255,6 +375,12 @@ def check_promoted(cpr_id, cpr, project_dir, inscribed_ids=None, lesson_fallback
     project_basename = os.path.basename(project_dir)
 
     for t in targets:
+        # Receipt-closure axis (#5): annotation signals doctrine inscribed in a prior tic
+        # at a sibling surface; existence-of-target is sufficient evidence.
+        if _has_receipt_closure_annotation(t) and _target_exists(t, project_dir, project_basename):
+            found_in_any = True
+            break
+
         content = _read_target(t, project_dir, project_basename)
         if not content:
             continue
