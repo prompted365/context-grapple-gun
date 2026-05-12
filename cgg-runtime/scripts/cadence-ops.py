@@ -442,6 +442,17 @@ def compute_due_cycles(tic: int) -> list:
     # proliferation avoidance, not pattern_mining coupling per se).
     cycles = ["queue_refresh", "signal_scan", "harmony_invoke"]  # always due
 
+    if tic % 2 == 0:
+        # T6a (tic 259 close, landed at tic 260 entry): re-include review_close_check
+        # in mandate cycles. T5a (CGG commit 47a916f) landed the runtime emit-side
+        # dedup gate, making the Artifact-Count-≠-1 N=2 case structurally impossible
+        # (one canonical {mandate_id}-check.json per mandate). The cycle-7+ inhibition
+        # pattern (tics 252-257 omission + tic 258 failed mandate) is mechanically
+        # resolved; this re-include closes the operational source per the
+        # Conductor-Score-Runtime Parity invariant. Modulo chosen as `tic % 2 == 0`:
+        # dense enough to track /review-close drift (which fires every 2-3 tics in
+        # active periods) without padding every mandate.
+        cycles.append("review_close_check")
     if tic % 3 == 0:
         cycles.append("memory_mining")
         cycles.append("cache_refresh")
