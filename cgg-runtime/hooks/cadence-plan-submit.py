@@ -196,6 +196,42 @@ def run_git_cycle() -> dict:
     }
 
 
+def run_rebru_emit() -> dict:
+    """Fire rebru-cadence-emit (T3 Bite 3) at /cadence downbeat.
+
+    Non-blocking, fail-soft: if the emitter is missing or errors, the hook
+    proceeds without emitting a ReBru block. The cadence handoff is the
+    load-bearing artifact; the ReBru block is supplementary v0 probe data.
+
+    Bite 3 hook integration per T4a spec §13.
+    """
+    # The script lives at zone-root + canonical_developer/context-grapple-gun/
+    # cgg-runtime/scripts/, OR at installed ~/.claude/cgg-runtime/scripts/.
+    candidates = [
+        ZONE_ROOT / "canonical_developer" / "context-grapple-gun" / "cgg-runtime" / "scripts" / "rebru-cadence-emit.py",
+        Path.home() / ".claude" / "cgg-runtime" / "scripts" / "rebru-cadence-emit.py",
+    ]
+    script_path = next((c for c in candidates if c.exists()), None)
+    if script_path is None:
+        return {"returncode": -1, "output": "rebru-cadence-emit.py not found"}
+
+    try:
+        result = subprocess.run(
+            ["python3", str(script_path), "--zone", str(ZONE_ROOT), "--quiet"],
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=20,
+        )
+    except (subprocess.TimeoutExpired, OSError) as e:
+        return {"returncode": -1, "output": str(e)}
+
+    return {
+        "returncode": result.returncode,
+        "output": result.stdout.strip() or result.stderr.strip(),
+    }
+
+
 # ---------------------------------------------------------------------------
 # Main
 # ---------------------------------------------------------------------------
@@ -243,6 +279,12 @@ def main():
     # Git cycle check — surface dirty repos before plan mode
     # Non-blocking: emits to stdout (shown to user) but never blocks the plan.
     git_cycle_result = run_git_cycle()
+
+    # ReBru cadence-block auto-emit (T3 Bite 3) — non-blocking, fail-soft.
+    # Captures current substrate state as a v0 probe block at the /cadence
+    # downbeat boundary. The block is supplementary; the cadence handoff is
+    # the load-bearing artifact. Errors are logged but do not block.
+    _ = run_rebru_emit()
 
     # Persist to memory
     append_memory(plan_text, plan_hash, delta_result.get("dump_path", ""))
