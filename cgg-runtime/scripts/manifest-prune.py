@@ -241,9 +241,19 @@ def main() -> int:
 
     current_tic = count_physical_tics(zone_root / "audit-logs")
 
-    keep: list[dict] = []
-    archived: list[dict] = []
+    # First pass: parse rows + latest-entry-per-signal_id collapse.
+    # Rationale: the manifest is the curated authoritative set after manifold-
+    # prune sweeps and terminal-state filtering (federation KI Authoritative-Set
+    # Readers Must Read the Manifest). Without per-id collapse before partition,
+    # an append-a-resolved-row resolution writeback (the CGG KI Signal Resolution
+    # Writeback Atomicity dual-surface append pattern) leaves orphan active rows
+    # behind: the resolved row archives but the original active row remains in
+    # keep, so the signal continues to surface as active on next read. Collapse
+    # first ensures latest-entry-per-id wins before structural_status partition.
+    latest_by_key: dict[object, dict] = {}
+    collapsed_duplicates = 0
     malformed = 0
+    fallback_idx = 0
     for line in manifest.read_text(encoding="utf-8").splitlines():
         line = line.strip()
         if not line:
@@ -253,6 +263,23 @@ def main() -> int:
         except json.JSONDecodeError:
             malformed += 1
             continue
+        sid = rec.get("signal_id")
+        if sid is None:
+            # Defensive: records without signal_id are preserved as distinct
+            # rows under a synthetic key. Should not occur in well-formed
+            # manifests but never silently drop unidentified state.
+            key: object = ("__no_id__", fallback_idx)
+            fallback_idx += 1
+        else:
+            key = sid
+            if key in latest_by_key:
+                collapsed_duplicates += 1
+        latest_by_key[key] = rec
+
+    # Second pass: project + partition the collapsed set.
+    keep: list[dict] = []
+    archived: list[dict] = []
+    for rec in latest_by_key.values():
         projection = project_signal(rec, current_tic)
         # Merge projection ride-along onto record. Legacy status/volume remain
         # as compatibility residue (P2 hard non-solution pattern); new
@@ -271,11 +298,17 @@ def main() -> int:
         keep_dist[ss] = keep_dist.get(ss, 0) + 1
 
     if args.dry_run:
+        collapse_note = (
+            f"; collapsed {collapsed_duplicates} duplicate signal_id rows"
+            if collapsed_duplicates
+            else ""
+        )
         print(
             f"manifest-prune: [DRY RUN] tic={current_tic} — "
             f"{len(archived)} would archive (resolved/superseded); "
             f"{len(keep)} would remain active "
             f"({', '.join(f'{k}={v}' for k, v in sorted(keep_dist.items()))})"
+            f"{collapse_note}"
         )
         return 0
 
@@ -317,16 +350,21 @@ def main() -> int:
 
     if not args.quiet:
         dist_str = ", ".join(f"{k}={v}" for k, v in sorted(keep_dist.items())) or "none"
+        collapse_note = (
+            f"; collapsed {collapsed_duplicates} duplicate signal_id rows"
+            if collapsed_duplicates
+            else ""
+        )
         if archived:
             print(
                 f"manifest-prune: tic={current_tic} — pruned {len(archived)} "
                 f"resolved/superseded entries to {archive.name}; "
-                f"{len(keep)} remain active ({dist_str})"
+                f"{len(keep)} remain active ({dist_str}){collapse_note}"
             )
         else:
             print(
                 f"manifest-prune: tic={current_tic} — projection refreshed; "
-                f"{len(keep)} active ({dist_str})"
+                f"{len(keep)} active ({dist_str}){collapse_note}"
             )
     return 0
 
