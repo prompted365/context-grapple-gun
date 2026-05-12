@@ -290,6 +290,38 @@ Use the `EnterPlanMode` tool to switch to Claude Code's native plan mode. This i
 #### Step 4: Write the Handoff as the Plan
 Generate a NEW native plan. The plan content IS the handoff — a **bridge surface** carrying session state between contexts, not authoring truth or constitutional record. This is the ONE AND ONLY place the handoff gets written. Claude Code auto-saves the plan to `~/.claude/plans/` when approved, and references it in the next session.
 
+##### Handoff Title Format: work-tic vs entry-tic (mandatory)
+
+A close handoff names TWO tics, not one: the tic the session **worked under** and the tic emitted by /cadence for the **next session's entry**. Naming only one collapses the distinction and propagates off-kilter framing into future sessions.
+
+**Cadence tic semantics:**
+- Session opens at `current_tic = N` (just-emitted by prior session's /cadence).
+- Session WORKS at tic N throughout (all activity happens at tic N).
+- Session's /cadence at close emits tic N → N+1; emission is the close marker.
+- Next session opens at `current_tic = N+1`.
+
+**Required title format:**
+
+```
+tic{work_tic}-close-for-tic{entry_tic}-entry
+```
+
+Where:
+- `work_tic` = the tic the session actually worked under = `counter_before` from cadence-ops output (or `current_tic` from the system reminder at session open).
+- `entry_tic` = the tic emitted by this /cadence for the next session = `counter_after` from cadence-ops output.
+
+Both must appear explicitly. Both are derivable from cadence-ops.py's JSON output (`result.tic.counter_before` and `result.tic.counter_after`) — read them rather than inferring from context.
+
+**Forbidden anti-pattern:**
+
+Titles like `tic{emitted_tic}-close` alone (e.g., `tic264-close` immediately after emitting tic 264). This conflates emission-tic with work-tic. Downstream readers — next session's framing, /review docket attribution, audit-log narration, conformation references — all inherit the title's tic number as the canonical work-tic. Mis-labeling silently shifts the federation's perception of when work happened by one tic, which compounds across review cycles.
+
+**Verification at next /cadence (Architect-locked falsification test):**
+- ✓ Correct if the next handoff title says `tic{N}-close-for-tic{N+1}-entry` (where N is the work-tic).
+- ✗ Bug recurrence if the next handoff title says `tic{N+1}-close` alone (using the emitted tic as the headline tic).
+
+<!-- landed-from cpr_tic_framing_convention_off_kilter_work_tic_vs_emission_tic_tic262 (tic 263 birth, /review at next-session pending). Architect-locked verbatim convention quoted at handoff body; cross-tic n≥3 framing drift evidence across tics 261-263. Runtime parity patch landed under Governance Tool Urgency Triage (code/template-wrong, doctrine incomplete) per handoff Production Next Actions #6. Band: COGNITIVE. Domain rung: CGG. Promotion adjudication: pending /review. -->
+
 ##### ARGUMENTS as Session Projection Steering Surface
 
 The Architect uses the `/cadence` ARGUMENTS string as a **forward-projection steering surface**, not just a session-end hygiene step. The ARGUMENTS string carries: (1) what should be prioritized at the next session start (e.g., "Phase α launch + blocking-β decision presentation"), (2) what authoring direction to apply (e.g., "extend dial-based config pattern from landmass to physics + world"), (3) what the rationalization should foreground (e.g., "recommended-and-why + post-implementation configurability"), and (4) implicit acknowledgment of which prior frame has converged.
