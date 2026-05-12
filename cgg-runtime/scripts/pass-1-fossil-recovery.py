@@ -265,9 +265,33 @@ def search_git_log(keywords: List[str], cap: int = 3) -> List[dict]:
 # --------------------------------------------------------------------------
 
 def backfill_entry(row: dict, vocab_term_index: Dict[str, dict]) -> dict:
-    """Run all Pass 1 recovery axes on a Pass 0 row; return overlay dict."""
+    """Run all Pass 1 recovery axes on a Pass 0 row; return overlay dict.
+
+    Pass 2 schema refinement (tic 261): STRUCTURAL_POINTER_EXEMPT entries are
+    schema-class artifacts (navigation pointers, headers, posture tokens). They
+    are NOT KIs — provenance recovery does not apply. Skip Pass 1 for these
+    entries and emit a clean exemption overlay.
+    """
     title = row["title"]
     keywords = significant_keywords(title)
+
+    # Pass 2 carry-through: structural pointers bypass Pass 1 entirely
+    if row.get("fossil_lane_status") == "STRUCTURAL_POINTER_EXEMPT":
+        return {
+            "invariant_id": row["invariant_id"],
+            "title_ref": title,
+            "pass_0_status": "STRUCTURAL_POINTER_EXEMPT",
+            "pass_0_evidence_count": row["_pass_0_evidence_count"],
+            "pass_1_axes_hit": [],
+            "pass_1_new_refs": {},
+            "pass_1_first_appearance_tic_estimate": None,
+            "pass_1_status_after": "STRUCTURAL_POINTER_EXEMPT",
+            "pass_1_status_changed": False,
+            "pass_1_evidence_count_after": row["_pass_0_evidence_count"],
+            "pass_1_gap_reason": "structural_pointer_exempt_no_provenance_required",
+            "pass_1_exception_candidate": False,
+            "pass_1_skipped_reason": "schema_class_artifact_not_a_KI",
+        }
 
     overlay = {
         "invariant_id": row["invariant_id"],

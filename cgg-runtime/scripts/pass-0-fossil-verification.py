@@ -94,7 +94,9 @@ def parse_claude_md(path: Path) -> List[dict]:
             body = "\n".join(current_section_lines).strip()
             # If the section contains bulleted KIs (under ## Key Invariants etc),
             # emit them individually; otherwise emit the section as one entry.
-            bullet_kis = extract_bullet_kis(current_section_lines, current_section_start)
+            bullet_kis = extract_bullet_kis(
+                current_section_lines, current_section_start, current_section
+            )
             if bullet_kis:
                 # The section itself becomes a synthesis-only entry IF it has narrative
                 # before bullets; otherwise we skip the section-level entry.
@@ -108,6 +110,7 @@ def parse_claude_md(path: Path) -> List[dict]:
                     entries.append({
                         "kind": "section",
                         "title": current_section,
+                        "parent_section": None,
                         "line_start": current_section_start,
                         "line_end": current_section_start + len(pre_bullet_text),
                         "body": pre_body,
@@ -117,6 +120,7 @@ def parse_claude_md(path: Path) -> List[dict]:
                 entries.append({
                     "kind": "section",
                     "title": current_section,
+                    "parent_section": None,
                     "line_start": current_section_start,
                     "line_end": current_section_start + len(current_section_lines),
                     "body": body,
@@ -138,8 +142,14 @@ def parse_claude_md(path: Path) -> List[dict]:
     return entries
 
 
-def extract_bullet_kis(section_lines: List[str], section_start: int) -> List[dict]:
-    """Extract bulleted KIs from a section. Multi-line bullets (continuation indents) merge."""
+def extract_bullet_kis(section_lines: List[str], section_start: int,
+                      parent_section: Optional[str] = None) -> List[dict]:
+    """Extract bulleted KIs from a section. Multi-line bullets (continuation indents) merge.
+
+    parent_section is threaded through so downstream classifiers can detect
+    STRUCTURAL_POINTER entries by section context (e.g., bullets under
+    ## Extracted References are navigation pointers, not KIs).
+    """
     kis: List[dict] = []
     current_ki: Optional[dict] = None
     for offset, line in enumerate(section_lines):
@@ -152,6 +162,7 @@ def extract_bullet_kis(section_lines: List[str], section_start: int) -> List[dic
             current_ki = {
                 "kind": "bullet",
                 "title": title,
+                "parent_section": parent_section,
                 "line_start": section_start + offset + 1,
                 "line_end": section_start + offset + 1,
                 "body": first_body,
@@ -356,15 +367,96 @@ def extract_lock_line(body: str) -> str:
         return m.group(1).strip()
     return ""
 
+
+# Sections whose bullets are by-design navigation pointers, not KIs.
+STRUCTURAL_POINTER_SECTIONS = {
+    "Extracted References",
+    "Structure",  # the federation root structure declaration
+    "Workspace Default Posture",  # posture tokens (ENG/META, ENG/DIRECT, etc.)
+}
+
+
+def is_structural_pointer(entry: dict) -> Tuple[bool, str]:
+    """Detect if entry is a navigation pointer / schema-class artifact rather than a KI.
+
+    Returns (is_pointer, reason). Pass 2 schema refinement (tic 261) per Architect-approved
+    disciplined version of Pass 1 counsel framing: stop counting navigation/heading bullets
+    as KI candidates.
+
+    Detection criteria (any single criterion suffices):
+      1. Bullet under a known structural-pointer section (## Extracted References, etc.)
+      2. Bullet body very short (< 80 chars total) — navigation entries lack substantive body
+      3. Title is a filename pointer (*.md, *.py, *.json, *.yaml)
+      4. Title is a posture/path token (contains `/` with short total length, e.g., ENG/META)
+    """
+    title = entry["title"]
+    kind = entry.get("kind", "")
+    body = entry.get("body", "")
+    parent = entry.get("parent_section") or ""
+
+    # Criterion 1: section-level structural designation
+    if parent in STRUCTURAL_POINTER_SECTIONS:
+        return True, f"bullet_under_structural_pointer_section_'{parent}'"
+
+    # Criterion 2: short-body bullets (navigation entries lack substantive doctrine)
+    if kind == "bullet" and len(body) < 80:
+        return True, f"bullet_body_<80_chars_(actual={len(body)})"
+
+    # Criterion 3: filename pointer titles
+    for ext in (".md", ".py", ".json", ".yaml", ".jsonl", ".sh"):
+        if title.endswith(ext):
+            return True, f"title_filename_pointer_ext={ext}"
+
+    # Criterion 4: posture/path token titles (slash-separated, short)
+    if "/" in title and len(title) < 25 and " " not in title.strip():
+        return True, "title_posture_or_path_token"
+
+    return False, ""
+
 # --------------------------------------------------------------------------
 # Pass 0 row composition
 # --------------------------------------------------------------------------
 
 def compose_ledger_row(entry: dict, cpr_index: Dict[str, dict]) -> dict:
-    """Build a ledger row for a single CLAUDE.md entry."""
+    """Build a ledger row for a single CLAUDE.md entry.
+
+    Pass 2 schema refinement (tic 261): detect STRUCTURAL_POINTER entries first.
+    These are navigation/header objects, not KIs — they bypass fossil_lane_status
+    semantics and route to KEEP_AS_STRUCTURAL_POINTER directly.
+    """
     title = entry["title"]
     body = entry["body"]
     kind = entry["kind"]
+
+    # Pass 2: structural-pointer detection (schema-class distinction, not fossil_lane work)
+    is_ptr, ptr_reason = is_structural_pointer(entry)
+    if is_ptr:
+        return {
+            "invariant_id": slugify(title),
+            "title": title,
+            "compact_lock_line": "",
+            "terrain_class": "structural_pointer",
+            "lane_tags": ["structural_pointer"],
+            "era": "n/a_structural",
+            "target_rung": "federation",
+            "root_role": "STRUCTURAL_POINTER",
+            "source_cpr": [],
+            "promoted_tic": None,
+            "source_surface": [],
+            "review_surface": None,
+            "evidence_anchor": "",
+            "fossil_lane_status": "STRUCTURAL_POINTER_EXEMPT",
+            "compact_root_candidate": False,
+            "action_recommendation": "KEEP_AS_STRUCTURAL_POINTER",
+            "_pass_0_kind": kind,
+            "_pass_0_line_start": entry["line_start"],
+            "_pass_0_line_end": entry["line_end"],
+            "_pass_0_body_chars": len(body),
+            "_pass_0_evidence_count": 0,  # N/A for structural pointers
+            "_pass_0_tic_refs_found": [],
+            "_pass_0_structural_pointer_reason": ptr_reason,
+            "_pass_0_parent_section": entry.get("parent_section"),
+        }
 
     cpr_refs = find_inline_cpr_refs(body)
     validated = find_validated_clauses(body)
@@ -505,6 +597,14 @@ def main() -> int:
     report_lines.append(f"**Source corpus**: `CLAUDE.md` ({CLAUDE_MD.stat().st_size:,} bytes)\n")
     report_lines.append(f"**Authority**: Architect verdict tic 245 step 0\n")
     report_lines.append(f"**Posture**: read-only emission; no mutation to CLAUDE.md\n\n")
+    report_lines.append("> **Calibration warning (persistent)**: `fossil_lane_status` values\n")
+    report_lines.append("> reflect **lexical surface evidence**, not semantic verification.\n")
+    report_lines.append("> An entry classified VERIFIED has provenance keywords located across\n")
+    report_lines.append("> N surfaces; this does NOT guarantee that each surface semantically\n")
+    report_lines.append("> attests to the KI's authoring lineage. Semantic adjudication\n")
+    report_lines.append("> (which VERIFIED entries are true ROOT_ACTIVE_LAW vs which are\n")
+    report_lines.append("> high-keyword-frequency lexical noise) is `/review` territory at\n")
+    report_lines.append("> the next available adjudication boundary (currently /review tic 264).\n\n")
 
     report_lines.append("---\n\n## Summary\n\n")
     report_lines.append(f"- **Total entries enumerated**: {len(rows)}\n")
@@ -571,6 +671,22 @@ def main() -> int:
             report_lines.append(f"- **{r['title']}** ({tic_str}, evidence={r['_pass_0_evidence_count']}/5)\n")
         if len(verified) > 25:
             report_lines.append(f"- ... and {len(verified) - 25} more\n")
+        report_lines.append("\n")
+
+    # STRUCTURAL_POINTER list (Pass 2 schema refinement, tic 261)
+    structural = [r for r in rows if r["fossil_lane_status"] == "STRUCTURAL_POINTER_EXEMPT"]
+    if structural:
+        report_lines.append(f"## STRUCTURAL_POINTER entries ({len(structural)})\n\n")
+        report_lines.append("Navigation/header/sub-bullet/formatting objects — NOT KIs. ")
+        report_lines.append("`fossil_lane_status` does not apply. These entries stay in ")
+        report_lines.append("CLAUDE.md as structural references; no compaction or demotion.\n\n")
+        for r in structural[:25]:
+            reason = r.get("_pass_0_structural_pointer_reason", "")
+            parent = r.get("_pass_0_parent_section") or "(top-level)"
+            report_lines.append(f"- **{r['title']}** "
+                               f"(parent=`{parent}`, reason=`{reason}`)\n")
+        if len(structural) > 25:
+            report_lines.append(f"- ... and {len(structural) - 25} more\n")
         report_lines.append("\n")
 
     report_lines.append("---\n\n## Next Steps (Architect verdict referenced)\n\n")
