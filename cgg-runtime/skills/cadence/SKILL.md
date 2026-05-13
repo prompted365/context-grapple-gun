@@ -93,11 +93,14 @@ done
 python3 "$CADENCE_OPS" --zone-root "$ZONE_ROOT" --mode downbeat
 ```
 
-Parse the JSON output to extract:
-- `result.tic.counter_after` — the new tic count
-- `result.tic.timestamp` — the tic timestamp
-- `result.conformation.summary` — signal/warrant/cogpr counts
-- `result.mandate` — mandate status and due cycles
+Parse the JSON output to extract (keys are at the **top level** of the JSON object — there is no `result` wrapper):
+- `tic.counter_after` — the new tic count
+- `tic.timestamp` — the tic timestamp
+- `tic.counter_before` — the prior tic count (work_tic for handoff title)
+- `conformation.summary` — signal/warrant/cogpr counts
+- `mandate` — mandate status and due cycles
+
+**Anti-pattern (do not write):** `data.get('result', {}).get('tic', {})` — cadence-ops emits `tic`, `conformation`, and `mandate` as top-level keys, not nested under `result`. A parser that walks `result.*` returns `None` for every field; re-invoking cadence-ops to "retry" on the None values emits a phantom tic on top of the legitimate one. Use `data['tic']['counter_after']` etc. directly. (Inscribed tic 266 post phantom-tic incident; refines CGG "Subagent Delegation — Schema Contracts" KI.)
 
 Report: `Tic #COUNTER_AFTER (physical) at TIMESTAMP`
 
@@ -310,7 +313,7 @@ Where:
 - `work_tic` = the tic the session actually worked under = `counter_before` from cadence-ops output (or `current_tic` from the system reminder at session open).
 - `entry_tic` = the tic emitted by this /cadence for the next session = `counter_after` from cadence-ops output.
 
-Both must appear explicitly. Both are derivable from cadence-ops.py's JSON output (`result.tic.counter_before` and `result.tic.counter_after`) — read them rather than inferring from context.
+Both must appear explicitly. Both are derivable from cadence-ops.py's top-level JSON output (`tic.counter_before` and `tic.counter_after`) — read them rather than inferring from context. (No `result.` prefix; see Step 0.5 anti-pattern note.)
 
 **Forbidden anti-pattern:**
 
