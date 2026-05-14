@@ -1194,3 +1194,67 @@ R²-Roadrunner (Recursive-Refinement Roadrunner) names the runtime-context sharp
 **Lock line**: *Roadrunner the binder until the scope is bounded; recursion terminates at the mutation boundary.*
 
 <!-- promoted from cpr_r2_roadrunner_runtime_context_sharpening_pattern_tic256 (/review tic 259 Option A — full slate). Unblocked from /review tic 257 ITEM 1 (UNBLOCKED-PENDING-BITE-4-IMPLEMENTATION) by T5c Bite 4 landing at CGG d2935c2 (tic 258). Composes with /tactical-hydration (RTCH parent), CogPR-140 Spec-First Parallel Swarm, federation KI Look-First, federation KI Bounded delegation surfaces. Harmony tic 259 `repair-before-lock` caution preserved in ray-preservation note (not flattened). Band: COGNITIVE. Source: cadence handoff tic 256 + T5c implementation tic 258 + T6 swarm exercise tic 259. -->
+
+## Generator-vs-Local-Repair Gap (Handoff Title Format)
+
+When a convention drift recurs across sessions (cross-tic n≥3 instances) and originates in a TEMPLATE that agents follow (skill body, spec, mandate format), the fix MUST land at the generator surface. Patching the local emission (one handoff) leaves the next emission free to reproduce the drift because the next author reads prior templates as precedent. Templates carry forward; local repairs do not.
+
+**Pattern**: handoff title format must distinguish work_tic (the tic the session actually worked under = `counter_before`) from entry_tic (the tic emitted by /cadence for the next session = `counter_after`). Use: `tic{work_tic}-close-for-tic{entry_tic}-entry`. Forbidden anti-pattern: titles like `tic{emitted_tic}-close` alone — these conflate emission-tic with work-tic and propagate off-kilter framing into the next session's framing inheritance.
+
+**Constraint**: composes with federation KI *Conductor-Score-Runtime Parity* (the cadence skill is the score; handoff agents are the runtime; off-kilter titles are the parity gap), federation KI *Spec-runtime alignment by accident is structural drift* (titles-tolerated-anyway is the lucky alignment pattern), federation KI *First-Use Surfacing Protocol* (work_tic / entry_tic are candidate_reserved vocabulary; first compliant title is the surfacing boundary). Operationalizes cadence/SKILL.md Step 4 (Write the Handoff as the Plan).
+
+**Explanation**: downstream consumers (next session's framing, /review docket attribution, audit-log narration, conformation references) all inherit the title's tic number as the canonical work-tic. Mis-labeling silently shifts the federation's perception of when work happened by one tic, compounding across review cycles. The generator-surface fix is structural; comment-level reminders at the emission point are insufficient because the next author reads prior emissions as templates.
+
+**Evidence**: cross-tic n≥3 — three distinct handoff titles exhibiting the conflation pattern across tics 261-263. Architect-locked verification test inscribed (next /cadence's handoff title format is the falsification gate). Validated cross-tic n=1 at tic 267 cadence emission (title `tic266-close-for-tic267-entry` produced clean +1 emission with no phantom — falsification test PASSES).
+
+**Lock line**: *Templates carry forward; local repairs do not. Fix the generator.*
+
+<!-- promoted from cpr_tic_framing_convention_off_kilter_work_tic_vs_emission_tic_tic262 (/review tic 267). Cross-tic n≥3 drift evidence (tics 261-263) + cross-tic n=1 falsification-test pass (tic 267). Composes with federation KIs Conductor-Score-Runtime Parity, Spec-runtime-alignment-by-accident, First-Use Surfacing Protocol. Band: COGNITIVE. Source: cadence handoff tic 263 + validation tic 267. -->
+
+## Inline CogPR status:pending Field Required
+
+Inline CogPR inscriptions in MEMORY.md (and other extractor-watched surfaces) MUST carry an explicit `status: pending` field, placed immediately after `id:` in the YAML body. cpr-extract.py treats absence-of-status as "skip with skipped_no_status counter increment" — the block is recognized, parsed, and discarded. The skip is silent at the per-block level: writers cannot detect the failure without explicit queue.jsonl grep after extraction.
+
+**Pattern**: every inline CogPR block must declare `status: pending` adjacent to its `id:` field. The discipline complements but is distinct from *CogPR Marker Syntax Discipline* (which catches closed-form `<!-- --agnostic-candidate -->` openers) — both are silent-skip inscription-discipline failures that the Edit tool cannot catch and the extractor silently absorbs.
+
+**Constraint**: composes with *CogPR Marker Syntax Discipline* (same family — silent-skip inscription class), *CogPR-77 Extractor Anomaly Self-Reporting* (aggregate-level anomaly logging that should be extended to per-block skip-id logging at runtime patch layer), federation KI *Bounded delegation surfaces default to masking bugs* (the parser is the bounded delegate that silently masks authoring errors instead of warning). Promotion target is cadence/SKILL.md Step 2 authoring template plus per-block skip-id logging at the extractor.
+
+**Explanation**: cpr-extract.py treats `status` absence as "block not ready for queue" (intentional state machine — only `status: pending` blocks should flow to queue.jsonl). But many existing inscribed blocks lack the field explicitly, so writers inheriting them as templates inherit the omission. The aggregate counter increments but no per-id surfacing fires, so the authoring session passes through with apparent success. Authoring-side discipline (always include `status: pending`) compounds with extractor-side discipline (per-block skip-id logging) to close the silent-skip gap.
+
+**Evidence**: same-tic n=2 within tic 263 arc (both candidates inscribed without status, both silently skipped, both fixed by status:pending insertion). Cross-tic family at n=4 (Inscription-discipline silent-skip family: CogPR Marker Syntax + status:pending + parser-path-drift authoring + parser-path-drift validation). Validation receipt: cpr-extract second-run counters `blocks_extracted=8` (up from 6), `written_to_queue=2` (up from 0), `skipped_no_status=10` (down from 12, matching the +2 status-fixed blocks).
+
+**Lock line**: *Every inline CogPR carries `status: pending` adjacent to `id:`. Silent skip is failure, not absence.*
+
+<!-- promoted from cpr_inline_cogpr_status_pending_field_required_silent_skip_tic263 (/review tic 267). Same-tic n=2 + Inscription-discipline family cross-tic n=4. Composes with CogPR Marker Syntax Discipline, CogPR-77 Extractor Anomaly Self-Reporting, federation KI Bounded delegation surfaces. Band: COGNITIVE. Source: cadence handoff tic 263. -->
+
+## Cadence Skill Parser Path Drift Discipline
+
+When a runtime script emits JSON at top-level keys but the skill body documents a wrapper path (`result.tic.counter_after` rather than top-level `tic.counter_after`), a /cadence author who follows the spec literally produces empty parsed values and may misinterpret success as failure — leading to re-invocation and phantom counted tics on top of legitimate emissions.
+
+**Pattern**: skill body documentation of mechanical-script output schemas must match the actual emission shape byte-for-byte. When a divergence is detected, the fix is structural at the skill body (the generator/template surface), not at each emission site. Patches landed under *Governance Tool Urgency Triage* qualify for immediate runtime authority — code-wrong, doctrine-intact.
+
+**Constraint**: composes with federation KI *Governance Tool Urgency Triage* ("Is the code wrong, or is the doctrine incomplete?" — code-wrong fixes land under existing doctrine authority; learning routes through /review), federation KI *Spec-runtime alignment by accident is structural drift, not victory* (the parser-tolerated-anyway pattern is the lucky alignment that hides the drift until phantom tic emission surfaces it), and *Generator-vs-Local-Repair Gap* (sibling discipline at handoff-title surface).
+
+**Explanation**: cadence-ops.py emits `{tic: {...}, conformation: {...}, mandate: {...}}` at top level. A SKILL.md snippet documenting `result.tic.counter_after` causes the author's parser to read `data.get('result', {}).get('tic', {})` — an empty dict — and misinterpret the cadence emission as failed. Re-invocation produces a phantom counted tic on top of the legitimate one. Append-only tic invariant forbids rollback; the phantom is permanent provenance noise. Fix at the SKILL.md generator surface; downstream emissions inherit the corrected schema automatically.
+
+**Evidence**: cross-tic n=1 at tic 264 incident (phantom tic 266 produced by parser-path-drift after legitimate tic 265 emission). Fix landed at CGG `e2f5d18` under Urgency Triage (tic 266). Cross-tic n=1 validation at tic 267 cadence emission (clean +1, no phantom). Part of Inscription-discipline silent-skip family at cross-tic n=4.
+
+**Lock line**: *Spec documents what runtime emits, byte-for-byte. Drift means generator-side fix.*
+
+<!-- promoted from cpr_cadence_skill_md_step_0_5_parser_path_drift_tic264 (/review tic 267). Cross-tic n=1 incident (tic 264) + cross-tic n=1 fix validation (tic 267). ABSORB-class child: cpr_parser_path_drift_fix_validated_cross_tic_n1_tic267 (the validation evidence). Composes with federation KIs Governance Tool Urgency Triage, Spec-runtime-alignment-by-accident, sibling Generator-vs-Local-Repair Gap. Band: COGNITIVE. Source: cadence handoff tic 264 + fix CGG e2f5d18 + validation tic 267. -->
+
+## Atomic Dual-Surface Invariant Mechanization
+
+When a runtime script implements one half of an atomic dual-surface invariant but fails the other half mechanically, the patch is structural (add the missing collapse step) — not narrative (re-explain the discipline in comments). Doctrine names the invariant; runtime must mechanize it. Where the runtime is missing the discipline, fix the runtime; don't inscribe more doctrine around the gap.
+
+**Pattern**: any time a write-side discipline (append-resolution, append-then-collapse) couples to a read-side mechanism (prune/projection), the read-side must honor the write-side's intended semantics. Latest-entry-per-id is the universal collapse primitive for append-only emission surfaces in this federation; mechanisms that read those surfaces without applying it produce orphan-row drift.
+
+**Constraint**: refines existing CGG KI *Signal Resolution Writeback Atomicity (Dual-Surface)* by completing the read-side mechanization. Composes with federation KI *Authoritative-Set Readers Must Read the Manifest* (same authoritative-set discipline applied at the prune mechanism layer), federation KI *Three-Layer Terrain Architecture* (Layer 1 daily files remain append-only invariant; Layer 2 manifest is the curated projection where collapse + partition apply), and federation KI *Governance Tool Urgency Triage* (code-wrong, doctrine-intact — patch under existing authority).
+
+**Explanation**: manifest-prune.py historically partitioned per-row by structural_status without latest-entry-per-signal_id collapse. Two failure modes resulted: (1) append-a-resolved-row writeback left orphan active rows behind — the resolved row archived but the original active row remained in keep, so the signal continued to surface as active on next Mogul signal_scan; (2) physical duplicate rows for same signal_id retained per-row, inflating physical manifest size. The patch adds a first-pass latest-by-key collapse before the projection+partition pass. The pattern generalizes beyond signals: queue.jsonl, conformation files, mandate history — wherever append-only emission carries a "latest wins" semantic, readers must apply collapse.
+
+**Evidence**: same-tic n=2 within tic 263 arc (atomic dual-surface fix-up for sig_review_close_check_double_emission + manifest-prune collapse patch, both under Governance Tool Urgency Triage). Validated at tic 262: manifest 6 rows → 4 rows, 4 unique signal_ids, 4 active under Mogul filter. Patches: CGG `7540cc3` + canonical `12b6760` runtime apply.
+
+**Lock line**: *Where doctrine names a discipline and runtime mechanizes only half, patch the mechanism — not the comments.*
+
+<!-- promoted from cpr_manifest_prune_latest_entry_per_id_collapse_before_partition_tic263 (/review tic 267). Same-tic n=2 + cross-tic exercise eligible at any future append-only emission surface where reader/writer disciplines couple. Refines CGG KI Signal Resolution Writeback Atomicity. Composes with federation KIs Authoritative-Set Readers Must Read the Manifest, Three-Layer Terrain Architecture, Governance Tool Urgency Triage. Band: COGNITIVE. Source: cadence handoff tic 263 + patches CGG 7540cc3 / canonical 12b6760. -->
