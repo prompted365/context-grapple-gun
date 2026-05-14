@@ -627,6 +627,39 @@ def main():
             ),
         }
 
+    # 5. Memory.md health audit (tic 268) — structural observability sweep.
+    # Born tic 268 from the post-Pass-4 dehydration arc, after MEMORY.md was
+    # trimmed from 4,105 → 205 lines (95% reduction). Detects the structural
+    # failure modes that produced the bloat: orphan topic files, dead refs,
+    # inline extraction candidates. Line count is reported but informational
+    # only — real breaches are structural per the spirit-over-letter discipline.
+    # Fail-soft: never blocks cadence output. Audit script lives in canonical
+    # at audit-logs/governance/memory-md-audit.py; resolved from zone_root.
+    audit_script = Path(zone_root) / "audit-logs" / "governance" / "memory-md-audit.py"
+    if audit_script.exists():
+        try:
+            audit_proc = subprocess.run(
+                ["python3", str(audit_script), "--tic", str(tic_count)],
+                capture_output=True, text=True, timeout=15,
+            )
+            # Exit 0 = HEALTHY; exit 1 = structural breach (orphans/dead refs/
+            # inline candidates). Both are valid execution outcomes from
+            # cadence's perspective — we surface the status, not block on it.
+            first_line = audit_proc.stdout.split("\n")[0] if audit_proc.stdout else None
+            result["memory_md_audit"] = {
+                "ran": True,
+                "exit_code": audit_proc.returncode,
+                "healthy": audit_proc.returncode == 0,
+                "summary": first_line,
+            }
+        except Exception as err:  # noqa: BLE001 — fail-soft
+            result["memory_md_audit"] = {"ran": False, "error": str(err)}
+    else:
+        result["memory_md_audit"] = {
+            "ran": False,
+            "reason": "audit script not found at expected path",
+        }
+
     # Output
     print(json.dumps(result, indent=2))
     return 0
