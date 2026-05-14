@@ -125,6 +125,35 @@ Locate the MEMORY.md that contains the CogPR by searching:
 1. Project-local MEMORY.md at zone root
 2. Auto-memory at `~/.claude/projects/*/memory/MEMORY.md`
 
+**Step 1.5 — Freeze gate check (BLOCKING for surfaces in scope)**
+
+Before any write to a target CLAUDE.md, invoke the constitutional freeze runtime gate:
+
+```python
+import sys
+sys.path.insert(0, "<zone_root>/canonical_developer/context-grapple-gun/cgg-runtime/scripts/lib")
+from freeze_check import check_freeze, FreezeViolation
+
+try:
+    check_freeze(target_path=<absolute_path_to_target_claude_md>, zone_root=<zone_root>)
+except FreezeViolation as exc:
+    # Halt the write. Surface to orchestrator. Do NOT silently swallow.
+    print(f"BLOCKED: {exc}", file=sys.stderr)
+    raise  # re-raise; the orchestrator gets the FreezeViolation
+```
+
+**Behavior matrix:**
+- `freeze-state.json` missing → no-op (pre-spec state); proceed.
+- `status: "inactive"` → no-op; proceed.
+- `status: "active"` AND target NOT in `surface_scope` → no-op; proceed.
+- `status: "active"` AND target IN `surface_scope` → raise `FreezeViolation`; halt write.
+
+**Atomic-commit boundary:** the freeze check fires per-target-write, NOT per-docket. Each PROMOTE verdict targeting a frozen surface raises independently. The check is cheap (single file read + dict lookup) and idempotent.
+
+**queue.jsonl is NOT in surface_scope.** Promotion verdict writes to queue.jsonl proceed unconditionally; only the inscription side (write to canonical/CLAUDE.md) is gated.
+
+**Spec anchor:** `audit-logs/governance/constitution-ledger/freeze-runtime-gate-spec-tic266.md`. State file: `audit-logs/governance/constitution-ledger/freeze-state.json`. Audit trail: `audit-logs/governance/constitution-ledger/freeze-events.jsonl`. Library: `cgg-runtime/scripts/lib/freeze_check.py`.
+
 **Step 2 — Write promoted section to target CLAUDE.md**
 
 Read the target CLAUDE.md file. Append a new section containing:
