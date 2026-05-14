@@ -36,6 +36,15 @@ merge_or_supersede = _mandate_mod.merge_or_supersede
 build_mandate = _mandate_mod.build_mandate
 write_mandate = _mandate_mod.write_mandate
 
+# Cockpit intent emitter (T2b I-B, tic 267). Import via lib/ subdir.
+# Soft-fail import: if cockpit_intent_emit is unavailable (older install), the
+# emit step short-circuits below. The cadence pipeline never blocks on it.
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "lib"))
+try:
+    from cockpit_intent_emit import emit_intent as _emit_cockpit_intent
+except ImportError:
+    _emit_cockpit_intent = None
+
 
 # ---------------------------------------------------------------------------
 # Tic emission
@@ -580,6 +589,43 @@ def main():
         result["mandate"] = mandate_result
     else:
         result["mandate"] = {"written": False, "reason": "skipped"}
+
+    # 4. Cockpit-intent emission (T2b I-B, tic 267) — per spec
+    # audit-logs/governance/cockpit-intent-t2b-invocation-discipline-spec-tic264.md.
+    # Every /cadence emission produces an explicit declared state boundary that
+    # downstream consumers should be able to read from the cockpit.intent stream.
+    # intent_class is always 'observe' for I-B (the cadence emission itself is a
+    # governance observation, not an interface mutation).
+    # Fail-soft: errors log to result["cockpit_intent"] but never block cadence output.
+    if _emit_cockpit_intent is not None and args.posture:
+        try:
+            intent_result = _emit_cockpit_intent(
+                zone_root=zone_root,
+                intent_class="observe",
+                source_object_ref=f"cadence.session.tic{tic_count}",
+                source_path=args.trigger_source,
+                required_gate="G0_auto_audit",
+                posture=args.posture,
+                mode="LITE",  # cadence emissions are non-interactive; LITE is the safe default
+                operator_ref="ent_breyden",
+                actor="cadence-ops.emit_cadence",
+                source_ref="cgg-runtime/scripts/cadence-ops.py:main",
+            )
+            result["cockpit_intent"] = {
+                "emitted": intent_result.get("emitted", False),
+                "intent_id": intent_result.get("intent_id"),
+                "reason": intent_result.get("reason"),
+            }
+        except Exception as err:  # noqa: BLE001 — fail-soft
+            result["cockpit_intent"] = {"emitted": False, "error": str(err)}
+    else:
+        result["cockpit_intent"] = {
+            "emitted": False,
+            "reason": (
+                "skipped: emitter unavailable" if _emit_cockpit_intent is None
+                else "skipped: --posture not provided"
+            ),
+        }
 
     # Output
     print(json.dumps(result, indent=2))
