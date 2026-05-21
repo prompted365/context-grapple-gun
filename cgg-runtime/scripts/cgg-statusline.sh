@@ -106,6 +106,10 @@ fi
 
 # --- Tic count (30s cache) ---
 # Source: canonical tic counter scalar. No JSONL scanning.
+# Post-cadence transitional display: when previous_count != count AND
+# (now - last_tic) < 90s, render "tic <prev> → <count>" instead of "tic <count>"
+# so the Architect sees the just-emitted boundary instead of inferring drift
+# between handoff title (work_tic) and statusline (count = entry_tic).
 TIC_CACHE="${CACHE_PREFIX}-tic"
 if cache_fresh "$TIC_CACHE" 30; then
   TIC_COUNT=$(cat "$TIC_CACHE")
@@ -113,7 +117,26 @@ else
   TIC_COUNT=""
   COUNTER_FILE="$HOME/.claude/cgg-tic-counter.json"
   if [ -f "$COUNTER_FILE" ]; then
-    TIC_COUNT=$(jq -r '.count // empty' "$COUNTER_FILE" 2>/dev/null || true)
+    COUNT=$(jq -r '.count // empty' "$COUNTER_FILE" 2>/dev/null || true)
+    PREV_COUNT=$(jq -r '.previous_count // empty' "$COUNTER_FILE" 2>/dev/null || true)
+    LAST_TIC_ISO=$(jq -r '.last_tic // empty' "$COUNTER_FILE" 2>/dev/null || true)
+    # Compute age in seconds against last_tic (ISO-8601 UTC, e.g. 2026-05-21T19:12:18Z)
+    LAST_TIC_EPOCH=""
+    if [ -n "$LAST_TIC_ISO" ]; then
+      # macOS BSD date: -j -f format; GNU date: -d
+      LAST_TIC_EPOCH=$(date -j -u -f "%Y-%m-%dT%H:%M:%SZ" "$LAST_TIC_ISO" "+%s" 2>/dev/null \
+        || date -u -d "$LAST_TIC_ISO" "+%s" 2>/dev/null || true)
+    fi
+    NOW_EPOCH=$(date -u +%s)
+    AGE=999999
+    if [ -n "$LAST_TIC_EPOCH" ]; then
+      AGE=$((NOW_EPOCH - LAST_TIC_EPOCH))
+    fi
+    if [ -n "$COUNT" ] && [ -n "$PREV_COUNT" ] && [ "$PREV_COUNT" != "$COUNT" ] && [ "$AGE" -lt 90 ] 2>/dev/null; then
+      TIC_COUNT="${PREV_COUNT} → ${COUNT}"
+    else
+      TIC_COUNT="$COUNT"
+    fi
   fi
   [ -z "$TIC_COUNT" ] && TIC_COUNT="?"
   printf '%s' "$TIC_COUNT" > "$TIC_CACHE"

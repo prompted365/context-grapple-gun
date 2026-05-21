@@ -115,7 +115,7 @@ def emit_tic(zone_root: str, mode: str, count_mode: str, count_reason: str) -> d
     counter_path = Path.home() / ".claude" / "cgg-tic-counter.json"
     counter_path.parent.mkdir(parents=True, exist_ok=True)
     tmp = counter_path.with_suffix(".tmp")
-    tmp.write_text(json.dumps({"count": after, "last_tic": now_iso}) + "\n", encoding="utf-8")
+    tmp.write_text(json.dumps({"count": after, "previous_count": before, "last_tic": now_iso}) + "\n", encoding="utf-8")
     tmp.replace(counter_path)
 
     return {
