@@ -300,6 +300,40 @@ else
   printf '%s' "$CONF_LINE" > "$CONF_CACHE"
 fi
 
+# --- claude agents sensor (60s cache, fail-soft, glance-only) ---
+# Source: `claude agents --json` — read-only observability sensor.
+# Native Claude Code primitive; NOT governance authority. Renders agent
+# count + kind summary into FULL mode statusline. On any failure (missing
+# command, timeout, non-zero exit, malformed JSON), the segment is omitted.
+# Never writes audit-logs. Never mutates governance state.
+AGENTS_CACHE="${CACHE_PREFIX}-agents"
+AGENTS_PART=""
+if cache_fresh "$AGENTS_CACHE" 60; then
+  AGENTS_PART=$(cat "$AGENTS_CACHE")
+else
+  AGENTS_RAW=""
+  if command -v claude >/dev/null 2>&1; then
+    # 3s timeout — sensor must not slow the statusline render
+    AGENTS_RAW=$(claude agents --json 2>/dev/null) || AGENTS_RAW=""
+  fi
+  if [ -n "$AGENTS_RAW" ]; then
+    AGENTS_COUNT=$(printf '%s' "$AGENTS_RAW" | jq 'length' 2>/dev/null || echo "")
+    if [ -n "$AGENTS_COUNT" ] && [ "$AGENTS_COUNT" -gt 0 ] 2>/dev/null; then
+      # Distinct kinds, comma-joined (interactive, background, etc.)
+      KINDS=$(printf '%s' "$AGENTS_RAW" | jq -r '[.[].kind] | unique | join(",")' 2>/dev/null || echo "")
+      if [ -n "$KINDS" ]; then
+        AGENTS_PART="${C_ASH}agents ${C_RESET}${C_AMBER}${AGENTS_COUNT}${C_RESET} ${C_ASH}(${KINDS})${C_RESET}"
+      else
+        AGENTS_PART="${C_ASH}agents ${C_RESET}${C_AMBER}${AGENTS_COUNT}${C_RESET}"
+      fi
+    fi
+  fi
+  printf '%s' "$AGENTS_PART" > "$AGENTS_CACHE"
+fi
+if [ -n "$AGENTS_PART" ]; then
+  CONF_LINE="${CONF_LINE:+$CONF_LINE ${C_ASH}|${C_RESET} }${AGENTS_PART}"
+fi
+
 # --- FULL mode output ---
 if [ -n "$CONF_LINE" ]; then
   printf '%b\n%b' "$LITE_LINE" "$CONF_LINE"
