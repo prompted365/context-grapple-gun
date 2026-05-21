@@ -8,5 +8,6 @@
   "repository": "https://github.com/prompted365/context-grapple-gun",
   "homepage": "https://github.com/prompted365/context-grapple-gun#readme",
   "license": "MIT",
-  "keywords": ["governance", "learning", "autonomy", "cogpr", "signals"]
+  "keywords": ["governance", "learning", "autonomy", "cogpr", "signals"],
+  "dependencies": []
 }
