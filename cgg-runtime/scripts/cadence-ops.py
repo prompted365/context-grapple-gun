@@ -660,6 +660,101 @@ def main():
             "reason": "audit script not found at expected path",
         }
 
+    # 6. Claude agents snapshot (tic 270) — read-only observability sensor.
+    # Born tic 270 under Architect Path C adoption. Captures native Claude
+    # Code `claude agents --json` output as sensor data ONLY — never used
+    # to mint warrants, never written to queue.jsonl, never replaces
+    # inbox-registry / mandate-current / conformation / Mogul reports /
+    # review receipts. Fail-soft on missing command, timeout, malformed
+    # JSON, or non-zero exit; the cadence pipeline never raises on the
+    # integration. Output schema is stable and boring: count + kind
+    # summary + status summary, no per-session detail (no pid, no
+    # sessionId, no cwd — privacy + noise).
+    try:
+        agents_proc = subprocess.run(
+            ["claude", "agents", "--json"],
+            capture_output=True, text=True, timeout=5,
+        )
+        if agents_proc.returncode != 0:
+            result["claude_agents_snapshot"] = {
+                "ran": True,
+                "command_available": True,
+                "exit_code": agents_proc.returncode,
+                "captured_at": tic_timestamp,
+                "count": None,
+                "kinds": None,
+                "statuses": None,
+                "error": (agents_proc.stderr or "")[:200] or "exit_nonzero",
+            }
+        else:
+            try:
+                agents_list = json.loads(agents_proc.stdout or "[]")
+                if not isinstance(agents_list, list):
+                    raise ValueError("expected JSON array")
+                kinds: dict = {}
+                statuses: dict = {}
+                for entry in agents_list:
+                    if not isinstance(entry, dict):
+                        continue
+                    k = entry.get("kind") or "unknown"
+                    s = entry.get("status") or "unknown"
+                    kinds[k] = kinds.get(k, 0) + 1
+                    statuses[s] = statuses.get(s, 0) + 1
+                result["claude_agents_snapshot"] = {
+                    "ran": True,
+                    "command_available": True,
+                    "exit_code": 0,
+                    "captured_at": tic_timestamp,
+                    "count": len(agents_list),
+                    "kinds": kinds,
+                    "statuses": statuses,
+                    "error": None,
+                }
+            except (json.JSONDecodeError, ValueError) as parse_err:
+                result["claude_agents_snapshot"] = {
+                    "ran": True,
+                    "command_available": True,
+                    "exit_code": 0,
+                    "captured_at": tic_timestamp,
+                    "count": None,
+                    "kinds": None,
+                    "statuses": None,
+                    "error": f"json_parse_failed: {str(parse_err)[:160]}",
+                }
+    except FileNotFoundError:
+        result["claude_agents_snapshot"] = {
+            "ran": False,
+            "command_available": False,
+            "exit_code": None,
+            "captured_at": tic_timestamp,
+            "count": None,
+            "kinds": None,
+            "statuses": None,
+            "error": "claude binary not found in PATH",
+        }
+    except subprocess.TimeoutExpired:
+        result["claude_agents_snapshot"] = {
+            "ran": False,
+            "command_available": True,
+            "exit_code": None,
+            "captured_at": tic_timestamp,
+            "count": None,
+            "kinds": None,
+            "statuses": None,
+            "error": "timeout after 5s",
+        }
+    except Exception as err:  # noqa: BLE001 — fail-soft
+        result["claude_agents_snapshot"] = {
+            "ran": False,
+            "command_available": None,
+            "exit_code": None,
+            "captured_at": tic_timestamp,
+            "count": None,
+            "kinds": None,
+            "statuses": None,
+            "error": str(err)[:200],
+        }
+
     # Output
     print(json.dumps(result, indent=2))
     return 0
