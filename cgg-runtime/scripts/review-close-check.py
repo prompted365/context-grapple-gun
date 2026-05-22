@@ -711,8 +711,14 @@ def run_check(project_dir, dry_run=False):
                 decision = "replace"
 
         if decision == "skip":
+            # Touch existing file so the runner's `find -newer $MANDATE_FILE` verification
+            # succeeds. Skip means findings are identical and the cycle DID run correctly;
+            # the file's content is current but its mtime is stale from a prior session.
+            # Without this touch, the runner marks the mandate failed despite healthy output.
+            # Root cause of tic-271 mandate failure (civil report 2026-05-22-tic-272.json).
+            Path(output_path).touch()
             print(
-                f"INFO: review_close_check skipped (identical report exists for mandate {mandate_id}).",
+                f"INFO: review_close_check skipped (identical report exists for mandate {mandate_id}); mtime touched for runner verification.",
                 file=sys.stderr,
             )
         else:

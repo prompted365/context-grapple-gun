@@ -462,6 +462,16 @@ def compute_due_cycles(tic: int) -> list:
         # dense enough to track /review-close drift (which fires every 2-3 tics in
         # active periods) without padding every mandate.
         cycles.append("review_close_check")
+        # Tic 273 (cpr_cadence_ops_scheduler_doctrine_runtime_parity_tic224 partial
+        # close): pair bench_packet_prep with review_close_check at tic % 2 == 0.
+        # CGG CLAUDE.md "Post-Cadence Clean-Close Ordering" doctrine requires
+        # explicit bench-packet-prep before /cadence; manual compensation has
+        # substituted for 49 tics. Pairing with review_close_check at the same
+        # modulo means the bench packet is fresh going into the next /review
+        # boundary (also at tic % 2 == 0 cadence in active periods). Conductor-
+        # Score-Runtime Parity (federation KI) — doctrine named the cadence;
+        # runtime now schedules it.
+        cycles.append("bench_packet_prep")
     if tic % 3 == 0:
         cycles.append("memory_mining")
         cycles.append("cache_refresh")
@@ -471,6 +481,10 @@ def compute_due_cycles(tic: int) -> list:
         cycles.extend(["ladder_audit", "runtime_drift_check"])
     if tic % 8 == 0:
         cycles.append("deep_audit")
+    # civil_status_check (CogPR-tic224) deferred: scheduling here without parallel
+    # Mogul agent spec + runner case-branch updates produces a scheduled-but-unexecuted
+    # cycle. Partial close (bench_packet_prep above) lands first; civil_status_check
+    # awaits the multi-surface tranche.
 
     return cycles
 
