@@ -416,9 +416,57 @@ def extract_cprs(project_dir, dry_run=False, plan_file=None, anomaly_threshold=0
                 continue
             if tier == "skip_no_status":
                 counters["skipped_no_status"] += 1
+                # Per-block surfacing for silent-skip family
+                # (see CGG KI *Inline CogPR status:pending Field Required* tic 263).
+                # Aggregate-only counters silently hide which block failed; per-id
+                # logging closes the inscription→extraction silent-skip surface.
+                _block_line = _block_line_number(text, match.start())
+                _block_id = str(block.get("id", "")).strip()
+                _locator = f"{gov_file}:{_block_line}"
+                print(
+                    f"cpr-extract skip [no_status]: {_block_id or _locator} "
+                    f"— block has no `status:` field (required: `status: pending` "
+                    f"adjacent to `id:`). See CGG KI *Inline CogPR status:pending "
+                    f"Field Required* (tic 263).",
+                    file=sys.stderr,
+                )
                 continue
             if tier == "skip_schema_incomplete":
                 counters["skipped_schema_incomplete"] += 1
+                # Per-block surfacing for silent-skip family
+                # (see CGG KI *Inline CogPR lesson Field Required* tic 275).
+                # Diagnose which extractable-content fields are missing so the
+                # author can patch the inscription rather than chase an
+                # aggregate counter that names no block.
+                _block_line = _block_line_number(text, match.start())
+                _block_id = str(block.get("id", "")).strip()
+                _locator = f"{gov_file}:{_block_line}"
+                _has_lesson = bool(block.get("lesson", ""))
+                _has_title = bool(block.get("title", ""))
+                _evidence_val = block.get("evidence", "")
+                _has_evidence = (
+                    bool(_evidence_val)
+                    if not isinstance(_evidence_val, list)
+                    else len(_evidence_val) > 0
+                )
+                _has_title_and_evidence = _has_title and _has_evidence
+                # status=pending was already confirmed by _classify_tier;
+                # absence of lesson AND absence of (title+evidence) is the
+                # specific schema gap that routed to skip_schema_incomplete.
+                _missing = []
+                if not _has_lesson:
+                    _missing.append("`lesson:`")
+                if not _has_title_and_evidence:
+                    _missing.append("`title:` + `evidence:`")
+                print(
+                    f"cpr-extract skip [schema_incomplete]: {_block_id or _locator} "
+                    f"— status=pending but missing extractable-content fields "
+                    f"({' AND '.join(_missing) or 'unknown'}). "
+                    f"Tier 1 requires status=pending + lesson + source; "
+                    f"Tier 2 requires title + evidence; Tier 3 requires lesson alone. "
+                    f"See CGG KI *Inline CogPR lesson Field Required* (tic 275).",
+                    file=sys.stderr,
+                )
                 continue
 
             block_line = _block_line_number(text, match.start())
