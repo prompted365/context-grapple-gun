@@ -257,27 +257,43 @@ def seed_biome_state(cohort, zone_root):
 
 
 def register_in_visitor_registry(cohort, zone_root):
-    """Append visitor records to the visitor registry."""
-    al = audit_logs_path(zone_root, load_ticzone(zone_root))
-    registry_path = os.path.join(al, "visitors", "registry.jsonl")
+    """Admit cohort visitors through DocksHandler.register_seed_visitor.
 
+    Tic 273 envelope retrofit (audit-logs/governance/envelope-classification-report-tic272.md):
+    Previously wrote direct to registry.jsonl bypassing vendor envelope discipline.
+    Now routes through DocksHandler.register_seed_visitor using the visitor.seed_request
+    envelope (declared in ak_control_room/envelopes.yaml). Preserves deterministic
+    entity_id while applying wire-cut/rate-limit gates and emitting docks.seed_admission
+    signal per vendor envelope discipline.
+    """
+    from docks_handler import DocksHandler
+
+    handler = DocksHandler(zone_root=zone_root)
+    admitted = 0
+    rejections = []
     for c in cohort:
-        entry = {
+        seed_request = {
             "entity_id": c["entity_id"],
             "visitor_display_name": c["visitor_display_name"],
             "home_federation_id": c["home_federation_id"],
-            "standing": "guest",
-            "admission_timestamp": datetime.now(timezone.utc).isoformat(),
-            "probes_passed": 4,  # controlled admission — all probes pass
-            "ingress_lane": "tailscale_serve",
-            "tvi_tier": "native",
             "cohort_id": COHORT_ID,
-            "admission_type": "controlled_seed",
+            "sector": c["sector"],
             "role_archetype": c["role_archetype"],
+            "ingress_lane": "controlled_seed",
+            "tvi_tier_claim": "native",
         }
-        atomic_append_jsonl(registry_path, entry)
+        result = handler.register_seed_visitor(seed_request)
+        if result.get("ok"):
+            admitted += 1
+        else:
+            rejections.append((c["entity_id"], result.get("error"), result.get("message")))
 
-    return len(cohort)
+    if rejections:
+        print(f"  WARNING: {len(rejections)} seed admissions rejected:", file=sys.stderr)
+        for entity_id, error, message in rejections:
+            print(f"    - {entity_id}: {error} ({message})", file=sys.stderr)
+
+    return admitted
 
 
 def main():

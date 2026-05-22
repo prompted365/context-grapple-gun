@@ -605,6 +605,109 @@ class DocksHandler:
             "visitor_record": visitor_record,
         }
 
+    def register_seed_visitor(self, seed_request: dict) -> dict:
+        """Process a visitor.seed_request envelope for controlled-cohort admission.
+
+        Synthetic visitors (no MCP server endpoint) bypass the probe handshake
+        but preserve vendor envelope discipline: wire-cut gate, rate-limit gate,
+        registry write through the same path, signal emission, audit trail.
+
+        Distinguished from register_visitor() by:
+          - Deterministic entity_id supplied by caller (not session-uuid-generated)
+          - No MCP probe handshake (synthetic by definition)
+          - admission_type="controlled_seed" in registry entry
+          - Emits docks.seed_admission signal (not docks.admission)
+
+        Args:
+            seed_request: Dict matching visitor.seed_request envelope schema:
+                - entity_id (required, deterministic — supplied by caller)
+                - visitor_display_name (required)
+                - home_federation_id (required)
+                - cohort_id (required)
+                - sector (optional)
+                - role_archetype (optional)
+                - notes (optional)
+                - ingress_lane (optional, default controlled_seed)
+                - tvi_tier_claim (optional, default native)
+
+        Returns:
+            Structured JSON result dict with ok, entity_id, registry_entry.
+        """
+        now = datetime.now(timezone.utc)
+
+        # ── 1. Wire-cut check (same as register_visitor) ──
+        wire_cut = check_wire_cut()
+        if wire_cut["active"]:
+            self._emit_signal("docks.rejection", {
+                "source_ip": "controlled_seed",
+                "rejection_reason": "wire_cut_active",
+                "attempted_name": seed_request.get("visitor_display_name", "unknown"),
+            })
+            return {
+                "ok": False,
+                "error": "wire_cut_active",
+                "wire_cut_scope": wire_cut["scope"],
+                "message": "Seed admission halted — wire cut active.",
+            }
+
+        # ── 2. Validate required fields ──
+        for field in ("entity_id", "visitor_display_name", "home_federation_id", "cohort_id"):
+            if not seed_request.get(field):
+                return {"ok": False, "error": "missing_field", "field": field}
+
+        # ── 3. Rate limit check (seed cohort treated as federation_wide) ──
+        rate_check = self.rate_limiter.check_rate(source_ip=None)
+        if not rate_check["allowed"]:
+            self._emit_signal("docks.registration_flood", {
+                "rate": rate_check["rates"]["federation_wide"],
+                "threshold": self.rate_limiter.limits["federation_wide_per_minute"],
+                "window": 60,
+                "source_ips": ["controlled_seed"],
+            })
+            return {
+                "ok": False,
+                "error": "rate_limit_exceeded",
+                "message": rate_check["reason"],
+            }
+
+        entity_id = seed_request["entity_id"]
+        display_name = seed_request["visitor_display_name"]
+
+        # ── 4. Write visitor registry entry ──
+        # Schema mirrors visitor.dock_request output where applicable; uses
+        # seed-specific fields (cohort_id, admission_type, role_archetype) per
+        # visitor.seed_request envelope declaration.
+        visitor_record = {
+            "entity_id": entity_id,
+            "visitor_display_name": display_name,
+            "home_federation_id": seed_request["home_federation_id"],
+            "standing": "guest",
+            "admission_timestamp": now.isoformat(),
+            "probes_passed": 4,  # synthetic — all probes treated as passed
+            "ingress_lane": seed_request.get("ingress_lane", "controlled_seed"),
+            "tvi_tier": seed_request.get("tvi_tier_claim", "native"),
+            "cohort_id": seed_request["cohort_id"],
+            "admission_type": "controlled_seed",
+            "role_archetype": seed_request.get("role_archetype"),
+            "envelope_type": "visitor.seed_request",
+        }
+        atomic_append_jsonl(self.visitor_registry_path, visitor_record)
+
+        # ── 5. Emit seed admission signal ──
+        self._emit_signal("docks.seed_admission", {
+            "entity_id": entity_id,
+            "cohort_id": seed_request["cohort_id"],
+            "visitor_display_name": display_name,
+            "home_federation_id": seed_request["home_federation_id"],
+            "admission_timestamp": now.isoformat(),
+        })
+
+        return {
+            "ok": True,
+            "entity_id": entity_id,
+            "visitor_record": visitor_record,
+        }
+
     def check_status(self) -> dict:
         """Return current Docks status (wire-cut, rate, active sessions)."""
         wire_cut = check_wire_cut()
