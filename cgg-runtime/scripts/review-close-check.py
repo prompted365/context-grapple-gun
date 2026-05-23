@@ -419,8 +419,12 @@ def build_inscribed_index(project_dir):
     inscription, regardless of whether the queue entry's `promoted_to` field
     points at the correct file.
 
-    Scanned surfaces (patch tic 216):
+    Scanned surfaces (patch tic 216, extended tic 280):
     - canonical/CLAUDE.md, INDEX.md, GIT_RULES.md — federation root governance docs
+    - audit-logs/governance/constitution-ledger/ledger.md — Pass-4-A demoted-body
+      ledger (carries provenance markers for legacy CogPRs whose body text was
+      relocated from compact root to ledger under the dehydration plan; per
+      CogPR cpr_review_close_check_verifier_dehydration_blindspot_tic279)
     - ~/.claude/CLAUDE.md — global user governance surface
     - canonical_developer/ subtree — CLAUDE.md, AUTHORING_CONVENTION.md, SKILL.md files
     - autonomous_kernel/ and ak_control_room/ subtrees — CLAUDE.md files
@@ -433,6 +437,18 @@ def build_inscribed_index(project_dir):
         os.path.join(project_dir, "INDEX.md"),
         # GIT_RULES.md carries <!-- promoted from --> comments for git-workflow CPRs
         os.path.join(project_dir, "GIT_RULES.md"),
+        # Pass-4-A demoted-body ledger — verifier dehydration blindspot fix per
+        # cpr_review_close_check_verifier_dehydration_blindspot_tic279.
+        # Carries `<!-- promoted from cpr_xxx -->` markers for legacy CogPRs
+        # whose body text was relocated from canonical/CLAUDE.md under the
+        # constitutional dehydration plan (Architect verdict tic 245).
+        os.path.join(
+            project_dir,
+            "audit-logs",
+            "governance",
+            "constitution-ledger",
+            "ledger.md",
+        ),
         os.path.expanduser("~/.claude/CLAUDE.md"),
     ]
     # Sweep canonical_developer subtree CLAUDE.md surfaces (CGG, capture-studio, etc.)
@@ -534,6 +550,15 @@ def check_orphans(queue, project_dir, inscribed_ids=None):
 
         check_paths = [
             os.path.join(project_dir, "CLAUDE.md"),
+            # Pass-4-A demoted-body ledger — verifier dehydration blindspot fix
+            # per cpr_review_close_check_verifier_dehydration_blindspot_tic279.
+            os.path.join(
+                project_dir,
+                "audit-logs",
+                "governance",
+                "constitution-ledger",
+                "ledger.md",
+            ),
             os.path.expanduser("~/.claude/CLAUDE.md"),
         ]
 
