@@ -598,6 +598,54 @@ def write_cadence_mandate(zone_root: str, tic: int, trigger_source: str,
     # Write
     written_path = write_mandate(mandate, Path(zone_root))
 
+    # Trigger-router invocation (CogPR
+    # cpr_trigger_router_starved_cadence_ops_bypass_conductor_score_runtime_parity_instance_tic273,
+    # PROMOTE-SPEC at /review tic 275 Pass 1; Part A — runtime patch). Closes the
+    # 85-tic-doctrinal-exception gap where /cadence-emitted mandates bypassed the
+    # manifest-validated, dedup-enforced, audit-logged trigger router. The router
+    # delivers the cadence.obligation envelope to ent_homeskillet (self-trigger,
+    # per trigger-manifest.yaml `cadence.obligation` entry — auditable, not
+    # delegative). Part B (manifest class-narrowing for 14+ never-fired classes)
+    # is deferred per docket.
+    #
+    # Fail-soft pattern (mirrors memory-md-audit step in main()): subprocess
+    # invocation with capture_output + timeout; errors absorbed into a result
+    # dict; the cadence mandate is load-bearing and never blocks on routing.
+    router_script = (Path(zone_root) / "canonical_developer" /
+                     "context-grapple-gun" / "cgg-runtime" / "scripts" /
+                     "trigger-router.py")
+    trigger_router_result = {"ran": False, "reason": "router script not found"}
+    if router_script.exists():
+        try:
+            envelope_body = json.dumps({
+                "tic": tic,
+                "cadence_mode": "downbeat",
+                "mandate_id": mandate.get("mandate_id"),
+                "mandate_path": str(written_path),
+                "cycles": final_cycles,
+            })
+            router_proc = subprocess.run(
+                [
+                    "python3", str(router_script), "route",
+                    "--trigger-type", "cadence.obligation",
+                    "--source-event", "cadence.emit",
+                    "--producer", "cadence-ops.py",
+                    "--source-tic", str(tic),
+                    "--subject", f"cadence.obligation — tic {tic}",
+                    "--body", envelope_body,
+                ],
+                capture_output=True, text=True, timeout=30,
+            )
+            trigger_router_result = {
+                "ran": True,
+                "exit_code": router_proc.returncode,
+                "routed": router_proc.returncode == 0,
+                "stdout_head": (router_proc.stdout or "").split("\n")[0][:200],
+                "stderr_head": (router_proc.stderr or "").split("\n")[0][:200] or None,
+            }
+        except Exception as err:  # noqa: BLE001 — fail-soft
+            trigger_router_result = {"ran": False, "error": str(err)}
+
     return {
         "written": True,
         "mandate_id": mandate.get("mandate_id"),
@@ -607,6 +655,7 @@ def write_cadence_mandate(zone_root: str, tic: int, trigger_source: str,
         "path": str(written_path),
         "due_markers": due_markers,
         "runner_wait": runner_wait,
+        "trigger_router": trigger_router_result,
     }
 
 
