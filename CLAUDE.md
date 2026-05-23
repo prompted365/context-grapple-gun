@@ -264,15 +264,16 @@ Running identical full cycles regardless of estate state wastes cognitive resour
 
 ## Mandate Lifecycle Defects
 
-Mandate lifecycle has three structural defects that refine the Mandate Consumption Discipline (CogPR-26) and Mandate Execution Depth Scaling (CogPR-47):
+Mandate lifecycle has four structural defects that refine the Mandate Consumption Discipline (CogPR-26) and Mandate Execution Depth Scaling (CogPR-47):
 
 1. **session-restore.sh overwrites without check** — always writes `current.json` without checking existing pending mandates. Lightweight mandates accumulate as durable obligations. **Mitigated**: tic-level idempotency guard added (checks `current.json` tic before emitting). **Fixed** (tic 108): reconcile-first cycle computation — reads previous mandate `tic_context` as primary schedule, modulo as fallback only.
 2. **SessionStart recomputes instead of reconciling** — recomputes cadence from tic modulo instead of reconciling with previous mandate `tic_context`. Creates mandate duplication on session restore. **Mitigated**: `trigger-manifest.yaml` idempotency key changed from `mandate_{tic}_{session_id}` to `mandate_{tic}` with `first_wins` policy. **Fixed** (tic 108): collapsed into reconcile-first in session-restore.sh.
 3. **No concurrency guard on inline Mogul spawn** — the review skill can inline-spawn Mogul without checking whether a loop-backed Mogul is already active. **Fixed** (tic 108): concurrency guard added to `/review` SKILL.md steps 5.5 and 8.5 — checks `current.json` status before writing mandates. Race guard added to cgg-gate.sh inline consumption.
+4. **Cross-mandate write race on current.json during runner mid-cycle** — when mogul-runner is mid-execution on a mandate AND /cadence emits a new mandate to `current.json` before the runner's artifact verification step runs, the verifier reads `$MANDATE_FILE` with the new mandate's mtime as its temporal reference, causing `find -newer $MANDATE_FILE` to false-negative legitimately-produced cycle artifacts written before the new mandate's mtime. The runner writes `status: failed` to `current.json`, overwriting the new mandate's pending status with the prior mandate's verifier failure. **Fix candidates (any composition)**: (1) runner snapshots `current.json` at run start, verifier uses snapshot mtime; (2) cadence checks runner status before writing `current.json`; (3) verifier uses mandate's `created_at` ISO timestamp instead of file mtime; (4) lock file around mandate state transitions. **Implementation tranches owed**: mogul-runner.sh snapshot-pinning fix at artifact-verifier clause (~30 min, next gate); cadence-ops.py runner-status check before mandate write (~30 min, next gate).
 
 **Idempotency key constraint**: The mandate idempotency key must NOT include `session_id` — per-session UUIDs defeat dedup because every session generates a unique ID, making every emission appear novel. The correct granularity is `mandate_{tic}` with `first_wins` policy. Evidence: tic-87 produced 269 inbox messages, 200+ report files, and 328 signal entries from a single-tic runaway caused by `{session_id}` in the key template. **Additional defect (tic 179)**: Session-start auto-mandate logic may merge+expand a manually-written mid-session mandate when session_start fires (e.g., via UserPromptSubmit hook). The merge is non-lossy (cycles absorbed, mandate_id recorded in `merged_from`) but the absorbing mandate runs ALL its cycles. Operator scope expansion: a narrow mid-session mandate may seed a next-session-start-expanded mandate.
 
-<!-- promoted from CogPR-57 (tic 75→80), extended by CogPR-65 (tic 91). Source: external-audit-verified + mandate runaway containment. Refines CogPR-26 (mandate consumption) and CogPR-47 (mandate depth scaling). Band: COGNITIVE. Merged with cpr_ee28b41183d01e30 (tic 179). -->
+<!-- promoted from CogPR-57 (tic 75→80), extended by CogPR-65 (tic 91). Source: external-audit-verified + mandate runaway containment. Refines CogPR-26 (mandate consumption) and CogPR-47 (mandate depth scaling). Band: COGNITIVE. Merged with cpr_ee28b41183d01e30 (tic 179). Extended by cpr_mandate_cross_mandate_write_race_4th_defect_class_tic279 (/review tic 279). Source: tic 279 SessionStart runner-mid-cycle verifier mtime race; mandate history JSONL running_to_failed trace. Implementation tranches: mogul-runner.sh snapshot-pinning + cadence-ops.py runner-status check (next gate). -->
 
 ## Promotion Scope Discipline
 
@@ -1376,3 +1377,49 @@ When the next session needs a hot-and-ready swarm at SessionStart, the prior ses
 <!-- promoted-spec from cpr_parallel_rtch_consolidate_rails_for_next_swarm_with_inbox_marker_dependency_signaling_tic277 (tic 277→278). Source: tic 277 /cadence rail authoring → tic 278 swarm execution. Cross-tic n=2. Band: COGNITIVE. /review tic 278 verdict: PROMOTE-SPEC CGG-rung under /swarm doctrine extension. Skill-body changes (swarm/SKILL.md + cadence/SKILL.md) are follow-up tranches. -->
 
 <!-- promoted from cpr_fail_soft_observability_step_in_cadence_ops_tic268 (/review tic 269 → 270). Same-tic n=1 first-fire HEALTHY at tic 269; cross-tic n=2 with cockpit-intent-emit import pattern. Complements CGG KI Cycle-Based Windows in Mixed-Frequency Event Streams. Composes with federation KI Bounded delegation surfaces default to masking bugs. Band: COGNITIVE. Source: tic 268 close handoff + cadence-ops step 5 integration (CGG f18468d). -->
+
+## RTCH Harvest Reader — Terminal-Valve Discipline
+
+RTCH harvests over append-only ledgers (queue.jsonl, shape-ledger.jsonl, signal files) must read the terminal-valve projection, not aggregate raw emissions; otherwise stale pre-promotion state masquerades as live overdue work.
+
+**Pattern**: Authoritative-set read discipline at the harvest boundary — before counting, ranking, or surfacing any entry from an append-only log, project the terminal state (latest entry per id, valve-filtered to terminal status). Never accumulate raw line counts or status distributions directly from the raw file. The terminal-valve projection is the canonical view; raw emissions are implementation detail.
+
+**Constraint**: Refines federation KI *Authoritative-Set Readers Must Read the Manifest, Not Aggregate Raw Emissions* (same authoritative-set discipline applied specifically at the RTCH harvest boundary). Composes with CGG KI *Terminal-State Valve Pattern* (reader-side application of the write-side valve doctrine). The violation surface is tactical-hydration scripts that grep or count lines without first projecting terminal state — these produce falsely-overdue work backlogs.
+
+**Evidence**: tic 278 wave1 RTCH harvest (water-cycle-CogPR-backfill task) read pre-promotion duplicates for a CogPR at lines 427/540/669 of queue.jsonl without consulting terminal-valve; the CogPR had already been promoted at line 859 (tic 246). Rail T4 harvest surfaced the CogPR as overdue — a falsification caught by Architect correction. Cross-tic n=2 (tic 246 promotion + tic 278 false-overdue detection).
+
+**Lock line**: *RTCH reads terminal-valve projection; raw emissions are write-side artifact only.*
+
+<!-- promoted from cpr_rtch_harvest_reader_pattern_terminal_valve_violation_tic278 (tic 278→279). Source: tic 278 wave1 water-cycle-CogPR-backfill task — Architect-corrected falsification. Rail T4 RTCH harvest read pre-promotion duplicates without terminal-valve. Cross-tic n=2. Band: COGNITIVE. /review tic 279 verdict: PROMOTE CGG-rung. -->
+
+## queue.jsonl Drift-Audit Primitive
+
+queue.jsonl needs a drift-audit primitive (analogous to memory-md-audit.py) that projects terminal-state and flags genuinely overdue pre-promotion rows, distinguishing them from falsely-overdue ones produced by reader misreads.
+
+**Pattern**: A standalone script (`cgg-runtime/scripts/queue-drift-audit.py`, analogous to `audit-logs/governance/memory-md-audit.py`) that: (1) reads queue.jsonl and projects terminal state per id via latest-entry-per-id semantics; (2) classifies each id as terminal (promoted/deferred/skipped/absorbed) or active (pending/extracted); (3) for active ids, computes age in tics and flags genuinely overdue entries; (4) for terminal ids, reports any raw-emission duplicates that could mislead RTCH harvest readers; (5) emits structured output (breach_class, id, age_tics, duplicate_count) consumable by bench-packet-prep and ReBru blocks.
+
+**Constraint**: Composes with federation KI *Authoritative-Set Readers Must Read the Manifest, Not Aggregate Raw Emissions* (the audit primitive IS the manifest-projection mechanism for queue.jsonl). Composes with *RTCH Harvest Reader — Terminal-Valve Discipline* (above — the audit primitive surfaces the raw-emission duplicates that cause harvest misreads). Composes with memory-md-audit.py precedent (same structural pattern: project state → classify breaches → emit structured findings). Without this primitive, genuine overdue work is indistinguishable from falsely-overdue entries at harvest time.
+
+**Implementation tranche owed**: `cgg-runtime/scripts/queue-drift-audit.py` (~45 min, next gate). Doctrine inscribes now; script implementation defers per Verdict-Shape KI (PROMOTE-SPEC authorizes-but-defers).
+
+**Evidence**: tic 278 wave1 RTCH harvest demonstrated the falsification class — CogPR already promoted at line 859 was surfaced as overdue because raw duplicates at lines 427/540/669 were read without terminal-valve projection. The absence of a drift-audit primitive means the gap is invisible until a harvest misread produces an Architect-corrected falsification. Cross-tic n=1 first-fire (tic 278).
+
+**Lock line**: *queue.jsonl drift-audit primitive is the queue-health observability primitive; its absence makes genuine vs. falsely-overdue indistinguishable.*
+
+<!-- promoted-spec from cpr_queue_jsonl_drift_audit_primitive_tic278 (tic 278→279). Source: tic 278 wave1 RTCH harvest falsification; same surface as RTCH Harvest Reader inscription above. Cross-tic n=1 first-fire. Band: COGNITIVE. /review tic 279 verdict: PROMOTE-SPEC CGG-rung. Implementation tranche: cgg-runtime/scripts/queue-drift-audit.py (~45 min, next gate). -->
+
+## review-close-check Verifier — Dehydration Blindspot
+
+review-close-check.py searches canonical/CLAUDE.md for promoted CogPR text and emits `promoted_text_missing` findings when not found. Pass-4-A constitutional dehydration moved promoted CogPR body text from canonical/CLAUDE.md (compact root) to `audit-logs/governance/constitution-ledger/ledger.md` (multi-axis tagged ledger). After dehydration, the verifier reports false-positive `promoted_text_missing` for legacy CogPRs whose text now lives in ledger.md (tic 279 review_close_check: 81 such findings + 29 orphaned_promotion findings; sample CogPRs 27/36/39/40/45 confirmed pre-Pass-4 promotions whose body is in ledger.md). The verifier needs extension to ALSO search ledger.md before emitting promoted_text_missing.
+
+**Pattern**: When a constitutional surface undergoes dehydration (body text relocated from compact root to ledger), all downstream verifiers that search the old surface must be extended to also search the new surface. This is the read-side complement to the write-side dehydration — the score moved; the runtime must follow.
+
+**Constraint**: Concrete instance of federation KI *Phased Dehydration as Multi-Tic Temporal Trajectory* (Pass-4-A is a moving-target multi-tic process; this names the downstream tool that didn't get the memo). Concrete instance of federation KI *Conductor-Score-Runtime Parity* (score moved during Pass-4-A; verifier runtime didn't follow — mechanism class 4: runtime ownership for behavior-bearing artifacts). Distinct from *Artifact-Count-≠-1 Fix-Family* (that names N=0/N=2 cardinality failures at emit-side; this names a DIFFERENT failure class — verifier searches stale target after substrate dehydration). Complements, not duplicates.
+
+**Implementation tranche owed**: extend `cgg-runtime/scripts/review-close-check.py` search path to include `audit-logs/governance/constitution-ledger/ledger.md`; treat ledger-anchor matches as valid for `promoted_text` (~30 min, next gate). Doctrine inscribes now; implementation defers per Verdict-Shape KI.
+
+**Evidence**: tic 279 review_close_check Mogul mandate cycle — 111 total findings (110 errors / 1 warning); 81 `promoted_text_missing` against canonical/CLAUDE.md targets for pre-Pass-4 CogPR IDs whose body text was relocated to ledger.md per Pass-4-A dehydration plan. Report at audit-logs/mogul/cycle-reports/review-close-checks/tic-279-20260523T032314-check.json. Cross-tic n=1 first-fire (tic 279).
+
+**Lock line**: *Dehydration is a two-step migration: relocate body text AND update all verifiers that search the old location.*
+
+<!-- promoted-spec from cpr_review_close_check_verifier_dehydration_blindspot_tic279 (tic 279→279). Source: tic 279 Mogul mandate review_close_check cycle — 81 false-positive promoted_text_missing findings post-Pass-4-A dehydration. Band: COGNITIVE. /review tic 279 verdict: PROMOTE-SPEC CGG-rung. Implementation tranche: review-close-check.py ledger.md search extension (~30 min, next gate). -->
