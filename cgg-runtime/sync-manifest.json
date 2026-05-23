@@ -37,7 +37,8 @@
     "README.md",
     "__pycache__",
     "*.pyc",
-    "deprec_*"
+    "deprec_*",
+    "queue-drift-audit.py"
   ],
   "_tracked_external_scripts_doc": "Runtime-invokable scripts that live OUTSIDE cgg-runtime/ by intentional placement (e.g., path-locked to a data location). Not subject to ~/.claude install/sync, but registered here so runtime-sync awareness includes them. Declares ownership without forcing relocation. See CogPR for Runtime-Invokable Scripts Must Register in Sync Manifest.",
   "tracked_external_scripts": [
@@ -67,6 +68,20 @@
       "install_target": null,
       "install_reason": "project-local; co-located with queue.jsonl per build_queue_index convention; uses path resolution from script location",
       "promotion_lineage": "tic 222 compile-lane upgrade — ONE_SHOT_ONLY → PARTIAL → PRODUCTIZED. Composes with queue/state/stack distinction (Architect-named tic 222) and Terminal-State Valve Pattern (CGG-rung doctrine)."
+    },
+    {
+      "path": "canonical_developer/context-grapple-gun/cgg-runtime/scripts/queue-drift-audit.py",
+      "owner": "cgg-runtime",
+      "category": "observability_audit",
+      "invoked_by": [
+        "manual: governance health probe",
+        "candidate: bench-packet-prep (terminal-with-duplicates surfacing)",
+        "candidate: ReBru blocks (per-tic queue-health observation lane)"
+      ],
+      "writes": "audit-logs/governance/queue-drift-audit/<timestamp>[-tic-N].json",
+      "install_target": null,
+      "install_reason": "project-local; uses FEDERATION_ROOT resolution via __file__ traversal to read audit-logs/cprs/queue.jsonl as a sibling-tree path. Relocation to ~/.claude/ would break the path lock. Excluded from cgg-runtime/scripts/ install sweep via exclude_patterns above.",
+      "promotion_lineage": "tic 280 W1-C implementation of CogPR cpr_queue_jsonl_drift_audit_primitive_tic278 (promoted at /review tic 279). Read-side complement to CGG `Terminal-State Valve Pattern`; queue-side analog of audit-logs/governance/memory-md-audit.py."
     }
   ]
 }
