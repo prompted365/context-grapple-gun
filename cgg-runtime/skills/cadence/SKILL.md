@@ -99,8 +99,11 @@ Parse the JSON output to extract (keys are at the **top level** of the JSON obje
 - `tic.counter_before` — the prior tic count (work_tic for handoff title)
 - `conformation.summary` — signal/warrant/cogpr counts
 - `mandate` — mandate status and due cycles
+- `cockpit_intent` — T2b I-B emission receipt: `{emitted, intent_id, reason}` (or `{emitted: false, error}` on fail-soft failure; never blocks cadence)
 
 **Anti-pattern (do not write):** `data.get('result', {}).get('tic', {})` — cadence-ops emits `tic`, `conformation`, and `mandate` as top-level keys, not nested under `result`. A parser that walks `result.*` returns `None` for every field; re-invoking cadence-ops to "retry" on the None values emits a phantom tic on top of the legitimate one. Use `data['tic']['counter_after']` etc. directly. (Inscribed tic 266 post phantom-tic incident; refines CGG "Subagent Delegation — Schema Contracts" KI.)
+
+**Cockpit-intent emission (T2b I-B, tic 267).** `cadence-ops.py` step 4 emits a `cockpit.intent` envelope with `intent_class: observe` after the tic + conformation + mandate writes. Every counted /cadence produces an explicit declared-state envelope in addition to the conformation snapshot — composes with federation KI *Declared operational state must persist to a governed audit surface*. The emission is fail-soft: import or POST errors land in `result["cockpit_intent"]` but never block cadence output. See `audit-logs/governance/cockpit-intent-t2b-invocation-discipline-spec-tic264.md` §I-B. Posture is sourced from the `--posture` arg (or inferred from environment); mode defaults to `LITE` for non-interactive cadence emissions. Emission appends to `audit-logs/cockpit/intents/YYYY-MM-DD.jsonl` via the Python emitter library (`cgg-runtime/scripts/lib/cockpit_intent_emit.py`) which writes byte-shape-parity rows with the T2a vite POST endpoint.
 
 Report: `Tic #COUNTER_AFTER (physical) at TIMESTAMP`
 
