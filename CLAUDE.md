@@ -1309,4 +1309,70 @@ When a canonical-side observability or audit primitive should fire each /cadence
 
 **Lock line**: *Per-tic external integrations into cadence-ops degrade observability on failure, never the tic. Errors are structured into the result dict — never swallowed.*
 
+## Inline CogPR Schema Completeness Required
+
+Inline CogPR inscriptions in MEMORY.md (and other extractor-watched surfaces) MUST carry three Tier 1 schema-completeness fields: `status: pending`, `lesson:`, and `source:`. Absence of any Tier 1 field triggers `skip_schema_incomplete` at cpr-extract (the block is recognized, parsed, and discarded silently). The skip is invisible at the per-block level — writers cannot detect failure without explicit queue.jsonl grep after extraction.
+
+**Pattern**: every inline CogPR block must declare all three Tier 1 fields adjacent to `id:`. The `status: pending` field alone is insufficient (cpr_inline_cogpr_status_pending_field_required_silent_skip_tic263); the `lesson:` field is the second Tier 1 field (cpr_inline_cogpr_lesson_field_required_sibling_to_status_pending_tic275); the `source:` field is the third. Tier 2 fields (`title`, `evidence`) and Tier 3 fields (`lesson` alone for minimal blocks) are additional — Tier 1 is the completeness floor.
+
+**Constraint**: unifies and supersedes the per-field discipline entries:
+- *Inline CogPR status:pending Field Required* (tic 263, promoted tic 267) — Tier 1 field 1
+- *lesson:* field sibling (tic 275) — Tier 1 field 2
+- Both are now instances of this unified parent: **any missing Tier 1 field = schema incomplete = silent skip**
+
+Composes with *CogPR Marker Syntax Discipline* (same silent-skip inscription-discipline family), *CogPR-77 Extractor Anomaly Self-Reporting* (aggregate anomaly logging; per-block skip-id logging is the runtime patch layer), federation KI *Bounded delegation surfaces default to masking bugs* (the parser is the bounded delegate that silently masks authoring errors).
+
+**Evidence**: tic 263 (n=2 within-arc: status:pending omission × 2) + tic 275 (lesson: omission surfaced via enrichment-swarm schema-completeness audit). Cross-tic inscription-discipline family n=4+ (CogPR Marker Syntax + status:pending + lesson: + parser-path-drift authoring + parser-path-drift validation).
+
+**Lock line**: *Every inline CogPR carries `status: pending`, `lesson:`, and `source:` adjacent to `id:`. Any missing Tier 1 field = silent skip.*
+
+<!-- promoted from cpr_inline_cogpr_lesson_field_required_sibling_to_status_pending_tic275 (tic 275→278) unified with cpr_inline_cogpr_status_pending_field_required_silent_skip_tic263 (tic 263→267). Unified parent inscribed at /review tic 278. Evidence: tic 263 status:pending n=2 + tic 275 lesson: field surface. Band: COGNITIVE. /review tic 278 verdict: PROMOTE CGG-rung unified parent. -->
+
+## Memory-MD-Audit Breach Class Distinction
+
+`memory-md-audit.py` breach detection must distinguish two structurally different breach classes — STRUCTURAL breaches and PENDING-STATE breaches — because their operational response and urgency are opposite.
+
+**Pattern**:
+- **STRUCTURAL breaches** (`orphan_files`, `dead_refs`): demand immediate fix. An orphan file (no index pointer) or a dead reference (pointer to non-existent file) is always wrong regardless of review window state. These are defects.
+- **PENDING-STATE breaches** (`inline_extraction_candidates` for sections pinned by `REVIEW_PINNED` locks on `status: pending` CogPRs): are expected pressure during active /review windows. They unlock automatically post-terminalization (when the CogPR is promoted, absorbed, or rejected). Treating them as urgency-level defects drives unnecessary trim cycles during the exact period when inline CogPRs are being reviewed.
+
+**Constraint**: composes with federation KI *Governance is instrumental, not terminal* (false urgency signals waste governance cycles on expected pressure, not real drift). Composes with *Inline CogPR Schema Completeness Required* (above — REVIEW_PINNED pressure is the expected companion to in-flight schema-complete CogPRs). Note: runtime patch needed — add `breach_class` field to `audit-logs/governance/memory-md-audit.py` per-finding output to enable downstream consumers (ReBru blocks, bench-packets) to filter by class. The runtime patch is a follow-up implementation tranche; this inscription anchors the doctrine.
+
+**Evidence**: REVIEW_PINNED inline_extraction_candidates were producing false /cadence urgency for ~10 tics (tic 266-276) because audit output did not distinguish expected pending-window pressure from structural defects. Doctrine: cross-tic n=1 first-fire (tic 276 audit-sweep during /review window).
+
+**Lock line**: *Structural breach = fix now. Pending-state breach = expected; wait for terminalization.*
+
+<!-- promoted from cpr_memory_md_audit_breach_class_distinction_pending_vs_structural_tic276 (tic 276→278). Source: tic 276 audit-sweep during /review window. Band: COGNITIVE. /review tic 278 verdict: PROMOTE CGG-rung. Runtime patch (breach_class field in memory-md-audit.py) is follow-up tranche. -->
+
+## Triplet Self-Spawn for Substrate Moments — Three-Posture Instance Reference
+
+Triplet self-spawn dispatches three same-skill instances on a single substrate signal, differentiated by POSTURE (not task), so the postures triangulate into a synthesis no single posture would produce — sub-class of Mixed Subagent + Lead Swarm Geometry.
+
+**Instance reference**: at tic 274, a single substrate-moment signal (State-of-the-Federation autobiography arc) warranted three parallel postures: ENG/META (architectural framing), OPS/META (operational-status audit), ENG/DIRECT (implementation path). The three-way triangulation produced compound output that neither a single-posture agent nor a sequential three-step approach would have yielded in equivalent wall-clock time.
+
+**Constraint**: sub-geometry under *Mixed Subagent + Lead Swarm Geometry* (parent). Posture is the differentiating axis — not model, not task decomposition, not domain. Three postures are sufficient for substrate-moment triangulation; more than three postures typically indicates task decomposition rather than posture triangulation.
+
+**Promotion note**: cross-tic n=1 (tic 274 first-fire). PROMOTE-SPEC instance reference; named sub-geometry when cross-tic n=2 surfaces a second instance in a different domain. Holds for next /review.
+
+<!-- promoted-spec from cpr_triplet_self_spawn_for_substrate_moments_three_postures_tic274 (tic 274→278). Source: tic 274 State-of-the-Federation autobiography arc. Cross-tic n=1; instance reference under Mixed Subagent + Lead Swarm Geometry. Band: COGNITIVE. /review tic 278 verdict: PROMOTE-SPEC instance reference. -->
+
+## Cross-Cadence-Rails + Inbox-Marker-Dependency-Satisfaction Primitive
+
+When the next session needs a hot-and-ready swarm at SessionStart, the prior session's /cadence is the lowest-cost moment to manufacture the swarm's contextual rails — dispatch parallel /tactical-hydration lanes, terminate each with /consolidate, and write the harvested packets to a stable rails directory referenced by an inbox-marker-dependency-satisfaction DAG that the next session's hook-derived dispatcher reads. The pattern decouples discovery (this tic, parallelizable, lead-supervised) from execution (next tic, hook-kicked-off, dependency-DAG-ordered) across the cadence boundary.
+
+**Two primitives this inscription names:**
+
+1. **Cross-Cadence-Rails** — manufacturing swarm context in the prior session's /cadence rather than cold-starting in the next. Rails directories under `audit-logs/swarms/` carry RTCH packets, slice baskets, and dependency declarations authored while context is hot. Next-session dispatch reads the rails; it does NOT re-derive context.
+
+2. **Inbox-Marker-Dependency-Satisfaction** — a DAG node structure in the inbox marker (e.g., `audit-logs/agent-mailboxes/ent_homeskillet/inbound/swarm-tic278/`) declaring `dependencies: [rail-T1, rail-T2, rail-T3]` where each dependency is a `status: complete` signal written by the rail's /consolidate step. The next session's hook-derived dispatcher reads the DAG and fires only when all declared dependencies are satisfied. This converts sequential guesswork into dependency-ordered parallel execution.
+
+**Recommended scopes (follow-up implementation tranches):**
+- `cgg-runtime/skills/swarm/SKILL.md` — doctrine the cross-cadence-rails authoring step
+- `cgg-runtime/skills/cadence/SKILL.md` — doctrine the prior-session rail-manufacturing step
+- Skill-body changes are follow-up tranches; this inscription carries the doctrine.
+
+**Evidence**: cross-tic n=2 validated this session arc (tic 277 authoring → tic 278 execution); tic 278 swarm consumed rails manufactured at tic 277 /cadence. The dependency-satisfaction DAG is the missing formal primitive that converts ad-hoc rail-reading into governed dependency-ordered dispatch.
+
+<!-- promoted-spec from cpr_parallel_rtch_consolidate_rails_for_next_swarm_with_inbox_marker_dependency_signaling_tic277 (tic 277→278). Source: tic 277 /cadence rail authoring → tic 278 swarm execution. Cross-tic n=2. Band: COGNITIVE. /review tic 278 verdict: PROMOTE-SPEC CGG-rung under /swarm doctrine extension. Skill-body changes (swarm/SKILL.md + cadence/SKILL.md) are follow-up tranches. -->
+
 <!-- promoted from cpr_fail_soft_observability_step_in_cadence_ops_tic268 (/review tic 269 → 270). Same-tic n=1 first-fire HEALTHY at tic 269; cross-tic n=2 with cockpit-intent-emit import pattern. Complements CGG KI Cycle-Based Windows in Mixed-Frequency Event Streams. Composes with federation KI Bounded delegation surfaces default to masking bugs. Band: COGNITIVE. Source: tic 268 close handoff + cadence-ops step 5 integration (CGG f18468d). -->
