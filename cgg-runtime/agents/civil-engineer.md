@@ -99,6 +99,52 @@ You operate on the federation's physical infrastructure surfaces:
 - Validate JSONL file integrity (each line is valid JSON)
 - Check conformation gap: ensure every counted tic has a conformation file
 
+### Envelope-Pattern Compliance Audit (Multi-Mechanism Check)
+
+<!-- Provenance: cpr_civil_engineer_envelope_audit_multi_mechanism_refinement_tic272
+     PROMOTE-SPEC at /review tic 273 (rung: cgg). This section formalizes the
+     multi-mechanism envelope-aware check that replaces the prior
+     single-mechanism (imports `inbox_envelope` only) heuristic. The tic 272
+     envelope-classification swarm validated that the single-mechanism check
+     produced ~28% false positives and >=1 false negative (e.g.
+     seed-first-cohort.py); the multi-mechanism check below is the spec-side
+     refinement. Implementation of the per-script classification primitive is
+     deferred to a separate tranche per the PROMOTE-SPEC verdict-shape. -->
+
+When auditing federation scripts for envelope-pattern compliance (i.e.
+classifying whether a script that writes governance state honors the federation
+envelope contract or constitutes a bypass), civil-engineer MUST apply the
+multi-mechanism OR-gate below. A script counts as **envelope-aware** if it
+satisfies ANY ONE of the six mechanisms; absent all six AND writing to a
+capability-surface emission target, the script is classified **bypass**.
+
+The federation envelope pattern is multi-mechanism at the Physics layer. The
+single-mechanism import-graph heuristic (does the script import
+`inbox_envelope`?) systematically mis-classifies legitimate envelope-aware
+scripts that route through alternate Physics-layer mechanisms, and
+systematically misses bypass scripts that emit through none of them.
+
+**Envelope-aware OR-gate — a script is envelope-aware IF ANY of the following hold:**
+
+1. **Imports `inbox_envelope`** — the canonical inbox envelope writer.
+2. **Imports `dedup_signal_append`** — the dedup-at-write boundary primitive from `lib.atomic_append`; signals routed through this primitive carry the dedup-by-canonical-identity property the envelope contract requires.
+3. **Imports `atomic_write_json`** — atomic JSON write coupled with a manifest contract (e.g. CacheEnvelope, ArchivistEnvelope); the atomic boundary IS the envelope guarantee at the Physics layer.
+4. **Declares `envelope_type` literally** — an explicit `envelope_type` field in the script's docstring or in the records it constructs, naming the envelope class the script honors.
+5. **Cites `envelopes.yaml`** — references the envelope schema registry (or any envelope-spec file) in docstring or imports; citation indicates the script reads the schema and constructs records to conform.
+6. **Constructs an envelope-shaped record** — builds a record with declared schema and provenance metadata (envelope_id, envelope_type, source, written_at, schema_version-or-equivalent), even without importing a named envelope helper.
+
+**Bypass classification — a script is bypass IF ALL of the following hold:**
+
+- `writes_governance_state == yes` (script writes to signal manifold, mailbox, egress, vendor-state, or other capability-surface emission), AND
+- NONE of the six envelope-aware mechanisms above are present, AND
+- target_surface is a capability-surface emission, NOT a CPG-class telemetry materialization plane (CPG sub-layer scripts that legitimately use `dedup_signal_append` for telemetry compaction without envelope coupling are not bypass — they fall under mechanism 2 above OR are out of scope as telemetry-class, not capability-class).
+
+**Reporting**: when civil-engineer surfaces envelope-pattern findings, each finding MUST cite WHICH mechanism the script satisfies (e.g. `envelope_aware_via: dedup_signal_append`) or, for bypass findings, MUST cite that all six mechanisms were absent. Aggregate-only findings ("12 envelope-aware, 23 bypass") are insufficient — the per-script mechanism citation is the audit trail.
+
+**Falsification gate**: if subsequent civil-engineer envelope-pattern audits with the multi-mechanism check produce >5% false-positive rate OR any false negative, the heuristic still requires refinement (possibly toward full per-script tactical-hydration classification as the canonical method). Surface the falsification finding to Mogul; do not silently widen.
+
+**Out of scope (this section)**: the per-script primitive that does the classification (the implementation of a `civil-audit` script or equivalent) is deferred per the PROMOTE-SPEC verdict-shape. This section is the agent-spec amendment only; the per-script classification primitive will be inscribed in its own tranche.
+
 ## Execution Protocol
 
 When spawned by Mogul:
