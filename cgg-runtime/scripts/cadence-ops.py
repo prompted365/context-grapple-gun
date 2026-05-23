@@ -22,6 +22,7 @@ import os
 import re
 import subprocess
 import sys
+import time
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -489,6 +490,73 @@ def compute_due_cycles(tic: int) -> list:
     return cycles
 
 
+def wait_for_runner_quiescence(mandate_path: Path, timeout_s: float = 30.0,
+                                poll_interval_s: float = 2.0) -> dict:
+    """Wait for mogul-runner to leave 'running' state before mandate write.
+
+    CogPR-3 fix-family (tic 280): the cross-mandate write race occurs when
+    /cadence writes a new mandate to current.json while mogul-runner is
+    mid-execution. The runner's snapshot-pinning fix (part 1) ensures the
+    runner reads the original mandate's mtime via a snapshot ref — but if the
+    write lands BEFORE the snapshot is taken (runner just started), or if a
+    second runner attempts to read current.json that we've just rewritten,
+    we still want to back off briefly to let the runner reach a stable point.
+
+    Polls the existing mandate's status field. If status == 'running', sleeps
+    `poll_interval_s` and retries until the runner transitions (consumed /
+    failed) or `timeout_s` elapses. On timeout, logs a warning and returns
+    without blocking the cadence write — the cadence mandate is load-bearing
+    and must not be lost. The warning surfaces the race for operator review.
+
+    Returns a dict with: {waited_s, runner_was_running, runner_final_status,
+    timed_out}.
+    """
+    result = {
+        "waited_s": 0.0,
+        "runner_was_running": False,
+        "runner_final_status": None,
+        "timed_out": False,
+    }
+
+    if not mandate_path.exists():
+        return result
+
+    start = time.monotonic()
+    deadline = start + timeout_s
+
+    while True:
+        try:
+            with open(mandate_path, "r", encoding="utf-8") as f:
+                m = json.load(f)
+            status = m.get("status", "pending")
+        except (OSError, json.JSONDecodeError):
+            # Cannot read mandate — do not block cadence on this; proceed.
+            result["runner_final_status"] = "unreadable"
+            break
+
+        if status != "running":
+            result["runner_final_status"] = status
+            break
+
+        result["runner_was_running"] = True
+
+        if time.monotonic() >= deadline:
+            result["timed_out"] = True
+            result["runner_final_status"] = "running"
+            sys.stderr.write(
+                "WARN: wait_for_runner_quiescence timed out after "
+                f"{timeout_s}s — runner still 'running'; proceeding with "
+                "cadence mandate write to avoid losing the mandate. "
+                "Race window may produce verifier false-negative.\n"
+            )
+            break
+
+        time.sleep(poll_interval_s)
+
+    result["waited_s"] = round(time.monotonic() - start, 3)
+    return result
+
+
 def write_cadence_mandate(zone_root: str, tic: int, trigger_source: str,
                           conformation_ref: str = None) -> dict:
     """Write a Mogul mandate for the next tic's due cycles.
@@ -502,6 +570,13 @@ def write_cadence_mandate(zone_root: str, tic: int, trigger_source: str,
     # Read existing mandate for merge-before-write
     al = audit_logs_path(zone_root)
     mandate_path = Path(al) / "mogul" / "mandates" / "current.json"
+
+    # CogPR-3 fix-family (tic 280): before writing current.json, wait briefly
+    # if mogul-runner is mid-execution. Pairs with mogul-runner.sh
+    # snapshot-pinning (part 1) to close the cross-mandate write race that
+    # caused tic 279's review_close_check false-negative.
+    runner_wait = wait_for_runner_quiescence(mandate_path)
+
     existing = read_existing_mandate(mandate_path)
 
     # Determine merge/supersede
@@ -531,6 +606,7 @@ def write_cadence_mandate(zone_root: str, tic: int, trigger_source: str,
         "supersedes": supersedes,
         "path": str(written_path),
         "due_markers": due_markers,
+        "runner_wait": runner_wait,
     }
 
 
