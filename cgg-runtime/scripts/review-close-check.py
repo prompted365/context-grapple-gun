@@ -407,7 +407,22 @@ def check_promoted(cpr_id, cpr, project_dir, inscribed_ids=None, lesson_fallback
     return findings
 
 
-_PROVENANCE_RE = re.compile(r"<!--\s*promoted from\s+(cpr_[A-Za-z0-9_]+|CogPR-\d+)", re.IGNORECASE)
+# Provenance-comment recognition (extended at tic 282 per D7 W2 — review-close-check
+# search-path family). Catches all governance-style provenance verbs (promoted,
+# promoted-spec, absorbed, refined, extended, merged, superseded) regardless of
+# the verb→ref-keyword shape ("from", "by", "at tic N /review from"). Compound
+# references with multiple cpr_xxx refs in one comment are captured as a set
+# (refined-from-A+B pattern observed in ledger.md).
+_PROVENANCE_VERB_RE = re.compile(
+    r"<!--\s*(?:"
+    r"(?:promoted-spec|promoted|absorbed|refined|extended|merged|superseded)"
+    r"|CPR-ID:"
+    r").*?-->",
+    re.IGNORECASE | re.DOTALL,
+)
+_CPR_REF_RE = re.compile(r"(cpr_[A-Za-z0-9_]+|CogPR-\d+)")
+# Backwards-compat alias retained for downstream callers; not used internally.
+_PROVENANCE_RE = _PROVENANCE_VERB_RE
 
 
 def build_inscribed_index(project_dir):
@@ -481,8 +496,12 @@ def build_inscribed_index(project_dir):
         content = read_file_safe(path)
         if not content:
             continue
-        for m in _PROVENANCE_RE.finditer(content):
-            inscribed.add(m.group(1))
+        # Two-pass: find each provenance HTML-comment block, then extract every
+        # cpr_xxx / CogPR-N ref inside it. The compound case ("refined from A + B")
+        # surfaces both refs from a single comment.
+        for m in _PROVENANCE_VERB_RE.finditer(content):
+            for ref_match in _CPR_REF_RE.finditer(m.group(0)):
+                inscribed.add(ref_match.group(1))
     return inscribed
 
 
