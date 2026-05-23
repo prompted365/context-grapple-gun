@@ -111,10 +111,26 @@ MANDATE_ID=$(echo "$MANDATE_INFO" | cut -d'|' -f1)
 CYCLES=$(echo "$MANDATE_INFO" | cut -d'|' -f2)
 CURRENT_TIC=$(echo "$MANDATE_INFO" | cut -d'|' -f3)
 
+# ============================================================================
+# Snapshot $MANDATE_FILE mtime at run start (CogPR-3 fix-family, tic 280)
+#
+# Mandate Lifecycle Defect #4: cross-mandate write race. If /cadence emits a
+# new mandate to current.json mid-execution, the file's mtime advances under
+# the runner's feet. Verifier clauses using `find -newer "$MANDATE_FILE"`
+# would then false-negative legitimately-produced artifacts whose mtime is
+# older than the cadence-written new mandate. Pin the mtime here so verifiers
+# read the snapshot, not the live (possibly cadence-overwritten) file.
+# ============================================================================
+
+MANDATE_FILE_SNAPSHOT_REF="/tmp/cgg-mandate-snapshot-$$.ref"
+touch -r "$MANDATE_FILE" "$MANDATE_FILE_SNAPSHOT_REF"
+trap 'rm -f "$MANDATE_FILE_SNAPSHOT_REF"' EXIT
+
 echo "Mandate: $MANDATE_ID"
 echo "Cycles:  $CYCLES"
 echo "Tic:     $CURRENT_TIC"
 echo "Status:  $MANDATE_STATUS"
+echo "Snapshot ref: $MANDATE_FILE_SNAPSHOT_REF"
 
 if [ "$DRY_RUN" = true ]; then
   echo "[DRY RUN] Would execute mandate $MANDATE_ID with cycles: $CYCLES"
@@ -445,7 +461,7 @@ print('yes' if 'enrichment_scan' in r.get('results', {}) else 'no')
         # Check that an audit file was written
         PSA_DIR="$AUDIT_LOGS/mogul/cycle-reports/prompt-stack-audits"
         if [ -d "$PSA_DIR" ]; then
-          PSA_COUNT=$(find "$PSA_DIR" -name "*-audit.json" -newer "$MANDATE_FILE" 2>/dev/null | wc -l | tr -d ' ')
+          PSA_COUNT=$(find "$PSA_DIR" -name "*-audit.json" -newer "$MANDATE_FILE_SNAPSHOT_REF" 2>/dev/null | wc -l | tr -d ' ')
         else
           PSA_COUNT=0
         fi
@@ -457,7 +473,7 @@ print('yes' if 'enrichment_scan' in r.get('results', {}) else 'no')
         # Check that a consistency report was written
         RCC_DIR="$AUDIT_LOGS/mogul/cycle-reports/review-close-checks"
         if [ -d "$RCC_DIR" ]; then
-          RCC_COUNT=$(find "$RCC_DIR" -name "*-check.json" -newer "$MANDATE_FILE" 2>/dev/null | wc -l | tr -d ' ')
+          RCC_COUNT=$(find "$RCC_DIR" -name "*-check.json" -newer "$MANDATE_FILE_SNAPSHOT_REF" 2>/dev/null | wc -l | tr -d ' ')
         else
           RCC_COUNT=0
         fi
@@ -469,7 +485,7 @@ print('yes' if 'enrichment_scan' in r.get('results', {}) else 'no')
         # Verify cache_refresh produced a cache-state artifact
         CACHE_STATE_DIR="$AUDIT_LOGS/biome/pen-pal-cache/state-artifacts"
         if [ -d "$CACHE_STATE_DIR" ]; then
-          CACHE_ARTIFACT_COUNT=$(find "$CACHE_STATE_DIR" -name "*-cache-state.json" -newer "$MANDATE_FILE" 2>/dev/null | wc -l | tr -d ' ')
+          CACHE_ARTIFACT_COUNT=$(find "$CACHE_STATE_DIR" -name "*-cache-state.json" -newer "$MANDATE_FILE_SNAPSHOT_REF" 2>/dev/null | wc -l | tr -d ' ')
         else
           CACHE_ARTIFACT_COUNT=0
         fi
