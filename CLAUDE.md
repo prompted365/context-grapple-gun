@@ -1425,3 +1425,22 @@ review-close-check.py searches canonical/CLAUDE.md for promoted CogPR text and e
 **Lock line**: *Dehydration is a two-step migration: relocate body text AND update all verifiers that search the old location.*
 
 <!-- promoted-spec from cpr_review_close_check_verifier_dehydration_blindspot_tic279 (tic 279→279). Source: tic 279 Mogul mandate review_close_check cycle — 81 false-positive promoted_text_missing findings post-Pass-4-A dehydration. Band: COGNITIVE. /review tic 279 verdict: PROMOTE-SPEC CGG-rung. Implementation tranche: review-close-check.py ledger.md search extension (~30 min, next gate). -->
+
+## Cockpit.intent Invocation Discipline (T2b)
+
+`cockpit.intent` (30th envelope class, `ak_control_room/envelopes.yaml`) emits via three governed surfaces per T2b spec (`audit-logs/governance/cockpit-intent-t2b-invocation-discipline-spec-tic264.md`); a fourth surface (I-C per-skill instrumentation) is deferred to T2c.
+
+**I-A — Posture-Toggle Hook** (`cgg-runtime/hooks/cockpit-intent-posture-toggle.py`). UserPromptSubmit hook scans the prompt for `[Posture → X/Y]` toggles or `POSTURE:` banner lines and emits an envelope; `intent_class` derives from the new posture (`*/META → observe`, `*/DIRECT → free`). Registered in `hooks/hooks.json` (plugin) and in user-scope `~/.claude/settings.json` (post-install). Fail-soft: hook never blocks UserPromptSubmit.
+
+**I-B — Cadence-Emit Step** (`cgg-runtime/scripts/cadence-ops.py` main step 4). After tic + conformation + mandate, cadence-ops invokes the Python emitter with `intent_class: observe` — every counted /cadence produces a declared-state envelope alongside the conformation snapshot. Documented in `cgg-runtime/skills/cadence/SKILL.md` Step 0.5 output table. Fail-soft pattern follows the *Cadence-Ops Fail-Soft Observability Subprocess Pattern* (import class variant): errors land in `result["cockpit_intent"]` but never block cadence output.
+
+**I-D — Manual REST Escape Hatch.** The T2a POST endpoint at `/api/governance/cockpit/intent` (vite-governance-api.ts) remains accessible without code changes for diagnostic probes, calibration evidence collection, and replay of missed emissions. Two invocation paths are documented in the T2b spec Appendix A:
+
+- **curl** against the vite dev server (`http://localhost:8080/api/governance/cockpit/intent`); requires `npm run dev` under `canonical_developer/ak-control-room/`.
+- **Python** (CLI-only / headless context) via `cgg-runtime/scripts/lib/cockpit_intent_emit.py` `emit_intent()` — writes byte-shape-parity rows to the same `audit-logs/cockpit/intents/YYYY-MM-DD.jsonl` the POST endpoint writes to. Use this path when the vite server is unavailable.
+
+Validation rules are identical across all four paths (I-A / I-B / I-D-curl / I-D-python) per `envelopes.yaml#cockpit.intent.when_included`. The Python emitter applies per-tic dedup keyed on `(source_object_ref, source_path, intent_class, posture, mode)`; the vite POST endpoint does NOT currently apply dedup — manual probes that need dedup should route through the Python helper.
+
+**Pattern**: I-A and I-B are operational emission paths; I-D is the diagnostic / replay escape hatch. Naming the escape hatch explicitly in doctrine prevents future tightening from inadvertently breaking diagnostic affordances (composes with federation KI *Identity precedes capability* — the operator probe path is a first-class invocation surface, not an exception).
+
+<!-- promoted-spec from cpr_cockpit_intent_t2b_invocation_discipline_spec_tic264 (PROMOTE-SPEC at /review tic 267 docket #5). Implementation tranches I-A + I-B landed at CGG commits 5a77d29 + a2b71b4 (tic 267). W3-B3 (tic 282) residue takedown: hooks.json plugin registration for I-A, cadence/SKILL.md Step 0.5 documentation of I-B output key, this CGG CLAUDE.md section documenting I-D escape hatch. I-C deferred to T2c per spec. Band: COGNITIVE. Domain rung: CGG. -->
