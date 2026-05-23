@@ -36,8 +36,32 @@ import sys
 import time
 from typing import Any
 
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from zone_root import resolve_zone_root  # noqa: E402
 
-REPO_ROOT = pathlib.Path("/Users/breydentaylor/canonical")
+
+def _resolve_repo_root() -> pathlib.Path:
+    """Resolve REPO_ROOT under federation marker-aware discipline.
+
+    Priority chain (per /review tic 284 Verdict C refinement):
+      1. CGG_REPO_ROOT env override — explicit fixture / test escape hatch
+      2. Marker-aware zone resolution via zone_root.resolve_zone_root() —
+         honors CLAUDE_PROJECT_DIR, walks up for .ticzone, falls back to
+         git rev-parse, then cwd-with-warning
+      3. Hardcoded canonical default — backward-compatible final fallback
+         (reached only if zone_root resolution raises; should not normally fire
+         since resolve_zone_root has its own cwd-fallback path)
+    """
+    env_override = os.environ.get("CGG_REPO_ROOT")
+    if env_override:
+        return pathlib.Path(env_override)
+    try:
+        return pathlib.Path(resolve_zone_root())
+    except Exception:
+        return pathlib.Path("/Users/breydentaylor/canonical")
+
+
+REPO_ROOT = _resolve_repo_root()
 
 CONFORMATION_DIR = REPO_ROOT / "audit-logs" / "conformations"
 QUEUE_FILE = REPO_ROOT / "audit-logs" / "cprs" / "queue.jsonl"

@@ -475,6 +475,7 @@ def compile_slice(zone: Path, tic: int) -> dict:
         ("mailbox_envelopes", lambda: scan_agent_mailboxes_at_tic(zone, tic)),
         ("signals_emitted", lambda: scan_signals_emitted(zone, tic)),
         ("biome_cache_state", lambda: scan_biome_cache_state(zone, tic)),
+        ("rtch_packets", lambda: scan_rtch_packets(zone)),
     ]:
         discovery_log["feeds_scanned"].append(name)
         refs = fn()
