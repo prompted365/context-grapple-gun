@@ -137,6 +137,41 @@ Lead spawns internal agents A, B (parallel)
   -> Final consolidation
 ```
 
+### Cross-Cadence Rails Swarm
+
+Swarm whose **context rails were manufactured at the prior session's /cadence** rather than discovered cold inside the current session. Rails (RTCH packets + slice baskets + dependency declarations) live in a stable rails directory; the swarm's dispatcher reads them at SessionStart and fires lanes only when their declared dependencies are satisfied via inbox-marker signaling.
+
+**When to use**: large multi-lane work (≥3 parallel lanes) where the prior session's /cadence already had enough context awareness to identify the lanes and manufacture their context packets. The next session opens hot — no RTCH inside the dispatch path; the dispatcher reads the rails and spawns lanes directly. Composes with internal/external/hybrid as the **base pattern** — rails govern dispatch ordering and context loading; the lanes themselves can still be any of the three.
+
+**Two coupled primitives** (full doctrine: CGG_CLAUDE.md § *Cross-Cadence-Rails + Inbox-Marker-Dependency-Satisfaction Primitive*):
+
+1. **Cross-Cadence-Rails** — rail packets manufactured during the prior session's /cadence (via parallel `/tactical-hydration` lanes terminating in `/consolidate`), written to `audit-logs/swarm-rails/tic{N}/rail-{lane-id}-{lane-name}.md`. Each packet carries RTCH selected_surfaces, slice baskets, risk maps, and dependency declarations authored while context was hot in the prior session.
+
+2. **Inbox-Marker-Dependency-Satisfaction** — DAG node structure in the swarm's inbox marker (`audit-logs/agent-mailboxes/ent_homeskillet/inbound/swarm-tic{N}/`) declaring `dependencies: [rail-T1, rail-T2, …]` where each dependency is a `status: complete` signal written by the corresponding rail's `/consolidate` step. The dispatcher reads the DAG and fires a lane only when all its declared dependencies are satisfied (rail packets present + lane upstream complete).
+
+**Spawning**: SessionStart hook or first-prompt dispatch reads the inbox marker, parses the dependency DAG, and spawns agents for each lane whose dependencies are satisfied. Same `Agent()` semantics as internal swarm — the rails just ensure the agent prompts include pre-hydrated context rather than requiring cold-start discovery.
+
+**Consolidation**: Lead reads agent outputs at completion (artifact-based per internal swarm) and writes a final completion marker (`audit-logs/swarm-rails/tic{N}/swarm-complete.marker`) carrying the consolidation summary.
+
+```
+Prior session's /cadence:
+  -> Identify next-session lanes (T1, T2, T3, …)
+  -> Spawn parallel /tactical-hydration agents (one per lane)
+  -> Each terminates with /consolidate writing rail-T*.md
+  -> Write inbox marker with dependency DAG
+  -> Each rail emits status:complete marker
+Next session SessionStart:
+  -> Dispatcher reads inbox marker DAG
+  -> Spawns lane agents whose dependencies satisfied
+  -> Lanes execute with pre-hydrated context (no cold-start RTCH)
+  -> Lead consolidates lane outputs
+  -> Writes swarm-complete marker
+```
+
+**Cross-reference**: this swarm pattern is the **consumption side** of the cross-cadence rails primitive. The manufacturing side (prior session's /cadence authoring the rails) is documented in `cgg-runtime/skills/cadence/SKILL.md` under the **Cross-Cadence Rail Manufacturing** optional step. The cadence side manufactures; this swarm side consumes — same primitive, two sides.
+
+**When NOT to use**: routine single-tic work where rails were not manufactured at prior /cadence (no rails to consume — use plain internal/external/hybrid); cold-start sessions where the prior session did not anticipate this work surface (the cost of rail manufacturing must be paid by the prior session, not retrofitted into the current one).
+
 ## Swarm Spec Format
 
 Every swarm generates a spec YAML before execution:
