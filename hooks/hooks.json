@@ -21,6 +21,15 @@
             "timeout": 15
           }
         ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/cgg-runtime/hooks/cockpit-intent-posture-toggle.py",
+            "timeout": 10
+          }
+        ]
       }
     ],
     "PostToolUse": [
