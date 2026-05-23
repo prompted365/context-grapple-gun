@@ -21,6 +21,7 @@ Usage:
 """
 
 import argparse
+import fnmatch
 import hashlib
 import json
 import os
@@ -66,6 +67,20 @@ INSTALL_TARGETS = _MANIFEST["install_targets"]
 SYNC_EXCLUDE = set(_MANIFEST.get("sync_exclude", []))
 
 EXCLUDE_PATTERNS = list(_MANIFEST.get("exclude_patterns", []))
+
+
+def _excluded(entry):
+    """Return True if entry filename matches any EXCLUDE_PATTERNS glob.
+
+    Consumed by category loops (agents, hooks, scripts .py, scripts .sh) to
+    honor manifest-declared exclusions for top-of-category cruft (README.md,
+    __pycache__, *.pyc, deprec_*) and intentionally-project-local scripts
+    (queue-drift-audit.py — uses __file__ path-lock, declared in
+    tracked_external_scripts with install_target: null).
+
+    Skill-internal files are NOT filtered here — see the skill loop comment.
+    """
+    return any(fnmatch.fnmatch(entry, pat) for pat in EXCLUDE_PATTERNS)
 
 # Overrides in manifest use relative paths (~/.claude/...); expand to absolute
 INSTALL_PATH_OVERRIDES = {
@@ -157,6 +172,8 @@ def discover_surfaces(plugin_root, zone_root):
             # Agents: each .md file in agents/
             for entry in sorted(os.listdir(canonical_dir)):
                 if entry.endswith(".md"):
+                    if _excluded(entry):
+                        continue
                     canonical_path = os.path.join(canonical_dir, entry)
                     rel_key = f"{spec['canonical_subdir']}/{entry}"
                     if rel_key in SYNC_EXCLUDE:
@@ -176,6 +193,8 @@ def discover_surfaces(plugin_root, zone_root):
             # Hooks: each .sh and .py file in hooks/
             for entry in sorted(os.listdir(canonical_dir)):
                 if entry.endswith(".sh") or entry.endswith(".py"):
+                    if _excluded(entry):
+                        continue
                     canonical_path = os.path.join(canonical_dir, entry)
                     rel_key = f"{spec['canonical_subdir']}/{entry}"
                     if rel_key in SYNC_EXCLUDE:
@@ -200,6 +219,8 @@ def discover_surfaces(plugin_root, zone_root):
             # Scripts: each .py file in scripts/ (flat, not nested)
             for entry in sorted(os.listdir(canonical_dir)):
                 if entry.endswith(".py"):
+                    if _excluded(entry):
+                        continue
                     canonical_path = os.path.join(canonical_dir, entry)
                     rel_key = f"{spec['canonical_subdir']}/{entry}"
                     if rel_key in SYNC_EXCLUDE:
@@ -218,6 +239,8 @@ def discover_surfaces(plugin_root, zone_root):
             # Also sync .sh scripts (mogul-runner.sh, etc.)
             for entry in sorted(os.listdir(canonical_dir)):
                 if entry.endswith(".sh"):
+                    if _excluded(entry):
+                        continue
                     canonical_path = os.path.join(canonical_dir, entry)
                     rel_key = f"{spec['canonical_subdir']}/{entry}"
                     if rel_key in SYNC_EXCLUDE:
@@ -243,6 +266,8 @@ def discover_surfaces(plugin_root, zone_root):
                 for entry in sorted(os.listdir(subdir_path)):
                     if entry.startswith("__"):
                         continue  # skip __pycache__
+                    if _excluded(entry):
+                        continue
                     canonical_path = os.path.join(subdir_path, entry)
                     if not os.path.isfile(canonical_path):
                         continue
