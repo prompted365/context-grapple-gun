@@ -721,17 +721,36 @@ def run_check(project_dir, dry_run=False):
     }
 
     if not dry_run:
-        # T4c spec: canonical artifact identity is mandate-keyed, not timestamp-keyed.
-        # Filesystem enforces per-mandate uniqueness so N=2 is structurally impossible;
-        # N=0 remains operational concern (script not running) and is upstream of this gate.
+        # T4c spec (W3-B1 tic 282 refinement): canonical artifact identity is
+        # tic-keyed, not mandate-keyed or timestamp-keyed. Per-tic uniqueness is
+        # the structural target — N=1 cardinality per tic regardless of how many
+        # distinct mandates within the tic invoke review-close-check (cadence
+        # mandate + review-close mandate + post-/review inline invocation all
+        # collapse to one canonical artifact). This closes the falsification gate
+        # from rail-T1 B1 ("future mandate cycles should observe N=1 cardinality
+        # consistently"). The mandate_id is preserved in the log entry as audit
+        # trail for which invocation lane wrote which content.
+        # Filesystem enforces per-tic uniqueness; latest-wins for content under
+        # the dedup decision policy below.
         from lib.atomic_append import atomic_append_jsonl
 
         report_dir = os.path.join(al_path, "mogul", "cycle-reports", "review-close-checks")
         os.makedirs(report_dir, exist_ok=True)
 
         mandate_id, mandate_tic = load_mandate_id(al_path)
-        if mandate_id:
+        if mandate_tic is not None:
+            # Tic-keyed canonical filename — collapses multiple mandates within
+            # the same tic to a single artifact (N=1 cardinality target).
+            output_filename = f"tic-{mandate_tic}-check.json"
+        elif mandate_id:
+            # No tic resolvable but mandate_id present — fall back to mandate-keyed
+            # filename. Preserves per-mandate dedup even when tic parse fails.
             output_filename = f"{mandate_id}-check.json"
+            print(
+                "WARNING: review_close_check write without mandate tic; "
+                "falling back to mandate-keyed identity (per-tic dedup degraded).",
+                file=sys.stderr,
+            )
         else:
             timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H%M%S")
             output_filename = f"{timestamp}-check.json"
@@ -743,7 +762,7 @@ def run_check(project_dir, dry_run=False):
         output_path = os.path.join(report_dir, output_filename)
 
         decision = "write"
-        if mandate_id and os.path.exists(output_path):
+        if (mandate_tic is not None or mandate_id) and os.path.exists(output_path):
             try:
                 prior = json.loads(Path(output_path).read_text(encoding="utf-8"))
                 if prior.get("findings") == report["findings"]:
@@ -754,6 +773,11 @@ def run_check(project_dir, dry_run=False):
                 # Corrupt or unreadable prior — overwrite under latest-wins semantics.
                 decision = "replace"
 
+        identity_label = (
+            f"tic {mandate_tic}" if mandate_tic is not None
+            else f"mandate {mandate_id}"
+        )
+
         if decision == "skip":
             # Touch existing file so the runner's `find -newer $MANDATE_FILE` verification
             # succeeds. Skip means findings are identical and the cycle DID run correctly;
@@ -762,19 +786,19 @@ def run_check(project_dir, dry_run=False):
             # Root cause of tic-271 mandate failure (civil report 2026-05-22-tic-272.json).
             Path(output_path).touch()
             print(
-                f"INFO: review_close_check skipped (identical report exists for mandate {mandate_id}); mtime touched for runner verification.",
+                f"INFO: review_close_check skipped (identical report exists for {identity_label}); mtime touched for runner verification.",
                 file=sys.stderr,
             )
         else:
             Path(output_path).write_text(json.dumps(report, indent=2), encoding="utf-8")
             if decision == "replace":
                 print(
-                    f"INFO: review_close_check replaced existing report for mandate {mandate_id} (findings changed).",
+                    f"INFO: review_close_check replaced existing report for {identity_label} (findings changed).",
                     file=sys.stderr,
                 )
-            elif mandate_id:
+            else:
                 print(
-                    f"INFO: review_close_check wrote consistency report for mandate {mandate_id}.",
+                    f"INFO: review_close_check wrote consistency report for {identity_label}.",
                     file=sys.stderr,
                 )
 
