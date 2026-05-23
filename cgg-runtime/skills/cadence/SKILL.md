@@ -325,6 +325,21 @@ Titles like `tic{emitted_tic}-close` alone (e.g., `tic264-close` immediately aft
 
 <!-- landed-from cpr_tic_framing_convention_off_kilter_work_tic_vs_emission_tic_tic262 (tic 263 birth, /review at next-session pending). Architect-locked verbatim convention quoted at handoff body; cross-tic n≥3 framing drift evidence across tics 261-263. Runtime parity patch landed under Governance Tool Urgency Triage (code/template-wrong, doctrine incomplete) per handoff Production Next Actions #6. Band: COGNITIVE. Domain rung: CGG. Promotion adjudication: pending /review. -->
 
+##### C47 Generation Suffix Convention for Orchestrator State Entries
+
+Any State-of-the-Federation publication or orchestrator-voice state entry (handoff signature, ReBru block author line, orchestrator-authored bench-packet annotation, inscription signature) must carry a two-fact signature naming **both** load-bearing identities:
+
+1. **Durable entity-role** — the orchestrator's stable federation identity (`ent_homeskillet`, `SkySkillet`, or whichever ent-id the orchestrator is acting under).
+2. **Model-of-record at writing time** — the generation suffix encoding the Claude model class that authored the entry (`c47` = Claude Opus 4.7; `c46` = Claude Opus 4.6; `c45` = Claude Opus 4.5; future models extend the suffix forward).
+
+**Convention example**: `ent_homeskillet-c47` or `SkySkillet-c47`. Both halves are mandatory: entity-role alone loses model provenance; model alone loses orchestrator identity.
+
+**Why both halves**: orchestrator state entries are read across many sessions and many model generations. The entity-role tells future readers which orchestrator instance authored the entry; the model suffix tells them which generation produced it (decisive when interpreting voice, scope assumptions, or known model-class behavioral biases). A signature carrying only one fact silently strips half the load-bearing provenance.
+
+**Where it appears**: handoff signatures (footer or signature block), orchestrator-voice ReBru block authors, State-of-the-Federation publication signature lines, any inscription where "who wrote this and on which model" is load-bearing for later interpretation.
+
+<!-- landed-from cpr_c47_generation_suffix_convention_for_orchestrator_state_entries_tic274 (PROMOTE-SPEC at /review tic 278; doctrine inscribed at canonical_developer/context-grapple-gun/CLAUDE.md; skill body extension owed at tic 280 per Verdict-Shape KI). Band: COGNITIVE. Domain rung: CGG. -->
+
 ##### ARGUMENTS as Session Projection Steering Surface
 
 The Architect uses the `/cadence` ARGUMENTS string as a **forward-projection steering surface**, not just a session-end hygiene step. The ARGUMENTS string carries: (1) what should be prioritized at the next session start (e.g., "Phase α launch + blocking-β decision presentation"), (2) what authoring direction to apply (e.g., "extend dial-based config pattern from landmass to physics + world"), (3) what the rationalization should foreground (e.g., "recommended-and-why + post-implementation configurability"), and (4) implicit acknowledgment of which prior frame has converged.
@@ -466,6 +481,35 @@ Steps:
 5. Append the mandate to `$ZONE_ROOT/audit-logs/mogul/mandates/history/YYYY-MM-DD.jsonl`
 6. Create the directories if they don't exist (`audit-logs/mogul/mandates/history/`)
 7. Note in the handoff: "Mogul mandate written for cycles: [list]"
+
+#### Cross-Cadence Rail Manufacturing (optional)
+
+When the next session needs a hot-and-ready swarm at SessionStart — i.e., the closing tic anticipates a multi-lane parallel execution wave in the next tic — the prior session's /cadence is the lowest-cost moment to **manufacture the rails** the next session will consume. The pattern decouples discovery (this tic, parallelizable, lead-supervised) from execution (next tic, hook-kicked-off, dependency-DAG-ordered) across the cadence boundary.
+
+This step is **optional**. Invoke only when the next-session work surface is large enough that cold-start RTCH inside the next session would saturate context before parallel execution begins. For routine tic boundaries, skip this step entirely — manufacturing rails for a session that does not need them is overhead.
+
+**Two coupled primitives** (full doctrine: CGG_CLAUDE.md § *Cross-Cadence-Rails + Inbox-Marker-Dependency-Satisfaction Primitive*):
+
+1. **Cross-Cadence-Rails** — dispatch parallel `/tactical-hydration` lanes during the current /cadence, terminate each with `/consolidate`, and write the harvested packets to a stable rails directory (`audit-logs/swarm-rails/tic{entry_tic}/`) the next session will read at SessionStart. Rail packets carry RTCH selected_surfaces, slice baskets, dependency declarations, and risk maps authored while context is hot — the next session reads the rails, never re-derives.
+
+2. **Inbox-Marker-Dependency-Satisfaction** — a DAG node structure in the next session's inbox marker (e.g., `audit-logs/agent-mailboxes/ent_homeskillet/inbound/swarm-tic{entry_tic}/`) declaring `dependencies: [rail-T1, rail-T2, …]` where each dependency is a `status: complete` signal written by the corresponding rail's `/consolidate` step. The next session's hook-derived dispatcher reads the DAG and fires only when all declared dependencies are satisfied — converting sequential guesswork into governed dependency-ordered parallel execution.
+
+**Authoring sequence at /cadence close** (when invoked):
+
+1. Identify the next-session execution lanes that need pre-hydrated context (typically 3-6 lanes; if fewer, rails overhead exceeds benefit).
+2. For each lane, spawn a parallel `/tactical-hydration` subagent scoped to the lane's surfaces. Each lane is independent; spawn in parallel.
+3. Each subagent terminates with `/consolidate` writing a rail packet to `audit-logs/swarm-rails/tic{entry_tic}/rail-{lane-id}-{lane-name}.md`.
+4. Write the inbox marker for the next session at `audit-logs/agent-mailboxes/ent_homeskillet/inbound/swarm-tic{entry_tic}/` with `dependencies:` listing each rail-lane-id and `consumer:` naming the dispatch hook.
+5. Each completed rail emits a `status: complete` marker (`audit-logs/swarm-rails/tic{entry_tic}/rail-{lane-id}.marker`).
+6. Reference the rails directory in the handoff (Session Projection or Production Next Actions section): "Rails manufactured at `audit-logs/swarm-rails/tic{entry_tic}/`; next session SessionStart dispatcher consumes via inbox-marker DAG."
+
+**Cross-reference**: this pattern is the cadence-side of the cross-cadence rails primitive. The swarm-side (next session's consumption of the rails) is documented in `cgg-runtime/skills/swarm/SKILL.md` under the **Cross-Cadence Rails Swarm** geometry. The cadence side manufactures; the swarm side consumes — same primitive, two sides.
+
+**When to use**: large multi-lane next-tic execution (≥3 parallel lanes); next-session work surface known at current /cadence; rails-authoring cost (~5-10 min of parallel subagent dispatch) cheaper than next-session cold-start RTCH cost.
+
+**When NOT to use**: routine tic boundaries; next-session work surface unknown at current /cadence (rails would speculate); single-lane next-tic work (no parallelism to govern).
+
+<!-- landed-from cpr_parallel_rtch_consolidate_rails_for_next_swarm_with_inbox_marker_dependency_signaling_tic277 (PROMOTE-SPEC at /review tic 278; doctrine inscribed at canonical_developer/context-grapple-gun/CLAUDE.md; skill body extension owed at tic 280 per Verdict-Shape KI; cross-tic n=2 validated tic 277 authoring → tic 278 execution). Band: COGNITIVE. Domain rung: CGG. -->
 
 #### Cadence Due Markers
 
