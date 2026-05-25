@@ -60,9 +60,7 @@
       "owner": "cgg-runtime",
       "category": "state_compiler",
       "invoked_by": [
-        "cgg-runtime/scripts/bench-packet-prep.py",
-        "Mogul cycle: bench_packet_prep (transitively)",
-        "skill:review preflight (transitively via bench-packet-prep)"
+        "cgg-runtime/scripts/bench-packet-prep.py (manual / ad-hoc invocation only; bench_packet_prep cycle dropped from scheduler tic 293)"
       ],
       "writes": "audit-logs/cprs/effective-state/{effective_state.json,effective_state.md,strike_stack_candidates.json,anomaly_report.md,maturity_index.json}",
       "install_target": null,

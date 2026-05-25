@@ -266,7 +266,6 @@ $MANDATE_CONTENT
    - prompt_stack_audit: run scripts/prompt-stack-audit.py, scan CLAUDE.md chain for conflicts
    - cache_refresh: run \$ZONE_ROOT/vendor/context-grapple-gun/cgg-runtime/scripts/visitor-economy-monitor.py --cache-refresh \$TIC, report cache state + standing decay + biome health
    - deep_audit: comprehensive multi-rung scan
-   - bench_packet_prep: run scripts/bench-packet-prep.py, output to audit-logs/mogul/bench-packets/
    - review_close_check: run scripts/review-close-check.py, verify post-review inscription consistency
 3. Write a DEDICATED structured JSON cycle report using Write tool to EXACTLY this path:
    $STRUCTURED_REPORT
@@ -289,13 +288,10 @@ Your cycle report MUST be a JSON object with exactly this shape:
   \"tic\": $CURRENT_TIC,
   \"timestamp\": \"ISO-8601 now\",
   \"cycles_executed\": [\"list of cycles you ran\"],
-  \"artifacts\": {
-    \"bench_packet\": \"audit-logs/mogul/bench-packets/latest.json\"
-  },
+  \"artifacts\": {},
   \"results\": {
     \"signal_scan\": {},
-    \"queue_refresh\": {},
-    \"bench_packet_prep\": {}
+    \"queue_refresh\": {}
   }
 }
 \`\`\`
@@ -411,12 +407,6 @@ else:
   IFS=',' read -ra CYCLE_ARRAY <<< "$CYCLES"
   for cycle in "${CYCLE_ARRAY[@]}"; do
     case "$cycle" in
-      bench_packet_prep)
-        BENCH_PACKET="$AUDIT_LOGS/mogul/bench-packets/latest.json"
-        if [ ! -f "$BENCH_PACKET" ]; then
-          ARTIFACT_ERRORS="${ARTIFACT_ERRORS}bench_packet_prep: latest.json missing. "
-        fi
-        ;;
       pattern_mining)
         TODAY_PATTERNS="$AUDIT_LOGS/patterns/$(date +%Y-%m-%d).jsonl"
         # Pattern file is optional (no new patterns is valid), but check

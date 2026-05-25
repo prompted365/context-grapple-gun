@@ -463,16 +463,15 @@ def compute_due_cycles(tic: int) -> list:
         # dense enough to track /review-close drift (which fires every 2-3 tics in
         # active periods) without padding every mandate.
         cycles.append("review_close_check")
-        # Tic 273 (cpr_cadence_ops_scheduler_doctrine_runtime_parity_tic224 partial
-        # close): pair bench_packet_prep with review_close_check at tic % 2 == 0.
-        # CGG CLAUDE.md "Post-Cadence Clean-Close Ordering" doctrine requires
-        # explicit bench-packet-prep before /cadence; manual compensation has
-        # substituted for 49 tics. Pairing with review_close_check at the same
-        # modulo means the bench packet is fresh going into the next /review
-        # boundary (also at tic % 2 == 0 cadence in active periods). Conductor-
-        # Score-Runtime Parity (federation KI) — doctrine named the cadence;
-        # runtime now schedules it.
-        cycles.append("bench_packet_prep")
+        # Tic 293: bench_packet_prep DROPPED from scheduler. The tic 273 pairing
+        # satisfied Conductor-Score-Runtime Parity in name (runtime ran a cycle
+        # bearing the doctrinal label) but not in substance — the cycle summarized
+        # queue state rather than pre-strengthening weak packets, and /review reads
+        # queue.jsonl directly via the same authoritative-set surface. Doctrine
+        # reversal (Post-Cadence Clean-Close Ordering / CGG CLAUDE.md) routes via
+        # /review tic 294+ as a tic-293 CogPR. The script
+        # cgg-runtime/scripts/bench-packet-prep.py is retained on disk and remains
+        # invocable for ad-hoc enrichment passes when warranted.
     if tic % 3 == 0:
         cycles.append("memory_mining")
         cycles.append("cache_refresh")

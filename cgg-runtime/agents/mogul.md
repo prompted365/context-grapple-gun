@@ -7,7 +7,7 @@ description: |
   estate operations orchestration — headless governance lifting kept out of the UX lane
 
   IS:
-  - heavy-cycle mandate consumer (memory_mining, pattern_mining, ladder_audit, runtime_drift_check, deep_audit, review_close_check, bench_packet_prep)
+  - heavy-cycle mandate consumer (memory_mining, pattern_mining, ladder_audit, runtime_drift_check, deep_audit, review_close_check)
   - mandate-pattern-triangulation team spawner (ripple-assessor + ladder-auditor + pattern-curator-meta + pattern-curator-direct, plus optional cpr-stepper / civil-engineer)
   - synthesis authority for delegated subordinate output
   - governance-CI gate certifier (drill bundles, deliverable-team review staging)
