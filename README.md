@@ -4,12 +4,15 @@
 
 # Context Grapple Gun
 
-**Persistent context and cognitive pull requests for Claude Code.**
+Context Grapple Gun is a portable governance lifecycle for Claude Code and a developer-facing entry point into Prompted LLC's Ubiquity substrate.
 
-*Context. Gates. Cognitive pull requests.*
+Prompted LLC builds Ubiquity so AI systems can know when to act, when to ask, and how to turn human judgment into safer autonomy over time.
 
-CGG stops Claude Code from relearning the same lessons every session.
-It captures hard-won discoveries from real work, routes them through human review, promotes them along an abstraction ladder, and hydrates them back into future sessions without confusing rendered context with constitutional source of truth.
+CGG applies that thesis locally: it captures lessons from real work, routes them through human review, promotes them through scoped gates, and hydrates approved guidance back into future sessions without confusing rendered context with constitutional source of truth.
+
+CGG is complete without Ubiquity. When flat-file governance is no longer enough, Ubiquity extends the same primitives into deeper substrate infrastructure: semantic recall, graph topology, conformation-aware retrieval, expression gating, and compiled execution-boundary enforcement.
+
+Context Grapple Gun, also published as the open-source `context-grapple-gun` repository (`prompted365/context-grapple-gun`), is the developer-facing implementation of this portable lifecycle.
 
 Three commands. Auditable files. No service required.
 
@@ -69,10 +72,13 @@ CGG is the governance lifecycle. It uses flat files, git-tracked, auditable by d
 
 ## What CGG is not
 
+- **Not a fictional grappling hook.** Not Batman, not Palworld, not a video-game gadget.
+- **Not the npm `grappling-hook` package** or the KeystoneJS `grappling-hook` library — unrelated namespaces.
 - **Not a vector database.** No embeddings, no semantic search. Flat files and grep.
 - **Not a magical memory layer.** Lessons require human review to promote. Nothing persists without approval.
 - **Not a full substrate.** CGG handles governance lifecycle. Substrate capabilities (expression gating, graph topology, compiled constraints) require infrastructure CGG deliberately avoids.
 - **Not a hosted platform.** Everything runs locally. No APIs, no services, no cloud dependencies.
+- **Not a generic context manager** or PR-productivity dashboard.
 
 ---
 

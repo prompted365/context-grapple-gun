@@ -1,7 +1,7 @@
 {
   "name": "context-grapple-gun",
   "version": "4.0.1",
-  "description": "Context Grapple Gun — persistent context and cognitive pull requests for Claude Code. Three commands, auditable files, no service required.",
+  "description": "Portable governance lifecycle for Claude Code: cognitive PRs, scoped promotion, and cross-session lesson compounding.",
   "type": "module",
   "bin": {
     "cgg": "bin/cgg.mjs"
