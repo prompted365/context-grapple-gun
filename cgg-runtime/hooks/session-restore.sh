@@ -749,8 +749,18 @@ if [ -n "$LATEST_PLAN" ]; then
   FULL_MSG="$FULL_MSG [CGG CONSUMPTION PROTOCOL v1: Next Actions from the prior handoff are your primary work queue. (1) Consume the Mogul mandate first as governance overhead — report compactly. (2) Surface the Next Actions as a numbered TODO in your first substantive response. (3) Verify each item against current state before executing — items may already be completed. (4) Incomplete items carry forward to the next handoff. The mandate is not the session's purpose — the Next Actions are.]"
 fi
 
+SESSION_TITLE=""
+if [ "$TIC_COUNT" -gt 0 ]; then
+  SESSION_TITLE="canonical tic-$TIC_COUNT"
+fi
+
 if [ -n "$FULL_MSG" ]; then
-  echo "{\"hookSpecificOutput\":{\"hookEventName\":\"SessionStart\",\"additionalContext\":\"$FULL_MSG\"}}"
+  HOOK_OUTPUT="{\"hookSpecificOutput\":{\"hookEventName\":\"SessionStart\",\"additionalContext\":\"$FULL_MSG\",\"reloadSkills\":true"
+  if [ -n "$SESSION_TITLE" ]; then
+    HOOK_OUTPUT="$HOOK_OUTPUT,\"sessionTitle\":\"$SESSION_TITLE\""
+  fi
+  HOOK_OUTPUT="$HOOK_OUTPUT}}"
+  echo "$HOOK_OUTPUT"
 fi
 
 exit 0

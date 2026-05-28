@@ -47,6 +47,8 @@ description: |
       - detail: normal | high
       - emphasis: governance | production | projection
 user-invocable: true
+disallowed-tools:
+  - Agent
 ---
 
 # /cadence

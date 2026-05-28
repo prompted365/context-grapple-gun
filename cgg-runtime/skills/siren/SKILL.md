@@ -62,6 +62,8 @@ description: |
       - scope: all | active | warrants-only
       - target_actor: interactive_orchestrator | <role>
 user-invocable: true
+disallowed-tools:
+  - Agent
 ---
 
 # /siren — Signal Manifold Operations
