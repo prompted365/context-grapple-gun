@@ -562,8 +562,9 @@ def write_cadence_mandate(zone_root: str, tic: int, trigger_source: str,
 
     Delegates to mandate-write.py's functions for merge-before-write semantics.
     """
-    next_tic = tic + 1
-    due_cycles = compute_due_cycles(next_tic)
+    # tic is already the newly-emitted tic (counter_after from the tic event).
+    # The mandate targets THIS tic's session, not tic+1.
+    due_cycles = compute_due_cycles(tic)
     due_markers = compute_due_markers(tic)
 
     # Read existing mandate for merge-before-write
