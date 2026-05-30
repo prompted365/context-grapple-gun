@@ -137,12 +137,16 @@ Default mode (no flag file) is LITE.
 Delete all cache files for the current project:
 - `/tmp/cgg-sl-<hash>-{mode,git,tic,conf}`
 
-### `/statusline` (no args)
+### `/statusline` (no args) — toggle LITE ↔ FULL
 
-Show current configuration:
-1. Check if statusLine is configured in `.claude/settings.local.json` or `~/.claude/settings.json`
-2. Show current mode (read flag file or "LITE (default)")
-3. Show cache file locations and ages
+Toggle the display mode between the two everyday modes (LITE and FULL):
+1. Compute the project hash: first 8 chars of `md5(workspace.project_dir)`
+2. Read the current mode from `/tmp/cgg-sl-<hash>-mode` (absent = LITE default)
+3. If current is `FULL` → write `LITE`; otherwise (`LITE` / `OFF` / absent) → write `FULL`
+4. Confirm the new mode, then show a one-line config summary (configured surface + cache ages)
+
+`OFF` remains reachable explicitly via `/statusline mode OFF`. The toggle only flips the
+per-project mode flag file in `/tmp/` — it never touches governance state.
 
 ## Data Sources
 
