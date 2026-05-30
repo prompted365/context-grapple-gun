@@ -367,3 +367,12 @@ With `--handoff-to-consolidate`: invoke `/consolidate` with `--targets <selected
 - CGG doctrine: queue/state/stack distinction (Architect-named tic 222, productized via queue_state_compile.py compile lane).
 - Composes with: `/consolidate`, `cgg-runtime/reference/file-access-discipline.md`, `cgg-runtime/scripts/lib/load_doctrine_chain.py`, `cgg-runtime/scripts/zone_root.py`, `cgg-runtime/scripts/lib/atomic_append.py`, `audit-logs/cprs/queue_state_compile.py` (analogy).
 - Authority status: design lane, not doctrine. Routing decision deferred to Phase 7.
+
+## Disposition-Decision Intake → Relational-Surface Complement (promoted tic 308)
+
+When an RTCH intake goal is a DISPOSITION decision about an artifact (keep / merge / sunset /
+reposition / build-next), the basket must include the artifact's RELATIONAL surface — served
+party, comparison/merge target, maintenance + provenance signals — not just deeper reads of the
+artifact's internals. Hand off to `/complement` for the closure check; the relational surface is
+the complement that pass reliably exposes. (See complement/SKILL.md → Disposition-Decision
+Relational Complement. Cross-tic n=2: tics 303, 308.)

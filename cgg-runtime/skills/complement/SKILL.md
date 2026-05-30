@@ -332,3 +332,19 @@ Suppressed the feedback-capture complement as "decorative repetition" of the ori
 - Per-invocation judgment guided by the five-criteria gate. Do not over-heuristic.
 - The skill has explicit permission not to be clever.
 - Named is not landed. A complement that was surfaced but not built is still a valid complement.
+
+## Disposition-Decision Relational Complement (promoted tic 308)
+
+When `/complement` is applied to a first `/tactical-hydration` pass whose intake goal is a
+DISPOSITION decision about an artifact (keep / merge / sunset / reposition / build-next), the
+materially-missing surface is almost always RELATIONAL — the served party, the comparison
+target the artifact would merge into or compete with, plus the maintenance/provenance signal
+(last-touched, ownership, publish status). The first pass naturally over-reads the artifact's
+internals and under-reads its relations. Surface the relational complement, not just deeper
+artifact reads.
+
+Exercised n=2: tic 303 (casial keep/merge/sunset) + tic 308 (the Sovereign Sidecar
+"what-to-build-next" disposition — `/complement` surfaced the USER / served-party as the
+missing relational surface, which became the consumer-perception lane). Composes with
+`/tactical-hydration` (the pass that produces the basket) and the federation KI
+*Authoritative-set readers must read the manifest*.
