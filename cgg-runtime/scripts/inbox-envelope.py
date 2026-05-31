@@ -694,8 +694,22 @@ def emit_attention_debt_signals(zone_root: str, entity_id: str,
     Idempotent: signal IDs are deterministic (entity + message_id + state).
     Dedup: skips emission if a signal with the same ID already exists in today's file.
     Returns list of emitted signal dicts.
+
+    Wire-cut gate (Wire-Cut Scoping by Capability Class): honors the `signals`
+    capability scope. If ~/.claude/.wire-cut-signals or ~/.claude/.wire-cut-all
+    is armed, emission is suppressed (returns []). This makes the granular
+    `signals` scope real for the Python emitter — previously only hook-level
+    cuts (.wire-cut-all/-hooks/-session/-gate) could stop the attention-debt
+    emitter, leaving .wire-cut-signals dead. (Defense-in-depth against the
+    inbox attention-debt signal-loop class.)
     """
     if not stale_items:
+        return []
+
+    # ── Wire-cut signal-emission guard (capability scope: signals) ──
+    _wire_dir = os.path.join(os.path.expanduser("~"), ".claude")
+    if os.path.isfile(os.path.join(_wire_dir, ".wire-cut-all")) or \
+       os.path.isfile(os.path.join(_wire_dir, ".wire-cut-signals")):
         return []
 
     tz = load_ticzone(zone_root)
