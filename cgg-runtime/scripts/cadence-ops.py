@@ -556,6 +556,77 @@ def wait_for_runner_quiescence(mandate_path: Path, timeout_s: float = 30.0,
     return result
 
 
+def _load_inbox_envelope():
+    """Load the hyphenated inbox-envelope.py module from the same scripts dir.
+
+    The filename is hyphenated so it cannot be imported by name; resolve it via
+    importlib against this file's directory.
+    """
+    import importlib.util
+    mod_path = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                            "inbox-envelope.py")
+    spec = importlib.util.spec_from_file_location("inbox_envelope", mod_path)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
+
+
+def _close_prior_cadence_obligations(zone_root: str, current_tic: int,
+                                     entity_id: str = "ent_homeskillet") -> dict:
+    """Close every prior cadence.obligation WAIT through the canonical lifecycle.
+
+    Each prior obligation (source_tic != current_tic) is transitioned WAIT -> NACK
+    via inbox-envelope.nack_envelope(), which atomically updates the envelope file
+    (-> archive/NACK_*), inbox-registry.json messages[]/idempotency_index, the
+    envelope-body lifecycle.state, and emits an event + NACK receipt. The current
+    tic's obligation (if already present) is preserved as WAIT.
+
+    NACK reason is semantically truthful: superseded_by_newer_cadence_obligation —
+    these markers were never claimed ACTIVE and are not consumed/fulfilled (which
+    DONE would falsely assert; DONE is also unreachable from WAIT).
+
+    Fail-soft: any error is captured in the result dict; the caller's obligation
+    routing must never be blocked by closure failure.
+    """
+    result = {"ran": False, "closed": 0, "preserved_current": 0, "errors": []}
+    try:
+        ienv = _load_inbox_envelope()
+        inbox = ienv.inbox_root(audit_logs_path(zone_root), entity_id)
+        if not os.path.isdir(os.path.join(inbox, "inbound")):
+            result["reason"] = "no inbound channel"
+            return result
+        result["ran"] = True
+        # Discover obligations from the REGISTRY (scan_inbox), not the filesystem.
+        # The registry is the inbox source of truth — it is exactly what
+        # detect_stale reads. Aligning discovery with detect_stale's source means
+        # "closed here" == "no longer flagged there"; discovering from the
+        # filesystem inbound dir instead could miss a registry WAIT whose file had
+        # drifted, leaving the stale-detector flagging something the closer thought
+        # it had handled. scan_inbox returns only NON-terminal states, which is
+        # precisely the set we may need to close. NACK is legal only from WAIT, so
+        # we close WAIT obligations; any ACTIVE/DEFER obligation (not expected for
+        # cadence) is left and recorded rather than force-closed illegally.
+        scan = ienv.scan_inbox(inbox)
+        for entry in scan.get("messages", {}).get("WAIT", []):
+            if entry.get("envelope_type") != "cadence.obligation":
+                continue
+            if entry.get("source_tic") == current_tic:
+                result["preserved_current"] += 1
+                continue
+            mid = entry.get("message_id")
+            r = ienv.nack_envelope(
+                inbox, mid, entity_id, current_tic,
+                reason="superseded_by_newer_cadence_obligation",
+            )
+            if r.get("status") == "ok":
+                result["closed"] += 1
+            else:
+                result["errors"].append({"message_id": mid, "error": r.get("reason")})
+    except Exception as err:  # noqa: BLE001 — fail-soft, never block routing
+        result["errors"].append({"exception": str(err)})
+    return result
+
+
 def write_cadence_mandate(zone_root: str, tic: int, trigger_source: str,
                           conformation_ref: str = None) -> dict:
     """Write a Mogul mandate for the next tic's due cycles.
@@ -597,6 +668,22 @@ def write_cadence_mandate(zone_root: str, tic: int, trigger_source: str,
 
     # Write
     written_path = write_mandate(mandate, Path(zone_root))
+
+    # Close the prior tic's self-obligation lifecycle BEFORE routing the new
+    # cadence.obligation envelope, so exactly one live obligation exists at any
+    # time. Closure MUST go through the canonical inbox lifecycle API
+    # (nack_envelope -> _transition), NOT a raw filesystem move: a raw mv updates
+    # the filesystem but leaves inbox-registry.json + idempotency_index + envelope
+    # body lifecycle.state stale (the Inbox-Triple-Source-Sync failure class), and
+    # would also represent the closure with no legal terminal state at all.
+    # The truthful terminal for a never-claimed, superseded continuity marker is
+    # NACK (WAIT -> NACK is the legal transition; DONE is unreachable from WAIT and
+    # would falsely assert a consumed/fulfilled obligation). Fail-soft: closure
+    # errors are captured but never block the obligation routing below.
+    # (Patched tic 312, PROMOTE-SPEC cpr_cadence_self_obligation_lifecycle_leak_tic311;
+    #  corrected from raw-mv to lifecycle-API after the tic-312 triple-source-sync
+    #  + false-terminal incident.)
+    obligation_closure = _close_prior_cadence_obligations(zone_root, tic)
 
     # Trigger-router invocation (CogPR
     # cpr_trigger_router_starved_cadence_ops_bypass_conductor_score_runtime_parity_instance_tic273,
@@ -656,6 +743,7 @@ def write_cadence_mandate(zone_root: str, tic: int, trigger_source: str,
         "due_markers": due_markers,
         "runner_wait": runner_wait,
         "trigger_router": trigger_router_result,
+        "obligation_closure": obligation_closure,
     }
 
 

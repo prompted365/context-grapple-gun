@@ -498,6 +498,20 @@ def _transition(inbox_path: str, message_id: str, to_state: str,
     data["lifecycle"]["state_entered_at_tic"] = current_tic
     if to_state == "DEFER" and reminder_tic:
         data["lifecycle"]["reminder_tic"] = reminder_tic
+    # Persist the transition reason into the envelope BODY so the file carries its
+    # own truthful terminal/transition reason (not only the event log + receipt).
+    # Auditors reading the archived envelope must see WHY it closed without having
+    # to cross-reference the event stream. Keyed by target state so the semantics
+    # are explicit: nack_reason on NACK, defer_reason on DEFER, completion_note on
+    # DONE. (Added tic 312 — the cadence obligation closure needs the body to
+    # state "superseded", and a NACK with no recorded reason is an opaque close.)
+    if reason:
+        if to_state == "NACK":
+            data["lifecycle"]["nack_reason"] = reason
+        elif to_state == "DEFER":
+            data["lifecycle"]["defer_reason"] = reason
+        elif to_state == "DONE":
+            data["lifecycle"]["completion_note"] = reason
 
     priority = data.get("routing", {}).get("priority", "normal")
     etype = data.get("content", {}).get("envelope_type")
