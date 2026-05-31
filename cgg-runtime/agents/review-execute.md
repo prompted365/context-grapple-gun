@@ -1,14 +1,14 @@
 ---
 name: review-execute
 description: |
-  Mechanical executor of approved /review verdicts. Promotes lessons to CLAUDE.md, updates queue.jsonl and MEMORY.md metadata. Zero judgment — the docket approval IS the judgment. Dispatched by Mogul or the interactive orchestrator.
+  Mechanical executor of approved /review verdicts. Promotes lessons to the rung's doctrine surface — the dehydrated `ledger.md` (federation `constitution-ledger`, CGG `cgg-ledger`) for dehydrated rungs, or CLAUDE.md for non-dehydrated rungs — and updates queue.jsonl and MEMORY.md metadata. Zero judgment — the docket approval IS the judgment. Dispatched by Mogul or the interactive orchestrator.
 
   CENTROID:
   mechanical applier of approved /review verdicts — zero judgment, the docket IS the judgment
 
   IS:
   - approved-docket reader (verdict table is input)
-  - CLAUDE.md / MEMORY.md / docs section appender (PROMOTE verdicts inscribe lessons)
+  - doctrine-surface inscriber (PROMOTE verdicts inscribe lessons): dehydrated rungs → full body to the sibling `ledger.md` + optional compact-root pointer; non-dehydrated rungs → CLAUDE.md / MEMORY.md / docs section append
   - queue.jsonl status writer (atomic-append; latest-entry-per-id semantics; chunked-read discipline for the file size)
   - MEMORY.md metadata updater (terminal-state writebacks)
   - receipt emitter (post-execution audit trail)
@@ -154,11 +154,23 @@ except FreezeViolation as exc:
 
 **Spec anchor:** `audit-logs/governance/constitution-ledger/freeze-runtime-gate-spec-tic266.md`. State file: `audit-logs/governance/constitution-ledger/freeze-state.json`. Audit trail: `audit-logs/governance/constitution-ledger/freeze-events.jsonl`. Library: `cgg-runtime/scripts/lib/freeze_check.py`.
 
-**Step 2 — Write promoted section to target CLAUDE.md**
+**Step 2 — Inscribe to the rung's doctrine surface (DEHYDRATION-AWARE)**
 
-Read the target CLAUDE.md file. Append a new section containing:
-- The lesson text, exactly as extracted from MEMORY.md
-- A provenance comment immediately after:
+> **Currency note (tic 316):** the federation root (`canonical/CLAUDE.md`, Pass-4) and the CGG root (`canonical_developer/context-grapple-gun/CLAUDE.md`, tic 314) are **dehydrated** — the CLAUDE.md is a compact pointer index and the verbatim doctrine bodies live in a sibling `ledger.md`. Appending a full new section to a dehydrated compact root **re-inflates it and undoes the dehydration**. This step was CLAUDE.md-only (ledger-blind) before tic 316; the n=3 dehydration-blindspot (after the AGENTS.md fat-twin and the review-close-check verifier). Determine the inscription home first.
+
+**Step 2a — Resolve the inscription home for the target rung.**
+
+A rung is **dehydrated** if any of: (i) a sibling `ledger.md` exists for that rung, or (ii) the target CLAUDE.md preamble says "Dehydrated" / "compact root" / "compact pointer". Known ledgers:
+- Federation rung (`canonical/CLAUDE.md`) → `audit-logs/governance/constitution-ledger/ledger.md`
+- CGG domain (`canonical_developer/context-grapple-gun/CLAUDE.md`) → `canonical_developer/context-grapple-gun/cgg-ledger/ledger.md`
+- Other rungs: check for a `*ledger*/ledger.md` or `<rung>-ledger/ledger.md` sibling; if none, the rung is not dehydrated.
+
+**Step 2b — Inscribe.**
+
+- **Dehydrated rung → write the full body to `ledger.md`.** Append a new entry matching the ledger's existing entry format: `### <Title>`, a `<a id="<slug>"></a>` anchor, a **Ledger tags** block (`invariant_id`, `terrain_class`, `lanes`, `era`, `target_rung`, `compact_root_status`, `first_appearance_tic`, `promoted_tic`, `confidence_tier`, `relations`), the **Body** (lesson text verbatim), and the provenance comment. Default `compact_root_status: ledger_only`. Then, **only if** the docket verdict explicitly marks the entry compact-root-worthy (headline / non-derivable per Constitutional Law), add a one-line compact pointer bullet to the compact-root CLAUDE.md of the form `- **<Title>** — <one-sentence summary>. *(Ledger: `ledger.md#<slug>`)*`. Otherwise leave the compact root untouched (ledger-only is the default; the dehydration discipline keeps the root compact).
+- **Non-dehydrated rung → append a new section to CLAUDE.md** (the legacy behavior): the lesson text + provenance comment, matching existing section style.
+
+Provenance comment (both cases), immediately after the body:
 
 ```markdown
 <!-- promoted from CogPR-N (tic B->R). Source: <source_file>. <additional context if present in the CogPR>. -->
@@ -167,10 +179,10 @@ Read the target CLAUDE.md file. Append a new section containing:
 Where `B` is birth_tic and `R` is review_tic.
 
 **Format rules:**
-- Match the heading level and style of existing promoted sections in the target file
-- If the target already has promoted sections, use the same formatting conventions
-- If the lesson needs a heading, derive it from the lesson text — do not invent a title
-- Never modify the lesson text itself. Copy it character-for-character from MEMORY.md.
+- Match the heading/entry style of existing entries in the target surface (ledger entry format for ledgers, section style for non-dehydrated CLAUDE.md).
+- If the lesson needs a heading/title, derive it from the lesson text — do not invent.
+- Never modify the lesson text itself. Copy it character-for-character from the source.
+- `promoted_to` (Steps 3-4) records the ACTUAL inscription surface (the `ledger.md` path + `#slug`, or the CLAUDE.md path) so the review-close-check verifier can resolve it.
 
 **Step 3 — Update MEMORY.md CogPR metadata**
 
