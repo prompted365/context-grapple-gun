@@ -441,7 +441,9 @@ def build_inscribed_index(project_dir):
       relocated from compact root to ledger under the dehydration plan; per
       CogPR cpr_review_close_check_verifier_dehydration_blindspot_tic279)
     - ~/.claude/CLAUDE.md — global user governance surface
-    - canonical_developer/ subtree — CLAUDE.md, AUTHORING_CONVENTION.md, SKILL.md files
+    - canonical_developer/ subtree — CLAUDE.md, AUTHORING_CONVENTION.md, SKILL.md, and
+      ledger.md files (ledger.md added tic 316 — the CGG dehydration relocated CGG CLAUDE.md
+      bodies into cgg-ledger/ledger.md; n=2 recurrence of the dehydration blindspot)
     - autonomous_kernel/ and ak_control_room/ subtrees — CLAUDE.md files
     - auto-memory directory (~/.claude/projects/-Users-breydentaylor-canonical/memory/)
       — feedback, session-lesson, and topic files that are promotion targets
@@ -473,7 +475,12 @@ def build_inscribed_index(project_dir):
             if "/.git/" in root or "/node_modules/" in root:
                 continue
             for fn in files:
-                if fn in ("CLAUDE.md", "AUTHORING_CONVENTION.md") or fn.endswith("SKILL.md"):
+                # ledger.md added tic 316: the tic-314 CGG dehydration relocated CGG
+                # CLAUDE.md bodies into canonical_developer/context-grapple-gun/cgg-ledger/ledger.md.
+                # Without scanning subtree ledger.md files the provenance markers there are
+                # invisible, producing 135 false promoted_text_missing/orphaned_promotion findings
+                # (n=2 recurrence of the tic-279 dehydration-blindspot, now on the CGG surface).
+                if fn in ("CLAUDE.md", "AUTHORING_CONVENTION.md", "ledger.md") or fn.endswith("SKILL.md"):
                     candidate_paths.append(os.path.join(root, fn))
     # Also sweep autonomous_kernel and ak_control_room if present
     for sub in ("autonomous_kernel", "ak_control_room"):
