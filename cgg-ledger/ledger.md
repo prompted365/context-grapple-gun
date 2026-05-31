@@ -2145,3 +2145,122 @@ Validation rules are identical across all four paths (I-A / I-B / I-D-curl / I-D
 <!-- promoted-spec from cpr_cockpit_intent_t2b_invocation_discipline_spec_tic264 (PROMOTE-SPEC at /review tic 267 docket #5). Implementation tranches I-A + I-B landed at CGG commits 5a77d29 + a2b71b4 (tic 267). W3-B3 (tic 282) residue takedown: hooks.json plugin registration for I-A, cadence/SKILL.md Step 0.5 documentation of I-B output key, this CGG CLAUDE.md section documenting I-D escape hatch. I-C deferred to T2c per spec. Band: COGNITIVE. Domain rung: CGG. -->
 
 ---
+
+### Hydration-tooling vs runtime-tooling sync-lane distinction
+
+<a id="hydration-tooling-vs-runtime-tooling-sync-lane-distinction"></a>
+
+**Ledger tags:**
+- `invariant_id`: `cpr_hydration_runtime_sync_lane_distinction_tic316`
+- `terrain_class`: `sync_and_install_parity`
+- `lanes`: ["sync_and_install_parity"]
+- `era`: `cpr_era_tic_200_plus`
+- `target_rung`: `domain`
+- `compact_root_status`: `ledger_only`
+- `first_appearance_tic`: `219`
+- `promoted_tic`: `316`
+- `confidence_tier`: `reinforced`
+
+**Body:**
+
+- **Hydration-tooling and runtime-tooling occupy distinct sync lanes** — a domain directory may legitimately carry NO sync-manifest entry. Runtime tooling (skills, agents, hooks, scripts that install to `~/.claude/`) is sync-manifest-tracked and must maintain canonical↔installed byte parity. Hydration tooling (estate-seed packaging, scope contracts, drift-audit scaffolds that are consumed in-place at the authoring rung and never install to a runtime tree) is NOT sync-tracked, and its absence from the sync manifest is correct, not drift. A verifier that treats every domain dir as runtime-tracked produces false drift findings. The distinction: does the artifact have a runtime install target? If no, it is hydration-lane and sync-manifest-exempt by design.
+
+<!-- promoted from cpr_ce04128acd44699f (freeze-lifted tranche, /review tic 316). Source: EstateSeed tic 219 — a domain dir with no sync-manifest entry read as drift until the hydration/runtime lane split was named. Band: COGNITIVE. -->
+
+---
+
+### Status-axes separation (one status field collapses orthogonal lifecycle axes)
+
+<a id="status-axes-separation"></a>
+
+**Ledger tags:**
+- `invariant_id`: `cpr_status_axes_separation_tic316`
+- `terrain_class`: `queue_and_state`
+- `lanes`: ["queue_and_state", "identity_and_capability"]
+- `era`: `cpr_era_tic_200_plus`
+- `target_rung`: `domain`
+- `compact_root_status`: `ledger_only`
+- `first_appearance_tic`: `219`
+- `promoted_tic`: `316`
+- `confidence_tier`: `reinforced`
+- `relations`: composes_with `identity-precedes-capability` (capabilities derived not stored)
+
+**Body:**
+
+- **A single overloaded `status` field collapses orthogonal lifecycle axes and produces wrong-class verdicts at boundaries** — when one `status` enum is asked to carry spec-validity AND exercise-state AND install-parity AND activation-state AND review-pending simultaneously, a reader at any boundary mis-classifies because the axes are independent. The cure is to separate the axes (status_class × invocation_policy, or explicit per-axis fields) so each boundary reads the axis it actually gates on. This is the state-surface analogue of "Identity precedes capability" (capabilities derived from standing+roles+jurisdiction+lifecycle, never stored as one fixed scalar): governance-entity status is likewise multi-axis and must not be stored as one collapsed value.
+
+<!-- promoted from cpr_190620613fa08a3f (freeze-lifted tranche, /review tic 316). Source: tic 219→220 cbux/civil entity misclassification — overloaded status field caused wrong activity-class verdicts at dispatch boundaries. Band: COGNITIVE. -->
+
+---
+
+### First-cycle independent-audit-value test for long-dormant governance entities
+
+<a id="first-cycle-independent-audit-value-test"></a>
+
+**Ledger tags:**
+- `invariant_id`: `cpr_first_cycle_audit_value_test_tic316`
+- `terrain_class`: `estate_relations`
+- `lanes`: ["estate_relations", "review_and_promotion"]
+- `era`: `cpr_era_tic_200_plus`
+- `target_rung`: `domain`
+- `compact_root_status`: `ledger_only`
+- `first_appearance_tic`: `~220`
+- `promoted_tic`: `316`
+- `confidence_tier`: `tentative`
+- `relations`: composes_with `governance-is-instrumental-not-terminal`
+
+**Body:**
+
+- **RESTART-vs-ABSORB for a long-dormant/bypassed governance entity is decided by a first-cycle independent-audit-value test** — when a governance entity has been dormant or routed-around for many tics, the question "revive it or absorb its function elsewhere" is answered empirically: run exactly ONE cycle and ask whether that cycle surfaced anything the other (live) surfaces missed. If cycle-1 finds independent value → RESTART (the entity has a distinct lens). If cycle-1 only re-derives what live surfaces already produce → ABSORB (the lens is redundant). This keeps dormant-entity decisions evidence-based rather than sentiment-based, and instantiates "governance is instrumental, not terminal" — an entity earns its existence by library-exercise value, not by having once been chartered.
+
+<!-- promoted from cpr_e2598252b1deba47 (freeze-lifted tranche, /review tic 316). Band: COGNITIVE. -->
+
+---
+
+### Mirror-inscription is the cheap reversible bridge for extraction-lane coverage gaps
+
+<a id="mirror-inscription-cheap-reversible-bridge"></a>
+
+**Ledger tags:**
+- `invariant_id`: `cpr_mirror_inscription_reversible_bridge_tic316`
+- `terrain_class`: `signal_and_queue_manifold`
+- `lanes`: ["signal_and_queue_manifold", "review_and_promotion"]
+- `era`: `cpr_era_tic_200_plus`
+- `target_rung`: `domain`
+- `compact_root_status`: `ledger_only`
+- `first_appearance_tic`: `241`
+- `promoted_tic`: `316`
+- `confidence_tier`: `reinforced`
+- `relations`: refines `emitter-surface-declared-interface`
+
+**Body:**
+
+- **When a CogPR is inscribed in a surface the extractor does not scan, mirror-inscribe it (same id) to a known extraction surface rather than widening hook coverage** — the cheap, reversible fix for an extraction-lane coverage gap is a same-id mirror entry on an already-scanned surface, not expanding `cpr-extract.py`'s scan set (which broadens the hook's surface area and risk). The mirror is reversible (delete it; nothing else changed) and self-cleaning (terminal-state-valve dedups by id). Widening coverage is the heavier, less-reversible move reserved for when mirroring recurs enough to justify it. Refines the Emitter-Surface-Declared-Interface contract: the bridge respects the declared interface instead of mutating it.
+
+<!-- promoted from cpr_mirror_inscription_cheap_reversible_bridge_tic241 (freeze-lifted tranche, /review tic 316). Band: COGNITIVE. -->
+
+---
+
+### Pipeline silence must be auditable (zero-evidence runs must self-report why)
+
+<a id="pipeline-silence-must-be-auditable"></a>
+
+**Ledger tags:**
+- `invariant_id`: `cpr_pipeline_silence_must_be_auditable_tic316`
+- `terrain_class`: `forensic_and_drift`
+- `lanes`: ["forensic_and_drift", "verification_and_proof"]
+- `era`: `cpr_era_tic_100_149`
+- `target_rung`: `domain`
+- `compact_root_status`: `ledger_only`
+- `first_appearance_tic`: `166`
+- `promoted_tic`: `316`
+- `confidence_tier`: `reinforced`
+- `relations`: composes_with `extractor-anomaly-self-reporting`, `output-anomalies-...-differential-verification`
+
+**Body:**
+
+- **A pipeline that produces no output must record WHY, so "scanned, found nothing" is distinguishable from "never scanned"** — an enrichment/mining/scan pipeline that silently produces zero output is indistinguishable from one that never ran. The protection: on a zero-evidence run, write an auditable record (`enrichment_scanned_at`, `scan_count`, `no_evidence_reason`) naming what was missing (e.g. empty source_date, missing subsystems, source-as-path penalty). This converts silent starvation into a legible signal. (Validated live: the tic-202 deferred CogPRs are the exact zero-evidence victims, now carrying `no_evidence_reason`. The remaining structural fix-vectors — source_date default at cpr-extract.py:539, subsystems.json data file — are tracked as CGG-runtime hardening, separate from this principle.)
+
+<!-- promoted from cpr_enrichment_pipeline_silent_starvation_tic166 (freeze-lifted tranche, /review tic 316; reduced to the auditability principle). Source: tic 166 enrichment investigation; fix #1 confirmed landed (scanner writes no_evidence_reason). Band: COGNITIVE. -->
+
+---
