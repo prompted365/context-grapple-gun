@@ -1,0 +1,2147 @@
+# Context Grapple Gun — Constitution Ledger
+
+> **Role:** Layer-1 verbatim preservation of the CGG domain's 155 governance invariants, dehydrated from `CLAUDE.md` at tic 314 under the /review-314 freeze (Architect verdict tic 313). The compact `CLAUDE.md` root carries a one-line summary + pointer per invariant; full verbatim bodies live here.
+>
+> **Schema:** each entry = `## Heading` + `<a id>` anchor + a `ledger-tags` comment (`authority_class` is a multi-axis TAG VALUE, not a file — per federation KI *Cluster taxonomy belongs in ledger data as multi-axis tags, not single-spine document structure*) + the body **verbatim** from the pre-dehydration `CLAUDE.md` snapshot.
+>
+> **Verification:** every body in this file is byte-identical to its source section (cgg-dehydrate.py format-aware self-check + dehydration-verifier.py set-diff/anchor checks, tic 314).
+
+---
+
+## Epistemic Volatility Notice
+<a id="epistemic-volatility-notice"></a>
+<!-- ledger-tags: authority_class=external_schema_volatility | rung=domain | domain=context-grapple-gun | dehydrated_tic=314 -->
+
+Claude Code hook format, plugin manifest schema, and install semantics are **externally versioned by Anthropic**. Treat as a volatile contract surface. Do not promote session-inferred schema understanding to doctrine without validating against current docs/schema.
+
+All schema-specific sections below (Hook Format, Plugin Hooks, etc.) reflect the format as of the last validated check. They may become stale when Claude Code updates.
+
+<!-- promoted from CogPR-15 (tic 9→11). Refines CogPR-1 and CogPR-4 by version-banding them. Source: tic-8 post-session analysis. -->
+
+---
+
+## Volatile-Schema Validation Discipline (Probe-Before-Bind)
+<a id="volatile-schema-validation-discipline-probe-before-bind"></a>
+<!-- ledger-tags: authority_class=external_schema_volatility | rung=domain | domain=context-grapple-gun | dehydrated_tic=314 -->
+
+The prevention complement to Epistemic Volatility Notice. When adopting any externally-versioned Claude Code primitive (hook format, plugin manifest field, settings.json field, skill schema field, agent schema field) on a name-only basis — i.e., the primitive appears in a CHANGELOG, release notes, or feature announcement but its runtime shape is not confirmed against the published schema or a live probe — **DO NOT bind any apply path until the shape is runtime-confirmed**. Three valid schema states gate the adoption surface: **(A)** shape published in current schema → safe to inscribe apply path; **(B)** shape named in changelog but absent from current schema → probe live runtime OR defer, do NOT inscribe apply path; **(C)** shape never named publicly (only in changelog text) → defer until next release whose example demonstrates the shape. Any adoption proposal that references an externally-versioned primitive MUST surface the schema-confirmation state explicitly. Composes with federation `Receipt-Discipline-over-Excitement-Velocity` (probe-before-bind IS receipt-discipline at the adoption boundary), with `Cross-File Pointer Integrity Verification` (count references against definitions before binding), and with `Generator-vs-Local-Repair Gap` (template-side validation precedes apply-site inscription).
+
+<!-- promoted from cpr_volatile_schema_validation_discipline_for_externally_versioned_primitives_tic270 (tic 270→272). Refines Epistemic Volatility Notice by naming the prevention mechanism. Source: tic 270 hard_deny .136 schema probe + plugins-reference dependencies field probe — both surfaced ambiguous CHANGELOG shapes that claude-code-guide validation correctly refused to bind. Architect explicit framing at tic 270 ("the 'autoMode.hard_deny named in changelog but absent from public schema' catch means the probe is behaving correctly: no mutation until the shape is runtime-confirmed. That should become a general rule for any name-only primitive from external changelogs.") Same-tic n=2 (hard_deny + plugin manifest); cross-tic n=4+ with Epistemic Volatility Notice exercise history (hook format multi-rev, plugin manifest .143 enforcement, install semantics across releases). Band: COGNITIVE. -->
+
+---
+
+## Hook Format Requirement (Current)
+<a id="hook-format-requirement-current"></a>
+<!-- ledger-tags: authority_class=external_schema_volatility | rung=domain | domain=context-grapple-gun | dehydrated_tic=314 -->
+
+The hook format has changed multiple times. The **current** format requires:
+
+1. Each event contains an array of **matcher groups**
+2. Each matcher group has an optional `matcher` (regex string) and a `hooks` array
+3. `matcher` is a **regex string** matching tool names (e.g. `"Bash"`, `"Edit|Write"`)
+4. For match-all: **omit `matcher` entirely**, or use `"*"`
+5. `"matcher": {}` (object) is **invalid** in current versions
+
+**Correct format (match-all — omit matcher):**
+```json
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "path/to/hook.sh"
+          }
+        ]
+      }
+    ]
+  }
+}
+```
+
+**Correct format (filtered — regex string matcher):**
+```json
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "path/to/hook.sh"
+          }
+        ]
+      }
+    ]
+  }
+}
+```
+
+**Broken formats (do NOT use):**
+- `{"type":"command","command":"..."}` directly in event array (pre-2.1.58 flat format)
+- `{"matcher":{},"hooks":[...]}` with object matcher (pre-2.1.72 format)
+
+Reference: [Hooks docs](https://code.claude.com/docs/en/hooks) | [Settings schema](https://json.schemastore.org/claude-code-settings.json)
+
+Downstream surfaces (INSTALL.md, academy guide, init-governance SKILL.md) updated to current format at tic 2.
+
+### Hook types available
+
+- `"type": "command"` — runs a shell command, receives JSON on stdin
+- `"type": "http"` — POSTs JSON to a URL endpoint (added 2.1.63)
+
+### CGG-relevant hook events (2.1.69+)
+
+- `InstructionsLoaded` — fires when CLAUDE.md or `.claude/rules/*.md` loaded into context
+- `TeammateIdle` / `TaskCompleted` — support `{"continue": false}` to stop teammates
+- Hook events now include `agent_id` and `agent_type` fields
+
+### Other capabilities
+
+- `${CLAUDE_SKILL_DIR}` — skills can reference their own directory (2.1.69)
+- `/reload-plugins` — activate plugin changes without restart (2.1.69)
+- Shared project configs across worktrees (2.1.63)
+
+<!-- promoted from CogPR-1 (tic 1), updated tic 2 after second format break. Source: ~/.claude/projects/-Users-breydentaylor-canonical/memory/MEMORY.md -->
+
+---
+
+## Plugin Hook Registration
+<a id="plugin-hook-registration"></a>
+<!-- ledger-tags: authority_class=external_schema_volatility | rung=domain | domain=context-grapple-gun | dehydrated_tic=314 -->
+
+Plugins must register hooks in `hooks/hooks.json` at the plugin root — listing hooks in `plugin.json` components alone is insufficient. Use `${CLAUDE_PLUGIN_ROOT}` to reference scripts within the plugin directory.
+
+```json
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/hooks/posttool-microscan.sh"
+          }
+        ]
+      }
+    ]
+  }
+}
+```
+
+Reference: [Plugin docs](https://code.claude.com/docs/en/plugins)
+
+<!-- promoted from CogPR-4 (tic 3→5). Source: code.claude.com/docs/en/plugins. Validated by hooks/hooks.json creation. -->
+
+---
+
+## Agent Tool (formerly Task)
+<a id="agent-tool-formerly-task"></a>
+<!-- ledger-tags: authority_class=external_schema_volatility | rung=domain | domain=context-grapple-gun | dehydrated_tic=314 -->
+
+The `Task` tool was renamed to `Agent` in Claude Code 2.1.63. All CGG agent frontmatter must use `Agent`, not `Task`.
+
+- **Frontmatter**: `tools: Read, Grep, Glob, Agent, Bash`
+- **Spawn restriction**: `Agent(subagent-name)` restricts which subagents can be spawned
+- The `Task` alias may still work but should not be relied upon
+
+<!-- promoted from CogPR-5 (tic 3→5). Source: code.claude.com/docs/en/sub-agents. Applied to mogul.md at f26f21b. -->
+
+---
+
+## JSONL Atomic Writes (PRIMITIVE)
+<a id="jsonl-atomic-writes-primitive"></a>
+<!-- ledger-tags: authority_class=pipeline_and_integration | rung=domain | domain=context-grapple-gun | dehydrated_tic=314 -->
+
+All JSONL append-only files (`audit-logs/**/*.jsonl`) must use atomic append to prevent corruption from concurrent writers (hooks, session-start, Mogul cycles).
+
+**Required pattern**: write to temp file, then atomic rename/append — never direct `>>` append from concurrent processes.
+
+- Scripts: use `scripts/lib/atomic-append.sh`
+- Python: use `scripts/lib/atomic_append.py`
+- All 10 JSONL-writing hooks/scripts have been patched to use these libraries
+
+**Failure mode**: concurrent session-start hooks interleaving JSON lines, producing invalid JSONL. Observed at tic 1 and tic 4 on `mandates/history/*.jsonl`.
+
+<!-- promoted from CogPR-8 (tic 4→5). Band: PRIMITIVE. Source: audit-logs/mogul/mandates/history/2026-03-08.jsonl corruption incident. -->
+
+---
+
+## Runtime Sync Parity Verification
+<a id="runtime-sync-parity-verification"></a>
+<!-- ledger-tags: authority_class=sync_and_install_parity | rung=domain | domain=context-grapple-gun | dehydrated_tic=314 -->
+
+Source-repo correctness does not imply runtime correctness. Hook-invoked scripts resolve from the **installed** location (`~/.claude/cgg-runtime/scripts/`), not from the canonical source repo. A fix committed to the source repo has no effect until the installed copy is synced and verified identical.
+
+**Required sequence** after modifying any hook-invoked script:
+1. Commit to source repo (`canonical_developer/context-grapple-gun/`)
+2. Copy to installed location (`~/.claude/cgg-runtime/scripts/` or `~/.claude/hooks/`)
+3. `diff` source and installed — must be identical
+4. Verify hook resolution path reaches the correct file (check `resolve_script` candidates)
+
+**Failure mode**: `inbox-envelope.py` was patched with signal dedup in the source repo but the installed copy at `~/.claude/` lacked the fix. Every SessionStart re-emitted 571 attention-debt signals because the executing script had no dedup guard. The source repo was correct; the runtime was not. Three sessions of cleanup failed to hold because the wrong script kept running.
+
+**Registry is the inbox source of truth, not files**: `detect_stale()` reads from `inbox-registry.json`, not from WAIT files on disk. Deleting WAIT files without archiving registry entries leaves phantom state that hooks re-detect as stale.
+
+<!-- promoted from CogPR-65 runtime-parity finding (tic 91). Band: COGNITIVE. Source: three-layer containment — trigger manifest + registry purge + script sync. Evidence: 571 phantom signals per session, 3 sessions of failed cleanup before root cause identified. -->
+
+- **Runtime-Invokable Scripts Must Register in Sync Manifest** — any script installed to `~/.claude/` that is invoked by hooks or other runtime machinery must appear in `sync-manifest.json` with the canonical source path. Scripts absent from the manifest are orphaned at install time — they exist at runtime but sync-parity checks cannot track them, creating a silent divergence surface. If a hook calls a script not listed in the manifest, sync-verify will not re-verify that script's byte-identity post-update.
+
+<!-- promoted from cpr_biome_trust_scripts_absent_from_sync_manifest_tic170 (tic 171→172). Source: session:visitor-phase1-sync-audit. -->
+
+- **Installed-Only Orphan Files** — files present in the installed location (`~/.claude/`) but absent from both the canonical source repo and `sync-manifest.json` are structural orphans. They persist across sync cycles without re-verification or removal. Detection requires explicit diff: canonical repo + manifest contents vs. installed filesystem. A single untracked installed file can silently persist through multiple purge cycles if no removal mechanism is triggered.
+
+<!-- promoted from CogPR-185 (tic 172→172). Source: session:sync-verify-tic172. -->
+
+---
+
+## Cycle-Based Windows in Mixed-Frequency Event Streams
+<a id="cycle-based-windows-in-mixed-frequency-event-streams"></a>
+<!-- ledger-tags: authority_class=signal_and_queue_manifold | rung=domain | domain=context-grapple-gun | dehydrated_tic=314 -->
+
+When multiple event streams operate at different frequencies (e.g., governance tics at ~1 per hour, biome cycles at 50 per minute during simulation), windows for analysis must anchor to a common reference clock and explicitly specify frequency-relative boundaries. A "last 10 cycles" query is ambiguous: last 10 tics, last 10 biome cycles, or last 10 of the slowest-clock? Use explicit window syntax: `window_type: "tic", window_size: 10, anchor_tic: 172` for federation-scoped windows. For domain-local simulation queries, declare the window against the simulation clock with explicit cycle counter boundaries. Silent frequency-mismatch produces off-by-one results in cycle-based aggregations.
+
+<!-- promoted from cpr_1c573c6a1002deba (tic 171→172). Source: session:event-stream-analysis-tic170. Band: COGNITIVE. -->
+
+---
+
+## Signal ID Determinism
+<a id="signal-id-determinism"></a>
+<!-- ledger-tags: authority_class=signal_and_queue_manifold | rung=domain | domain=context-grapple-gun | dehydrated_tic=314 -->
+
+Signal IDs must be deterministic and condition-stable — derived from the condition being signaled (entity, state, source), not from emission timestamp or session ID. A signal for the same condition across poll cycles must resolve to the same ID so that dedup infrastructure can suppress duplicates.
+
+**Pattern**: Non-deterministic IDs (timestamp-suffix, session-suffix) cause the same condition to appear as N distinct signals per cycle, flooding the manifold. The dedup guard (inbox-envelope.py) is a runtime fix; this rule prevents the class of error at the emitter.
+
+**Constraint**: Signal manifold integrity depends on ID stability — without it, the manifold's active count becomes meaningless noise. The 2305-duplicate incident at tic 91-94 demonstrated that a single non-deterministic emitter can overwhelm the entire signal surface.
+
+**Evidence**: 1150 active WAIT signals from 8 condition-stable IDs each emitted 100+ times (2026-03-15.jsonl). 6 consecutive Mogul audit cycles confirmed. Tic-91 containment fixed symptoms; this rule prevents recurrence.
+
+<!-- promoted from CogPR-66 (tic 94→100). Source: audit-logs/mogul/runs/tic-94-20260316T005800Z-run.json. Evidence: 2305-duplicate incident at tic 91-94, inbox-envelope.py dedup guard, 1150 active WAIT signals with 8 deterministic IDs. -->
+
+---
+
+## Review Execution Delegation
+<a id="review-execution-delegation"></a>
+<!-- ledger-tags: authority_class=review_and_promotion_discipline | rung=domain | domain=context-grapple-gun | dehydrated_tic=314 -->
+
+After `/review` docket is approved, dispatch execution to a `review-execute` subordinate agent — never execute promotions inline in the interactive path.
+
+**Flow:**
+1. Present the docket (judgment) → human approves
+2. Spawn `review-execute` agent (background, `subagent_type: general-purpose`) with the full verdict table
+3. Report completion in one line when notified
+
+**Dispatch payload:** approved verdict table + file targets + review_tic number. The agent reads MEMORY.md for lesson text, writes promoted sections, updates `queue.jsonl` and MEMORY.md metadata. `queue.jsonl` update is the completion gate.
+
+**Fallback:** If `review-execute.md` agent spec is unavailable, spawn a generic background agent with the same instructions.
+
+<!-- promoted from CogPR-9 (tic 5→6). Source: session observation — review-execute.md agent spec at cgg-runtime/agents/review-execute.md. -->
+
+---
+
+## Plugin Declaration Surface (CGG-Specific)
+<a id="plugin-declaration-surface-cgg-specific"></a>
+<!-- ledger-tags: authority_class=external_schema_volatility | rung=domain | domain=context-grapple-gun | dehydrated_tic=314 -->
+
+CGG 4.0.0 demonstrated that component declarations placed in proprietary plugin.json fields (`components`, `install`, `claude_code`) did not register and were replaced in 4.0.1 by marketplace-based declaration. For this repo, the supported fix was `marketplace.json` + `strict: false` plus marketplace-based install flow.
+
+This is a CGG-scope declaration-surface lesson, not federation law. The self-hosting marketplace pattern is the validated install mechanism for plugins with non-standard component paths.
+
+<!-- promoted from CogPR-13 (tic 8→11, arena-refined). Supersedes CogPR-14. Source: npx context-grapple-gun install failure → fix at lib/installer.mjs + .claude-plugin/marketplace.json. -->
+
+---
+
+## npm Distribution Wrapper
+<a id="npm-distribution-wrapper"></a>
+<!-- ledger-tags: authority_class=external_schema_volatility | rung=domain | domain=context-grapple-gun | dehydrated_tic=314 -->
+
+CGG is distributed via npm as `context-grapple-gun`. The npm package is a zero-dep CLI wrapper — `npx context-grapple-gun install` clones the repo and registers the plugin via the self-hosting marketplace pattern. The runtime stays in the plugin; npm orchestrates install only.
+
+- Published: 4.0.0 (initial), 4.0.1 (marketplace fix)
+- npm auth requires granular access token with publish scope
+
+<!-- promoted from CogPR-11 (tic 7→11). Source: session planning — user request for npm publishable package. -->
+
+---
+
+## Subagent Delegation — Schema Contracts
+<a id="subagent-delegation-schema-contracts"></a>
+<!-- ledger-tags: authority_class=external_schema_volatility | rung=domain | domain=context-grapple-gun | dehydrated_tic=314 -->
+
+When delegating hook creation or script writing to subagents, include the target script's JSON output schema in the prompt. Subagents that parse another script's output without knowing the schema will write incorrect field paths.
+
+**Failure mode**: Agent wrote `d.get('drifted',0)` but runtime-sync.py nests under `summary.drifted`.
+
+<!-- promoted from CogPR-12 (tic 8→11). Source: canonical/.claude/hooks/federation-sync-check.sh:37. -->
+
+- **Headless subagent model capacity must exceed largest file the spec touches** — When a headless subagent definition specifies operations on growing files (CLAUDE.md, MEMORY.md, queue.jsonl), the agent's chosen model must have context capacity sufficient for the largest file the spec claims to manipulate. If model and file size diverge silently — model context shrinks relative to file growth, OR file grows beyond model context — the spec fails not by erroring but by truncate-fallback: the agent reads what it can fit, then performs a degraded operation that LOOKS like the spec but drops content past its read window. Two-layer protection required: **Layer 1 (model capacity)** — choose a model whose context capacity exceeds the largest file the spec touches, with margin for file growth across many tics. **Layer 2 (chunked-read methodology)** — never read entire growing files just to find an insert point. Use chunked-read-around-target-insert: wc-then-grep-then-narrow-window-then-edit. This decouples model capacity from file size and is the higher-leverage protection because it works regardless of model choice. Both layers must be enforced for any agent that operates on doctrine-class files. (Validated: tic 207 review-execute used model haiku spec'd to read-modify-write entire queue.jsonl (435+ lines, ~50KB+); haiku could not fit; truncated reads; fell back to appending — matched lucky alignment with downstream latest-by-id reads, so system worked, but mismatch was invisible. Fix: model haiku→sonnet + chunked-read mandate inscribed.)
+
+<!-- promoted from cpr_headless_model_file_size_capability_mismatch_tic207 (tic 207→209). Source: tic 207 review-execute queue.jsonl mutation drift. Band: COGNITIVE. -->
+
+---
+
+## Goal-Directive as Ratification Authority for Routine Review Passes
+<a id="goal-directive-as-ratification-authority-for-routine-review-passes"></a>
+<!-- ledger-tags: authority_class=review_and_promotion_discipline | rung=domain | domain=context-grapple-gun | dehydrated_tic=314 -->
+
+When the Architect sets a /goal directive whose stop condition explicitly names processing-class outcomes (e.g., "all actionable review items are properly evaluated AND processed per governance requirements"), the goal directive itself functions as Architect ratification authority for the enclosed routine verdicts. Holding at an individual ratification gate (e.g., "Ratify this docket?") for routine PROMOTE / PROMOTE-SPEC / ACK-MAINTAIN verdicts within scope violates the goal-condition contract; the gate has already been set by /goal at higher abstraction.
+
+Extends two existing feedback discipline notes — *Own Routine Commits/Messages/CogPR Submissions* (the Architect does not gate routine push/commit/CogPR-submission decisions) and *Don't Gate-Hold; Tranche Stomp* (the Architect is collaborator, not external reviewer; execute tranches; trim where investigated-clear) — from author-side authoring decisions to /review-execution verdict batches.
+
+**Operational form**: when /goal stop condition is set, lobby for inscription via review_hints, present verdict recommendations with rationale, then EXECUTE the recommended docket directly. Only escalate individual ratification calls for items that lie OUTSIDE the goal's scope (e.g., protected-file inscriptions per workflow Safety Rules — those still require explicit Architect gate even under goal directive).
+
+**Composes with**: *Receipt-Discipline-over-Excitement-Velocity* (a /goal directive's gate is a different *kind* of gate than the docket-level ratification gate — Receipt-Discipline still applies to the goal-scoping decision, but executes once the goal is set); *Verdict-Shape KI* (PROMOTE-SPEC defers implementation per workflow — this discipline does not collapse PROMOTE-SPEC into PROMOTE; it preserves verdict-shape discipline within goal-directive execution); *Protected-File Safety Rule* (~/.claude/CLAUDE.md, GLOBAL_INVARIANT-tagged files require their own explicit ratification regardless of /goal directive).
+
+**Falsification**: if the Architect overrides this discipline by explicit retract-of-authority during a /goal-driven /review pass, the discipline contracts; the goal directive's gate-collapse claim was over-extended. Validated tic 272 via stop-hook firing as operational signal at ratification-gate-hold, which corrected the held state to execution.
+
+<!-- promoted from cpr_goal_directive_as_ratification_authority_for_routine_review_passes_tic272 (tic 272→273). Source: /review tic 272 execution under Architect /goal directive; stop-hook fired when ratification gate was held. Band: COGNITIVE. Posture: ENG/DIRECT. -->
+
+---
+
+## Mandate Consumption Discipline
+<a id="mandate-consumption-discipline"></a>
+<!-- ledger-tags: authority_class=mandate_and_cadence_ops | rung=domain | domain=context-grapple-gun | dehydrated_tic=314 -->
+
+If a cadence mandate exists when a session closes, the session must invoke Mogul or explicitly defer. Mandates generated by cadence hooks but not consumed create governance gap windows — cycles queue up but no scan occurs within the session that owns them.
+
+Three consecutive unexecuted mandates at tics 13-15 demonstrated the structural pattern. The activation fabric now handles consumption, but the obligation to invoke or defer is doctrinal.
+
+<!-- promoted from CogPR-26 (tic 16→19). Source: 3 consecutive unexecuted mandates at tics 13, 14, 15. Band: COGNITIVE. -->
+
+---
+
+## Mogul Mandate Execution Depth Scaling
+<a id="mogul-mandate-execution-depth-scaling"></a>
+<!-- ledger-tags: authority_class=mandate_and_cadence_ops | rung=domain | domain=context-grapple-gun | dehydrated_tic=314 -->
+
+Mogul mandate execution depth must scale to estate state at mandate creation time. The mandate metadata must include an estate state snapshot (`queue_pending`, `signals_active`, `hazards_open`, `tics_since_last_review`, `tics_since_last_conformation`) so that Mogul can match a run profile at execution time without re-reading the full estate.
+
+Run profiles:
+- **verification** (all-clear): compact receipt, no deep scan
+- **active** (pending CPRs or recent arena output): targeted assessment of pending items
+- **hazard** (open hazards or active signals): full drift check
+- **post-review** (inscription verify only): confirm promoted lessons landed
+
+Running identical full cycles regardless of estate state wastes cognitive resources and inflates run artifact noise. Estate-aware depth is a Mogul mandate behavior constraint only — not a general strategic pivot doctrine and not a claim about all federation bottlenecks.
+
+<!-- promoted from CogPR-47 (tic 32→40). Source: PAT-T32-005 + PAT-T36-003 — 5-instance recurrence (tics 26, 32, 34, 36, 39) + tournament cross-bracket convergence (3 agents, 2 brackets). Operator scope note: estate-aware Mogul mandate depth only. Band: COGNITIVE. -->
+
+---
+
+## Mandate Lifecycle Defects
+<a id="mandate-lifecycle-defects"></a>
+<!-- ledger-tags: authority_class=mandate_and_cadence_ops | rung=domain | domain=context-grapple-gun | dehydrated_tic=314 -->
+
+Mandate lifecycle has four structural defects that refine the Mandate Consumption Discipline (CogPR-26) and Mandate Execution Depth Scaling (CogPR-47):
+
+1. **session-restore.sh overwrites without check** — always writes `current.json` without checking existing pending mandates. Lightweight mandates accumulate as durable obligations. **Mitigated**: tic-level idempotency guard added (checks `current.json` tic before emitting). **Fixed** (tic 108): reconcile-first cycle computation — reads previous mandate `tic_context` as primary schedule, modulo as fallback only.
+2. **SessionStart recomputes instead of reconciling** — recomputes cadence from tic modulo instead of reconciling with previous mandate `tic_context`. Creates mandate duplication on session restore. **Mitigated**: `trigger-manifest.yaml` idempotency key changed from `mandate_{tic}_{session_id}` to `mandate_{tic}` with `first_wins` policy. **Fixed** (tic 108): collapsed into reconcile-first in session-restore.sh.
+3. **No concurrency guard on inline Mogul spawn** — the review skill can inline-spawn Mogul without checking whether a loop-backed Mogul is already active. **Fixed** (tic 108): concurrency guard added to `/review` SKILL.md steps 5.5 and 8.5 — checks `current.json` status before writing mandates. Race guard added to cgg-gate.sh inline consumption.
+4. **Cross-mandate write race on current.json during runner mid-cycle** — when mogul-runner is mid-execution on a mandate AND /cadence emits a new mandate to `current.json` before the runner's artifact verification step runs, the verifier reads `$MANDATE_FILE` with the new mandate's mtime as its temporal reference, causing `find -newer $MANDATE_FILE` to false-negative legitimately-produced cycle artifacts written before the new mandate's mtime. The runner writes `status: failed` to `current.json`, overwriting the new mandate's pending status with the prior mandate's verifier failure. **Fix candidates (any composition)**: (1) runner snapshots `current.json` at run start, verifier uses snapshot mtime; (2) cadence checks runner status before writing `current.json`; (3) verifier uses mandate's `created_at` ISO timestamp instead of file mtime; (4) lock file around mandate state transitions. **Implementation tranches LANDED at tic 280** (composition of fix candidates 1+2): mogul-runner.sh snapshot-pinning at all 3 verifier clauses with trap-cleanup (CGG `1729e29`); cadence-ops.py `wait_for_runner_quiescence()` helper with 30s timeout / 2s interval / WARN-and-proceed-on-timeout (CGG `fb3158d`). **Production-validation receipt**: first /cadence emission after fix (tic 280→281) reports `runner_wait{waited_s=0.0, runner_was_running=false, runner_final_status=consumed, timed_out=false}` — structural-correctness receipt closed. Natural-contention falsification (/cadence DURING mid-runner; not an already-consumed case) remains pending until the next genuine mid-runner /cadence boundary fires.
+
+**Idempotency key constraint**: The mandate idempotency key must NOT include `session_id` — per-session UUIDs defeat dedup because every session generates a unique ID, making every emission appear novel. The correct granularity is `mandate_{tic}` with `first_wins` policy. Evidence: tic-87 produced 269 inbox messages, 200+ report files, and 328 signal entries from a single-tic runaway caused by `{session_id}` in the key template. **Additional defect (tic 179)**: Session-start auto-mandate logic may merge+expand a manually-written mid-session mandate when session_start fires (e.g., via UserPromptSubmit hook). The merge is non-lossy (cycles absorbed, mandate_id recorded in `merged_from`) but the absorbing mandate runs ALL its cycles. Operator scope expansion: a narrow mid-session mandate may seed a next-session-start-expanded mandate.
+
+<!-- promoted from CogPR-57 (tic 75→80), extended by CogPR-65 (tic 91). Source: external-audit-verified + mandate runaway containment. Refines CogPR-26 (mandate consumption) and CogPR-47 (mandate depth scaling). Band: COGNITIVE. Merged with cpr_ee28b41183d01e30 (tic 179). Extended by cpr_mandate_cross_mandate_write_race_4th_defect_class_tic279 (/review tic 279). Source: tic 279 SessionStart runner-mid-cycle verifier mtime race; mandate history JSONL running_to_failed trace. Implementation tranches: mogul-runner.sh snapshot-pinning + cadence-ops.py runner-status check (next gate). Refined-spec at tic 282 by cpr_cogpr3_race_fix_falsification_validated_in_production_tic280 (production-validation receipt at tic 280→281 /cadence emission: runner_wait clean; structural-correctness closed; natural-contention falsification still pending). Cross-tic n=3: tic 251 N=0 sub-case → tic 279 incident + recovery + CogPR → tic 280 fix landed + first production verification. -->
+
+---
+
+## Promotion Scope Discipline
+<a id="promotion-scope-discipline"></a>
+<!-- ledger-tags: authority_class=review_and_promotion_discipline | rung=domain | domain=context-grapple-gun | dehydrated_tic=314 -->
+
+Promotion decision is two decisions, not one: (1) is the content valid? (2) what class of doctrine does it belong to? Scope reconciliation must happen before promotion — batch promotion from census evidence is especially prone to scope collapse.
+
+Doctrine class taxonomy:
+- **CLAUDE.md** = active implementation doctrine (constraints that shape agent behavior)
+- **Memory files** = born truth, structural design, architectural read (reference material, not law)
+- **Risk map** = performance hazard doctrine (operational guardrails)
+
+**Failure mode**: Foreground review without scope reconciliation against Mogul analysis caused 5 of 6 CogPRs routed to wrong target at tic 75.
+
+<!-- promoted from CogPR-58 (tic 75→80). Source: operator-correction. Reinforced tier. Band: COGNITIVE. -->
+
+---
+
+## Cadence Downbeat Enforcement
+<a id="cadence-downbeat-enforcement"></a>
+<!-- ledger-tags: authority_class=mandate_and_cadence_ops | rung=domain | domain=context-grapple-gun | dehydrated_tic=314 -->
+
+Cadence downbeat must enforce a strict sequence: emit tic event, then write conformation, before the tic counter advances. The tic count hook must count only non-ignored tic events — counting all tic events including `count_mode: "ignored"` produces phantom ticks that desynchronize the tic counter from the conformation history.
+
+12+ missing conformations across governance history trace to this root cause. The downbeat sequence is: (1) emit tic event with `count_mode: "counted"`, (2) write conformation snapshot, (3) advance counter. Any other ordering or omission breaks the tic-conformation invariant.
+
+<!-- promoted from CogPR-43 (tic 27→32). Source: PAT-T31-002 pattern mining + HAZARD-T31-A runtime drift check. 5+ recurrences, 2 consecutive hazards. Band: COGNITIVE. -->
+
+---
+
+## Lead Context as Binding Constraint
+<a id="lead-context-as-binding-constraint"></a>
+<!-- ledger-tags: authority_class=subagent_and_swarm_delegation | rung=domain | domain=context-grapple-gun | dehydrated_tic=314 -->
+
+Lead context accumulation — not advocate turn count — is the binding budget constraint in governed arenas. The lead receives ALL advocate outputs: N advocates × M turns each = N×M messages accumulating in lead context. Advocate budgets are local (bounded per-agent), but lead context is global (accumulates across all agents).
+
+The routing function must check lead context ceiling across all regimes before spawning.
+
+<!-- promoted from CogPR-32 (tic 21→22, arena-sourced T3G). All three advocates independently identified this as the binding constraint. Band: COGNITIVE. -->
+
+---
+
+## Coordination Overhead Accounting
+<a id="coordination-overhead-accounting"></a>
+<!-- ledger-tags: authority_class=subagent_and_swarm_delegation | rung=domain | domain=context-grapple-gun | dehydrated_tic=314 -->
+
+Coordination overhead (nudges, retries, phase-transition messages) is lead-side cost, not advocate-side cost. Advocate budgets should price reasoning depth only. Conflating coordination with advocacy inflates budget estimates.
+
+This accounting correction changed the LIBERAL regime derivation from 28 to ~22 turns/advocate — coordination overhead was incorrectly counted as advocate budget consumption.
+
+<!-- promoted from CogPR-35 (tic 21→22, arena-sourced T3G). All three advocates independently confirmed this accounting principle. Band: COGNITIVE. -->
+
+---
+
+## Epistemic Triangulation Geometry
+<a id="epistemic-triangulation-geometry"></a>
+<!-- ledger-tags: authority_class=arena_and_reasoning_geometry | rung=domain | domain=context-grapple-gun | dehydrated_tic=314 -->
+
+Epistemic triangulation (coincidence/mechanism/counterfactual) is an effective geometry for hypothesis-testing arenas. Each angle tests a different failure mode of the claim:
+- **Coincidence** — could the evidence be explained by chance or confounding?
+- **Mechanism** — is there a causal pathway connecting the claim to the evidence?
+- **Counterfactual** — what would we expect to observe if the claim were false?
+
+Use this geometry when the arena question is a testable hypothesis rather than a design choice.
+
+<!-- promoted from arena-marketplace-0 (tic 9→25, arena-sourced marketplace-epistemic-triangulation). Process lesson — reinforced confidence tier. Band: COGNITIVE. -->
+
+---
+
+## Governance Label Accuracy
+<a id="governance-label-accuracy"></a>
+<!-- ledger-tags: authority_class=pipeline_and_integration | rung=domain | domain=context-grapple-gun | dehydrated_tic=314 -->
+
+'Observer-first' is a governance label that systematically understates commitment. If the model includes synchronous pre-action checkpoints at critical boundaries (cost, publish, destroy), the model is 'governed-at-boundaries' and the label should match. Labels shape investment decisions — a mislabeled pattern will be under-resourced where it matters most.
+
+<!-- promoted from CogPR-73 (tic 102→105). Source: arena:triad-fusion-authority-arena — Wildcard Record #5 (semantic downgrade), governance-examiner rebuttal, all agents converged on gates at cost/publish/destroy. Band: COGNITIVE. -->
+
+---
+
+## Same-Model Convergence Discount
+<a id="same-model-convergence-discount"></a>
+<!-- ledger-tags: authority_class=arena_and_reasoning_geometry | rung=domain | domain=context-grapple-gun | dehydrated_tic=314 -->
+
+Same-model agent convergence is weaker than cross-model convergence. Same-substrate agents satisfy incentive independence (opposed mandates) but not epistemic independence (shared priors). Downgrade same-model convergent findings to REINFORCED until validated by implementation evidence.
+
+<!-- promoted from CogPR-76 (tic 102→105). Source: arena:triad-fusion-evidence-rebuttal — same-substrate shared priors observation. Tentative confidence; CGG scope first, federation promotion pending cross-model arena validation. Band: COGNITIVE. -->
+
+---
+
+## Concession Cascade Detection
+<a id="concession-cascade-detection"></a>
+<!-- ledger-tags: authority_class=arena_and_reasoning_geometry | rung=domain | domain=context-grapple-gun | dehydrated_tic=314 -->
+
+Evidence-rebuttal concession cascade: when evidence advocate concedes all claims, check for role abandonment vs claim adjustment. Lead must verify empirical evidence perspective survives even when specific evidence base is thin. Concession cascade produces bilateral consensus, not triangulated convergence.
+
+<!-- promoted from CogPR-77 (tic 102→105). Source: arena:triad-fusion-evidence-rebuttal — evidence advocate conceded all claims, bilateral consensus ≠ triangulated convergence. Band: COGNITIVE. -->
+
+---
+
+## Arena Velocity Guard
+<a id="arena-velocity-guard"></a>
+<!-- ledger-tags: authority_class=arena_and_reasoning_geometry | rung=domain | domain=context-grapple-gun | dehydrated_tic=314 -->
+
+When arena convergence happens faster than evidence accumulation, treat the consensus as a hypothesis set, not a decision set. Each consensus point needs an explicit falsification condition. The wildcard strike-down question ('what would the smart-but-wrong version be?') applied to each point before ratification guards against elegant plans nobody can build.
+
+<!-- promoted from CogPR-74 (tic 102→105). Source: arena:triad-fusion-authority-arena — 8 consensus points in 3 phases, Wildcard Records #3 and #8, strike-down question technique. Complements CogPR-33 (convergence timing). Band: COGNITIVE. -->
+
+---
+
+## showClearContextOnPlanAccept Must Be True
+<a id="showclearcontextonplanaccept-must-be-true"></a>
+<!-- ledger-tags: authority_class=external_schema_volatility | rung=domain | domain=context-grapple-gun | dehydrated_tic=314 -->
+
+CGG cadence depends on plan-mode context-clear as the session epoch boundary. When false (the default as of Claude Code with 1M context), clear-context options are suppressed in the plan approval menu, replacing them with keep-context variants. This silently breaks the cadence handoff chain (plan approve + clear -> session-restore.sh -> trigger extraction -> assessor spawn). Set `showClearContextOnPlanAccept: true` in `~/.claude/settings.json` for any CGG-governed workspace.
+
+<!-- promoted from CogPR-78 (tic 104→107). Source: binary-analysis-claude-code-2.1.81. Evidence: binary-verified — flag controls first option in plan approval menu, cadence handoff chain restored after setting true. Band: COGNITIVE. -->
+
+---
+
+## Overlap-Frequency Tiering Primitive
+<a id="overlap-frequency-tiering-primitive"></a>
+<!-- ledger-tags: authority_class=arena_and_reasoning_geometry | rung=domain | domain=context-grapple-gun | dehydrated_tic=314 -->
+
+Overlap-frequency tiering is a reusable prioritization primitive for competitive and comparative analysis: features all competitors share = table stakes (necessary but not differentiating), some share = opportunity zone (competitive leverage), one has uniquely = differentiation (strategic advantage). Apply this tiering to any domain where multiple entities are compared across feature sets — SEO landscapes, capability surfaces, vendor assessments. The primitive appeared in 12/20 prompts during harpoon assessment with demonstrated live cross-domain instantiation.
+
+<!-- promoted from CogPR-81 (tic 109→115). Source: arena:harpoon-alventra-seo-assessment — convergent (HARVEST+MINE advocates). Cross-domain applicability demonstrated in SEO, capability, and vendor assessment contexts. Band: COGNITIVE. -->
+
+---
+
+## CATALYZE Advocate Geometry
+<a id="catalyze-advocate-geometry"></a>
+<!-- ledger-tags: authority_class=arena_and_reasoning_geometry | rung=domain | domain=context-grapple-gun | dehydrated_tic=314 -->
+
+Harpoon assessment arenas benefit from a CATALYZE advocate position that argues for higher-leverage constitutional alternatives, replacing binary PASS/NO with phased convergence. The CATALYZE advocate's role: when a harpoon item fails direct adoption, identify what constitutional primitive it could become through transformation. This produces richer assessment output — items are not just accepted or rejected but classified along a spectrum from direct-adopt to constitutional-extract to reject.
+
+<!-- promoted from CogPR-82 (tic 109→115). Source: arena:harpoon-alventra-seo-assessment — reinforced. Process improvement for arena geometry, validated in practice during harpoon assessment. Band: COGNITIVE. -->
+
+---
+
+## Copilot Script Classification (tier_2_adapt)
+<a id="copilot-script-classification-tier-2-adapt"></a>
+<!-- ledger-tags: authority_class=pipeline_and_integration | rung=domain | domain=context-grapple-gun | dehydrated_tic=314 -->
+
+External prompt systems that require human execution (e.g., "Open Chrome and navigate to...") are most accurately classified as `tier_2_adapt` — copilot scripts, not agent-executable envelopes. The "Open Chrome" pattern is a reliable signal of copilot-script dependency. Assessment should separate pattern value (the reasoning structure may be reusable) from execution mechanism (human-in-the-loop vs agent-executable). This sharpens harpoon assessment by preventing misclassification of human-dependent prompts as directly ingestible automation.
+
+<!-- promoted from CogPR-84 (tic 109→115). Source: arena:harpoon-alventra-seo-assessment — reinforced. Practical operational value for harpoon assessment classification. Band: COGNITIVE. -->
+
+---
+
+## Cross-Rung Orientation (CRX) Arena Geometry
+<a id="cross-rung-orientation-crx-arena-geometry"></a>
+<!-- ledger-tags: authority_class=arena_and_reasoning_geometry | rung=domain | domain=context-grapple-gun | dehydrated_tic=314 -->
+
+CRX is the 6th arena geometry template, designed for cross-rung and cross-jurisdiction exploration. Structure: triad (domain-level reasoning with opposed advocates) + meta-pair (constitutional emissaries with expansion/constraint polarity) + ecotone synthesis (mechanical derivation from both polarity gates). The meta-pair catches what triads miss — specifically complementary-jurisdictions violations and suppressed emergence. First CRX run produced qualitatively different output from standard governed triangulation. Use CRX geometry when the arena question spans jurisdictional boundaries or rung levels.
+
+Template location: `stage/templates/arenas/cross-rung-orientation/`
+
+<!-- promoted from CogPR-88 (tic 109→115). Source: arena:occ-identity-primitives-crx — reinforced. First run validated qualitative difference from governed triangulation. Meta-pair caught complementary-jurisdictions violations the triad missed. Resolves BEACON_crx_geometry_validated. Band: COGNITIVE. -->
+
+---
+
+## Recursive Meta-Enforcement
+<a id="recursive-meta-enforcement"></a>
+<!-- ledger-tags: authority_class=arena_and_reasoning_geometry | rung=domain | domain=context-grapple-gun | dehydrated_tic=314 -->
+
+Schema-level enforcement of governance requirements can be formally satisfied while substantively violated — a mandatory dissent field satisfied by writing "No dissent." is compliance theater. The response is recursive meta-enforcement: mechanisms watching mechanisms. When a governance schema requires a field (unresolved tensions, dissent, surprise assessment), the enforcement layer must also check whether the field's content is substantively meaningful, not just syntactically present. This applies to any schema-enforced governance requirement and extends concession cascade detection (CogPR-77) from arena-specific to system-wide.
+
+<!-- promoted from CogPR-93 (tic 112→115). Source: arena:occ-epistemic-safeguards-crx — convergent. MECHANIST form-vs-substance analysis + LAWFUL iterative enforcement. Extends CogPR-77 (concession cascade). Resolves BEACON_occ_epistemic_governance_convergence. Band: COGNITIVE. -->
+
+---
+
+## NIH Self-Examination in Adversarial Arenas
+<a id="nih-self-examination-in-adversarial-arenas"></a>
+<!-- ledger-tags: authority_class=arena_and_reasoning_geometry | rung=domain | domain=context-grapple-gun | dehydrated_tic=314 -->
+
+In governed adversarial arenas, advocates arguing for build-alternative positions (CATALYZE, build-from-scratch, replace-with-custom) must include a mandatory NIH (Not Invented Here) self-examination: an honest numeric self-score (0-10) assessing how much of their advocacy is driven by NIH bias versus genuine gap analysis. Advocates who honestly assess their own failure modes produce genuine convergence; advocates who cannot produce bilateral stalemate. The NIH self-score is the mechanism that releases deadlocked positions into shared territory.
+
+<!-- promoted from CogPR-108 (tic 118→119). Source: arena:harpoon-federation-mount-binder-v2-assessment — reinforced. CATALYZE's 5.5/10 NIH self-score released 3 of 5 gaps from exclusive to shared territory, making consensus partition possible. Band: COGNITIVE. -->
+
+---
+
+## Opposing-Values Geometry for Constitutional Questions
+<a id="opposing-values-geometry-for-constitutional-questions"></a>
+<!-- ledger-tags: authority_class=arena_and_reasoning_geometry | rung=domain | domain=context-grapple-gun | dehydrated_tic=314 -->
+
+Constitutional questions (expansion, restructuring, inscription, authority changes) should use opposing-values arena geometry where advocates hold genuinely different values (e.g., completeness vs coherence vs efficiency), not same-direction geometry where advocates agree on value but differ on approach. Opposing-values geometry produces higher lock-pressure, surfaces absorption capacity concerns, and generates analytical tools (e.g., non-derivability test) that same-direction geometry cannot produce. Same-direction geometry produces low lock-pressure everywhere because advocates agree on valence — method disagreement does not generate the constitutional stress-testing that value disagreement does.
+
+<!-- promoted from CogPR-112 (tic 118→119). Source: arena:harpoon-binder-v2-constitutional-impact — reinforced. Direct empirical comparison: Arena 1 (same-direction) produced low lock-pressure and no analytical tools; Arena 2 (opposing-values) produced the non-derivability test (CogPR-110) and structural reform mandates. Band: COGNITIVE. -->
+
+---
+
+## Post-Hoc Conformation (Anti-Pattern: In-Arena Invariant Scoring)
+<a id="post-hoc-conformation-anti-pattern-in-arena-invariant-scoring"></a>
+<!-- ledger-tags: authority_class=arena_and_reasoning_geometry | rung=domain | domain=context-grapple-gun | dehydrated_tic=314 -->
+
+Do not ask arena advocates to score their positions against invariants during their turns. In-arena invariant scoring distorts advocate reasoning — advocates checklist-optimize against the scoring criteria instead of reasoning naturally from their value positions. The correct design is post-hoc conformation: advocates speak from values without scoring awareness, then an invariant field measurement is applied after advocacy completes. This separation is load-bearing — it preserves the authenticity of advocacy while still capturing invariant alignment data.
+
+<!-- promoted from CogPR-114 (tic 118→119). Source: session:harpoon-binder-vpl-design-tic-118 — reinforced. Arena 1 experimental invariant weight scaffold demonstrated checklist-optimization distortion. VPL spec Phase 6 (post-hoc conformation) is the validated alternative. Band: COGNITIVE. -->
+
+---
+
+## VPL Standard Geometry (Tournament-Lattice)
+<a id="vpl-standard-geometry-tournament-lattice"></a>
+<!-- ledger-tags: authority_class=arena_and_reasoning_geometry | rung=domain | domain=context-grapple-gun | dehydrated_tic=314 -->
+
+Tournament-lattice VPL (Value-Position Lattice) with bracket isolation and wildcard challenge is the standard geometry for federation governance shape questions. The geometry combines three validated principles:
+
+1. **Constitutional actors as advocates** — office holders (Mogul, Crisis Steward, CBUX, Civil Engineer, Ladder Auditor) have natural value centroids from jurisdictional mandates and natural evidence bases from operational data. Using them instead of generic labels produces advocates with authentic stakes.
+2. **Value-position fusion** — constitutional actors naturally fuse value-driven and position-driven stances in a single lattice. Their jurisdictional mandates ARE value centroids; their operational data IS positional evidence. VPL achieves what separate arena types cannot.
+3. **Wildcard chain coherence challenge** — the wildcard finds composite tensions invisible to bracket-isolated advocates. Every constitutional VPL arena must include a chain coherence wildcard.
+
+Template: `stage/templates/arenas/value-lattice/spec.md`
+
+<!-- promoted from CogPR-116 merged with CogPR-113 + CogPR-115 (tic 118→119). Source: arena:federation-governance-shape-vpl — convergent. Wildcard found 3 composite tensions invisible to 12 bracket documents. Constitutional actors produced office-specific evidence unavailable to generic labels. First VPL run validated the geometry. Band: COGNITIVE. -->
+
+---
+
+## Hook Path Resolution
+<a id="hook-path-resolution"></a>
+<!-- ledger-tags: authority_class=external_schema_volatility | rung=domain | domain=context-grapple-gun | dehydrated_tic=314 -->
+
+Hook scripts must discover zone root by walking up from the **edited file path**, not from `cwd`. Hooks execute in an arbitrary working directory set by the harness (often `~` or other external paths), not by the project. Using `os.getcwd()` or `$CLAUDE_PROJECT_DIR` as the primary zone root anchor silently fails when cwd is outside the federation tree. The file path (`$CLAUDE_FILE`)is the only reliable anchor to discover zone root via directory traversal.
+
+**Pattern:** Walk up from `$CLAUDE_FILE` looking for `.ticzone` or `audit-logs/`, not from `cwd`.
+
+**Failure mode:** Hook returned silence from `~/`; full output from `canonical/` — same input JSON, different cwd. Zone root resolution from file path walked up correctly in all 4 tests. Existing post-commit-sync.sh had the same latent bug masked by git commit always running from repo dir.
+
+<!-- promoted from CogPR-127 (tic 122→124). Source: session:sync-weigh-hook-tic-121. Zone root resolution validated walking up from file path in all test cases. -->
+
+---
+
+## Session Learning Protocol
+<a id="session-learning-protocol"></a>
+<!-- ledger-tags: authority_class=memory_and_inscription_hygiene | rung=domain | domain=context-grapple-gun | dehydrated_tic=314 -->
+
+When you discover something during a session that constitutes a durable lesson — a friction point resolved, a non-obvious behavior confirmed, a workflow correction — capture it as a CogPR (Cognitive Pull Request).
+
+### Write rule (born truth vs in-force truth)
+
+Write lessons to MEMORY.md by default (born truth). Only write to CLAUDE.md when the lesson IS a law change (in-force truth). If no subsystem MEMORY.md exists, write to the project's auto-memory (`~/.claude/projects/*/memory/MEMORY.md`).
+
+### CogPR format
+
+Write the lesson inline, then add this flag immediately after:
+
+<!-- --agnostic-candidate
+  lesson: "one-line lesson summary"
+  source_date: "YYYY-MM-DD"
+  source: "file:line"
+  band: "COGNITIVE"
+  motivation_layer: "COGNITIVE"
+  subsystem: "relevant_subsystem"
+  recommended_scopes:
+    - "path/to/broader/CLAUDE.md"
+  rationale: "why this is broader than local"
+  review_hints: "what to check when evaluating"
+  status: "example"
+-->
+
+> Set `status: "pending"` on real CogPRs. The template uses `"example"` to avoid false positives in the inline CPR scanner.
+
+### Birth discipline
+
+Never delay birth of a pattern-shaped CogPR on the grounds of maturity. Capture first. Prove later. Promote only when earned.
+
+- If the observation is pattern-shaped (recurring, structural, or contract-level), mint the CogPR immediately at birth tic.
+- Maturity governs **promotion**, not **capture**. Losing the hypothesis is system failure; premature promotion is recoverable.
+- For external platform contract surfaces (hook schema, plugin manifest, install semantics, marketplace protocol), capture hypotheses immediately — do not legislate from memory when contract validation is available.
+
+### Band budget
+
+| Band | Use for |
+|------|---------|
+| PRIMITIVE | Safety, data integrity, survival signals |
+| COGNITIVE | Learning, discovery, process improvement (default) |
+| SOCIAL | Collaboration signals (use sparingly) |
+| PRESTIGE | Never. Governance-blocked. |
+
+Run `/cadence` when the session feels long — around 100k tokens is a good heuristic. If context is degrading, `/cadence double-time` does a minimal exit. The `cadence-syncopate` command surface remains valid and supported.
+
+### Experimental arena cadence isolation
+
+Events inside experimental arenas may be recorded, but they do not advance physical cadence by default. Only operative-zone execution advances the physical tic counter.
+
+When cadence is emitted from experimental closeout or other ignored contexts, emit a normal tic event (`type: "tic"`) with:
+
+- `count_mode: "ignored"`
+- `count_reason: "<explicit reason>"`
+- `domain_counter_before == domain_counter_after`
+- `global_counter_before == global_counter_after`
+
+Do not fork the event type. The distinction is counting mode, not event existence. One event model, one scanner, one audit surface.
+
+### Timestamp authority law
+
+If timestamps are not canonical, they must never be used as authoritative ordering fields. Use tic, phase, dependency completion, or explicit operator-metadata labels instead. Canonical progression is determined by counted tic progression, not by wall-clock timestamps.
+
+---
+
+## Doctrine Surface Frontmatter Sweep Methodology
+<a id="doctrine-surface-frontmatter-sweep-methodology"></a>
+<!-- ledger-tags: authority_class=memory_and_inscription_hygiene | rung=domain | domain=context-grapple-gun | dehydrated_tic=314 -->
+
+Doctrine surfaces that accrete >30 specs without frontmatter render uniformly dense to readers (Mogul, ladder-auditor, agents) regardless of whether each spec is active, forward-looking, or dormant. Federation KI overlap (which spec implements which Key Invariant) is unlabeled, creating Authority Vacuum at the doctrine layer. A one-shot mechanical sweep adding `status: active|forward|dormant` + `last_validated_tic: N` + `implements: <federation KI>` frontmatter scales to 70+ files in one Python pass with rule-based heuristic + manual override map. Validated tic 214: 73 AK specs patched (61 active / 9 forward / 3 JSON sidecars); 33 cross-linked to federation KIs. The pattern is reusable for any doctrine surface that has crossed the dense-without-discrimination threshold.
+
+<!-- promoted from CogPR-cpr_doctrine_surface_frontmatter_sweep_methodology_tic214 (tic 214→216). Source: ~.claude/projects/-Users-breydentaylor-canonical/memory/MEMORY.md. -->
+
+For arena reports and other non-canonical surfaces, prefer tic-based closure:
+```json
+{"source_tic": 9, "completion_tic": 9, "phase_closure": {"context": "complete", ...}}
+```
+not authoritative-looking wall-clock sequencing (`created_at`, `completed_at`).
+
+### Posture (optional)
+
+Declare your working mode at session start:
+
+| | DIRECT (execute) | META (analyze) |
+|---|---|---|
+| **ENG** | Implement, fix, ship | Architect, plan, design |
+| **OPS** | Run pipelines, hit APIs | Audit, review, explore |
+
+When capturing a CogPR, include `posture: "ENG/META"` (or whichever
+mode applies). This helps `/review` weigh context — a lesson from active
+implementation carries different weight than one from analysis.
+
+Posture is advisory in CGG. Substrates that enforce posture constraints
+(META = read-only, etc.) use the same fields — zero migration on upgrade.
+
+### Signal format
+
+For persistent conditions that need tracking, emit signals to `audit-logs/signals/YYYY-MM-DD.jsonl`. Use /siren for signal management if installed.
+
+### Topology
+
+Run `cgg-doctor.sh` from your project root to see your governance topology.
+
+---
+
+## Bash-Python Quoting Collapse
+<a id="bash-python-quoting-collapse"></a>
+<!-- ledger-tags: authority_class=pipeline_and_integration | rung=domain | domain=context-grapple-gun | dehydrated_tic=314 -->
+
+Inline Python in bash heredoc (`python3 -c "..."`) silently breaks when the Python code contains triple-quoted docstrings — bash C-style quoting (`$'...'`) mangles triple quotes into string terminators. The fix is to extract Python logic to a separate `.py` file and have the bash hook invoke it. This is a syntax-semantic collapse vector specific to hook authoring: bash and Python have incompatible quoting semantics that produce silent failures (no error, no output, exit 0 under `set -e`).
+
+**Pattern**: When a hook needs non-trivial Python logic, write a `.py` file and call it from bash — never inline Python with heredoc or `-c` quoting.
+
+<!-- promoted from CogPR-126 (tic 122→128). Source: session:sync-weigh-hook-tic-121. Evidence: bash -x trace showed $'Count' uncommitted' — triple-quote docstring mangled. Hook produced exit 0 with no output. Fixed by extracting to sync-weigh-check.py. Supports syntax-semantic collapse doctrine (canonical/CLAUDE.md). Band: COGNITIVE. -->
+
+---
+
+## OA-VPL-T Arena Geometry
+<a id="oa-vpl-t-arena-geometry"></a>
+<!-- ledger-tags: authority_class=arena_and_reasoning_geometry | rung=domain | domain=context-grapple-gun | dehydrated_tic=314 -->
+
+OA-VPL-T (Office-Autonomous Value-Position Lattice with Temporal Modeling) is the 8th arena geometry template. Founding principle: **friction is evidence of hidden constitutional structure** — the revision trail from implementation friction is the excavation trail of the invariant stack. Key innovations: Phase 0a/0b (offices derive positions from mandate, not assigned labels), dependency-emergent brackets, and T0-T5 temporal tension modeling with Temporal Fraud as highest penalty.
+
+Template: `stage/templates/arenas/office-autonomous-vpl/spec.md`
+
+<!-- promoted from CogPR-128 (tic 122→128). Source: session:oavplt-design-tic-121. Evidence: convergence synthesis between c45 (federation-grounded) and oa54 (framework-level). Validated by 2 arena instances (sync-weigh + OT-integration). Refines arena template system, supports CogPR-112 (opposing-values geometry). Band: COGNITIVE. -->
+
+---
+
+## Install Boundary as Governance Transition
+<a id="install-boundary-as-governance-transition"></a>
+<!-- ledger-tags: authority_class=sync_and_install_parity | rung=domain | domain=context-grapple-gun | dehydrated_tic=314 -->
+
+The forge→runtime install boundary (`canonical_developer/` → `~/.claude/`) is a first-class governance transition, not merely a file copy. Properties valid at the forge (syntax correctness, test passage, manifest consistency) are not automatically valid at the runtime. Derived constraints of this transition include: manifest atomicity, dual-read consistency, error transparency, and recursive self-observation. One structural anchor with derived rules is a tighter promotion footprint than independent inscriptions for each derived constraint.
+
+This refines the Three-Form CGG Boundary (canonical/CLAUDE.md) with an operational principle: the install boundary is where governance properties must be re-verified, not assumed.
+
+<!-- promoted from CogPR-130 (tic 122→128). Source: arena:sync-weigh-friction-oavplt — 5/7 office convergence. Ladder Auditor structural anchor framing validated. DIRECT-D enrichment: one structural anchor with derived rules is a tighter promotion footprint than seven independent inscriptions. Band: COGNITIVE. -->
+
+---
+
+## Claimed Install-State Requires Auditable Sync-Log Proof
+<a id="claimed-install-state-requires-auditable-sync-log-proof"></a>
+<!-- ledger-tags: authority_class=sync_and_install_parity | rung=domain | domain=context-grapple-gun | dehydrated_tic=314 -->
+
+**Claimed install-state is not real until post-commit sync proves byte parity across all targets and emits an auditable sync log.**
+
+Refines Install Boundary as Governance Transition: the install boundary is a **proof-required** transition, not merely a re-verification site. State assertions ("synced," "current," "matches canonical") have no constitutional weight without a sync-log entry tying the claim to a specific commit and surface set. "No drift detected" output alone is insufficient — silent abort can produce that observation while leaving install untouched.
+
+Required proof artifacts for any claim that install-state matches canonical:
+1. Commit SHA the sync ran against
+2. Hook fired (traceable in stdout, sync log, or install-target ctime updates)
+3. auto-sync completed the full pipeline (compare → copy → log-write → drift-signal-resolution)
+4. Byte equality verifiable across all enumerated install targets
+5. Sync log entry at `audit-logs/services/cgg-sync-log.jsonl` carrying timestamp + commit + synced surface list
+
+The queue write path, commit discipline, and install propagation path are coupled, not assumed — each stage must produce its own proof artifact.
+
+<!-- promoted from CogPR-209 (tic 209→211). Source: tic-209 /review Pass 1 closeout — operator-named upgrade. Band: COGNITIVE. -->
+
+---
+
+## Multi-Stage Governance Pipeline Stages Must Be Coupled with Proof Artifacts
+<a id="multi-stage-governance-pipeline-stages-must-be-coupled-with-proof-artifacts"></a>
+<!-- ledger-tags: authority_class=verification_and_proof_discipline | rung=domain | domain=context-grapple-gun | dehydrated_tic=314 -->
+
+Governance pipelines with N stages each capable of silent failure (queue write → commit → install propagation → audit) collapse into "trust the pipeline ran" unless each stage produces its own auditable proof artifact AND the absence of any stage's proof artifact is itself a detectable signal — not a pipeline that "looks fine."
+
+The /review pipeline at tic 209 had three silent-failure stages: (a) queue write via Edit-tool-anchoring could insert before existing trailing lines and lose to latest-entry-per-id; (b) commit-after-execute was assumed but not codified, so the post-commit-sync hook had nothing to fire on; (c) auto-sync ran but its drift-signal-resolution side routine crashed on an undefined name, silently aborting before propagation completed. Each stage individually appeared to "work" — the pipeline as a whole did not propagate truth.
+
+The fix coupled all three: atomic-append.sh as the queue-write proof artifact, Step 8.6 commit-after-execute as the commit-discipline proof artifact, and runtime-sync.py NameError patch + sync-log entry as the install-propagation proof artifact. Each stage now produces a verifiable trace; absence of any trace is the signal.
+
+The pattern generalizes beyond /review. Any governance pipeline that mutates multiple state surfaces in sequence is vulnerable to the same failure class: one stage's silent abort being invisible to the others. The discipline is to identify each stage, name its proof artifact, and require its presence in the pipeline's success condition. This is the constitutional implementation of "Claimed install-state is not real until post-commit sync proves byte parity across all targets and emits an auditable sync log" — generalized from the specific install-state instance to any multi-stage pipeline.
+
+<!-- promoted from cpr_governance_pipeline_stages_coupled_with_proof_artifacts_tic209 (tic 209→211). -->
+
+---
+
+## Remote-vs-Local Verification Scope Split for Scheduled Agents
+<a id="remote-vs-local-verification-scope-split-for-scheduled-agents"></a>
+<!-- ledger-tags: authority_class=verification_and_proof_discipline | rung=domain | domain=context-grapple-gun | dehydrated_tic=314 -->
+
+When scheduling a remote agent (Anthropic cloud routine) to verify a system whose state is partly local-only — install state under `~/.claude/`, machine ctimes, hooks registered to the operator's settings.json — the verification must be explicitly split into remote-checkable and local-required halves. The remote agent CANNOT see local install state; it can only see what's committed to the repo it checks out. Pretending otherwise produces verification reports that confirm what the remote agent CAN see while the actual question (did the local hook fire?) is invisible to it.
+
+The split discipline:
+1. Enumerate the proof requirements (operator-stated or derived).
+2. Classify each requirement as remote-checkable, local-required, or hybrid.
+3. Remote agent verifies its half autonomously and writes a structured docket to a known repo path (e.g., audit-logs/governance/<verification-name>.md).
+4. Docket explicitly enumerates what the operator must verify locally, with exact commands and expected outputs.
+5. Verdict classification must include "ZERO ACTIVITY TO TEST AGAINST" as a distinct outcome — not collapsed into success or failure. Zero activity is not proof; it requires a manual exercise plan to forcibly trigger the verification path.
+
+The pattern is not specific to post-commit-sync. It applies to any scheduled remote agent verifying: local hook firing (PostToolUse, SessionStart, etc.), local install state (~/.claude/skills/, ~/.claude/agents/), operator-machine-bound resources (file ctimes, process state, MCP connections), or cross-repo coupling (federation root + nested CGG repo).
+
+Without the explicit split, scheduled agents either (a) report misleading success on the half they can see, or (b) get stuck waiting for state they can never observe. The split makes both halves first-class.
+
+<!-- promoted from cpr_remote_vs_local_verification_scope_split_tic209 (tic 209→211). Refines Cross-Agent Artifact Authority Deferral (canonical KI) by extending the boundary discipline to scheduled remote agents. -->
+
+---
+
+## Manual-Ceremony-as-Pipeline-Substitute Discipline
+<a id="manual-ceremony-as-pipeline-substitute-discipline"></a>
+<!-- ledger-tags: authority_class=sync_and_install_parity | rung=domain | domain=context-grapple-gun | dehydrated_tic=314 -->
+
+When a manual ceremony substitutes for an autonomous workflow (e.g., 12-agent swarm replacing cpr-enrichment-scanner.py), the manual ceremony must complete the FULL output contract of the autonomous workflow it replaced — not merely the visible artifacts.
+
+The autonomous version of cpr-enrichment-scanner does two things atomically: (1) produce lens-A.json + lens-B.json + consolidated.json artifacts on disk, (2) append `enrichment_eligible` status writeback rows to queue.jsonl. Both steps are part of the producer→consumer contract. The manual swarm did (1) and skipped (2), so 63 enriched CPRs were invisible to bench-packet-prep and /review for an entire tic cycle.
+
+This is structurally distinct from drift (system bug) — it is manual-process-bypassed-pipeline-contract. Same write-failure shape, different cause, different remediation class. The fix shape: mechanical atomic-append of the missing status rows with explicit provenance metadata (`enriched_by`, `enrichment_artifact`, `writeback_reason`) to preserve lineage integrity per federation invariant.
+
+The discipline: when designing manual ceremonies that substitute for autonomous workflows, audit the autonomous workflow's complete output contract (artifacts produced AND state mutations performed AND signals emitted) and ensure the manual ceremony produces ALL of them, not just the visible artifacts. Skipped state mutations create silent invisibility — the work exists but the manifold doesn't see it.
+
+Refines Conductor-Score-Runtime Parity (federation KI): the parity problem has a manual-ceremony variant. When doctrine names a discipline AND the runtime enforces it AND the manual substitute bypasses it, the parity violation is human-side, not system-side. Same diagnostic frame, different remediation locus.
+
+<!-- promoted from cpr_manual_ceremony_must_complete_autonomous_workflow_output_contract_tic210 (tic 210→211). -->
+
+---
+
+## Handoff Carry-Forward Probe Discipline
+<a id="handoff-carry-forward-probe-discipline"></a>
+<!-- ledger-tags: authority_class=pipeline_and_integration | rung=domain | domain=context-grapple-gun | dehydrated_tic=314 -->
+
+Handoffs themselves are L3-class snapshots under the Volatility Handling Law. When a handoff carries an obligation of the form "wait until <future event> to assess <state>", that obligation encodes an unprobed hypothesis about current substrate state. The substrate may already contain decisive evidence that the handoff didn't have when it was authored — typically because the authoring context preceded the substrate event.
+
+Concrete instance (tic 209 → tic 211): The tic 209/210 handoff carried routing decision tic-209-seq-2 with `outcome: null` and an explicit carry-forward instruction to "backfill at next session ≥ 2026-05-04 with verification agent's report status." The decision had scheduled a remote routine to verify the post-commit-sync hook fire. At the time the handoff was written, no local evidence had been collected.
+
+When the operator asked at tic 210 "trigger bench-packet-prep and backfill the routing decision or tell me why not", a 30-second substrate probe (`tail audit-logs/services/cgg-sync-log.jsonl`) revealed two CONFIRMED-class sync events on a specific commit — both showing `drifted → synced`, with `commit_message` captured in the first event. The hook had ALREADY fired successfully, three days before the scheduled remote-routine verification. Backfilling outcome with `verdict_class: CONFIRMED` was honest, cheap, and amendable.
+
+The operator's question forced a substrate check the handoff hadn't done. Without it, the routing decision would have carried `outcome: null` for three more days while the answer sat in plain text in the sync log.
+
+The discipline: any handoff carry-forward item of the shape "wait until <future event> to verify <state>" should be treated as a candidate for substrate probe at the start of the next session, not passively re-deferred. The probe is cheap (one tail or one grep), the reward is freeing the obligation from the calendar to the present, and the cost of being wrong (probing finds no evidence yet) is zero.
+
+Generalizes Verify-Before-Remediate External Friction (federation KI) from external surfaces (insights reports, partner complaints) to internal surfaces (handoff carry-forwards, scheduled obligations, deferred goals). Same family — verify against source before narrating, before remediating, before re-deferring. Same family as Probe-First Discipline (federation KI) applied to inherited handoff narrative rather than session narrative.
+
+Mechanism: at /cadence handoff-consumption time (or at any moment when a carry-forward item surfaces), apply the test: "Could the substrate already contain the evidence this item is waiting for?" If yes, probe before re-deferring. If no, leave the item carried.
+
+<!-- promoted from cpr_handoff_carry_forward_items_must_probe_substrate_before_redeferring_tic211 (tic 211→211). -->
+
+<!-- promoted from cpr_claimed_install_state_requires_sync_log_proof_tic209 (tic 209→209). Source: operator-named invariant during /review tic 209 hook coverage audit. Validated tic 209: post-commit-sync hook fired on /review commits but resolve_drift_signals_on_sync crashed on undefined find_audit_logs (CGG commit a948a71 patched it) — install was not updated despite "no drift detected" output. Manual byte-equality check exposed the silent abort. Constitutional lesson: trust the proof artifact, not the printed claim. Band: COGNITIVE. -->
+
+---
+
+## Detection Affordance Tracking
+<a id="detection-affordance-tracking"></a>
+<!-- ledger-tags: authority_class=forensic_and_drift_investigation | rung=domain | domain=context-grapple-gun | dehydrated_tic=314 -->
+
+Promoted invariants should carry `detection_affordance` metadata tracking whether a detection mechanism exists. This is advisory at review time, not a blocking gate. Entries marked `"pending"` generate queue-refresh follow-up obligations. The metadata tracks the gap between inscription and enforcement — an invariant without a detection mechanism is a mandate without mechanism (F-2 pattern).
+
+Format in promotion comments: `detection_affordance: active|pending|none`
+
+<!-- promoted from CogPR-131 (tic 122→128). Source: arena:sync-weigh-friction-oavplt — 6/7 office convergence. Extends enforcement integrity (CogPR-100). Resolves the monitored-invariant concept: advisory question at review + metadata flag + follow-up obligation. Band: COGNITIVE. -->
+
+---
+
+## Friction-to-Invariant Pipeline
+<a id="friction-to-invariant-pipeline"></a>
+<!-- ledger-tags: authority_class=forensic_and_drift_investigation | rung=domain | domain=context-grapple-gun | dehydrated_tic=314 -->
+
+Implementation friction generates invariant candidates through a recurring pipeline: friction → debugging → root cause → candidate → naming → promotion. The pipeline itself is a governance primitive — friction density predicts candidate generation rate. The sync-weigh implementation produced 7 friction invariant candidates from one implementation, validating the pattern. The constitutional learning is the pipeline shape, not the individual candidates it produces.
+
+<!-- promoted from CogPR-132 (tic 122→128). Source: arena:sync-weigh-friction-oavplt — Pattern Curator Meta primary, Bracket B convergence, 5/7 office agreement. Meta-process observation about how arenas discover invariants. Band: COGNITIVE. -->
+
+---
+
+## Recursive Self-Observation
+<a id="recursive-self-observation"></a>
+<!-- ledger-tags: authority_class=pipeline_and_integration | rung=domain | domain=context-grapple-gun | dehydrated_tic=314 -->
+
+When a governance configuration surface is consumed by the mechanism it governs, the system exhibits recursive self-observation — the observer observing itself. This is constitutionally distinct from linear enforcement (CogPR-100): enforcement integrity addresses distributed layers detecting distinct failure modes, while recursive self-observation addresses a single mechanism that is both enforcer and governed surface. Non-derivability from CogPR-100 confirmed — these are structurally different phenomena.
+
+Live evidence: `sync-manifest.json` consumed by `sync-weigh-check.py` which checks manifest drift; `active-manifest.jsonl` created as fix for signal scan blind spot.
+
+CGG scope — promote to federation if second subsystem instantiation emerges.
+
+<!-- promoted from cpr_recursive_self_observation_tic179 (tic ?? → 179). Source: arena:2026-04-26_memory-trim-oavplt. Band: COGNITIVE. -->
+
+---
+
+## Atomic-Commit Discipline (Multi-File Mutations)
+<a id="atomic-commit-discipline-multi-file-mutations"></a>
+<!-- ledger-tags: authority_class=verification_and_proof_discipline | rung=domain | domain=context-grapple-gun | dehydrated_tic=314 -->
+
+Atomic-commit (multi-file mutations bound into single commit unit with pre-commit validation) is required CGG-scope discipline. Pattern recurs: sync manifest dual-writes, registry-content-source triples, memory-trim MOVE = destination + forward pointer + referrer patches in same commit. CGG-scope distinct from CogPR-8 (intra-file atomic JSONL writes) — this is inter-file atomicity.
+
+<!-- promoted from cpr_atomic_commit_discipline_scope_tic179 (tic 179 → 179). Source: arena:2026-04-26_memory-trim-oavplt. Band: COGNITIVE. -->
+
+---
+
+## MEMORY.md Inline Entry Location Lock (REVIEW_PINNED)
+<a id="memory-md-inline-entry-location-lock-review-pinned"></a>
+<!-- ledger-tags: authority_class=memory_and_inscription_hygiene | rung=domain | domain=context-grapple-gun | dehydrated_tic=314 -->
+
+MEMORY.md inline entries with `status: pending` are operationally treated as location-locked until /review processes them. Functions as second pin axis (REVIEW_PINNED, Disposition 0b orthogonal to constitutional-pin Disposition 0). Memory-trim cycles must respect this lock.
+
+<!-- promoted from cpr_review_pinned_location_lock_tic179 (tic 179 → 179). Source: arena:2026-04-26_memory-trim-oavplt. Band: COGNITIVE. -->
+
+---
+
+## User-Space Handoff Referrer Surface
+<a id="user-space-handoff-referrer-surface"></a>
+<!-- ledger-tags: authority_class=memory_and_inscription_hygiene | rung=domain | domain=context-grapple-gun | dehydrated_tic=314 -->
+
+User-space handoff plans (`~/.claude/plans/*.md`) live OUTSIDE federation commit boundary, accumulate ~70+ files over many tics, and each cites MEMORY.md sections from its authoring era. Memory-trim reference audits AND ladder-audit cycles must include this referrer axis or they silently sever the handoff chain.
+
+<!-- promoted from cpr_user_space_handoff_referrer_surface_tic179 (tic 179 → 179). Source: arena:2026-04-26_memory-trim-oavplt. Band: COGNITIVE. -->
+
+---
+
+## Memory-Trim Staged Execution Pattern
+<a id="memory-trim-staged-execution-pattern"></a>
+<!-- ledger-tags: authority_class=memory_and_inscription_hygiene | rung=domain | domain=context-grapple-gun | dehydrated_tic=314 -->
+
+High-composite-load memory-surface trims (composite mutation count >5) execute across multiple tics, not single-tic. Pattern: 4-tic staged window — Stage 0 (Probe + Inscribe), Stage 1 (Audit + Pin List), Stage 2 (Trim execution), Stage 3 (Re-stamp + Verification). Schedule decompression preserves operator absorption capacity AND prevents composite cascade failure.
+
+<!-- promoted from cpr_memory_trim_staged_execution_pattern_tic179 (tic 179 → 179). Source: arena:2026-04-26_memory-trim-oavplt. Band: COGNITIVE. -->
+
+---
+
+## Signal Resolution Writeback Atomicity (Dual-Surface)
+<a id="signal-resolution-writeback-atomicity-dual-surface"></a>
+<!-- ledger-tags: authority_class=pipeline_and_integration | rung=domain | domain=context-grapple-gun | dehydrated_tic=314 -->
+
+When signals are resolved in daily files (`audit-logs/signals/YYYY-MM-DD.jsonl`), the active-manifest may not receive a corresponding write — divergence between daily file truth and manifest curation. Resolution writeback must be atomic across both surfaces, or a sweep-style reconciliation must run on cadence. **Mechanism (tic 182):** `cgg-runtime/scripts/manifest-prune.py` provides atomic, idempotent, archive-preserving sweep — moves resolved entries from active-manifest to `audit-logs/signals/resolved-archive.jsonl`. Wired into `mogul-runner.sh` as pre-spawn invocation. Validated tic 182: 20 stale-resolved entries swept to 3 active, matching session-start banner exactly. The doctrine is now mechanism-implemented, not merely named.
+
+<!-- promoted from cpr_cmd_auto_sync_writeback_gap_tic171 (tic 171 → 179). Source: arena:2026-04-26_memory-trim-oavplt. Band: COGNITIVE. Refined with cpr_active_manifest_resolution_sweep_tic182 (tic 182→183) — named-doctrine to mechanism-implemented. -->
+
+---
+
+## Precedence-Authority Envelopes (Cross-Clade Typed)
+<a id="precedence-authority-envelopes-cross-clade-typed"></a>
+<!-- ledger-tags: authority_class=pipeline_and_integration | rung=domain | domain=context-grapple-gun | dehydrated_tic=314 -->
+
+Cross-clade typed envelopes that carry precedence-ordering authority as a first-class field. Surviving primitive from OT solo arena (tic 170). Refines existing envelope-pattern invariant — when envelopes cross jurisdictional boundaries, precedence-authority must be explicit, not implied by sequence.
+
+<!-- promoted from cpr_precedence_authority_envelopes_ot_tic170 (tic 170 → 179). Source: arena:2026-04-26_memory-trim-oavplt. Band: COGNITIVE. -->
+
+---
+
+## Queue Metadata Schema Declaration
+<a id="queue-metadata-schema-declaration"></a>
+<!-- ledger-tags: authority_class=signal_and_queue_manifold | rung=domain | domain=context-grapple-gun | dehydrated_tic=314 -->
+
+Queue metadata schema is implicit. Producer (review-skill, review-execute, mandate-runner, cpr-extract-hook) and consumer (build-queue-index, bench-packet-prep, /governance-check) conventions drift silently. Schema-declaration discipline must be explicit across producers/consumers. Complement to Emitter-Surface Declaration Contract (CogPR-160) and Extractor Surface Schema Contract (CogPR-149).
+
+<!-- promoted from cpr_4cc73a735df78a1b (tic 179 → 179). Source: arena:2026-04-26_memory-trim-oavplt. Band: COGNITIVE. -->
+
+---
+
+## Cross-Estate Integration Assessment Triple Test
+<a id="cross-estate-integration-assessment-triple-test"></a>
+<!-- ledger-tags: authority_class=pipeline_and_integration | rung=domain | domain=context-grapple-gun | dehydrated_tic=314 -->
+
+Cross-estate integration assessments should use a triple-intersection test (federation invariants × estate's mandate × concrete operational evidence) to distinguish viable adoption from incidental compatibility. Two-axis tests miss "looks compatible but evidence base is wrong" failures.
+
+<!-- promoted from cpr_fbfabe0b5eb9e0d2 (tic 179 → 179). Source: arena:2026-04-26_memory-trim-oavplt. Band: COGNITIVE. -->
+
+<!-- promoted from CogPR-133 (tic 122→128). Source: arena:sync-weigh-friction-oavplt — triple convergence (Pattern Curator Meta, cbUX, Videographer). Non-derivability vs CogPR-100 adjudicated: PASS. Resolves sig_2026-04-08_arena_fi7_nonderivability_open. Band: COGNITIVE. -->
+
+---
+
+## Encounter Quality Upstream of Signals
+<a id="encounter-quality-upstream-of-signals"></a>
+<!-- ledger-tags: authority_class=signal_and_queue_manifold | rung=domain | domain=context-grapple-gun | dehydrated_tic=314 -->
+
+The governance encounter surface (hook output at edit time) is constitutionally upstream of signal infrastructure. If the encounter fails — silent hook, wrong path resolution, ambiguous output — the governance signal never fires. The manifold's health depends on encounter surface reliability. A silent exit-0 does not just frustrate the developer — it blinds the governance layer. Encounter quality is a load-bearing governance component, not a UX convenience.
+
+<!-- promoted from CogPR-134 (tic 122→128). Source: arena:sync-weigh-friction-oavplt — reinforced across 3 arena offices (cbUX primary, Videographer + Pattern Curator Meta supporting). Crisis Steward's 2305-duplicate incident as causal evidence. Complements CogPR-130 (install boundary anchor). Band: COGNITIVE. -->
+
+---
+
+## Spec-First Parallel Swarm
+<a id="spec-first-parallel-swarm"></a>
+<!-- ledger-tags: authority_class=subagent_and_swarm_delegation | rung=domain | domain=context-grapple-gun | dehydrated_tic=314 -->
+
+Write complete spec surface BEFORE launching implementation agents. Agents read specs as their constitution — the spec is the agent's mandate, not a reference document. This eliminates the headless subagent curation problem (documented in global CLAUDE.md "Headless Subagent Delegation") by making the spec authoritative rather than relying on inline appendices. The temporal ordering is load-bearing: spec authoring must complete before agent spawning begins.
+
+Validated at scale: 13 spec tranches → 12 implementation engines, 86/86 artifacts verified correct.
+
+<!-- promoted from CogPR-135 (tic 125→128). Source: session:tic-125 megabuild. Evidence: largest implementation session in federation history — 13 tranches, 12 engines, 86/86 verified. Distinct from global "authoritative appendices" guidance — this is about temporal ordering of spec authoring vs agent spawning. Band: COGNITIVE. -->
+
+---
+
+## Composite Mutation Assessment at LEAD Level
+<a id="composite-mutation-assessment-at-lead-level"></a>
+<!-- ledger-tags: authority_class=pipeline_and_integration | rung=domain | domain=context-grapple-gun | dehydrated_tic=314 -->
+
+CogPR-117 (composite mutation scheduling) is systematically invisible to advocate-level reasoning in governed arenas. Offices assess their own constitutional surface changes individually but never assess the composite. The wildcard chain coherence mechanism is the only reliable detection surface. Composite assessment must be enforced at LEAD/synthesis level as a mandatory Phase 6 deliverable, not left to advocate initiative.
+
+<!-- promoted from CogPR-140 (tic 126→130). Source: arena:2026-04-09_ot-economic-integration-oavplt. Note: CD-5. Convergent: wildcard found, confirmed by conformation analysis (dead zone classification). Band: COGNITIVE. -->
+
+---
+
+## Wire-Cut Scoping by Capability Class
+<a id="wire-cut-scoping-by-capability-class"></a>
+<!-- ledger-tags: authority_class=pipeline_and_integration | rung=domain | domain=context-grapple-gun | dehydrated_tic=314 -->
+
+Containment wire-cuts must be scoped to capability classes (ingress, all, panic), not binary on/off. The Docks wire-cut spec demonstrates the pattern — three graduated scopes preserve maximum capability while containing the specific threat vector. Binary wire-cuts (everything or nothing) over-contain, causing collateral damage that discourages use of containment altogether.
+
+<!-- promoted from CogPR-145 (tic 129→138). Source: pattern_miner:PAT-T129-DIRECT-A — reinforced. Docks wire-cut implementation validates graduated scoping. Crisis subsystem scope. Band: COGNITIVE. Confidence: 0.85. -->
+
+---
+
+## Authoritative Count Discipline
+<a id="authoritative-count-discipline"></a>
+<!-- ledger-tags: authority_class=signal_and_queue_manifold | rung=domain | domain=context-grapple-gun | dehydrated_tic=314 -->
+
+Governance reporting tools must source counts from authoritative state (physical event files, active manifests), not from configuration or raw unfiltered logs. bench-packet-prep.py silently reported tic=0 (from .ticzone config) and signals=290 (from raw logs) instead of tic=134 (from counted events) and signals=5 (from curated manifest). Extends CogPR-79 (spot-check output against source data) with a specific authoritative-source discipline.
+
+<!-- promoted from CogPR-146 (tic 135→138). Source: session:tic-135. Evidence: bench-packet-prep.py sourced tic from config and signals from unfiltered logs, producing dramatically wrong counts. Extends CogPR-79. Band: COGNITIVE. Confidence: 0.92. -->
+
+---
+
+## Dedup-at-Write Using Canonical Identity
+<a id="dedup-at-write-using-canonical-identity"></a>
+<!-- ledger-tags: authority_class=signal_and_queue_manifold | rung=domain | domain=context-grapple-gun | dehydrated_tic=314 -->
+
+Duplicate detection must occur at the write boundary (physics layer) keyed on canonical record identity (signal_id, CPR id), not at scan time or by content hash. `dedup_signal_append()` in `atomic_append.py` demonstrates the pattern — one enforcement point, four emitters. This is distinct from atomic writes (CogPR-8, corruption prevention) and signal ID determinism (CogPR-66, ID stability) — this addresses where and how dedup enforcement happens: at the write boundary, using canonical identity as the key.
+
+<!-- promoted from CogPR-147 (tic 135→138). Source: session:tic-135. Evidence: dedup_signal_append() in atomic_append.py — 4 emitters already using write-boundary dedup. Complements CogPR-8 (atomic writes) and CogPR-66 (signal ID determinism). Band: COGNITIVE. Confidence: 0.90. -->
+
+---
+
+## Pattern Mining Context Procurement
+<a id="pattern-mining-context-procurement"></a>
+<!-- ledger-tags: authority_class=pipeline_and_integration | rung=domain | domain=context-grapple-gun | dehydrated_tic=314 -->
+
+Pattern mining context procurement must precede mining — a briefing covering governance surfaces with NLP heuristics (bigram frequency, Gini coefficient, temporal clustering, entity co-occurrence) empowers mining agents with statistical shape without claiming to catch patterns. Three-tier posture (briefing+inline / interactive / full team) guards against cognitive drain while ensuring surface coverage. Validated: briefing-first approach empowered the pattern-curator to discover MEMORY.md truncation that a script couldn't.
+
+<!-- promoted from CogPR-149 (tic 136→138). Source: session:tic-136. Evidence: pattern-mining-context.py + three-tier posture validated in practice. Shapes Mogul's agent-spawning behavior for pattern mining. Band: COGNITIVE. Confidence: 0.82. -->
+
+---
+
+## Hook Binary Invocation (No Aliases)
+<a id="hook-binary-invocation-no-aliases"></a>
+<!-- ledger-tags: authority_class=external_schema_volatility | rung=domain | domain=context-grapple-gun | dehydrated_tic=314 -->
+
+Hook scripts must call binaries directly, never shell aliases — aliases live in interactive shell config (.zshrc) and do not survive non-interactive invocation. Dedup by content hash prevents duplicate firing at event boundaries. Complements Hook Path Resolution (CogPR-127) which covers zone root discovery but not invocation resolution.
+
+**Pattern**: Use full binary paths (`/usr/bin/python3`, `$(which tmux)`) in hook scripts, never aliases or functions from shell profiles.
+
+<!-- promoted from CogPR-150 (tic 136→138). Source: session:tic-136. Evidence: alias resolution failure in hook invocation + content-hash dedup prevents duplicate firing. Complements CogPR-127 (Hook Path Resolution). Band: COGNITIVE. Confidence: 0.88. -->
+
+---
+
+## Inter-Engine Integration Emission
+<a id="inter-engine-integration-emission"></a>
+<!-- ledger-tags: authority_class=pipeline_and_integration | rung=domain | domain=context-grapple-gun | dehydrated_tic=314 -->
+
+When two engines share state through a registry file, the producing engine must emit records in the consuming engine's expected format. Each engine may be individually correct while the integration surface is a blind spot. 14 cycles of invisible integration failure between biome-engine and trust-engine demonstrated the pattern — each engine passed its own tests, but the integration surface was never verified. Extends CogPR-79 (spot-check output against source) to cross-system integration verification.
+
+<!-- promoted from CogPR-151 (tic 136→138). Source: session:tic-136. Evidence: 14 cycles of biome→trust invisible failure. Each engine individually correct; integration surface unverified. Extends CogPR-79 to inter-engine integration. Band: COGNITIVE. Confidence: 0.92. -->
+
+- **Integration loop closure requires explicit invocation wiring** — each engine individually correct and sharing correct-format state is necessary but not sufficient for integration. The data-producing engine must explicitly invoke the data-consuming engine after state persistence. Invocation IS the integration, not data format. This extends CogPR-151 (format compliance) to call-path presence: engines may share perfectly formatted data yet produce silent zero-output because no engine calls the next one. The protection is an explicit orchestrator (e.g., trust-progression-cycle.py) that sequences produce → persist → consume as a single governed pipeline. (Validated: biome→trust→standing loop — 3 engines, correct formats, 18 cycles of interaction data, 0 trust computed. Root cause: no call path connected them. Orchestrator closed the loop immediately.)
+
+<!-- promoted from CogPR-178 (tic 145→146). Source: session:visitor-phase1-dry-run. -->
+
+- **Backfill After Emission-Gap Closure** — when an emission gap closes (previously missing signal generator becomes active), backfill the signal queue with synthesized entries for the gap period, keyed on the prior inferred state. Backfill entries must carry `synthesized: true` and reference the gap resolution tic. Without backfill, the gap period appears quiescent when it was actually blind, creating false confidence in the completeness of the historical signal surface.
+
+<!-- promoted from cpr_66abdac2db1ffd6c (tic 171→172). Source: session:visitor-phase1-gap-closure. -->
+
+---
+
+## Named-Is-Not-Landed Gate
+<a id="named-is-not-landed-gate"></a>
+<!-- ledger-tags: authority_class=review_and_promotion_discipline | rung=domain | domain=context-grapple-gun | dehydrated_tic=314 -->
+
+A complement surfaced in a prior mode but not yet materialized remains a valid complement. The structural relevance test must evaluate complement state (built vs named vs unnamed), not just recent-output presence. First calibration evidence from /complement invocation log — the gate correction shapes skill behavior by requiring materialization state assessment before declaring a complement irrelevant.
+
+<!-- promoted from CogPR-152 (tic 136→138). Source: session:tic-136. Evidence: first /complement calibration. Gate correction: evaluate complement state, not just recent-output presence. Band: COGNITIVE. Confidence: 0.82. -->
+
+---
+
+## Contamination Lifecycle and Forensic Investigation Discipline
+<a id="contamination-lifecycle-and-forensic-investigation-discipline"></a>
+<!-- ledger-tags: authority_class=forensic_and_drift_investigation | rung=domain | domain=context-grapple-gun | dehydrated_tic=314 -->
+
+Third-party software contamination follows a structural lifecycle: (1) silent environment mutation (shell profile injection, proxy redirection without ToS disclosure), (2) persistence mechanisms (auto-launch override via internal config sync that resists user intervention, provider env.sh writes on every launch), (3) data residuals surviving removal (macOS drag-to-Trash removes only .app bundle; ~/Library data, launch agents, keychain entries, auto-updaters persist — observed: 9.4GB across 19 directories from 3 apps).
+
+Detection requires three complementary systems: file-integrity drift (did watched files change — high confidence, after-the-fact), baseline deviation (new env vars, launch agents, proxy settings — high confidence, after-the-fact), live attribution (what process is touching files now — medium confidence, real-time only). 'Who changed this file' cannot be recovered after the fact without pre-existing auditing.
+
+Investigation discipline: enforce app identity separation at the top of any multi-app investigation (per-app evidence buckets, shared-framework hypotheses explicitly labeled). Separate observed fact (entitlement exists, local server exists, bundled runtime exists) from inferred risk (possible interception surface, possible exfil path). Require proof threshold before strong verbs — use 'creates a surface for,' 'permits,' 'is capable of' until runtime evidence of activation exists. Entitlement proof first, runtime/process inventory second, network/socket verification third, source-level code inference last.
+
+<!-- promoted from CogPR-170/171/172/173 merged (tic 141-143→143). Source: Genspark forensic investigation tic 141-143. Band: PRIMITIVE. detection_affordance: active (contam_sentinel.py). -->
+
+---
+
+## Accessibility API Structural Indistinguishability
+<a id="accessibility-api-structural-indistinguishability"></a>
+<!-- ledger-tags: authority_class=forensic_and_drift_investigation | rung=domain | domain=context-grapple-gun | dehydrated_tic=314 -->
+
+Cross-app activity tracking via accessibility API is structurally indistinguishable from legitimate dictation context — the app needs focused_app_bundle_id to deliver text. The invasive choice is persisting and syncing that data, not collecting it. Detection requires inspecting the local database schema for sync tables and cross-app indexes, not monitoring runtime behavior.
+
+<!-- promoted from CogPR-175 (tic 142→143). Source: Speakly genspark-flow.db analysis. Depends on: MERGE-A (three detection systems). Band: COGNITIVE. detection_affordance: pending. -->
+
+---
+
+## Competing Canons / Hardening Pass Obligation
+<a id="competing-canons-hardening-pass-obligation"></a>
+<!-- ledger-tags: authority_class=forensic_and_drift_investigation | rung=domain | domain=context-grapple-gun | dehydrated_tic=314 -->
+
+Report artifacts that span an iterative build accumulate competing canons when the approach changes mid-session but earlier sections aren't rewritten. A report that describes abstract scalar-bar b-roll in sections 1-5 and morph-based narrative scenes in section 11 carries two incompatible descriptions of the same deliverable. The hardening pass (rewriting the top-level story to match the final winning approach while preserving the forensic record of how the pipeline got there) is a distinct authoring obligation, not a polish step.
+
+<!-- promoted from CogPR-161 (tic 139→143). Source: session:podcast-pipeline-ep31. Band: COGNITIVE. detection_affordance: pending. -->
+
+---
+
+## Baseline Re-Anchoring After Intentional State Change
+<a id="baseline-re-anchoring-after-intentional-state-change"></a>
+<!-- ledger-tags: authority_class=forensic_and_drift_investigation | rung=domain | domain=context-grapple-gun | dehydrated_tic=314 -->
+
+Integrity sentinels that detect remediation-era changes must be rebaselined immediately after cleanup completes. The baseline captures pre-remediation state — disappeared malware agents, shifted mdworker populations, etc. — creating false-positive noise that obscures real future drift. Rebaseline-after-remediation is the correct sequence: init → detect → remediate → rebaseline → monitor clean state. Without the rebaseline step, the sentinel's first clean-state check inherits all the remediation delta as 'drift', triggering high-volume signals (vol 50) that are entirely self-referential.
+
+<!-- promoted from CogPR-176 (tic 143→143). Source: contam_sentinel.py vol 50 self-referential bootstrap signal. Band: COGNITIVE. detection_affordance: active (contam_sentinel.py rebaseline). -->
+
+---
+
+## Multi-Session Artifact Provenance
+<a id="multi-session-artifact-provenance"></a>
+<!-- ledger-tags: authority_class=forensic_and_drift_investigation | rung=domain | domain=context-grapple-gun | dehydrated_tic=314 -->
+
+Forensic reports spanning multiple investigation sessions must carry explicit per-finding timestamps, not a single document date. The tic-142 deep analysis invalidated a key claim from the tic-141 initial report: 'App did NOT recontaminate on restart — injection was one-time onboarding action.' The correction (TokenProvider fires on every launch) was only possible because the second session tested what the first session assumed. Reports with a single date create a false impression of static, complete findings. The fix: each finding carries its own discovery timestamp and confidence level, and corrections to prior findings are marked explicitly as corrections with the original claim cited.
+
+<!-- promoted from CogPR-177 (tic 143→143). Source: Genspark forensic binder — prior session's one-time claim corrected. Band: COGNITIVE. detection_affordance: pending. -->
+
+---
+
+## Drift Classification Taxonomy
+<a id="drift-classification-taxonomy"></a>
+<!-- ledger-tags: authority_class=forensic_and_drift_investigation | rung=domain | domain=context-grapple-gun | dehydrated_tic=314 -->
+
+When auditing an adapter for API drift, classify each line as: accurate (matches current docs), likely stale (was accurate, drift detected), unverified from public docs (may work but not documented), or custom layer (our orchestration, not an API claim). The classification taxonomy prevents conflating adapter-specific orchestration code with actual API contract violations. The TS overshoot adapter had 6 custom-layer files that were architecturally sound but would have been flagged as drift without this distinction.
+
+<!-- promoted from CogPR-163 (tic 140→143). Source: session:overshoot-adapter-audit. Operationalizes Volatility Handling Law L3/L5. Band: COGNITIVE. detection_affordance: pending. -->
+
+---
+
+## Single Routing Surface for Generation and Adjudication
+<a id="single-routing-surface-for-generation-and-adjudication"></a>
+<!-- ledger-tags: authority_class=pipeline_and_integration | rung=domain | domain=context-grapple-gun | dehydrated_tic=314 -->
+
+External media API routers (generation + adjudication) should share a single routing surface and budget. Generation asks 'make this' and adjudication asks 'is this good?' — both are media egress, both cost money, both need audit trails. Splitting them by provider rather than by function fragments the spend surface.
+
+<!-- promoted from CogPR-162 (tic 140→143). Source: session:overshoot-adapter-audit. Extends cognitive budget routing. Band: COGNITIVE. detection_affordance: pending. -->
+
+---
+
+## Overlay-at-Timestamp Assembly
+<a id="overlay-at-timestamp-assembly"></a>
+<!-- ledger-tags: authority_class=pipeline_and_integration | rung=domain | domain=context-grapple-gun | dehydrated_tic=314 -->
+
+B-roll assembly must use overlay-at-timestamp (video replaces speaker footage at specific time windows), not insert-between-segments (video spliced into the timeline). Insert-based assembly adds duration to the video track without adding duration to the audio track, causing cumulative sync drift after every insertion. The audio spine is continuous and untouched; the visual layer swaps at precise windows.
+
+**Audio spine duration derivation**: When extracting audio for the composite track, use reel durations (the final edited sequence duration), not source durations (the unedited source material). Audio extracted at source durations (13.5s) while video uses reel durations (10s) from the same EDL produces progressive drift after every cut point. Correct sequence: extract audio_in to audio_out for exactly (reel_out - reel_in) seconds duration.
+
+<!-- promoted from CogPR-158 (tic 139→143). Source: session:podcast-pipeline-ep31. Band: COGNITIVE. detection_affordance: pending. -->
+
+<!-- promoted from CogPR-186 (tic 149→188). Source: MEMORY.md inline candidate. Audio spine duration must use reel durations, not source durations. Evidence: tic 149 assembly produced 13.5s audio clip from 10s reel — progressive drift after each cut point. Fix: extract audio at source_in for exactly (reel_out - reel_in) seconds. Band: COGNITIVE. Confidence_tier: tentative. -->
+
+---
+
+## Morph Transition Grammar
+<a id="morph-transition-grammar"></a>
+<!-- ledger-tags: authority_class=pipeline_and_integration | rung=domain | domain=context-grapple-gun | dehydrated_tic=314 -->
+
+Morph transitions are atomic compound operations: (1) keyframes must come from different visual worlds — two real frames produce camera interpolation, not transformation; (2) OUT morph chains from IN morph's actual last frame (pose continuity); (3) editorial trims must not land inside morphing zones — cutting mid-morph produces visible breaks. EDL needs continuity_type per b-roll slot.
+
+<!-- promoted from CogPR-155/167 merged (tic 139-141→143). Source: session:podcast-pipeline-ep31 + Ep31 reel analysis. Depends on: CogPR-158 (overlay method). Band: COGNITIVE. detection_affordance: pending. -->
+
+---
+
+## Timeline Lock and Base Track Preparation
+<a id="timeline-lock-and-base-track-preparation"></a>
+<!-- ledger-tags: authority_class=pipeline_and_integration | rung=domain | domain=context-grapple-gun | dehydrated_tic=314 -->
+
+Timeline lock (freezing the edited base track before generation) requires re-transcription of the edited base track BEFORE locking. If the edit trims key phrases from the base track, the b-roll markers and captions remain locked to their original (now-phantom) timestamps. Correct sequence: (1) build base track → (2) edit for content coherence → (3) re-transcribe edited track at 0.001s granularity → (4) verify all markers match edited content → (5) lock timeline → (6) THEN generate b-roll/morph content. Skipping step 3 produces silent content loss: key phrases ('energetic hygiene', 'you think it's yours') vanish from the reel while markers reference them.
+
+<!-- promoted from CogPR-188 (tic 149→188). Source: MEMORY.md inline candidate. Timeline lock + base track preparation discipline. Evidence: tic 149 edit trimmed key phrases from base track; captions + b-roll markers referenced phantom content. Root cause: re-transcription skipped between edit and lock. Correct sequence: edit → re-transcribe → verify → lock → generate. Band: COGNITIVE. Confidence_tier: tentative. -->
+
+---
+
+## Temporal Scope Discipline
+<a id="temporal-scope-discipline"></a>
+<!-- ledger-tags: authority_class=pipeline_and_integration | rung=domain | domain=context-grapple-gun | dehydrated_tic=314 -->
+
+- **Federation-scoped tic resolution for duration measurement** — governance functions measuring duration in federation tics must resolve from the canonical tic log (`audit-logs/tics/*.jsonl`, field: `domain_counter_after`), not from domain-scoped counters in data files. Domain data files store domain-local cycle counters that do not map to federation time. The failure mode is silent zero-output: a duration function reads a biome-scoped `cycle` counter instead of the federation tic log's `domain_counter_after`, returning 0 for all entities despite 14+ tics elapsed. The rule: any function parameterized by federation tics must source its temporal data from the tic log. (Validated: standing-engine time-at-standing returned 0 for all visitors. Registry stored biome-scoped cycle counter; engine needed federation tic log's domain_counter_after. Silent zero-output for 14+ tics.)
+
+<!-- promoted from CogPR-179 (tic 145→146). Source: session:visitor-phase1-dry-run. -->
+
+- **Grace period temporal scope must match governance clock** — when governance functions define grace periods or deadlines, the temporal scope must bind to the governance clock (federation tics), not simulation clocks (biome cycles, generation counters). A full multi-cycle simulation (e.g., 50 biome cycles) may execute within a single federation tic. If grace were measured in simulation cycles, it would expire during a single simulation run, violating the governance intent: give the system time to observe and respond across governance review windows, not just simulate. The distinction between governance clock and simulation clock is fundamental to any system that runs multi-cycle simulations within governance-paced review windows. (Validated: demotion grace period of 5 federation tics correctly survives 50-cycle biome generations that execute within single tics.)
+
+<!-- promoted from CogPR-181 (tic 146→146). Source: demotion lifecycle build. -->
+
+---
+
+## Governed Bridge Mechanics
+<a id="governed-bridge-mechanics"></a>
+<!-- ledger-tags: authority_class=pipeline_and_integration | rung=domain | domain=context-grapple-gun | dehydrated_tic=314 -->
+
+- **Loneliness intervention as governed bridge mechanic** — isolated nodes in proximity-based networks experience self-reinforcing isolation: no neighbors means no interactions, no interactions means no trust accumulation, no trust means no promotion, no promotion means continued isolation. The intervention is a governed bridge: a weak edge, metadata-marked with `intervention_type`, that creates opportunity for trust accumulation without bypassing the trust system. The bridge does not grant trust — it creates the conditions under which trust can be earned. The constraint is "opportunity without bypass": the bridge must emit a governance signal, carry audit metadata, and use weak-edge weight so natural interactions can strengthen or replace it. (Validated: Flint isolated 20 cycles in sector 4 — no natural interaction partners. Loneliness bridge created weak cross-sector edge at cycle 20. Flint progressed guest→tourist→foreign_delegate by cycle 23, 3 cycles post-bridge. Bridge metadata and signal preserved full audit trail.)
+
+<!-- promoted from CogPR-180 (tic 145→146). Source: session:visitor-phase1-dry-run. -->
+
+---
+
+## Gate Contracts (Not Vibes)
+<a id="gate-contracts-not-vibes"></a>
+<!-- ledger-tags: authority_class=verification_and_proof_discipline | rung=domain | domain=context-grapple-gun | dehydrated_tic=314 -->
+
+A gate is a contract surface, not a vibe or preference. Gate inputs must be explicitly declared (what goes in), outputs must be verifiable (what comes out), preconditions must be stateable (when it can run), and post-checks must be automatable (whether it succeeded). Spec-first execution with operator review gates works because the gate is a stated contract: inputs (spec text), outputs (binary proceed/halt decision), preconditions (spec authored and approved), post-checks (human review of applicability before unlock). Gates without declared contracts become vibe-based ("does this feel like a good implementation?"), producing endless renegotiation and operator cognitive overload. Pipeline phase dependencies must be structured gate contracts using this pattern.
+
+<!-- promoted from cpr_gate_contracts_not_vibes_tic150 (tic 150→167). Source: tic-164-165-166 duality-lane authoring + Run 2 execution. Evidence: gate_b2 mechanism failure (tic 165) was diagnosable only because the gate had declared contract (preserve body byte-identical); absence of declared input made "was the gate input correct?" answerable. Band: COGNITIVE. -->
+
+---
+
+## Shape Fingerprint Provenance
+<a id="shape-fingerprint-provenance"></a>
+<!-- ledger-tags: authority_class=verification_and_proof_discipline | rung=domain | domain=context-grapple-gun | dehydrated_tic=314 -->
+
+Composite shape hash `sha256(content_hash + ctime + birthtime + inode)` creates a deterministic fingerprint robust to single-axis spoofing. File content alone can be mutated without changing hash (if the mutator knows the hash). File metadata alone can be spoofed (ctime touched, birthtime forged). Inode alone can change during file operations (copy, mv with recreation). The composite prevents an adversary from controlling all four axes simultaneously without triggering visible divergence. This forms one leg of a sentinel-integrity triple with Read-Side Verification Complement and Context-Aware Severity Classification.
+
+<!-- promoted from cpr_shape_fingerprint_provenance_tic155 (tic 155→167). Source: pipeline integrity audit (tic 155). Sentinel-integrity triple cross-reference: Read-Side Verification Complement and Context-Aware Severity Classification (tic 155→167). Band: COGNITIVE. -->
+
+---
+
+## Read-Side Verification Complement
+<a id="read-side-verification-complement"></a>
+<!-- ledger-tags: authority_class=verification_and_proof_discipline | rung=domain | domain=context-grapple-gun | dehydrated_tic=314 -->
+
+Append-only ledgers provide write-side integrity but without read-side chain verification a malicious or buggy reader can present out-of-order entries as canonical. Read-side verification closes the loop: chain-hash check (each line's hash includes prior line's hash), sequence number validation (entries appear in declared order), and monotonicity enforcement (no sequence number skips). This is the verification complement to JSONL Atomic Writes (CogPR-8), which addresses write-side integrity only. Read-side verification ensures the consumer sees the ledger as written, not a reshuffled or truncated version the reader chose to present.
+
+<!-- promoted from cpr_read_side_verification_complement_tic155 (tic 155→167). Source: pipeline integrity audit (tic 155). Refines JSONL Atomic Writes (CogPR-8). Sentinel-integrity triple: pairs with Shape Fingerprint Provenance and Context-Aware Severity Classification. Band: COGNITIVE. -->
+
+---
+
+## Context-Aware Severity Classification
+<a id="context-aware-severity-classification"></a>
+<!-- ledger-tags: authority_class=forensic_and_drift_investigation | rung=domain | domain=context-grapple-gun | dehydrated_tic=314 -->
+
+Pattern-matching severity ("if path contains X then critical") produces false escalation under remediation-era state changes. A file path containing "malware" is not inherently critical if the context is "archived forensic report" or "historical threat database." Context-aware classification requires knowing: what is this file for, who owns its lifecycle, what operational state is active now. A path appearing in active infection context is critical; the same path in post-remediation archival context is informational. This reduces noise while preserving signal. Validated against tic 159 runtime_drift_check: 71 findings, 0 critical (correctly downgraded from pattern-match false positives), 16 warning, 55 info. Sentinel-integrity triple: completes the integrity verification surface with Shape Fingerprint Provenance and Read-Side Verification Complement.
+
+<!-- promoted from cpr_context_aware_severity_tic155 (tic 155→167). Source: tic-159 runtime_drift_check validation. Sentinel-integrity triple: Shape Fingerprint Provenance, Read-Side Verification Complement, Context-Aware Severity Classification. Band: COGNITIVE. -->
+
+---
+
+## Inbox Triple-Source Sync
+<a id="inbox-triple-source-sync"></a>
+<!-- ledger-tags: authority_class=pipeline_and_integration | rung=domain | domain=context-grapple-gun | dehydrated_tic=314 -->
+
+Inbox archive operations must propagate across three sources of truth: (1) filesystem (WAIT/ACTIVE/DONE prefixes on files), (2) inbox-registry.json (canonical state enumeration), (3) hook-detection state (what the hooks know about). Failure to sync produces phantom state where one source disagrees with the others and hooks re-detect already-archived items as stale. The three sources can diverge silently: a file moved from WAIT to DONE (filesystem state correct), registry updated (registry state correct), but hook-detection still thinks it's WAIT because the hook fired before the registry update and cached its findings. Protection: any archive operation that modifies one source must atomically update all three. Validating archive completeness requires comparing across all three sources, not trusting any one surface.
+
+<!-- promoted from cpr_inbox_triple_source_sync_tic160 (tic 160→167). Source: inbox operations audit (tic 160). Operationalizes atomic writes principle (CogPR-8) at the multi-surface level. Band: COGNITIVE. -->
+
+---
+
+## Two-Run Spec-Gate Geometry
+<a id="two-run-spec-gate-geometry"></a>
+<!-- ledger-tags: authority_class=verification_and_proof_discipline | rung=domain | domain=context-grapple-gun | dehydrated_tic=314 -->
+
+Spec-first with operator review gate between Run 1 (spec authoring) and Run 2 (execution) materially separates spec production from execution risk. Cost: extra swarm cycle + operator review budget. Benefit: spec drift is caught at review time rather than at execution time, and the spec becomes a standalone artifact operators can reference, amend, or reject without collateral damage to execution agents. This geometry is operationally distinct from Spec-First Parallel Swarm (CogPR-140): the latter is one run with the spec as scaffold; this is two runs with the spec itself as a reviewable deliverable. Once a constitutional pattern is validated at n=1 (pilot survives operator gate + first execution boundary), subsequent adopters use lighter-cadence rollout (single-pass author + verify) until the convention shows transferability stress.
+
+<!-- promoted from cpr_two_run_spec_gate_validated_tic165 (tic 164-165→167). Source: tic-164 spec swarm + tic-165 Run 2 execution. Validated geometry at 5-agent swarm scale. Band: COGNITIVE. -->
+
+---
+
+## Constitutional-Office Swarm Differentiation
+<a id="constitutional-office-swarm-differentiation"></a>
+<!-- ledger-tags: authority_class=subagent_and_swarm_delegation | rung=domain | domain=context-grapple-gun | dehydrated_tic=314 -->
+
+Constitutional-office swarm agents with distinct jurisdictional lenses (Ladder Auditor/coherence, Civil Engineer/mechanics, CBUX Steward/encounter, Videographer/narrative) produce genuinely differentiated spec fragments — not just same-output-in-different-voice. Jurisdictional distance matters more than apparent topical relevance. When selecting offices for spec-writing swarms, a narrative lens on a schema question surfaces structural failures that pure governance lenses cannot see. Validated: Videographer's narrative-capture lens identified a structural tier-boundary visibility concern that all three governance-facing offices missed despite reading the same anchor inputs.
+
+<!-- promoted from cpr_constitutional_lens_differentiation_tic165 (tic 165→167). Source: tic-164 spec swarm. Refines Spec-First Parallel Swarm (CogPR-140). Band: COGNITIVE. -->
+
+---
+
+## Open Question Classification (Probe-First Test)
+<a id="open-question-classification-probe-first-test"></a>
+<!-- ledger-tags: authority_class=pipeline_and_integration | rung=domain | domain=context-grapple-gun | dehydrated_tic=314 -->
+
+Open questions in specs classify by what resolves them: (a) operator-judgment (require human decision), (b) evidence-probe (resolvable by small filesystem or state inspection), (c) deferred (non-blocking, carry to later tic). Type (b) should not present as operator-blocking. Protection: when drafting OQs during synthesis, apply a probe-first test — can this be answered in one bash command? If yes, classify as evidence-probe and resolve inline rather than routing to operator. This prevents false-blocking pressure at review gates.
+
+<!-- promoted from cpr_oq_filesystem_probe_tic165 (tic 165→167). Source: tic-164 spec synthesis. Band: COGNITIVE. -->
+
+---
+
+## Spec as Tone Exemplar
+<a id="spec-as-tone-exemplar"></a>
+<!-- ledger-tags: authority_class=pipeline_and_integration | rung=domain | domain=context-grapple-gun | dehydrated_tic=314 -->
+
+When a spec also functions as the tone exemplar for downstream deliverables that will imitate it, spec-level tone discipline matters more than discipline on comparable non-exemplar specs. A spec that says "do not use metaphors in procedural sections" while itself using metaphors licenses downstream agents to do the same. Protection: apply the spec's own tone rules to the spec itself before operator review, not just to the deliverable. Cost: one surgical edit. Benefit: prevents drift of the norms the rollout is establishing.
+
+<!-- promoted from cpr_spec_as_tone_exemplar_tic165 (tic 165→167). Source: tic-164 spec swarm. Validated in practice. Band: COGNITIVE. -->
+
+---
+
+## Boundary-Aware Body Extraction
+<a id="boundary-aware-body-extraction"></a>
+<!-- ledger-tags: authority_class=verification_and_proof_discipline | rung=domain | domain=context-grapple-gun | dehydrated_tic=314 -->
+
+Spec validation gates that use hardcoded line offsets for body extraction (sed -n 'N,$p' with fixed N) break silently when the mutation being validated changes the boundary position. Protection: use boundary-aware extraction anchored on structural delimiters (awk on '---' fences, closing tag markers, etc.) rather than line-number offsets. The fragility is not sed per se — it's the implicit assumption that the mutation preserves the line position of the boundary being measured across. Any spec gate that encodes "verify content below line N" inherits this assumption.
+
+<!-- promoted from cpr_spec_gate_line_offset_fragility_tic165 (tic 165→167). Source: tic-165 Run 2 execution, spec.yaml gate_b2 mechanism failure. Band: COGNITIVE. -->
+
+---
+
+## Verifier Install Path via Sync Manifest
+<a id="verifier-install-path-via-sync-manifest"></a>
+<!-- ledger-tags: authority_class=sync_and_install_parity | rung=domain | domain=context-grapple-gun | dehydrated_tic=314 -->
+
+Verifier gates that diff canonical source against runtime-installed artifacts must discover the install target via the same mechanism as the syncing tool (sync-manifest.json lookup), not hardcode a parallel path assumption. Specs assuming an install path create a second source of truth that can drift from the actual sync mechanism without either side detecting the drift. Protection: any Gate-E-class parity check should resolve the install target from runtime-sync's manifest, inheriting the sync tool's canonical knowledge of where files land.
+
+<!-- promoted from cpr_verifier_install_path_via_sync_manifest_tic165 (tic 165→167). Source: tic-165 Run 2 execution, spec.yaml gate_e mechanism. Extends CogPR-37 (Runtime Sync Parity Verification) and CogPR-40 (envelope pattern). Band: COGNITIVE. -->
+
+---
+
+## Lighter-Cadence Rollout Post-Validation
+<a id="lighter-cadence-rollout-post-validation"></a>
+<!-- ledger-tags: authority_class=mandate_and_cadence_ops | rung=domain | domain=context-grapple-gun | dehydrated_tic=314 -->
+
+Once a constitutional pattern is validated at n=1 (pilot survives operator gate + first execution boundary), subsequent adopters should use lighter-cadence rollout (single-pass author + verify, no two-run gate geometry) until the convention shows transferability stress. The two-run gate exists to catch mechanism bugs at the spec↔execution seam during initial constitutional bootstrapping. Once the seam is exercised under load, the cost of repeating the geometry per-adopter is operator-attention drain that returns no marginal safety value. Verification gates remain mandatory; the adversarial swarm structure does not. This scales to multi-skill batch conversions without quality loss: tic 167-168 completed 6 skill conversions in 3 batches in ~40 minutes with zero verification gate failures across all 6 adopters, confirming that batch geometry (3 skills per commit) produces identical verification surface with dramatically lower operator-attention cost per adopter. Convention-accrual throughput scaled from ~2 adopters/tic (pilot) to 6 adopters/tic (batch), confirming that once the spec↔execution seam is exercised under load, per-adopter two-run cost returns no marginal safety value.
+
+<!-- promoted from cpr_lighter_cadence_post_validation_tic166 (tic 166→167). Source: tic-166 Run 3 rollout (/review and /inbox adoption). Band: COGNITIVE. -->
+<!-- absorbed from cpr_batch_conversion_lighter_cadence_scales_tic168 (tic 168→211). Source: tic-168-run4-5-6-batch. Strengthens lighter-cadence doctrine with multi-skill batch-throughput evidence (6 skills, 3 batches, ~40 min, 0 failures). Band: COGNITIVE. -->
+
+---
+
+## Sentinel-Integrity Triple Summary
+<a id="sentinel-integrity-triple-summary"></a>
+<!-- ledger-tags: authority_class=forensic_and_drift_investigation | rung=domain | domain=context-grapple-gun | dehydrated_tic=314 -->
+
+Three validations form a coherent integrity surface: (1) Shape Fingerprint Provenance — hash composition prevents single-axis spoofing, (2) Read-Side Verification Complement — ledger reading verifies chain integrity, (3) Context-Aware Severity — classification prevents false escalation from stale paths. Applied together, they form a multi-layer detection surface. Each layer catches what the others miss: content tampering, reader manipulation, and context-blind pattern matching.
+
+---
+
+## Centroid-Ray Semantic Primitive
+<a id="centroid-ray-semantic-primitive"></a>
+<!-- ledger-tags: authority_class=pipeline_and_integration | rung=domain | domain=context-grapple-gun | dehydrated_tic=314 -->
+
+A centroid is the weighted average position of a semantic cluster in a high-dimensional space (e.g., value position, computational cost, governance scope). A ray is a direction vector from the centroid toward an edge case or boundary condition. Centroid-ray analysis decomposes complex multi-dimensional design questions into (1) where is the gravitational center of this design space? and (2) what are the critical rays we must defend against? This primitive is reusable across arena design, capability assessment, and specification synthesis. First validated in VPL arena geometry (value-position lattice) with 8 constitutional actors; generalized to agenda conflict analysis and scope boundary definitions.
+
+<!-- promoted from cpr_ec5e0bb4676a6867 (tic 171→172). Source: session:vpl-centroid-ray-formalization. Band: COGNITIVE. -->
+
+---
+
+## Collapse Zone vs Sibling Overlap Distinction
+<a id="collapse-zone-vs-sibling-overlap-distinction"></a>
+<!-- ledger-tags: authority_class=pipeline_and_integration | rung=domain | domain=context-grapple-gun | dehydrated_tic=314 -->
+
+In multi-axis design spaces, a collapse zone is a region where multiple axes converge such that orthogonality breaks down (e.g., two previously independent variables become correlated). Sibling overlap is a region where two design entities share a boundary but maintain distinct identities. The distinction matters: collapse zones are failure modes that demand refactoring; sibling overlaps are natural boundaries that may be acceptable design interfaces. Failure to distinguish produces either over-design (treating normal overlap as catastrophic) or blindness to genuine collapse hazards.
+
+<!-- promoted from cpr_e067f0e9efb86951 (tic 171→172). Source: session:vpl-centroid-ray-formalization. Band: COGNITIVE. -->
+
+---
+
+## Negative Contour Via Is-Not Clause
+<a id="negative-contour-via-is-not-clause"></a>
+<!-- ledger-tags: authority_class=pipeline_and_integration | rung=domain | domain=context-grapple-gun | dehydrated_tic=314 -->
+
+When defining a semantic boundary (what a concept is), explicit is-not clauses often sharpen meaning better than positive definition. A data structure is NOT a service (no stateful lifecycle), is NOT a schema (no validation), is NOT a contract (no guarantee) — these negations together create a boundary that positive definitions might miss. Particularly useful when a concept is frequently confused with neighbors. Applies to spec writing, CLAUDE.md boundaries, and architecture documentation.
+
+<!-- promoted from cpr_2d42a4621f4cc4b1 (tic 171→172). Source: session:vpl-centroid-ray-formalization. Band: COGNITIVE. -->
+
+---
+
+## Semantic Primitives Precede Mathematical Closure
+<a id="semantic-primitives-precede-mathematical-closure"></a>
+<!-- ledger-tags: authority_class=pipeline_and_integration | rung=domain | domain=context-grapple-gun | dehydrated_tic=314 -->
+
+In specification design, establish semantic primitives (named concepts with boundaries) before deriving mathematical models. Attempting to derive formulas without semantic agreement produces math that is technically correct but semantically incoherent — the formula is closed but it measures the wrong thing. Order: (1) name the thing, (2) define what it is and what it is NOT, (3) identify the dimensions, (4) then derive mathematical models. Validated in VPL bracket design where semantic confusion about "value" appeared twice before term definitions were formally inscribed.
+
+<!-- promoted from cpr_9271cbb793058ebd (tic 171→172). Source: session:vpl-centroid-ray-formalization. Band: COGNITIVE. -->
+
+---
+
+## Cross-Centroid Ray Recurrence Mining
+<a id="cross-centroid-ray-recurrence-mining"></a>
+<!-- ledger-tags: authority_class=pipeline_and_integration | rung=domain | domain=context-grapple-gun | dehydrated_tic=314 -->
+
+When the same ray (same boundary condition, same edge case) appears in multiple semantic clusters (multiple domain problems, multiple specification contexts), it becomes a general principle worth mining and naming. Recurrence is the signal that a ray is structural, not accidental. Three cross-domain instances of the same ray justifies extracting it as a reusable primitive. Applied to pattern mining and CogPR extraction: rays that recur across 3+ problem domains are federation-level doctrine candidates.
+
+<!-- promoted from cpr_705787965bf1712e (tic 171→172). Source: session:vpl-centroid-ray-formalization. Band: COGNITIVE. -->
+
+---
+
+## Skill Body Is Sole Arg Parser
+<a id="skill-body-is-sole-arg-parser"></a>
+<!-- ledger-tags: authority_class=external_schema_volatility | rung=domain | domain=context-grapple-gun | dehydrated_tic=314 -->
+
+Claude Code skill runtime does NOT enforce argument schemas declared in frontmatter `arguments:` field. The frontmatter field is documentation and CI hint, not a parser. The skill body itself is the sole argument parser — the skill code receives raw `arguments` string and must parse it according to whatever grammar the skill implements. Do not assume the runtime pre-validates or pre-parses arguments against the schema. This is a design principle, not a limitation — it lets skills implement context-aware parsing strategies that a fixed schema validator cannot support.
+
+<!-- promoted from cpr_5b4fc68a54f05b2d (tic 171→172). Source: session:skill-invocation-audit-tic170. Band: COGNITIVE. -->
+
+---
+
+## Undeclared Args Classify by Projection
+<a id="undeclared-args-classify-by-projection"></a>
+<!-- ledger-tags: authority_class=external_schema_volatility | rung=domain | domain=context-grapple-gun | dehydrated_tic=314 -->
+
+When a skill is invoked with arguments not declared in the `arguments:` frontmatter field, those arguments appear in the skill body as part of the raw `arguments` string. The skill must classify them by projection: (1) intentional extra args that the caller knows about (call site competence signal), (2) accidental extra args from caller confusion (possible bug), (3) reserved args for future use (forward compatibility). Projection is a skill-level decision, not a runtime validation. Undeclared args are not errors unless the skill chooses to treat them as such.
+
+<!-- promoted from cpr_7e2a40d83256d618 (tic 171→172). Source: session:skill-invocation-audit-tic170. Band: COGNITIVE. -->
+
+---
+
+## Arguments Frontmatter Is Decorative
+<a id="arguments-frontmatter-is-decorative"></a>
+<!-- ledger-tags: authority_class=external_schema_volatility | rung=domain | domain=context-grapple-gun | dehydrated_tic=314 -->
+
+The `arguments:` field in skill frontmatter is decorative for governance and documentation purposes. It is NOT enforced by the runtime and does NOT restrict what callers can pass. Skills should document their expected arguments in frontmatter for clarity, but the skill body must handle the actual runtime `arguments` string with full parser responsibility. Callers are not restricted to documented arguments — undeclared args pass through silently. This design allows skills to be forward-compatible with future argument additions without runtime parser changes.
+
+<!-- promoted from cpr_6e68f18c7ca09069 (tic 171→172). Source: session:skill-invocation-audit-tic170. Band: COGNITIVE. -->
+
+---
+
+## Extractor Surface Schema Contract
+<a id="extractor-surface-schema-contract"></a>
+<!-- ledger-tags: authority_class=external_schema_volatility | rung=domain | domain=context-grapple-gun | dehydrated_tic=314 -->
+
+Tools that extract governance artifacts (CogPRs, signals, bench packets) from canonical surfaces must declare their input schema contract — which files they read, what section markers they search for, what output structure they produce. Without declared contracts, extractors silently miss new surfaces or emit incomplete results when sources change. The contract is a typed specification that extractors can validate against at load time, preventing silent starvation. Extend CogPR-140 (Spec-First Parallel Swarm) to include surface contracts as part of spec commitment.
+
+<!-- promoted from cpr_5cf38169077f731d (tic 171→172). Source: session:enrichment-pipeline-audit-tic171. Band: COGNITIVE. -->
+
+---
+
+## Extractor Anomaly Self-Reporting
+<a id="extractor-anomaly-self-reporting"></a>
+<!-- ledger-tags: authority_class=forensic_and_drift_investigation | rung=domain | domain=context-grapple-gun | dehydrated_tic=314 -->
+
+Extractors that produce zero output or anomalous counts (extreme divergence from expected range) must emit explicit diagnostic output to stderr or a dedicated anomaly log, not silence. Silent zero-output is worse than failure — it looks like success. Implement anomaly self-reporting as a fallback pathway: if output count is 0 or N times the expected range, switch to diagnostic mode and dump what was searched, what was matched, and what boundary conditions failed.
+
+<!-- promoted from cpr_1cb129067984ef9d (tic 171→172). Source: session:enrichment-pipeline-audit-tic171. Band: COGNITIVE. -->
+
+---
+
+## Queue Index Status Coverage Discipline
+<a id="queue-index-status-coverage-discipline"></a>
+<!-- ledger-tags: authority_class=signal_and_queue_manifold | rung=domain | domain=context-grapple-gun | dehydrated_tic=314 -->
+
+When building indexed views of the queue (e.g., build_queue_index.py), the coverage must be explicit: which status values are indexed, which are aggregated, which are ignored. Each query against the index must declare what status categories it includes. A query "how many promotions were approved this tic?" is answering a different question than "how many promotion candidates existed?" — the first counts promoted entries, the second counts promoted + deferred + pending. Index metadata must enumerate what the index covers so downstream consumers can verify they are using the correct view.
+
+<!-- promoted from cpr_915fd5c4bdfc47b0 (tic 171→172). Source: session:enrichment-pipeline-audit-tic171. Band: COGNITIVE. -->
+
+---
+
+## Emitter-Surface Declaration Contract
+<a id="emitter-surface-declaration-contract"></a>
+<!-- ledger-tags: authority_class=signal_and_queue_manifold | rung=domain | domain=context-grapple-gun | dehydrated_tic=314 -->
+
+Governance surfaces that can emit artifacts (MEMORY.md, arena reports, bench packets, session transcripts, decision briefs) must declare themselves as emitter surfaces in a registry. Without a registry, artifact extractors have no way to discover new emission surfaces — they remain hardcoded to legacy surfaces. The registry entry specifies: surface location, emission frequency, output format, artifact type, status field presence. This enables the extractor to validate and adapt when new emission surfaces come online.
+
+<!-- promoted from cpr_564ecfbdb1ab6b39 (tic 171→172). Source: session:enrichment-pipeline-audit-tic171. Band: COGNITIVE. -->
+
+---
+
+## Enrichment Pipeline Silent Starvation Surface
+<a id="enrichment-pipeline-silent-starvation-surface"></a>
+<!-- ledger-tags: authority_class=pipeline_and_integration | rung=domain | domain=context-grapple-gun | dehydrated_tic=314 -->
+
+When an enrichment tool is meant to run periodically (e.g., pattern mining, queue analysis) but no invocation schedule exists, the tool operates in a starvation state: dormant but not erroring. Silent starvation produces zero output without signaling that nothing ran. Prevention requires: (1) explicit schedule declaration (when should this run?), (2) invocation audit trail (did it run last time it was supposed to?), (3) staleness detection (has output aged beyond expected cadence?). Without these three, enrichment tools fail silently and queue analysis degrades across tics without anyone noticing.
+
+<!-- promoted from cpr_c1b5aaf9f9bb8742 (tic 171→172). Source: session:enrichment-pipeline-audit-tic171. Band: COGNITIVE. -->
+
+---
+
+## Consolidate Pre-Flight Discipline
+<a id="consolidate-pre-flight-discipline"></a>
+<!-- ledger-tags: authority_class=pipeline_and_integration | rung=domain | domain=context-grapple-gun | dehydrated_tic=314 -->
+
+When `/consolidate` runs against an estate-spanning surface, two pre-flight disciplines apply before the consolidation produces an authoritative artifact. (1) **Pre-consolidation drift reconciliation** — when a surface contains internal drift between authoritative sources (e.g., spine.md says "X" while extended schema says "X′"), the drift must be reconciled against current state BEFORE consolidation flattens the surface; consolidating with unresolved drift inscribes contradictory claims into a single artifact. (2) **Scope walks repository tiers explicitly** — initial `/consolidate` invocations often scope to a single tier (e.g., one repo's docs) when the actual coherence boundary spans federation root + estate + domain + module; scope must walk repository tiers explicitly and the scope walk must be declared as a checklist before consolidation begins. The two disciplines compose: walk the tiers, reconcile the drift, then consolidate. Without pre-flight, consolidate produces lossy compression that looks authoritative.
+
+<!-- promoted from cpr_pre_consolidation_drift_reconciliation_tic182 + cpr_consolidation_scope_walks_repository_tiers_tic182 (tic 182→183, MERGE_PROMOTE). Source: tic 182 cadence — Sovereign Starter source-level reconciliation; initial /consolidate scope walked one tier (canonical/) before architect correction expanded to canonical+canonical_developer+canonical_user. Tier=tentative→reinforced (2 instances on same surface). Companion to Volatility Handling Law L0-L5. Band: COGNITIVE. -->
+
+---
+
+## Conductor-Score-Runtime Parity (CGG Application)
+<a id="conductor-score-runtime-parity-cgg-application"></a>
+<!-- ledger-tags: authority_class=pipeline_and_integration | rung=domain | domain=context-grapple-gun | dehydrated_tic=314 -->
+
+When CGG governance doctrine names a discipline that the runtime scripts do not enforce, the gap is a parity problem with four mechanism classes — field passthrough, terminal-state valves, schema key signatures, and runtime ownership for behavior-bearing artifacts. The federation invariant captures the diagnostic frame; the CGG application is that every governance script under cgg-runtime/scripts/ must be auditable against these four axes. Field passthrough applies wherever producer→consumer pipelines exist (cpr-extract → bench-packet-prep → ripple-assessor → review-execute). Terminal-state valves apply at any JSONL queue read. Schema key signatures apply when extractors widen what counts as input. Runtime ownership applies to every executable in the cgg-runtime/scripts/ tree, including path-locked scripts that cannot be sync-installed. A patch landing in any one class without parity in the others produces silent governance drift even when surface scripts run successfully.
+
+<!-- promoted from cpr_conductor_score_runtime_parity_tic185 (tic 185→188). Source: architect verbatim ("This is not a heartbeat problem. This is a conductor-score-runtime parity problem.") at tic 185 patch session. Validated by 4 patches: ripple-assessor 13-field passthrough, cpr-extract terminal-id valve + id preservation + anomaly report, bench-packet-prep terminal-state preference + dossier enrichment fields, build_queue_index runtime ownership declaration. 112/112 byte-identical canonical↔installed post-sync. Federation-side promotion at canonical/CLAUDE.md (parent invariant). Band: COGNITIVE. Confidence: 0.95. -->
+
+---
+
+## Terminal-State Valve Pattern
+<a id="terminal-state-valve-pattern"></a>
+<!-- ledger-tags: authority_class=signal_and_queue_manifold | rung=domain | domain=context-grapple-gun | dehydrated_tic=314 -->
+
+JSONL queues that follow append-only with latest-entry-per-id-wins read semantics produce a class of bug where a stray later non-terminal row (typically status=extracted from a re-extraction pass) masks an already-settled terminal disposition (promoted/absorbed/superseded/rejected/deferred/dismissed/resolved/skipped). The fix pattern is symmetric: at the WRITE boundary (extractor) track the set of ids whose latest status is terminal and skip re-extraction for them; at the READ boundary (loader) prefer the latest TERMINAL entry per id, falling back to latest-overall only when no terminal exists. Apply both — write-side prevents the row from being created, read-side handles rows that already exist. Asymmetric application creates conformation drift: bench-packet sees the terminal correctly but a peer reader (e.g., ripple-assessor's grapple-proposals) could surface the stale extracted row, producing two different views of the same id. The tic 187 bench-packet-prep produced a 13-vs-39 asymmetry against raw queue_refresh — that 26-row delta is the valve doing its job at scale, not a bug. Refines Dedup-at-Write Using Canonical Identity (CogPR-117) by adding the read-side complement.
+
+<!-- promoted from cpr_terminal_state_valve_pattern_tic185 (tic 185→188). Source: architect Patch 2/3 specification at tic 185, write+read symmetric implementation across cpr-extract.py + bench-packet-prep.py + ripple-assessor.load_queue mirror at tic 186. First practical exercise at tic 187 bench-packet-prep produced quantitatively larger evidence (16-row valve suppression) than the n=2 fixture parity suggested. Absorbs cpr_cf93e962cf35ee0d (bench packet generator dedup gap) — that CPR named the diagnostic; this one names the structural solution. Band: COGNITIVE. Confidence: 0.93. -->
+
+---
+
+## Manifest-Prune Per-ID Terminal-State Sweep
+<a id="manifest-prune-per-id-terminal-state-sweep"></a>
+<!-- ledger-tags: authority_class=signal_and_queue_manifold | rung=domain | domain=context-grapple-gun | dehydrated_tic=314 -->
+
+Debt B — manifest-prune.py sweeps must be per-id terminal-state-aware, not per-row. The current pattern (per-row sweep) treats each row in isolation; a row marked resolved that is later superseded by a non-terminal entry under the same id leaves the active-manifest divergent from the latest-entry-per-id projection. The fix: sweep by id, applying terminal-state valve semantics — the id is removed from active-manifest only when its latest entry across all daily files is terminal. Composes with Terminal-State Valve Pattern (this is the read-side projection complement: terminal-state valve filters extracted/non-terminal rows; per-id sweep filters at the manifest level using the same semantics), federation KI Authoritative-set readers must read the manifest (the manifest is the curated truth; a per-row sweep produces stale manifests that violate the authoritative-set claim), federation KI Disagreement-as-Evidence (the per-row vs per-id reading IS the disagreement; today's tic-235 manifest 0/0 vs bench-packet-prep 8/0 is direct exercise). Pair-evaluate with Debt A (transient drift auto-resolution owner) but DO NOT MERGE — Debt A is auto-resolution authority assignment, Debt B is sweep mechanics; different layers per Architect tic 228 closeout.
+
+<!-- promoted from cpr_manifest_prune_terminal_state_per_id_tic228 (tic 228→235). Source: ~/.claude/projects/-Users-breydentaylor-canonical/memory/MEMORY.md tic 228 session lessons. Architect tic 228 closeout: "Debt B = materialized state / manifest projection correctness." Live evidence at tic 235 review: manifest 0/0 vs bench-packet-prep 8/0 is the per-row vs per-id disagreement in operation. Band: COGNITIVE. Confidence_tier: tentative. -->
+
+---
+
+## Debt A — Transient Patch-Landing Drift Auto-Resolution Owner
+<a id="debt-a-transient-patch-landing-drift-auto-resolution-owner"></a>
+<!-- ledger-tags: authority_class=signal_and_queue_manifold | rung=domain | domain=context-grapple-gun | dehydrated_tic=314 -->
+
+Debt A — the transient patch-landing drift auto-resolution loop has no runtime owner (runtime lifecycle closure layer). The Transient Patch-Landing Drift Signal Class names the closure path doctrinally; the manifest-prune per-id sweep (Debt B) corrects the manifest read-side projection; but the loop that observes a transient `detected_drift` signal and writes its self-resolved closure (`status=resolved`, `resolution_diagnosis="transient_patch_landing_drift_resolved_post_sync"`, `resolved_tic`, `resolution_note`) currently has no declared runtime owner. Without an owner, transient drift signals carry forward across sessions even when the closing sync action has already occurred in the same operational flow, inflating active-signal counts and misrepresenting manifold state. Pair-evaluate with Debt B (cpr_manifest_prune_terminal_state_per_id_tic228) but DO NOT MERGE — Debt A is auto-resolution authority assignment, Debt B is sweep mechanics; different layers per Architect tic 228 closeout. Composes with Conductor-Score-Runtime Parity (federation KI — doctrine names the closure class, runtime must enforce a state that carries it), Signal Resolution Writeback Atomicity (the writeback must be atomic across signal record + manifest), and Transient Patch-Landing Drift Signal Class (names the class; this names the missing runtime owner for closing it). The resolution: assign explicit ownership for the auto-resolution loop — either a dedicated runtime hook (post-sync verification observes prior-tic detected_drift signals against the just-synced surface and writes resolved transitions) or extend an existing owner (runtime-sync.py post-verification step, sentinel hook closure pass) — and inscribe the assignment so the loop is no longer authority-vacant.
+
+<!-- promoted from cpr_transient_drift_auto_resolution_owner_tic228 (tic 228→236). Source: ~/.claude/projects/-Users-breydentaylor-canonical/memory/MEMORY.md tic 228 session lessons line 2390. Architect tic 228 closeout: "Debt A = runtime lifecycle closure." Pair-promoted with Debt B at /review tic 235 Pass 1; this complement closes the runtime-owner gap that Debt B's mechanism alone cannot. Band: COGNITIVE. Confidence_tier: tentative. -->
+
+---
+
+## Tracked External Scripts Pattern
+<a id="tracked-external-scripts-pattern"></a>
+<!-- ledger-tags: authority_class=pipeline_and_integration | rung=domain | domain=context-grapple-gun | dehydrated_tic=314 -->
+
+Some runtime-invokable scripts cannot be relocated to the standard install tree because they are path-locked to a non-runtime location (e.g., build_queue_index.py uses `Path(__file__).parent` to resolve queue.jsonl as a sibling in audit-logs/cprs/). Forcing relocation breaks the path lock; leaving them invisible to sync-manifest creates an unowned-runtime gap. The pattern is to extend sync-manifest with a `tracked_external_scripts` section that declares ownership without forcing relocation. Each entry names path, owner, category, invokers, write target, `install_target` (null if intentionally project-local), `install_reason`, and any `schema_coverage_limit` deferred to /review. Refines the existing "Runtime-Invokable Scripts Must Register in Sync Manifest" invariant (which assumed sync was always to ~/.claude/) by accommodating intentionally-project-local runtime. The `schema_coverage_limit` field is the audit trail naming where a script's coverage diverges from the federation's full taxonomy without silently widening it — widening is a /review question per CogPR-159.
+
+<!-- promoted from cpr_tracked_external_scripts_pattern_tic185 (tic 185→188). Source: build_queue_index.py declaration at tic 185 — install_target=null + install_reason="path-locked to audit-logs/cprs/ for sibling queue.jsonl resolution" + schema_coverage_limit naming the {promoted, skipped, superseded} subset of the federation's terminal set. Refines Runtime-Invokable Scripts Must Register in Sync Manifest. Band: COGNITIVE. Confidence: 0.85. -->
+
+---
+
+## Transient Patch-Landing Drift Signal Class
+<a id="transient-patch-landing-drift-signal-class"></a>
+<!-- ledger-tags: authority_class=signal_and_queue_manifold | rung=domain | domain=context-grapple-gun | dehydrated_tic=314 -->
+
+When patches land in canonical source but have not yet been copied to the installed runtime tree, runtime-sync's pre-sync drift check correctly fires a TENSION/COGNITIVE detected_drift signal. The signal self-resolves the moment runtime-sync sync runs and post-sync verification confirms byte-identical parity. This is a recurring same-cycle class — not yet a longitudinal recurrence claim — that the manifold can recognize and resolve under a distinct closure path from persistent runtime drift. Class signature: a TENSION/COGNITIVE detected_drift signal emitted by runtime-sync's pre-sync check, where the underlying drift is closed by the sync action that follows in the same operational flow. Resolution metadata schema: `status=resolved`, `resolution_diagnosis="transient_patch_landing_drift_resolved_post_sync"`, `resolved_tic`, plus a free-text `resolution_note` carrying the diagnostic + probe evidence (diff -rq + runtime-sync verification), manifest entry mirrored, manifest-prune sweep to resolved-archive. Doctrine names the class so /siren can suggest the resolution; automation of the closure path is deferred until cross-tic recurrence appears (per the temporal-scope-precision invariant). Sentinel discipline is to emit (drift detection is real-time evidence); the manifold should not carry these as carryforward signals across sessions when the sync that closes them is part of the same operational flow.
+
+<!-- promoted from cpr_transient_patch_landing_drift_signal_class_tic186 (tic 186→188). Source: same-cycle n=3 in tic 186 (sig_detected_drift_4287ec7eb993 carryforward, sig_detected_drift_8a209e055ed3 newly fired, sig_2026-04-23_detected_drift_8dc4140d332c long-standing — all closed under identical diagnostic class). Conservative wording per operator correction: name the class, defer automation; cross-tic recurrence required before automated resolution path. Promoted alongside cpr_temporal_scope_evidence_precision_tic187 (tic 187→188, federation invariant) so the temporal-scope discipline is in place when this inscription lands. Band: COGNITIVE. Confidence: 0.87. -->
+
+---
+
+## Memory-Trim Lighter-Cadence Variant (Option B)
+<a id="memory-trim-lighter-cadence-variant-option-b"></a>
+<!-- ledger-tags: authority_class=mandate_and_cadence_ops | rung=domain | domain=context-grapple-gun | dehydrated_tic=314 -->
+
+MEMORY.md trims under the staged-execution pattern need not require the full 4-tic gate ceremony when the operator approves Option B (lighter-cadence single-pass per CogPR-160). The geometry: skip the swarm-authored Stage 1 deliverables; have a single agent author pin list + disposition table + operator gate in one pass; preserve REVIEW_PINNED entries (status: pending or deferred per Inline Entry Location Lock); accept the conservative reduction the lock-respecting trim produces. The original trim plan's headline target assumed /review would clear most pending entries before Stage 2; under Option B that assumption is not enforced — the trim lands where REVIEW_PINNED constraint allows, then waits for the next /review to unblock another sweep. The sequence (trim → /review → trim) is iterative, not single-shot. Generalizes lighter-cadence rollout (CogPR-160) from convention-conversion adopters to MEMORY.md trim ceremonies.
+
+<!-- promoted from cpr_07199ad8276b1221 (tic 183→188). Source: tic 183 Option B trim — 1207 → 961 lines (-246, ~20%) with 80/80 refs verified, 12/12 spot-checked REVIEW_PINNED entries preserved, 0 broken local refs. n=1 in-anger validation. Companion to cpr_32d815d6fe39536e (trim yield extraction-source awareness, also promoted tic 188). Band: COGNITIVE. Confidence: 0.78. -->
+
+---
+
+## Memory-Trim Yield Source-Awareness
+<a id="memory-trim-yield-source-awareness"></a>
+<!-- ledger-tags: authority_class=memory_and_inscription_hygiene | rung=domain | domain=context-grapple-gun | dehydrated_tic=314 -->
+
+Trim sweep yield against MEMORY.md after /review depends on the EXTRACTION SOURCE of the CPRs that /review terminalized, not just the count of verdicts applied. Tic 183 /review terminalized 12 CPRs but only 2 MEMORY.md inline blocks unlocked for trim because most processed CPRs were extracted from cadence handoffs (~/.claude/plans/), inbox envelopes, or arena reports — not from MEMORY.md inline candidates. The cadence is iterative and source-aware: trim sweep yield ≈ count(MEMORY-sourced CPRs terminalized this /review × ~9 lines/block). Plan trim cadence by checking the source field on pending CPRs before estimating sweep yield. To unlock MEMORY.md inline blocks specifically, /review needs a bench packet biased toward MEMORY.md-sourced extractions. Refines Memory-Trim Staged Execution Pattern with extraction-source-awareness as a yield-estimation discipline.
+
+<!-- promoted from cpr_32d815d6fe39536e (tic 183→188). Source: tic 183 /review trim sweep — projected yield assumed /review would process the 47 REVIEW_PINNED inline blocks; actual yield was 2 because those CPRs weren't in the bench packet's recommended order. Companion to cpr_07199ad8276b1221 (lighter-cadence trim variant) — both born tic 183, refine the trim doctrine together. Band: COGNITIVE. Confidence: 0.78. -->
+
+---
+
+## Post-Cadence Clean-Close Ordering
+<a id="post-cadence-clean-close-ordering"></a>
+<!-- ledger-tags: authority_class=mandate_and_cadence_ops | rung=domain | domain=context-grapple-gun | dehydrated_tic=314 -->
+
+When a /cadence-emitted tic includes post-cadence operational cleanup that mutates governance state (signal triage with manifest sweeps, MEMORY.md candidate updates, queue-shaping commits), the closing /cadence should make post-cleanup state visible to the next session's /review. Originally this ordering was satisfied by an explicit bench-packet-prep run in the pre-/cadence window; that mechanism was dropped at tic 293 (see *Bench Packet Prep Cycle Drop Reversal* below) because it satisfied parity in name only — the bench packet was a JSON projection of queue state that /review already reads directly from `audit-logs/cprs/queue.jsonl` + `audit-logs/signals/active-manifest.jsonl`. The clean-close ordering now reduces to: (1) prior /cadence emits boundary tic + mandate, (2) post-cadence cleanup mutates manifold/queue, (3) closing /cadence emits next boundary tic; /review opens directly against authoritative queue + manifest state at the next session. The diagnostic discipline survives the mechanism: if a future cycle is added as the doctrinal mechanization of this ordering, it must demonstrate semantic substance (not just JSON projection of state already canonically available) before scheduler admission.
+
+<!-- promoted from cpr_post_cadence_clean_close_ordering_tic187 (tic 187→188). Amended at /review tic 294 by cpr_bench_packet_prep_cycle_drop_doctrine_reversal_tic273_post_cadence_clean_close_ordering_tic293 — bench-packet-prep cycle dropped from cadence-ops scheduler at tic 293 (CGG commit 280a8a5) because ~20-tic runtime exercise produced enrichment_coverage=0/N every cycle (presence/observation fallacy class). Original tic 187→188 validation evidence (13 vs 39 pending asymmetry from valve-pattern) remains the diagnostic case for the Terminal-State Valve Pattern but is no longer the cadence-ordering case. Source: ~/.claude/plans/shimmering-tumbling-dawn.md (tic 293→294 handoff). Band: COGNITIVE. Confidence: 0.90. -->
+
+---
+
+## Bench Packet Prep Cycle Drop Reversal
+<a id="bench-packet-prep-cycle-drop-reversal"></a>
+<!-- ledger-tags: authority_class=memory_and_inscription_hygiene | rung=domain | domain=context-grapple-gun | dehydrated_tic=314 -->
+
+At tic 293 the bench_packet_prep cycle was dropped from the cadence-ops scheduler (CGG commit `280a8a5`). The cycle had been scheduled at `tic % 2 == 0` from tic 273 onward as the runtime mechanization of *Post-Cadence Clean-Close Ordering* and the CGG-rung application of *Conductor-Score-Runtime Parity*. Across tics 273-292 the Mogul cycle ran ~10 times producing `enrichment_coverage=0/N` every cycle. The doctrinal promise was "pre-strengthen weak packets before /review consumption"; the runtime delivered "JSON projection of queue state that /review already reads directly from `queue.jsonl` + `active-manifest.jsonl`." The runtime bore the doctrinal label while delivering no doctrinal substance — a concrete instance of federation KI *Presence/Observation Fallacy Guard* (tic 293).
+
+**Runtime drop scope (5 files, retained substrate):** `cgg-runtime/scripts/cadence-ops.py` (cycles.append removed), `cgg-runtime/scripts/mogul-runner.sh` (prompt + verification + schema cleaned), `cgg-runtime/skills/review/SKILL.md` (Step 5.5 blocking gate removed; 5.6 renumbered to 5.5), `cgg-runtime/agents/mogul.md` (capability list cleaned), `cgg-runtime/sync-manifest.json` (invoker list updated). Retained on disk: `bench-packet-prep.py` script (manually invocable via `mandate.cycle_request.run_now`), `mogul-mandate.schema.json` enum entry (manual mandates still permit it), `audit-logs/mogul/bench-packets/latest.json` (last artifact archive), test fixtures (regression coverage).
+
+**Doctrine reversal scope:** the bench_packet_prep instance is reversed; the diagnostic frame (parity-in-name-only) remains promoted in *Conductor-Score-Runtime Parity (CGG Application)* and *Cadence-Ops Scheduler Doctrine-Runtime Parity*. The fix-family framing extends: if a future candidate names a cadence whose runtime would only summarize (not semantically fulfill state already canonically available), the same drop pattern applies. Reversibility is intentional per federation KI *Rollback velocity must exceed attachment velocity* — re-adding `cycles.append("bench_packet_prep")` in cadence-ops.py + restoring /review Step 5.5 restores the cycle.
+
+<!-- promoted from cpr_bench_packet_prep_cycle_drop_doctrine_reversal_tic273_post_cadence_clean_close_ordering_tic293 (tic 293→294, /review Pass 1). Two-part promotion: (a) ratify the runtime drop landed at CGG commit 280a8a5 (Architect-authorized at tic 293 "lets rock and roll" + Full Drop scope selection); (b) amend tic 188 Post-Cadence Clean-Close Ordering + tic 226 Cadence-Ops Scheduler Doctrine-Runtime Parity inscriptions to reflect the reversal. Co-promoted with federation KI *Presence/Observation Fallacy Guard* (the failure class the drop responds to) and CGG-rung *Manifest-Driven Inversion Harness Primitive* (PROMOTE-SPEC, manifest at audit-logs/governance/falsifier/manifest.yaml v0.2 captures the failure class as schema invariant). Source: ~/.claude/plans/shimmering-tumbling-dawn.md (tic 293→294 handoff). Band: COGNITIVE. Confidence: 0.90. -->
+
+---
+
+## Extractor Schema Field Mapping
+<a id="extractor-schema-field-mapping"></a>
+<!-- ledger-tags: authority_class=pipeline_and_integration | rung=domain | domain=context-grapple-gun | dehydrated_tic=314 -->
+
+cpr-extract.py requires source + lesson fields; rich authoring schemas (title/summary/abstraction_layers as emitted by cadence handoffs) are silently dropped. The extractor should accept alternate field mappings natively (title or summary → lesson, path → source) rather than forcing authoring-time normalization. The tic 163 harvest succeeded only because source/lesson were synthesized via inline Python, not via the extractor's own schema flexibility. Without widening, every cadence handoff that uses the rich format re-incurs the harvest cost.
+
+<!-- promoted from cpr_extractor_schema_widening_tic164 (tic 164→211). Source: tic-164-cadence. Fourth-layer silent-miss in tic 163 extraction pipeline. Band: COGNITIVE. -->
+
+---
+
+## Extractor Output Anomaly Flagging
+<a id="extractor-output-anomaly-flagging"></a>
+<!-- ledger-tags: authority_class=forensic_and_drift_investigation | rung=domain | domain=context-grapple-gun | dehydrated_tic=314 -->
+
+cpr-extract.py that finds N blocks but extracts 0 should surface the discrepancy. Currently prints '0' to stdout and exits 0 — matches the Output Anomaly Invariant violation pattern (CogPR-80). Required behavior: emit 'scanned N blocks, extracted M, dropped (N-M) due to missing required fields: [fields]' to stderr when M < N. This converts silent-miss to loud-miss and satisfies the differential verification invariant at the extraction boundary.
+
+<!-- promoted from cpr_extractor_output_anomaly_flagging_tic164 (tic 164→211). Source: tic-164-cadence. Tic 163 extractor returned 0 for a plan file containing 21 authored candidates. Silent exit-0 meant the miss was only detected because the operator specifically checked queue growth against handoff expectation. Extractors are governance instruments — their silent-misses are governance debt. Band: COGNITIVE. -->
+
+---
+
+## Emitter Surface Declared Interface
+<a id="emitter-surface-declared-interface"></a>
+<!-- ledger-tags: authority_class=signal_and_queue_manifold | rung=domain | domain=context-grapple-gun | dehydrated_tic=314 -->
+
+Any governance surface that emits <!-- --agnostic-candidate --> blocks must be reachable by cpr-extract.py. Plan files (~/.claude/plans/) were the first discovered scope miss (tic 163); the fix added a single --plan-file arg. But the broader pattern is that there's no declared emitter-surface interface — surfaces that could emit (inbox envelope markdown, arena report summaries, bench packets, session transcripts) have no contract with the extractor. The scope should be declarative (emitter surfaces register with the extractor) rather than extractor-hardcoded.
+
+<!-- promoted from cpr_emitter_surface_declared_interface_tic164 (tic 164→211). Source: tic-164-cadence. Meta-pattern from the tic 163 silent-miss analysis. Each silent-miss layer (scope/status/schema) is an instance of missing declared interface contract between authoring surfaces and consumer layers. Extending volatility-handling law: internal capability surfaces also need declared contracts — not just external ones. Band: COGNITIVE. -->
+
+---
+
+## Sliding Window Event-Stream Filtering
+<a id="sliding-window-event-stream-filtering"></a>
+<!-- ledger-tags: authority_class=signal_and_queue_manifold | rung=domain | domain=context-grapple-gun | dehydrated_tic=314 -->
+
+Sliding windows over governance event streams must filter by TIME (cycle / tic / timestamp) not by RECORD COUNT when the stream carries mixed-frequency event types. When a high-frequency event type (resource_flow: 1 record per cycle per edge) shares a stream with lower-frequency event types (bond_formation: 1 record per bond creation), a count-based window (last N records) silently excludes the lower-frequency types even when they are within the semantically-intended time window. The failure mode is invisible: the window still returns 20 records, but they are all from the dominant event class. In this session: standing-engine's diversity_window_cycles=20 was interpreted as 'last 20 records' rather than 'records within last 20 cycles' — resource_flow crowded out bond interactions, diversity entropy was mechanically capped at 0.28-0.67 for visitors whose bond lineage was already present in the data. Fix: filter by `rec.cycle >= (current_cycle - window_cycles + 1)`. Generalizable pattern — any governance stream with mixed event frequencies has this risk. Complements the existing 'CONFIG key names must match implementation semantics' discipline.
+
+<!-- promoted from cpr_cycle_based_windows_in_mixed_frequency_contexts_tic170 (tic 170→211). Source: tic-170 standing-engine.py _get_entity_interactions + _compute_interaction_history_score fixes. Band: COGNITIVE. -->
+
+---
+
+## Binder Addendum Inscription Preservation
+<a id="binder-addendum-inscription-preservation"></a>
+<!-- ledger-tags: authority_class=memory_and_inscription_hygiene | rung=domain | domain=context-grapple-gun | dehydrated_tic=314 -->
+
+Operator-reviewed governance documents should receive state updates via appended addendum sections with preserved original bodies, not in-place rewrites. The pattern: when a dated artifact (e.g., telos-immersive-rfc-binder-tic115.md) needs current-state refresh, append a clearly-marked 'TIC N STATE ADDENDUM' section that (1) references the original body unchanged, (2) updates each original Open Question / decision with current status, (3) enumerates new decisions since the original compilation, (4) cross-references authoritative state documents produced since. This protects the review provenance of the original while making state current. In-place rewrite blurs the review boundary — future readers cannot distinguish operator-reviewed content from subsequent edits. The addendum preserves the audit trail and makes time-of-decision legible. Also validates: handoff documents are bridge surfaces (transient), RFC binders are archive surfaces (permanent), and the difference matters structurally.
+
+<!-- promoted from cpr_binder_addendum_inscription_preservation_tic169 (tic 169→211). Source: tic-169 telos-immersive-rfc-binder-tic115 state update. Band: COGNITIVE. -->
+
+---
+
+## Parallel Inscription Swarm Validated at n=3
+<a id="parallel-inscription-swarm-validated-at-n-3"></a>
+<!-- ledger-tags: authority_class=subagent_and_swarm_delegation | rung=domain | domain=context-grapple-gun | dehydrated_tic=314 -->
+
+Spec-First Parallel Swarm (CogPR-140) + Lighter-Cadence Rollout Post-Validation validated at n=3 for inscription-class work. Splitting by target file (one agent per surface) produces collision-free parallel inscription. Each agent received a narrow scope (file path + specific CPR IDs + lookup procedure via grep for specific IDs) rather than bulk reading the queue. Total session wall-time for 36 inscriptions: ~5 minutes of parallel agent execution vs estimated 30+ minutes sequential. Evidence for file-partitioned parallelism as the low-coordination-overhead pattern for bulk inscription. Key discipline: agent prompt must explicitly say 'do NOT read entire queue.jsonl, use grep for specific IDs' — one prior agent bailed citing token budget because it tried to read the full queue.
+
+<!-- promoted from cpr_parallel_inscription_swarm_n3_validated_tic172 (tic 172→211). Source: tic-172 /review Pass 2 — 3 parallel review-execute agents inscribed 36 sections across 5 file targets (canonical/CLAUDE.md, CGG CLAUDE.md, AUTHORING_CONVENTION.md, cadence/SKILL.md, stage/SKILL.md) with zero collision; all sections findable via grep post-execution. Band: COGNITIVE. -->
+
+---
+
+## Auto-Mandate Scope Expansion via Merge
+<a id="auto-mandate-scope-expansion-via-merge"></a>
+<!-- ledger-tags: authority_class=mandate_and_cadence_ops | rung=domain | domain=context-grapple-gun | dehydrated_tic=314 -->
+
+Session-start auto-mandate logic may merge+expand a manually-written mid-session mandate into a broader consolidated mandate when session_start fires (which can happen mid-session via UserPromptSubmit hook or explicit re-invocation). The merge is non-lossy (my cycles absorbed into run_now, my mandate_id recorded in merged_from) but the absorbing mandate runs ALL its cycles including the narrow one I intended plus 5 others. Consequence at tic 172: my 1-cycle review_close_check became a 6-cycle mandate whose review_close_check fired the artifact gate failure. The merge-before-write discipline (CogPR-57) prevented mandate loss but didn't prevent scope expansion. Not a bug — correct behavior under the mandate lifecycle invariant. Worth naming: when operator writes a narrow mid-session mandate, they may be writing the seed of a next-session-start-expanded mandate. Not blocking, but counts as scope awareness.
+
+<!-- promoted from cpr_auto_mandate_merges_with_operator_mandate_tic172 (tic 172→211). Source: tic-172 /review Step 8.5 — wrote review_close_check mandate at 04:44:52; session_restore.sh session_start trigger fired at 04:46:26 (likely from UserPromptSubmit hook mid-session) and wrote a new 6-cycle mandate that merged_from my narrow review-close mandate. Band: COGNITIVE. -->
+
+---
+
+## Patch Landing Five-Stage Discipline
+<a id="patch-landing-five-stage-discipline"></a>
+<!-- ledger-tags: authority_class=pipeline_and_integration | rung=domain | domain=context-grapple-gun | dehydrated_tic=314 -->
+
+Substrate-modifying patches (extractor schema, queue read/write semantics, signal manifold rules) benefit from a 5-stage landing discipline: (1) spec — operator-authored or agent-validated contract with explicit tier rules and hard constraints; (2) implementation — write the code against the spec, no inferred behavior; (3) fixtures — write fixture tests that cover each spec rule (positive + negative + edge), run them, require all green; (4) dry-run — exercise against real substrate (not synthetic data) without writing, report what WOULD happen per tier/category; (5) runtime-sync check — verify canonical→install parity (TENSION/COGNITIVE drift expected pre-sync, byte-identical post-sync). Only then commit, and only with cross-repo boundary respect (CGG patch separately from canonical audit artifacts). The 5 stages compose: spec is the contract, fixtures are the conscience, dry-run is the probe, runtime-sync is the parity check, commit boundary is the federation discipline. Skipping any one stage produces a class of failure: no-spec → silent semantic widening; no-fixtures → mechanism bugs at edge cases; no-dry-run → unexpected scale behavior; no-runtime-sync → install drift carryforward; no-commit-boundary → cross-repo entanglement. Validated at tic 188 Patch E.
+
+<!-- promoted from cpr_patch_landing_discipline_5stage_tic188 (tic 188→211). Source: Patch E execution flow at tic 188: spec → implementation → fixtures (19/19) → dry-run → runtime-sync check → commit boundary discipline. Band: COGNITIVE. -->
+
+---
+
+## Two-Lane /review Execution Split
+<a id="two-lane-review-execution-split"></a>
+<!-- ledger-tags: authority_class=review_and_promotion_discipline | rung=domain | domain=context-grapple-gun | dehydrated_tic=314 -->
+
+Tic 188 /review docket arrived with 25 entries split across heterogeneous targets. Initial dispatch table treated all PROMOTEs uniformly through review-execute. Operator caught the structural hazard: targets like cadence/SKILL.md, biome-engine.py header, cadence-ops.py header are not the same execution class as appending to CLAUDE.md. The operator forced a corrective split: Lane A = doctrine/docs targets (review-execute eligible, mechanical promotion to CLAUDE.md / GIT_RULES.md), Lane B = code/spec/header targets (separate OPS/DIRECT inline patches with read-edit-write of existing files). Final tally: 10 Lane A doctrine inscriptions + 3 Lane B header/spec patches + 3 SKIP + 9 DEFER = 25. Lane A dispatched as review-execute agent with verdict table only; Lane B handled inline by orchestrator with spec→edit→smoke-check→runtime-sync sequence. Commit boundaries kept separate: ak-control-room (87ce943, Lane A), CGG (8d9e21e Lane A + 7c6641c Lane B), canonical (4ac640f Lane A + 9bb980d Lane B + 1072034 path cleanup + 5c5aa97 review-close mandate + 1814b10 CONSISTENT evidence). Runtime-sync verified 112/112 byte-identical post-Lane-B. review-close-check verdict: CONSISTENT (0 findings) after the verifier-path cleanup commit.
+
+<!-- promoted from cpr_two_lane_review_execution_tic188 (tic 188→211). Source: tic-188 /review execution with mixed doctrine + code/spec targets. Operator-forced split into Lane A (review-execute eligible) + Lane B (OPS/DIRECT patches). Band: COGNITIVE. -->
+
+---
+
+## v2.1-lite Agent Routing-Disambiguation Frontmatter
+<a id="v2-1-lite-agent-routing-disambiguation-frontmatter"></a>
+<!-- ledger-tags: authority_class=pipeline_and_integration | rung=domain | domain=context-grapple-gun | dehydrated_tic=314 -->
+
+The v2.1 routing frontmatter format (CENTROID + IS + IS NOT [collapse_zones + sibling_overlaps] + WHEN + NOT WHEN + RELATES TO) was established at the skill rung as a routing-disambiguation primitive against silent misrouting in overlapping clusters. The format generalizes to the agent-spec rung at the description-block level: the structured prose lives in the `description: |` literal block, and the agent body (system prompt, execution protocol, hard constraints) is preserved as authored. The "lite" qualifier names the lighter-cadence rollout — no per-agent body rewrites; only the frontmatter description is restructured. The discipline is not "rich descriptions" but **structural routing surface**: every CENTROID is one-line jurisdictional; every IS NOT carries explicit collapse_zones (what the agent must not drift into) and sibling_overlaps (nearby agents); every WHEN/NOT WHEN exposes the phase model or invocation criteria. Validated at tic 221 across all 18 CGG agents in 4 lanes (Mogul team, Crisis Office, Expression/encounter, mechanical applier). Specific disambiguations made visible at routing time that were silent before: civil-engineer (routine under Mogul) vs restoration-operator (post-crisis under Crisis Steward) — same surfaces, different lifecycle phase, hard distinction in both agents' collapse_zones; pattern-curator marked [LEGACY/FALLBACK] with explicit collapse_zone "first-line pattern miner" routing standard cycles to the adversarial direct/meta pair; videographer agent vs `/videographer` skill — same name, different namespaces, sibling_overlap names the namespace distinction; review-execute model floor (sonnet, NOT haiku) inscribed in NOT WHEN with the tic 207 lineage. The format is reusable for any agent corpus where Agent-tool dispatch sees overlapping clusters. AUTHORING_CONVENTION.md may be cross-referenced; this inscription does not amend it. Lineage: skill-rung cross-tic precedent at tics 167-168 (batch conversions established the format); tic 221 validates the agent-rung lift. Temporal-scope discipline per `cpr_temporal_scope_evidence_precision_tic187`.
+
+<!-- promoted from cpr_v21_lite_agent_routing_disambiguation_tic222 (tic 222 /review PROMOTE). Source: tic 221 CGG agent fleet uplift, 18 agents in 4 lanes. Band: COGNITIVE. -->
+
+---
+
+## CGG Manifest Pointer Anti-Docrot Discipline
+<a id="cgg-manifest-pointer-anti-docrot-discipline"></a>
+<!-- ledger-tags: authority_class=pipeline_and_integration | rung=domain | domain=context-grapple-gun | dehydrated_tic=314 -->
+
+For CGG runtime documentation, sync-manifest.json is the authoritative source for installed runtime surfaces. INSTALL.md, topology documents, and runtime-facing docs should point to the manifest rather than maintain static hook/agent/script lists. Orientation counts are allowed only when labeled non-authoritative.
+
+The pattern: when SSOT is established via configuration manifest, downstream documentation that mirrors the manifest's enumerations becomes the drift surface. The mirror IS the drift surface — every addition to the manifest creates an obligation to update N downstream docs, and any forgotten downstream produces stale-list rot. The constraint: replace mirrors with manifest-pointer paragraphs ("Authoritative discovery: <manifest-path> → <key>. Sync each matching file from <canonical> to <installed>. Current count: N (orientation only — read manifest for canonical list)."). The explanation: this makes the manifest's SSOT claim structurally enforced — humans reading docs are pointed back at the manifest, code reading the manifest gets correct discovery, sync runs from the manifest. New surface additions land at the manifest only, with no downstream-doc update obligation. Validated at tic 221: INSTALL.md (4-hook + 4-agent stale lists replaced with manifest-pointer paragraphs after Architect audit found "INSTALL.md hardcodes 4 hooks; reality is 11") and CGG_RUNTIME_TOPOLOGY_AND_LIFECYCLE.md Section 2.7 (Sync-Manifest Authority Reconciliation, explicitly documenting SSOT-vs-actual-consumer behavior). This is the CGG operational application of the federation-rung documentation-side refinement of "Authoritative-set readers must read the manifest" doctrine.
+
+<!-- promoted from cpr_manifest_pointer_anti_docrot_tic222 (tic 222 /review PROMOTE — CGG application; federation refinement also landed at canonical/CLAUDE.md). Source: tic 221 documentation audit. Band: COGNITIVE. Standalone pattern-family maturity claim deferred pending cross-domain/cross-tic recurrence. -->
+
+---
+
+## CogPR Marker Syntax Discipline
+<a id="cogpr-marker-syntax-discipline"></a>
+<!-- ledger-tags: authority_class=review_and_promotion_discipline | rung=domain | domain=context-grapple-gun | dehydrated_tic=314 -->
+
+CogPR candidate inline inscriptions in MEMORY.md MUST use single-comment marker form `<!-- --agnostic-candidate` (no closing `-->` on the marker line; YAML body inside the comment; `-->` terminates the block). Closed-form marker `<!-- --agnostic-candidate -->` (with closing arrow on opener) silently fails extraction — cpr-extract scans for blocks delimited by single open/single close, and a closed-on-opener marker creates an empty comment with the YAML body OUTSIDE any HTML comment boundary. Edit tool succeeds (the bytes write fine; markdown renders fine), so the authoring writer gets no signal. cpr-extract emits zero-block scans (visible in the anomaly counters as written_to_queue=0 for affected blocks but not as a parser error). Validated tic 223→224 cadence: 6 federation/CGG-rung CogPR candidates (3 from Phase 7 routing decision + 3 from three-layer terrain ship proposal) inscribed with the broken closed-form marker passed authoring without error but extracted zero blocks; only re-running with single-replace (closed-form → open-form) caused them to extract correctly (written_to_queue: 6 in subsequent run). Mitigation candidate: cpr-extract should warn-on-detect when MEMORY.md contains the closed-form marker pattern, since this pattern is guaranteed to be an authoring error (no legitimate use case exists for closed-on-opener `<!-- --agnostic-candidate -->`). The authoring discipline is the lesson; the extractor warning is the mechanism that catches the discipline failure. Refines: federation KI 'Bounded delegation surfaces default to masking bugs rather than surfacing them' — this is the same shape at the parser-input boundary: a parser that silently skips malformed input instead of warning surfaces the issue at the consumer, after the inscription window has closed. Refines: CogPR-77 (Schema Failure Self-Reporting) which mandates extractors warn on zero-output anomalies — currently fires at the aggregate level (blocks_extracted < blocks_found) but does not fire per-block on this specific authoring error class.
+
+<!-- promoted from cpr_cogpr_marker_syntax_silent_extraction_failure_tic224 (tic 224→226). Source: ~/.claude/projects/-Users-breydentaylor-canonical/memory/MEMORY.md:tic-224-cadence-fix. Band: COGNITIVE. -->
+
+---
+
+## Cadence-Ops Scheduler Doctrine-Runtime Parity
+<a id="cadence-ops-scheduler-doctrine-runtime-parity"></a>
+<!-- ledger-tags: authority_class=mandate_and_cadence_ops | rung=domain | domain=context-grapple-gun | dehydrated_tic=314 -->
+
+cadence-ops.compute_due_cycles is the central tic-modulo cycle scheduler for Mogul mandates, but multiple doctrine surfaces name cycles that doctrine claims fire on cadence yet the runtime never schedules: (1) civil_status_check — civil-engineer.md:166 declares 'Mogul includes civil_status_check in next mandate if last report > 10 tics' but compute_due_cycles has no civil entry at any modulo (audit at audit-logs/governance/cgg-civil-cycle-detection-audit-tic224.md confirmed gap; tic 220 manual restart did not inscribe a runtime mechanism); (2) bench_packet_prep — RESOLVED VIA DOCTRINE REVERSAL AT TIC 293: cycle dropped from compute_due_cycles (CGG commit 280a8a5) after ~20-tic exercise produced enrichment_coverage=0/N every cycle; doctrine reversal at /review tic 294 reduced *Post-Cadence Clean-Close Ordering* to direct queue/manifest reads (see *Bench Packet Prep Cycle Drop Reversal* above). Both gaps survived because manual compensation worked and there was no failure surface to force the runtime fix — and the bench_packet_prep resolution chose the second mitigation path (amend doctrine to drop the cadence claim) rather than the first (extend compute_due_cycles to schedule). Same shape as Conductor-Score-Runtime Parity (federation KI) applied specifically to the cadence-ops scheduler: doctrine names a cadence, runtime mechanism (compute_due_cycles) doesn't enforce it. The recurrence is structural — any future doctrine surface naming a cadence will repeat the gap unless the inscription discipline includes 'verify compute_due_cycles enforces this AND verify the runtime delivers semantic substance, not just JSON projection of state already canonically available' as a doctrine-promotion gate. The bench_packet_prep resolution is the concrete pattern: when the proposed mechanism only summarizes state already readable from authoritative sources, doctrine reversal is the correct outcome, not scheduler admission. Same-tic n=2 (descriptive evidence within tic 224 audit boundary). Cross-tic n=1 (tic 293 reversal closes case (2); case (1) civil_status_check remains open).
+
+<!-- promoted from cpr_cadence_ops_scheduler_doctrine_gap_recurrence_tic225 (tic 225→226). Source: ~/.claude/projects/-Users-breydentaylor-canonical/memory/MEMORY.md:tic-225-cadence. Band: COGNITIVE. -->
+
+---
+
+## Manifest-Driven Inversion Harness Primitive *(PROMOTE-SPEC, tic 294)*
+<a id="manifest-driven-inversion-harness-primitive-promote-spec-tic-294"></a>
+<!-- ledger-tags: authority_class=pipeline_and_integration | rung=domain | domain=context-grapple-gun | dehydrated_tic=314 -->
+
+Federation observability primitive distinct from per-script audit tools (memory-md-audit.py, queue-drift-audit.py, runtime-sync, contam-sentinel). The existing audit tools are domain-specific, uncoordinated, and each holds its own checks; the inversion harness inverts the stance: one DECLARATIVE manifest names every governance mechanism's expected fire-shape (status_class + invocation_policy + fire_schedule + expected_artifact + content_fingerprint + audit_blind_spots + audits + doctrine_source), and a single runner composes existing observation surfaces against the manifest to classify runtime_state (`healthy` / `broken` / `broken_content` / `fire_pending` / `fire_recent_quiescent` / `dormant` / `unwired` / `dropped`). Mathematically equivalent to existing audit scripts; framed as continuous adversarial probe — Popper-style "try to falsify the conjecture that the federation is healthy" rather than pytest-style "try to confirm behavior is correct." Same code; different stance; the stance changes which failures surface.
+
+**Staged rollout contract (T1-T4):**
+
+- **T1 — manifest** (LANDED tic 293, canonical commits bf68efd6 v0.1 + bfaddd77 v0.2). Schema at `audit-logs/governance/falsifier/manifest.yaml`. 13 mechanisms declared with the named invariant *Presence/Observation Fallacy Guard* (federation KI tic 293) + 6 anti-fallacy guards + 5 meta_audit_blind_spots + 2-axis status encoding (status_class × invocation_policy).
+- **T2 — runner** (gates on /review tic 294 PROMOTE-SPEC ratification — THIS PROMOTION). Implementation surface: `cgg-runtime/scripts/falsifier-run.py`. Contract: reads manifest + observed state; emits classification report to `audit-logs/governance/falsifier/reports/`. Does NOT emit signals (T4 separates emission); does NOT mutate governance state. Spec is the manifest itself (the schema declares all interpretive obligations).
+- **T3 — cadence-ops integration** as fail-soft subprocess (gates on T2 surfacing real findings, not dormant noise). Pattern follows memory-md-audit's tic 269 fail-soft integration — runs inside compute_due_cycles bundle, returns observability without blocking on errors.
+- **T4 — emission promotion** to siren (gates on T3 demonstrating BROKEN-class findings stabilize against false positives). The siren emission gate is its own /review-class decision per *Verdict-Shape Discriminates Execution Gate* — T4 is NOT pre-authorized by this PROMOTE-SPEC.
+
+**Why this composes:** federation KIs *Spec-runtime alignment by accident is structural drift* (the manifest is the structural enforcement layer that prevents accidental alignment), *Authoritative-Set Readers Must Read the Manifest* (the falsifier IS a manifest reader by construction), *Conductor-Score-Runtime Parity* (the content_fingerprint field catches "runs the cycle bearing the doctrinal label but not delivering the doctrinal substance" — the exact failure class that the bench_packet_prep drop responds to), *Recursive Self-Observation* (mitigated by manifest-driven scope: no recursion into the falsifier itself unless explicitly declared as a mechanism in the manifest), and *Presence/Observation Fallacy Guard* (the falsifier is the runtime implementation of the invariant — every observation is interpreted against the manifest's declared envelope).
+
+**Federation evidence justifying coordinated observability:** cross-tic recurrence of silent-failure cases includes bench_packet_prep (tics 273-292, resolved at 293), harmony cadence mod-disagreement (tics 215/219/223, resolved at tic 226), signal resolution writeback atomicity (Debt A, owner-vacant), phantom tic emission (tics 266 + 291, surveillance), doc-as-doctrine genesis-era reference trap (tic 292). Existing observability is scattered; the inversion harness is composition of existing surfaces under a single declarative manifest, not new mechanism.
+
+**PROMOTE-SPEC scope:** this promotion authorizes the primitive name + the T1→T4 staged contract. T2 implementation tranche follows in a subsequent /review gate per the *Verdict-Shape Discriminates Execution Gate* federation KI. If T2 runner authoring surfaces additional schema inadequacies the v0.2 manifest didn't anticipate, the schema iterates before the runner accepts a new manifest version — schema-as-spec; runner-as-conscience.
+
+<!-- promoted from cpr_manifest_driven_inversion_harness_primitive_tic293 (tic 293→294, /review Pass 1) as PROMOTE-SPEC. T1 manifest landed at canonical bf68efd6 + bfaddd77 (tic 293); T2 runner authoring follows in subsequent /review gate per Verdict-Shape KI. Co-promoted with federation KI *Presence/Observation Fallacy Guard* (the runtime-implementing mechanism) and CGG-rung *Bench Packet Prep Cycle Drop Doctrine Reversal* (the failure case the manifest captures as schema invariant). Source: ~/.claude/plans/shimmering-tumbling-dawn.md (tic 293→294 handoff). Band: COGNITIVE. Confidence: 0.85. -->
+
+---
+
+## Compile-Lane Consumer Integration Pattern
+<a id="compile-lane-consumer-integration-pattern"></a>
+<!-- ledger-tags: authority_class=pipeline_and_integration | rung=domain | domain=context-grapple-gun | dehydrated_tic=314 -->
+
+Compile-lane consumer integration pattern. When a state-derivation tool (compiler) materializes append-only event logs into materialized state outputs, downstream consumers must treat the compiler as the canonical state source AND explicitly label any fallback to raw event-log reading as DEGRADED mode (with subtype label naming the specific failure). Naming the failure mode is the discipline; silent fallback to raw-row reading is the failure mode the discipline closes. Validated at tic 223 by lifting compile-lane from ONE_SHOT_ONLY → PARTIAL → PRODUCTIZED: queue_state_compile.py emits 5 outputs (effective_state.json, effective_state.md, strike_stack_candidates.json, anomaly_report.md, maturity_index.json); bench-packet-prep.py invokes the compiler at the start of its run and consumes the outputs as state source, with explicit DEGRADED_NO_COMPILER / DEGRADED_INVOCATION_FAILED / DEGRADED_COMPILE_FAILED / DEGRADED_OUTPUT_LOAD_FAILED stderr labels and a compile_lane_status field carrying the result into the bench packet. The structural separation of compile (state derivation) from consume (state usage) makes the substrate's coordination cost auditable — readers can see which view they're getting and why. Composes with: federation KI 'Authoritative-set readers must read the manifest' (compile is the curated-set producer; consumer reads the manifest); CGG-rung 'Terminal-State Valve Pattern' (compile applies the valve); CGG-rung 'Two-Lane /review Execution Split' (lane separation between lane-doctrine and lane-tooling).
+
+<!-- promoted from cpr_compile_lane_consumer_integration_pattern_tic223 (tic 223→226). Source: ~/.claude/projects/-Users-breydentaylor-canonical/memory/MEMORY.md:tic-223-session-lessons. Band: COGNITIVE. -->
+
+---
+
+## Orchestrator-on-Behalf-of-Subordinate Trace Pattern
+<a id="orchestrator-on-behalf-of-subordinate-trace-pattern"></a>
+<!-- ledger-tags: authority_class=pipeline_and_integration | rung=domain | domain=context-grapple-gun | dehydrated_tic=314 -->
+
+Orchestrator-on-behalf-of subordinate-trace pattern. When a Mogul-team subordinate's hard constraint forbids direct mailbox write (e.g., ripple-assessor's 'sole write target: ~/.claude/grapple-proposals/latest.md'), the orchestrator can deposit a delivery_receipt envelope to the subordinate's mailbox via the existing mailbox writer (inbox-envelope.py), preserving the subordinate's identity in the envelope body and creating a discoverable audit trace before merging into Mogul/orchestrator synthesis. Validated at tic 222 B.3 pilot: receipt envelope WAIT_normal_ripple.assessment.receipt_t222_c421d89c.json landed in ent_ripple_assessor/inbound/ with subordinate-self-write-authority=false, writer-on-behalf-of=ent_homeskillet, primary-proposal-path pointer to ~/.claude/grapple-proposals/latest.md, and full cycle metadata. The trace is discoverable by anyone scanning the mailbox without reading the orchestrator's full report. Composes with: federation KI 'Lane Separation: foreground judgment, background execution' (orchestrator is the foreground writer for governance traces); CGG-rung Bifurcated Bridge Authority (sharp/atmospheric output paths). Federation routing: the question 'should subordinate output authority be expanded to include receipt-mirror surface, OR is orchestrator-on-behalf-of the durable discipline?' is itself routed to /review tic 223+ as a design question — NOT promoted at this candidate. This candidate names the pattern that worked AT THE PILOT; the doctrine question is downstream.
+
+<!-- promoted from cpr_orchestrator_on_behalf_of_subordinate_trace_tic223 (tic 223→226). Source: ~/.claude/projects/-Users-breydentaylor-canonical/memory/MEMORY.md:tic-223-session-lessons. Band: COGNITIVE. -->
+
+---
+
+## Review-Execute Large-File Truncation Hazard
+<a id="review-execute-large-file-truncation-hazard"></a>
+<!-- ledger-tags: authority_class=review_and_promotion_discipline | rung=domain | domain=context-grapple-gun | dehydrated_tic=314 -->
+
+review-execute large-file truncation hazard with append-class instructions. When review-execute receives append-class instructions for files larger than its model-context window (~1100+ lines for sonnet-class CLAUDE.md), the agent may truncate the file when writing — effectively deleting content while attempting to append. Validated at tic 222: review-execute first pass for D.2 + D.3 CGG inscriptions caused canonical_developer/context-grapple-gun/CLAUDE.md to drop from 1096 lines to 150 lines (975 deletions, 29 insertions). Recovery: git checkout of working-tree file restored to 1096; orchestrator re-authored both inscriptions as proper Edit-with-anchor appends; final 1110 lines (+14 net append). The hazard is invisible to review-execute itself (its receipt reports 'inserted at end of file' which would be true if it had read the full file before writing — but it did not). Mitigation: orchestrator must verify file line counts BEFORE and AFTER review-execute large-file appends, treating any negative delta as truncation. Refines: federation KI 'Bounded delegation surfaces default to masking bugs rather than surfacing them' (this is one specific mechanism); CGG-rung 'Review Execution Delegation' (model floor sonnet — the truncation happened in this very review-execute despite sonnet-class). Hard mitigation candidate: review-execute should be augmented with an explicit pre-write line count assertion + post-write delta check, raising visibly on truncation rather than silently writing the truncated state. Operational fact, not yet doctrine.
+
+<!-- promoted from cpr_review_execute_large_file_truncation_hazard_tic223 (tic 223→226). Source: ~/.claude/projects/-Users-breydentaylor-canonical/memory/MEMORY.md:tic-223-session-lessons. Band: COGNITIVE. -->
+
+---
+
+## Harmony Cadence Mod-Disagreement (Concrete Conductor-Score-Runtime Parity Instance)
+<a id="harmony-cadence-mod-disagreement-concrete-conductor-score-runtime-parity-instance"></a>
+<!-- ledger-tags: authority_class=mandate_and_cadence_ops | rung=domain | domain=context-grapple-gun | dehydrated_tic=314 -->
+
+Concrete instance of Conductor-Score-Runtime Parity (federation KI) at the cadence-ops scheduler. cadence-ops.compute_due_cycles named harmony_invoke at tic % 4 == 0 (paired with pattern_mining); audit-logs/harmony/invocations.jsonl recorded harmony fires at tics 215, 219, 223 — all tic % 4 == 3, off by one full cycle from the declared schedule. Score and runtime disagreed for at least 3 cross-tic instances before discovery. Discovery vector: ambient render age (◐ aging t-3 at tic 226) made the staleness visible only because the radar's harmony tail decoder was invoked. Without the decode pass, the disagreement would have continued indefinitely. Pairs with the federation-rung Spec-runtime alignment by accident invariant (alignment between two forces never explicitly coordinated) — here the misalignment was visible only because a third surface (radar tail decoder) sampled both. Mitigation: cadence-ops harmony_invoke moves from `tic % 4 == 0` paired with pattern_mining to per-tic firing (matches the Slice as Bounded World Preservation cascade requirement that harmony be a per-tic Layer-1 contributor). The runtime fix lands at the cadence-ops layer; this CGG-rung CogPR captures the discovery and the diagnostic discipline (decode ambient state when available; do not assume cadence parity). Cross-tic n=3 (tics 215/219/223 confirmed disagreement instances).
+
+<!-- promoted from cpr_harmony_cadence_mod_disagreement_tic226 (tic 226→237, /review Pass 2 governance sprint). Concrete instance of federation KI Conductor-Score-Runtime Parity at cadence-ops boundary. Pairs with already-promoted "Cadence-Ops Scheduler Doctrine-Runtime Parity" (this file) and "Spec-runtime alignment by accident is structural drift, not victory" (federation root). Source: ~/.claude/projects/-Users-breydentaylor-canonical/memory/MEMORY.md:tic-226-session-lessons. Band: COGNITIVE. -->
+
+---
+
+## Trigger-Router Starvation + Cadence-Ops Mandate-Write Bypass (Concrete Conductor-Score-Runtime Parity Instance) *(naming PROMOTED; runtime patch PROMOTE-SPEC, tic 299)*
+<a id="trigger-router-starvation-cadence-ops-mandate-write-bypass-concrete-conductor-score-runtime-parity-instance-naming-promoted-runtime-patch-promote-spec-tic-299"></a>
+<!-- ledger-tags: authority_class=mandate_and_cadence_ops | rung=domain | domain=context-grapple-gun | dehydrated_tic=314 -->
+
+Federation KI *Trigger routing is mandatory — entity activation routes through inbox delivery; direct activation is exception-only.* The trigger-router is the manifest-validated, dedup-enforced, audit-logged dispatch primitive that enforces this. As of the tic-273 deep probe the router had been dormant ~85 tics (last fire tic 187). Probe verdict: **STARVED, not dead** — alive, wired, byte-identical canonical↔installed, manifest-active, would dispatch correctly if invoked.
+
+**Acute live bypass**: `cadence-ops.py write_cadence_mandate` writes the next-tic Mogul mandate via direct `mandate-write.py` calls, completely bypassing the trigger-router. Every /cadence-emitted mandate is therefore an undeclared doctrinal exception with no `exception_class` in the manifest — 85+ silent exceptions since tic 188. This is the canonical concrete instance of *Conductor-Score-Runtime Parity* at the cadence-ops layer: doctrine says "trigger routing mandatory"; the runtime path circumvents the only mechanism that enforces it.
+
+**Three additional should-fire-but-don't gaps**: (1) `arena.pressure` / `arena.harpoon_assessment` — arenas fired repeatedly (tics 220-270+) but arena-pressure-ingest.py never calls the router; (2) `swarm.task_dispatch` — substantial /swarm activity (tics 256-272+) without per-task envelope routing; (3) `estate_inbound_packet` — schema + ent_estate_router inbound dir exist, but no estate-side caller invokes the router. Plus 14+ manifest trigger classes that have NEVER fired across 573 logged events — the manifest mixes forward-spec / dormant / active-but-unwired states without discrimination, overstating the router's starvation.
+
+**Two-part remediation**:
+- **(A) Runtime patch (CGG-rung, PROMOTE-SPEC)** — cadence-ops `write_cadence_mandate` calls the trigger-router subprocess after constructing the mandate body. One subprocess invocation closes the most acute live violation. Implementation defers to a subsequent /review gate per *Verdict-Shape Discriminates Execution Gate*. When the patch lands, the router log should carry a `synthesized: true` boundary marker noting the 85-tic gap (CGG KI *Backfill After Emission-Gap Closure*).
+- **(B) Manifest class-narrowing (CGG-rung operational doctrine)** — per-class decision on the 14+ never-fired classes: forward-spec (`status: forward`), dormant (relocate to deferred manifest), or active-but-unwired (find the should-fire emitter and wire it).
+
+**Falsification**: if the cadence-ops patch lands and the router still doesn't fire on per-cadence mandate writes, the bypass class is broader than the single caller — audit ALL `mandate-write.py` call-sites.
+
+Composes with: federation KIs *Trigger routing is mandatory* (this names a concrete same-class violation), *Conductor-Score-Runtime Parity* (the canonical example — router enforces, writer bypasses), *Spec-runtime alignment by accident is structural drift* (the bypass survives because manifest-validation has been single-class for 85+ tics), *Bounded delegation surfaces default to masking bugs* (the mandate-write boundary masked the bypass); CGG-rung *Mandate Lifecycle Defects* (the tic-108 idempotency fixes inadvertently created the direct-emission bypass path). Probe n=1 (tic 273); the bypass itself is cross-tic n≥85.
+
+**Lock line**: *Doctrine says route; cadence-ops writes direct. Name the bypass, then close it.*
+
+<!-- promoted from cpr_trigger_router_starved_cadence_ops_bypass_conductor_score_runtime_parity_instance_tic273 (tic 273→299, /review brought forward to tic 299). Naming PROMOTED CGG-rung; runtime patch (A) is PROMOTE-SPEC per Verdict-Shape KI — implementation defers to a subsequent gate. Sibling to "Harmony Cadence Mod-Disagreement" (same Conductor-Score-Runtime Parity class at cadence-ops). Probe n=1 / bypass n≥85. Band: COGNITIVE. -->
+
+---
+
+## Even-Tic Review-Close Routing (/review Step 8.5 Discipline)
+<a id="even-tic-review-close-routing-review-step-8-5-discipline"></a>
+<!-- ledger-tags: authority_class=mandate_and_cadence_ops | rung=domain | domain=context-grapple-gun | dehydrated_tic=314 -->
+
+/review Step 8.5 mandates writing a non-blocking review-close mandate so the next session verifies inscriptions landed. But the cadence-ops off-by-one schedule deterministically includes `review_close_check` in every EVEN tic's mandate. When the next cadence tic is even, writing a separate review-close mandate to current.json is redundant, risks double `review_close_check` execution (benign per the Artifact-Count-≠-1 Fix-Family but noisy), and overwrites a consumed mandate mid-session.
+
+Discipline: before writing a Step 8.5 review-close mandate, check whether the next cadence tic is even. If EVEN (review_close_check deterministically due), ROUTE the review-close obligation to that cadence cycle — log the intent to grapple-meta-log rather than writing a separate mandate. If ODD (no deterministic review_close_check), write the mandate per Step 8.5. This extends the concurrency-guard's SPIRIT (avoid mandate collisions) to the consumed-mandate + deterministic-even-tic case the literal guard does not cover.
+
+Composes with: federation KIs *Conductor-Score-Runtime Parity* and *Composite mutation scheduling requires explicit assessment*; CGG-rung *Cadence-Ops Scheduler Doctrine-Runtime Parity* and *Mandate Lifecycle Defects* (concurrency guard); the cadence-ops off-by-one fix-family (cross-tic n=5, tics 297-301). Implementation of the Step 8.5 even-tic-routing branch in the installed /review SKILL.md is a follow-on per *Verdict-Shape Discriminates Execution Gate*.
+
+<!-- promoted from cpr_review_close_routes_to_deterministic_even_tic_review_close_check_not_separate_mandate_tic299 (tic 299→301, /review tic 301). Doctrine PROMOTED CGG-rung; SKILL.md Step 8.5 branch edit is the follow-on implementation. Self-exemplified at tic 301 (odd tic → Step 8.5 wrote the review-close mandate). Band: COGNITIVE. -->
+
+---
+
+## Inline-Tracked CogPR DEFER Keeps status:pending (/review Step 7 Discipline)
+<a id="inline-tracked-cogpr-defer-keeps-status-pending-review-step-7-discipline"></a>
+<!-- ledger-tags: authority_class=pipeline_and_integration | rung=domain | domain=context-grapple-gun | dehydrated_tic=314 -->
+
+When a /review DEFER verdict lands on an INLINE-tracked CogPR (one that lives as a `status: pending` block in MEMORY.md and is NOT resident in queue.jsonl), do NOT change its inline status to enrichment_eligible/deferred (the skill's literal Step 7 DEFER handling) AND do NOT write a terminal/non-pending entry to queue.jsonl. The cpr-extract inline tracker counts blocks by literal `status: pending` (CGG KI *Inline CogPR status:pending Field Required*); changing the inline status drops the block from the banner's inline-pending count with no guaranteed re-surfacing, while a terminal queue.jsonl entry makes governance_query report it terminal — producing a dual-counter disagreement (banner says gone, queue says terminal, lesson meant to re-surface).
+
+Correct DEFER discipline for inline-tracked CogPRs: KEEP `status: pending` and add advisory annotation fields (`last_reviewed_tic`, `defer_until_tic`, `defer_reason`). The block stays in the inline-pending set, re-surfaces at the defer_until_tic gate, and queue.jsonl stays silent on it — banner and governance_query remain in agreement. Write queue.jsonl terminal entries only for genuinely terminal PROMOTE/SKIP verdicts, not for tic-gated DEFERs of inline CogPRs.
+
+Distinguish from queue-resident CogPRs: when a DEFER'd CogPR is already extracted into queue.jsonl, the skill's enrichment_eligible flow IS correct (append the enrichment_eligible entry; latest-entry-per-id wins). The inline-vs-queue-resident branch is the discrimination Step 7 currently omits.
+
+Composes with: CGG KI *Inline CogPR status:pending Field Required*; federation KI *Disagreement-as-evidence* (this PREVENTS a spurious dual-counter disagreement). Implementation of the Step 7 branch in the installed /review SKILL.md is a follow-on per *Verdict-Shape Discriminates Execution Gate*.
+
+<!-- promoted from cpr_inline_tracked_cogpr_defer_keeps_status_pending_avoids_dual_counter_disagreement_tic299 (tic 299→301, /review tic 301). Doctrine PROMOTED CGG-rung; SKILL.md Step 7 branch edit is the follow-on implementation. Self-exemplified at tic 301 (CogPR-2 DEFER used the queue-resident enrichment_eligible flow). Band: COGNITIVE. -->
+
+---
+
+## Artifact-Count-≠-1 Fix-Family (Emit-Side Complement to Authoritative-Set Readers)
+<a id="artifact-count-1-fix-family-emit-side-complement-to-authoritative-set-readers"></a>
+<!-- ledger-tags: authority_class=pipeline_and_integration | rung=domain | domain=context-grapple-gun | dehydrated_tic=314 -->
+
+Artifact-count-≠-1 is a single failure class spanning both N=0 (no report) and N=2 (duplicate report) cardinalities — not two separate per-incident bugs. The failure surfaces in at least two operational lanes: (1) signal manifold dual-emission (manifest-prune debt from Debt B / cpr_manifest_prune_terminal_state_per_id_tic228 — same signal entry appearing twice within an emission window), and (2) Mogul runner review_close_check artifact verification (tic-250 N=2 reports / sig_review_close_check_double_emission_tic250, tic-251 N=0 reports / mandate failure). Three cross-tic instances confirm structural recurrence rather than per-incident drift. The class is the emit-side complement to two existing federation KIs: *Authoritative-set readers must read the manifest, not aggregate raw emissions* (read-side dedup discipline) and *Terminal-State Valve Pattern* (read-side filter producing state from queue). This CGG-rung doctrine names what the read-side KIs assume but don't enforce: the emit side must produce one canonical row per (id, terminal_state) tuple, with dedup-on-emission rather than dedup-on-read absorbing the inflation. Fix-family framing routes a single remediation through three candidate seams: (a) runtime-side dedup-on-emission gate at the manifest-prune / review_close_check boundary, (b) downstream verification accepts N≥1 with terminal-state-valve absorption (treats N=2 as benign drift caught by reader-side dedup), or (c) upstream emission idempotency contract — emitters guarantee at-most-once per (id, terminal_state). The class also under-specifies its current signal name: `sig_review_close_check_double_emission_tic250` only names the N=2 sub-case; rename candidate `sig_review_close_check_artifact_count_violation` covers both N=0 and N=2 under one identity. Lock line: *Artifact-count-≠-1 is one class. Fix the emit side.*
+
+<!-- promoted from cpr_review_close_check_artifact_count_violation_fix_family_tic253 (tic 253→256, /review Pass 1 Object 7 routing). Cross-tic n=3 evidence: Debt B (cpr_manifest_prune_terminal_state_per_id_tic228 signal-manifold dual-emission) + tic-250 N=2 Mogul mandate + tic-251 N=0 Mogul mandate. Composes with federation KIs Authoritative-set readers + Terminal-State Valve Pattern (this fix-family is the emit-side complement). Surfaced for /review by tic-255 cadence handoff as ITEM 0 (review_close_check inhibition cycle 4 escalation beyond ≥3-cycle threshold) routed to ITEM 1 (Object 7 durable remediation). Band: COGNITIVE. Source: /review tic 253 Object 7 SURFACE-FIX-FAMILY verdict + tic 254 META design + tic 255 cadence inhibition surfacing. -->
+
+---
+
+## Mixed Subagent + Lead Swarm Geometry
+<a id="mixed-subagent-lead-swarm-geometry"></a>
+<!-- ledger-tags: authority_class=subagent_and_swarm_delegation | rung=domain | domain=context-grapple-gun | dehydrated_tic=314 -->
+
+When a tranche set has mixed authorship — 1 subagent for large-surface authoring (where fresh-context constraint inversion is valuable for catching latent bugs) + N lead-direct for smaller or manual operations (where session-context familiarity is load-bearing) — parallel throughput is preserved without overspawning subagents. The geometry's load-bearing claim is that subagent dispatch and lead-direct execution are not mutually exclusive within one swarm boundary; mixed authorship is the throughput-vs-overhead optimum when each tranche carries different cognitive-budget characteristics.
+
+**Constraint**: composes with Spec-First Parallel Swarm (parent; spec authoring must complete before swarm dispatch), Region-Level File Ownership in Parallel Swarms (ak-control-room domain KI; sub-file granularity for collision avoidance), Evidence Scaffold Precedes Reasoning (federation KI; typed checkpoint commitment before downstream agents spawn), `feedback_no-haiku-default` (subagent model floor is sonnet, never haiku, per Review-Execute Large-File Truncation Hazard).
+
+**Explanation**: pure subagent dispatch overspawns when small or lead-context-dependent tranches don't benefit from fresh-context constraint inversion (the subagent loses session-arc context that the lead carries cheaply). Pure lead-direct dispatch saturates the lead's context window when one tranche has large authoring surface. Mixed geometry resolves both failure modes: large-surface tranche goes to a subagent (cheap fresh-context); small or session-context-dependent tranches stay lead-direct (preserved continuity). The geometry is not a parallelism shortcut — it is a per-tranche cognitive-budget routing primitive.
+
+**Evidence**: cross-tic n=3. (1) Tic 256 T2 swarm: T2a subagent (~80+ lines new file authoring) + T2b/T2c/T2d lead-direct (smaller ops) — zero file collisions. (2) Tic 257 T3 swarm: T3a/T3b/T3c subagents (parallel adapter+state+endpoint authoring) + T3d lead-direct (block authoring) — zero collisions. Both within same-physical-session arc under Architect-Authorized Cadence Compression. (3) Tic 259 T6 swarm at independent-session boundary: T6a lead-direct (~12-line cadence-ops patch) + T6b subagent dispatch (~127-line POST handler) — zero collisions, tsc clean, runtime-sync byte-parity verified. The third instance closes the cross-tic exercise eligibility gap (independent-session boundary, not same-arc within one tic) that pure same-arc evidence could not satisfy under Temporal-Scope Precision discipline.
+
+**Ray-preservation note (harmony tic 259, `repair-before-lock`)**: harmony's caution at /review tic 259 flagged this inscription as lock-class and suggested deferring one more cycle for additional independent-session evidence. Architect approved Option A (full slate); the ray is preserved by recording the caution here rather than flattening it. Future cross-tic exercises should continue to be observed; if the geometry under-performs at a 4th instance, this inscription is the load-bearing reference for a /review re-evaluation.
+
+**Lock line**: *Subagent for size, lead for context; mixed within budget.*
+
+<!-- promoted from cpr_mixed_subagent_lead_swarm_geometry_tic257 (/review tic 259 Option A — full slate). Cross-tic n=3 evidence: tic 256 T2 + tic 257 T3 same-arc + tic 259 T6 independent-session. Composes with CogPR-140 Spec-First Parallel Swarm, ak-control-room domain KI Region-Level File Ownership, federation KI Evidence Scaffold Precedes Reasoning, MEMORY feedback_no-haiku-default. Harmony tic 259 `repair-before-lock` caution preserved in ray-preservation note (not flattened). Band: COGNITIVE. Source: cadence handoff tic 257 + cross-tic exercise tic 259 T6 swarm. -->
+
+---
+
+## R²-Roadrunner Runtime Context Sharpening Pattern
+<a id="r-roadrunner-runtime-context-sharpening-pattern"></a>
+<!-- ledger-tags: authority_class=pipeline_and_integration | rung=domain | domain=context-grapple-gun | dehydrated_tic=314 -->
+
+R²-Roadrunner (Recursive-Refinement Roadrunner) names the runtime-context sharpening pattern where a coarse single-binder hydrate at session entry is iteratively narrowed by follow-on probes until the working scope is bounded enough for direct mutation. The name registers the dual recursion: the binder resolves recursively (R²: read full, then read narrower window, then read line range), and the operator runs recursively (Roadrunner: each probe sharpens the next, never blocks). The pattern is the canonical mechanism for bounded source-bearing context expansion when a session inherits a coarse handoff and needs to produce a precise mutation.
+
+**Constraint**: composes with `/tactical-hydration` (RTCH; the broader staged-discovery surface that produces the binder basket), Spec-First Parallel Swarm (CogPR-140; the binder is the spec's source for downstream agent scope), `Look-First — Read Active Plan File Before Plan-Write` (federation KI; the recursive sharpening starts at the plan file), Bounded delegation surfaces default to masking bugs (federation KI; R² is the read-side discipline that the bounded subagent cannot perform from cold context). The pattern does NOT replace RTCH or Look-First — it operationalizes them at the single-binder boundary.
+
+**Explanation**: a session inherits a handoff that names many binders (Plan, Queue, Mandate, Disposition, Receipt, etc.) but cannot operate on all of them at once. Without R², the session either reads everything (context overflow) or guesses which binder to read first (premature scope commitment). With R²: pick the binder pointing at the hottest unresolved pressure (typically `@OpenRay.0`), read full via the single-binder hydrate method (e.g., `read_full` for a small file, `jsonl_tail` for an append-only stream), then narrow recursively — `rg_window` for keyword location, `read_lines` for line-range extraction, `jsonl_grep` for status filtering. The recursion terminates when the working scope is small enough that the mutation can be authored without further reads.
+
+**Evidence**: T5c (tic 258) implemented all 9 hydrate methods including `read_full` (single-binder, R²'s entry point) at CGG `d2935c2`. T5c smoke-tested against live n=2 cadence-block (`@Mandate.0 read_full`, `@Tic.0 jsonl_tail`, `@Posture.0 rg_window`) — three Roadrunner sharpening probes against three distinct binders. Tic 259 T6 implementation arc exercised the pattern operationally: T6a's lead-direct path used R² over the cadence-ops.py file (no subagent overhead because the binder was narrow); T6b's subagent path needed broader context (vite-governance-api.ts at 2626 lines) and dispatched with the spec section as a curated narrow binder rather than blanket file read. The R² discipline shaped the dispatch geometry choice itself.
+
+**Ray-preservation note (harmony tic 259, `repair-before-lock`)**: harmony's caution flagged this inscription alongside Mixed Swarm Geometry. The unblock condition (T5c Bite 4 implementation) is mechanically satisfied at CGG `d2935c2`; the rationale was authored at tic 256 and the gate cleared at tic 258. The harmony caution here reads as a general "preserve the rays" stance on simultaneous lock inscriptions, not a specific objection to R²-Roadrunner's evidence base. Architect approved Option A (full slate); the ray is preserved by recording the caution rather than flattening it.
+
+**Lock line**: *Roadrunner the binder until the scope is bounded; recursion terminates at the mutation boundary.*
+
+<!-- promoted from cpr_r2_roadrunner_runtime_context_sharpening_pattern_tic256 (/review tic 259 Option A — full slate). Unblocked from /review tic 257 ITEM 1 (UNBLOCKED-PENDING-BITE-4-IMPLEMENTATION) by T5c Bite 4 landing at CGG d2935c2 (tic 258). Composes with /tactical-hydration (RTCH parent), CogPR-140 Spec-First Parallel Swarm, federation KI Look-First, federation KI Bounded delegation surfaces. Harmony tic 259 `repair-before-lock` caution preserved in ray-preservation note (not flattened). Band: COGNITIVE. Source: cadence handoff tic 256 + T5c implementation tic 258 + T6 swarm exercise tic 259. -->
+
+---
+
+## Generator-vs-Local-Repair Gap (Handoff Title Format)
+<a id="generator-vs-local-repair-gap-handoff-title-format"></a>
+<!-- ledger-tags: authority_class=forensic_and_drift_investigation | rung=domain | domain=context-grapple-gun | dehydrated_tic=314 -->
+
+When a convention drift recurs across sessions (cross-tic n≥3 instances) and originates in a TEMPLATE that agents follow (skill body, spec, mandate format), the fix MUST land at the generator surface. Patching the local emission (one handoff) leaves the next emission free to reproduce the drift because the next author reads prior templates as precedent. Templates carry forward; local repairs do not.
+
+**Pattern**: handoff title format must distinguish work_tic (the tic the session actually worked under = `counter_before`) from entry_tic (the tic emitted by /cadence for the next session = `counter_after`). Use: `tic{work_tic}-close-for-tic{entry_tic}-entry`. Forbidden anti-pattern: titles like `tic{emitted_tic}-close` alone — these conflate emission-tic with work-tic and propagate off-kilter framing into the next session's framing inheritance.
+
+**Constraint**: composes with federation KI *Conductor-Score-Runtime Parity* (the cadence skill is the score; handoff agents are the runtime; off-kilter titles are the parity gap), federation KI *Spec-runtime alignment by accident is structural drift* (titles-tolerated-anyway is the lucky alignment pattern), federation KI *First-Use Surfacing Protocol* (work_tic / entry_tic are candidate_reserved vocabulary; first compliant title is the surfacing boundary). Operationalizes cadence/SKILL.md Step 4 (Write the Handoff as the Plan).
+
+**Explanation**: downstream consumers (next session's framing, /review docket attribution, audit-log narration, conformation references) all inherit the title's tic number as the canonical work-tic. Mis-labeling silently shifts the federation's perception of when work happened by one tic, compounding across review cycles. The generator-surface fix is structural; comment-level reminders at the emission point are insufficient because the next author reads prior emissions as templates.
+
+**Evidence**: cross-tic n≥3 — three distinct handoff titles exhibiting the conflation pattern across tics 261-263. Architect-locked verification test inscribed (next /cadence's handoff title format is the falsification gate). Validated cross-tic n=1 at tic 267 cadence emission (title `tic266-close-for-tic267-entry` produced clean +1 emission with no phantom — falsification test PASSES).
+
+**Lock line**: *Templates carry forward; local repairs do not. Fix the generator.*
+
+<!-- promoted from cpr_tic_framing_convention_off_kilter_work_tic_vs_emission_tic_tic262 (/review tic 267). Cross-tic n≥3 drift evidence (tics 261-263) + cross-tic n=1 falsification-test pass (tic 267). Composes with federation KIs Conductor-Score-Runtime Parity, Spec-runtime-alignment-by-accident, First-Use Surfacing Protocol. Band: COGNITIVE. Source: cadence handoff tic 263 + validation tic 267. -->
+
+---
+
+## Inline CogPR status:pending Field Required
+<a id="inline-cogpr-status-pending-field-required"></a>
+<!-- ledger-tags: authority_class=review_and_promotion_discipline | rung=domain | domain=context-grapple-gun | dehydrated_tic=314 -->
+
+Inline CogPR inscriptions in MEMORY.md (and other extractor-watched surfaces) MUST carry an explicit `status: pending` field, placed immediately after `id:` in the YAML body. cpr-extract.py treats absence-of-status as "skip with skipped_no_status counter increment" — the block is recognized, parsed, and discarded. The skip is silent at the per-block level: writers cannot detect the failure without explicit queue.jsonl grep after extraction.
+
+**Pattern**: every inline CogPR block must declare `status: pending` adjacent to its `id:` field. The discipline complements but is distinct from *CogPR Marker Syntax Discipline* (which catches closed-form `<!-- --agnostic-candidate -->` openers) — both are silent-skip inscription-discipline failures that the Edit tool cannot catch and the extractor silently absorbs.
+
+**Constraint**: composes with *CogPR Marker Syntax Discipline* (same family — silent-skip inscription class), *CogPR-77 Extractor Anomaly Self-Reporting* (aggregate-level anomaly logging that should be extended to per-block skip-id logging at runtime patch layer), federation KI *Bounded delegation surfaces default to masking bugs* (the parser is the bounded delegate that silently masks authoring errors instead of warning). Promotion target is cadence/SKILL.md Step 2 authoring template plus per-block skip-id logging at the extractor.
+
+**Explanation**: cpr-extract.py treats `status` absence as "block not ready for queue" (intentional state machine — only `status: pending` blocks should flow to queue.jsonl). But many existing inscribed blocks lack the field explicitly, so writers inheriting them as templates inherit the omission. The aggregate counter increments but no per-id surfacing fires, so the authoring session passes through with apparent success. Authoring-side discipline (always include `status: pending`) compounds with extractor-side discipline (per-block skip-id logging) to close the silent-skip gap.
+
+**Evidence**: same-tic n=2 within tic 263 arc (both candidates inscribed without status, both silently skipped, both fixed by status:pending insertion). Cross-tic family at n=4 (Inscription-discipline silent-skip family: CogPR Marker Syntax + status:pending + parser-path-drift authoring + parser-path-drift validation). Validation receipt: cpr-extract second-run counters `blocks_extracted=8` (up from 6), `written_to_queue=2` (up from 0), `skipped_no_status=10` (down from 12, matching the +2 status-fixed blocks).
+
+**Lock line**: *Every inline CogPR carries `status: pending` adjacent to `id:`. Silent skip is failure, not absence.*
+
+<!-- promoted from cpr_inline_cogpr_status_pending_field_required_silent_skip_tic263 (/review tic 267). Same-tic n=2 + Inscription-discipline family cross-tic n=4. Composes with CogPR Marker Syntax Discipline, CogPR-77 Extractor Anomaly Self-Reporting, federation KI Bounded delegation surfaces. Band: COGNITIVE. Source: cadence handoff tic 263. -->
+
+---
+
+## Cadence Skill Parser Path Drift Discipline
+<a id="cadence-skill-parser-path-drift-discipline"></a>
+<!-- ledger-tags: authority_class=mandate_and_cadence_ops | rung=domain | domain=context-grapple-gun | dehydrated_tic=314 -->
+
+When a runtime script emits JSON at top-level keys but the skill body documents a wrapper path (`result.tic.counter_after` rather than top-level `tic.counter_after`), a /cadence author who follows the spec literally produces empty parsed values and may misinterpret success as failure — leading to re-invocation and phantom counted tics on top of legitimate emissions.
+
+**Pattern**: skill body documentation of mechanical-script output schemas must match the actual emission shape byte-for-byte. When a divergence is detected, the fix is structural at the skill body (the generator/template surface), not at each emission site. Patches landed under *Governance Tool Urgency Triage* qualify for immediate runtime authority — code-wrong, doctrine-intact.
+
+**Constraint**: composes with federation KI *Governance Tool Urgency Triage* ("Is the code wrong, or is the doctrine incomplete?" — code-wrong fixes land under existing doctrine authority; learning routes through /review), federation KI *Spec-runtime alignment by accident is structural drift, not victory* (the parser-tolerated-anyway pattern is the lucky alignment that hides the drift until phantom tic emission surfaces it), and *Generator-vs-Local-Repair Gap* (sibling discipline at handoff-title surface).
+
+**Explanation**: cadence-ops.py emits `{tic: {...}, conformation: {...}, mandate: {...}}` at top level. A SKILL.md snippet documenting `result.tic.counter_after` causes the author's parser to read `data.get('result', {}).get('tic', {})` — an empty dict — and misinterpret the cadence emission as failed. Re-invocation produces a phantom counted tic on top of the legitimate one. Append-only tic invariant forbids rollback; the phantom is permanent provenance noise. Fix at the SKILL.md generator surface; downstream emissions inherit the corrected schema automatically.
+
+**Evidence**: cross-tic n=1 at tic 264 incident (phantom tic 266 produced by parser-path-drift after legitimate tic 265 emission). Fix landed at CGG `e2f5d18` under Urgency Triage (tic 266). Cross-tic n=1 validation at tic 267 cadence emission (clean +1, no phantom). Part of Inscription-discipline silent-skip family at cross-tic n=4.
+
+**Lock line**: *Spec documents what runtime emits, byte-for-byte. Drift means generator-side fix.*
+
+<!-- promoted from cpr_cadence_skill_md_step_0_5_parser_path_drift_tic264 (/review tic 267). Cross-tic n=1 incident (tic 264) + cross-tic n=1 fix validation (tic 267). ABSORB-class child: cpr_parser_path_drift_fix_validated_cross_tic_n1_tic267 (the validation evidence). Composes with federation KIs Governance Tool Urgency Triage, Spec-runtime-alignment-by-accident, sibling Generator-vs-Local-Repair Gap. Band: COGNITIVE. Source: cadence handoff tic 264 + fix CGG e2f5d18 + validation tic 267. -->
+
+---
+
+## Atomic Dual-Surface Invariant Mechanization
+<a id="atomic-dual-surface-invariant-mechanization"></a>
+<!-- ledger-tags: authority_class=verification_and_proof_discipline | rung=domain | domain=context-grapple-gun | dehydrated_tic=314 -->
+
+When a runtime script implements one half of an atomic dual-surface invariant but fails the other half mechanically, the patch is structural (add the missing collapse step) — not narrative (re-explain the discipline in comments). Doctrine names the invariant; runtime must mechanize it. Where the runtime is missing the discipline, fix the runtime; don't inscribe more doctrine around the gap.
+
+**Pattern**: any time a write-side discipline (append-resolution, append-then-collapse) couples to a read-side mechanism (prune/projection), the read-side must honor the write-side's intended semantics. Latest-entry-per-id is the universal collapse primitive for append-only emission surfaces in this federation; mechanisms that read those surfaces without applying it produce orphan-row drift.
+
+**Constraint**: refines existing CGG KI *Signal Resolution Writeback Atomicity (Dual-Surface)* by completing the read-side mechanization. Composes with federation KI *Authoritative-Set Readers Must Read the Manifest* (same authoritative-set discipline applied at the prune mechanism layer), federation KI *Three-Layer Terrain Architecture* (Layer 1 daily files remain append-only invariant; Layer 2 manifest is the curated projection where collapse + partition apply), and federation KI *Governance Tool Urgency Triage* (code-wrong, doctrine-intact — patch under existing authority).
+
+**Explanation**: manifest-prune.py historically partitioned per-row by structural_status without latest-entry-per-signal_id collapse. Two failure modes resulted: (1) append-a-resolved-row writeback left orphan active rows behind — the resolved row archived but the original active row remained in keep, so the signal continued to surface as active on next Mogul signal_scan; (2) physical duplicate rows for same signal_id retained per-row, inflating physical manifest size. The patch adds a first-pass latest-by-key collapse before the projection+partition pass. The pattern generalizes beyond signals: queue.jsonl, conformation files, mandate history — wherever append-only emission carries a "latest wins" semantic, readers must apply collapse.
+
+**Evidence**: same-tic n=2 within tic 263 arc (atomic dual-surface fix-up for sig_review_close_check_double_emission + manifest-prune collapse patch, both under Governance Tool Urgency Triage). Validated at tic 262: manifest 6 rows → 4 rows, 4 unique signal_ids, 4 active under Mogul filter. Patches: CGG `7540cc3` + canonical `12b6760` runtime apply.
+
+**Lock line**: *Where doctrine names a discipline and runtime mechanizes only half, patch the mechanism — not the comments.*
+
+<!-- promoted from cpr_manifest_prune_latest_entry_per_id_collapse_before_partition_tic263 (/review tic 267). Same-tic n=2 + cross-tic exercise eligible at any future append-only emission surface where reader/writer disciplines couple. Refines CGG KI Signal Resolution Writeback Atomicity. Composes with federation KIs Authoritative-Set Readers Must Read the Manifest, Three-Layer Terrain Architecture, Governance Tool Urgency Triage. Band: COGNITIVE. Source: cadence handoff tic 263 + patches CGG 7540cc3 / canonical 12b6760. -->
+
+---
+
+## Cross-File Pointer Integrity Verification
+<a id="cross-file-pointer-integrity-verification"></a>
+<!-- ledger-tags: authority_class=verification_and_proof_discipline | rung=domain | domain=context-grapple-gun | dehydrated_tic=314 -->
+
+When a multi-file refactor produces a new authoring artifact whose body contains pointers (anchors, hyperlinks, refs) into a companion artifact, the pre-swap verification gate MUST include a pointer-integrity diff: count pointer references from artifact A against anchor definitions in artifact B and assert all references resolve. Bounded delegation surfaces silently build broken-pointer infrastructure when the spec implies the pointers work but doesn't enforce verification.
+
+**Pattern**: any refactor producing compact + ledger, index + content, summary + detail, or pointer-A → anchor-B structure must include pointer-integrity verification at the pre-mutation gate. Adding pointer syntax without verification creates silent broken-link infrastructure that compounds across consumers (next session's framing, /review docket attribution, downstream readers). Differential count (refs in A vs defs in B) is the load-bearing primitive — not a sample of "looks right."
+
+**Constraint**: refines federation KI *Bounded delegation surfaces default to masking bugs by default* (that invariant NAMES the failure class — broken delegation surfaces produce false-completion reports; this KI NAMES the prevention discipline — pointer-integrity diff at the swap boundary). Composes with federation KI *Constitutional refactor must run under /review freeze on same-surface promotions* (the freeze provides the temporal window for verification; pointer-integrity is the structural check inside that window).
+
+**Explanation**: subagent-authored compact + ledger refactors produce divergent half-built artifacts when the subagent treats the two as independent outputs rather than coupled surfaces. The compact root contains pointer syntax; the ledger contains anchor syntax. Both surfaces can pass per-artifact validation (markdown lints, structure checks, body completeness) and still produce 100% broken pointers if no consumer ever counts references against definitions. The check is mechanical: `count(ref-pattern in A) == count(matching-anchor-pattern in B)` and `every ref in A has matching anchor in B`. Sub-second runtime; catches the failure class that bounded delegation makes invisible.
+
+**Evidence**: same-tic n=1 at tic 267 Pass-4-C swap boundary — subagent-authored compact-root-pass4.md contained 38 *Ledger:* pointers each referencing ledger.md#anchor-slug; subagent's ledger.md had 83 anchors but NONE matched the 38 compact-root anchors (the ledger held only DEMOTED entries, not compact-root entries). 38/38 broken pointers caught pre-swap by differential count. Lead-direct fix extended ledger with "Compact-Root Source Bodies" section preserving verbatim full text + provenance for all 38 entries, restoring Layer 1 invariant compliance. Post-fix: 0/38 broken pointers; 5/5 sampled anchors verified resolving after swap. Cross-tic exercise eligible at any future multi-file refactor with pointer/anchor structure.
+
+**Lock line**: *Count references against definitions before swap. Bounded delegation does not catch pointer drift.*
+
+<!-- promoted from cpr_cross_file_pointer_integrity_verification_before_atomic_swap_tic267 (/review tic 269 → 270). Same-tic n=1 (Pass-4-C swap boundary); cross-tic exercise eligible at next multi-file refactor with pointer/anchor structure. Refines federation KI Bounded delegation surfaces default to masking bugs. Composes with Constitutional refactor must run under /review freeze. Band: COGNITIVE. Source: tic 267 close handoff + Pass-4-C verification incident. -->
+
+---
+
+## Cadence-Ops Fail-Soft Observability Subprocess Pattern
+<a id="cadence-ops-fail-soft-observability-subprocess-pattern"></a>
+<!-- ledger-tags: authority_class=mandate_and_cadence_ops | rung=domain | domain=context-grapple-gun | dehydrated_tic=314 -->
+
+When a canonical-side observability or audit primitive should fire each /cadence without coupling its lifecycle to CGG's mutation pipeline, the integration pattern is a fail-soft subprocess step in cadence-ops.py — discovered relative to zone_root, invoked via `subprocess.run` with `capture_output` + `timeout`, result embedded in cadence output JSON, errors absorbed into the result dict rather than blocking cadence emission.
+
+**Pattern**: every canonical-side per-tic audit/observability primitive integrates via the same shape — (1) discover script path relative to zone_root, (2) subprocess.run with capture_output=True + timeout, (3) embed result + ran/exit_code/healthy/summary into cadence output dict, (4) any exception absorbed into the result dict with `ran: false` + `error: <message>`. The cadence pipeline never raises on the integration; absence or failure of the primitive degrades observability, never blocks the tic.
+
+**Constraint**: complements existing CGG KI *Cycle-Based Windows in Mixed-Frequency Event Streams* (the cadence is the cycle; this is how external observers ride the cycle). Composes with federation KI *Bounded delegation surfaces default to masking bugs by default* (the fail-soft must capture errors in the result dict — silent absorption with no surfacing is the failure mode this pattern actively avoids). Generalizes the cockpit-intent-emit soft-fail import pattern from tic 267 T2b: cockpit-intent is a CGG-side library imported via sys.path (import class); memory-md-audit is a canonical-side standalone script invoked via subprocess (subprocess class). Both share fail-soft semantics across the integration-class axis.
+
+**Explanation**: per-tic observability primitives that block /cadence on their own failure mode create cross-surface fragility — a broken audit script halts governance, which is the opposite of the audit's purpose. The fail-soft subprocess pattern decouples observability lifecycle from cadence lifecycle while preserving per-tic firing cadence. The result dict carries enough state (ran, exit_code, healthy, summary) for downstream consumers (ReBru blocks, bench-packets, /review) to distinguish "audit ran healthy" from "audit ran with breach" from "audit unavailable." Errors are not swallowed — they are made structured.
+
+**Evidence**: same-tic n=1 first-fire at tic 269 cadence — memory-md-audit step returned HEALTHY embedded in cadence output (status=0, healthy=true, summary="[HEALTHY] MEMORY.md: 205 lines / 31,570 bytes"). Cross-tic n=2 with cockpit-intent-emit import pattern (tic 267 T2b): subprocess class + import class form the two-axis integration boundary for cadence-ops. Pattern is reusable for any canonical-side audit/observability primitive that should run per-tic but whose absence must not break /cadence.
+
+**Lock line**: *Per-tic external integrations into cadence-ops degrade observability on failure, never the tic. Errors are structured into the result dict — never swallowed.*
+
+**Instance — Path C `claude_agents_snapshot` (tic 273):** the cadence-ops `claude_agents_snapshot` step is a third instance of this pattern, alongside memory-md-audit (subprocess class) and cockpit-intent-emit (import class). Three clean fires at tics 271/272/273 with dynamic value variation (counts 1/2/1, each matching observed agent state) confirm live sensor reading rather than static configuration; the statusline `agents N (kinds)` FULL-mode segment is the consumer that surfaces the snapshot at glance speed (Architect perception substrate). Cross-tic n=3. Inscribed as an instance reference, not standalone doctrine — the live-sensor instantiation is the novel piece; the integration shape is the parent pattern (derivable from fail-soft subprocess + Authoritative Count Discipline + statusline architecture). Falsification: if the step produces zero counts when agents are demonstrably active (false-negative) or non-zero counts with no active agents (false-positive), the reading is not live and the instance is invalid.
+
+<!-- promoted from cpr_path_c_claude_agents_snapshot_cadence_ops_step_promotes_eligible_tic273 (tic 273→299, /review brought forward to tic 299). Inscribed as INSTANCE reference under the parent Fail-Soft Observability Subprocess Pattern per the candidate's own non-derivability self-assessment (borderline-derivable → instance, not standalone KI). Cross-tic n=3 (counts 1/2/1, tics 271/272/273). Band: COGNITIVE. -->
+
+---
+
+## Inline CogPR Schema Completeness Required
+<a id="inline-cogpr-schema-completeness-required"></a>
+<!-- ledger-tags: authority_class=review_and_promotion_discipline | rung=domain | domain=context-grapple-gun | dehydrated_tic=314 -->
+
+Inline CogPR inscriptions in MEMORY.md (and other extractor-watched surfaces) MUST carry three Tier 1 schema-completeness fields: `status: pending`, `lesson:`, and `source:`. Absence of any Tier 1 field triggers `skip_schema_incomplete` at cpr-extract (the block is recognized, parsed, and discarded silently). The skip is invisible at the per-block level — writers cannot detect failure without explicit queue.jsonl grep after extraction.
+
+**Pattern**: every inline CogPR block must declare all three Tier 1 fields adjacent to `id:`. The `status: pending` field alone is insufficient (cpr_inline_cogpr_status_pending_field_required_silent_skip_tic263); the `lesson:` field is the second Tier 1 field (cpr_inline_cogpr_lesson_field_required_sibling_to_status_pending_tic275); the `source:` field is the third. Tier 2 fields (`title`, `evidence`) and Tier 3 fields (`lesson` alone for minimal blocks) are additional — Tier 1 is the completeness floor.
+
+**Constraint**: unifies and supersedes the per-field discipline entries:
+- *Inline CogPR status:pending Field Required* (tic 263, promoted tic 267) — Tier 1 field 1
+- *lesson:* field sibling (tic 275) — Tier 1 field 2
+- Both are now instances of this unified parent: **any missing Tier 1 field = schema incomplete = silent skip**
+
+Composes with *CogPR Marker Syntax Discipline* (same silent-skip inscription-discipline family), *CogPR-77 Extractor Anomaly Self-Reporting* (aggregate anomaly logging; per-block skip-id logging is the runtime patch layer), federation KI *Bounded delegation surfaces default to masking bugs* (the parser is the bounded delegate that silently masks authoring errors).
+
+**Evidence**: tic 263 (n=2 within-arc: status:pending omission × 2) + tic 275 (lesson: omission surfaced via enrichment-swarm schema-completeness audit). Cross-tic inscription-discipline family n=4+ (CogPR Marker Syntax + status:pending + lesson: + parser-path-drift authoring + parser-path-drift validation).
+
+**Lock line**: *Every inline CogPR carries `status: pending`, `lesson:`, and `source:` adjacent to `id:`. Any missing Tier 1 field = silent skip.*
+
+<!-- promoted from cpr_inline_cogpr_lesson_field_required_sibling_to_status_pending_tic275 (tic 275→278) unified with cpr_inline_cogpr_status_pending_field_required_silent_skip_tic263 (tic 263→267). Unified parent inscribed at /review tic 278. Evidence: tic 263 status:pending n=2 + tic 275 lesson: field surface. Band: COGNITIVE. /review tic 278 verdict: PROMOTE CGG-rung unified parent. -->
+
+---
+
+## Memory-MD-Audit Breach Class Distinction
+<a id="memory-md-audit-breach-class-distinction"></a>
+<!-- ledger-tags: authority_class=memory_and_inscription_hygiene | rung=domain | domain=context-grapple-gun | dehydrated_tic=314 -->
+
+`memory-md-audit.py` breach detection must distinguish two structurally different breach classes — STRUCTURAL breaches and PENDING-STATE breaches — because their operational response and urgency are opposite.
+
+**Pattern**:
+- **STRUCTURAL breaches** (`orphan_files`, `dead_refs`): demand immediate fix. An orphan file (no index pointer) or a dead reference (pointer to non-existent file) is always wrong regardless of review window state. These are defects.
+- **PENDING-STATE breaches** (`inline_extraction_candidates` for sections pinned by `REVIEW_PINNED` locks on `status: pending` CogPRs): are expected pressure during active /review windows. They unlock automatically post-terminalization (when the CogPR is promoted, absorbed, or rejected). Treating them as urgency-level defects drives unnecessary trim cycles during the exact period when inline CogPRs are being reviewed.
+
+**Constraint**: composes with federation KI *Governance is instrumental, not terminal* (false urgency signals waste governance cycles on expected pressure, not real drift). Composes with *Inline CogPR Schema Completeness Required* (above — REVIEW_PINNED pressure is the expected companion to in-flight schema-complete CogPRs). Note: runtime patch needed — add `breach_class` field to `audit-logs/governance/memory-md-audit.py` per-finding output to enable downstream consumers (ReBru blocks, bench-packets) to filter by class. The runtime patch is a follow-up implementation tranche; this inscription anchors the doctrine.
+
+**Evidence**: REVIEW_PINNED inline_extraction_candidates were producing false /cadence urgency for ~10 tics (tic 266-276) because audit output did not distinguish expected pending-window pressure from structural defects. Doctrine: cross-tic n=1 first-fire (tic 276 audit-sweep during /review window).
+
+**Lock line**: *Structural breach = fix now. Pending-state breach = expected; wait for terminalization.*
+
+<!-- promoted from cpr_memory_md_audit_breach_class_distinction_pending_vs_structural_tic276 (tic 276→278). Source: tic 276 audit-sweep during /review window. Band: COGNITIVE. /review tic 278 verdict: PROMOTE CGG-rung. Runtime patch (breach_class field in memory-md-audit.py) is follow-up tranche. -->
+
+---
+
+## Triplet Self-Spawn for Substrate Moments — Three-Posture Instance Reference
+<a id="triplet-self-spawn-for-substrate-moments-three-posture-instance-reference"></a>
+<!-- ledger-tags: authority_class=subagent_and_swarm_delegation | rung=domain | domain=context-grapple-gun | dehydrated_tic=314 -->
+
+Triplet self-spawn dispatches three same-skill instances on a single substrate signal, differentiated by POSTURE (not task), so the postures triangulate into a synthesis no single posture would produce — sub-class of Mixed Subagent + Lead Swarm Geometry.
+
+**Instance reference**: at tic 274, a single substrate-moment signal (State-of-the-Federation autobiography arc) warranted three parallel postures: ENG/META (architectural framing), OPS/META (operational-status audit), ENG/DIRECT (implementation path). The three-way triangulation produced compound output that neither a single-posture agent nor a sequential three-step approach would have yielded in equivalent wall-clock time.
+
+**Constraint**: sub-geometry under *Mixed Subagent + Lead Swarm Geometry* (parent). Posture is the differentiating axis — not model, not task decomposition, not domain. Three postures are sufficient for substrate-moment triangulation; more than three postures typically indicates task decomposition rather than posture triangulation.
+
+**Promotion note**: cross-tic n=1 (tic 274 first-fire). PROMOTE-SPEC instance reference; named sub-geometry when cross-tic n=2 surfaces a second instance in a different domain. Holds for next /review.
+
+<!-- promoted-spec from cpr_triplet_self_spawn_for_substrate_moments_three_postures_tic274 (tic 274→278). Source: tic 274 State-of-the-Federation autobiography arc. Cross-tic n=1; instance reference under Mixed Subagent + Lead Swarm Geometry. Band: COGNITIVE. /review tic 278 verdict: PROMOTE-SPEC instance reference. -->
+
+---
+
+## Cross-Cadence-Rails + Inbox-Marker-Dependency-Satisfaction Primitive
+<a id="cross-cadence-rails-inbox-marker-dependency-satisfaction-primitive"></a>
+<!-- ledger-tags: authority_class=mandate_and_cadence_ops | rung=domain | domain=context-grapple-gun | dehydrated_tic=314 -->
+
+When the next session needs a hot-and-ready swarm at SessionStart, the prior session's /cadence is the lowest-cost moment to manufacture the swarm's contextual rails — dispatch parallel /tactical-hydration lanes, terminate each with /consolidate, and write the harvested packets to a stable rails directory referenced by an inbox-marker-dependency-satisfaction DAG that the next session's hook-derived dispatcher reads. The pattern decouples discovery (this tic, parallelizable, lead-supervised) from execution (next tic, hook-kicked-off, dependency-DAG-ordered) across the cadence boundary.
+
+**Two primitives this inscription names:**
+
+1. **Cross-Cadence-Rails** — manufacturing swarm context in the prior session's /cadence rather than cold-starting in the next. Rails directories under `audit-logs/swarms/` carry RTCH packets, slice baskets, and dependency declarations authored while context is hot. Next-session dispatch reads the rails; it does NOT re-derive context.
+
+2. **Inbox-Marker-Dependency-Satisfaction** — a DAG node structure in the inbox marker (e.g., `audit-logs/agent-mailboxes/ent_homeskillet/inbound/swarm-tic278/`) declaring `dependencies: [rail-T1, rail-T2, rail-T3]` where each dependency is a `status: complete` signal written by the rail's /consolidate step. The next session's hook-derived dispatcher reads the DAG and fires only when all declared dependencies are satisfied. This converts sequential guesswork into dependency-ordered parallel execution.
+
+**Recommended scopes (follow-up implementation tranches):**
+- `cgg-runtime/skills/swarm/SKILL.md` — doctrine the cross-cadence-rails authoring step
+- `cgg-runtime/skills/cadence/SKILL.md` — doctrine the prior-session rail-manufacturing step
+- Skill-body changes are follow-up tranches; this inscription carries the doctrine.
+
+**Evidence**: cross-tic n=2 validated this session arc (tic 277 authoring → tic 278 execution); tic 278 swarm consumed rails manufactured at tic 277 /cadence. The dependency-satisfaction DAG is the missing formal primitive that converts ad-hoc rail-reading into governed dependency-ordered dispatch.
+
+**At-scale refinement (tic 280)**: cross-tic n=3 first-fire at substantive parallel load — n=6 rails authored at tic 279 close (~190K total RTCH content across rail-T1 through rail-T6) consumed at tic 280 SessionStart by n=7 W1 subagents dispatched in a single tool-call block. Scaling observations: (i) wall-time savings of ~9-15 hr sequential compressed to ~60-90 min wall-time; (ii) zero file-collision events across 7 parallel subagents committing to 3 repos atomically; (iii) DO-NOT-PUSH boundary held cleanly with lead retaining push authority; (iv) inbox-marker-dependency-satisfaction surface honored both as completion signal AND as dispatch-time observable. Composed cleanly with CogPR-3 race fix-family (same session arc — both primitives co-validated). Federation-lift gate (cross-domain instance) opens when an external estate or sibling federation adopts the primitive.
+
+<!-- promoted-spec from cpr_parallel_rtch_consolidate_rails_for_next_swarm_with_inbox_marker_dependency_signaling_tic277 (tic 277→278). Source: tic 277 /cadence rail authoring → tic 278 swarm execution. Cross-tic n=2. Band: COGNITIVE. /review tic 278 verdict: PROMOTE-SPEC CGG-rung under /swarm doctrine extension. Skill-body changes (swarm/SKILL.md + cadence/SKILL.md) are follow-up tranches. Refined-spec at tic 282 by cpr_cross_cadence_rails_primitive_first_fire_at_scale_tic280 (cross-tic n=3 at-scale validation: n=6 rails + n=7 subagents; wall-time savings ~9-15 hr → ~60-90 min; zero file-collision). Composed with CogPR-3 race fix-family in same session arc. -->
+
+<!-- promoted from cpr_fail_soft_observability_step_in_cadence_ops_tic268 (/review tic 269 → 270). Same-tic n=1 first-fire HEALTHY at tic 269; cross-tic n=2 with cockpit-intent-emit import pattern. Complements CGG KI Cycle-Based Windows in Mixed-Frequency Event Streams. Composes with federation KI Bounded delegation surfaces default to masking bugs. Band: COGNITIVE. Source: tic 268 close handoff + cadence-ops step 5 integration (CGG f18468d). -->
+
+---
+
+## RTCH Harvest Reader — Terminal-Valve Discipline
+<a id="rtch-harvest-reader-terminal-valve-discipline"></a>
+<!-- ledger-tags: authority_class=signal_and_queue_manifold | rung=domain | domain=context-grapple-gun | dehydrated_tic=314 -->
+
+RTCH harvests over append-only ledgers (queue.jsonl, shape-ledger.jsonl, signal files) must read the terminal-valve projection, not aggregate raw emissions; otherwise stale pre-promotion state masquerades as live overdue work.
+
+**Pattern**: Authoritative-set read discipline at the harvest boundary — before counting, ranking, or surfacing any entry from an append-only log, project the terminal state (latest entry per id, valve-filtered to terminal status). Never accumulate raw line counts or status distributions directly from the raw file. The terminal-valve projection is the canonical view; raw emissions are implementation detail.
+
+**Constraint**: Refines federation KI *Authoritative-Set Readers Must Read the Manifest, Not Aggregate Raw Emissions* (same authoritative-set discipline applied specifically at the RTCH harvest boundary). Composes with CGG KI *Terminal-State Valve Pattern* (reader-side application of the write-side valve doctrine). The violation surface is tactical-hydration scripts that grep or count lines without first projecting terminal state — these produce falsely-overdue work backlogs.
+
+**Evidence**: tic 278 wave1 RTCH harvest (water-cycle-CogPR-backfill task) read pre-promotion duplicates for a CogPR at lines 427/540/669 of queue.jsonl without consulting terminal-valve; the CogPR had already been promoted at line 859 (tic 246). Rail T4 harvest surfaced the CogPR as overdue — a falsification caught by Architect correction. Cross-tic n=2 (tic 246 promotion + tic 278 false-overdue detection).
+
+**Lock line**: *RTCH reads terminal-valve projection; raw emissions are write-side artifact only.*
+
+<!-- promoted from cpr_rtch_harvest_reader_pattern_terminal_valve_violation_tic278 (tic 278→279). Source: tic 278 wave1 water-cycle-CogPR-backfill task — Architect-corrected falsification. Rail T4 RTCH harvest read pre-promotion duplicates without terminal-valve. Cross-tic n=2. Band: COGNITIVE. /review tic 279 verdict: PROMOTE CGG-rung. -->
+
+---
+
+## queue.jsonl Drift-Audit Primitive
+<a id="queue-jsonl-drift-audit-primitive"></a>
+<!-- ledger-tags: authority_class=signal_and_queue_manifold | rung=domain | domain=context-grapple-gun | dehydrated_tic=314 -->
+
+queue.jsonl needs a drift-audit primitive (analogous to memory-md-audit.py) that projects terminal-state and flags genuinely overdue pre-promotion rows, distinguishing them from falsely-overdue ones produced by reader misreads.
+
+**Pattern**: A standalone script (`cgg-runtime/scripts/queue-drift-audit.py`, analogous to `audit-logs/governance/memory-md-audit.py`) that: (1) reads queue.jsonl and projects terminal state per id via latest-entry-per-id semantics; (2) classifies each id as terminal (promoted/deferred/skipped/absorbed) or active (pending/extracted); (3) for active ids, computes age in tics and flags genuinely overdue entries; (4) for terminal ids, reports any raw-emission duplicates that could mislead RTCH harvest readers; (5) emits structured output (breach_class, id, age_tics, duplicate_count) consumable by bench-packet-prep and ReBru blocks.
+
+**Constraint**: Composes with federation KI *Authoritative-Set Readers Must Read the Manifest, Not Aggregate Raw Emissions* (the audit primitive IS the manifest-projection mechanism for queue.jsonl). Composes with *RTCH Harvest Reader — Terminal-Valve Discipline* (above — the audit primitive surfaces the raw-emission duplicates that cause harvest misreads). Composes with memory-md-audit.py precedent (same structural pattern: project state → classify breaches → emit structured findings). Without this primitive, genuine overdue work is indistinguishable from falsely-overdue entries at harvest time.
+
+**Implementation tranche owed**: `cgg-runtime/scripts/queue-drift-audit.py` (~45 min, next gate). Doctrine inscribes now; script implementation defers per Verdict-Shape KI (PROMOTE-SPEC authorizes-but-defers).
+
+**Evidence**: tic 278 wave1 RTCH harvest demonstrated the falsification class — CogPR already promoted at line 859 was surfaced as overdue because raw duplicates at lines 427/540/669 were read without terminal-valve projection. The absence of a drift-audit primitive means the gap is invisible until a harvest misread produces an Architect-corrected falsification. Cross-tic n=1 first-fire (tic 278).
+
+**Lock line**: *queue.jsonl drift-audit primitive is the queue-health observability primitive; its absence makes genuine vs. falsely-overdue indistinguishable.*
+
+<!-- promoted-spec from cpr_queue_jsonl_drift_audit_primitive_tic278 (tic 278→279). Source: tic 278 wave1 RTCH harvest falsification; same surface as RTCH Harvest Reader inscription above. Cross-tic n=1 first-fire. Band: COGNITIVE. /review tic 279 verdict: PROMOTE-SPEC CGG-rung. Implementation tranche: cgg-runtime/scripts/queue-drift-audit.py (~45 min, next gate). -->
+
+---
+
+## review-close-check Verifier — Dehydration Blindspot
+<a id="review-close-check-verifier-dehydration-blindspot"></a>
+<!-- ledger-tags: authority_class=mandate_and_cadence_ops | rung=domain | domain=context-grapple-gun | dehydrated_tic=314 -->
+
+review-close-check.py searches canonical/CLAUDE.md for promoted CogPR text and emits `promoted_text_missing` findings when not found. Pass-4-A constitutional dehydration moved promoted CogPR body text from canonical/CLAUDE.md (compact root) to `audit-logs/governance/constitution-ledger/ledger.md` (multi-axis tagged ledger). After dehydration, the verifier reports false-positive `promoted_text_missing` for legacy CogPRs whose text now lives in ledger.md (tic 279 review_close_check: 81 such findings + 29 orphaned_promotion findings; sample CogPRs 27/36/39/40/45 confirmed pre-Pass-4 promotions whose body is in ledger.md). The verifier needs extension to ALSO search ledger.md before emitting promoted_text_missing.
+
+**Pattern**: When a constitutional surface undergoes dehydration (body text relocated from compact root to ledger), all downstream verifiers that search the old surface must be extended to also search the new surface. This is the read-side complement to the write-side dehydration — the score moved; the runtime must follow.
+
+**Constraint**: Concrete instance of federation KI *Phased Dehydration as Multi-Tic Temporal Trajectory* (Pass-4-A is a moving-target multi-tic process; this names the downstream tool that didn't get the memo). Concrete instance of federation KI *Conductor-Score-Runtime Parity* (score moved during Pass-4-A; verifier runtime didn't follow — mechanism class 4: runtime ownership for behavior-bearing artifacts). Distinct from *Artifact-Count-≠-1 Fix-Family* (that names N=0/N=2 cardinality failures at emit-side; this names a DIFFERENT failure class — verifier searches stale target after substrate dehydration). Complements, not duplicates.
+
+**Implementation tranche owed**: extend `cgg-runtime/scripts/review-close-check.py` search path to include `audit-logs/governance/constitution-ledger/ledger.md`; treat ledger-anchor matches as valid for `promoted_text` (~30 min, next gate). Doctrine inscribes now; implementation defers per Verdict-Shape KI.
+
+**Evidence**: tic 279 review_close_check Mogul mandate cycle — 111 total findings (110 errors / 1 warning); 81 `promoted_text_missing` against canonical/CLAUDE.md targets for pre-Pass-4 CogPR IDs whose body text was relocated to ledger.md per Pass-4-A dehydration plan. Report at audit-logs/mogul/cycle-reports/review-close-checks/tic-279-20260523T032314-check.json. Cross-tic n=1 first-fire (tic 279).
+
+**Lock line**: *Dehydration is a two-step migration: relocate body text AND update all verifiers that search the old location.*
+
+<!-- promoted-spec from cpr_review_close_check_verifier_dehydration_blindspot_tic279 (tic 279→279). Source: tic 279 Mogul mandate review_close_check cycle — 81 false-positive promoted_text_missing findings post-Pass-4-A dehydration. Band: COGNITIVE. /review tic 279 verdict: PROMOTE-SPEC CGG-rung. Implementation tranche: review-close-check.py ledger.md search extension (~30 min, next gate). -->
+
+---
+
+## Cockpit.intent Invocation Discipline (T2b)
+<a id="cockpit-intent-invocation-discipline-t2b"></a>
+<!-- ledger-tags: authority_class=pipeline_and_integration | rung=domain | domain=context-grapple-gun | dehydrated_tic=314 -->
+
+`cockpit.intent` (30th envelope class, `ak_control_room/envelopes.yaml`) emits via three governed surfaces per T2b spec (`audit-logs/governance/cockpit-intent-t2b-invocation-discipline-spec-tic264.md`); a fourth surface (I-C per-skill instrumentation) is deferred to T2c.
+
+**I-A — Posture-Toggle Hook** (`cgg-runtime/hooks/cockpit-intent-posture-toggle.py`). UserPromptSubmit hook scans the prompt for `[Posture → X/Y]` toggles or `POSTURE:` banner lines and emits an envelope; `intent_class` derives from the new posture (`*/META → observe`, `*/DIRECT → free`). Registered in `hooks/hooks.json` (plugin) and in user-scope `~/.claude/settings.json` (post-install). Fail-soft: hook never blocks UserPromptSubmit.
+
+**I-B — Cadence-Emit Step** (`cgg-runtime/scripts/cadence-ops.py` main step 4). After tic + conformation + mandate, cadence-ops invokes the Python emitter with `intent_class: observe` — every counted /cadence produces a declared-state envelope alongside the conformation snapshot. Documented in `cgg-runtime/skills/cadence/SKILL.md` Step 0.5 output table. Fail-soft pattern follows the *Cadence-Ops Fail-Soft Observability Subprocess Pattern* (import class variant): errors land in `result["cockpit_intent"]` but never block cadence output.
+
+**I-D — Manual REST Escape Hatch.** The T2a POST endpoint at `/api/governance/cockpit/intent` (vite-governance-api.ts) remains accessible without code changes for diagnostic probes, calibration evidence collection, and replay of missed emissions. Two invocation paths are documented in the T2b spec Appendix A:
+
+- **curl** against the vite dev server (`http://localhost:8080/api/governance/cockpit/intent`); requires `npm run dev` under `canonical_developer/ak-control-room/`.
+- **Python** (CLI-only / headless context) via `cgg-runtime/scripts/lib/cockpit_intent_emit.py` `emit_intent()` — writes byte-shape-parity rows to the same `audit-logs/cockpit/intents/YYYY-MM-DD.jsonl` the POST endpoint writes to. Use this path when the vite server is unavailable.
+
+Validation rules are identical across all four paths (I-A / I-B / I-D-curl / I-D-python) per `envelopes.yaml#cockpit.intent.when_included`. The Python emitter applies per-tic dedup keyed on `(source_object_ref, source_path, intent_class, posture, mode)`; the vite POST endpoint does NOT currently apply dedup — manual probes that need dedup should route through the Python helper.
+
+**Pattern**: I-A and I-B are operational emission paths; I-D is the diagnostic / replay escape hatch. Naming the escape hatch explicitly in doctrine prevents future tightening from inadvertently breaking diagnostic affordances (composes with federation KI *Identity precedes capability* — the operator probe path is a first-class invocation surface, not an exception).
+
+<!-- promoted-spec from cpr_cockpit_intent_t2b_invocation_discipline_spec_tic264 (PROMOTE-SPEC at /review tic 267 docket #5). Implementation tranches I-A + I-B landed at CGG commits 5a77d29 + a2b71b4 (tic 267). W3-B3 (tic 282) residue takedown: hooks.json plugin registration for I-A, cadence/SKILL.md Step 0.5 documentation of I-B output key, this CGG CLAUDE.md section documenting I-D escape hatch. I-C deferred to T2c per spec. Band: COGNITIVE. Domain rung: CGG. -->
+
+---
