@@ -68,14 +68,23 @@ def wire_cut_active() -> bool:
 
 
 def resolve_zone_root(start: Path) -> Path | None:
-    """Walk up from the hook dir to the federation zone root (.ticzone marker)."""
+    """Walk up from the hook dir to the federation zone root (.ticzone marker).
+
+    The live hook fires from source ($CLAUDE_PROJECT_DIR/...), where this walk finds
+    .ticzone. The cwd fallback (mirrors session-restore.sh's PWD resolution) keeps it
+    working if ever fired from the installed ~/.claude copy with cwd=project."""
     for p in [start, *start.parents]:
         if (p / ".ticzone").is_file():
             return p
-    # Fallback: known canonical layout (hook is .../canonical_developer/context-grapple-gun/cgg-runtime/hooks)
-    for p in start.parents:
+    # cwd fallback — Claude Code fires hooks with cwd at the project dir.
+    cwd = Path.cwd()
+    for p in [cwd, *cwd.parents]:
         if (p / ".ticzone").is_file():
             return p
+    # CLAUDE_PROJECT_DIR fallback — set by the harness for project-scoped hooks.
+    env_dir = os.environ.get("CLAUDE_PROJECT_DIR")
+    if env_dir and (Path(env_dir) / ".ticzone").is_file():
+        return Path(env_dir)
     return None
 
 
@@ -88,6 +97,36 @@ def resolve_inbox_envelope() -> Path | None:
         if cand.is_file():
             return cand
     return None
+
+
+def resolve_boot_injection() -> Path | None:
+    """Find the shared boot-injection renderer across source + installed layouts."""
+    for cand in (
+        HOOK_DIR.parent / "scripts" / "boot-injection.py",          # canonical source
+        Path.home() / ".claude" / "cgg-runtime" / "scripts" / "boot-injection.py",  # installed
+    ):
+        if cand.is_file():
+            return cand
+    return None
+
+
+def render_boot_injection(tic: int, entity: str, zone_root: Path) -> str:
+    """Tic-gated broadcast pointers (e.g. GLOSSARY doctrine-surface nav). Read-only,
+    mints no signals, fail-soft to empty. Every citizen is a 'citizens'-lane recipient.
+    Passes the already-resolved canonical zone root — the installed renderer cannot
+    find .ticzone by __file__ walk from ~/.claude."""
+    script = resolve_boot_injection()
+    if script is None:
+        return ""
+    try:
+        proc = subprocess.run(
+            [sys.executable, str(script), "render", "--tic", str(tic),
+             "--audience", entity, "--zone-root", str(zone_root)],
+            capture_output=True, text=True, timeout=10,
+        )
+        return (proc.stdout or "").strip()
+    except (subprocess.SubprocessError, OSError):
+        return ""
 
 
 def valid_entities(zone_root: Path) -> set[str]:
@@ -231,21 +270,36 @@ def main() -> int:
         return 0
 
     brief = (proc.stdout or "").strip()
-    if not brief:
-        return 0
     # Silent-when-empty: the injection formatter returns "[INBOX: <id>] Empty."
-    # when there is nothing actionable. Do not inject an empty-state line.
+    # when there is nothing actionable. Treat as no inbox brief (not an early return —
+    # a citizen with an empty inbox still receives tic-gated boot injections below).
     if brief.endswith("] Empty."):
+        brief = ""
+
+    # Shared boot-injection lane (same registry session-restore.sh reads): tic-gated
+    # broadcast pointers (e.g. GLOSSARY doctrine-surface navigation). Reaches the citizen
+    # even when the inbox is empty.
+    inject = render_boot_injection(tic, entity, zone_root)
+
+    if not brief and not inject:
+        return 0  # nothing to deliver — stay silent
+
+    # Dedup-on-unchanged over the COMBINED payload: same content, same session/entity -> quiet.
+    combined_key = (brief + "\n" + inject).strip()
+    if already_seen(zone_root, str(session_id), entity, combined_key):
         return 0
 
-    # Dedup-on-unchanged: same brief, same session, same entity -> stay quiet.
-    if already_seen(zone_root, str(session_id), entity, brief):
-        return 0
-
+    parts = []
+    if brief:
+        parts.append(
+            f"Your inbox brief:\n{brief}\n"
+            f"Process WAIT/ACTIVE items per your office before other work."
+        )
+    if inject:
+        parts.append(inject)
     context = (
         f"[CITIZEN-BOOT: {entity}] You are booting as a recognized federation "
-        f"citizen (tic {tic}). Your inbox brief:\n{brief}\n"
-        f"Process WAIT/ACTIVE items per your office before other work."
+        f"citizen (tic {tic}).\n" + "\n".join(parts)
     )
     print(json.dumps({
         "hookSpecificOutput": {
