@@ -2264,3 +2264,75 @@ Validation rules are identical across all four paths (I-A / I-B / I-D-curl / I-D
 <!-- promoted from cpr_enrichment_pipeline_silent_starvation_tic166 (freeze-lifted tranche, /review tic 316; reduced to the auditability principle). Source: tic 166 enrichment investigation; fix #1 confirmed landed (scanner writes no_evidence_reason). Band: COGNITIVE. -->
 
 ---
+
+### Advertised containment scope is not wired containment scope
+
+<a id="advertised-containment-scope-is-not-wired-containment-scope"></a>
+
+**Ledger tags:**
+- `invariant_id`: `cpr_advertised_containment_scope_is_not_wired_containment_scope_tic317`
+- `terrain_class`: `pipeline_and_integration`
+- `lanes`: ["pipeline_and_integration", "verification_and_proof", "forensic_and_drift"]
+- `era`: `cpr_era_tic_300_349`
+- `target_rung`: `domain`
+- `compact_root_status`: `ledger_only`
+- `first_appearance_tic`: `317`
+- `promoted_tic`: `321`
+- `confidence_tier`: `tentative`
+- `relations`: refines `wire-cut-scoping-by-capability-class` (parent says scopes must EXIST; this says each must be WIRED + tested); composes_with federation KI `presence-observation-fallacy-guard` (presence-of-script-does-not-prove-runtime-execution)
+
+**Body:**
+
+- **A containment kill-switch that advertises a menu of capability scopes does NOT guarantee each scope is actually wired into the emitter it claims to gate** — at tic 317 the `.wire-cut-signals` scope was DEAD: `wire_check_signals()` existed in `wire-cutter.sh` and the scope was documented, but the Python signal emitter (`inbox-envelope.py emit_attention_debt_signals`) never called it, so arming `.wire-cut-signals` alone would NOT have stopped the attention-debt emitter — only hook-level cuts (`.wire-cut-all/-hooks/-session/-gate`, which kill the triggering hook) worked. The prior 200+ attention-debt signal loop was contained by a hook-level cut, masking that the granular surgical cut was non-functional. Discipline: a containment scope must be VERIFIED to fire at the emitter boundary (an **arm-and-observe-zero** test — arm each scope in a sandbox, assert the emitter returns empty), not assumed present because it appears in the switch menu. Presence of a scope in the menu ≠ wired enforcement at the emitter. This is the Presence/Observation Fallacy Guard applied to the containment layer, and the prevention-side complement to Wire-Cut Scoping by Capability Class (which says scopes must EXIST; this says each must be WIRED + tested). Detection affordance: a periodic kill-switch self-test mechanizes it.
+
+<!-- promoted from cpr_advertised_containment_scope_is_not_wired_containment_scope_tic317 (tic 317→321, /review unified docket). Source: tic 317 containment-wirecutter forensic. n=1 cross-tic, anchored to inscribed KI family (Wire-Cut Scoping + Presence/Observation Fallacy Guard). Band: COGNITIVE. -->
+
+---
+
+### Born-truth reconstruction is a read job keyed by birth-tic, not a grep
+
+<a id="born-truth-reconstruction-is-a-read-job-keyed-by-birth-tic"></a>
+
+**Ledger tags:**
+- `invariant_id`: `cpr_born_truth_reconstruction_is_a_read_job_keyed_by_birth_tic_not_grep_tic319`
+- `terrain_class`: `verification_and_proof`
+- `lanes`: ["verification_and_proof", "signal_and_queue_manifold", "memory_and_inscription"]
+- `era`: `cpr_era_tic_300_349`
+- `target_rung`: `domain`
+- `compact_root_status`: `ledger_only`
+- `first_appearance_tic`: `319`
+- `promoted_tic`: `321`
+- `confidence_tier`: `reinforced`
+- `relations`: composes_with `rtch-harvest-reader-terminal-valve-discipline`; refines the "distrust the cheap proxy" family; folds in the **reconstruction-is-parity-not-hindsight** enrichment
+
+**Body:**
+
+- **Missing governance signal is NOT keyword-regex-greppable, because the tension was resolved in SUBSTANCE under different words than its slug** — un-mapped council resolutions, the rationale-arc behind a route/outcome, the "lived friction" behind a contract-only invariant: a surveillance/privacy resolution can live inside a "data ownership" discussion with neither slug present. Reaching for grep and concluding "found nothing → can't certify" is the cop-out, and it twice produced false numbers in one session: (1) a claimed "41/102 production-available route ceiling" that was actually a LOWER-BOUND on a truncated cold slice (the route was truncated OUT, not absent — the parity audit proved it recoverable from the full trace); (2) a "0/40 councils exercised" that was a grep artifact, not a finding. The signal exists in the system's OWN lineage. **Reconstruction is a READ job, keyed by the BIRTH-TIC every CogPR/invariant carries in its ledger provenance** ("promoted from CogPR-N, tic 21→22, arena-sourced"): open the convo-log / arena AT that tic and semantically locate the arc (tension → opposition → move → resolution). That is production-available born-truth, NOT hindsight — **reconstruction is parity, not hindsight**: hindsight injects the gold LABEL; resolving the trace's own visible evidence is legitimate, and a cold-slice grep floor is a LOWER-BOUND, not a ceiling. Corollary: the constitutional corpus is MULTI-SCOPE (federation constitution-ledger + CGG cgg-ledger + ak-control-room) — readiness counts must span all scopes, not just one federation slice.
+
+<!-- promoted from cpr_born_truth_reconstruction_is_a_read_job_keyed_by_birth_tic_not_grep_tic319 (tic 319→321, /review unified docket; MODIFY — folded the reconstruction-is-parity-not-hindsight enrichment into the body, upgrading tier tentative→reinforced). Source: tic 319 edge-corpus reconstruction; n=2 this session (41-not-a-ceiling + 0/40-grep-artifact) + cross-instance corroboration (parallel-instance council-scan grep traps). Band: COGNITIVE. -->
+
+---
+
+### Boot-injection lane: a tic-gated broadcast pointer feeding both boot seams
+
+<a id="boot-injection-lane-tic-gated-broadcast-pointer"></a>
+
+**Ledger tags:**
+- `invariant_id`: `cpr_boot_injection_lane_tic_gated_broadcast_pointer_tic320`
+- `terrain_class`: `mandate_and_cadence_ops`
+- `lanes`: ["mandate_and_cadence_ops", "pipeline_and_integration"]
+- `era`: `cpr_era_tic_300_349`
+- `target_rung`: `domain`
+- `compact_root_status`: `ledger_only`
+- `first_appearance_tic`: `320`
+- `promoted_tic`: `321`
+- `confidence_tier`: `tentative`
+- `relations`: complements the citizen-boot REMINDERS lane (`autonomous_kernel/citizen-boot-reminders-spec.md §3` — same seams, different payload class); inherits loop-safety from `signal-id-determinism` + `dedup-at-write-using-canonical-identity` (mints no signals at all)
+
+**Body:**
+
+- **A tic-gated boot-injection lane delivers a broadcast pointer into BOTH boot seams for a bounded tic window with an auto re-eval reminder at a target tic** — registry `audit-logs/boot-injections/active.jsonl` + renderer `cgg-runtime/scripts/boot-injection.py` feed both `session-restore.sh` (SessionStart/orchestrator) AND `subagent-citizen-boot.py` (SubagentStart/every recognized citizen, EVEN WHEN the inbox is empty). It is the ambient-injection complement to the citizen-boot reminders lane: the reminders lane carries per-actor scheduled obligations; this lane carries a broadcast pointer with a tic window and an audience router (all / orchestrator / citizens / ent_*). **Loop-safe BY CONSTRUCTION** — read-only render over the registry, mints no signals, writes no governance state, dedup-on-unchanged at the calling hook — so the §5 200+ signal-runaway class cannot recur through it. A broadcast-pointer-with-tic-window is distinct enough from a per-actor scheduled obligation to warrant its own naming. Install-path gotcha: callers MUST pass `--zone-root` because the installed copy under `~/.claude` resolves zone by `__file__` walk and cannot find canonical's `.ticzone`; the renderer also falls back to cwd + `CLAUDE_PROJECT_DIR`.
+
+<!-- promoted from cpr_boot_injection_lane_tic_gated_broadcast_pointer_tic320 (tic 320→321, /review unified docket). Source: tic 320 autonomous-kernel-activation build; live-validated (citizen→glossary pointer, dedup silent, general-purpose→none; firing in the tic-321 SessionStart). CGG af2b4d6 + canonical 51bb4ecc. Band: COGNITIVE. -->
+
+---
