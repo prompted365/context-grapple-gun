@@ -55,6 +55,15 @@ FULL_SET = set(EVERY_TIC)
 for s in MODULO.values():
     FULL_SET |= s
 
+# Mechanisms the falsifier harness tracks but the scheduler intentionally does NOT
+# fire on cadence. Loop-closure (PHASE 5) requires every falsifier mechanism to be
+# either a scheduler cycle OR listed here — otherwise the two harnesses have drifted.
+KNOWN_NONSCHEDULED = {
+    "bench_packet_prep": "dropped from scheduler tic 293 (script retained, ad-hoc only)",
+    "civil_status_check": "deferred — not scheduled (avoids scheduled-but-unexecuted)",
+    "crisis_sentinel": "crisis-class — event-triggered, not cadence",
+}
+
 # Scriptable runners and their VERIFIED no-write mode. Agent-cycles have no script.
 SCRIPTABLE = {
     "pattern_miner.py":        ["--dry-run", "--json"],
@@ -121,6 +130,14 @@ def _run(cmd):
         return f"EXC:{e}"
 
 
+def _run_out(cmd):
+    try:
+        r = subprocess.run(cmd, cwd=ZONE, capture_output=True, text=True, timeout=120)
+        return r.returncode, (r.stdout or "") + (r.stderr or "")
+    except Exception as e:
+        return f"EXC:{e}", str(e)
+
+
 def phase2_runners(exercise):
     print("\n[PHASE 2] runner invocability (no-write mode)")
     for script, dryflags in SCRIPTABLE.items():
@@ -137,14 +154,24 @@ def phase2_runners(exercise):
         rc = _run([sys.executable, p, "--help"])
         # argparse --help exits 0; some tools exit 2 on --help — accept 0/2 as "invocable"
         (ok if rc in (0, 2) else bad)(f"{script} --help -> rc={rc}")
-    # mogul-runner.sh dry-run (the master cycle dispatcher) — only under --exercise
+    # mogul-runner.sh dry-run (master dispatcher) — documented rc: 2=would-execute,
+    # 1=refusal (no pending mandate) OR failure. Disambiguate refusal via message so
+    # the smoke is state-independent (passes whether or not a pending mandate exists).
     mr = os.path.join(SCRIPTS, "mogul-runner.sh")
-    if exercise and os.path.exists(mr):
-        rc = _run(["bash", mr, "--dry-run"])
-        (ok if rc in (0, 2) else bad)(f"mogul-runner.sh --dry-run -> rc={rc}")
+    if not os.path.exists(mr):
+        bad("mogul-runner.sh MISSING")
+    elif exercise:
+        rc, out = _run_out(["bash", mr, "--dry-run"])
+        refusal = any(s in out for s in ("Refusing to execute", "not 'pending'",
+                                         "no mandate", "no pending"))
+        if rc == 2:
+            ok("mogul-runner.sh --dry-run -> rc=2 (mandate valid, would execute)")
+        elif rc == 1 and refusal:
+            ok("mogul-runner.sh --dry-run -> rc=1 (clean refusal: no pending mandate)")
+        else:
+            bad(f"mogul-runner.sh --dry-run -> rc={rc} (unexpected; out: {out.strip()[:80]})")
     else:
-        ok("mogul-runner.sh present (dry-run skipped without --exercise)" if os.path.exists(mr)
-           else "mogul-runner.sh MISSING") if os.path.exists(mr) else bad("mogul-runner.sh MISSING")
+        ok("mogul-runner.sh present (dry-run skipped without --exercise)")
     info(f"agent-cycles {sorted(AGENT_CYCLES)} have NO script — executed via claude -p (see PHASE 3)")
 
 
@@ -182,6 +209,42 @@ def phase3_wiring():
     (ok if os.path.exists(bi) else bad)("boot-injection renderer present")
 
 
+def phase5_loop_closure():
+    """Keep the smoke (exercise lens) and falsifier (observe lens) in lockstep.
+    If a cycle is added to the scheduler OR a mechanism to the falsifier manifest,
+    this fails until both harnesses are reconciled — the loop stays closed."""
+    print("\n[PHASE 5] loop closure — falsifier <-> scheduler parity")
+    man = os.path.join(AUDIT, "governance", "falsifier", "manifest.yaml")
+    try:
+        import yaml
+        mechs = yaml.safe_load(open(man)).get("mechanisms", [])
+        fset = {m["mechanism_id"] for m in mechs if isinstance(m, dict) and "mechanism_id" in m}
+    except Exception as e:
+        bad(f"falsifier manifest unreadable: {e}")
+        return
+    try:
+        cdc = load_compute_due_cycles()
+    except Exception as e:
+        bad(f"could not import compute_due_cycles: {e}")
+        return
+    sched = set()
+    for t in range(0, 120):                      # full LCM(2,3,4,5,8) window → every cycle
+        sched |= set(cdc(t))
+    # direction 1: the observe-harness must know about everything the scheduler fires
+    miss1 = sched - fset
+    (ok if not miss1 else bad)(
+        f"falsifier observes all {len(sched)} scheduler cycles"
+        + (f" — MISSING {sorted(miss1)}" if miss1 else ""))
+    # direction 2: every falsifier mechanism must be classified (scheduled or known-non-scheduled)
+    accounted = sched | set(KNOWN_NONSCHEDULED)
+    miss2 = fset - accounted
+    (ok if not miss2 else bad)(
+        f"all {len(fset)} falsifier mechanisms classified"
+        + (f" — UNCLASSIFIED {sorted(miss2)} (reconcile smoke<->falsifier)" if miss2 else ""))
+    for m in sorted(KNOWN_NONSCHEDULED):
+        info(f"non-scheduled '{m}' — {KNOWN_NONSCHEDULED[m]} · falsifier-tracked={m in fset}")
+
+
 def main():
     ap = argparse.ArgumentParser(description="Multi-tic no-write runner smoke")
     ap.add_argument("--base", type=int, default=0, help="window base tic")
@@ -197,6 +260,7 @@ def main():
     phase1_scheduler(args.base)
     phase2_runners(args.exercise)
     phase3_wiring()
+    phase5_loop_closure()
 
     print("\n[PHASE 4] NO-WRITE GUARD — audit-logs/ must be byte-identical")
     after = snapshot(AUDIT)
