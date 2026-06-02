@@ -53,6 +53,7 @@ from typing import Any, Optional
 
 # Allow importing from same directory
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "lib"))
 
 try:
     from zone_root import resolve_zone_root, load_ticzone, audit_logs_path
@@ -60,6 +61,15 @@ except ImportError:
     resolve_zone_root = None
     load_ticzone = None
     audit_logs_path = None
+
+try:
+    # Shared dehydration-aware doctrine resolver (tic 335 consumer-set fix): the
+    # durable-id scout reads the CLAUDE.md chain, but post-dehydration the
+    # federation + CGG cpr_ids live in sibling ledger.md surfaces — invisible if
+    # only the compact roots are scanned.
+    from doctrine_surfaces import resolve_doctrine_surfaces
+except ImportError:
+    resolve_doctrine_surfaces = None
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -509,8 +519,18 @@ def _scan_durable_ids(zone_root: str, intake: dict[str, Any]) -> dict[str, list[
         os.path.join(zone_root, "canonical_developer", "CLAUDE.md"),
         os.path.join(zone_root, "canonical_developer", "context-grapple-gun", "CLAUDE.md"),
     ):
-        if os.path.isfile(cand):
+        if not os.path.isfile(cand):
+            continue
+        # Dehydration-aware (tic 335): fold in the sibling ledger.md for a
+        # dehydrated rung so federation/CGG cpr_ids in the relocated bodies are
+        # in scope, not just the compact-root pointers.
+        if resolve_doctrine_surfaces is not None:
+            bounded_paths.extend(resolve_doctrine_surfaces(cand))
+        else:
             bounded_paths.append(cand)
+    # De-dup while preserving order (resolve may return overlapping surfaces
+    # across the three candidate roots in unusual layouts).
+    bounded_paths = list(dict.fromkeys(bounded_paths))
 
     seeds = [s for s in intake.get("explicit_seeds", []) if s]
     found: dict[str, set[str]] = {k: set() for k in patterns}

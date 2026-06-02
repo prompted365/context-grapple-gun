@@ -27,7 +27,14 @@ from pathlib import Path
 
 # Allow importing zone_root from same directory
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "lib"))
 from zone_root import resolve_zone_root, load_ticzone, audit_logs_path, resolve_rung_position
+# Shared dehydration-aware doctrine resolver (tic 335 consumer-set fix): a
+# dehydrated rung's doctrine BODIES live in a sibling ledger.md. A coherence
+# scan that reads the compact CLAUDE.md alone audits the pointer index, not the
+# law — missing every contradiction/redundancy/volatile-ref in the relocated
+# bodies.
+from doctrine_surfaces import resolve_doctrine_surfaces, is_dehydrated  # noqa: E402
 
 
 # ---------------------------------------------------------------------------
@@ -65,7 +72,24 @@ def discover_claude_md_chain(zone_root):
 
 
 def load_claude_md(path):
-    """Load and return CLAUDE.md content."""
+    """Load and return a rung's doctrine body content.
+
+    Dehydration-aware (tic 335): for a dehydrated rung the compact CLAUDE.md is
+    a pointer index and the bodies live in a sibling ledger.md. Return the
+    concatenation of every body-bearing surface so the coherence checks scan the
+    actual doctrine, not the table of contents. Findings remain attributed to
+    the rung (the chain entry's path); the ledger is the same rung's body.
+    """
+    parts = []
+    for surface in resolve_doctrine_surfaces(str(path)):
+        try:
+            parts.append(Path(surface).read_text(encoding="utf-8"))
+        except (OSError, UnicodeDecodeError):
+            continue
+    if parts:
+        return "\n".join(parts)
+    # Fallback: path may not resolve as a doctrine surface (e.g. global
+    # ~/.claude/CLAUDE.md outside the rung tree) — read it directly.
     try:
         return Path(path).read_text(encoding="utf-8")
     except (OSError, UnicodeDecodeError):
@@ -280,7 +304,18 @@ def run_audit(project_dir, dry_run=False):
     packet = {
         "audit_type": "prompt_stack_audit",
         "generated_at": datetime.now(timezone.utc).isoformat(),
-        "chain": [{"rung": e["rung"], "path": e["path"], "name": e["name"]} for e in chain],
+        "chain": [
+            {
+                "rung": e["rung"],
+                "path": e["path"],
+                "name": e["name"],
+                # tic 335: signal whether the scanned content folded in a ledger
+                # body (dehydrated rung) so a reader knows the audit covered the
+                # bodies, not just the compact pointer index.
+                "dehydrated_body_included": is_dehydrated(e["path"]),
+            }
+            for e in chain
+        ],
         "chain_depth": len(chain),
         "findings": all_findings,
         "summary": {

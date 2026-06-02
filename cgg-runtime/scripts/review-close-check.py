@@ -27,7 +27,27 @@ from pathlib import Path
 
 # Allow importing zone_root from same directory
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "lib"))
 from zone_root import resolve_zone_root, load_ticzone, audit_logs_path
+# Shared dehydration-aware doctrine resolver (tic 335 consumer-set fix): when a
+# promoted_to target is a DEHYDRATED CLAUDE.md, the inscription body relocated to
+# a sibling ledger.md — reading the compact root alone reports
+# `promoted_text_missing` for doctrine that IS inscribed (the verifier's half of
+# the dehydration blindspot, named tic 279/301/316 but runtime-fix-not-landed
+# until this consumer-set pass).
+from doctrine_surfaces import resolve_doctrine_surfaces  # noqa: E402
+
+# Auto-memory directory — feedback_*.md, session_lessons_*.md, project_*.md and
+# other CPR promotion targets live here, OUTSIDE the federation repo. A bare
+# `feedback_x.md` promoted_to target does not resolve against project_dir; it
+# resolves here. Shared by build_inscribed_index and the target resolvers.
+AUTO_MEMORY_DIR = (
+    Path.home()
+    / ".claude"
+    / "projects"
+    / "-Users-breydentaylor-canonical"
+    / "memory"
+)
 
 
 # ---------------------------------------------------------------------------
@@ -194,6 +214,36 @@ def _looks_like_file_path(s):
     return True
 
 
+def _read_with_ledger(path):
+    """Read a resolved file, folding in the sibling ledger body for a dehydrated
+    CLAUDE.md target.
+
+    The dehydration-aware half of the consumer-set fix (tic 335): a promoted_to
+    pointing at a dehydrated CLAUDE.md (federation or CGG compact root) names a
+    surface that, post-dehydration, carries only the pointer index — the
+    inscription body relocated to a sibling ledger.md. Returning the CLAUDE.md
+    content ALONE makes check_promoted report `promoted_text_missing` for
+    doctrine that IS inscribed. resolve_doctrine_surfaces returns
+    [claude_md, ledger_md] for a dehydrated rung; we concatenate so the cpr_id /
+    lesson-snippet match runs against the body where the doctrine lives.
+
+    This only EXPANDS the searched text — the match predicate in check_promoted
+    (cpr_id literal or lesson snippet) is unchanged, so a genuinely-missing
+    inscription still fails to match and still fires. No false-negative widening.
+    """
+    base = read_file_safe(path)
+    if os.path.basename(path) != "CLAUDE.md":
+        return base
+    parts = [base] if base else []
+    for surface in resolve_doctrine_surfaces(path):
+        if os.path.basename(surface) == "CLAUDE.md":
+            continue  # already read as `base`
+        ledger_body = read_file_safe(surface)
+        if ledger_body:
+            parts.append(ledger_body)
+    return "\n".join(parts)
+
+
 def _read_target(target_str, project_dir, project_basename=None):
     """Resolve a target string to a filesystem path and return its content.
 
@@ -217,14 +267,14 @@ def _read_target(target_str, project_dir, project_basename=None):
 
     if bare.startswith("~"):
         path = os.path.expanduser(bare)
-        return read_file_safe(path)
+        return _read_with_ledger(path)
 
     if os.path.isabs(bare):
-        return read_file_safe(bare)
+        return _read_with_ledger(bare)
 
     # Relative path: resolve against project_dir
     path = os.path.join(project_dir, bare)
-    content = read_file_safe(path)
+    content = _read_with_ledger(path)
     if content:
         return content
 
@@ -238,9 +288,17 @@ def _read_target(target_str, project_dir, project_basename=None):
             stripped = "/".join(parts[1:])
             if stripped:
                 path2 = os.path.join(project_dir, stripped)
-                content2 = read_file_safe(path2)
+                content2 = _read_with_ledger(path2)
                 if content2:
                     return content2
+
+    # Auto-memory fallback (tic 335): a bare `feedback_x.md` / `session_lessons_x.md`
+    # promoted_to target lives in the auto-memory dir, not the federation repo.
+    # Only the basename is used (auto-memory is flat).
+    am_path = AUTO_MEMORY_DIR / os.path.basename(bare)
+    content_am = read_file_safe(str(am_path))
+    if content_am:
+        return content_am
 
     return ""
 
@@ -278,6 +336,10 @@ def _target_exists(target_str, project_dir, project_basename=None):
             stripped = "/".join(parts[1:])
             if stripped and os.path.exists(os.path.join(project_dir, stripped)):
                 return True
+
+    # Auto-memory fallback (tic 335): bare auto-memory filenames resolve there.
+    if (AUTO_MEMORY_DIR / os.path.basename(bare)).exists():
+        return True
 
     return False
 
@@ -588,28 +650,39 @@ def check_orphans(queue, project_dir, inscribed_ids=None):
             os.path.expanduser("~/.claude/CLAUDE.md"),
         ]
 
+        # Helper: append a target's project-dir resolution AND its auto-memory
+        # resolution (tic 335). A bare `feedback_x.md` promoted_to lives in the
+        # auto-memory dir, not the federation repo — joining it to project_dir
+        # alone never resolves and produced a false orphaned_promotion.
+        def _append_target(t):
+            t = _strip_path_anchor(_strip_scope_hint(t))
+            if t.startswith("~"):
+                check_paths.append(os.path.expanduser(t))
+            elif os.path.isabs(t):
+                check_paths.append(t)
+            else:
+                check_paths.append(os.path.join(project_dir, t))
+            check_paths.append(str(AUTO_MEMORY_DIR / os.path.basename(t)))
+
         promoted_to = cpr.get("promoted_to", "")
         if isinstance(promoted_to, str) and promoted_to:
-            check_paths.append(promoted_to if os.path.isabs(promoted_to)
-                               else os.path.join(project_dir, promoted_to))
+            _append_target(promoted_to)
         elif isinstance(promoted_to, list):
             for p in promoted_to:
                 if isinstance(p, str) and p:
-                    check_paths.append(p if os.path.isabs(p) else os.path.join(project_dir, p))
+                    _append_target(p)
 
         for scope in cpr.get("recommended_scopes", []):
             if not _looks_like_file_path(scope):
                 continue
-            if scope.startswith("~"):
-                check_paths.append(os.path.expanduser(scope))
-            elif not os.path.isabs(scope):
-                check_paths.append(os.path.join(project_dir, scope))
-            else:
-                check_paths.append(scope)
+            _append_target(scope)
 
         found = False
         for path in check_paths:
-            content = read_file_safe(path)
+            # Dehydration-aware read: a CLAUDE.md target folds in its sibling
+            # ledger body (tic 335) so a promoted body relocated to the ledger
+            # is found rather than read as missing.
+            content = _read_with_ledger(path)
             if content and (cpr_id in content or cpr_ref in content or snippet in content):
                 found = True
                 break

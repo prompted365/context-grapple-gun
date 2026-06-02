@@ -26,7 +26,12 @@ from pathlib import Path
 
 # Allow importing zone_root from same directory
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "lib"))
 from zone_root import resolve_zone_root, load_ticzone, audit_logs_path, birth_topology
+# Shared dehydration-aware doctrine resolver + both-scheme id matcher (tic 335
+# consumer-set fix): post-dehydration a rung's promoted bodies live in a sibling
+# ledger.md, and the majority of promoted ids are `cpr_<slug>` not `CogPR-N`.
+from doctrine_surfaces import resolve_doctrine_surfaces, find_doctrine_ids  # noqa: E402
 
 
 # ---------------------------------------------------------------------------
@@ -234,16 +239,28 @@ def find_claude_md_chain(zone_root):
 
 
 def extract_promoted_ids(claude_md_paths):
-    """Scan CLAUDE.md files for CogPR references to find what's been promoted."""
+    """Scan the doctrine surfaces for CogPR references to find what's promoted.
+
+    Dehydration-aware (tic 335): each CLAUDE.md path is expanded to its
+    body-bearing surfaces via resolve_doctrine_surfaces — for a dehydrated rung
+    that adds the sibling ledger.md where the promoted bodies (and their
+    `<!-- promoted from cpr_... -->` provenance) actually live. Reading the
+    compact root alone would see only the pointer index and report nothing
+    promoted post-dehydration. Both id schemes are matched (CogPR-N + cpr_slug)
+    so slug-era promotions are not silently invisible.
+    """
     promoted = set()
-    pattern = re.compile(r"CogPR-(\d+)")
+    seen_surfaces = set()
     for path in claude_md_paths:
-        try:
-            content = Path(path).read_text(encoding="utf-8")
-            for match in pattern.finditer(content):
-                promoted.add(f"CogPR-{match.group(1)}")
-        except (OSError, UnicodeDecodeError):
-            continue
+        for surface in resolve_doctrine_surfaces(path):
+            if surface in seen_surfaces:
+                continue
+            seen_surfaces.add(surface)
+            try:
+                content = Path(surface).read_text(encoding="utf-8")
+            except (OSError, UnicodeDecodeError):
+                continue
+            promoted |= find_doctrine_ids(content)
     return promoted
 
 
@@ -462,9 +479,15 @@ def build_bench_packet(project_dir, dry_run=False):
         related = find_related_cprs(cpr, queue)
         related_signals = find_related_signals(cpr, signals)
 
-        # Check if a CogPR reference already exists in doctrine
-        cpr_num = re.search(r"CogPR-(\d+)", cpr_id)
-        doctrine_ref = cpr_id in already_promoted_refs if cpr_num else False
+        # Check if a CogPR reference already exists in doctrine. already_promoted_refs
+        # now carries BOTH id schemes (cpr_slug + CogPR-N), so match the slug id
+        # directly rather than gating on a numeric form — the old
+        # `... if cpr_num else False` made every slug-id CogPR read as
+        # never-promoted (the legacy-regex blindspot, tic 335 consumer-set fix).
+        doctrine_ref = cpr_id in already_promoted_refs
+        num_match = re.search(r"CogPR-(\d+)", cpr_id)
+        if not doctrine_ref and num_match:
+            doctrine_ref = f"CogPR-{num_match.group(1)}" in already_promoted_refs
 
         # Tier 1 enrichment evidence — surface the swarm's per-record findings
         # so reviewers get lesson_class, scope_axis, certainty_axis as decision

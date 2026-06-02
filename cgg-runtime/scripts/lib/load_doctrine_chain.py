@@ -40,6 +40,7 @@ from typing import Optional
 _HERE = os.path.dirname(os.path.abspath(__file__))
 _SCRIPTS = os.path.dirname(_HERE)
 sys.path.insert(0, _SCRIPTS)
+sys.path.insert(0, _HERE)  # lib/ — for the shared doctrine_surfaces resolver
 from zone_root import resolve_rung_position, RUNG_ORDER  # noqa: E402
 
 # Briefing format: rungs are concatenated lowest-to-highest (site → federation),
@@ -75,34 +76,24 @@ def _read_claude_md(rung_dir: str) -> Optional[str]:
 # This is the same dehydration blindspot already fixed on the inscription-target
 # side (review-execute Step 2, tic 316) and the verifier side (review-close-check,
 # tic 279 + tic 316); the briefing helper was the un-patched third consumer
-# (tic 333). Ledger discovery mirrors the verifier's strategy: a per-rung known
-# location plus a bounded glob fallback.
+# (tic 333).
 #
-# Federation's ledger lives under audit-logs/ (not a direct sibling); domain
-# ledgers (e.g. CGG's cgg-ledger/) sit beside the CLAUDE.md.
-_LEDGER_GLOBS_BY_RUNG = {
-    "federation": [
-        "audit-logs/governance/*ledger*/ledger.md",
-        "*ledger*/ledger.md",
-    ],
-}
-_DEFAULT_LEDGER_GLOBS = ["*ledger*/ledger.md", "*-ledger/ledger.md"]
+# Ledger discovery was first written here (tic 333); at tic 335 it was PROMOTED to
+# the shared lib `doctrine_surfaces.py` so the remaining body-consumers
+# (ladder-audit, prompt-stack-audit, bench-packet-prep, pattern-mining-context,
+# rtch, review-close-check) route through ONE resolver — the closed consumer-set
+# obligation (federation KI tic 333). `_find_ledger` below is now a thin
+# back-compat alias re-exporting the shared `find_ledger`; the briefing assembly
+# calls it exactly as before.
+from doctrine_surfaces import find_ledger as _shared_find_ledger  # noqa: E402
 
 
 def _find_ledger(rung_dir: str, rung: str) -> Optional[str]:
-    """Locate a dehydrated rung's ledger.md, or None if the rung is not
-    dehydrated. Returns the first match (sorted) so resolution is deterministic."""
-    import glob as _glob
-
-    patterns = _LEDGER_GLOBS_BY_RUNG.get(rung, _DEFAULT_LEDGER_GLOBS)
-    for pat in patterns:
-        hits = sorted(_glob.glob(os.path.join(rung_dir, pat)))
-        # Exclude the rung's own CLAUDE.md dir false-positives; ledger.md is the
-        # body surface by name.
-        hits = [h for h in hits if os.path.isfile(h)]
-        if hits:
-            return hits[0]
-    return None
+    """Back-compat alias for the shared ledger resolver. The dehydration walk
+    now lives in doctrine_surfaces.find_ledger so every body-consumer shares one
+    implementation. Retained so existing callers (briefing_metadata,
+    assemble_rung_briefing) need no change."""
+    return _shared_find_ledger(rung_dir, rung)
 
 
 def _truncate_ledger_for_briefing(text: str, limit: int) -> str:

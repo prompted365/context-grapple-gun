@@ -22,7 +22,15 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "lib"))
 from zone_root import resolve_zone_root, load_ticzone, audit_logs_path
+# Shared dehydration-aware doctrine resolver (tic 335 consumer-set fix): a
+# dehydrated rung's promoted bodies live in a sibling ledger.md under
+# `<!-- promoted from cpr_... -->` provenance markers, NOT in the compact
+# CLAUDE.md as `<!-- --agnostic-candidate ... status:"promoted" -->` blocks. A
+# rule scan that reads CLAUDE.md alone extracts ZERO promoted rules from a
+# dehydrated root — it audits the table of contents, not the law.
+from doctrine_surfaces import resolve_doctrine_surfaces  # noqa: E402
 
 
 # ---------------------------------------------------------------------------
@@ -79,15 +87,19 @@ METHYLATED_RE = re.compile(r"<!--\s*methylated:\s*(\S+)\s*-->")
 CPR_STATUS_RE = re.compile(r'status:\s*"(promoted|absorbed|pending|rejected\w*)"')
 CPR_LESSON_RE = re.compile(r'lesson:\s*"([^"]+)"')
 SECTION_RE = re.compile(r"^(#{1,4})\s+(.+)$", re.MULTILINE)
+# Ledger provenance marker: a dehydrated rung's bodies carry
+# `<!-- promoted from cpr_xxx ... -->` / `<!-- promoted-spec ... -->` /
+# `<!-- refined from ... -->` etc. — the body-side equivalent of a compact
+# root's `--agnostic-candidate status:"promoted"` block.
+LEDGER_PROVENANCE_RE = re.compile(
+    r"<!--\s*(?:promoted-spec|promoted|absorbed|refined|extended|merged|superseded)\b",
+    re.IGNORECASE,
+)
 
 
-def extract_rules(md_path):
-    """Extract governance rules from a CLAUDE.md file."""
-    try:
-        content = md_path.read_text(encoding="utf-8")
-    except (OSError, UnicodeDecodeError):
-        return []
-
+def _extract_compact_rules(content):
+    """Extract rules from a compact CLAUDE.md surface (methylated tags,
+    --agnostic-candidate promoted blocks, section headings)."""
     rules = []
 
     # Methylated lessons
@@ -133,6 +145,94 @@ def extract_rules(md_path):
                 "text": match.group(2).strip(),
             })
 
+    return rules
+
+
+def _extract_ledger_rules(content):
+    """Extract rules from a dehydrated rung's ledger.md surface.
+
+    The ledger holds the relocated doctrine BODIES: each invariant is a
+    `##`/`###` heading whose body carries a `<!-- promoted from cpr_... -->`
+    provenance marker. We surface each provenance-marked entry as a promoted_cpr
+    rule (lesson = the nearest preceding heading, i.e. the invariant's name) so
+    the audit counts the actual law, not an empty compact root. Section headings
+    are surfaced too, for parity with the compact extractor.
+    """
+    rules = []
+
+    # Index headings by position so each provenance marker maps to its name.
+    headings = [
+        (m.start(), len(m.group(1)), m.group(2).strip())
+        for m in SECTION_RE.finditer(content)
+    ]
+
+    def _name_for(offset):
+        name = ""
+        for pos, _depth, text in headings:
+            if pos <= offset:
+                name = text
+            else:
+                break
+        return name
+
+    for m in LEDGER_PROVENANCE_RE.finditer(content):
+        offset = m.start()
+        line_num = content[:offset].count("\n") + 1
+        lesson = _name_for(offset) or "(ledger entry)"
+        rules.append({
+            "type": "promoted_cpr",
+            "lesson": lesson,
+            "line": line_num,
+            "text": lesson[:80],
+        })
+
+    for pos, depth, text in headings:
+        if depth <= 3:
+            line_num = content[:pos].count("\n") + 1
+            rules.append({
+                "type": "section",
+                "depth": depth,
+                "heading": text,
+                "line": line_num,
+                "text": text,
+            })
+
+    return rules
+
+
+def extract_rules(md_path):
+    """Extract governance rules from a rung's doctrine surfaces.
+
+    Dehydration-aware (tic 335): resolves the CLAUDE.md to its body-bearing
+    surfaces — for a dehydrated rung that adds the sibling ledger.md where the
+    promoted bodies live. Reading the compact CLAUDE.md alone extracts ZERO
+    promoted rules post-dehydration (the bodies relocated to the ledger), so the
+    coherence audit would silently report `rule_count: 0` for federation/CGG —
+    the silent-degrade profile the consumer-set obligation (federation KI
+    tic 333) names.
+    """
+    surfaces = resolve_doctrine_surfaces(str(md_path))
+    if not surfaces:
+        # md_path may not resolve as a doctrine surface; read it directly.
+        try:
+            return _extract_compact_rules(
+                Path(md_path).read_text(encoding="utf-8")
+            )
+        except (OSError, UnicodeDecodeError):
+            return []
+
+    rules = []
+    for i, surface in enumerate(surfaces):
+        try:
+            content = Path(surface).read_text(encoding="utf-8")
+        except (OSError, UnicodeDecodeError):
+            continue
+        # First surface is the compact CLAUDE.md; any subsequent surface is a
+        # dehydrated-body ledger.
+        if i == 0:
+            rules.extend(_extract_compact_rules(content))
+        else:
+            rules.extend(_extract_ledger_rules(content))
     return rules
 
 

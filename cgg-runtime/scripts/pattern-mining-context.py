@@ -31,6 +31,16 @@ import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
+# Shared dehydration-aware doctrine resolver + both-scheme id matcher (tic 335
+# consumer-set fix): a dehydrated rung's bodies live in a sibling ledger.md, and
+# most promoted ids are `cpr_<slug>` not `CogPR-N`. Reading the compact root and
+# counting only CogPR-N undercounts the live doctrine corpus.
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "lib"))
+from doctrine_surfaces import (  # noqa: E402
+    resolve_doctrine_surfaces,
+    find_doctrine_ids,
+)
+
 
 # ---------------------------------------------------------------------------
 # Zone root resolution
@@ -120,7 +130,7 @@ def temporal_clusters(events, time_key="timestamp", window_hours=24):
 
 def entity_cooccurrence(records, id_key="id", text_key="lesson"):
     """Which CogPR IDs / signal IDs co-occur in text fields."""
-    id_pattern = re.compile(r'CogPR-\d+|PAT-T\d+-[A-Z]+-[A-Z]|sig_\S+|INV-[A-Z]+-\d+')
+    id_pattern = re.compile(r'CogPR-\d+|cpr_[a-z][a-z0-9_]+|PAT-T\d+-[A-Z]+-[A-Z]|sig_\S+|INV-[A-Z]+-\d+')
     cooccur = collections.Counter()
     for rec in records:
         text = str(rec.get(text_key, "")) + " " + str(rec.get("source", ""))
@@ -560,17 +570,25 @@ def section_claude_md(zone_root, window_tics, current_tic):
         if not path.exists():
             lines.append(f"### {label}: NOT FOUND at {path}")
             continue
-        text = path.read_text(encoding="utf-8")
+        # Dehydration-aware (tic 335): a dehydrated rung's bodies live in a
+        # sibling ledger.md. Analyze the COMBINED body so shape stats and CogPR
+        # counts reflect the actual doctrine corpus, not just the compact
+        # pointer index. CogPR references count BOTH id schemes.
+        surfaces = resolve_doctrine_surfaces(str(path))
+        text = "\n".join(
+            Path(s).read_text(encoding="utf-8") for s in surfaces
+        )
+        ledger_note = " (+ledger)" if len(surfaces) > 1 else ""
         line_count = text.count("\n")
         heading_count = len(re.findall(r'^#{1,3} ', text, re.MULTILINE))
         invariant_mentions = len(re.findall(r'Key Invariant|PRIMITIVE|invariant', text, re.IGNORECASE))
-        cogpr_mentions = len(re.findall(r'CogPR-\d+', text))
+        cogpr_mentions = len(find_doctrine_ids(text))
         entropy = shannon_entropy(text)
         all_texts.append(text)
 
-        lines.append(f"### {label} ({path.name})")
+        lines.append(f"### {label} ({path.name}{ledger_note})")
         lines.append(f"  Lines: {line_count} | Headings: {heading_count} | Entropy: {entropy:.2f}")
-        lines.append(f"  Invariant mentions: {invariant_mentions} | CogPR references: {cogpr_mentions}")
+        lines.append(f"  Invariant mentions: {invariant_mentions} | CogPR references (unique ids): {cogpr_mentions}")
 
         # Extract Key Invariant bullet points
         ki_matches = re.findall(r'^- \*\*(.+?)\*\*', text, re.MULTILINE)
