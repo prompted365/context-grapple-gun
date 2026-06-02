@@ -103,6 +103,8 @@ python3 <CGG_ROOT>/cgg-runtime/scripts/lib/load_doctrine_chain.py <target_file_p
 
 Where `<target_file_path>` is the same path you'll inscribe to. Output is the assembled briefing string (Federation + Estate + Domain rungs concatenated). Read it once before composing inscription text — this gives you the domain's bullet style, existing related inscriptions, and the rung-specific conventions you need to match.
 
+**Dehydration-aware (tic 333):** for a DEHYDRATED rung the briefing now surfaces BOTH the compact `CLAUDE.md` pointer index AND the sibling `ledger.md` (under a `## Ledger (DEHYDRATED rung …)` header) — so the "existing related inscriptions" you must match are present in the briefing itself, in ledger entry format, not just the compact pointers. Match the ledger entry format from that section. To resolve placement *mechanically* instead of by the prose list in Step 2a, run `load_doctrine_chain.py <target_file_path> --metadata` — each rung carries `is_dehydrated` and `ledger_path`; inscribe the full body to `ledger_path` when `is_dehydrated` is true.
+
 **When to skip the briefing:**
 
 - Federation-only inscriptions (`canonical/CLAUDE.md`) — federation doctrine is already in your auto-loaded context.

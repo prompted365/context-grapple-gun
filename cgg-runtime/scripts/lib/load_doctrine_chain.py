@@ -18,6 +18,15 @@ markers + walk-up infrastructure in zone_root.py) but no read-side consumer
 owned dispatch-briefing assembly until this helper. See:
 - audit-logs/governance/zone-marker-utilization-audit-tic211.md
 - audit-logs/governance/claudemd-hierarchy-probe-tic211.md
+
+Dehydration awareness (tic 333): for a DEHYDRATED rung (federation, CGG) the
+CLAUDE.md is a compact pointer index and the doctrine BODIES live in a sibling
+ledger.md. This helper therefore reads BOTH surfaces — the compact root for
+navigation and the ledger for the actual body content — so a consumer briefed
+for a dehydrated rung sees the doctrine, not just the pointers. Reading
+CLAUDE.md alone was the third instance of the dehydration blindspot already
+patched on the inscription-target side (review-execute, tic 316) and the
+verifier side (review-close-check, tic 279 + 316).
 """
 
 from __future__ import annotations
@@ -57,6 +66,60 @@ def _read_claude_md(rung_dir: str) -> Optional[str]:
         return candidate.read_text(encoding="utf-8")
     except OSError:
         return None
+
+
+# Dehydration awareness: a rung may be DEHYDRATED — its doctrine BODIES relocated
+# out of CLAUDE.md (which becomes a compact pointer index) and into a sibling
+# ledger.md. A briefing that reads CLAUDE.md only therefore hands a consumer the
+# *pointers*, not the body-bearing surface — invisible-to-the-consumer doctrine.
+# This is the same dehydration blindspot already fixed on the inscription-target
+# side (review-execute Step 2, tic 316) and the verifier side (review-close-check,
+# tic 279 + tic 316); the briefing helper was the un-patched third consumer
+# (tic 333). Ledger discovery mirrors the verifier's strategy: a per-rung known
+# location plus a bounded glob fallback.
+#
+# Federation's ledger lives under audit-logs/ (not a direct sibling); domain
+# ledgers (e.g. CGG's cgg-ledger/) sit beside the CLAUDE.md.
+_LEDGER_GLOBS_BY_RUNG = {
+    "federation": [
+        "audit-logs/governance/*ledger*/ledger.md",
+        "*ledger*/ledger.md",
+    ],
+}
+_DEFAULT_LEDGER_GLOBS = ["*ledger*/ledger.md", "*-ledger/ledger.md"]
+
+
+def _find_ledger(rung_dir: str, rung: str) -> Optional[str]:
+    """Locate a dehydrated rung's ledger.md, or None if the rung is not
+    dehydrated. Returns the first match (sorted) so resolution is deterministic."""
+    import glob as _glob
+
+    patterns = _LEDGER_GLOBS_BY_RUNG.get(rung, _DEFAULT_LEDGER_GLOBS)
+    for pat in patterns:
+        hits = sorted(_glob.glob(os.path.join(rung_dir, pat)))
+        # Exclude the rung's own CLAUDE.md dir false-positives; ledger.md is the
+        # body surface by name.
+        hits = [h for h in hits if os.path.isfile(h)]
+        if hits:
+            return hits[0]
+    return None
+
+
+def _truncate_ledger_for_briefing(text: str, limit: int) -> str:
+    """Truncate a ledger body favoring the TAIL. A ledger's recent entries are
+    the best adjacency/format exemplars for a new inscription, while the head
+    carries the schema note — so keep a small schema head (~25%) and a large
+    recent tail (~70%), inverting the head-heavy CLAUDE.md truncation."""
+    if len(text) <= limit:
+        return text
+    head = int(limit * 0.25)
+    tail = int(limit * 0.70)
+    marker = (
+        f"\n\n…[ledger middle elided for briefing — full file at named path; "
+        f"{len(text) - head - tail} chars elided. Schema head + recent-entry tail "
+        f"kept: match the entry format below and check recent entries for adjacency]…\n\n"
+    )
+    return text[:head] + marker + text[-tail:]
 
 
 def _truncate_for_briefing(text: str, limit: int) -> str:
@@ -159,6 +222,29 @@ def assemble_rung_briefing(
             body = _truncate_for_briefing(body, truncate_per_rung)
         header = f"{RUNG_HEADERS.get(rung, '## Doctrine')} — {rung_name} ({rung_dir}/CLAUDE.md)"
         sections.append(f"{header}\n\n{body.strip()}\n")
+
+        # Dehydration awareness: if this rung is dehydrated, its CLAUDE.md is a
+        # compact pointer index and the doctrine BODIES live in a sibling
+        # ledger.md. Surface the ledger too, else the briefing hands the consumer
+        # the pointers and the body-bearing surface is invisible (the tic-333
+        # briefing dehydration blindspot).
+        ledger_path = _find_ledger(rung_dir, rung)
+        if ledger_path:
+            try:
+                ledger_body = Path(ledger_path).read_text(encoding="utf-8")
+            except OSError:
+                ledger_body = None
+            if ledger_body:
+                if truncate_per_rung > 0:
+                    ledger_body = _truncate_ledger_for_briefing(
+                        ledger_body, truncate_per_rung
+                    )
+                ledger_header = (
+                    f"## Ledger (DEHYDRATED rung — doctrine BODIES live here, "
+                    f"NOT in the compact CLAUDE.md above) — {rung_name} ({ledger_path})"
+                )
+                sections.append(f"{ledger_header}\n\n{ledger_body.strip()}\n")
+
         seen_paths.add(rung_dir)
 
     if include_global and rp.get("global"):
@@ -197,12 +283,23 @@ def briefing_metadata(target_path: str) -> dict:
         info = topology.get(rung)
         if info and info.get("path"):
             claude_md = Path(info["path"]) / "CLAUDE.md"
+            ledger_path = _find_ledger(info["path"], rung)
             rungs_found.append({
                 "rung": rung,
                 "name": info.get("name", rung),
                 "path": info["path"],
                 "has_claude_md": claude_md.is_file(),
                 "claude_md_bytes": claude_md.stat().st_size if claude_md.is_file() else 0,
+                # Dehydration signal: a rung is dehydrated iff a sibling ledger.md
+                # exists. Callers (review-execute) can resolve ledger-vs-compact
+                # placement mechanically instead of via a hardcoded prose list.
+                "is_dehydrated": ledger_path is not None,
+                "ledger_path": ledger_path,
+                "ledger_bytes": (
+                    os.path.getsize(ledger_path)
+                    if ledger_path and os.path.isfile(ledger_path)
+                    else 0
+                ),
             })
     return {
         "target_path": target_path,
