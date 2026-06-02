@@ -2340,3 +2340,51 @@ Validation rules are identical across all four paths (I-A / I-B / I-D-curl / I-D
 **Coverage-topology refinement (ABSORBED tic 324):** PUSH-nav / boot-injection is **actor-scoped, not board-scoped** — it reaches every recognized citizen at boot regardless of which board they land on. This is what makes the ambient injection layer board-of-boards-COMPLETE precisely BECAUSE the PULL-nav layer (compact-root → ledger-anchor pointers) is **non-uniform**: PULL-nav only exists on DEHYDRATED boards (measured tic 321: 2 of 10 marked rungs — federation + CGG, both ~100% resolve; the other 8 hold doctrine inline with zero pointers). An agent landing on an inline board vs a dehydrated board sees structurally different surfaces, and the uniform injection is what broadcasts the map (GLOSSARY § Doctrine Surface Navigation) that explains the split. **Injection compensates for non-uniform dehydration.** WALK-nav (`load_doctrine_chain` rung-walk) spans all 10 boards, returning None gracefully for a marked rung with no CLAUDE.md. Total tic-321 measure: 341 pointers (194 KI + 147 MEMORY index), ~100% live. <!-- absorbed from cpr_injection_coverage_is_actor_scoped_pull_nav_is_board_scoped_tic321 (tic 321→324, /review unified docket). ABSORB into boot-injection-lane KI as the coverage-rationale that explains why the lane structurally exists. Source: tic 321 board-of-boards navigation-coverage audit. Band: COGNITIVE. -->
 
 ---
+
+### Boot-seam duality — the primary boots via SessionStart, spawned citizens via SubagentStart
+
+<a id="boot-seam-duality-primary-sessionstart-citizens-subagentstart"></a>
+
+**Ledger tags:**
+- `invariant_id`: `cpr_boot_seam_duality_primary_sessionstart_vs_citizens_subagentstart_tic332`
+- `terrain_class`: `sync_and_install_parity`
+- `lanes`: ["sync_and_install_parity", "mandate_and_cadence_ops", "pipeline_and_integration"]
+- `era`: `cpr_era_tic_300_349`
+- `target_rung`: `domain`
+- `compact_root_status`: `compact`
+- `first_appearance_tic`: `332`
+- `promoted_tic`: `333`
+- `confidence_tier`: `reinforced`
+- `relations`: composes `trigger-routing-is-mandatory` (federation) + `runtime-sync-parity-verification`; complements `boot-injection-lane-tic-gated-broadcast-pointer` (same two seams, different payload class)
+
+**Body:**
+
+- **The primary orchestrator and spawned citizens boot through DIFFERENT seams; a boot injection meant for "every citizen including the primary" must wire BOTH seams, not one.** `subagent-citizen-boot.py` is a **SubagentStart** hook — it fires ONLY for spawned citizens, NEVER for the primary orchestrator (`ent_homeskillet`), who boots via **SessionStart** (`session-restore.sh`). A boot-injection that must reach "every citizen including the primary" is therefore TWO wirings: SessionStart (primary; PREPEND the payload ahead of the handoff) + SubagentStart (spawned citizens). Wiring only SubagentStart silently omits the most important recipient — the primary. The two install surfaces also differ in a way that bears directly on Runtime-Sync-Parity: SubagentStart is registered in project `.claude/settings.json` and fires **from SOURCE**; SessionStart fires via a `~/.claude/hooks/session-restore-patch.sh` shim that **execs an INSTALLED copy** of the hook — so sync-parity must be verified on the *installed* SessionStart hook specifically, not assumed from source correctness. Architect-surfaced at the tic-332 implementation gate ("subagentstart not going to fire on homeskillet, right? so it needs to be injected into the thread prepending the handoff").
+
+<!-- promoted from cpr_boot_seam_duality_primary_sessionstart_vs_citizens_subagentstart_tic332 (tic 332→333, /review 333 unified docket). Source: tic-332 both-seam worldview wiring + Architect seam-split correction at the impl gate; live-validated tic 333 — the FIRST NATIVE BOOT, where the compiled worldview reached the primary via SessionStart exactly as the invariant predicts. Band: COGNITIVE. -->
+
+---
+
+### Budget-exempt closure framing + unit-safe truncation
+
+<a id="budget-exempt-closure-framing-and-unit-safe-truncation"></a>
+
+**Ledger tags:**
+- `invariant_id`: `cpr_budget_exempt_closure_framing_and_unit_safe_truncation_tic332`
+- `terrain_class`: `verification_and_proof_discipline`
+- `lanes`: ["verification_and_proof_discipline", "pipeline_and_integration"]
+- `era`: `cpr_era_tic_300_349`
+- `target_rung`: `domain`
+- `compact_root_status`: `compact`
+- `first_appearance_tic`: `332`
+- `promoted_tic`: `333`
+- `confidence_tier`: `reinforced`
+- `relations`: refines `boundary-aware-body-extraction` (extends boundary-discipline from fixed line-offsets to typed atomic units carrying execution semantics); generalizes beyond the worldview compiler to any budgeted render of typed/atomic units carrying a closure obligation
+
+**Body:**
+
+- **A loop-closing/safety ritual guarding a budget-bounded payload must be EXEMPT from that budget; truncation of atomic typed units must cut at unit boundaries, never mid-unit.** Two coupled sub-lessons from wiring the worldview receipt into the boot injection: **(1) BUDGET-EXEMPT CLOSURE FRAMING** — a ritual that closes or guards a payload (a boot-receipt request frame, a truncation marker) must be structurally exempt from the `--max-chars` budget that bounds the payload, else it gets truncated away exactly when the payload is largest (when closure matters most). Render the bounded body first; append the guard *after*. **(2) UNIT-SAFE TRUNCATION** — when the payload is composed of atomic typed units (badge-bearing pertinence rays: `⟨YOURS·act⟩…`), truncation must cut at unit boundaries, never mid-unit. A half-cut `⟨YOURS·act⟩` ray can read as a DIFFERENT, dangerous instruction. Truncate at the last complete line that fits, then append an explicit `⟨SEALED⟩` "body truncated; do not infer omitted rays" marker (itself budget-exempt per sub-lesson 1). **Byte-safe ≠ unit-safe.**
+
+<!-- promoted from cpr_budget_exempt_closure_framing_and_unit_safe_truncation_tic332 (tic 332→333, /review 333 unified docket). Source: tic-332 office-worldview.py receipt-frame + line-safe-truncation hardening (Architect flags); live-validated tic 333 — first-native-boot conformance-diff confirmed the frame appeared past the cap and truncation cut on a complete ray + SEALED marker. Band: COGNITIVE. -->
+
+---

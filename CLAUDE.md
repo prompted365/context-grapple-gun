@@ -186,6 +186,8 @@
   - *Ledger:* [`cgg-ledger/ledger.md#manual-ceremony-as-pipeline-substitute-discipline`](cgg-ledger/ledger.md#manual-ceremony-as-pipeline-substitute-discipline)
 - **Verifier Install Path via Sync Manifest** — Verifier gates that diff canonical source against runtime-installed artifacts must discover the install target via the same mechanism as the syncing tool (sync-manifest.json lookup), not hardcode a parallel path assum…
   - *Ledger:* [`cgg-ledger/ledger.md#verifier-install-path-via-sync-manifest`](cgg-ledger/ledger.md#verifier-install-path-via-sync-manifest)
+- **Boot-Seam Duality (Primary SessionStart vs Citizens SubagentStart)** — The primary orchestrator boots via SessionStart (`session-restore.sh`, exec'd from an INSTALLED copy via a patch shim); spawned citizens boot via SubagentStart (`subagent-citizen-boot.py`, fires from SOURCE). A boot injection for "every citizen including the primary" is TWO wirings — wiring only SubagentStart silently omits the primary; verify sync-parity on the installed SessionStart hook specifically.
+  - *Ledger:* [`cgg-ledger/ledger.md#boot-seam-duality-primary-sessionstart-citizens-subagentstart`](cgg-ledger/ledger.md#boot-seam-duality-primary-sessionstart-citizens-subagentstart)
 
 ## Verification And Proof Discipline
 
@@ -205,6 +207,8 @@
   - *Ledger:* [`cgg-ledger/ledger.md#two-run-spec-gate-geometry`](cgg-ledger/ledger.md#two-run-spec-gate-geometry)
 - **Boundary-Aware Body Extraction** — Spec validation gates that use hardcoded line offsets for body extraction (sed -n 'N,$p' with fixed N) break silently when the mutation being validated changes the boundary position.
   - *Ledger:* [`cgg-ledger/ledger.md#boundary-aware-body-extraction`](cgg-ledger/ledger.md#boundary-aware-body-extraction)
+- **Budget-Exempt Closure Framing + Unit-Safe Truncation** — A closure/safety ritual guarding a budget-bounded payload (a receipt-request frame, a truncation marker) must be EXEMPT from that budget — render the bounded body first, append the guard after. And truncation of atomic typed units (badge-bearing rays) must cut at unit boundaries with an explicit `⟨SEALED⟩` marker, never mid-unit — a half-cut ray can read as a different, dangerous instruction. Byte-safe ≠ unit-safe.
+  - *Ledger:* [`cgg-ledger/ledger.md#budget-exempt-closure-framing-and-unit-safe-truncation`](cgg-ledger/ledger.md#budget-exempt-closure-framing-and-unit-safe-truncation)
 - **Atomic Dual-Surface Invariant Mechanization** — When a runtime script implements one half of an atomic dual-surface invariant but fails the other half mechanically, the patch is structural (add the missing collapse step) — not narrative (re-explain the discipline i…
   - *Ledger:* [`cgg-ledger/ledger.md#atomic-dual-surface-invariant-mechanization`](cgg-ledger/ledger.md#atomic-dual-surface-invariant-mechanization)
 - **Cross-File Pointer Integrity Verification** — When a multi-file refactor produces a new authoring artifact whose body contains pointers (anchors, hyperlinks, refs) into a companion artifact, the pre-swap verification gate MUST include a pointer-integrity diff: co…
