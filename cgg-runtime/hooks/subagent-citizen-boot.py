@@ -110,6 +110,40 @@ def resolve_boot_injection() -> Path | None:
     return None
 
 
+def resolve_office_worldview() -> Path | None:
+    """Find the pertinence-compiler (office-worldview.py) across source + installed."""
+    for cand in (
+        HOOK_DIR.parent / "scripts" / "office-worldview.py",          # canonical source
+        Path.home() / ".claude" / "cgg-runtime" / "scripts" / "office-worldview.py",  # installed
+    ):
+        if cand.is_file():
+            return cand
+    return None
+
+
+def render_worldview(tic: int, entity: str, zone_root: Path) -> str:
+    """Compile this citizen's pertinence worldview (office-worldview.py). Read-only,
+    mints no signals, fail-soft to empty. The compiled fragments give the booting
+    citizen its typed pertinence map (YOURS/FIELD/SUBSTRATE/...) WITH authority badges,
+    plus the budget-exempt boot-receipt request frame. Primary office gets the direct
+    lens; every other recognized citizen gets it projected (compiler-side). This is the
+    Phase-A boot-boundary widening authorized by the Architect at the tic-332 gate
+    (PROMOTE-SPEC /review 332 + explicit confirming look)."""
+    script = resolve_office_worldview()
+    if script is None:
+        return ""
+    try:
+        proc = subprocess.run(
+            [sys.executable, str(script), "render", "--office", entity,
+             "--tic", str(tic), "--format", "human", "--zone-root", str(zone_root),
+             "--max-chars", "2200"],
+            capture_output=True, text=True, timeout=10,
+        )
+        return (proc.stdout or "").strip()
+    except (subprocess.SubprocessError, OSError):
+        return ""
+
+
 def render_boot_injection(tic: int, entity: str, zone_root: Path) -> str:
     """Tic-gated broadcast pointers (e.g. GLOSSARY doctrine-surface nav). Read-only,
     mints no signals, fail-soft to empty. Every citizen is a 'citizens'-lane recipient.
@@ -276,20 +310,27 @@ def main() -> int:
     if brief.endswith("] Empty."):
         brief = ""
 
+    # Compiled pertinence worldview (office-worldview.py): the citizen's typed civic
+    # orientation WITH authority badges + the budget-exempt boot-receipt request frame.
+    # Phase-A boot-boundary widening authorized at the tic-332 gate.
+    world = render_worldview(tic, entity, zone_root)
+
     # Shared boot-injection lane (same registry session-restore.sh reads): tic-gated
     # broadcast pointers (e.g. GLOSSARY doctrine-surface navigation). Reaches the citizen
     # even when the inbox is empty.
     inject = render_boot_injection(tic, entity, zone_root)
 
-    if not brief and not inject:
+    if not brief and not inject and not world:
         return 0  # nothing to deliver — stay silent
 
     # Dedup-on-unchanged over the COMBINED payload: same content, same session/entity -> quiet.
-    combined_key = (brief + "\n" + inject).strip()
+    combined_key = (world + "\n" + brief + "\n" + inject).strip()
     if already_seen(zone_root, str(session_id), entity, combined_key):
         return 0
 
     parts = []
+    if world:
+        parts.append(world)
     if brief:
         parts.append(
             f"Your inbox brief:\n{brief}\n"

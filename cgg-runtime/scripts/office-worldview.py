@@ -84,6 +84,44 @@ def _badge(cls: str, auth: dict, gated: bool = False) -> str:
     return f"⟨{cls}·{'·'.join(bits)}⟩"
 
 
+def _boot_receipt_path(zone_root: Path) -> str:
+    """Resolve the boot-receipt.py sink path (source sibling, then installed).
+    Returned as a runnable string for the receipt-request framing; the booting
+    context runs whichever exists. Source is preferred (the live hook fires from
+    $CLAUDE_PROJECT_DIR/...), installed is the ~/.claude fallback."""
+    here = Path(__file__).resolve().parent
+    for cand in (here / "boot-receipt.py",
+                 Path.home() / ".claude" / "cgg-runtime" / "scripts" / "boot-receipt.py"):
+        if cand.is_file():
+            return str(cand)
+    # last resort: a zone-relative path (may not exist, but points the right way)
+    return str(zone_root / "canonical_developer" / "context-grapple-gun"
+               / "cgg-runtime" / "scripts" / "boot-receipt.py")
+
+
+def render_receipt_frame(office: str, tic: int, disp: str, zone_root: Path) -> str:
+    """The receipt-REQUEST framing — explicit, warm, and DELIBERATELY budget-exempt.
+
+    This is NOT the worldview body and is NOT counted against --max-chars. It is the
+    first-response ritual that closes the Citizen-Boot Composite loop: prove you crossed
+    the boot threshold consciously (did not collapse the badges) before touching
+    governance. The sink (boot-receipt.py emit) verifies + greets back. The greeting sets
+    session tone; the ledger (boot-receipts.jsonl) populates the long-run receipt lane."""
+    rp = _boot_receipt_path(zone_root)
+    return (
+        "\n━━━ BOOT RECEIPT · your first response closes the boot loop "
+        "(framing — NOT counted against the worldview budget) ━━━\n"
+        f"Good morning, {disp}. You booted from a compiled civic orientation, not a memory "
+        "paste. Before you touch governance, prove you did not collapse the badges — emit "
+        "your receipt; the sink verifies it and greets you back:\n"
+        f"  python3 {rp} emit --entity {office} --tic {tic} \\\n"
+        '    --understood "…" --constraint "…" --abstention "…" '
+        '--first-action "…" --route "cadence/review"\n'
+        "  owed: understood_scope · accepted_constraints · abstentions · "
+        "first_action_or_escalation"
+    )
+
+
 def _zone_root(start: Path, explicit: str = None):
     if explicit:
         ep = Path(explicit)
@@ -378,7 +416,8 @@ def _cross_agent_mesh(zone_root: Path, tic: int) -> list:
 _CLASS_ORDER = ["SUBSTRATE", "YOURS", "OFFICE", "ESCALATE", "PEER", "FIELD", "COUNTER", "ANCESTOR", "SEALED"]
 
 
-def render_human(office: str, tic: int, base: dict, frags: list, max_chars: int) -> str:
+def render_human(office: str, tic: int, base: dict, frags: list, max_chars: int,
+                 zone_root: Path = None, receipt_frame: bool = True) -> str:
     if not frags:
         return ""
     disp = base.get("display", office)
@@ -398,13 +437,19 @@ def render_human(office: str, tic: int, base: dict, frags: list, max_chars: int)
             continue
         for f in items:
             lines.append(f"  {_badge(cls, f['authority'], f.get('gated', False))} {f['text']}")
-    # receipt footer — what the agent owes back
+    # compact in-body reminder (the explicit, command-bearing request frame is appended
+    # AFTER truncation below so it can never be cut)
     need_receipt = sorted({f["id"] for f in frags if f["receipt"]["required"]})
     if need_receipt:
         lines.append("  ⟜ receipt owed: understood_scope · accepted_constraints · abstentions · first_action_or_escalation")
     body = "\n".join(lines)
+    # --max-chars bounds the WORLDVIEW BODY only.
     if max_chars and len(body) > max_chars:
         body = body[: max_chars - 1].rstrip() + "…"
+    # The receipt-request framing is DELIBERATELY budget-exempt — appended after the body
+    # is bounded, so the loop-closing ritual is never truncated away (Architect, tic 332).
+    if receipt_frame:
+        body = body + "\n" + render_receipt_frame(office, tic, disp, zone_root or Path("."))
     return body
 
 
@@ -426,6 +471,8 @@ def main() -> int:
     r.add_argument("--format", choices=["human", "json"], default="human")
     r.add_argument("--zone-root", default=None)
     r.add_argument("--max-chars", type=int, default=DEFAULT_MAX_CHARS)
+    r.add_argument("--no-receipt-frame", dest="receipt_frame", action="store_false",
+                   default=True, help="suppress the budget-exempt boot-receipt request framing")
     args = ap.parse_args()
 
     zone_root = _zone_root(Path(__file__).resolve().parent, args.zone_root)
@@ -439,7 +486,8 @@ def main() -> int:
             text = render_json(args.office, args.tic, frags)
         else:
             base = _office_baseline(zone_root, args.office, args.tic)
-            text = render_human(args.office, args.tic, base, frags, args.max_chars)
+            text = render_human(args.office, args.tic, base, frags, args.max_chars,
+                                zone_root=zone_root, receipt_frame=args.receipt_frame)
     except Exception as e:
         sys.stderr.write(f"[office-worldview] compile error: {e}\n")
         return 0

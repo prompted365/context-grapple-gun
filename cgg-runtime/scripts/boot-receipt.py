@@ -76,6 +76,39 @@ def receipt_id(entity: str, tic: int, fp: str) -> str:
     return hashlib.sha256(f"{entity}:{tic}:{fp}".encode("utf-8")).hexdigest()[:16]
 
 
+# The four semantic fields a complete boot receipt owes (the verification surface).
+_OWED_FIELDS = ("understood_scope", "accepted_constraints", "abstentions",
+                "first_action_or_escalation")
+
+
+def receipt_missing(rec: dict) -> list:
+    """Verify the receipt carries all four owed fields non-empty. Returns the list
+    of missing/empty fields (empty list == complete). The verification half of the
+    handshake — a receipt that proves uptake must actually carry the proof."""
+    miss = []
+    for k in _OWED_FIELDS:
+        v = rec.get(k)
+        if not v or (isinstance(v, (list, str)) and len(v) == 0):
+            miss.append(k)
+    return miss
+
+
+def greeting(entity: str, tic: int, missing: list, deduped: bool = False) -> str:
+    """The warm form-ack that closes the boot loop and sets session tone.
+    Complete + recorded -> good-morning greeting; incomplete -> gentle nudge;
+    deduped -> welcome-back. This is the perception-layer reward for crossing the
+    boot threshold consciously (the loop the rendered '⟜ receipt owed' opened)."""
+    if missing:
+        return (f"📋 receipt recorded for {entity} @ tic {tic}, but incomplete — "
+                f"owed fields still empty: {', '.join(missing)}. "
+                "Fill them and re-emit to close the loop cleanly.")
+    if deduped:
+        return (f"🌅 already on file — good to see you, {entity}. "
+                f"Receipt for tic {tic} is closed. Have a great tic!")
+    return (f"🌅 receipt received — good morning, {entity}! "
+            f"Boot loop closed for tic {tic}. Have a great tic!")
+
+
 def existing_ids(path: Path) -> set:
     ids = set()
     if not path.exists():
@@ -118,13 +151,18 @@ def emit(args) -> int:
     rec["receipt_id"] = rid
     rec["created_at"] = now_iso()
 
+    missing = receipt_missing(rec)
+
     lock = path.with_suffix(path.suffix + ".lock")
     with lock.open("w") as lf:
         fcntl.flock(lf, fcntl.LOCK_EX)
         try:
             if rid in existing_ids(path):
+                ack = greeting(args.entity, args.tic, missing, deduped=True)
+                sys.stderr.write(ack + "\n")
                 print(json.dumps({"status": "deduped", "receipt_id": rid,
                                   "entity": args.entity, "tic": args.tic,
+                                  "missing_fields": missing, "ack": ack,
                                   "note": "identical boot receipt already recorded for this (entity,tic)"}))
                 return 0
             line = json.dumps(rec, ensure_ascii=False, sort_keys=True)
@@ -133,8 +171,11 @@ def emit(args) -> int:
         finally:
             fcntl.flock(lf, fcntl.LOCK_UN)
 
+    ack = greeting(args.entity, args.tic, missing)
+    sys.stderr.write(ack + "\n")
     print(json.dumps({"status": "recorded", "receipt_id": rid, "entity": args.entity,
-                      "tic": args.tic, "sink": str(path.relative_to(root))}))
+                      "tic": args.tic, "sink": str(path.relative_to(root)),
+                      "missing_fields": missing, "ack": ack}))
     return 0
 
 

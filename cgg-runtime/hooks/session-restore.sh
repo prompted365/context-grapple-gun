@@ -737,11 +737,35 @@ if [ -n "$BOOT_INJECTION_SCRIPT" ] && [ "$TIC_COUNT" -gt 0 ]; then
 fi
 
 # ============================================================================
+# Pertinence worldview (office-worldview.py) — the PRIMARY orchestrator's seam.
+# SubagentStart boots spawned citizens; the primary (ent_homeskillet) boots HERE,
+# so the compiled civic orientation rides in alongside the handoff. Read-only,
+# mints no signals, fail-soft. Line structure is preserved (JSON \n-escaped, not
+# space-flattened) so the per-line authority badges stay legible. The budget-exempt
+# boot-receipt request frame is appended by the compiler. (Architect, tic-332 gate.)
+# ============================================================================
+
+WORLDVIEW_MSG=""
+WORLDVIEW_SCRIPT=$(resolve_script "office-worldview.py")
+if [ -n "$WORLDVIEW_SCRIPT" ] && [ "$TIC_COUNT" -gt 0 ]; then
+  WORLDVIEW_RAW=$(python3 "$WORLDVIEW_SCRIPT" render \
+    --office ent_homeskillet --tic "$TIC_COUNT" --format human \
+    --zone-root "$PROJECT_DIR" --max-chars 2600 2>/dev/null || true)
+  if [ -n "$WORLDVIEW_RAW" ]; then
+    # JSON-escape preserving newlines as \n (NOT flattened) for safe additionalContext
+    # embedding — keeps the badge-per-line worldview readable in the injected context.
+    WORLDVIEW_MSG=$(printf '%s' "$WORLDVIEW_RAW" | python3 -c "import sys,json; print(json.dumps(sys.stdin.read())[1:-1])" 2>/dev/null || true)
+  fi
+fi
+
+# ============================================================================
 # Combine all context
 # ============================================================================
 
 FULL_MSG=""
-[ -n "$CGG_MSG" ] && FULL_MSG="$CGG_MSG"
+# Worldview leads — the civic orientation prepends the handoff (Architect, tic 332).
+[ -n "$WORLDVIEW_MSG" ] && FULL_MSG="$WORLDVIEW_MSG"
+[ -n "$CGG_MSG" ] && FULL_MSG="${FULL_MSG:+$FULL_MSG }$CGG_MSG"
 [ -n "$SIREN_MSG" ] && FULL_MSG="${FULL_MSG:+$FULL_MSG }$SIREN_MSG"
 [ -n "$INBOX_MSG" ] && FULL_MSG="${FULL_MSG:+$FULL_MSG }$INBOX_MSG"
 [ -n "$BOOT_INJECTION_MSG" ] && FULL_MSG="${FULL_MSG:+$FULL_MSG }$BOOT_INJECTION_MSG"
