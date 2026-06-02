@@ -443,9 +443,24 @@ def render_human(office: str, tic: int, base: dict, frags: list, max_chars: int,
     if need_receipt:
         lines.append("  ⟜ receipt owed: understood_scope · accepted_constraints · abstentions · first_action_or_escalation")
     body = "\n".join(lines)
-    # --max-chars bounds the WORLDVIEW BODY only.
+    # --max-chars bounds the WORLDVIEW BODY only. Truncation is LINE-SAFE: badge-bearing
+    # lines are atomic civic units — a half-cut line can read as a different ray (a
+    # mangled ⟨YOURS·act⟩ is dangerous), so we cut at the last COMPLETE line that fits
+    # and append an explicit SEALED boundary marker (Architect hardening, tic 332).
     if max_chars and len(body) > max_chars:
-        body = body[: max_chars - 1].rstrip() + "…"
+        sealed = ("  ⟨SEALED·shape-only⟩ worldview body truncated at budget boundary; "
+                  "do not infer omitted rays")
+        budget = max_chars - len(sealed) - 1  # reserve room for the marker line
+        kept, used = [], 0
+        for ln in lines:
+            if used + len(ln) + 1 > budget:
+                break
+            kept.append(ln)
+            used += len(ln) + 1
+        if not kept:            # head alone overran budget — keep it anyway (never empty)
+            kept = [lines[0]]
+        kept.append(sealed)
+        body = "\n".join(kept)
     # The receipt-request framing is DELIBERATELY budget-exempt — appended after the body
     # is bounded, so the loop-closing ritual is never truncated away (Architect, tic 332).
     if receipt_frame:
