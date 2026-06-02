@@ -186,12 +186,39 @@ Where `B` is birth_tic and `R` is review_tic.
 - Never modify the lesson text itself. Copy it character-for-character from the source.
 - `promoted_to` (Steps 3-4) records the ACTUAL inscription surface (the `ledger.md` path + `#slug`, or the CLAUDE.md path) so the review-close-check verifier can resolve it.
 
-**Step 3 — Update MEMORY.md CogPR metadata**
+**Step 3 — Auto-memory / inline writeback (MECHANIZED — do NOT hand-edit)**
 
-In the source MEMORY.md, update the agnostic-candidate comment for this CogPR:
-- Set `status: "promoted"`
-- Add `promoted_to: "<target file path>"`
-- Add `promoted_date: "<YYYY-MM-DD>"`
+The inline-status flip and the auto-memory provenance breadcrumb are NOT done by hand.
+Hand-editing these two surfaces is exactly the writeback that LLM discretion recurrently
+dropped — at tic 337 EIGHT inline markers were still `status: pending` despite being
+`promoted` in queue.jsonl, and only 2/61 auto-memory targets carried a breadcrumb. Both
+gaps mint the false-positives `review-close-check.py` then re-derives cold every cycle.
+The fix is structural: invoke the deterministic writeback helper in the SAME writeback as
+queue.jsonl, the way the queue itself is mutated via `atomic-append.sh` rather than Edit.
+
+**Required invocation (Bash), once per PROMOTE verdict:**
+
+```bash
+python3 <CGG_ROOT>/cgg-runtime/scripts/review-promote-writeback.py \
+  --cpr-id "<cpr_id>" \
+  --promoted-to "<the SAME promoted_to string written to queue.jsonl in Step 4>" \
+  --review-tic <R> \
+  --status promoted        # or promoted_spec for PROMOTE-SPEC, absorbed for an absorb verdict
+```
+
+What it does, idempotently (a re-run is a no-op):
+- **Inline status flip** — finds the `<!-- --agnostic-candidate ... -->` block for `<cpr_id>`
+  in MEMORY.md / topic files and flips `status: pending` → the terminal status, inserting
+  `promoted_to:` + `promoted_tic:` if absent. Terminal blocks are left untouched.
+- **Breadcrumb stamp** — when `--promoted-to` resolves to an AUTO-MEMORY file (a
+  `feedback_*.md` / topic file that IS the inscription), stamps
+  `<!-- promoted from <cpr_id> ... -->` so review-close-check resolves it via the provenance
+  index. For a ledger / CLAUDE.md target the helper SKIPS this (that provenance is owned by
+  the Step 2 ledger entry — a dehydrated compact root must NOT be re-inflated with a breadcrumb).
+
+Read the helper's JSON/stdout report to confirm `inline_blocks_flipped` and the
+`breadcrumb_action`. If the helper reports `0` blocks flipped AND the CogPR has an inline
+candidate block, surface that upward as an execution anomaly — do not hand-patch around it.
 
 **Step 4 — Update queue.jsonl (completion gate)**
 
@@ -269,7 +296,8 @@ After executing ALL verdicts, perform a completeness check:
 
 1. **Count promoted sections written**: Glob the target CLAUDE.md files and count provenance comments matching `promoted from CogPR-N` for each PROMOTE verdict in this docket
 2. **Count queue.jsonl updates**: Read queue.jsonl and verify each verdict's CogPR has the expected status
-3. **Match check**: Promoted count must equal PROMOTE verdict count. Updated count must equal total verdict count.
+3. **Count inline/auto-memory writebacks**: For each PROMOTE verdict, confirm the Step 3 helper reported either an inline flip (or terminal no-op) AND a breadcrumb stamp/skip — no PROMOTE verdict should be missing its helper invocation.
+4. **Match check**: Promoted count must equal PROMOTE verdict count. Updated count must equal total verdict count.
 
 Report the validation result:
 
