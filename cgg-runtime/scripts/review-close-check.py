@@ -8,6 +8,19 @@ Verifies that /review verdicts were correctly inscribed:
   - SKIP: queue.jsonl status is 'skipped'
   - Orphan check: queue says promoted but text missing from target
 
+Genuine-vs-known reason split (cgg-ledger#reason-coded-genuine-vs-known-verifier-split,
+promoted /review 336): a content-matching verifier CANNOT verify a promotion whose
+target is a code BEHAVIOR (a `.py`/`SKILL.md` change) or a relocated archive file —
+those carry no text-matchable trace. A bare `consistent:false` over-reports by
+collapsing such KNOWN false-positives with GENUINE missing inscriptions. So every
+promoted-missing / orphaned finding is classified with a REASON code
+(`dehydration_resolved | behavioral_text_unverifiable | stale_relocated_pointer`);
+only reason=None findings are GENUINE, and the report carries
+`consistent:false(genuine=G, known=K)` — only `G>0` is a hazard. Two mechanisms back
+the split beyond the shared dehydration resolver: a provenance-trace axis (git
+lineage of the cpr_id) for behavioral/code targets, and a relocation-aware
+pointer-correction axis for Pass-4-moved archive files.
+
 Output: JSON consistency report.
 
 Usage:
@@ -18,9 +31,11 @@ Usage:
 """
 
 import argparse
+import glob as _glob
 import json
 import os
 import re
+import subprocess
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
@@ -139,6 +154,30 @@ _RECEIPT_CLOSURE_ANNOTATION_RE = re.compile(r"\(\s*[^)]*\balready\s+inscribed\b[
 # Stripped before filesystem resolution; preserved in reporting.
 _PATH_ANCHOR_RE = re.compile(r"^([^#:\s]+\.[A-Za-z]+)(?:[#:][^\s]*)?$")
 
+# --- Genuine-vs-known reason split (cgg-ledger#reason-coded-genuine-vs-known-verifier-split) ---
+#
+# Code/behavioral promotion targets: a promotion whose promoted_to is a source
+# file (or a SKILL.md whose change is behavioral) lands as a code BEHAVIOR, not
+# quotable text — content-matching can never verify it. Classified
+# `behavioral_text_unverifiable` and verified via the provenance-trace axis
+# (git lineage of the cpr_id) rather than literal-content match.
+_CODE_SUFFIXES = {".py", ".sh", ".ts", ".tsx", ".js", ".mjs", ".cjs", ".rs", ".go"}
+
+# Relocation roots searched by the relocation-aware pointer-correction axis: when
+# a promoted_to names a path that Pass-4 dehydration MOVED (e.g.
+# canonical/doctrine/CONSTITUTION_LEDGER.md -> the archive below), the bare path
+# no longer resolves; the doctrine body lives at the moved location.
+_RELOCATION_ROOTS = ("audit-logs/governance/dehydration-pipeline-archive",)
+
+# Reason codes for a KNOWN (non-hazard) promoted_text_missing finding. Only a
+# finding with reason=None is GENUINE (a real missing inscription — the G>0
+# hazard). dehydration_resolved is closed UPSTREAM by _read_with_ledger /
+# resolve_doctrine_surfaces (such findings never reach classification); it is
+# named here for taxonomy completeness and evidence labels.
+REASON_DEHYDRATION_RESOLVED = "dehydration_resolved"
+REASON_BEHAVIORAL = "behavioral_text_unverifiable"
+REASON_STALE_RELOCATED = "stale_relocated_pointer"
+
 
 def _strip_scope_hint(s):
     """Strip a trailing parenthesized scope hint from a target string.
@@ -212,6 +251,38 @@ def _looks_like_file_path(s):
     if not _PATH_CHARS.match(bare):
         return False
     return True
+
+
+def _collect_targets(cpr):
+    """Collect + compound-split the candidate target strings for a promoted CPR.
+
+    The single source of the target list, shared by check_promoted (finding
+    production) and classify_known_reason (finding classification) so the two
+    can never drift on what counts as a target. Priority: promoted_to (verdict-
+    side authoritative), promotion_target (legacy), then file-path-shaped
+    recommended_scopes. Compound `+`-joined targets are split into components;
+    scope hints / anchors are preserved on each component for the caller to strip.
+    """
+    promoted_to = cpr.get("promoted_to", "")
+    target = cpr.get("promotion_target", "")
+    scopes = cpr.get("recommended_scopes", [])
+
+    raw_targets = []
+    if isinstance(promoted_to, str) and promoted_to:
+        raw_targets.append(promoted_to)
+    elif isinstance(promoted_to, list):
+        raw_targets.extend([p for p in promoted_to if isinstance(p, str) and p])
+    if target:
+        raw_targets.append(target)
+    for s in scopes:
+        if _looks_like_file_path(s):
+            raw_targets.append(s)
+
+    targets = []
+    for raw in raw_targets:
+        for component in _split_compound_targets(raw):
+            targets.append(component)
+    return targets
 
 
 def _read_with_ledger(path):
@@ -395,28 +466,10 @@ def check_promoted(cpr_id, cpr, project_dir, inscribed_ids=None, lesson_fallback
     if not lesson and lesson_fallbacks:
         lesson = lesson_fallbacks.get(cpr_id, "")
 
-    promoted_to = cpr.get("promoted_to", "")
-    target = cpr.get("promotion_target", "")
-    scopes = cpr.get("recommended_scopes", [])
-
-    # Collect raw target strings (compound-aware: split `+`-joined targets).
-    raw_targets = []
-    if isinstance(promoted_to, str) and promoted_to:
-        raw_targets.append(promoted_to)
-    elif isinstance(promoted_to, list):
-        raw_targets.extend([p for p in promoted_to if isinstance(p, str) and p])
-    if target:
-        raw_targets.append(target)
-    for s in scopes:
-        if _looks_like_file_path(s):
-            raw_targets.append(s)
-
-    # Split compound targets ("A + B") into individual components, preserving
-    # original raw strings for reporting via targets_checked.
-    targets = []
-    for raw in raw_targets:
-        for component in _split_compound_targets(raw):
-            targets.append(component)
+    # Collect + compound-split target strings via the shared helper (same list
+    # classify_known_reason consumes, so finding-production and classification
+    # never drift on what counts as a target).
+    targets = _collect_targets(cpr)
 
     if not targets:
         findings.append({
@@ -700,6 +753,198 @@ def check_orphans(queue, project_dir, inscribed_ids=None):
 
 
 # ---------------------------------------------------------------------------
+# Genuine-vs-known reason split
+# (cgg-ledger#reason-coded-genuine-vs-known-verifier-split, promoted /review 336)
+# ---------------------------------------------------------------------------
+
+def _is_codeish_path(path):
+    """True if a resolved path is a code/behavioral surface — a source file or a
+    SKILL.md whose promotion lands as behavior, not quotable text."""
+    base = os.path.basename(path)
+    if base == "SKILL.md":
+        return True
+    return os.path.splitext(base)[1].lower() in _CODE_SUFFIXES
+
+
+def _resolve_target_path(target_str, project_dir, project_basename=None):
+    """Return an existing filesystem path for a target string, or None.
+
+    The path-returning sibling of _read_target / _target_exists. Tries, in order:
+    absolute / tilde, project-relative, federation-prefix strip, auto-memory,
+    then a bounded suffix-rglob. The rglob is what resolves DOMAIN-relative
+    targets: a promoted_to like `cgg-runtime/scripts/x.py` names a path relative
+    to a nested domain root, not project_dir, so the direct join fails even
+    though the file exists. That "domain-relative path" shape is exactly what the
+    reason-split doctrine calls out as content-unverifiable.
+    """
+    bare = _strip_path_anchor(_strip_scope_hint(target_str)).rstrip("/")
+    if not bare:
+        return None
+    if bare.startswith("~"):
+        p = os.path.expanduser(bare)
+        return p if os.path.exists(p) else None
+    if os.path.isabs(bare):
+        return bare if os.path.exists(bare) else None
+    p = os.path.join(project_dir, bare)
+    if os.path.exists(p):
+        return p
+    if project_basename:
+        parts = bare.replace("\\", "/").split("/")
+        if parts and parts[0] == project_basename:
+            stripped = "/".join(parts[1:])
+            if stripped:
+                p2 = os.path.join(project_dir, stripped)
+                if os.path.exists(p2):
+                    return p2
+    am = AUTO_MEMORY_DIR / os.path.basename(bare)
+    if am.exists():
+        return str(am)
+    # Bounded suffix-rglob — only reached when direct resolution failed.
+    try:
+        hits = [h for h in _glob.glob(os.path.join(project_dir, "**", bare), recursive=True)
+                if os.path.isfile(h)]
+    except OSError:
+        return None
+    return sorted(hits)[0] if hits else None
+
+
+def _git_pickaxe_hits(project_dir, cpr_id, limit=5):
+    """Provenance-trace axis: return up to `limit` short commit hashes whose diff
+    introduces or removes the cpr_id (`git log -S`).
+
+    A behavioral inscription leaves NO content-matchable trace in its code
+    target, but the cpr_id itself has committed lineage (queue.jsonl writeback,
+    spec files) — pickaxe -S confirms the CogPR is a real, committed governance
+    artifact, not a phantom id. Combined with an existing code/behavioral target,
+    that is sufficient positive evidence the promotion is behavioral-and-landed.
+    Fail-soft to [] when git is unavailable or the dir is not a repo.
+    """
+    try:
+        out = subprocess.run(
+            ["git", "-C", project_dir, "log", "--all", "--oneline",
+             f"-S{cpr_id}", f"--max-count={limit}"],
+            capture_output=True, text=True, timeout=15,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return []
+    if out.returncode != 0:
+        return []
+    return [ln.split()[0] for ln in out.stdout.splitlines() if ln.strip()]
+
+
+def _find_relocated(target_str, project_dir, cpr_id, snippet=""):
+    """Relocation-aware pointer-correction axis: if a target's named path is
+    ABSENT, search the relocation roots for a same-basename file that carries
+    cpr-identifying evidence (cpr_id literal, CogPR-N alt, or lesson snippet).
+    Returns the relocated (corrected) path on a hit, else None.
+
+    Pass-4 dehydration moved doctrine files into
+    audit-logs/governance/dehydration-pipeline-archive/ but the queue pointer
+    still names the pre-move path. The corrected pointer is surfaced as evidence
+    — it is NOT silently rewritten into the queue (that is a separate data-fix).
+    Positive content evidence (not bare basename collision) is required so a
+    same-named-but-unrelated file is never mistaken for the relocation.
+    """
+    bare = _strip_path_anchor(_strip_scope_hint(target_str)).rstrip("/")
+    base = os.path.basename(bare)
+    if not base:
+        return None
+    num = re.search(r"(\d+)", cpr_id)
+    cpr_ref_alt = f"CogPR-{num.group(1)}" if num else None
+    for root in _RELOCATION_ROOTS:
+        root_abs = os.path.join(project_dir, root)
+        if not os.path.isdir(root_abs):
+            continue
+        for dirpath, _dirs, files in os.walk(root_abs):
+            if base not in files:
+                continue
+            fpath = os.path.join(dirpath, base)
+            content = read_file_safe(fpath)
+            if not content:
+                continue
+            if cpr_id in content:
+                return fpath
+            if cpr_ref_alt and cpr_ref_alt in content:
+                return fpath
+            if snippet and snippet in content:
+                return fpath
+    return None
+
+
+def classify_known_reason(cpr_id, cpr, project_dir, project_basename=None,
+                          lesson_fallbacks=None):
+    """Classify a promoted_text_missing / orphaned_promotion finding as a KNOWN
+    false-positive (with a REASON code) or GENUINE (reason=None).
+
+    Per cgg-ledger#reason-coded-genuine-vs-known-verifier-split: a content-
+    matching verifier CANNOT verify behavioral/relocated targets by any amount of
+    surface resolution, so a bare consistent:false over-reports. This assigns each
+    finding a reason so only reason=None findings count as GENUINE (G>0, the sole
+    hazard). The shared dehydration resolver (resolve_doctrine_surfaces) closes
+    only the dehydration_resolved reason upstream; these axes close the rest.
+
+    Returns (reason, evidence_dict). reason is a REASON_* code or None (genuine).
+
+    Axes, in priority order:
+      1. stale_relocated_pointer — a target's named path is ABSENT but the
+         doctrine is found (cpr_id / alt / snippet) at a relocation root;
+         evidence carries the corrected pointer. Highest priority: a moved file
+         is content-verified at the new path, the strongest positive signal.
+      2. behavioral_text_unverifiable — a target resolves to an existing
+         code/behavioral surface (.py/.sh/SKILL.md/...); the inscription is a
+         BEHAVIOR not text, strengthened by the git provenance-trace.
+      3. (none) GENUINE — no target resolves to a code surface and none relocate;
+         the inscription is genuinely missing (the hazard).
+    """
+    targets = _collect_targets(cpr)
+    lesson = cpr.get("lesson", "")
+    if not lesson and lesson_fallbacks:
+        lesson = lesson_fallbacks.get(cpr_id, "")
+    snippet = lesson[:50] if lesson else ""
+
+    relocated = None
+    behavioral = None
+    for t in targets:
+        existing = _resolve_target_path(t, project_dir, project_basename)
+        if existing is None:
+            if relocated is None:
+                hit = _find_relocated(t, project_dir, cpr_id, snippet)
+                if hit:
+                    relocated = (t, hit)
+        elif behavioral is None and _is_codeish_path(existing):
+            behavioral = (t, existing)
+
+    if relocated is not None:
+        orig, corrected = relocated
+        try:
+            corrected_rel = os.path.relpath(corrected, project_dir)
+        except ValueError:
+            corrected_rel = corrected
+        return REASON_STALE_RELOCATED, {
+            "stale_pointer": orig,
+            "corrected_pointer": corrected_rel,
+            "note": "doctrine relocated by Pass-4 dehydration; queue pointer not "
+                    "updated (corrected_pointer is the live location)",
+        }
+
+    if behavioral is not None:
+        orig, resolved = behavioral
+        trace = _git_pickaxe_hits(project_dir, cpr_id)
+        return REASON_BEHAVIORAL, {
+            "behavioral_target": orig,
+            "resolved_path": resolved,
+            "provenance_trace_commits": trace,
+            "note": "inscription is a code behavior, not quotable text; verified "
+                    "via target existence + cpr_id git lineage (pickaxe -S)",
+        }
+
+    return None, {
+        "note": "no code/behavioral target and no relocation found; inscription "
+                "appears genuinely missing",
+    }
+
+
+# ---------------------------------------------------------------------------
 # Main pipeline
 # ---------------------------------------------------------------------------
 
@@ -761,6 +1006,34 @@ def run_check(project_dir, dry_run=False):
     # Orphan check across all promoted
     all_findings.extend(check_orphans(queue, project_dir, inscribed_ids))
 
+    # Genuine-vs-known reason split (cgg-ledger#reason-coded-genuine-vs-known-verifier-split,
+    # promoted /review 336): annotate each promoted-missing / orphaned finding with a
+    # REASON code so only reason=None (genuinely missing) findings count as hazards.
+    # KNOWN findings are downgraded to severity=info — they are expected noise, not
+    # inconsistencies — so by_severity.error reflects ONLY genuine hazards. Done before
+    # the severity aggregation below so the downgrade is reflected in the counts.
+    project_basename = os.path.basename(project_dir)
+    genuine_count = 0
+    known_count = 0
+    known_by_reason = {}
+    for f in all_findings:
+        if f.get("type") not in ("promoted_text_missing", "orphaned_promotion"):
+            continue
+        cpr = queue.get(f.get("cpr_id"), {})
+        reason, evidence = classify_known_reason(
+            f["cpr_id"], cpr, project_dir, project_basename, lesson_fallbacks
+        )
+        f["evidence"] = evidence
+        if reason is None:
+            f["finding_class"] = "genuine"
+            genuine_count += 1
+        else:
+            f["finding_class"] = "known"
+            f["reason"] = reason
+            f["severity"] = "info"  # known false-positive — not a hazard
+            known_count += 1
+            known_by_reason[reason] = known_by_reason.get(reason, 0) + 1
+
     # Build report
     severity_counts = {}
     for f in all_findings:
@@ -796,7 +1069,16 @@ def run_check(project_dir, dry_run=False):
             "total_findings": len(all_findings),
             "by_severity": severity_counts,
             "by_type": type_counts,
+            # `consistent` retains its original meaning (ZERO findings) for
+            # backward compatibility with downstream log/runner consumers.
             "consistent": len(all_findings) == 0,
+            # Genuine-vs-known split: only `genuine` findings are hazards.
+            # genuine_consistent is the authoritative health signal — a cycle
+            # with K>0 known false-positives but G==0 is healthy.
+            "genuine_count": genuine_count,
+            "known_count": known_count,
+            "known_by_reason": known_by_reason,
+            "genuine_consistent": genuine_count == 0,
         },
     }
 
@@ -892,6 +1174,9 @@ def run_check(project_dir, dry_run=False):
             "report_path": output_path,
             "findings_count": len(report["findings"]),
             "consistent": report["summary"]["consistent"],
+            "genuine_count": report["summary"]["genuine_count"],
+            "known_count": report["summary"]["known_count"],
+            "genuine_consistent": report["summary"]["genuine_consistent"],
         }
         atomic_append_jsonl(
             os.path.join(al_path, "services", "review-close-check-log.jsonl"),
@@ -927,12 +1212,20 @@ def main():
     elif not args.quiet:
         s = report["summary"]
         vc = report["verdict_counts"]
-        status = "CONSISTENT" if s["consistent"] else f"{s['total_findings']} ISSUES"
+        if s["consistent"]:
+            status = "CONSISTENT"
+        else:
+            status = f"consistent:false(genuine={s['genuine_count']}, known={s['known_count']})"
         print(f"Review close check: {status}")
         print(f"  Verdicts: {vc['promoted']} promoted, {vc['deferred']} deferred, {vc['skipped']} skipped")
         if not s["consistent"]:
-            for sev, count in s["by_severity"].items():
-                print(f"  {sev}: {count}")
+            if s.get("known_by_reason"):
+                reasons = ", ".join(f"{k}={v}" for k, v in s["known_by_reason"].items())
+                print(f"  known by reason: {reasons}")
+            if s["genuine_count"]:
+                print(f"  GENUINE (hazard): {s['genuine_count']}")
+            else:
+                print(f"  genuine=0 — no hazard (all {s['known_count']} findings are known false-positives)")
 
     return 0
 
