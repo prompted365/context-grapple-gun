@@ -2388,3 +2388,23 @@ Validation rules are identical across all four paths (I-A / I-B / I-D-curl / I-D
 <!-- promoted from cpr_budget_exempt_closure_framing_and_unit_safe_truncation_tic332 (tic 332→333, /review 333 unified docket). Source: tic-332 office-worldview.py receipt-frame + line-safe-truncation hardening (Architect flags); live-validated tic 333 — first-native-boot conformance-diff confirmed the frame appeared past the cap and truncation cut on a complete ray + SEALED marker. Band: COGNITIVE. -->
 
 ---
+
+## Reason-Coded Genuine-vs-Known Verifier Split
+<a id="reason-coded-genuine-vs-known-verifier-split"></a>
+<!-- ledger-tags: authority_class=review_and_promotion_discipline | rung=domain | domain=context-grapple-gun | promoted_tic=336 | first_appearance_tic=334 -->
+
+A consistency verifier's boolean `consistent:false` is the wrong shape when N of its findings are pre-classifiable known false-positives. The shape doctrine, in three coupled parts:
+
+**(1) Split genuine from known, and only `genuine` is a hazard.** The check must report `consistent:false(genuine=G, known=K)`; `K>0` alone is expected noise, only `G>0` is a real inconsistency. A boolean collapses the two and forces every cycle to re-triage the known set cold.
+
+**(2) Each `known` finding carries a REASON code, because the known-set is multi-reason.** Empirically surfaced by landing the consumer-set fix at tic 335 (review-close-check went 10→4): the resolved 6 were the `dehydration_resolved` reason; the surviving 4 are a structurally distinct sibling sub-class whose `promoted_to` target is a source file (`.py`/`SKILL.md`), a domain-relative path, or a relocated-archive path — carrying NO text-matchable trace (no lesson, no provenance comment, `cpr_id` not a literal in the target). A content-matching verifier cannot verify those by ANY amount of surface-resolution; the inscription is a code BEHAVIOR or a moved file, not text. The reason codes: `dehydration_resolved | behavioral_text_unverifiable | stale_relocated_pointer`. Each cycle reads WHY a finding is known and which mechanism (if any) would close it.
+
+**(3) One shared resolver closes exactly ONE reason — the rest need their own mechanisms.** `resolve_doctrine_surfaces` (the tic-335 consumer-set helper) closed only the `dehydration_resolved` reason. The behavioral/code targets need a provenance-trace axis; the relocated archives need a relocation-aware pointer correction. A single resolver is necessary but not sufficient; do not expect it to neutralize the residual.
+
+**The named-is-not-landed driver.** A named-but-unlanded consumer blindspot re-emits identical false-positives every cycle, and a by-failure cadence re-waves them as "known blindspot" without confirming each is actually an instance — the silent-degrade cadence operating on the AGENT, not just the code. Live proof: finding #2 in the residual IS `cpr_review_close_check_verifier_blind_to_spec_surface_promotion_targets_tic301` itself — the verifier blindspot named twice in doctrine (`cgg-ledger#review-close-check-verifier-dehydration-blindspot` + the tic-301 CogPR, status promoted) yet whose runtime patch did not land for 34 tics, until landed at tic 335. Remedy: when a blindspot is named-but-not-landed, ENUMERATE + PRE-CLASSIFY the recurring false-positives in the remediation tranche so each cycle reads the classification instead of re-deriving it cold, and at session close classify-and-route every finding TOUCHED (genuine-repair vs known-FP, with evidence) rather than papering the set with a doctrine label.
+
+Refines Named-Is-Not-Landed Gate. Composes Conductor-Score-Runtime-Parity (doctrine names the discipline; runtime did not enforce it) + the consumer-set obligation (federation KI `structural-transform-implies-closed-consumer-set-obligation`).
+
+<!-- promoted from cpr_named_blindspot_unlanded_fix_reemits_preclassifiable_false_positives_tic334 (C1 parent) ⊕ cpr_known_false_positive_taxonomy_split_by_reason_not_just_dehydration_tic335 (enrichment, MERGED at /review 336). Source: tic-334 resolute review-close classification + tic-335 spec→impl gate for the consumer-set tranche (review-close-check 10→4 residual). Confidence_tier: reinforced (two sources, empirically validated by the 10→4 landing). Band: COGNITIVE. CGG-rung (review-close-check.py is CGG runtime). The genuine-vs-known verifier split is this entry's prescribed runtime follow-on. -->
+
+---
