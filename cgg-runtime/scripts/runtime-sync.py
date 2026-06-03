@@ -685,6 +685,19 @@ def cmd_check(surfaces, zone_root, plugin_root, output_json=False, enrich=False)
         signal_id = emit_drift_signal(zone_root, drifted, severity="detected_drift",
                                       commit_context=commit_ctx_summary)
 
+    # Symmetric to auto-sync: a check that PROVES parity must also CLOSE stale
+    # detected_drift signals whose surfaces are now in sync. Without this, check
+    # mode is write-only-on-drift — it emits a TENSION signal on detection but
+    # never resolves it, so orphaned drift signals accumulate as permanent debt
+    # even after the underlying surface re-syncs (the "lopsided sync" gap). The
+    # check just compared every surface; surfaces now `synced` ARE the evidence.
+    resolved_ids = []
+    if synced:
+        check_commit = get_current_commit(plugin_root)[0] if plugin_root else None
+        resolved_ids = resolve_drift_signals_on_sync(
+            zone_root, [r["name"] for r in synced], check_commit
+        )
+
     last_sync = read_last_sync(zone_root)
 
     if output_json:
@@ -713,6 +726,7 @@ def cmd_check(surfaces, zone_root, plugin_root, output_json=False, enrich=False)
                 "commit_sha": last_sync.get("commit_sha") if last_sync else None,
             } if last_sync else None,
             "signal_emitted": signal_id,
+            "resolved_stale_drift": resolved_ids,
         }
         print(json.dumps(result, indent=2))
         return results
@@ -746,6 +760,8 @@ def cmd_check(surfaces, zone_root, plugin_root, output_json=False, enrich=False)
 
     if signal_id:
         print(f"  TENSION signal emitted (detected_drift): {signal_id}")
+    if resolved_ids:
+        print(f"  Closed {len(resolved_ids)} stale drift signal(s) now in parity: {', '.join(resolved_ids)}")
 
     return results
 
@@ -901,8 +917,26 @@ def resolve_drift_signals_on_sync(zone_root, synced_surface_names, commit_sha=No
 
     synced_set = set(synced_surface_names)
 
+    # Read the FULL signal history (every daily file) + the manifest, not just
+    # today's file. Two failure modes otherwise leave orphans permanently active:
+    #   (1) manifest-shadow — the active-manifest entry carries `status` but NOT
+    #       payload.surfaces, and (read last) it shadows the surface-bearing daily
+    #       entry, so the subset-match has nothing to match on.
+    #   (2) cross-day — a drift signal born on an earlier day keeps its surface
+    #       list in that day's file, which the today-only read never sees.
+    # Track the latest STATUS per id (chronological file order) while preserving
+    # the richest payload (surfaces + severity) seen for that id anywhere.
+    daily_files = sorted(
+        os.path.join(signal_dir, fn)
+        for fn in os.listdir(signal_dir)
+        if fn.endswith(".jsonl")
+    )
+    if os.path.isfile(manifest_path) and manifest_path not in daily_files:
+        daily_files.append(manifest_path)
+
     latest_state = {}
-    for path in (signal_file, manifest_path):
+    best_payload = {}
+    for path in daily_files:
         if not os.path.isfile(path):
             continue
         try:
@@ -919,6 +953,9 @@ def resolve_drift_signals_on_sync(zone_root, synced_surface_names, commit_sha=No
                     if not sid or not sid.startswith("sig_"):
                         continue
                     latest_state[sid] = entry
+                    p = entry.get("payload") or {}
+                    if p.get("surfaces"):
+                        best_payload[sid] = p
         except (OSError, IOError):
             continue
 
@@ -926,7 +963,7 @@ def resolve_drift_signals_on_sync(zone_root, synced_surface_names, commit_sha=No
     for sid, entry in latest_state.items():
         if entry.get("status") != "active":
             continue
-        payload = entry.get("payload") or {}
+        payload = best_payload.get(sid) or entry.get("payload") or {}
         if payload.get("severity") != "detected_drift":
             continue
         entry_surfaces = set(payload.get("surfaces") or [])
