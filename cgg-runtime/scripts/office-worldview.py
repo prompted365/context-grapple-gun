@@ -116,9 +116,12 @@ def render_receipt_frame(office: str, tic: int, disp: str, zone_root: Path) -> s
         "your receipt; the sink verifies it and greets you back:\n"
         f"  python3 {rp} emit --entity {office} --tic {tic} \\\n"
         '    --understood "…" --constraint "…" --abstention "…" '
-        '--first-action "…" --route "cadence/review"\n'
+        '--first-action "…" --route "cadence/review" \\\n'
+        '    --model "<your model id, e.g. claude-opus-4-8>"\n'
         "  owed: understood_scope · accepted_constraints · abstentions · "
-        "first_action_or_escalation"
+        "first_action_or_escalation\n"
+        "  (signer = --entity; model = --model — two distinct fields, never a "
+        "conflated 'entity-modelcode' signature)"
     )
 
 
