@@ -2427,3 +2427,21 @@ review-execute (the promotion applier) must complete TWO idempotent writeback ha
 <!-- promoted from cpr_review_execute_auto_memory_inline_writeback_incomplete_emit_side_of_verifier_split_tic337 (tic 337→341, /review 341). Source: built live tic 337-338 alongside the read-side verifier split; review-promote-writeback.py LANDED tic 338 (CGG c5a29ae / Fed 326689c5), 183/183 byte parity, review_close_check genuine=0/known=4 HEALTHY. Emit-side complement to reason-coded-genuine-vs-known-verifier-split. n=9 same-tic (8 stale markers + 1 missing-provenance feedback file). Confidence_tier: reinforced. Band: COGNITIVE. CGG-rung (review-execute is CGG runtime). -->
 
 ---
+
+## Machine-Emitter Emit/Resolve Symmetry + Chronological Status-Truth
+<a id="machine-emitter-emit-resolve-symmetry-and-chronological-status-truth"></a>
+<!-- ledger-tags: authority_class=signal_and_queue_manifold | rung=domain | domain=context-grapple-gun | promoted_tic=344 | first_appearance_tic=341 -->
+
+A machine-emitter that writes a signal on condition-DETECTION must carry a paired resolve-on-HEAL path, or its signals accumulate as write-only TENSION debt; and signal status-truth must be read from the chronological event log, never from derived/secondary stores (manifest, archive). This is the **emit-side** lifecycle complement to *Authoritative-set readers must read the manifest, not aggregate raw emissions* — that invariant governs READ-side dedup; this governs the EMIT/RESOLVE lifecycle symmetry. It is **not** the manifest-reader invariant restated.
+
+**(1) Emit/resolve asymmetry — a read-only check that PROVES parity IS resolving evidence.** Surfaced tic 341 tracking down 8 stale `detected_drift` "mad dots" (Architect-flagged on the statusline). All 8 were `runtime-sync.py` drift detections on CGG surfaces edited during the tic 332-340 governance work; every surface had since re-synced (183/183 parity) but no signal ever closed. Root cause: `cmd_check` and `cmd_sync` EMIT `detected_drift` on detection, but only `cmd_auto_sync` (post-commit-sync, gated on a commit touching `cgg-runtime/`) RESOLVED, and only for surfaces synced in that one invocation. check-mode — which runs constantly (SessionStart, cgg-doctor, /siren) — was write-only-on-drift: it minted TENSION but never closed it. A read-only check that proves parity is itself the resolving evidence. **Fix: `cmd_check` now resolves-on-parity.**
+
+**(2) Status-truth from derived stores.** The resolve fn read today's daily file + the active-manifest; the manifest entry carries status but NOT `payload.surfaces` and (read last, sorting after dated files) shadowed the surface-bearing daily entry, so the subset-match had nothing to match. It also never read older daily files (cross-day surfaces) and let an old archive-resolved entry shadow a newer dated active emission for a deterministic recurring-ID signal. **Fix: read the full DATED daily history only (chronological by name), keep the richest payload per id; manifest/archive are derived (manifest-prune reconciles).**
+
+**Proof.** A plain check then closed 13 stale drift signals (the 8 + 5 March orphans stuck ~150 tics), evidence = 183/183 parity. Commits CGG `fe3a39d` + `fba816d`.
+
+**Generalization.** The emit/resolve symmetry + chronological-event-log-is-status-truth generalize beyond `runtime-sync` to any auto-emitter (sentinel heartbeats, cadence drift, economy fetch). Composes *State agreement is not truth unless lifecycle-reachable*, *Authoritative-set readers must read the manifest*, and *Disagreement-as-evidence* (all READ-side); this entry is their EMIT-side lifecycle counterpart.
+
+<!-- promoted from cpr_machine_emitter_emit_resolve_symmetry_and_chronological_status_truth_tic341 (tic 341→344, /review 344). Source: tic 341 Architect "track em down" on the 8 detected_drift mad dots; /siren + runtime-sync investigation; lopsided-sync diagnosis Architect-intuited. Confidence_tier: reinforced (empirically proven — 13 signals closed, 183/183 byte parity, CGG fe3a39d + fba816d). Band: COGNITIVE. CGG-rung (runtime-sync.py is CGG runtime). Emit-side complement to the manifest-reader READ-side invariant; non-derivable from it. -->
+
+---
