@@ -2411,3 +2411,19 @@ Refines Named-Is-Not-Landed Gate. Composes Conductor-Score-Runtime-Parity (doctr
 <!-- promoted from cpr_named_blindspot_unlanded_fix_reemits_preclassifiable_false_positives_tic334 (C1 parent) ⊕ cpr_known_false_positive_taxonomy_split_by_reason_not_just_dehydration_tic335 (enrichment, MERGED at /review 336). Source: tic-334 resolute review-close classification + tic-335 spec→impl gate for the consumer-set tranche (review-close-check 10→4 residual). Confidence_tier: reinforced (two sources, empirically validated by the 10→4 landing). Band: COGNITIVE. CGG-rung (review-close-check.py is CGG runtime). The genuine-vs-known verifier split is this entry's prescribed runtime follow-on. -->
 
 ---
+
+## Review-Execute Atomic Writeback Completeness — Emit-Side of the Verifier Split
+<a id="review-execute-atomic-writeback-completeness"></a>
+<!-- ledger-tags: authority_class=review_and_promotion_discipline | rung=domain | domain=context-grapple-gun | promoted_tic=341 | first_appearance_tic=337 -->
+
+review-execute (the promotion applier) must complete TWO idempotent writeback halves on auto-memory / inline promotion targets, or it leaves recurring review-close-check false-positives that the next session re-derives cold. This is the EMIT-side complement to the READ-side genuine-vs-known verifier split (`reason-coded-genuine-vs-known-verifier-split`): close the false-positive at the source rather than only classifying it downstream.
+
+**(1) STALE INLINE MARKER.** review-execute flips `queue.jsonl` terminal status and writes the ledger body, but must ALSO flip the inline `status: pending` marker in MEMORY.md / `session_lessons` topic files. At tic 337 EIGHT inline markers (tic-324/325/328 clusters) were still `status: pending` inline despite being `promoted` in queue.jsonl since /review 329/336 — the inline markers never flipped. (Composes "Inline-Tracked CogPR DEFER Keeps status:pending" + "MEMORY.md Inline Entry Location Lock": the lock was never UNLOCKED on promotion.)
+
+**(2) MISSING PROVENANCE BREADCRUMB.** review-execute must stamp a `<!-- promoted from cpr_… -->` marker on auto-memory promotion targets. Only 2/61 feedback files carried one. Because the queue writeback row's `lesson` is often empty, review-close-check has no `cpr_id` literal AND no lesson-snippet to match → it reports `promoted_text_missing` for a doctrine that genuinely landed (the tic-336 resolute-close feedback file, freshly promoted /review 336, fired exactly this at tic 337 — repaired by hand-adding the marker).
+
+**The framing: atomic-writeback-completeness — one root, two surface symptoms.** Both halves are idempotent; both belong to the writeback contract, not to a separate hygiene pass. The mechanizing tool is `review-promote-writeback.py` (review-execute invokes it like `atomic-append.sh`): inline `status: pending→terminal` flip + breadcrumb stamp scoped to auto-memory targets ONLY (ledger/compact-root provenance stays in the review-execute Step-2 body write; dehydration scopes the surface set). Detection of the gap firing: count inline `status:pending` markers in MEMORY.md whose `queue.jsonl` id is terminal — any >0 is the gap. Pairs emit-side with the read-side verifier split as the two faces of one parity discipline.
+
+<!-- promoted from cpr_review_execute_auto_memory_inline_writeback_incomplete_emit_side_of_verifier_split_tic337 (tic 337→341, /review 341). Source: built live tic 337-338 alongside the read-side verifier split; review-promote-writeback.py LANDED tic 338 (CGG c5a29ae / Fed 326689c5), 183/183 byte parity, review_close_check genuine=0/known=4 HEALTHY. Emit-side complement to reason-coded-genuine-vs-known-verifier-split. n=9 same-tic (8 stale markers + 1 missing-provenance feedback file). Confidence_tier: reinforced. Band: COGNITIVE. CGG-rung (review-execute is CGG runtime). -->
+
+---
