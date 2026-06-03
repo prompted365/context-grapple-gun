@@ -132,6 +132,52 @@ echo "Tic:     $CURRENT_TIC"
 echo "Status:  $MANDATE_STATUS"
 echo "Snapshot ref: $MANDATE_FILE_SNAPSHOT_REF"
 
+# ============================================================================
+# Guarded terminal write-back — WRITE-side complement to the tic-280 snapshot
+# pin above. The snapshot pin protects the READ side (artifact counting via
+# find -newer); this guards the WRITE side. If /cadence overwrote current.json
+# with a SUCCESSOR mandate mid-run (Mandate Lifecycle Defect #4, write-back
+# half), the runner must NOT clobber the successor's pending status — doing so
+# stamps an un-run mandate 'consumed' and strands its cycles (observed silently
+# at tics 284 / 326 / 348 / 350). Per CogPR-57 the runner is the sole mandate
+# state owner; this keeps that ownership honest under the cross-mandate race.
+# The coexisting layer cadence-side (wait_for_runner_quiescence, 30s) and this
+# runner-side guard compose: cadence still writes after timeout (load-bearing),
+# the runner now detects the successor and detaches instead of clobbering.
+#
+# Args:    $1 target_status   $2 completed_at   $3 extra-fields JSON (default {})
+# Returns: 0 written to current.json · 3 detached (successor present; left alone)
+# On detach, prints the successor mandate_id to stdout.
+# ============================================================================
+write_current_mandate_status() {
+  WB_EXPECT_ID="$MANDATE_ID" WB_STATUS="$1" WB_COMPLETED="$2" WB_EXTRA="${3:-{}}" \
+  WB_MF="$MANDATE_FILE" python3 - <<'PYEOF'
+import json, os, sys
+mf = os.environ['WB_MF']
+try:
+    with open(mf) as f:
+        m = json.load(f)
+except Exception as e:
+    sys.stderr.write(f"WARN: write-back could not read {mf}: {e}; skipping current.json update.\n")
+    sys.exit(3)
+live = m.get('mandate_id', '')
+if live != os.environ['WB_EXPECT_ID']:
+    sys.stderr.write(
+        "WARN: cross-mandate write-back averted — current.json now holds "
+        f"'{live}', not '{os.environ['WB_EXPECT_ID']}' (cadence wrote a successor "
+        "mid-run). Not clobbering the successor's pending status.\n")
+    print(live)
+    sys.exit(3)
+m['status'] = os.environ['WB_STATUS']
+m['completed_at'] = os.environ['WB_COMPLETED']
+for k, v in json.loads(os.environ['WB_EXTRA']).items():
+    m[k] = v
+with open(mf, 'w') as f:
+    json.dump(m, f, indent=2)
+sys.exit(0)
+PYEOF
+}
+
 if [ "$DRY_RUN" = true ]; then
   echo "[DRY RUN] Would execute mandate $MANDATE_ID with cycles: $CYCLES"
   exit 2
@@ -313,15 +359,9 @@ CRITICAL RULES:
 CLAUDE_BIN=$(command -v claude 2>/dev/null || true)
 if [ -z "$CLAUDE_BIN" ]; then
   echo "ERROR: claude CLI not found in PATH" >&2
-  # Transition: running -> failed
-  python3 -c "
-import json
-m = json.load(open('$MANDATE_FILE'))
-m['status'] = 'failed'
-m['completed_at'] = '$(date -u +%Y-%m-%dT%H:%M:%S+00:00)'
-m['error'] = 'claude CLI not found in PATH'
-json.dump(m, open('$MANDATE_FILE', 'w'), indent=2)
-" 2>/dev/null
+  # Transition: running -> failed (guarded write-back)
+  WB_EXTRA=$(python3 -c "import json;print(json.dumps({'error':'claude CLI not found in PATH'}))")
+  set +e; write_current_mandate_status "failed" "$(date -u +%Y-%m-%dT%H:%M:%S+00:00)" "$WB_EXTRA"; set -e
   exit 1
 fi
 
@@ -511,14 +551,8 @@ print('yes' if '$cycle' in r.get('results', {}) else 'no')
     echo "WARNING: Artifact verification failed: $ARTIFACT_ERRORS" >&2
     echo "Marking mandate as failed despite exit code 0."
 
-    python3 -c "
-import json
-m = json.load(open('$MANDATE_FILE'))
-m['status'] = 'failed'
-m['completed_at'] = '$COMPLETED_AT'
-m['error'] = 'Artifact verification failed: $(echo "$ARTIFACT_ERRORS" | sed "s/'/\\\\'/g")'
-json.dump(m, open('$MANDATE_FILE', 'w'), indent=2)
-" 2>/dev/null
+    WB_EXTRA=$(WB_ERR="Artifact verification failed: $ARTIFACT_ERRORS" python3 -c "import json,os;print(json.dumps({'error':os.environ['WB_ERR']}))")
+    set +e; write_current_mandate_status "failed" "$COMPLETED_AT" "$WB_EXTRA"; set -e
 
     python3 -c "
 import json
@@ -529,26 +563,30 @@ print(json.dumps(t))
     exit 1
   fi
 
-  # All artifacts verified — mark consumed
-  python3 -c "
-import json
-m = json.load(open('$MANDATE_FILE'))
-m['status'] = 'consumed'
-m['completed_at'] = '$COMPLETED_AT'
-m['structured_report'] = '$STRUCTURED_REPORT'
-m['transcript'] = '$TRANSCRIPT_FILE'
-json.dump(m, open('$MANDATE_FILE', 'w'), indent=2)
-" 2>/dev/null
+  # All artifacts verified — mark consumed (guarded write-back)
+  WB_EXTRA=$(WB_SR="$STRUCTURED_REPORT" WB_TR="$TRANSCRIPT_FILE" python3 -c "import json,os;print(json.dumps({'structured_report':os.environ['WB_SR'],'transcript':os.environ['WB_TR']}))")
+  set +e
+  SUPERSEDED_BY=$(write_current_mandate_status "consumed" "$COMPLETED_AT" "$WB_EXTRA")
+  WB_RC=$?
+  set -e
 
-  echo "Mandate $MANDATE_ID consumed at $COMPLETED_AT"
+  if [ "$WB_RC" -eq 0 ]; then
+    echo "Mandate $MANDATE_ID consumed at $COMPLETED_AT"
+    TRANSITION="running_to_consumed"
+  else
+    echo "Mandate $MANDATE_ID work completed at $COMPLETED_AT, but current.json holds successor '$SUPERSEDED_BY' — recording DETACHED (cycles ran + artifacts verified; successor left pending for normal consumption)."
+    TRANSITION="running_to_consumed_detached"
+  fi
   echo "Transcript: $TRANSCRIPT_FILE"
   echo "Report:     $STRUCTURED_REPORT"
 
-  # Record transition with provenance
+  # Record transition with provenance (terminal record for THIS mandate's run;
+  # appended to history regardless of detach — history is keyed by $MANDATE_ID,
+  # not current.json, so it never clobbers).
   python3 -c "
 import json
 t = {
-    'transition': 'running_to_consumed',
+    'transition': '$TRANSITION',
     'mandate_id': '$MANDATE_ID',
     'timestamp': '$COMPLETED_AT',
     'transcript': '$TRANSCRIPT_FILE',
@@ -557,19 +595,14 @@ t = {
     'orchestrated_by': 'homeskillet',
     'cycles_executed': '$CYCLES'.split(','),
     'artifacts_verified': True,
+    'superseded_by': '$SUPERSEDED_BY',
     'birth_rung': '$BIRTH_RUNG'
 }
 print(json.dumps(t))
 " | while IFS= read -r _line; do safe_jsonl_append "$MANDATE_HISTORY_DIR/$TODAY.jsonl" "$_line"; done 2>/dev/null
 else
-  python3 -c "
-import json
-m = json.load(open('$MANDATE_FILE'))
-m['status'] = 'failed'
-m['completed_at'] = '$COMPLETED_AT'
-m['error'] = 'claude -p exited with code $CLAUDE_EXIT'
-json.dump(m, open('$MANDATE_FILE', 'w'), indent=2)
-" 2>/dev/null
+  WB_EXTRA=$(WB_EC="$CLAUDE_EXIT" python3 -c "import json,os;print(json.dumps({'error':'claude -p exited with code '+str(os.environ['WB_EC'])}))")
+  set +e; write_current_mandate_status "failed" "$COMPLETED_AT" "$WB_EXTRA"; set -e
 
   echo "ERROR: claude -p exited with code $CLAUDE_EXIT" >&2
   echo "Mandate $MANDATE_ID failed at $COMPLETED_AT"
