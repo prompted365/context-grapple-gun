@@ -926,13 +926,18 @@ def resolve_drift_signals_on_sync(zone_root, synced_surface_names, commit_sha=No
     #       list in that day's file, which the today-only read never sees.
     # Track the latest STATUS per id (chronological file order) while preserving
     # the richest payload (surfaces + severity) seen for that id anywhere.
+    # Status truth lives in the DATED daily files only (chronological by name).
+    # active-manifest.jsonl and resolved-archive.jsonl are derived/secondary and
+    # sort AFTER the dated files alphabetically — including them would let an old
+    # archive-resolved entry shadow a newer dated active emission (a recurring
+    # deterministic-ID signal oscillates active→resolved→active). Read dated files
+    # only; manifest reconciliation is manifest-prune.py's job.
+    _derived = {"active-manifest.jsonl", "resolved-archive.jsonl"}
     daily_files = sorted(
         os.path.join(signal_dir, fn)
         for fn in os.listdir(signal_dir)
-        if fn.endswith(".jsonl")
+        if fn.endswith(".jsonl") and fn not in _derived
     )
-    if os.path.isfile(manifest_path) and manifest_path not in daily_files:
-        daily_files.append(manifest_path)
 
     latest_state = {}
     best_payload = {}
