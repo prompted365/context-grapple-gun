@@ -343,6 +343,13 @@ Your cycle report MUST be a JSON object with exactly this shape:
   \"results\": {
     \"signal_scan\": {},
     \"queue_refresh\": {}
+  },
+  \"civic_receipt\": {
+    \"understood_scope\": \"what this mandate is + your lane, 1-2 sentences\",
+    \"accepted_constraints\": [\"constraints you operated under, e.g. do-not-double-spawn, OT read-only\"],
+    \"abstentions\": [\"what you deliberately did NOT do this run\"],
+    \"first_action_or_escalation\": \"your first concrete action or escalation\",
+    \"model\": \"your model id if known, e.g. claude-opus-4-8 (optional)\"
   }
 }
 \`\`\`
@@ -355,6 +362,7 @@ CRITICAL RULES:
 - mandate_id MUST exactly equal \"$MANDATE_ID\"
 - The file MUST be valid JSON parseable by python json.load()
 - Only populate results keys for cycles you actually executed
+- civic_receipt is REQUIRED — your civic-orientation proof at the terminal boundary: understood_scope + first_action_or_escalation MUST be non-empty strings; accepted_constraints + abstentions MUST be non-empty lists. The runner REFUSES to mark the mandate consumed without a complete civic_receipt block (and refuses if the boot-receipt sink emission fails).
 - The runner will REFUSE to mark mandate consumed if this file is missing or malformed"
 
 # ============================================================================
@@ -552,6 +560,32 @@ print('yes' if '$cycle' in r.get('results', {}) else 'no')
     esac
   done
 
+  # Civic-receipt verification (Mogul runner receipt gate) — the report MUST carry a
+  # complete civic_receipt block: the headless governance mutator's civic-orientation
+  # proof surface at the terminal boundary. Reuses the ARTIFACT_ERRORS valve so a
+  # missing/incomplete block fails-not-consumes through the existing gate below.
+  if [ -f "$STRUCTURED_REPORT" ]; then
+    CIVIC_CHECK=$(python3 -c "
+import json
+try:
+    r = json.load(open('$STRUCTURED_REPORT'))
+except Exception:
+    print('civic_receipt: report unparseable'); raise SystemExit
+cr = r.get('civic_receipt')
+if not isinstance(cr, dict):
+    print('civic_receipt block missing'); raise SystemExit
+miss = []
+if not (isinstance(cr.get('understood_scope'), str) and cr.get('understood_scope').strip()): miss.append('understood_scope')
+if not (isinstance(cr.get('accepted_constraints'), list) and cr.get('accepted_constraints')): miss.append('accepted_constraints')
+if not (isinstance(cr.get('abstentions'), list) and cr.get('abstentions')): miss.append('abstentions')
+if not (isinstance(cr.get('first_action_or_escalation'), str) and cr.get('first_action_or_escalation').strip()): miss.append('first_action_or_escalation')
+print('ok' if not miss else 'civic_receipt incomplete: '+','.join(miss))
+" 2>/dev/null)
+    if [ "$CIVIC_CHECK" != "ok" ]; then
+      ARTIFACT_ERRORS="${ARTIFACT_ERRORS}${CIVIC_CHECK:-civic_receipt check failed}. "
+    fi
+  fi
+
   if [ -n "$ARTIFACT_ERRORS" ]; then
     echo "WARNING: Artifact verification failed: $ARTIFACT_ERRORS" >&2
     echo "Marking mandate as failed despite exit code 0."
@@ -567,6 +601,76 @@ print(json.dumps(t))
 
     exit 1
   fi
+
+  # ── Mogul runner receipt gate: emit the civic-orientation receipt BEFORE terminalizing.
+  # Proof precedes close — a headless governance mutator must leave a civic proof surface
+  # at the SAME boundary where it terminalizes work. Emit-failure is a HARD fail (this gate
+  # exists to make the proof MANDATORY at the physics boundary), logged distinctly as
+  # receipt_emit_failed (not artifact-verification ambiguity). civic_receipt presence is
+  # already guaranteed by the verification gate above.
+  RECEIPT_PAYLOAD="$CYCLE_REPORTS_DIR/.${TIMESTAMP}-tic-${CURRENT_TIC}.receipt-payload.json"
+  # advisory detach flag: does current.json still hold our mandate? (the write-back is authoritative)
+  LIVE_MID=$(python3 -c "import json;print(json.load(open('$MANDATE_FILE')).get('mandate_id',''))" 2>/dev/null)
+  if [ "$LIVE_MID" = "$MANDATE_ID" ]; then RECEIPT_DETACHED=false; else RECEIPT_DETACHED=true; fi
+  RECEIPT_BUILD=$(R_SR="$STRUCTURED_REPORT" R_TR="$TRANSCRIPT_FILE" R_MID="$MANDATE_ID" \
+    R_DET="$RECEIPT_DETACHED" R_OUT="$RECEIPT_PAYLOAD" python3 -c "
+import json, os
+try:
+    r = json.load(open(os.environ['R_SR']))
+except Exception as e:
+    print('BUILD_ERR:'+str(e)); raise SystemExit
+cr = r.get('civic_receipt') or {}
+payload = {
+    'understood_scope': cr.get('understood_scope',''),
+    'accepted_constraints': cr.get('accepted_constraints',[]),
+    'abstentions': cr.get('abstentions',[]),
+    'first_action_or_escalation': cr.get('first_action_or_escalation',''),
+    'receipt_route': 'mogul-runner',
+    'mandate_id': os.environ['R_MID'],
+    'cycles_executed': r.get('cycles_executed',[]),
+    'structured_report': os.environ['R_SR'],
+    'transcript': os.environ['R_TR'],
+    'detached': os.environ['R_DET']=='true',
+    'model_of_record': cr.get('model') or 'unknown',
+}
+open(os.environ['R_OUT'],'w').write(json.dumps(payload))
+print('ok')
+" 2>&1)
+  if [ "$RECEIPT_BUILD" != "ok" ]; then
+    echo "ERROR: receipt_emit_failed (payload build): $RECEIPT_BUILD" >&2
+    WB_EXTRA=$(WB_ERR="receipt_emit_failed: payload build: $RECEIPT_BUILD" python3 -c "import json,os;print(json.dumps({'error':os.environ['WB_ERR']}))")
+    set +e; write_current_mandate_status "failed" "$COMPLETED_AT" "$WB_EXTRA"; set -e
+    rm -f "$RECEIPT_PAYLOAD"
+    exit 1
+  fi
+  BOOT_RECEIPT_SCRIPT="$SCRIPT_DIR/boot-receipt.py"
+  [ -f "$BOOT_RECEIPT_SCRIPT" ] || BOOT_RECEIPT_SCRIPT="$HOME/.claude/cgg-runtime/scripts/boot-receipt.py"
+  set +e
+  RECEIPT_OUT=$(python3 "$BOOT_RECEIPT_SCRIPT" emit --entity ent_mogul --tic "$CURRENT_TIC" \
+    --payload "$RECEIPT_PAYLOAD" --booted-from mandate-runner 2>/dev/null)
+  RECEIPT_RC=$?
+  set -e
+  rm -f "$RECEIPT_PAYLOAD"
+  RECEIPT_OK=$(RO="$RECEIPT_OUT" python3 -c "
+import json,os
+try:
+    d=json.loads(os.environ['RO'])
+except Exception:
+    print('no'); raise SystemExit
+print('yes' if d.get('status') in ('recorded','deduped') and not d.get('missing_fields') else 'no')
+" 2>/dev/null)
+  if [ "$RECEIPT_RC" -ne 0 ] || [ "$RECEIPT_OK" != "yes" ]; then
+    echo "ERROR: receipt_emit_failed (sink emit rc=$RECEIPT_RC): $RECEIPT_OUT" >&2
+    WB_EXTRA=$(WB_ERR="receipt_emit_failed: sink emit rc=$RECEIPT_RC" python3 -c "import json,os;print(json.dumps({'error':os.environ['WB_ERR']}))")
+    set +e; write_current_mandate_status "failed" "$COMPLETED_AT" "$WB_EXTRA"; set -e
+    python3 -c "
+import json
+t = {'transition': 'running_to_failed', 'mandate_id': '$MANDATE_ID', 'timestamp': '$COMPLETED_AT', 'reason': 'receipt_emit_failed'}
+print(json.dumps(t))
+" | while IFS= read -r _line; do safe_jsonl_append "$MANDATE_HISTORY_DIR/$TODAY.jsonl" "$_line"; done 2>/dev/null
+    exit 1
+  fi
+  echo "Civic receipt emitted for ent_mogul tic $CURRENT_TIC (route=mogul-runner, detached=$RECEIPT_DETACHED)"
 
   # All artifacts verified — mark consumed (guarded write-back)
   WB_EXTRA=$(WB_SR="$STRUCTURED_REPORT" WB_TR="$TRANSCRIPT_FILE" python3 -c "import json,os;print(json.dumps({'structured_report':os.environ['WB_SR'],'transcript':os.environ['WB_TR']}))")
