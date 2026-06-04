@@ -150,7 +150,12 @@ echo "Snapshot ref: $MANDATE_FILE_SNAPSHOT_REF"
 # On detach, prints the successor mandate_id to stdout.
 # ============================================================================
 write_current_mandate_status() {
-  WB_EXPECT_ID="$MANDATE_ID" WB_STATUS="$1" WB_COMPLETED="$2" WB_EXTRA="${3:-{}}" \
+  # NB: do NOT inline a brace default like ${3:-{}} — bash leaks the default
+  # word's literal '}' into the value when $3 is set (e.g. JSON '{...}' becomes
+  # '{...}}'), corrupting WB_EXTRA with trailing "Extra data". Build it safely.
+  local wb_extra="${3:-}"
+  [ -n "$wb_extra" ] || wb_extra='{}'
+  WB_EXPECT_ID="$MANDATE_ID" WB_STATUS="$1" WB_COMPLETED="$2" WB_EXTRA="$wb_extra" \
   WB_MF="$MANDATE_FILE" python3 - <<'PYEOF'
 import json, os, sys
 mf = os.environ['WB_MF']
