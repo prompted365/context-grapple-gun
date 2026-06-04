@@ -1,5 +1,5 @@
 {
-  "description": "CGG governance hooks — session restore, gate trigger, and runtime drift detection",
+  "description": "CGG governance hooks — session restore (primary boot), citizen boot (per-subagent), gate trigger, and runtime drift detection",
   "hooks": {
     "SessionStart": [
       {
@@ -8,6 +8,17 @@
             "type": "command",
             "command": "${CLAUDE_PLUGIN_ROOT}/cgg-runtime/hooks/session-restore-patch.sh",
             "timeout": 10
+          }
+        ]
+      }
+    ],
+    "SubagentStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/cgg-runtime/hooks/subagent-citizen-boot.py\"",
+            "timeout": 30
           }
         ]
       }
