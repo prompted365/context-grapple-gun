@@ -87,6 +87,17 @@ def _read_claude_md(rung_dir: str) -> Optional[str]:
 # calls it exactly as before.
 from doctrine_surfaces import find_ledger as _shared_find_ledger  # noqa: E402
 
+# Injection-fabric DSN fragment writer (tic 355 GLOSSARY/DSN routed migration).
+# The subdelegation-briefing seam is the PRIMARY delivery seam for the routed
+# Doctrine-Surface-Navigation fragment — the fleet cluster (review-execute,
+# ladder-auditor, ripple-assessor, pattern-curators) traverses doctrine surfaces
+# and lives on THIS seam, not at boot. When a caller names the dispatch recipient,
+# the assembled briefing carries the routed FIELD·shape-only·no-cite fragment
+# instead of the blunt audience:all boot-injection. Migration slice:
+# audit-logs/governance/glossary-dsn-migration-slice-tic354.md; parent contract:
+# autonomous_kernel/injection-fabric-spec.md §4.
+from dsn_fragment import render_dsn_fragment, dsn_fragment_record  # noqa: E402
+
 
 def _find_ledger(rung_dir: str, rung: str) -> Optional[str]:
     """Back-compat alias for the shared ledger resolver. The dehydration walk
@@ -131,6 +142,8 @@ def assemble_rung_briefing(
     target_path: str,
     truncate_per_rung: int = DEFAULT_TRUNCATE_PER_RUNG,
     include_global: bool = False,
+    recipient: Optional[str] = None,
+    loop_phase: Optional[str] = None,
 ) -> str:
     """Assemble a multi-rung CLAUDE.md briefing for subagent dispatch.
 
@@ -150,6 +163,15 @@ def assemble_rung_briefing(
         include_global: If True, prepend ~/.claude/CLAUDE.md content. Default
             False — the harness already loads global into subagent context;
             including it again duplicates and wastes context budget.
+        recipient: Optional dispatch-recipient name (e.g. "review-execute",
+            "ladder-auditor"). When supplied AND the recipient routes a DSN
+            fragment on the subdelegation-briefing seam (the fleet cluster), the
+            routed FIELD·shape-only·no-cite Doctrine-Surface-Navigation fragment
+            is appended to the briefing. Omit (None) and no fragment is added —
+            backward-compatible with every existing caller. The fragment is
+            terrain to understand, never an action mandate (see dsn_fragment.py).
+        loop_phase: Optional loop phase, for phase-gated recipients (Homeskillet
+            delivers only at dispatch; Crisis only at LEARNING/PREVENTION).
 
     Returns:
         Concatenated briefing string suitable for embedding in a subagent
@@ -249,8 +271,29 @@ def assemble_rung_briefing(
         except OSError:
             pass
 
-    if not sections:
+    # Injection-fabric DSN fragment (tic 355): the subdelegation-briefing seam is
+    # the PRIMARY delivery seam for the routed Doctrine-Surface-Navigation
+    # fragment. Append it only when the recipient routes a fragment on THIS seam
+    # (the writer returns None for OMIT/wrong-seam/unknown). It rides alongside
+    # the ledger-aware briefing as terrain — FIELD·shape-only·no-cite — never as
+    # an action mandate; office motion authority is the recipient's own mandate.
+    dsn_section = None
+    if recipient:
+        rec = dsn_fragment_record(recipient, loop_phase)
+        if rec and rec.get("seam") == "subdelegation-briefing":
+            frag = render_dsn_fragment(recipient, loop_phase)
+            if frag:
+                dsn_section = (
+                    "## Doctrine-Surface-Navigation fragment "
+                    "(routed via injection-fabric — terrain, not a mandate)\n\n"
+                    f"{frag}\n"
+                )
+
+    if not sections and not dsn_section:
         return ""
+
+    if dsn_section:
+        sections.append(dsn_section)
 
     preamble = (
         "<!-- rung-aware doctrine briefing assembled by load_doctrine_chain.py.\n"
@@ -336,6 +379,16 @@ if __name__ == "__main__":
         default=DEFAULT_TRUNCATE_PER_RUNG,
         help=f"Max chars per rung body (default: {DEFAULT_TRUNCATE_PER_RUNG})",
     )
+    parser.add_argument(
+        "--recipient",
+        default=None,
+        help="Dispatch recipient — appends the routed DSN fragment for fleet-cluster targets",
+    )
+    parser.add_argument(
+        "--loop-phase",
+        default=None,
+        help="Loop phase (for phase-gated recipients)",
+    )
     args = parser.parse_args()
 
     if args.metadata:
@@ -346,5 +399,7 @@ if __name__ == "__main__":
             args.target_path,
             truncate_per_rung=truncate,
             include_global=args.include_global,
+            recipient=args.recipient,
+            loop_phase=args.loop_phase,
         )
         print(briefing)
