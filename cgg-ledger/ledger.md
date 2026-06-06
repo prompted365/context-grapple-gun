@@ -2368,6 +2368,32 @@ Validation rules are identical across all four paths (I-A / I-B / I-D-curl / I-D
 
 ---
 
+### Local-settings activation ≠ tracked-distribution registration — a third distribution-boundary axis
+
+<a id="local-settings-activation-not-tracked-distribution-registration"></a>
+
+**Ledger tags:**
+- `invariant_id`: `cpr_seam_local_activation_vs_tracked_distribution_tic351`
+- `terrain_class`: `sync_and_install_parity`
+- `lanes`: ["sync_and_install_parity", "pipeline_and_integration"]
+- `era`: `cpr_era_tic_350_plus`
+- `target_rung`: `domain`
+- `compact_root_status`: `ledger_only`
+- `first_appearance_tic`: `351`
+- `promoted_tic`: `361`
+- `confidence_tier`: `reinforced`
+- `relations`: complements `boot-seam-duality-primary-sessionstart-citizens-subagentstart` (same distribution-boundary family — Boot-Seam Duality governs seam SELECTION across the two boot seams; THIS governs surface REGISTRATION, local vs tracked); refines federation `presence-observation-fallacy-guard` with a new typed variant `config-presence-in-a-local-surface-does-not-prove-portable-wiring`; distinct from `runtime-sync-parity-verification` (byte parity of an already-distributed surface, not registration portability)
+
+**Body:**
+
+- **A delivery seam proven LIVE LOCALLY is not proven PORTABLE.** Config-presence in an operator-local / gitignored settings surface (`.claude/settings.json`) is *local-truth*: it activates the seam on THIS machine but is absent from the tracked distribution surface, so a fresh clone / different operator / plugin-install gets the seam **silently omitted**. Before investing canonical payload onto a delivery seam, verify the seam is registered on a TRACKED distribution surface, not merely active locally — *"do not write canonical payload onto a local-only seam."* The fix is **additive** (register on the tracked surface) and must NOT remove the local activation when the tracked surface is not loaded in the current environment (e.g. plugin not enabled), else you trade a proven-local seam for an unproven-here tracked one — the same anti-pattern inverted. Local settings = environment activation; tracked plugin manifest = canonical distribution; both can legitimately coexist (double-fire, if both ever active, is covered by the consumer's dedup-on-unchanged). This sits in the distribution-boundary family next to Boot-Seam Duality (which seam) as a distinct third axis (which surface registers it).
+
+**Evidence.** Born tic 351 — SubagentStart reachability slice. The `subagent-citizen-boot.py` SubagentStart hook was registered ONLY in gitignored `.claude/settings.json` (CGG plugin not loaded in this env — the local entry the only active path); the TRACKED plugin `hooks/hooks.json` registered SessionStart citizen-boot but NEVER SubagentStart — so every plugin-install got primary-boot but no per-citizen boot. Fix CGG `bc7cbb3` (added SubagentStart to tracked `hooks/hooks.json` parallel to SessionStart, `${CLAUDE_PLUGIN_ROOT}` convention, no matcher; script filters by actor-registry). Verified: JSON valid; registered citizen → worldview+CITIZEN-BOOT inject; general-purpose → silent; seen-state net-zero; local `.claude/settings.json` KEPT (this env's activation). Empirical pre-existing fires corroborated reach (receipts tic 341/344 from crisis_steward / cbux_steward / civil_engineer).
+
+<!-- promoted from cpr_seam_local_activation_vs_tracked_distribution_tic351 (tic 351→361, /review 361 unified docket; Architect MERGE-PROMOTE directive — neighbor-linked into the Boot-Seam Duality / distribution-boundary family rather than floating as an unrelated KI; ledger mechanics favor a standalone tagged entry with explicit `relations` over folding into the tic-332 invariant body). Fix landed CGG bc7cbb3. Band: COGNITIVE. -->
+
+---
+
 ### Budget-exempt closure framing + unit-safe truncation
 
 <a id="budget-exempt-closure-framing-and-unit-safe-truncation"></a>
