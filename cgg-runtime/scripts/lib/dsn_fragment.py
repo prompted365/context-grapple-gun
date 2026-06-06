@@ -47,10 +47,22 @@ from typing import Optional
 SOURCE = 'GLOSSARY.md § "Doctrine Surface Navigation"'
 SOURCE_ANCHOR = "GLOSSARY.md#doctrine-surface-navigation"
 FRESHNESS = "coarse /review-cadence TTL (re-verify each /review epoch)"
-# The fragment is FIELD for every recipient — the badge office-worldview.py
-# would compile for class FIELD (may_act_from=False → shape-only; may_quote=False
-# → no-cite; must_escalate=False → no ↑).
-BADGE = "⟨FIELD·shape-only·no-cite⟩"
+# The fragment is FIELD for every recipient. The badge is DERIVED from the shared
+# Injection Fabric contract (fragment_contract.py, tic 367) — the same source
+# office-worldview.py renders from — so it can never drift from AUTHORITY_DEFAULTS
+# (was a hardcoded "⟨FIELD·shape-only·no-cite⟩" literal). FAIL-SOFT to the literal
+# iff the shared import fails, so a briefing is never broken (parity-tested).
+import sys as _sys
+from pathlib import Path as _Path
+
+_LIB = _Path(__file__).resolve().parent
+if str(_LIB) not in _sys.path:
+    _sys.path.insert(0, str(_LIB))
+try:
+    from fragment_contract import badge as _badge  # type: ignore
+    BADGE = _badge("FIELD")  # FIELD: may_act_from=False → shape-only; may_quote=False → no-cite
+except Exception:
+    BADGE = "⟨FIELD·shape-only·no-cite⟩"  # boot-safety fallback (parity-tested)
 
 # Both ledgers named for the fleet cluster — review-execute inscribes and
 # ladder-auditor verifies across both rungs; the navigation frame's whole point

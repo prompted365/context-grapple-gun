@@ -53,22 +53,42 @@ from pathlib import Path
 
 DEFAULT_MAX_CHARS = 3000
 
-# Authority defaults per pertinence class. Compile-time may tighten (never loosen).
-#   may_act_from is gated by Authority axis; may_quote is the Citation axis.
-AUTHORITY_DEFAULTS = {
-    "YOURS":     dict(may_read=True, may_shape_interpretation=True, may_act_from=True,  may_mutate_source=True,  may_quote=True,  must_escalate=False, weight=0.90),
-    "OFFICE":    dict(may_read=True, may_shape_interpretation=True, may_act_from=True,  may_mutate_source=True,  may_quote=True,  must_escalate=False, weight=0.88),
-    "SUBSTRATE": dict(may_read=True, may_shape_interpretation=True, may_act_from=False, may_mutate_source=False, may_quote=True,  must_escalate=False, weight=0.82),
-    "ESCALATE":  dict(may_read=True, may_shape_interpretation=True, may_act_from=False, may_mutate_source=False, may_quote=True,  must_escalate=True,  weight=0.75),
-    "COUNTER":   dict(may_read=True, may_shape_interpretation=True, may_act_from=False, may_mutate_source=False, may_quote=True,  must_escalate=False, weight=0.62),
-    "PEER":      dict(may_read=True, may_shape_interpretation=True, may_act_from=False, may_mutate_source=False, may_quote=True,  must_escalate=False, weight=0.55),
-    "FIELD":     dict(may_read=True, may_shape_interpretation=True, may_act_from=False, may_mutate_source=False, may_quote=False, must_escalate=False, weight=0.45),
-    "ANCESTOR":  dict(may_read=True, may_shape_interpretation=True, may_act_from=False, may_mutate_source=False, may_quote=True,  must_escalate=False, weight=0.40),
-    "SEALED":    dict(may_read=True, may_shape_interpretation=True, may_act_from=False, may_mutate_source=False, may_quote=False, must_escalate=False, weight=0.30),
-}
+# The 3 normative directives (pertinence class table + authority + citation) now
+# live in the shared Injection Fabric contract (lib/fragment_contract.py, tic 367)
+# so the routed model (this file) and the registry/migration model (dsn_fragment.py)
+# honor ONE source — the badge + table can never drift between them. Import from
+# the sibling lib/ (synced as a scripts/ subdir, present in both source + installed
+# trees). FAIL-SOFT: a catastrophic import failure falls back to the inline copy so
+# a boot is NEVER broken (the parity-tested copy is degraded-mode only). Compile-time
+# may tighten (never loosen); may_act_from is the Authority axis, may_quote the
+# Citation axis.
+_LIB = Path(__file__).resolve().parent / "lib"
+if str(_LIB) not in sys.path:
+    sys.path.insert(0, str(_LIB))
+try:
+    from fragment_contract import AUTHORITY_DEFAULTS, badge as _shared_badge  # type: ignore
+except Exception:
+    _shared_badge = None
+    # boot-safety fallback ONLY (used iff the shared contract import fails); kept
+    # byte-equal to fragment_contract.AUTHORITY_DEFAULTS and guarded by a parity test.
+    AUTHORITY_DEFAULTS = {
+        "YOURS":     dict(may_read=True, may_shape_interpretation=True, may_act_from=True,  may_mutate_source=True,  may_quote=True,  must_escalate=False, weight=0.90),
+        "OFFICE":    dict(may_read=True, may_shape_interpretation=True, may_act_from=True,  may_mutate_source=True,  may_quote=True,  must_escalate=False, weight=0.88),
+        "SUBSTRATE": dict(may_read=True, may_shape_interpretation=True, may_act_from=False, may_mutate_source=False, may_quote=True,  must_escalate=False, weight=0.82),
+        "ESCALATE":  dict(may_read=True, may_shape_interpretation=True, may_act_from=False, may_mutate_source=False, may_quote=True,  must_escalate=True,  weight=0.75),
+        "COUNTER":   dict(may_read=True, may_shape_interpretation=True, may_act_from=False, may_mutate_source=False, may_quote=True,  must_escalate=False, weight=0.62),
+        "PEER":      dict(may_read=True, may_shape_interpretation=True, may_act_from=False, may_mutate_source=False, may_quote=True,  must_escalate=False, weight=0.55),
+        "FIELD":     dict(may_read=True, may_shape_interpretation=True, may_act_from=False, may_mutate_source=False, may_quote=False, must_escalate=False, weight=0.45),
+        "ANCESTOR":  dict(may_read=True, may_shape_interpretation=True, may_act_from=False, may_mutate_source=False, may_quote=True,  must_escalate=False, weight=0.40),
+        "SEALED":    dict(may_read=True, may_shape_interpretation=True, may_act_from=False, may_mutate_source=False, may_quote=False, must_escalate=False, weight=0.30),
+    }
 
-# Compact authority badge for the human face.
+
+# Compact authority badge for the human face — delegates to the shared contract
+# renderer; the inline algorithm is the boot-safety fallback (kept byte-equal).
 def _badge(cls: str, auth: dict, gated: bool = False) -> str:
+    if _shared_badge is not None:
+        return _shared_badge(cls, auth, gated)
     bits = []
     bits.append("act" if auth["may_act_from"] else "shape-only")
     if not auth["may_quote"]:
