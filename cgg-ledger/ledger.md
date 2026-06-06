@@ -198,6 +198,20 @@ Source-repo correctness does not imply runtime correctness. Hook-invoked scripts
 
 ---
 
+## Self-Locating Artifact Test Isolation
+<a id="self-locating-artifact-test-isolation"></a>
+<!-- ledger-tags: authority_class=verification_and_proof_discipline | rung=domain | domain=context-grapple-gun | born_tic=365 | promoted_tic=366 -->
+
+A self-locating runtime artifact — one that resolves its operating root by walking up from its own file location (`Path(__file__)` → marker search, e.g. a hook's `resolve_zone_root` walking for `.ticzone`) — **cannot be acceptance-tested in-tree**. An acceptance test that invokes the artifact at its source path resolves the **real** zone (because the source lives inside that zone), not the test's temp zone — so cwd/env-fallback cases never exercise and the test silently mutates production state (audit logs, seen-files, real subprocess side effects). Isolation requires copying the artifact **out of tree** into a temp dir whose only `.ticzone` ancestor is the temp fixture, so the resolver's marker-walk terminates at the fixture. The in-tree run is not a milder version of the test — it exercises a different zone.
+
+**Why distinct (non-derivability):** This is the **test-time inverse** of *Runtime Sync Parity Verification* ("Source-repo correctness does not imply runtime correctness") — that invariant governs *which copy runs* (installed vs source); this governs *which zone the artifact mutates during its own test*. It is a sibling, not a child, of the *Presence/Observation Fallacy Guard* watcher-scope clause — that governs *judgment* scope ("declare which zone you judge before judging"); this governs *mutation* scope ("a self-locating mutator's `__file__` decides which surface it writes"). Self-location is the same property that makes the artifact robust in production (fires correctly from source OR installed copy) AND un-isolatable in-tree: one mechanism, build-view vs test-view.
+
+**Evidence:** Building the cadence plan-hook hardening (tic 365), the first acceptance test fired `cadence-plan-submit.py` at its canonical source path; `resolve_zone_root` walked `HOOK_DIR` parents, found canonical's `.ticzone` first, and every temp-zone fire resolved real-canonical — appending 7 polluting events to the real `cadence-plan-submit.jsonl` and running tdelta/git-cycle/rebru. Re-test with the hook copied to `/tmp/zone/hooks/` (temp `.ticzone` the only ancestor) resolved the temp zone and passed all 9 checks, including the cwd-fallback and fail-closed cases the in-tree run structurally could not reach.
+
+<!-- promoted from cpr_self_locating_artifact_test_isolation_tic365 (born tic 365, /review 366). Band: COGNITIVE. Source: cadence plan-hook hardening build. Verdict: PROMOTE (Architect-gated). Non-derivability resolved: distinct test-isolation discipline — test-time inverse of install-parity; mutation-scope sibling of watcher-scope. -->
+
+---
+
 ## Cycle-Based Windows in Mixed-Frequency Event Streams
 <a id="cycle-based-windows-in-mixed-frequency-event-streams"></a>
 <!-- ledger-tags: authority_class=signal_and_queue_manifold | rung=domain | domain=context-grapple-gun | dehydrated_tic=314 -->
