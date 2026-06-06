@@ -5,5 +5,10 @@
 
 set -euo pipefail
 
+# Resolve the real binary relative to this wrapper — no hardcoded root.
+# Works whether fired from canonical source or the installed ~/.claude copy
+# (runtime-sync keeps the .py sibling to this wrapper in both layouts).
+DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
 # Pass stdin through to the Python hook
-exec python3 /Users/breydentaylor/canonical/canonical_developer/context-grapple-gun/cgg-runtime/hooks/cadence-plan-submit.py
+exec python3 "$DIR/cadence-plan-submit.py"
