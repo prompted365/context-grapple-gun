@@ -321,7 +321,7 @@ After applying all approved actions and verifying consistency (Step 8), write a 
 
 **Concurrency guard** (CogPR-57 fix #2): Before writing, read `audit-logs/mogul/mandates/current.json`:
 - If `"running"`: do NOT overwrite. Log the review-close intent to `grapple-meta-log.jsonl` with `action: "review_close_mandate_deferred"` and note the blocking mandate ID. The next session's cadence will pick up the review-close cycle.
-- If `"pending"`: check if the pending mandate's cycles overlap. If they do, merge `review_close_check` into the existing mandate's `run_now` array. If no overlap, supersede with the review-close mandate (set `supersedes` field).
+- If `"pending"`: this is a LIVE, not-yet-consumed mandate (e.g. the cadence mandate SessionStart will hand Mogul) — the non-destructive move is mandatory. **Always MERGE** `review_close_check` into the existing mandate's `run_now` array (dedup if already present), preserving every cycle the live mandate still owns. **Never supersede a live `pending` mandate** — "no cycle overlap" is NOT a license to supersede; supersede silently drops the live mandate's unconsumed cycles (harmony_invoke / signal_scan / queue_refresh / …), the exact cycles the handoff requires Mogul to run. Supersede is reserved for the terminal-state branch below. (Tic 373: superseding the live tic-373 mandate would have dropped 3 cadence cycles Mogul then consumed clean; merging preserved them. This is `self-operation-signal-discipline` applied to a routing surface you depend on — favor the non-destructive move. See cgg-ledger *Even-Tic Review-Close Routing*.)
 - If `"consumed"`, `"failed"`, or missing: safe to write new mandate.
 
 ```json

@@ -1836,6 +1836,12 @@ Composes with: federation KIs *Conductor-Score-Runtime Parity* and *Composite mu
 
 <!-- promoted from cpr_review_close_routes_to_deterministic_even_tic_review_close_check_not_separate_mandate_tic299 (tic 299→301, /review tic 301). Doctrine PROMOTED CGG-rung; SKILL.md Step 8.5 branch edit is the follow-on implementation. Self-exemplified at tic 301 (odd tic → Step 8.5 wrote the review-close mandate). Band: COGNITIVE. -->
 
+### Refinement: a LIVE `pending` mandate is MERGE-only — "no overlap" is not a license to supersede
+
+The concurrency guard's `pending` branch (Step 8.5) historically read "if no cycle overlap, supersede with the review-close mandate." That literal rule is WRONG for a LIVE, not-yet-consumed cadence mandate — the one SessionStart will hand Mogul. Superseding it drops its unconsumed cycles (harmony_invoke / signal_scan / queue_refresh / …) — precisely the cycles the handoff requires. The correct move on any live `pending` mandate is always the non-destructive one: **MERGE `review_close_check` into the existing `run_now` (dedup if present), never supersede.** Supersede is reserved for the terminal-state branch (consumed / failed / missing). "No cycle overlap" describes the cycle set; it does not authorize destroying a live mandate. This is `self-operation-signal-discipline` (federation, promoted tic 373) applied to a routing surface the session depends on: when you modify a surface you also rely on for execution, favor the non-destructive operation. Composes the *Even-Tic Review-Close Routing* discipline (above): even-tic routing decides WHETHER to write a separate mandate; this decides HOW to combine when a live one exists — merge, not supersede. The SKILL.md Step 8.5 `pending`-branch wording was corrected at /review 375.
+
+<!-- promoted from cpr_merge_not_supersede_live_cadence_mandate_at_review_close_tic373 (session_lessons_tic_373.md, inline; /review 375 PROMOTE-as-refinement, Architect-ratified). Refines the Even-Tic Review-Close Routing entry + Mandate Lifecycle Defects (concurrency guard); SKILL.md Step 8.5 pending-branch edit landed same pass (not deferred — a skill-body wording fix, terminal-admissible). Non-derivability: the existing pending-branch did NOT mandate merge for the no-overlap case (it said supersede), so this is a genuine wording fix, not already-covered. Composes federation KI self-operation-signal-discipline. Band: COGNITIVE. -->
+
 ---
 
 ## Inline-Tracked CogPR DEFER Keeps status:pending (/review Step 7 Discipline)
