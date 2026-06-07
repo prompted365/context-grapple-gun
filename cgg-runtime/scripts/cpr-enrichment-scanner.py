@@ -453,6 +453,18 @@ def scan_and_enrich(project_dir, dry_run=False, quiet=False):
                 f"no gatherer produced evidence (missing: {', '.join(missing)})"
                 if missing else "no gatherer produced evidence"
             )
+            # Reason-stable skip (tic 371 /review T4): if this CPR was already
+            # scanned and the no-evidence reason is UNCHANGED, do not rewrite. The
+            # prior code bumped enrichment_scan_count + refreshed enrichment_scanned_at
+            # on EVERY scan, churning queue.jsonl on a row that conveys no new
+            # information (a git diff every boot; a scan_count climbing without
+            # converging). Mirrors the evidence-path dedup `if not new_evidence:
+            # continue` below. Only the first observation, or a CHANGED reason
+            # (e.g. a missing field later filled), writes. Verified no external
+            # consumer depends on scan_count climbing: bench-packet-prep +
+            # ripple-assessor read it .get()-with-default; cpr-extract only seeds it.
+            if cpr.get("no_evidence_reason") == reason:
+                continue
             updated_entry = {**cpr}
             updated_entry["enrichment_scanned_at"] = now
             updated_entry["enrichment_scan_count"] = cpr.get("enrichment_scan_count", 0) + 1
