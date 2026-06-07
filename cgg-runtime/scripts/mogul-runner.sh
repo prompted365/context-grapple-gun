@@ -315,7 +315,7 @@ $MANDATE_CONTENT
    - ladder_audit: audit CLAUDE.md chain coherence
    - runtime_drift_check: compare installed vs canonical runtime surfaces. ALSO run scripts/check-harmony-readonly.py --json — verifies harmony engine src/harmony/*.ts modules contain no forbidden imports (atomic_append/queue/signals/manifest-prune/mandate/conformation) or write patterns (writeFileSync/appendFileSync/.write()). Surface any violations as drift findings (treat as TENSION/COGNITIVE per existing drift severity classification).
    - prompt_stack_audit: run scripts/prompt-stack-audit.py, scan CLAUDE.md chain for conflicts
-   - cache_refresh: run \$ZONE_ROOT/vendor/context-grapple-gun/cgg-runtime/scripts/visitor-economy-monitor.py --cache-refresh \$TIC, report cache state + standing decay + biome health
+   - cache_refresh: run \$ZONE_ROOT/vendor/context-grapple-gun/cgg-runtime/scripts/visitor-economy-monitor.py --cache-refresh \$TIC, report cache state + standing decay + biome health. Your results.cache_refresh object MUST include: {\"cache_state\": ..., \"standing_decay\": ..., \"biome_health\": ...} — EVEN WHEN THE CACHE IS EMPTY (e.g. {\"cache_state\": \"empty\", \"healthy\": true}). Do NOT report cache_refresh only in the prose summary; the structured results.cache_refresh key is the verified artifact.
    - deep_audit: comprehensive multi-rung scan
    - review_close_check: run scripts/review-close-check.py, verify post-review inscription consistency
 3. Write a DEDICATED structured JSON cycle report using Write tool to EXACTLY this path:
@@ -361,7 +361,7 @@ CRITICAL RULES:
 - Do NOT write actor as 'homeskillet_as_mogul'
 - mandate_id MUST exactly equal \"$MANDATE_ID\"
 - The file MUST be valid JSON parseable by python json.load()
-- Only populate results keys for cycles you actually executed
+- You MUST populate a results.<cycle> key for EVERY cycle in cycle_request.run_now that you executed — INCLUDING trivial/empty-output cycles (e.g. cache_refresh on an empty cache). Describing an executed cycle only in the prose summary is NOT sufficient: the structured results object is the verified artifact and the runner FAILS the mandate if any executed cycle is missing its results key. (Conversely: do NOT invent results keys for cycles you did NOT execute.)
 - civic_receipt is REQUIRED — your civic-orientation proof at the terminal boundary: understood_scope + first_action_or_escalation MUST be non-empty strings; accepted_constraints + abstentions MUST be non-empty lists. The runner REFUSES to mark the mandate consumed without a complete civic_receipt block (and refuses if the boot-receipt sink emission fails).
 - The runner will REFUSE to mark mandate consumed if this file is missing or malformed"
 
