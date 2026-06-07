@@ -158,6 +158,11 @@ For each pattern-sourced proposal:
 3. Standard review verdicts apply: PROMOTE | SKIP | MODIFY | MERGE | DEFER | SUPERSEDE
 4. If promoting, the `placement.suggested_rung` guides which CLAUDE.md file to target
 
+**Lane awareness (tic 369 — producer-without-reconciler fix).** The `extracted` tier is now governed by two complementary lanes; /review reads their *settled* output, it does not do their work:
+
+- **Producer dedup-at-write** (`pattern_miner.emit_pattern_envelopes`): a pattern-sourced envelope is never re-emitted if its canonical id already exists in the queue's latest-entry projection (any status). This means the `extracted` tier no longer re-floods with already-resolved ids — a pattern-sourced proposal you see here is *fresh*, not a re-extraction of a promoted/absorbed twin. (Earlier docket cruft from the ~280-tic re-flood was drained by the cpr-stepper at tic 368.)
+- **Async cpr_step lane** (intelligent, decoupled): `extracted`/`tic_gated` entries are advanced + DEDUP'd by the **cpr-stepper agent**, surfaced as a background-spawn instruction at SessionStart (primary only; `[CPR STEP …]`). It is **not** a `compute_due_cycles` cycle. The stepper performs the cross-id semantic dedup (verify-twin-before-absorb) that is *judgment*, mutates `queue.jsonl` state only, and **never promotes** — promotion stays here at /review. So if you see raw `extracted`/`tic_gated` entries that look like already-promoted lessons under a different id, the cpr-stepper is the surface that absorbs them; do not promote a duplicate. If steppable entries are present and the stepper has not yet run this session, you may spawn it (Agent tool, `subagent_type: cpr-stepper`, `run_in_background: true`) before finalizing the docket, then read the post-stepped state.
+
 ### 6. Present Unified Docket (Plan Mode)
 
 Enter Plan Mode. Present the docket in three sections, ordered by priority:

@@ -358,11 +358,33 @@ def emit_pattern_envelopes(patterns, queue_path, topo):
     now = datetime.now(timezone.utc).isoformat()
     envelopes = []
 
+    # Dedup-at-write (CGG ledger#dedup-at-write-using-canonical-identity +
+    # #terminal-state-valve-pattern). The pattern id is content-deterministic
+    # (sha256 of subsystem+lesson), so a recurring lesson always re-mines to the
+    # SAME cpr_<hash> id. Without this gate, emit re-appends that id as `extracted`
+    # on every run whose observation_count grew — stacking a non-terminal row on
+    # top of an already-terminal (promoted/absorbed/superseded) row and re-flooding
+    # the extracted tier. That is the producer-without-reconciler starvation found
+    # at tic 368 (250 raw rows for 17 ids, ~280 tics, invisible to every routine
+    # surface). The fix is mechanical and id-keyed ONLY: if the canonical id is
+    # already present in the queue's latest-entry projection (any status), do not
+    # re-emit. Cross-id SEMANTIC dedup (cpr_<hash> ≡ a lesson promoted under a
+    # different id) is a JUDGMENT task and stays with the cpr-stepper agent — it is
+    # deliberately NOT done here (lane separation: foreground judgment, background
+    # execution).
+    existing_ids = set(load_queue(queue_path).keys())
+    skipped_duplicate = 0
+
     for pat in patterns:
         count = pat.get("observation_count", 0)
         scope = pat.get("recurrence_scope", "site")
 
         if count < ENVELOPE_THRESHOLD_COUNT and scope not in ENVELOPE_THRESHOLD_SCOPES:
+            continue
+
+        cpr_id = f"cpr_{pat['id'][4:]}"  # pat_xxx -> cpr_xxx (content-deterministic)
+        if cpr_id in existing_ids:
+            skipped_duplicate += 1
             continue
 
         # Determine lesson type from pattern characteristics
@@ -376,7 +398,7 @@ def emit_pattern_envelopes(patterns, queue_path, topo):
 
         envelope = {
             "type": "cpr",
-            "id": f"cpr_{pat['id'][4:]}",  # pat_xxx -> cpr_xxx
+            "id": cpr_id,
             "dedup_hash": pat["id"][4:],
             "status": "extracted",
             "lesson": pat["pattern"],
@@ -462,6 +484,16 @@ def emit_pattern_envelopes(patterns, queue_path, topo):
                             f.write(json.dumps(env, separators=(",", ":")) + "\n")
                 finally:
                     fcntl.flock(lf.fileno(), fcntl.LOCK_UN)
+
+    # Extractor anomaly self-reporting (CGG ledger#extractor-anomaly-self-reporting):
+    # surface the dedup-at-write skip count so the re-flood-prevention is observable,
+    # not silent.
+    if skipped_duplicate:
+        print(
+            f"[pattern_miner] dedup-at-write: skipped {skipped_duplicate} "
+            f"already-queued envelope id(s) — no re-flood (terminal-state valve held)",
+            file=sys.stderr,
+        )
 
     return envelopes
 

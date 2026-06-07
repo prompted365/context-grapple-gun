@@ -277,6 +277,38 @@ if [ -n "$ENRICHMENT_SCANNER" ] && [ "$HOLDING_CPRS" -gt 0 ]; then
 fi
 
 # ============================================================================
+# CPR step lane (async decoupled intelligent run — NOT a compute_due_cycles cycle)
+# ============================================================================
+# The extracted/tic_gated tiers need intelligent state advancement + DEDUP
+# (verify-twin-before-absorb) that the DETERMINISTIC enrichment scanner does not
+# perform. cpr-stepper is an AGENT — the assessment needs the model — so unlike the
+# enrichment script it cannot be a `scanner.py &` from a hook; it is surfaced as a
+# background-agent-spawn instruction, the agent-tier sibling of the enrichment lane
+# (same pattern as the MOGUL / RIPPLE protocols). Primary-only: this fires from the
+# SessionStart orchestrator hook, never the citizen boot path, so spawned citizens
+# do not each launch a stepper. This is the CONSUMER half of the tic-369
+# producer-without-reconciler fix (the producer half is pattern_miner
+# dedup-at-write). Kept OFF compute_due_cycles deliberately: the stepper is robust
+# and slower than the sync cycles, so it belongs in the decoupled lane, not the
+# blocking inline scheduler.
+STEPPABLE_CPRS=0
+if [ -f "$QUEUE_FILE" ]; then
+  STEPPABLE_CPRS=$(python3 -c "
+import json
+entries = {}
+for line in open('$QUEUE_FILE'):
+    try:
+        d = json.loads(line.strip())
+        eid = d.get('id','')
+        if eid: entries[eid] = d
+    except: pass
+steppable = [e for e in entries.values()
+             if e.get('status','') in ('extracted','tic_gated')]
+print(len(steppable))
+" 2>/dev/null || echo "0")
+fi
+
+# ============================================================================
 # Physical tic count (zone-root-anchored)
 # ============================================================================
 
@@ -609,6 +641,19 @@ if [ "$TOTAL_CPRS" -gt 0 ]; then
 fi
 if [ -n "$ENRICHMENT_MSG" ]; then
   CGG_MSG="$CGG_MSG $ENRICHMENT_MSG"
+fi
+# CPR step lane: surface a background cpr-stepper spawn when extracted/tic_gated
+# entries await advancement. Per-tic dedup guard (seen marker keyed on TIC_COUNT)
+# prevents re-spawning on repeated session clears within the same tic.
+if [ "$STEPPABLE_CPRS" -gt 0 ]; then
+  CPR_STEP_SEEN="$AUDIT_LOGS/hooks/cpr-step-lane-seen.json"
+  CPR_STEP_LAST_TIC=""
+  [ -f "$CPR_STEP_SEEN" ] && CPR_STEP_LAST_TIC=$(python3 -c "import json;print(json.load(open('$CPR_STEP_SEEN')).get('tic',''))" 2>/dev/null || echo "")
+  if [ "$CPR_STEP_LAST_TIC" != "$TIC_COUNT" ]; then
+    CGG_MSG="$CGG_MSG [CPR STEP: $STEPPABLE_CPRS CogPR(s) in extracted/tic_gated awaiting intelligent state advancement + DEDUP. Async-decoupled lane (NOT a cadence cycle). Spawn cpr-stepper in background (Agent tool, subagent_type: cpr-stepper, run_in_background: true) — NON-BLOCKING, proceed with user work. The stepper advances each entry one step, runs verify-twin DEDUP, writes state changes to queue.jsonl; promotion stays gated at /review. Results visible in next /review.] [CPR STEP PROTOCOL v1: (1) Spawn cpr-stepper (Agent tool, run_in_background: true). (2) NON-BLOCKING — do not wait. (3) Stepper mutates queue.jsonl state only (extracted->...->absorbed/promotable); it never promotes. (4) Re-surfaces next tic if entries remain (one step per session per entry).]"
+    mkdir -p "$(dirname "$CPR_STEP_SEEN")" 2>/dev/null
+    printf '{"tic": %s, "steppable": %s}\n' "${TIC_COUNT:-0}" "$STEPPABLE_CPRS" > "$CPR_STEP_SEEN" 2>/dev/null || true
+  fi
 fi
 
 # ============================================================================
