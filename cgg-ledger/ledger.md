@@ -1075,6 +1075,16 @@ A complement surfaced in a prior mode but not yet materialized remains a valid c
 
 ---
 
+## Live-Wiring Is a Build, Not a Config Flip
+<a id="live-wiring-is-a-build-not-a-config-flip"></a>
+<!-- ledger-tags: authority_class=review_and_promotion_discipline | rung=domain | domain=context-grapple-gun | born_tic=371 | promoted_tic=373 -->
+
+Live-wiring a render-proven tool into a hook EVENT is a BUILD, not a config flip. A CLI that renders correctly to stdout/JSON is "named/proven" but NOT "landed" as a hook: the hook's INPUT contract (a stdin envelope) and its model-visible OUTPUT channel are externally-versioned (Anthropic) and must be probed before binding. Tic 371: task_touch.py was render-proven (8/8) but wiring it raw into PreToolUse would have been SILENTLY INVISIBLE — plain stdout at exit 0 is DISCARDED; only `hookSpecificOutput.additionalContext` reaches the model, and only exit 2 blocks. The probe (claude-code-guide) caught it; the fix was a stdin-JSON adapter (`task-touch-pretool.py`), not a settings.json line. Render-proven is not wired. Refines Named-Is-Not-Landed Gate (extends "named ≠ landed" to the hook-wiring surface specifically); composes Volatile-Schema Validation Discipline (probe-before-bind on an externally-versioned hook I/O schema).
+
+<!-- promoted from cpr_live_wiring_is_a_build_not_a_config_flip_tic371 (tic 371→373, /review 373 PROMOTE as refinement edge). Source: session_lessons_tic_371.md; claude-code-guide confirmed PreToolUse exit-0 stdout is discarded, additionalContext is the model-visible channel, exit-2 is the only block. Adapter: cgg-runtime/hooks/task-touch-pretool.py; activation receipt audit-logs/governance/task-touch-live-wiring-activation-receipt-tic371.md. Validated by 3 live in-session fires (ESCALATE/OFFICE/SUBSTRATE). Non-derivability: author flagged LIKELY DERIVABLE (composes Volatile-Schema Validation + Named-Is-Not-Landed); promoted as a refinement edge — the net contribution is the concrete operational trap (hook stdout discarded; additionalContext is the sole model-visible channel; exit-2 is the sole block), not a new parent. Band: COGNITIVE. Confidence_tier: reinforced (n=3 live fires). -->
+
+---
+
 ## Contamination Lifecycle and Forensic Investigation Discipline
 <a id="contamination-lifecycle-and-forensic-investigation-discipline"></a>
 <!-- ledger-tags: authority_class=forensic_and_drift_investigation | rung=domain | domain=context-grapple-gun | dehydrated_tic=314 -->
@@ -1483,6 +1493,16 @@ When `/consolidate` runs against an estate-spanning surface, two pre-flight disc
 When CGG governance doctrine names a discipline that the runtime scripts do not enforce, the gap is a parity problem with four mechanism classes — field passthrough, terminal-state valves, schema key signatures, and runtime ownership for behavior-bearing artifacts. The federation invariant captures the diagnostic frame; the CGG application is that every governance script under cgg-runtime/scripts/ must be auditable against these four axes. Field passthrough applies wherever producer→consumer pipelines exist (cpr-extract → bench-packet-prep → ripple-assessor → review-execute). Terminal-state valves apply at any JSONL queue read. Schema key signatures apply when extractors widen what counts as input. Runtime ownership applies to every executable in the cgg-runtime/scripts/ tree, including path-locked scripts that cannot be sync-installed. A patch landing in any one class without parity in the others produces silent governance drift even when surface scripts run successfully.
 
 <!-- promoted from cpr_conductor_score_runtime_parity_tic185 (tic 185→188). Source: architect verbatim ("This is not a heartbeat problem. This is a conductor-score-runtime parity problem.") at tic 185 patch session. Validated by 4 patches: ripple-assessor 13-field passthrough, cpr-extract terminal-id valve + id preservation + anomaly report, bench-packet-prep terminal-state preference + dossier enrichment fields, build_queue_index runtime ownership declaration. 112/112 byte-identical canonical↔installed post-sync. Federation-side promotion at canonical/CLAUDE.md (parent invariant). Band: COGNITIVE. Confidence: 0.95. -->
+
+---
+
+## Headless Delegate Structured Emission Contract
+<a id="headless-delegate-structured-emission-contract"></a>
+<!-- ledger-tags: authority_class=verification_and_proof_discipline | rung=domain | domain=context-grapple-gun | born_tic=372 | promoted_tic=373 -->
+
+When a headless delegate (`claude -p`) executes work and a downstream verifier requires a specific structured key per executed unit (e.g. `results.<cycle>` per Mogul mandate cycle), the delegate's prompt MUST explicitly force that key for EVERY executed unit — INCLUDING the trivial/empty-output case. Instruction asymmetry is the trap: if one unit's instruction pins "results.X MUST include {...}" (signal_scan) while a sibling says only "report ..." in prose (cache_refresh), the delegate folds the trivial case into prose and omits the structured key — and the strict verifier correctly FAILS work that actually ran. The empty-output case is the specific omission trigger: nothing structured to say is the easiest thing to drop. This is a Conductor-Score-Runtime-Parity instance — the score (verifier) demanded a key the conductor (prompt) never forced the runtime (delegate) to emit. The fix is structural at the PROMPT EMISSION CONTRACT (force the key per-unit, with the trivial case named explicitly), never by weakening the verifier. Refines Conductor-Score-Runtime Parity (CGG Application); composes Bounded Delegation Surfaces Default to Masking Bugs (the delegate's "done" elides a structural gap) and Gate Contracts (Not Vibes).
+
+<!-- promoted from cpr_headless_delegate_structured_emission_contract_tic372 (tic 372→373, /review 373 PROMOTE as refinement edge). Source: mogul-runner.sh mandate tic-372 failure ("cache_refresh: not in structured report results"); transcript proved cache_refresh executed (sig_cache.refresh_complete emitted) but results carried 6/7 keys. Fix CGG 170c7cd (line 364 every-executed-cycle clause + cache_refresh MUST-include clause, synced 190/190). Non-derivability: distinct from Report-Generators-Must-Spot-Check (which is about TRUSTING a loader's output) — this governs the delegate's EMISSION CONTRACT, with the empty/trivial output case as the named omission trigger; refinement to Conductor-Score-Runtime-Parity, not a new parent. Band: COGNITIVE. Confidence_tier: reinforced (fix landed + synced). -->
 
 ---
 
