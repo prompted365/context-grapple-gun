@@ -13,6 +13,7 @@ Usage:
 """
 
 import argparse
+import hashlib
 import json
 import os
 import re
@@ -31,6 +32,10 @@ from zone_root import resolve_zone_root, load_ticzone, audit_logs_path
 # rule scan that reads CLAUDE.md alone extracts ZERO promoted rules from a
 # dehydrated root — it audits the table of contents, not the law.
 from doctrine_surfaces import resolve_doctrine_surfaces  # noqa: E402
+# Stage-3 down-lane finding-emit reuses the EXISTING manifold writer (no new
+# store): dedup-at-write keyed on the deterministic signal_id (Dedup-at-Write +
+# JSONL Atomic Writes KIs). `lib/` is on sys.path via the insert above.
+from atomic_append import dedup_signal_append  # noqa: E402
 
 
 # ---------------------------------------------------------------------------
@@ -474,9 +479,148 @@ def run_audit(zone_root, verbose=False):
     return result
 
 
+# ---------------------------------------------------------------------------
+# Stage-3 down-lane finding-emit (ladder-downlane-spec.md §2 Stage 3 / §3 KIND)
+#
+# The down-lane's smallest honest next build: give operational down-audits
+# (FORK-2 N/A tic 378, FORK-3 needs_mechanization tic 379, ...) a home on the
+# EXISTING signal manifold instead of leaving them as prose-only artifacts.
+#
+# Boundary (per the KIND table — this piece is LOW gate):
+#   - read-only at the audited rung; the auditor judged, this only records
+#   - append-only on the EXISTING manifold (COGNITIVE band); NO new store
+#     (self-conditioning-discipline thin-terminal-residue boundary)
+#   - dedup-at-write on the deterministic signal_id (Dedup-at-Write KI)
+#   - does NOT open an arena, does NOT mutate doctrine — even a `damaging`
+#     verdict only RECORDS here; routing to a /stage re-eval is Stage 4
+#     (MEDIUM/HIGH gate, /review). An originator may produce artifacts; it may
+#     never terminalize governance state (shared admission-gate, §1b).
+# ---------------------------------------------------------------------------
+
+DOWNAUDIT_FINDING_SIGNAL_TYPE = "ladder.down_audit_finding"
+
+# Verdict vocabulary: the Stage-2 triad (clean | N/A | damaging) plus the two
+# aggregation/lifecycle outcomes a recorded finding can carry —
+# `needs_mechanization` (the all-rung-split forward carve-out: doctrine is fine,
+# the enforcement substrate doesn't exist yet) and `hold_in_dissonance` (the
+# first-class held state, §4). kind/volume are observability weights only; none
+# of these auto-open an arena. `damaging`/`hold_in_dissonance` are WATCH so
+# /review sees them; the forward/healthy verdicts stay quiet (INFO).
+DOWNAUDIT_VERDICTS = {
+    "clean":               {"kind": "INFO",  "volume": 10},
+    "N/A":                 {"kind": "INFO",  "volume": 10},
+    "needs_mechanization": {"kind": "WATCH", "volume": 25},
+    "damaging":            {"kind": "WATCH", "volume": 40},
+    "hold_in_dissonance":  {"kind": "WATCH", "volume": 35},
+}
+
+
+def compute_finding_signal_id(rung, ki_id, verdict):
+    """Deterministic, condition-stable signal ID (Signal ID Determinism KI).
+
+    Hashed from (signal_type, rung, ki_id, verdict) — NOT tic/timestamp — so a
+    re-audit of the same (rung, ki, verdict) dedups idempotently, while a
+    verdict-flip on the same (rung, ki) is a genuinely new finding (the rung's
+    lived reality changed).
+    """
+    parts = [DOWNAUDIT_FINDING_SIGNAL_TYPE,
+             f"ki_id={ki_id}", f"rung={rung}", f"verdict={verdict}"]
+    h = hashlib.sha256("|".join(parts).encode("utf-8")).hexdigest()[:8]
+    return f"sig_ladder_down_audit_finding_{h}"
+
+
+def emit_downaudit_finding(zone_root, rung, ki_id, verdict, opened_tic, *,
+                           reinforce_signal=False, summary=None, artifact=None,
+                           source="ladder-audit.py", dry_run=False):
+    """Append a thin terminal down-audit-finding residue to the signal manifold.
+
+    Returns a result dict (ok, signal_id, written/deduplicated, summary). With
+    dry_run=True nothing is written — the would-be signal is returned for
+    preview (read-only-first: see the residue before persisting it).
+    """
+    if verdict not in DOWNAUDIT_VERDICTS:
+        raise ValueError(
+            f"Unknown down-audit verdict '{verdict}'. "
+            f"Valid: {', '.join(sorted(DOWNAUDIT_VERDICTS))}"
+        )
+
+    vdef = DOWNAUDIT_VERDICTS[verdict]
+    signal_id = compute_finding_signal_id(rung, ki_id, verdict)
+    now = datetime.now(timezone.utc)
+    date_str = now.strftime("%Y-%m-%d")
+
+    payload = {
+        "rung": rung,
+        "ki_id": ki_id,
+        "verdict": verdict,
+        "opened_tic": opened_tic,
+        "reinforce_signal": bool(reinforce_signal),
+    }
+    if summary:
+        payload["summary"] = summary
+    if artifact:
+        payload["finding_artifact"] = artifact
+
+    signal = {
+        "type": "signal",
+        "id": signal_id,
+        "signal_id": signal_id,
+        "signal_type": DOWNAUDIT_FINDING_SIGNAL_TYPE,
+        "kind": vdef["kind"],
+        "band": "COGNITIVE",
+        "status": "active",
+        "volume": vdef["volume"],
+        "max_volume": 100,
+        "tick_count": 0,
+        "subsystem": "ladder_downlane",
+        "source": source,
+        "source_date": date_str,
+        "created_at": now.isoformat(),
+        "payload": payload,
+        "origin": "deterministic",
+    }
+
+    summary_text = summary or (
+        f"down-audit {verdict}: {ki_id} @ {rung} (opened tic {opened_tic})"
+    )
+    if reinforce_signal:
+        summary_text += " [reinforce: independent rediscovery]"
+
+    if dry_run:
+        return {"ok": True, "dry_run": True, "signal_id": signal_id,
+                "summary": summary_text, "signal": signal}
+
+    tz_config = load_ticzone(zone_root)
+    al_path = audit_logs_path(zone_root, tz_config)
+    signal_dir = os.path.join(al_path, "signals")
+    os.makedirs(signal_dir, exist_ok=True)
+    signal_file = os.path.join(signal_dir, f"{date_str}.jsonl")
+    manifest_path = os.path.join(signal_dir, "active-manifest.jsonl")
+
+    written = dedup_signal_append(signal_file, signal, manifest_path=manifest_path)
+
+    if written:
+        manifest_entry = {
+            "signal_id": signal_id,
+            "signal_type": DOWNAUDIT_FINDING_SIGNAL_TYPE,
+            "kind": vdef["kind"],
+            "band": "COGNITIVE",
+            "status": "active",
+            "volume": vdef["volume"],
+            "source_file": f"signals/{date_str}.jsonl",
+            "summary": summary_text,
+        }
+        dedup_signal_append(manifest_path, manifest_entry)
+
+    return {"ok": True, "dry_run": False, "written": written,
+            "deduplicated": (not written), "signal_id": signal_id,
+            "summary": summary_text}
+
+
 def main():
     parser = argparse.ArgumentParser(
-        description="Ladder Coherence Audit — scan CLAUDE.md governance chain"
+        description="Ladder Coherence Audit — scan CLAUDE.md governance chain; "
+                    "Stage-3 down-lane finding-emit via the `emit-finding` subcommand"
     )
     parser.add_argument("--project-dir", default=None,
                         help="Zone root (auto-resolved if omitted)")
@@ -485,7 +629,45 @@ def main():
     parser.add_argument("--verbose", action="store_true")
     parser.add_argument("--output", default=None,
                         help="Write output to file instead of stdout")
+
+    # Optional subcommand. Bare invocation (no subcommand) preserves the legacy
+    # structural-audit behavior so existing callers are unaffected.
+    sub = parser.add_subparsers(dest="command")
+    ef = sub.add_parser(
+        "emit-finding",
+        help="Stage-3 down-lane finding-emit: append a thin terminal residue "
+             "(rung, ki_id, verdict, opened_tic) to the EXISTING signal "
+             "manifold. Read-only/append-only; no doctrine mutation, no arena.")
+    ef.add_argument("--rung", required=True,
+                    help="Active rung the down-audit fired at "
+                         "(e.g. context-grapple-gun, autonomous_kernel)")
+    ef.add_argument("--ki-id", required=True, dest="ki_id",
+                    help="Identifier of the federation KI under down-audit")
+    ef.add_argument("--verdict", required=True, choices=sorted(DOWNAUDIT_VERDICTS),
+                    help="Down-audit verdict")
+    ef.add_argument("--opened-tic", required=True, type=int, dest="opened_tic",
+                    help="Tic the finding was opened")
+    ef.add_argument("--reinforce-signal", action="store_true", dest="reinforce_signal",
+                    help="Independent-rediscovery reinforce flag (Stage 3)")
+    ef.add_argument("--summary", default=None,
+                    help="One-line human-readable tension/finding summary")
+    ef.add_argument("--artifact", default=None,
+                    help="Path to the prose down-audit artifact (provenance)")
+    ef.add_argument("--source", default="ladder-audit.py")
+    ef.add_argument("--dry-run", action="store_true", dest="dry_run",
+                    help="Preview the residue without writing")
+    ef.add_argument("--zone-root", default=None, dest="zone_root")
+
     args = parser.parse_args()
+
+    if args.command == "emit-finding":
+        zone_root = args.zone_root or args.project_dir or resolve_zone_root()
+        result = emit_downaudit_finding(
+            zone_root, args.rung, args.ki_id, args.verdict, args.opened_tic,
+            reinforce_signal=args.reinforce_signal, summary=args.summary,
+            artifact=args.artifact, source=args.source, dry_run=args.dry_run)
+        print(json.dumps(result, indent=2))
+        return
 
     zone_root = args.project_dir or resolve_zone_root()
     result = run_audit(zone_root, verbose=args.verbose)
