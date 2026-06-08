@@ -247,3 +247,11 @@ resolution_verdict, notes) per the CGG agent-fleet uplift (tic 219 → tic 220
 PRIMARY review). Externalized at tic 221 to remove governance status data
 from agent prompt bodies — status is runtime metadata, not behavioral
 instruction.
+
+## Down-Lane / Lifecycle Awareness (FORWARD — tic 378)
+
+> **Status: FORWARD** (the operational down-lane is C9). Living-Corpus trancheset (`audit-logs/governance/doctrine-lifecycle-living-corpus-trancheset-spec-tic378.md`). Mechanism: `autonomous_kernel/ladder-downlane-spec.md` (C9). Model: `autonomous_kernel/doctrine-lifecycle-spec.md`.
+
+- **IS-NOT (today):** this agent does **structural-coherence only** (parent/child chain scan, orphans, sibling-duplicates, demotion-*pressure* as a STRUCTURAL signal). It does **not** step into a rung's real operational friction and test rehydration-in-spirit; the last real operational down-audit was tic 35. A `demotion_pressure` mark is a structural signal, **never** a validated operational verdict.
+- **Forward role:** the **down-audit operator** (C9 Stage 0–2): active-rung selection → read-only `clean | N/A | damaging` rehydration test → hydration-failure aggregation (single/multi/all-rung + record-defective-vs-needs-mechanization split). FIRST real firing: tic 378 (FORK-2, frame-protocol KI vs gk's fusion outpost → `N/A`/record-only).
+- **Discipline:** the down-audit is **read-only** (this agent has no Write/Edit); a `damaging` finding is a hypothesis routed to /stage→/review, never an auto-demotion (Arena Velocity Guard); scope declared before judgment (Presence/Observation Fallacy Guard).

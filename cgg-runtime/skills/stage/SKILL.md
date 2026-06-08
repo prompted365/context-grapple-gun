@@ -410,3 +410,11 @@ This skill never modifies:
 - CLAUDE.md (promotion is human-gated via `/review`)
 - MEMORY.md (lessons route through CogPR pipeline)
 - `.ticzone` (zone config is admin-only)
+
+## Arena → Down-Audit Routing (FORWARD — tic 378)
+
+> **Status: FORWARD** (not wired). Living-Corpus trancheset (`audit-logs/governance/doctrine-lifecycle-living-corpus-trancheset-spec-tic378.md`); down-lane `autonomous_kernel/ladder-downlane-spec.md` (C9).
+
+- **IS-NOT (today):** pressure extraction is 100% promotion-directed (→ CogPR / BEACON). An arena never receives a doctrine **down-audit** as input — there is no "re-evaluate this EXISTING KI at this rung" arena.
+- **Forward:** /stage hosts the C9 Stage-4 **re-evaluation arena** — a `damaging` down-audit finding opens a bounded opposing-values arena whose outcomes (demote/clarify/localize/recenter/exception/hold_in_dissonance/…) route to /review. The arena is the only down-lane mutation locus, and it air-gaps from doctrine (`allow_governance_mutation:false`).
+- **Discipline:** arenas produce governance input; /review judges; a `damaging` finding is a hypothesis, never an auto-demotion (Arena Velocity Guard).

@@ -454,3 +454,11 @@ Everything runs inside Claude Code with zero external dependencies:
 - Warrant minting is deterministic — same conditions always produce the same warrant
 - Signals do not expire — conditions persist until resolved or dismissed
 - Non-warrant-eligible signals (LESSON, OPPORTUNITY by default) cannot mint warrants via volume threshold
+
+## Signal ↔ CogPR Down-Lane Bridge (FORWARD — tic 378)
+
+> **Status: FORWARD** (not wired). Living-Corpus trancheset (`audit-logs/governance/doctrine-lifecycle-living-corpus-trancheset-spec-tic378.md`); down-lane `autonomous_kernel/ladder-downlane-spec.md` (C9).
+
+- **IS-NOT (today):** the signal lifecycle (active→working→warranted→resolved|dismissed — richer than the CogPR one) is **not** bridged to doctrine. A resolved signal does not feed CogPR enrichment; a down-audit `damaging`/`hold_in_dissonance` finding has no standing signal home.
+- **Forward:** a down-audit finding is a thin terminal residue on THIS manifold (COGNITIVE band); `hold_in_dissonance` is a durable held signal (jurisdictional-until-classified, Self-Operation Signal Discipline); resolved signals surface as enrichment input to pending CogPRs.
+- **Discipline:** siren classifies/emits; it never inscribes doctrine or writes the CogPR queue (no new store — existing manifold only).

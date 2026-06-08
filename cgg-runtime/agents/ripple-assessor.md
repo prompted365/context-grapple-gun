@@ -364,3 +364,11 @@ resolution_verdict, notes) per the CGG agent-fleet uplift (tic 219 → tic 220
 PRIMARY review). Externalized at tic 221 to remove governance status data
 from agent prompt bodies — status is runtime metadata, not behavioral
 instruction.
+
+## Down-Lane / Lifecycle Awareness (FORWARD — tic 378)
+
+> **Status: FORWARD** (not wired). Living-Corpus trancheset (`audit-logs/governance/doctrine-lifecycle-living-corpus-trancheset-spec-tic378.md`). Model: `autonomous_kernel/doctrine-lifecycle-spec.md`.
+
+- **IS-NOT (today):** evaluates **PENDING** candidates only ("should this new candidate be promoted?"), with an acknowledged PROMOTE-counter-bias. It does **not** re-evaluate **EXISTING** promoted doctrine for demote / clarify / localize.
+- **Forward role:** a bidirectional evaluator — alongside the pending-candidate pass, a **demotion-evaluator track**: re-judge existing doctrine against current friction/signals and surface demote/clarify/localize *proposals*.
+- **Discipline:** proposals only (sole write target is the proposal packet `~/.claude/grapple-proposals/latest.md`); /review judges; the demotion track is read-only on doctrine.

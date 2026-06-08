@@ -683,3 +683,11 @@ This is the constitutional gate — no context clear without human sign-off via 
 | Ripple assessor | Runs headless on next session start | cgg-gate.sh triggers it |
 
 The double-time is a valid handoff — the next session gets Next Actions via the plan and can run a full downbeat when context is fresh.
+
+## Down-Lane / Lifecycle Routing (FORWARD — tic 378)
+
+> **Status: FORWARD** (not wired). Living-Corpus trancheset (`audit-logs/governance/doctrine-lifecycle-living-corpus-trancheset-spec-tic378.md`); model `autonomous_kernel/doctrine-lifecycle-spec.md`.
+
+- **IS-NOT (today):** Step-2 lesson extraction is a *location* decision (which CLAUDE.md / MEMORY.md) and presumes the up-lane (capture → promotion). Demotion appears once, buried in the optional deep-audit; there is no capture-time lifecycle routing.
+- **Forward:** capture also classifies *lifecycle intent* (candidate / held / needs-down-audit) and routes a `lifecycle_state` alongside location; the deep-audit's demotion-pressure becomes a first-class down-lane cycle, not an optional aside.
+- **Discipline:** capture is a proposal; doctrine-LAW routes through /review; no inline demotion.

@@ -282,3 +282,11 @@ resolution_verdict, notes) per the CGG agent-fleet uplift (tic 219 → tic 220
 PRIMARY review). Externalized at tic 221 to remove governance status data
 from agent prompt bodies — status is runtime metadata, not behavioral
 instruction.
+
+## Down-Lane / Lifecycle Awareness (FORWARD — tic 378)
+
+> **Status: FORWARD** (not wired). Living-Corpus trancheset (`audit-logs/governance/doctrine-lifecycle-living-corpus-trancheset-spec-tic378.md`). Model: `autonomous_kernel/doctrine-lifecycle-spec.md`.
+
+- **IS-NOT (today):** mines for **NEW** metalearning patterns only (coordination, learning-shape, governance-mechanism). It does **not** assess whether existing promoted *meta*-doctrine has decayed, been superseded, or over-scoped.
+- **Forward role:** a bidirectional miner — surfaces new meta-candidates AND an **existing-meta-doctrine-health** lane (e.g. "this coordination pattern was promoted for multi-agent but current evidence shows ≤2-agent applicability → recommend localization").
+- **Discipline:** read-only (returns findings upward); doctrine-LAW routes through /review; surfacing over-scope/staleness is a signal, never a verdict.

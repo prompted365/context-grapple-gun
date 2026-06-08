@@ -282,3 +282,11 @@ resolution_verdict, notes) per the CGG agent-fleet uplift (tic 219 → tic 220
 PRIMARY review). Externalized at tic 221 to remove governance status data
 from agent prompt bodies — status is runtime metadata, not behavioral
 instruction.
+
+## Down-Lane / Lifecycle Awareness (FORWARD — tic 378)
+
+> **Status: FORWARD** (not wired). Living-Corpus trancheset (`audit-logs/governance/doctrine-lifecycle-living-corpus-trancheset-spec-tic378.md`). Model: `autonomous_kernel/doctrine-lifecycle-spec.md`.
+
+- **IS-NOT (today):** mines for **NEW** direct-learning candidates only (workarounds, local truths, drift corrections). It does **not** assess the *health of existing promoted doctrine* — never asks "has this promoted pattern regressed / been superseded / stopped being observed?"
+- **Forward role:** a bidirectional miner — surfaces new candidates AND an **existing-doctrine-health** lane (stale / over-scoped / no-longer-observed promoted patterns → surface for the down-audit / demotion-evaluator).
+- **Discipline:** read-only (returns findings upward); doctrine-LAW routes through /review; surfacing demotion-pressure is a signal, never a verdict.

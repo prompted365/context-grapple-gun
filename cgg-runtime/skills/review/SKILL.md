@@ -405,3 +405,11 @@ For project-level CLAUDE.md files: standard Plan Mode approval is sufficient.
 - **NEVER** delete JSONL entries — always append (latest entry per ID wins)
 - If a CogPR's recommended scope file doesn't exist, ask the user whether to create it or skip
 - Warrant dismissal should include justification — do not dismiss without reason
+
+## Down-Lane / Lifecycle Routing (FORWARD — tic 378)
+
+> **Status: FORWARD** (not wired). Living-Corpus trancheset (`audit-logs/governance/doctrine-lifecycle-living-corpus-trancheset-spec-tic378.md`); model `autonomous_kernel/doctrine-lifecycle-spec.md`; down-lane `autonomous_kernel/ladder-downlane-spec.md` (C9).
+
+- **IS-NOT (today):** the verdict set is up-lane (`PROMOTE | SKIP | MODIFY | MERGE | DEFER | SUPERSEDE`). There is **no** `DEMOTE`, `LOCALIZE`, `HOLD_IN_DISSONANCE`, or `ROUTE_TO_DOWN_AUDIT`; a promoted lesson cannot be moved down.
+- **Forward:** /review also adjudicates down-lane verdicts (demote/clarify/localize/supersede-as-first-class/recenter/exception/hold_in_dissonance) on EXISTING doctrine, fed by C9 down-audit `damaging` findings; `SUPERSEDE` is promoted from source-side-only to a first-class verdict (already the dominant lived prune — 40×).
+- **Discipline:** human-gated; doctrine-LAW only; lifecycle as additive `lifecycle_state` metadata, never status-enum expansion.

@@ -415,3 +415,11 @@ resolution_verdict, notes) per the CGG agent-fleet uplift (tic 219 → tic 220
 PRIMARY review). Externalized at tic 221 to remove governance status data
 from agent prompt bodies — status is runtime metadata, not behavioral
 instruction.
+
+## Down-Lane / Lifecycle Awareness (FORWARD — tic 378)
+
+> **Status: FORWARD** (not wired). Authored under the Living-Corpus trancheset (`audit-logs/governance/doctrine-lifecycle-living-corpus-trancheset-spec-tic378.md`). Today this agent operates **up-lane only**; the living-corpus bidirectional lifecycle is the target, not current runtime. Model: `autonomous_kernel/doctrine-lifecycle-spec.md`. Down-lane mechanism: `autonomous_kernel/ladder-downlane-spec.md` (C9).
+
+- **IS-NOT (today):** Mogul owns **no** down-lane mandate cycle — its heavy cycles (memory_mining, pattern_mining, ladder_audit, runtime_drift_check, deep_audit, review_close_check) are all up-lane. There is no demotion_audit / staleness_sweep / down_audit / doctrine_mass cycle, and Mogul has never demoted a KI.
+- **Forward role:** Mogul becomes the living-corpus *keeper*, not just the up-lane orchestrator — dispatching the read-only down-audit (C9) into active rungs and routing `damaging` findings to /stage→/review. The library-accretion judgment (governance-is-instrumental) extends to library *health*, not just growth.
+- **Discipline:** additive `lifecycle_state` metadata, NEVER status-enum expansion (enum HELD, 10+ readers); doctrine-LAW routes through /review; a down-lane finding is read-only (a hypothesis), never an auto-mutation.

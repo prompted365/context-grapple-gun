@@ -243,3 +243,11 @@ resolution_verdict, notes) per the CGG agent-fleet uplift (tic 219 → tic 220
 PRIMARY review). Externalized at tic 221 to remove governance status data
 from agent prompt bodies — status is runtime metadata, not behavioral
 instruction.
+
+## Down-Lane / Lifecycle Awareness (FORWARD — tic 378)
+
+> **Status: FORWARD** (not wired). Living-Corpus trancheset (`audit-logs/governance/doctrine-lifecycle-living-corpus-trancheset-spec-tic378.md`). Model: `autonomous_kernel/doctrine-lifecycle-spec.md §3`. Down-lane: `autonomous_kernel/ladder-downlane-spec.md` (C9).
+
+- **IS-NOT (today):** the state machine **terminates** at `promoted`/`rejected`/`absorbed`. There is **no** post-promotion lifecycle — no `clarified`, `demoted`, `localized`, `stale`, `under_down_audit`, or `needs_mechanization` advancement. A promoted lesson cannot currently be moved.
+- **Forward role:** the stepper advances the **full** lifecycle, carrying post-promotion states as an **additive `lifecycle_state` field** (the same pattern that added `landing_kind` at tic 377); `held`/`hold_in_dissonance` becomes a real parked state.
+- **Discipline (hard):** lifecycle rides **additive `lifecycle_state` metadata, NEVER status-enum expansion** — the status enum is HELD (10+ readers: build_queue_index, governance_query, review-close-check, bench-packet-prep…). doctrine-LAW routes through /review; the stepper is mechanical (no promotion/demotion authority).

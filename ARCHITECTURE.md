@@ -324,7 +324,7 @@ Because learning is typed, abstraction is laddered, promotion is tiered, and min
 | Rehydration-in-spirit fidelity test | ◐ stated (C3-family, held-DEFER as KI) |
 | Three landing kinds (`resubmit_higher`/`concede_local`/`reinforce_existing`) | ◐ additive `landing_kind` metadata defined (cpr-stepper); `rejected_scope` path under-exercised (0 instances) |
 | `reinforced_by` resilience visibility | ❌ forward build-tail (review-promote-writeback mechanization) |
-| Down-lane operational applicability + arena re-eval loop + `hold-in-dissonance` | ❌ forward (C9) — ladder-auditor does structural-coherence only; last real run tic 35 |
+| Down-lane operational applicability + arena re-eval loop + `hold-in-dissonance` | ◐ designed — spec authored tic 378 (`autonomous_kernel/ladder-downlane-spec.md`, status: forward); runtime still structural-coherence only (`ladder-audit.py`), last real down-audit tic 35. Build routes through /review. |
 | Active-rung-triggered down-audit | ❌ forward (no active-rung selector) |
 | External-seed up-lane (local-law → federation eval) | ◐ partially seeded (estate-seed router-packet-contracts + dehydration-proposal authority chain) |
 | Trust-scored gates / family-class graduation | ❌ forward target (proven elsewhere) |

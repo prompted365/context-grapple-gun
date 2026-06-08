@@ -367,3 +367,11 @@ resolution_verdict, notes) per the CGG agent-fleet uplift (tic 219 → tic 220
 PRIMARY review). Externalized at tic 221 to remove governance status data
 from agent prompt bodies — status is runtime metadata, not behavioral
 instruction.
+
+## Down-Lane / Lifecycle Awareness (FORWARD — tic 378)
+
+> **Status: FORWARD** (not wired). Living-Corpus trancheset (`audit-logs/governance/doctrine-lifecycle-living-corpus-trancheset-spec-tic378.md`). Model: `autonomous_kernel/doctrine-lifecycle-spec.md §8`. Down-lane: `autonomous_kernel/ladder-downlane-spec.md` (C9).
+
+- **IS-NOT (today):** applies **PROMOTE / DEFER / SKIP** verdicts only; all write operations are promotion-inscriptions. There is **no** down-lane executor — no demote / clarify / localize / supersede-as-verdict operation. (Supersession is the lived prune — 40 queue entries — but applied *source-side*, not as a first-class /review verdict.)
+- **Forward role:** the mechanical executor for the **full** lifecycle — when /review approves a down-lane verdict (demote/clarify/localize/supersede/recenter/exception/hold_in_dissonance), it applies idempotently with the **authority-teeth** (approved-verdict + scope + provenance + idempotency + receipt + readback).
+- **Discipline:** zero judgment (the docket approval IS the judgment); lifecycle rides additive `lifecycle_state` metadata, NEVER status-enum expansion; atomic-append + chunked-read on queue.jsonl.
