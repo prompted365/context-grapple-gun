@@ -627,6 +627,35 @@ def _close_prior_cadence_obligations(zone_root: str, current_tic: int,
     return result
 
 
+def _sweep_reminders_and_drops(zone_root: str, current_tic: int,
+                               entities=("ent_homeskillet", "ent_mogul")) -> dict:
+    """Authoritative missed-fire sweep (citizen-boot-reminders-spec §6):
+    reconcile filesystem -> registry (pick up hand-dropped + directory envelopes)
+    and resurface due deferred reminders (DEFER -> WAIT at reminder_tic). Runs
+    every downbeat, single-threaded — the reliable catch a best-effort boot
+    cannot guarantee. Replaces the deprecated SQLite lane's enforce-ttl
+    (scripts/inbox-query.py); operates on filesystem truth, not a binary index.
+    Fail-soft: never blocks tic emission. (Wired tic 384, mailbox consolidation.)"""
+    result = {"ran": False, "entities": {}, "errors": []}
+    try:
+        ienv = _load_inbox_envelope()
+        al = audit_logs_path(zone_root)
+        result["ran"] = True
+        for ent in entities:
+            ibox = ienv.inbox_root(al, ent)
+            if not os.path.isdir(ibox):
+                continue
+            rec = ienv.reconcile_registry(ibox, persist=True)
+            res = ienv.resurface_due_reminders(ibox, current_tic)
+            result["entities"][ent] = {
+                "added": rec.get("added_count", 0),
+                "resurfaced": res.get("resurfaced", []),
+            }
+    except Exception as err:  # noqa: BLE001 — fail-soft
+        result["errors"].append({"exception": str(err)})
+    return result
+
+
 def write_cadence_mandate(zone_root: str, tic: int, trigger_source: str,
                           conformation_ref: str = None) -> dict:
     """Write a Mogul mandate for the next tic's due cycles.
@@ -684,6 +713,13 @@ def write_cadence_mandate(zone_root: str, tic: int, trigger_source: str,
     #  corrected from raw-mv to lifecycle-API after the tic-312 triple-source-sync
     #  + false-terminal incident.)
     obligation_closure = _close_prior_cadence_obligations(zone_root, tic)
+
+    # Reminder/missed-fire sweep + manual-drop reconcile (mailbox lane
+    # consolidation, tic 384). Authoritative DEFER->WAIT resurface at reminder_tic
+    # (citizen-boot-reminders-spec §6) — the catch that makes tic-keyed reminders
+    # actually fire — plus filesystem reconcile so hand-dropped + directory
+    # envelopes become visible in the registry. Fail-soft: never blocks routing.
+    reminder_sweep = _sweep_reminders_and_drops(zone_root, tic)
 
     # Trigger-router invocation (CogPR
     # cpr_trigger_router_starved_cadence_ops_bypass_conductor_score_runtime_parity_instance_tic273,
@@ -744,6 +780,7 @@ def write_cadence_mandate(zone_root: str, tic: int, trigger_source: str,
         "runner_wait": runner_wait,
         "trigger_router": trigger_router_result,
         "obligation_closure": obligation_closure,
+        "reminder_sweep": reminder_sweep,
     }
 
 

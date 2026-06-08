@@ -482,6 +482,24 @@ print(json.dumps(body))
         # ── Inbox scan for prompt injection + attention-debt (Phase 5) ──
         INBOX_SCANNER=$(resolve_script "inbox-envelope.py")
         if [ -n "$INBOX_SCANNER" ]; then
+          # Best-effort reminder/missed-fire sweep + manual-drop reconcile at boot
+          # (mailbox lane consolidation, tic 384). Resurfaces due deferred reminders
+          # (DEFER->WAIT) and reconciles hand-dropped + directory envelopes so the
+          # scan below reflects filesystem truth. Authoritative catch is /cadence;
+          # this just reduces latency when a session starts past a due tic.
+          python3 "$INBOX_SCANNER" \
+            --zone-root "$ZONE_ROOT" \
+            sweep \
+            --entity ent_homeskillet \
+            --current-tic "$TIC_COUNT" \
+            > /dev/null 2>&1 || true
+          python3 "$INBOX_SCANNER" \
+            --zone-root "$ZONE_ROOT" \
+            sweep \
+            --entity ent_mogul \
+            --current-tic "$TIC_COUNT" \
+            > /dev/null 2>&1 || true
+
           INBOX_INJECTION=$(python3 "$INBOX_SCANNER" \
             --zone-root "$ZONE_ROOT" \
             scan \

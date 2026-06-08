@@ -32,11 +32,24 @@ Usage:
   python3 inbox-envelope.py defer --entity ent_mogul --message-id ab12cd34 --until-tic 53
   python3 inbox-envelope.py nack --entity ent_mogul --message-id ab12cd34 --reason "..."
   python3 inbox-envelope.py scan --entity ent_mogul [--format json|injection] [--current-tic 52]
+  python3 inbox-envelope.py sweep [--entity ent_mogul] --current-tic 52   # reconcile drops + resurface due reminders
+  python3 inbox-envelope.py search -q "cloudflare" [--entity ent_homeskillet] [--include-terminal]
+
+Lane authority (tic 384 consolidation):
+  This is the SINGLE, SOVEREIGN mailbox-authority lane. The filesystem is the
+  source of truth; inbox-registry.json is a rebuildable cache. scan/sweep/search
+  read the filesystem directly, so they see flat envelopes, directory envelopes
+  (WAIT_<id>/envelope.json), AND bare files an actor hand-drops into a channel
+  (e.g. the Architect from his phone). The former SQLite lane (scripts/
+  inbox-query.py + inbox-index-builder.py) is DEPRECATED — its useful algorithms
+  (resurface, bare-file synthesis, search) were ported here onto filesystem truth.
 """
 
 import argparse
+import hashlib
 import json
 import os
+import re
 import sys
 import uuid
 from datetime import datetime, timezone
@@ -597,30 +610,260 @@ def read_inbox(inbox_path: str, channel: str = "inbound") -> list:
     return envelopes
 
 
-def scan_inbox(inbox_path: str) -> dict:
-    """Full inbox scan. Returns counts + messages by state."""
+# ─────────────────────────────────────────────
+# Filesystem-truth reconciliation, manual-drop tolerance, reminder resurface
+# (lane consolidation, tic 384)
+#
+# This is the SOVEREIGN, single mailbox-authority lane: the FILESYSTEM is the
+# source of truth; the JSON registry is a rebuildable cache. The deprecated
+# SQLite lane (scripts/inbox-query.py + inbox-index-builder.py) is retired —
+# its binary index drifted to a stale snapshot and created a read/write
+# split-brain. We HARVEST its useful algorithms (resurface, bare-file
+# synthesis, prefix/subdir state inference, search) onto filesystem truth; we
+# do NOT restore its index-as-authority model.
+#
+# These helpers let scan/sweep see EVERY envelope physically present:
+#   • flat envelopes       WAIT_<priority>_<type>_t<tic>_<id>.json   (this lane's native write form)
+#   • directory envelopes  WAIT_<id>/envelope.json (+ README/artifacts)  (the harvested deliver form; gk's shape)
+#   • bare hand-dropped files an actor (e.g. the Architect, from his phone)
+#     drops straight into a channel dir without going through `write` —
+#     first-class inputs, not invisible.
+# and resurface due deferred reminders (DEFER -> WAIT at reminder_tic), which
+# the registry-only lane never did.
+# ─────────────────────────────────────────────
+
+_PREFIX_STATE = {"WAIT": "WAIT", "ACTIVE": "ACTIVE", "DONE": "DONE",
+                 "DEFER": "DEFER", "NACK": "NACK"}
+_CHANNEL_STATE = {"inbound": "WAIT", "processing": "ACTIVE",
+                  "deferred": "DEFER", "archive": "DONE"}
+_BARE_EXTS = (".md", ".txt", ".json")  # .json handled before this as structured
+_NONTERMINAL_CHANNELS = ("inbound", "processing", "deferred")
+_ALL_CHANNELS = ("inbound", "processing", "deferred", "archive")
+
+
+def _entity_from_inbox(inbox_path: str) -> str:
+    return os.path.basename(os.path.normpath(inbox_path))
+
+
+def _infer_state(envelope: dict, name: str, channel: str) -> str:
+    """Best-effort state: explicit lifecycle.state -> filename prefix -> channel dir.
+    Tolerates directory/hand-dropped envelopes that lack lifecycle.state (e.g. gk,
+    whose lifecycle has no `state` key)."""
+    st = (envelope.get("lifecycle") or {}).get("state")
+    if st in STATES:
+        return st
+    for pfx, s in _PREFIX_STATE.items():
+        if name.startswith(pfx + "_") or name == pfx:
+            return s
+    return _CHANNEL_STATE.get(channel, "WAIT")
+
+
+def _envelope_source_tic(env: dict):
+    """source_tic lives in lifecycle (flat write form) OR provenance (deliver/
+    directory form). Check both so directory envelopes classify correctly."""
+    life = env.get("lifecycle") or {}
+    prov = env.get("provenance") or {}
+    t = life.get("source_tic")
+    return prov.get("source_tic") if t is None else t
+
+
+def _synthesize_drop_envelope(path: Path, channel: str, entity_id: str) -> dict:
+    """Minimal envelope for a hand-dropped bare file (no envelope.json).
+    Stable id from path hash so re-scans dedupe. (Architect drop-spot support —
+    ported from the deprecated lane's synthesize_bare_file_envelope.)"""
+    name = path.name
+    try:
+        mtime = datetime.fromtimestamp(path.stat().st_mtime, tz=timezone.utc).isoformat()
+    except OSError:
+        mtime = None
+    h = hashlib.sha256(str(path).encode()).hexdigest()[:12]
+    m = re.search(r"tic[ _-]?(\d+)", name, re.IGNORECASE)
+    src_tic = int(m.group(1)) if m else None
+    subject = name.rsplit(".", 1)[0].replace("-", " ").replace("_", " ")
+    return {
+        "message_id": f"drop_{h}",
+        "envelope_version": ENVELOPE_VERSION,
+        "sender": {"entity_id": "ent_architect_dropspot"},
+        "recipient": {"entity_id": entity_id},
+        "routing": {"priority": "normal", "category": "directive",
+                    "trust_level": "operator", "thread_id": None},
+        "content": {"subject": subject, "envelope_type": None,
+                    "body": None, "artifact_refs": [str(path)]},
+        "lifecycle": {"state": _CHANNEL_STATE.get(channel, "WAIT"),
+                      "source_tic": src_tic, "state_entered_at_tic": src_tic,
+                      "created_at": mtime, "reminder_tic": None,
+                      "defer_until_tic": None},
+        "provenance": {"source_event": "manual_drop", "producer": "architect",
+                       "manual_drop": True},
+    }
+
+
+def _iter_envelopes(inbox_path: str, channel: str, include_bare: bool = True):
+    """Yield (message_id, envelope, name, kind) for every envelope physically
+    present in a channel. kind in {flat, dir, bare}. Filesystem is truth.
+
+    Robust by construction (tic 384): ANY file type or odd content is handled —
+    a well-formed dict envelope (flat *.json or <dir>/envelope.json) parses as
+    structured; ANYTHING ELSE (other extensions, a malformed or non-dict .json,
+    a dropped folder with no envelope.json, a binary/image/PDF) surfaces as a
+    bare `drop_` envelope. So a hand-drop is never invisible and NEVER crashes
+    the scan — bare files are stat-only (content is not decoded)."""
+    cdir = os.path.join(inbox_path, channel)
+    if not os.path.isdir(cdir):
+        return
+    entity_id = _entity_from_inbox(inbox_path)
+    for name in sorted(os.listdir(cdir)):
+        if name.startswith(".") or name == "envelope.json":
+            continue
+        full = os.path.join(cdir, name)
+        if os.path.isdir(full):
+            cand = os.path.join(full, "envelope.json")
+            if os.path.isfile(cand):
+                env = None
+                try:
+                    env = json.loads(Path(cand).read_text(encoding="utf-8"))
+                except (json.JSONDecodeError, OSError):
+                    env = None
+                if isinstance(env, dict):
+                    yield (env.get("message_id") or name), env, name, "dir"
+                    continue
+            # directory with no usable envelope.json -> opaque drop (visible, unparsed)
+            if include_bare:
+                env = _synthesize_drop_envelope(Path(full), channel, entity_id)
+                yield env["message_id"], env, name, "bare"
+            continue
+        # regular file
+        if name.endswith(".json"):
+            env = None
+            try:
+                env = json.loads(Path(full).read_text(encoding="utf-8"))
+            except (json.JSONDecodeError, OSError):
+                env = None
+            if isinstance(env, dict):
+                yield (env.get("message_id") or name.rsplit(".json", 1)[0]), env, name, "flat"
+                continue
+            # malformed or non-dict JSON falls through to bare-drop handling below
+        if include_bare:
+            # any other extension (.md/.txt/.pdf/.png/.csv/binary/...) or a
+            # non-envelope .json -> opaque drop. Synthesis is stat+filename only,
+            # so unreadable/binary content cannot raise.
+            env = _synthesize_drop_envelope(Path(full), channel, entity_id)
+            yield env["message_id"], env, name, "bare"
+
+
+def resurface_due_reminders(inbox_path: str, current_tic: int,
+                            actor_id: str = "system:tic") -> dict:
+    """DEFER -> WAIT for reminders whose due tic has arrived. Ported ALGORITHM
+    from the deprecated SQLite lane's enforce-ttl. Loop-safe: pure lifecycle
+    transition (mints NO signals), idempotent (once WAIT it leaves deferred/)."""
+    resurfaced = []
+    for mid, env, name, kind in list(_iter_envelopes(inbox_path, "deferred", include_bare=False)):
+        if kind == "dir":
+            continue  # directory envelopes aren't tic-keyed reminders
+        life = env.get("lifecycle") or {}
+        rt = life.get("reminder_tic")
+        dut = life.get("defer_until_tic")
+        due = (rt is not None and rt <= current_tic) or (dut is not None and dut <= current_tic)
+        if not due:
+            continue
+        res = _transition(inbox_path, mid, "WAIT", actor_id, current_tic,
+                          reason=f"Reminder due (reminder_tic={rt}, defer_until_tic={dut}, now={current_tic})")
+        if res.get("status") == "ok":
+            resurfaced.append(mid)
+    return {"resurfaced": resurfaced, "resurfaced_count": len(resurfaced), "tic": current_tic}
+
+
+def reconcile_registry(inbox_path: str, persist: bool = True) -> dict:
+    """Rebuild registry messages{} from filesystem truth — adds any envelope
+    physically present but missing from the registry (manual drops, directory
+    envelopes). Filesystem is authoritative; registry is the cache."""
     registry = _load_registry(inbox_path)
+    messages = registry.setdefault("messages", {})
+    added, seen = [], set()
+    for channel in _ALL_CHANNELS:
+        for mid, env, name, kind in _iter_envelopes(inbox_path, channel):
+            seen.add(mid)
+            life = env.get("lifecycle") or {}
+            src_tic = _envelope_source_tic(env)
+            meta = {
+                "state": _infer_state(env, name, channel),
+                "filename": name,
+                "subject": (env.get("content") or {}).get("subject", ""),
+                "sender": (env.get("sender") or {}).get("entity_id", ""),
+                "priority": (env.get("routing") or {}).get("priority", "normal"),
+                "envelope_type": (env.get("content") or {}).get("envelope_type"),
+                "source_tic": src_tic,
+                "state_entered_at_tic": life.get("state_entered_at_tic", src_tic),
+                "reminder_tic": life.get("reminder_tic"),
+                "defer_until_tic": life.get("defer_until_tic"),
+                "kind": kind,
+            }
+            if mid not in messages:
+                added.append(mid)
+            messages[mid] = {**messages.get(mid, {}), **meta}
+    if persist:
+        _save_registry(inbox_path, registry)
+    return {"reconciled": len(seen), "added": added, "added_count": len(added)}
+
+
+def search_inbox(inbox_path: str, query: str, include_terminal: bool = False) -> list:
+    """Filesystem-native search over envelope content (sovereign: no binary
+    index). Replaces the deprecated SQLite FTS5 lane."""
+    q = (query or "").lower()
+    out = []
+    chans = _ALL_CHANNELS if include_terminal else _NONTERMINAL_CHANNELS
+    for channel in chans:
+        for mid, env, name, kind in _iter_envelopes(inbox_path, channel):
+            try:
+                blob = json.dumps(env, ensure_ascii=False).lower()
+            except (TypeError, ValueError):
+                blob = ""
+            if q in blob:
+                out.append({
+                    "message_id": mid,
+                    "channel": channel,
+                    "state": _infer_state(env, name, channel),
+                    "subject": (env.get("content") or {}).get("subject", ""),
+                    "sender": (env.get("sender") or {}).get("entity_id", ""),
+                    "source_tic": _envelope_source_tic(env),
+                })
+    return out
+
+
+def scan_inbox(inbox_path: str) -> dict:
+    """Full inbox scan — FILESYSTEM IS TRUTH (tic 384 consolidation).
+    Walks channel dirs directly (flat + directory + bare-drop envelopes) so
+    manually-dropped files and directory envelopes are visible, instead of
+    trusting the registry cache (registry-only was the split-brain that hid
+    hand-drops and the gk directory envelope)."""
     counts = {s: 0 for s in STATES}
     by_state = {s: [] for s in STATES}
-
-    for msg_id, entry in registry.get("messages", {}).items():
-        state = entry.get("state", "WAIT")
-        counts[state] = counts.get(state, 0) + 1
-        if state not in TERMINAL_STATES:
+    seen = set()
+    for channel in _NONTERMINAL_CHANNELS:
+        for mid, env, name, kind in _iter_envelopes(inbox_path, channel):
+            if mid in seen:
+                continue
+            seen.add(mid)
+            state = _infer_state(env, name, channel)
+            counts[state] = counts.get(state, 0) + 1
+            if state in TERMINAL_STATES:
+                continue
+            life = env.get("lifecycle") or {}
             by_state[state].append({
-                "message_id": msg_id,
-                "subject": entry.get("subject", ""),
-                "sender": entry.get("sender", ""),
-                "priority": entry.get("priority", "normal"),
-                "envelope_type": entry.get("envelope_type"),
-                "source_tic": entry.get("source_tic"),
-                "state_entered_at_tic": entry.get("state_entered_at_tic"),
+                "message_id": mid,
+                "subject": (env.get("content") or {}).get("subject", ""),
+                "sender": (env.get("sender") or {}).get("entity_id", ""),
+                "priority": (env.get("routing") or {}).get("priority", "normal"),
+                "envelope_type": (env.get("content") or {}).get("envelope_type"),
+                "source_tic": _envelope_source_tic(env),
+                "state_entered_at_tic": life.get("state_entered_at_tic"),
+                "reminder_tic": life.get("reminder_tic"),
+                "kind": kind,
             })
 
-    # Sort: urgent first, then by tic
     pord = {"urgent": 0, "high": 1, "normal": 2, "low": 3}
     for msgs in by_state.values():
-        msgs.sort(key=lambda m: (pord.get(m["priority"], 2), m.get("source_tic", 0)))
+        msgs.sort(key=lambda m: (pord.get(m["priority"], 2), m.get("source_tic") or 0))
 
     return {"counts": counts, "messages": by_state}
 
@@ -655,30 +898,39 @@ def format_injection(entity_id: str, scan_result: dict, stale: list | None = Non
 
 def detect_stale(inbox_path: str, current_tic: int,
                  thresholds: dict | None = None) -> list:
-    """Detect items stale beyond threshold. Returns signal-ready dicts."""
+    """Detect items stale beyond threshold. Returns signal-ready dicts.
+    Filesystem-truth (tic 384): walks channel dirs so hand-dropped + directory
+    envelopes are subject to attention-debt too, not only registry-tracked ones."""
     if thresholds is None:
         thresholds = {"WAIT": 3, "ACTIVE": 3}
-    registry = _load_registry(inbox_path)
     stale = []
-    for msg_id, entry in registry.get("messages", {}).items():
-        state = entry.get("state", "WAIT")
-        if state in TERMINAL_STATES:
-            continue
-        entered = entry.get("state_entered_at_tic")
-        if entered is None:
-            continue
-        age = current_tic - entered
-        threshold = thresholds.get(state)
-        if threshold and age > threshold:
-            vol_map = {"WAIT": 30, "ACTIVE": 50, "DEFER": 35}
-            stale.append({
-                "message_id": msg_id, "state": state,
-                "tics_in_state": age, "stale_since_tic": entered,
-                "subject": entry.get("subject", ""),
-                "signal_kind": "TENSION", "signal_band": "COGNITIVE",
-                "volume": vol_map.get(state, 40),
-                "reason": f"Stale in {state} for {age} tics (threshold: {threshold})",
-            })
+    seen = set()
+    for channel in _NONTERMINAL_CHANNELS:
+        for msg_id, env, name, kind in _iter_envelopes(inbox_path, channel):
+            if msg_id in seen:
+                continue
+            seen.add(msg_id)
+            state = _infer_state(env, name, channel)
+            if state in TERMINAL_STATES:
+                continue
+            life = env.get("lifecycle") or {}
+            entered = life.get("state_entered_at_tic")
+            if entered is None:
+                entered = _envelope_source_tic(env)
+            if entered is None:
+                continue
+            age = current_tic - entered
+            threshold = thresholds.get(state)
+            if threshold and age > threshold:
+                vol_map = {"WAIT": 30, "ACTIVE": 50, "DEFER": 35}
+                stale.append({
+                    "message_id": msg_id, "state": state,
+                    "tics_in_state": age, "stale_since_tic": entered,
+                    "subject": (env.get("content") or {}).get("subject", ""),
+                    "signal_kind": "TENSION", "signal_band": "COGNITIVE",
+                    "volume": vol_map.get(state, 40),
+                    "reason": f"Stale in {state} for {age} tics (threshold: {threshold})",
+                })
     return stale
 
 
@@ -973,6 +1225,47 @@ def cmd_stale_check(args):
     print(json.dumps(summary, indent=2))
 
 
+def cmd_sweep(args):
+    """Reconcile filesystem -> registry (pick up hand-drops + directory
+    envelopes) AND resurface due deferred reminders. The authoritative
+    missed-fire catch; wired into SessionStart boot + /cadence. Replaces the
+    deprecated SQLite lane's enforce-ttl."""
+    zr, ar, _, _ = _resolve(args)
+    if args.entity:
+        targets = [args.entity]
+    else:
+        mbx = os.path.join(ar, "agent-mailboxes")
+        targets = ([d for d in sorted(os.listdir(mbx))
+                    if d.startswith("ent_") and os.path.isdir(os.path.join(mbx, d))]
+                   if os.path.isdir(mbx) else [])
+    out = {"status": "ok", "tic": args.current_tic, "entities": {}}
+    for ent in targets:
+        ibox = inbox_root(ar, ent)
+        rec = reconcile_registry(ibox, persist=True)
+        res = (resurface_due_reminders(ibox, args.current_tic)
+               if args.current_tic is not None
+               else {"resurfaced": [], "resurfaced_count": 0})
+        out["entities"][ent] = {"reconciled": rec, "resurfaced": res}
+    print(json.dumps(out, indent=2))
+
+
+def cmd_search(args):
+    """Filesystem-native content search (replaces the deprecated SQLite FTS5)."""
+    zr, ar, _, _ = _resolve(args)
+    if args.entity:
+        matches = search_inbox(inbox_root(ar, args.entity), args.query, args.include_terminal)
+    else:
+        matches = []
+        mbx = os.path.join(ar, "agent-mailboxes")
+        if os.path.isdir(mbx):
+            for d in sorted(os.listdir(mbx)):
+                if d.startswith("ent_") and os.path.isdir(os.path.join(mbx, d)):
+                    for r in search_inbox(inbox_root(ar, d), args.query, args.include_terminal):
+                        r["entity"] = d
+                        matches.append(r)
+    print(json.dumps({"query": args.query, "matches": matches, "count": len(matches)}, indent=2))
+
+
 def main():
     p = argparse.ArgumentParser(description="Inbox envelope handler")
     p.add_argument("--zone-root", default=None)
@@ -1048,6 +1341,22 @@ def main():
     h.add_argument("--emit-signals", action="store_true", default=False,
                    help="Emit attention-debt signals for stale items")
     h.set_defaults(func=cmd_stale_check)
+
+    # sweep — reconcile filesystem->registry + resurface due reminders
+    sw = sub.add_parser("sweep",
+                        help="Reconcile hand-drops/dir envelopes + resurface due deferred reminders")
+    sw.add_argument("--entity", default=None, help="Single entity; omit for all ent_*")
+    sw.add_argument("--current-tic", type=int, default=None,
+                    help="Required to resurface due reminders; omit for reconcile-only")
+    sw.set_defaults(func=cmd_sweep)
+
+    # search — filesystem-native content search (replaces SQLite FTS5)
+    se = sub.add_parser("search", help="Filesystem-native content search")
+    se.add_argument("--query", "-q", required=True)
+    se.add_argument("--entity", default=None, help="Single entity; omit for all ent_*")
+    se.add_argument("--include-terminal", action="store_true", default=False,
+                    help="Also search archived/terminal envelopes")
+    se.set_defaults(func=cmd_search)
 
     args = p.parse_args()
     args.func(args)

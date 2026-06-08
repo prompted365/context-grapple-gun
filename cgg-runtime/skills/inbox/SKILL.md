@@ -242,20 +242,30 @@ For each `EMIT_` prefixed item in `outbound/`:
 - **Thread coherence** — when responding to a thread, include the `thread_id` and `reply_to` fields so the conversation is traceable
 - **Registry is truth** — if `indexes/inbox-registry.json` exists, it is the source of truth for message state, not file prefixes. Update registry when moving files.
 
-## inbox-query.py — Programmatic API
+## inbox-envelope.py — Programmatic API (single sovereign lane)
 
-The `inbox-query.py` script (at `scripts/inbox-query.py` in the zone root, or `~/.claude/cgg-runtime/scripts/inbox-query.py` at runtime) provides programmatic inbox access. **Prefer this over raw file scanning.**
+> **Lane consolidation (tic 384):** there is now ONE mailbox-authority lane,
+> `inbox-envelope.py` (the **filesystem-truth** lane). The former SQLite lane
+> (`scripts/inbox-query.py` + `inbox-index-builder.py`) is **DEPRECATED** — its
+> binary index drifted to a stale snapshot and created a read/write split-brain.
+> Its useful algorithms (resurface, bare-file synthesis, search) were ported here
+> onto filesystem truth. Do not call `inbox-query.py`. **The filesystem is the
+> source of truth; `inbox-registry.json` is a rebuildable cache.**
+
+The `inbox-envelope.py` script (at `cgg-runtime/scripts/inbox-envelope.py` in
+canonical source, or `~/.claude/cgg-runtime/scripts/inbox-envelope.py` at
+runtime) provides programmatic inbox access. **Prefer this over raw file scanning.**
 
 Resolve the script location:
 ```bash
 ZONE_ROOT="${CLAUDE_PROJECT_DIR:-$(pwd)}"
 while [ "$ZONE_ROOT" != "/" ] && [ ! -f "$ZONE_ROOT/.ticzone" ]; do ZONE_ROOT=$(dirname "$ZONE_ROOT"); done
 
-INBOX_QUERY=""
+INBOX=""
 for candidate in \
-  "$ZONE_ROOT/scripts/inbox-query.py" \
-  "$HOME/.claude/cgg-runtime/scripts/inbox-query.py"; do
-  [ -f "$candidate" ] && INBOX_QUERY="$candidate" && break
+  "$ZONE_ROOT/canonical_developer/context-grapple-gun/cgg-runtime/scripts/inbox-envelope.py" \
+  "$HOME/.claude/cgg-runtime/scripts/inbox-envelope.py"; do
+  [ -f "$candidate" ] && INBOX="$candidate" && break
 done
 ```
 
@@ -263,20 +273,25 @@ done
 
 | Subcommand | Use |
 |---|---|
-| `status --entity ent_X --current-tic N` | Compact entity inbox summary |
-| `status --all --current-tic N` | All entities at once |
-| `inject --entity ent_X --current-tic N` | Prompt-injection-ready payload |
-| `brief --entity ent_X` | Priority-tiered briefing with artifact sizes |
-| `search --query "term" [--entity ent_X]` | FTS5 search across envelopes |
-| `thread --thread-id thread_X` | Reconstruct a thread |
-| `transition --message-id msg_X --to-state Y --by ent_Z --tic N` | State machine advancement |
-| `enforce-ttl --current-tic N` | Archive expired, resurface deferred |
+| `scan --entity ent_X [--format json\|injection] [--current-tic N]` | Inbox summary (counts + non-terminal items). Filesystem-truth: sees flat, directory (`WAIT_<id>/envelope.json`), and hand-dropped envelopes. |
+| `sweep [--entity ent_X] --current-tic N` | Reconcile hand-drops/dir envelopes into the registry **and** resurface due deferred reminders (DEFER→WAIT at `reminder_tic`). Authoritative catch runs every `/cadence`; run manually if needed. |
+| `search --query "term" [--entity ent_X] [--include-terminal]` | Filesystem-native content search (replaces SQLite FTS5). |
+| `write --recipient ent_X --type T --subject ... --source-tic N [--body ...]` | Deliver a flat envelope. |
+| `claim --entity ent_X --message-id M --current-tic N` | WAIT→ACTIVE |
+| `complete --entity ent_X --message-id M --current-tic N [--result-ref ...]` | ACTIVE→DONE |
+| `defer --entity ent_X --message-id M --current-tic N --until-tic K` | WAIT→DEFER with reminder at tic K (resurfaced by `sweep`) |
+| `nack --entity ent_X --message-id M --current-tic N --reason ...` | WAIT→NACK |
+| `stale-check --current-tic N [--emit-signals]` | Attention-debt sweep across all inboxes |
 
-Add `--format text` before the subcommand for human-readable output: `inbox-query.py --format text status --entity ent_X --current-tic 134`
+For `/inbox` and `/inbox status`, use `inbox-envelope.py scan --entity {entity} --format injection --current-tic {tic}` as the primary data source, falling back to raw file scanning only if the script is unavailable.
 
-For `/inbox` and `/inbox status`, use `inbox-query.py --format text status --entity {entity} --current-tic {tic}` as the primary data source, falling back to raw file scanning only if the script is unavailable.
+For `/inbox process`, use `inbox-envelope.py scan --entity {entity} --format json --current-tic {tic}` for structured data, then process items interactively.
 
-For `/inbox process`, use `inbox-query.py --format json status --entity {entity} --current-tic {tic}` to get structured data, then process items interactively.
+> **Note — directory-envelope lifecycle:** `scan`/`search`/`sweep` SEE directory
+> envelopes (`WAIT_<id>/envelope.json`, the deliver form), but the flat-file
+> lifecycle transitions (`claim`/`complete`/`defer`/`nack`) currently operate on
+> flat `*.json` envelopes only. Full directory-envelope lifecycle transitions are
+> a tracked follow-up.
 
 ## Current Tic Discovery
 
