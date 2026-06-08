@@ -287,6 +287,48 @@ The tiers answer a different question than the ladder. The ladder answers at wha
 
 Because learning is typed, abstraction is laddered, promotion is tiered, and mining is periodic, rationale compounds without collapsing into semantic sludge. CGG gives teams a practical way to accumulate validated learning from the site level upward without pretending that every insight should immediately become global law.
 
+### How the ladder actually moves — compression, the gate, and the two lanes
+
+> *This subsection consolidates what was previously scattered across CLAUDE.md (operational), this file (the skeleton above), the cgg-ledger (provenance), and a per-office note. It is the single coherent self-presentation of the hydration/dehydration ladder. It is deliberately honest about what is **wired** vs **forward** — a doc that described an unbuilt mechanic as real would be the exact misrepresentation the ladder exists to catch.*
+
+**Hydration / dehydration are aliases for de-abstraction / abstraction.** Dehydration moves a truth *up* (toward the boiled-down, Telos-wide-applicable primitive the federation holds). Hydration moves doctrine *down* (back into a rung's situated, operational context). The federation root holds the most abstract form that still covers the most children with one primitive; the ledger holds the full body; the rungs hold the situated use.
+
+**Compression is principle-extraction, not information loss.** The dehydration procedure (compact root + sibling `ledger.md`) is *not* line-count truncation or first-sentence-selection. It uses the **centroid-ray / NO-COLLAPSE / quiver-of-quivers** frame to find what a CogPR *is at its core*, and compresses *to that centroid*. Information is not lost: every ledger entry carries a walkable `<!-- promoted from CogPR-N (tic X→Y). Source: … -->` lineage breadcrumb, so origin is always recoverable. (The `reinforced_by` breadcrumb that records *resilience* — how many born truths independently rediscovered a KI — is a forward build-tail; see the current-vs-target table.)
+
+**The substrate is a lattice of centroids.** A *centroid* is the core a principle triangulates to in n-space; its *rays* are its expressions/applications — and a ray is itself often a centroid with its own rays (the lattice is recursive). Centroids are typically **office-owned and/or rung-specific**. A candidate routes its rung's expression-of-origin through this quiver in one of three modes: **(1) hypothetical centroid + ray** — craft and *suspend a provisional working centroid* in n-space to route against (analogous to Hypothetical Document Embeddings, but it is hypothetical *perception*-crafting — coining a working centroid, not retrieving a document); the net-new path. **(2) existing centroid → ray that interpretation applies** — and if the ray is *legible and the verbiage correct*, it lands (reinforce/refine + the rehydration-in-spirit test). **(3) a ray off an existing centroid that itself has rays** — a nested attach. The council-perimeter facets (KAT/APO/PAR/PLE/ENA/TEL — "tEL/APO etc") are the federation's instrument for **triangulating a centroid from a concept or principle** — which is why they map as *mechanic* even though their raw labels do not import as vocabulary. *(C3-family centroid-ray substrate; operating description, held-DEFER as a Key Invariant.)*
+
+**The fidelity proof is rehydration-in-spirit.** The compression was honest *if and only if* a local nested rung **rehydrates the doctrine in the spirit it came from** — i.e. cross-ray centroid-routed understanding holds at the destination. This is the same test stated above as "a broader truth must re-enter situated operational use and survive local interpretation or it becomes decorative doctrine." If a KI rehydrates as foreign, N/A, or damaging at a rung, that is the down-lane signal — not noise to suppress. *(This fidelity principle is C3-family — relational-meaning-pinning — held-DEFER as a Key Invariant; presented here as CGG's operating self-description, not as inscribed law.)*
+
+**The gate renders a gradient as binary, for human judgment, encoded as structure.** A born truth is extracted *in the spirit of the harpoon* (object → enveloped evidence → assessed → harvested/discarded). The ladder then **runs itself up to the gate**, carrying lineage-backed provenance + accumulated support. At the gate, a *continuous gradient* (centroid support, evidence strength, trust) is collapsed to a *binary* a human judges — and that judgment **becomes structure** (doctrine). A "yes" is promotion-with-lineage; a "no" is preserved refusal logic + future signal.
+
+**Up-lane — three honest landings (all wins):**
+- `resubmit_higher` — strengthened; abstracts to a higher rung.
+- `concede_local` — true here, no generalizable wisdom; correctly scoped as a local invariant.
+- `reinforce_existing` — the wisdom is already at the top; the born truth adds *resilience/persistence* (recorded via `reinforced_by`).
+
+**Down-lane — applicability into active rungs:** federation doctrine descends *by applicability claim and runtime interpretation*, never by automatic lower-scope re-inscription (see above). A ladder-auditor steps into a nested rung's context, tests clean / N/A / damaging, and on failure routes to an arena to **demote / reword / reinforce / hold-in-dissonance**. The investment-savvy trigger: down-audit fires into rungs **running with their own agent + tic-zone** (active rungs, e.g. the fusion outpost), using real friction — not a blanket repo sweep.
+
+**External-seed up-lane:** a seed estate's *primary* preps an envelope for **local law**; its *human* approves it locally; then the **federation evaluates** it against doctrine — does it carry *nuanced wording we should incorporate* (refine an existing KI), or is it *net-new and deserving of a federation-wide expression* (a new KI)?
+
+**Full-implementation target — trust-scored gates.** As trust accrues, gates become **rarer but heavier**: a high trust score lets the ladder run itself further before it needs a human, and the gate fires where trust is thin — carrying more weight where it sits. Gates graduate by **family/class** structure (proven elsewhere — the archetype/council class structure, the three-layer tool-economics enforcement model — **not yet implemented cleanly here**).
+
+**Lineage — the genome (2024 Prompted Quick Command Palette).** This up-lane descends from a 2024 command palette whose "power duo" is its foundation: **#12 `ingest_workflow`** (analyze a conversation → generate an autonomous agent that replicates the workflow — born-truth capture, the harpoon-spirit) **+ #4 `agnosticize_content`** (generalize specific content to a context-agnostic form while retaining core meaning — *principle-extraction to the centroid*). Run #12 then #4 = the up-lane: ingest the friction-born workflow, then agnosticize it to its centroid. The CogPR candidate marker `<!-- --agnostic-candidate -->` carries #4's name literally — **a candidate IS an agnosticized truth.** The stated telos: *"it won't be long before there are very few things you'll ever have to do twice."* That is doctrine accretion — capture once, agnosticize to the centroid, reuse forever. (Other palette commands matured into federation primitives: #5 multiagent → /swarm + /stage + the offices; #6 scope_shift → the rung ladder + POSTURE; #3 tree_of_thought → arenas; #8 dynamic_weighting → the frame that *shapes weights*; #1 feedback_integration → the enrichment lane; #7 base_message_update → boot injections; #14 conditional_branching → blocked_by gates; #15 output_format_switch → the envelope pattern.) Origin is walkable, as the discipline requires.
+
+**Current vs target (honest state, tic 377):**
+
+| Mechanic | State |
+|---|---|
+| Up-lane lifecycle (extract → enrich → /review gate → promote/reject/absorb) | ✅ wired |
+| Lineage walkable (`promoted from` breadcrumbs + ledger tags) | ✅ wired |
+| Compression-as-principle-extraction (centroid frame) | ✅ documented (here); the dehydration *procedure* still reads operationally — reconcile pending |
+| Rehydration-in-spirit fidelity test | ◐ stated (C3-family, held-DEFER as KI) |
+| Three landing kinds (`resubmit_higher`/`concede_local`/`reinforce_existing`) | ◐ additive `landing_kind` metadata defined (cpr-stepper); `rejected_scope` path under-exercised (0 instances) |
+| `reinforced_by` resilience visibility | ❌ forward build-tail (review-promote-writeback mechanization) |
+| Down-lane operational applicability + arena re-eval loop + `hold-in-dissonance` | ❌ forward (C9) — ladder-auditor does structural-coherence only; last real run tic 35 |
+| Active-rung-triggered down-audit | ❌ forward (no active-rung selector) |
+| External-seed up-lane (local-law → federation eval) | ◐ partially seeded (estate-seed router-packet-contracts + dehydration-proposal authority chain) |
+| Trust-scored gates / family-class graduation | ❌ forward target (proven elsewhere) |
+
 That makes CGG broadly applicable wherever humans and agents are still coordinating through language. It is a lexical governance system, and within that regime it is not a placeholder. It is the first scalable encoding layer for human rationale.
 
 But there is a ceiling: **the fundamental limit of lexical meaning**. Text-as-governance degrades at scale:

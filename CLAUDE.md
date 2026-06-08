@@ -2,7 +2,7 @@
 
 > Before performing any action, read the [federation CLAUDE.md](../../CLAUDE.md) to understand governance hierarchy. CGG is a developer-estate authoring domain governed by canonical federation doctrine; references flow downward only (federation → estate → domain → module).
 
-> **Dehydrated at tic 314** (/review-314 freeze). This root is the compact index; full verbatim bodies live in [`cgg-ledger/ledger.md`](cgg-ledger/ledger.md), one tagged entry per invariant. Each bullet's summary is the invariant's own first sentence (extracted, not paraphrased); follow the pointer for the complete text, provenance, and refinements.
+> **Dehydrated at tic 314** (/review-314 freeze). This root is the compact index; full verbatim bodies live in [`cgg-ledger/ledger.md`](cgg-ledger/ledger.md), one tagged entry per invariant. Dehydration here is **principle-extraction, not information loss** — each bullet compresses toward the invariant's *centroid* (its core), not by line-count truncation; the invariant's first sentence is used as a *heuristic* handle for that centroid, never as a substitute for it. Origin is never lost: follow the pointer for the complete body, the walkable `promoted from` lineage, provenance, and refinements. The compression is honest only if a nested rung **rehydrates the invariant in the spirit it came from** (the fidelity proof). The full hydration/dehydration ladder — up-lane, down-lane, the gate, compression, and current-vs-target honesty — is presented in [`ARCHITECTURE.md` § "How the ladder actually moves"](ARCHITECTURE.md).
 
 ## External Schema Volatility
 
@@ -100,6 +100,8 @@
   - *Ledger:* [`cgg-ledger/ledger.md#vpl-standard-geometry-tournament-lattice`](cgg-ledger/ledger.md#vpl-standard-geometry-tournament-lattice)
 - **OA-VPL-T Arena Geometry** — OA-VPL-T (Office-Autonomous Value-Position Lattice with Temporal Modeling) is the 8th arena geometry template.
   - *Ledger:* [`cgg-ledger/ledger.md#oa-vpl-t-arena-geometry`](cgg-ledger/ledger.md#oa-vpl-t-arena-geometry)
+- **Shared-Telos Arena: Stress Method-Optimization, Not Intent Divergence** — In a shared-Telos office arena, convergence-on-INTENT is expected and low-information; the adversarial yield is each office advocating the METHOD-of-execution that optimizes its OWN stewardship lens. *(tic 377)*
+  - *Ledger:* [`cgg-ledger/ledger.md#shared-telos-arena-stress-method-not-intent`](cgg-ledger/ledger.md#shared-telos-arena-stress-method-not-intent)
 
 ## Signal And Queue Manifold
 
@@ -135,6 +137,8 @@
   - *Ledger:* [`cgg-ledger/ledger.md#rtch-harvest-reader-terminal-valve-discipline`](cgg-ledger/ledger.md#rtch-harvest-reader-terminal-valve-discipline)
 - **queue.jsonl Drift-Audit Primitive** — queue.jsonl needs a drift-audit primitive (analogous to memory-md-audit.py) that projects terminal-state and flags genuinely overdue pre-promotion rows, distinguishing them from falsely-overdue ones produced by reader…
   - *Ledger:* [`cgg-ledger/ledger.md#queue-jsonl-drift-audit-primitive`](cgg-ledger/ledger.md#queue-jsonl-drift-audit-primitive)
+- **Self-Conditioning Discipline — Thin Terminal Residue Prevents Regression** — A self-conditioning declaration discipline needs a thin append-only terminal residue on an existing surface to avoid regressing into a rebuilt mutable state-store; the residue/state-store boundary = append-only+terminal+existing-surface (legitimate) vs mutable+polled+new-surface (category error). *(tic 377)*
+  - *Ledger:* [`cgg-ledger/ledger.md#self-conditioning-discipline-needs-thin-terminal-residue`](cgg-ledger/ledger.md#self-conditioning-discipline-needs-thin-terminal-residue)
 
 ## Review And Promotion Discipline
 

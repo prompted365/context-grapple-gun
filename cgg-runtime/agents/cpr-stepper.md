@@ -113,6 +113,18 @@ rejected_scope     = wrong scope, may re-propose at different scope
 absorbed           = lesson already present elsewhere or at ceiling
 ```
 
+### Up-lane landing kinds (the three honest outcomes) — `landing_kind` metadata
+
+The ladder's up-lane has **three honest landing states** (Architect framing, tic 377). All three are wins — none is a failure. The status ENUM is HELD (it has 10+ downstream readers — build_queue_index, governance_query, review-close-check, bench-packet-prep, …); the distinction is carried by an **additive `landing_kind` field**, NOT by new status values:
+
+| `landing_kind` | maps to status | meaning |
+|---|---|---|
+| `resubmit_higher` | `rejected_scope` | strengthened; abstracts cleanly to a higher rung — re-propose there. (NOTE tic 377: `rejected_scope` is documented but currently has **0 instances** in queue.jsonl — the resubmit-higher path is under-exercised; prefer it over collapsing to `absorbed` when a higher rung genuinely fits.) |
+| `concede_local` | `absorbed` (at-ceiling) | true *here*, no generalizable wisdom — correctly scoped as a local invariant. Set `absorbed_reason: "concede_local"`. |
+| `reinforce_existing` | `absorbed` (already-present) | the wisdom is already at the top; this born truth adds **resilience/persistence**, not a new item. Set `absorbed_reason: "reinforce_existing"` AND stamp a `reinforced_by` breadcrumb on the TARGET doctrine item (see below). |
+
+**Reinforcement must be VISIBLE (Drift-1 fix, tic 377).** When a born truth lands `reinforce_existing`, the doctrine surface it reinforces must record it — otherwise the resilience signal (a KI independently rediscovered N times = matured) is erased at inscription. The mechanism: stamp a `<!-- reinforced_by: <cpr_id> (tic N, source) -->` breadcrumb on the target ledger entry. Mechanization owner: `review-promote-writeback.py` (the same emit-side writeback that flips inline status + stamps `promoted from` breadcrumbs) — **this stamping is a FORWARD build-tail, not yet wired** (tic 377); until wired, the reinforcing `absorbed_reason` carries the signal and the breadcrumb is applied by review-execute when it lands the verdict. Do NOT silently `absorb` a reinforce-existing landing without recording which doctrine it reinforced.
+
 ## Two-Gate Staleness Checks
 
 ### Gate 1 — Assembly-time (enrichment scanner / session-restore)

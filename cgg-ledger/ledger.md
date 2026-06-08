@@ -2519,3 +2519,29 @@ A machine-emitter that writes a signal on condition-DETECTION must carry a paire
 <!-- promoted from cpr_machine_emitter_emit_resolve_symmetry_and_chronological_status_truth_tic341 (tic 341→344, /review 344). Source: tic 341 Architect "track em down" on the 8 detected_drift mad dots; /siren + runtime-sync investigation; lopsided-sync diagnosis Architect-intuited. Confidence_tier: reinforced (empirically proven — 13 signals closed, 183/183 byte parity, CGG fe3a39d + fba816d). Band: COGNITIVE. CGG-rung (runtime-sync.py is CGG runtime). Emit-side complement to the manifest-reader READ-side invariant; non-derivable from it. -->
 
 ---
+
+## Self-Conditioning Discipline — Thin Terminal Residue Prevents Regression
+<a id="self-conditioning-discipline-needs-thin-terminal-residue"></a>
+<!-- ledger-tags: authority_class=signal_and_queue_manifold | rung=domain | domain=context-grapple-gun | promoted_tic=377 | first_appearance_tic=377 -->
+
+A self-conditioning DECLARATION discipline (one whose power is in the act of declaring, not in a stored value) cannot be truly stateless without regressing into a rebuilt mutable state-store within a few tics. The minimum that prevents regression WITHOUT becoming the over-built state-store it warns against: a thin APPEND-ONLY TERMINAL receipt on an EXISTING audit surface at the gate points only. The residue/state-store boundary has three structural discriminators: append-only vs mutable; terminal vs polled; existing-surface vs new-surface (+ consumer-having vs consumer-less per ungoverned-field-schema-reject). Composes terminal-state-valve + state-agreement-not-truth-unless-lifecycle-reachable + ungoverned-field-schema-reject.
+
+(Validated: tic 377 frame-protocol arena, T2 rebuttal — "regression-needs-state" tension tested and refined: the thesis that declaration-only regresses is correct, but the remedy is two thin append-only terminal receipts on EXISTING surfaces, not a mutable polled new-surface store. Pattern Curator + Mogul + Ladder Auditor independently arrived at this boundary from their stewardship lenses.)
+
+<!-- promoted from cpr_self_conditioning_discipline_needs_thin_terminal_residue_tic377 (tic 377→377, /review 377 PROMOTE). Source: tic-377 frame-protocol arena, T2 rebuttal (regression-needs-state). Placement: composes three existing federation KIs (Terminal-State-Valve + State-Agreement-Lifecycle-Reachable + Ungoverned-Field-Schema-Reject) — derivable composition, NOT promoted to federation compact root as standalone KI. Placed in Signal/Queue section (residue-vs-state-store is a queue-manifold discipline). Confidence_tier: convergent (T2). Band: COGNITIVE. -->
+
+---
+
+## Shared-Telos Arena: Stress Method-Optimization, Not Intent Divergence
+<a id="shared-telos-arena-stress-method-not-intent"></a>
+<!-- ledger-tags: authority_class=arena_and_reasoning_geometry | rung=domain | domain=context-grapple-gun | promoted_tic=377 | first_appearance_tic=377 -->
+
+In an office arena where the offices share the federation Telos, convergence-on-INTENT (the what) is EXPECTED and low-information — the offices share values. The adversarial yield comes from each office advocating the METHOD-of-execution that optimizes ITS OWN stewardship lens toward the shared intent. Stressing the stewarding-optimization lens on METHOD (not assigning positions, not asking for intent-divergence) means offices do NOT manufacture disagreement for its own sake (the compliance-theater anti-pattern) but diverge genuinely for the betterment of their steward-identity office — the sub-scope that collides with the global SOMETIMES, not always.
+
+Retroactively explains the tic-377 arena: blind 0a/0b = shared-Telos intent-agreement (expected); the rebuttal on METHOD (canary mechanism, residue boundary, gate locus) = where they genuinely diverged and produced every refinement. The convergent intent-agreement was NOT low-quality — it confirmed independence (all 5 offices BLIND reached the same KIND-distinction). The divergence on METHOD under rebuttal was where the informative signal lived.
+
+Refines /stage "role/office-driven not position-assigned" + Recursive-Meta-Enforcement (no manufactured dissent) + Arena-Velocity-Guard (shared-Telos convergence-on-intent is not velocity-excess; method-divergence-in-rebuttal is the real test) + Same-Model-Convergence-Discount (shared values + shared retrieval lens: intent-convergence is not contamination; method-divergence despite shared lens is the weight-bearing signal). (tic 377.)
+
+<!-- promoted from cpr_shared_telos_arena_stress_method_not_intent_tic377 (tic 377→377, /review 377 PROMOTE). Source: tic-377 Architect design dialogue (post-arena); OA-VPL-T geometry refinement. Placement: CGG cgg-ledger Arena And Reasoning Geometry (OA-VPL-T refinement). Confidence_tier: convergent (Architect-surfaced + retroactively explains this arena's structure). Band: COGNITIVE. -->
+
+---
