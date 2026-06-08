@@ -164,6 +164,10 @@
   - *Ledger:* [`cgg-ledger/ledger.md#inline-cogpr-status-pending-field-required`](cgg-ledger/ledger.md#inline-cogpr-status-pending-field-required)
 - **Inline CogPR Schema Completeness Required** — Inline CogPR inscriptions in MEMORY.md (and other extractor-watched surfaces) MUST carry three Tier 1 schema-completeness fields: `status: pending`, `lesson:`, and `source:`.
   - *Ledger:* [`cgg-ledger/ledger.md#inline-cogpr-schema-completeness-required`](cgg-ledger/ledger.md#inline-cogpr-schema-completeness-required)
+- **Arsenal Instructions Carry Only the Up-Lane Ratchet — the Living-Corpus Down-Lane Is Un-Instructed** — The CGG arsenal was scaffolded as a living doctrine-lifecycle engine but every operational INSTRUCTION surface encodes only the up-lane (capture→enrich→/review→promote); the under-leverage lives in the instructions, not the engine. Refinement-instance of Conductor-Score-Runtime Parity; the down-lane WIRING stays DEFER (read-only-first). *(tic 378→379)*
+  - *Ledger:* [`cgg-ledger/ledger.md#arsenal-instructions-carry-only-the-up-lane-ratchet`](cgg-ledger/ledger.md#arsenal-instructions-carry-only-the-up-lane-ratchet)
+- **Fix-Then-Present — a Self-Presentation Doc Describing an Unwired Mechanic As Real IS the Misrepresentation** — Writing a presentation doc before fixing what is broken/misrepresenting produces a doc that lies; audit→decide-write-topology→fix+sync+verify-parity→mark current-vs-target honestly. Validated at two doctrine rungs (CGG arsenal + autonomous_kernel demotion/rollback over-claim). *(tic 377→379)*
+  - *Ledger:* [`cgg-ledger/ledger.md#fix-then-present-self-presentation-honesty`](cgg-ledger/ledger.md#fix-then-present-self-presentation-honesty)
 
 ## Subagent And Swarm Delegation
 
