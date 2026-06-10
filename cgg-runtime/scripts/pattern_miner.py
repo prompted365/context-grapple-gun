@@ -277,7 +277,15 @@ def mine_patterns(project_dir, dry_run=False):
         pattern = {
             "type": "pattern_recurrence",
             "id": pattern_id,
-            "pattern": lesson[:200],
+            # Full lesson body — NOT lesson[:200]. The 200-char clip silently
+            # starved every pattern-mined CPR: the queue envelope (below) inherits
+            # this field as its `lesson`, so a clip here propagated a truncated,
+            # un-conformable lesson into the queue (the "anonymous five" + the
+            # pattern-mined cohort). Downstream consumers that need it short
+            # re-clip locally (hash uses lesson[:100]; `summary` re-clips to 200;
+            # CLI display clips to 60), so storing the full body is safe.
+            "pattern": lesson,
+            "pattern_summary": lesson[:200],
             "subsystem": cpr.get("subsystem", ""),
             "recurrence_kind": rec_kind,
             "recurrence_scope": rec_scope,
