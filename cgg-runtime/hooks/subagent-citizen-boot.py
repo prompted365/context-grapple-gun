@@ -180,14 +180,20 @@ def valid_entities(zone_root: Path) -> set[str]:
     return out
 
 
+# Internal generic delegated worker types: spawned by a lead to execute a bounded
+# slice, never registered as citizens by design. These resolve to the `task_scoped_worker`
+# standing (entity-ontology.md) — a minimal rung/zone boot, NOT a citizen boot, NOT silence.
+KNOWN_EPHEMERAL_TYPES = {"general-purpose"}
+
+
 def resolve_entity(agent_id: str, agent_type: str, registered: set[str]) -> str | None:
-    """Map a spawned subagent to its registered entity id (office-aware).
+    """Map a spawned subagent to its registered entity id (office-aware), or None.
 
     Resolution order (first registered hit wins):
       1. explicit agent_id, if it is already a registered ent_* id
       2. ent_<agent_type with hyphens->underscores>   (the federation convention)
-    Unknown / ad-hoc agents (no registry entry) get NO injection — boot only
-    activates recognized citizens. Identity precedes capability.
+    Returns None when no registry entry matches. Standing classification (citizen vs
+    task_scoped_worker vs unresolved_standing) is decided by classify_standing below.
     """
     candidates = []
     if agent_id:
@@ -200,6 +206,48 @@ def resolve_entity(agent_id: str, agent_type: str, registered: set[str]) -> str 
         if c in registered:
             return c
     return None
+
+
+def classify_standing(agent_id: str, agent_type: str, registered: set[str]) -> tuple[str, str | None]:
+    """Decide the booting subagent's STANDING (entity-ontology.md axis).
+
+    Implements the resolve_entity guard for `task_scoped_worker` standing (inscribed
+    /review 391). Returns (standing, entity_or_none):
+
+      ("citizen", ent_id)        — recognized citizen → full citizen boot
+      ("task_scoped_worker", None) — internal generic delegated worker (KNOWN_EPHEMERAL
+                                     agent_type, no registry hit) → minimal rung/zone boot
+      ("unresolved_standing", id) — a CITIZEN-SHAPED id (ent_*-prefixed) that did NOT
+                                    resolve → refuse boot, log. A typo MUST NOT silently
+                                    demote a citizen to a worker (No magical inheritance:
+                                    unresolved-citizen-id → error, not ephemeral downgrade).
+      ("none", None)             — nothing to boot (ad-hoc/unknown, not citizen-shaped,
+                                    not a known worker type) → honest-constraint silence.
+    """
+    entity = resolve_entity(agent_id, agent_type, registered)
+    if entity is not None:
+        return ("citizen", entity)
+    # Not a registered citizen. Is it a known internal generic delegated worker?
+    if agent_type in KNOWN_EPHEMERAL_TYPES:
+        return ("task_scoped_worker", None)
+    # Citizen-shaped but unresolved → refuse (typo guard); never downgrade to worker.
+    if agent_id.startswith("ent_"):
+        return ("unresolved_standing", agent_id)
+    return ("none", None)
+
+
+# Minimal rung/zone law a task_scoped_worker receives: enough to stay inside the
+# hierarchy, no authority to become the thing it is helping (entity-ontology.md).
+TASK_SCOPED_WORKER_FRAME = (
+    "You are booting as a TASK-SCOPED WORKER (standing: task_scoped_worker — an internal "
+    "delegated non-citizen). You have NO persistent identity, NO inbox, NO memory across "
+    "spawns, and NO inscription authority. Your action scope is the bounded task your lead "
+    "delegated; your outputs are owned by that lead. Defer to the lead for anything beyond "
+    "the task. Doctrine you may need is RETRIEVED, never reconstructed from a principle — "
+    "read the exact local schemas/config/contracts at their rung; do not invent them "
+    "(load-bearing local semantics stay home). Parent-rung law shapes your judgment but "
+    "does not define local reality."
+)
 
 
 def current_tic(zone_root: Path) -> int:
@@ -279,10 +327,47 @@ def main() -> int:
     if zone_root is None:
         return 0
     registered = valid_entities(zone_root)
-    entity = resolve_entity(str(agent_id), str(agent_type), registered)
-    if entity is None:
-        return 0  # unknown / ad-hoc agent — boot only activates recognized citizens
+    standing, entity = classify_standing(str(agent_id), str(agent_type), registered)
 
+    if standing == "unresolved_standing":
+        # A citizen-shaped id that did not resolve. Refuse boot — never silently downgrade
+        # a (typo'd) citizen to a worker. Fail-soft: log, no injection, do not block spawn.
+        sys.stderr.write(
+            f"[citizen-boot] unresolved_standing: citizen-shaped id '{entity}' not in "
+            f"registry (agent_type={agent_type}) — refusing boot, no worker downgrade\n"
+        )
+        return 0
+
+    if standing == "task_scoped_worker":
+        # Minimal rung/zone boot: tic-gated broadcast pointers + the worker frame.
+        # No inbox (no standing to receive mail), no office-worldview (no office), no
+        # identity/memory/inscription. Receipt scales to stakes — kept compact here.
+        tic = current_tic(zone_root)
+        inject = render_boot_injection(tic, "task_scoped_worker", zone_root)
+        parts = [TASK_SCOPED_WORKER_FRAME]
+        if inject:
+            parts.append(inject)
+        combined = "\n".join(parts).strip()
+        if already_seen(zone_root, str(session_id), "task_scoped_worker:" + str(agent_type), combined):
+            return 0
+        context = (
+            f"[TASK-SCOPED-WORKER BOOT] (agent_type={agent_type}, tic {tic})\n" + combined
+        )
+        print(json.dumps({
+            "hookSpecificOutput": {
+                "hookEventName": "SubagentStart",
+                "additionalContext": context,
+            }
+        }))
+        sys.stderr.write(
+            f"[citizen-boot] booted task_scoped_worker (agent_type={agent_type}, tic={tic})\n"
+        )
+        return 0
+
+    if standing != "citizen":
+        return 0  # "none" — ad-hoc/unknown, not citizen-shaped, not a known worker type
+
+    # standing == "citizen": full recognized-citizen boot (inbox + worldview + pointers).
     scanner = resolve_inbox_envelope()
     if scanner is None:
         return 0

@@ -26,7 +26,7 @@ terminal-valve discipline). Record schema:
     "audience": "all",                       # "all" | "orchestrator" | "citizens" | ["ent_x", ...]
     "inject_text": "...",                    # the pointer/frame to inject during the window
     "reminder_text": "...",                  # the re-eval reminder at reminder_at_tic
-    "status": "active"                       # "active" | "retired" (retired => never render)
+    "status": "active"                       # "active" renders; any non-active state (retired|superseded|closed|...) => never render; missing => active
   }
 
 CLI:
@@ -99,7 +99,13 @@ def _audience_match(record_audience, who: str) -> bool:
 def render(zone_root: Path, tic: int, who: str) -> str:
     out = []
     for r in _load_registry(zone_root):
-        if r.get("status") == "retired":
+        # Render ACTIVE only. A boot-injected pointer is itself a rehydration (a parent-law
+        # pointer carried to a citizen's boot); a non-active record injected as if current
+        # re-creates downstream staleness — the recursion-trap of the inheritance carrier
+        # (No magical inheritance across rungs: boot pointers must resolve top-current).
+        # Skip every non-active terminal state (retired | superseded | closed | <anything>),
+        # defaulting a missing status to "active" for backward-compat with seed records.
+        if r.get("status", "active") != "active":
             continue
         aud = r.get("audience", "all")
         # 'citizens' lane: a record addressed to "all" or "citizens" reaches every citizen;
