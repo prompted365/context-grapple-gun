@@ -61,19 +61,64 @@ from pathlib import Path
 # ---------------------------------------------------------------------------
 
 def _audit_root():
-    # resolve from this file: cgg-runtime/scripts/ -> walk to federation audit-logs
-    here = Path(__file__).resolve()
-    for anc in here.parents:
-        cand = anc / "audit-logs" / "cprs" / "queue.jsonl"
-        if cand.exists():
-            return anc / "audit-logs"
-    # fallback: cwd
-    return Path.cwd() / "audit-logs"
+    """Resolve the federation audit-logs by the DECLARED rung chain — never by bare
+    audit-logs/ proximity.
+
+    Reading whatever ``audit-logs/cprs/queue.jsonl`` happens to be the nearest ancestor
+    of THIS file is "magical inheritance across rungs" (ledger.md no-magical-inheritance
+    KI, /review 391): the installed copy lives under ``~/.claude``, whose nearest ancestor
+    ``audit-logs/`` is an UNCONSTITUTED home surface (no .ticzone, no rung marker) — not
+    the federation. Conformation tally is a FEDERATION-RUNG concern (the estate carries no
+    audit trail separate from the federation; federation is the single source of
+    governance truth — canonical_developer/CLAUDE.md), so it resolves to ``.federation-root``.
+
+    Order:
+      1. CGG_AUDIT_ROOT env override (explicit — e.g. a domain that runs its own primary)
+      2. declared rung chain -> .federation-root, via zone_root.resolve_rung_position
+         (walks up from CLAUDE_PROJECT_DIR / cwd — the INVOCATION zone, not __file__)
+      3. refuse: return None so callers surface hierarchy_blocked rather than adopt a
+         stray root (no magical inheritance across rungs).
+    """
+    env = os.environ.get("CGG_AUDIT_ROOT")
+    if env and (Path(env) / "audit-logs" / "cprs").is_dir():
+        return Path(env) / "audit-logs"
+    try:
+        sys.path.insert(0, str(Path(__file__).resolve().parent))
+        from zone_root import resolve_rung_position, load_ticzone, audit_logs_path
+        rp = resolve_rung_position()
+        fed = (rp.get("topology") or {}).get("federation")
+        if fed and fed.get("path"):
+            root = fed["path"]
+            return Path(audit_logs_path(root, load_ticzone(root)))
+    except Exception:
+        pass
+    return None
+
 
 AUDIT = _audit_root()
-QUEUE = AUDIT / "cprs" / "queue.jsonl"
-LEDGER = AUDIT / "cprs" / "conformations.jsonl"           # append-only event ledger
-CANDIDATES = AUDIT / "cprs" / "conformation-candidates.jsonl"  # detect-lane output (advisory)
+HIERARCHY_BLOCKED = AUDIT is None
+if HIERARCHY_BLOCKED:
+    # Refuse magical inheritance: do NOT adopt a stray audit-logs/. Commands hard-error
+    # via _require_root() at entry; the module stays importable for diagnostics.
+    QUEUE = LEDGER = CANDIDATES = None
+else:
+    QUEUE = AUDIT / "cprs" / "queue.jsonl"
+    LEDGER = AUDIT / "cprs" / "conformations.jsonl"           # append-only event ledger
+    CANDIDATES = AUDIT / "cprs" / "conformation-candidates.jsonl"  # detect-lane output (advisory)
+
+
+def _require_root():
+    """Hierarchy gate: refuse to operate from an unconstituted invocation zone.
+    The conformation event is itself an application receipt (the resolved root is
+    stamped into each event) — and a receipt cannot prove the hierarchy held if the
+    root was inferred by proximity. So when no federation root is reachable, hard-stop."""
+    if HIERARCHY_BLOCKED:
+        sys.stderr.write(
+            "[conformation_emit] hierarchy_blocked: no .federation-root reachable from "
+            "CLAUDE_PROJECT_DIR/cwd. Refusing to read a stray audit-logs/ (no magical "
+            "inheritance across rungs). Run from within the federation or set "
+            "CGG_AUDIT_ROOT.\n")
+        sys.exit(2)
 
 VALID_KINDS = {"applied", "extended", "validated", "instantiated", "corroborated"}
 
@@ -115,7 +160,7 @@ def _atomic_append(path, obj):
 def load_ledger():
     """Latest-per-event-id wins (append-only); returns list of live events."""
     seen = {}
-    if LEDGER.exists():
+    if LEDGER and LEDGER.exists():
         for line in LEDGER.read_text(encoding="utf-8").splitlines():
             line = line.strip()
             if not line:
@@ -136,7 +181,7 @@ def load_pending_cprs():
                "review_ready", "tic_gated", "deferred"}
     latest = {}
     lesson = {}
-    if not QUEUE.exists():
+    if not QUEUE or not QUEUE.exists():
         return {}
     for line in QUEUE.read_text(encoding="utf-8").splitlines():
         line = line.strip()
@@ -188,6 +233,9 @@ def emit(cpr_id, tic, evidence_ref, kind="applied", note="", emitted_by="ent_hom
         "emitted_by": emitted_by,
         "emitted_at": _now(),
         "note": note[:280],
+        "resolved_audit_root": str(AUDIT),  # application receipt: proves which root the
+                                            # conformation was written against — a wrong-root
+                                            # read (magical inheritance) becomes detectable.
     }
     _atomic_append(LEDGER, event)
     return {"ok": True, "id": eid, "deduped": False, "event": event}
@@ -308,6 +356,7 @@ def main():
     sub.add_parser("report")
 
     args = p.parse_args()
+    _require_root()  # hierarchy gate — refuse to operate from an unconstituted zone
     if args.cmd == "emit":
         print(json.dumps(emit(args.cpr, args.tic, args.evidence, args.kind, args.note), indent=2))
     elif args.cmd == "tally":
