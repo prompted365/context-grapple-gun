@@ -347,6 +347,14 @@ def main() -> int:
         parts = [TASK_SCOPED_WORKER_FRAME]
         if inject:
             parts.append(inject)
+        # Boot-receipt MANDATORY FOR ALL standings (tic 399, Architect-directed) — compact for
+        # the worker's stakes, but never absent. "Scales to stakes" never means "skip."
+        parts.append(
+            "━━━ BOOT RECEIPT (mandatory · compact) ━━━ Before your first task action, "
+            "acknowledge in ONE line that you booted as a task-scoped worker and accept the "
+            "boundary (no inscription authority; lead-owned outputs). This closes the worker "
+            "boot loop — every standing closes it, scaled to its stakes."
+        )
         combined = "\n".join(parts).strip()
         if already_seen(zone_root, str(session_id), "task_scoped_worker:" + str(agent_type), combined):
             return 0
@@ -424,8 +432,11 @@ def main() -> int:
     if inject:
         parts.append(inject)
     context = (
-        f"[CITIZEN-BOOT: {entity}] You are booting as a recognized federation "
-        f"citizen (tic {tic}).\n" + "\n".join(parts)
+        f"[CITIZEN-BOOT: {entity}] You are booting as a recognized federation entity "
+        f"(tic {tic}). Your STANDING and its boundary are stamped in the worldview below — "
+        f"a citizen carries full authority; a resident/guest/recognized_body/registered_artifact "
+        f"carries a capped, shape-only worldview with an ⟨APOPHATIC⟩ boundary naming what it is "
+        f"NOT. Honor your badge.\n" + "\n".join(parts)
     )
     print(json.dumps({
         "hookSpecificOutput": {

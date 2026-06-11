@@ -30,6 +30,10 @@ PERTINENCE CLASSES (Architect-specified):
   PEER      another office at same standing; understand the relation; do not overwrite/impersonate
   ANCESTOR  prior lineage/inherited terrain; explains why current structure exists; does not authorize present action
   COUNTER   inversion/drift/warning shape; use diagnostically; do not emulate
+  APOPHATIC what you/this are NOT — a definitional boundary that prevents misclassification;
+            cite the boundary as a constraint, do not act from it; distinct from COUNTER
+            (a failure-shape) — a defining negation, not a drift (tic 399; reconciles the
+            tic-375 frame-protocol APO facet; /review 400+ for ledger inscription)
   SEALED    matters but not to be cited/expanded/acted from; exists to prevent misclassification
   ESCALATE  relevant but exceeds your authority; preserve and route upward
 
@@ -76,6 +80,7 @@ except Exception:
         "OFFICE":    dict(may_read=True, may_shape_interpretation=True, may_act_from=True,  may_mutate_source=True,  may_quote=True,  must_escalate=False, weight=0.88),
         "SUBSTRATE": dict(may_read=True, may_shape_interpretation=True, may_act_from=False, may_mutate_source=False, may_quote=True,  must_escalate=False, weight=0.82),
         "ESCALATE":  dict(may_read=True, may_shape_interpretation=True, may_act_from=False, may_mutate_source=False, may_quote=True,  must_escalate=True,  weight=0.75),
+        "APOPHATIC": dict(may_read=True, may_shape_interpretation=True, may_act_from=False, may_mutate_source=False, may_quote=True,  must_escalate=False, weight=0.72),
         "COUNTER":   dict(may_read=True, may_shape_interpretation=True, may_act_from=False, may_mutate_source=False, may_quote=True,  must_escalate=False, weight=0.62),
         "PEER":      dict(may_read=True, may_shape_interpretation=True, may_act_from=False, may_mutate_source=False, may_quote=True,  must_escalate=False, weight=0.55),
         "FIELD":     dict(may_read=True, may_shape_interpretation=True, may_act_from=False, may_mutate_source=False, may_quote=False, must_escalate=False, weight=0.45),
@@ -215,6 +220,80 @@ def _is_primary_office(zone_root: Path, office: str) -> bool:
     actors = reg.get("actors", reg) if isinstance(reg, dict) else reg
     me = next((a for a in actors if isinstance(a, dict) and a.get("entity_id") == office), None) if isinstance(actors, list) else None
     return any(r in ((me or {}).get("roles") or []) for r in ("interactive_orchestrator", "session_lead"))
+
+
+# ----- STANDING-CAP POLICY (full all-cell coverage, tic 399, Architect-approved) -----
+# Every entity-state gets an injection; the PLANES it hydrates and the MAX authority
+# (pertinence cap) scale to its standing. A non-citizen's act-fragments are tightened to the
+# cap (tighten-not-loosen); an APOPHATIC boundary ("what you are NOT") is prepended. citizen
+# = full worldview, no cap. Standing taxonomy: autonomous_kernel/entity-ontology.md (Seven
+# Axes). `ephemeral` is the lifecycle axis, NOT a standing (tic-390/391 collision fix); the
+# ephemeral COMPUTE leg has no standing and is injected at the harness dispatch seam, not here.
+_ALL_PLANES = {"L0", "L1", "L2", "L3", "L4", "L5", "L6"}
+STANDING_POLICY = {
+    "citizen":             dict(cap=None,        planes=_ALL_PLANES,                    boundary=None),
+    "resident":            dict(cap="SUBSTRATE", planes={"L0", "L1", "L2", "L3", "L4"}, boundary="you are a RESIDENT — limited standing; you participate, but you are NOT a citizen (no request/fulfill/decide rights)"),
+    "recognized_body":     dict(cap="PEER",      planes={"L0", "L2", "L3", "L4"},       boundary="you are a RECOGNIZED BODY — a collective with formal standing, NOT an individual actor"),
+    "registered_artifact": dict(cap="FIELD",     planes={"L1", "L3"},                   boundary="you are a REGISTERED ARTIFACT — tracked by the polity, NOT an actor; you carry no agency"),
+    "guest":               dict(cap="FIELD",     planes={"L0", "L2"},                   boundary="you are a GUEST — external, minimal permissions, NOT a citizen; you arrived via the visa/Dock lane"),
+    "task_scoped_worker":  dict(cap="FIELD",     planes={"L1", "L3"},                   boundary="you are a TASK-SCOPED WORKER — an internal delegated non-citizen; NO persistent identity, NO inbox, NO memory across spawns, NO inscription authority; your outputs are owned by your lead"),
+}
+# unknown/unmapped standing → most restrictive cell (fail-closed, never fail-open)
+_DEFAULT_POLICY = dict(cap="FIELD", planes={"L3"}, boundary="standing unresolved — minimal hydration; you are NOT authorized to act; route upward")
+
+_PLANE_BY_PREFIX = (
+    ("harmony.", "L0"),
+    ("lane.", "L1"), ("ki.", "L1"),
+    ("office.", "L2"),
+    ("rung.", "L3"),
+    ("tic.", "L4"),
+    ("arc.", "L5"),
+    ("gated_arc.", "L6"), ("review.", "L6"), ("office_counter.", "L6"),
+    ("standing.", "L0"),  # the boundary fragment rides with the framer
+)
+
+
+def _fragment_plane(fid: str) -> str:
+    for pref, plane in _PLANE_BY_PREFIX:
+        if fid.startswith(pref):
+            return plane
+    return "L?"
+
+
+def _entity_standing(zone_root: Path, office: str) -> str:
+    """The booting entity's standing (entity-ontology.md axis). Fail-closed to a non-citizen
+    cell when unresolved — never silently grant citizen authority to an unknown entity."""
+    reg = _load_json(zone_root / "autonomous_kernel" / "actor-registry.json")
+    if not reg:
+        return "task_scoped_worker"
+    actors = reg.get("actors", reg) if isinstance(reg, dict) else reg
+    me = next((a for a in actors if isinstance(a, dict) and a.get("entity_id") == office), None) if isinstance(actors, list) else None
+    return (me or {}).get("standing", "task_scoped_worker")
+
+
+def _apply_standing_policy(zone_root: Path, frags: list, standing: str) -> list:
+    """Full-cell coverage: select planes + cap authority + prepend the APOPHATIC boundary,
+    per the entity's standing. citizen = identity (no cap, all planes, no boundary)."""
+    pol = STANDING_POLICY.get(standing, _DEFAULT_POLICY)
+    if pol["cap"] is None and pol["planes"] == _ALL_PLANES and not pol["boundary"]:
+        return frags  # citizen — full worldview unchanged
+    cap_ceiling = AUTHORITY_DEFAULTS.get(pol["cap"]) if pol["cap"] else None
+    kept = []
+    # APOPHATIC boundary FIRST — "what you are NOT" is a citable constraint, not a drift
+    if pol["boundary"]:
+        kept.append(_frag(zone_root, "standing.boundary", "entity-ontology.md (standing policy)",
+            pol["boundary"], "APOPHATIC",
+            "your standing boundary — a definitional negation that prevents misclassification; "
+            "cite it as a constraint, do not act past it"))
+    for f in frags:
+        if _fragment_plane(f["id"]) not in pol["planes"]:
+            continue  # plane not hydrated for this standing
+        if cap_ceiling is not None:
+            a = f["authority"]
+            for k in ("may_act_from", "may_mutate_source", "may_quote"):
+                a[k] = bool(a.get(k)) and bool(cap_ceiling.get(k))  # tighten (AND), never loosen
+        kept.append(f)
+    return kept
 
 
 # ----- THE COMPILER --------------------------------------------------------------
@@ -405,6 +484,14 @@ def compile_fragments(zone_root: Path, office: str, tic: int) -> list:
     except Exception:
         pass
 
+    # --- STANDING-CAP: full all-cell coverage (tic 399). Select planes + cap authority +
+    # prepend the APOPHATIC boundary per the entity's standing. citizen = unchanged. ---
+    try:
+        standing = _entity_standing(zone_root, office)
+        frags = _apply_standing_policy(zone_root, frags, standing)
+    except Exception:
+        pass
+
     return frags
 
 
@@ -436,7 +523,7 @@ def _cross_agent_mesh(zone_root: Path, tic: int) -> list:
 # ----- RENDER FACES --------------------------------------------------------------
 
 # Group order for the human face: framer + yours first, then office authority, then the wider field.
-_CLASS_ORDER = ["SUBSTRATE", "YOURS", "OFFICE", "ESCALATE", "PEER", "FIELD", "COUNTER", "ANCESTOR", "SEALED"]
+_CLASS_ORDER = ["SUBSTRATE", "YOURS", "OFFICE", "ESCALATE", "APOPHATIC", "PEER", "FIELD", "COUNTER", "ANCESTOR", "SEALED"]
 
 
 def render_human(office: str, tic: int, base: dict, frags: list, max_chars: int,

@@ -41,9 +41,21 @@ from __future__ import annotations
 
 # ── THE 3 NORMATIVE DIRECTIVES ───────────────────────────────────────────────
 
-# Directive 1 — pertinence. The 9 classes (Architect-specified; mirrors the
+# Directive 1 — pertinence. The 10 classes (Architect-specified; mirrors the
 # office-worldview.py compiler docstring). A fragment's pertinence.class MUST be
 # one of these; an unrecognized class is inadmissible.
+#
+# APOPHATIC added tic 399 (Architect-directed; doctrine inscription routes through
+# /review 400+ as cpr_apophatic_pertinence_class_tic399). It reconciles the tic-375
+# frame-protocol APO facet ("what it is NOT" — via-negativa / FENCE / Negative-Contour-
+# Via-Is-Not) into the tic-328 worldview class set, which had carried only COUNTER
+# (the ENA facet — "how it FAILS"). The two are distinct facets in the federation's
+# own non-collapse output grammar (KAT/APO/PAR/PLE/ENA/TEL): COUNTER is a drift/failure
+# shape to avoid; APOPHATIC is a definitional boundary that prevents misclassification.
+# Key authority distinction: a definitional boundary is CITABLE (may_quote=True — "I cite
+# that I am NOT a citizen / NOT authorized here") — unlike SEALED (no-cite) and unlike
+# COUNTER's failure-diagnostic framing. The apophatic content already ran untyped as the
+# hardcoded TASK_SCOPED_WORKER_FRAME; this types it.
 PERTINENCE_CLASSES = {
     "YOURS":     "carry as purpose; may shape priority/judgment/resolve; act only if authority allows",
     "FIELD":     "background terrain; understand; do not act from; do not cite as mandate",
@@ -52,6 +64,7 @@ PERTINENCE_CLASSES = {
     "PEER":      "another office at same standing; understand the relation; do not overwrite/impersonate",
     "ANCESTOR":  "prior lineage/inherited terrain; explains why current structure exists; does not authorize present action",
     "COUNTER":   "inversion/drift/warning shape; use diagnostically; do not emulate",
+    "APOPHATIC": "what you/this are NOT — a definitional boundary that prevents misclassification; cite the boundary as a constraint, do not act from it; distinct from COUNTER (a failure-shape) — this is a defining negation, not a drift",
     "SEALED":    "matters but not to be cited/expanded/acted from; exists to prevent misclassification",
     "ESCALATE":  "relevant but exceeds your authority; preserve and route upward",
 }
@@ -66,6 +79,11 @@ AUTHORITY_DEFAULTS = {
     "OFFICE":    dict(may_read=True, may_shape_interpretation=True, may_act_from=True,  may_mutate_source=True,  may_quote=True,  must_escalate=False, weight=0.88),
     "SUBSTRATE": dict(may_read=True, may_shape_interpretation=True, may_act_from=False, may_mutate_source=False, may_quote=True,  must_escalate=False, weight=0.82),
     "ESCALATE":  dict(may_read=True, may_shape_interpretation=True, may_act_from=False, may_mutate_source=False, may_quote=True,  must_escalate=True,  weight=0.75),
+    # APOPHATIC: a definitional boundary shapes interpretation strongly (high weight,
+    # near SUBSTRATE) but authorizes NO action; it IS citable as a constraint
+    # (may_quote=True) — the distinction from SEALED (no-cite) and from COUNTER (a
+    # failure-shape).
+    "APOPHATIC": dict(may_read=True, may_shape_interpretation=True, may_act_from=False, may_mutate_source=False, may_quote=True,  must_escalate=False, weight=0.72),
     "COUNTER":   dict(may_read=True, may_shape_interpretation=True, may_act_from=False, may_mutate_source=False, may_quote=True,  must_escalate=False, weight=0.62),
     "PEER":      dict(may_read=True, may_shape_interpretation=True, may_act_from=False, may_mutate_source=False, may_quote=True,  must_escalate=False, weight=0.55),
     "FIELD":     dict(may_read=True, may_shape_interpretation=True, may_act_from=False, may_mutate_source=False, may_quote=False, must_escalate=False, weight=0.45),
@@ -350,6 +368,7 @@ if __name__ == "__main__":
             "SUBSTRATE": "⟨SUBSTRATE·shape-only⟩",
             "ESCALATE": "⟨ESCALATE·shape-only·ESCALATE↑⟩",
             "COUNTER": "⟨COUNTER·shape-only⟩",
+            "APOPHATIC": "⟨APOPHATIC·shape-only⟩",
             "PEER": "⟨PEER·shape-only⟩",
             "FIELD": "⟨FIELD·shape-only·no-cite⟩",
             "ANCESTOR": "⟨ANCESTOR·shape-only⟩",
