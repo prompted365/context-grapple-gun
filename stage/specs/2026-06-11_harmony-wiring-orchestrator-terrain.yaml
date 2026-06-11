@@ -1,0 +1,111 @@
+id: "2026-06-11_harmony-wiring-orchestrator-terrain"
+title: "How to wire/connect/leverage the federation's pieces into the harmony acoustic-physics lane so the field most powerfully shapes the primary orchestrator's boot terrain — and in what sequence"
+arena: governed-triangulation
+arena_mode: operational
+status: completed
+template_ref: "stage/templates/arenas/governed-triangulation/spec.md"
+created_at: "2026-06-11T00:00:00Z"
+created_tic: 400
+dry_run: false   # dry-run confirmed, then GO'd and run at tic 400
+run_outcome: "designer-premise FALSIFIED by code (forbidden-files guard worked): harmony's terrain.conductance has no cartography producer in any phase; it is a hand-authored stub masked by `?? 0.5`. Question decomposed into 3 edges + a missing conductance ASSEMBLER. Synthesis: stage/shows/.../synthesis.md ; pressure: audit-logs/arenas/pressure-reports/2026-06-11_harmony-wiring-orchestrator-terrain.json"
+
+# ── Centroid ──────────────────────────────────────────────────────────────
+# The direct counter-move to this session's headline pathology: ORPHANHOOD
+# (the failure is never absence — it is the unwired connection). Three genuine,
+# adversarial engineering theories of WHERE THE LEVERAGE LIVES, all bearing on
+# the same wiring question, with real sequencing stakes. Operational decision
+# (bounded scope, clear tradeoffs) -> governed-triangulation.
+
+# ── Actor-backing (Invariant #1/#2) ──────────────────────────────────────────
+# Two positions have a natural constitutional owner; the middle has no clean
+# owner, so it is a domain-expert advocate. Positions MATERIALIZE from each
+# actor's mandate + evidence base — they are NOT pre-assigned stance labels.
+agents:
+  - name: WIRE-EXISTING
+    actor: ent_civil_engineer
+    actor_backing: "constitutional — Civil Engineer's mandate IS infrastructure wiring (index/registry/sync, deterministic connection repair). Orphanhood is its native enemy."
+    position: >
+      Mount what is already built before building anything new. The cheapest,
+      highest-leverage move is wiring signature.ts -> cartography.mjs (the digest
+      leg orphaned 184 tics) and thickening the single live physics->render edge
+      (harmony-disposition -> L0). Connection is scarcer than matter; wiring is
+      deterministic, cheap, and raises the floor immediately. SEQUENCE = wire-first.
+    evidence_base: "the orphanhood finding (built-but-unwired across instruments); sync logs; the 184-tic signature.ts orphan; cartography.mjs zero-import of signature.mjs."
+
+  - name: FIELD-POWER
+    actor: domain_expert:harmony_cartography_architect
+    actor_backing: "domain-expert — no constitutional actor cleanly owns 'build the physics substrate'; constituted by the harmony-engine math itself."
+    position: >
+      Harmony's acoustic power is bounded by the field it attenuates through.
+      Wiring a shell over a Phase-A empty field produces volume=0 / SNR=noise:
+      computeAcousticSignature is weightedVolume/sqrt(N) over rays that have no
+      real terrain to propagate through. Build the multi-plane splat/basin field
+      (cartography Phase B) FIRST so the rays have terrain. A wired empty field is
+      a loud nothing. SEQUENCE = substrate-first.
+    evidence_base: "harmony-engine.mjs (rayAttenuation, weightedVolume/sqrtN, SNR); cartography.mjs Phase-A self-declaration (empty vectors/basins); the 9-plane schema."
+
+  - name: ORCHESTRATOR-TERRAIN
+    actor: ent_ladder_auditor
+    actor_backing: "constitutional — Ladder Auditor's mandate IS cross-rung/cross-layer chain coherence. The physics-field -> render -> boot chain is exactly its surface."
+    position: >
+      The only leverage that matters is what changes the PRIMARY ORCHESTRATOR's
+      boot disposition. A perfect field that does not reshape L0-L6 (the worldview
+      the primary lane inherits, pertinence/authority-scaled) is unleveraged. The
+      physics-field -> render -> boot chain must cohere end-to-end; optimize the
+      render edge + the injection into the primary lane. Field and wiring SERVE
+      the boot terrain, not vice versa. SEQUENCE = readout-first.
+    evidence_base: "pertinence-three-axis (tic-329); the single wired physics->render edge; office-worldview.py L0-L6 + STANDING_POLICY; the runtime-frame-is-declarative-self-conditioning KI (tic-377)."
+
+  - name: LEAD
+    actor: ent_homeskillet-c48
+    position: "orchestrator — neutral; extracts surviving structure + dependency order; does NOT advocate."
+
+# ── Pairwise edges (full triangle, every edge traversed) ──────────────────────
+edges:
+  - "WIRE-EXISTING <-> FIELD-POWER: mount-what-exists vs the-field-is-empty-so-mounting-is-moot"
+  - "FIELD-POWER <-> ORCHESTRATOR-TERRAIN: field-depth vs readout-leverage (a deep field that never reshapes the boot)"
+  - "WIRE-EXISTING <-> ORCHESTRATOR-TERRAIN: cheap-deterministic-wiring vs boot-shaping-is-the-only-leverage"
+
+# ── Designer-Reasoner Forbidden-Files Guard (LOAD-BEARING) ────────────────────
+# The LEAD (c48) designed this spec AND authored the keep-pile synthesis. To
+# prevent confirmation-finding, advocates are CONSTITUTIONALLY BLOCKED from
+# reading c48/counsel framing. They re-derive the keep-pile facts from CODE.
+# This is how "the keep pile is included" without confirmation-finding: included
+# as MATERIAL REALITY (the code), not as the designer's pre-framed conclusion.
+# Convergence-with-keep-pile-from-code = validation; divergence = framing bias.
+forbidden_files:
+  - "audit-logs/agent-mailboxes/ent_homeskillet/inbound/_intake/061126_convoF5_artifacts/FINDINGS-LANE.md"
+  - "audit-logs/agent-mailboxes/ent_homeskillet/inbound/_intake/061126_convoF5_artifacts/findings/"
+  - "audit-logs/governance/trancheset-discovery-docket-tic400.md"
+  - "audit-logs/governance/counsel-conversation-binder-tic400.md"
+  - "the third-telling / witness / geology / spine artifacts (counsel-authored quarantine)"
+
+# ── Material advocates MAY read (primary surfaces — the code, not the framing) ─
+material_allowed:
+  - "harmony_engine_v0/runtime/harmony-engine.mjs (the acoustic spine)"
+  - "autonomous_kernel/cartography/README.md + src/cartography/signature.ts + runtime/cartography.mjs"
+  - "cgg-runtime/scripts/office-worldview.py (L0-L6 + STANDING_POLICY)"
+  - "the live KIs: orphanhood/never-absence, harmony=acoustic-physics, pertinence-three-axis (329), no-magical-inheritance (390), runtime-frame-declarative-self-conditioning (377)"
+
+capture_policy:
+  allow_subject_lessons: true
+  route_subject_lessons_to_governance: true   # the wiring/sequence plan IS a governance input
+  persist_subject_lessons_locally: true
+  allow_process_lessons: true
+  allow_meta_lessons: true
+  allow_signals: true
+  allow_warrants: false
+  allow_governance_mutation: false            # human-gated via /review-400+
+
+phase_sequence: "context [parallel] -> defense [parallel] -> rebuttal [parallel] -> synthesis [serial] -> pressure_extraction [serial]"
+pressure_report_path: "audit-logs/arenas/pressure-reports/2026-06-11_harmony-wiring-orchestrator-terrain.json"
+
+# ── Pressure path ─────────────────────────────────────────────────────────────
+# The arena PRE-FILTERS the wiring question into a sequenced, non-derivability-
+# tested plan -> /review-400+. It does NOT inscribe. Expected outputs:
+#   - a surviving SEQUENCE (which of wire-first / substrate-first / readout-first
+#     survives all three rebuttals, or a synthesized hybrid order)
+#   - the dependency graph among the orphaned pieces
+#   - convergent discoveries (2+ opposed advocates agree) -> BEACON candidates
+#   - surviving contradictions -> TENSION candidates
+outcome: {}
