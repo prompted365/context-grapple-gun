@@ -38,6 +38,7 @@ from typing import Any
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from zone_root import resolve_zone_root  # noqa: E402
+from lib.conductance_assembler import assemble_conductance  # noqa: E402
 
 
 def _resolve_repo_root() -> pathlib.Path:
@@ -396,7 +397,8 @@ def embed_band_kind(band: str, kind: str, weight: int) -> list[float]:
     return [round(x / mag, 4) for x in out]
 
 
-def build_terrain_slice(census: dict[str, Any], tic: int, posture: str, mode: str) -> dict[str, Any]:
+def build_terrain_slice(census: dict[str, Any], tic: int, posture: str, mode: str,
+                        conductance_result: dict[str, Any] | None = None) -> dict[str, Any]:
     totals = census.get("totals", {})
     subsystems = census.get("subsystems") or []
     # subsystems may be a list of dicts or a dict; normalize
@@ -420,31 +422,40 @@ def build_terrain_slice(census: dict[str, Any], tic: int, posture: str, mode: st
         }
         for s in top
     ]
-    # conductance: AUTHORED LITERAL STUB — NOT measured/derived. There is NO
-    # cartography producer for terrain.conductance in any phase; these 4 values
-    # are hand-painted, and harmony-engine.mjs:122 masks their absence with
-    # `?? 0.5`. Per /review 401 KI `authored-not-measured-canary`, a `?? const`
-    # over a field doctrine treats as measured MUST confess it is painted —
-    # so we ship `conductanceProvenance` alongside and emit a build-time canary.
-    # The real fix is a conductance ASSEMBLER (β); until it lands, this is honest.
-    # (Prior comment claimed "derived (substrate has physics_runtime since tic
-    # 202)" — that was the painted-number-wearing-the-mask-of-a-measurement.)
-    conductance = {
-        "acoustic": 0.72,  # AUTHORED literal — signal manifold breathing (not sensed)
-        "light": 0.58,     # AUTHORED literal — observability surfaces (not sensed)
-        "gravity": 1,      # AUTHORED literal — physics runtime active (not sensed)
-        "social": 0.46,    # AUTHORED literal — visitor economy mature (not sensed)
-    }
-    conductance_provenance = "authored_literal_stub_no_producer"
-    # Build-time canary (retrospective-detectable; goes to stderr so the input
-    # JSON stays clean for the engine but the confession is in the run log).
-    print(
-        "⚠ harmony canary: terrain.conductance is AUTHORED (4 literals), NOT measured "
-        "— no cartography producer; engine ?? 0.5 masks absence. provenance="
-        f"{conductance_provenance}. (KI authored-not-measured-canary, /review 401; "
-        "real fix = conductance assembler β)",
-        file=sys.stderr,
-    )
+    # conductance: assembled by the conductance ASSEMBLER (β, /review 401) from
+    # the cartography terrain-physics producer (γ, deriveConductance). Per-band
+    # provenance is honest (measured varies with real substrate state; authored =
+    # no producer yet). When the producer is unreachable it degrades to the
+    # authored literals and the authored-not-measured canary fires (/review 401 KI).
+    if conductance_result and isinstance(conductance_result.get("conductance"), dict):
+        conductance = conductance_result["conductance"]
+        conductance_provenance = conductance_result.get("conductanceProvenance") or {}
+        conductance_source = conductance_result.get("conductanceSource", "cartography_conductance_v0")
+        measured = int(conductance_result.get("measuredBandCount", 0) or 0)
+    else:
+        # No assembler result supplied (e.g. direct call) — honest authored fallback.
+        conductance = {"acoustic": 0.72, "light": 0.58, "gravity": 1, "social": 0.46}
+        conductance_provenance = {b: "authored" for b in conductance}
+        conductance_source = "authored_literal_stub_no_producer"
+        measured = 0
+    # authored-not-measured canary (/review 401 KI): fires when ANY band is still
+    # authored (a `?? const` over a field doctrine treats as measured must confess
+    # it is painted). Per-band provenance rides terrainSlice into the input JSON.
+    authored_bands = [b for b, p in conductance_provenance.items() if p != "measured"]
+    if authored_bands:
+        print(
+            "⚠ harmony canary: terrain.conductance AUTHORED (not measured) bands "
+            f"{authored_bands} — no producer yet; engine ?? 0.5 masks absence. "
+            f"source={conductance_source}, measured={measured}/4. "
+            "(KI authored-not-measured-canary, /review 401)",
+            file=sys.stderr,
+        )
+    else:
+        print(
+            f"✓ harmony: terrain.conductance fully assembled ({measured}/4 measured, "
+            f"source={conductance_source})",
+            file=sys.stderr,
+        )
     # pressureHints: subsystem names (Harmony searches for these substrings in chunks)
     pressure_hints = [s["name"] for s in top_subsystems if s.get("name")]
     # digest: stable hash over census + tic
@@ -459,6 +470,7 @@ def build_terrain_slice(census: dict[str, Any], tic: int, posture: str, mode: st
         "topSubsystems": top_subsystems,
         "conductance": conductance,
         "conductanceProvenance": conductance_provenance,
+        "conductanceSource": conductance_source,
         "pressureHints": pressure_hints,
     }
 
@@ -618,6 +630,14 @@ def build_envelope(posture: str, mode: str) -> dict[str, Any]:
     queue_lookup = latest_status_per_id(QUEUE_FILE)
     census = read_json(SCENE_CENSUS)
 
+    # Assemble terrain.conductance from the cartography producer (β→γ, /review 401):
+    # real signal-manifold stats feed cartography's deriveConductance; the assembler
+    # maps to the band contract. Fail-soft to authored literals (canary fires).
+    _sigs = conf.get("active_signals", []) or []
+    _cur_tic = int(conf.get("tic_count_physical") or 0)
+    _manifold_stats = build_manifold_active(_sigs, _cur_tic) if _sigs else None
+    conductance_result = assemble_conductance(_manifold_stats, REPO_ROOT)
+
     primary_centroid_embedding = embed_band_kind("COGNITIVE", "BEACON", 100)
     primary_context = {
         "contextId": f"ctx.harmony.tic{tic}.{posture.replace('/', '_')}.{mode}",
@@ -663,7 +683,7 @@ def build_envelope(posture: str, mode: str) -> dict[str, Any]:
 
     envelope = {
         "primaryContext": primary_context,
-        "terrainSlice": build_terrain_slice(census, tic, posture, mode),
+        "terrainSlice": build_terrain_slice(census, tic, posture, mode, conductance_result),
         "councilPressureHints": build_council_pressure(conf),
         "receiverRegister": receiver_register,
         "returnedChunks": build_returned_chunks(conf, queue_lookup),
