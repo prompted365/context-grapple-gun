@@ -34,6 +34,41 @@ _AUTHORED_BANDS = {"acoustic": 0.72, "light": 0.58, "gravity": 1, "social": 0.46
 _AUTHORED_PROVENANCE = {b: "authored" for b in _AUTHORED_BANDS}
 
 _CARTOGRAPHY_RUNNER_REL = "autonomous_kernel/cartography/runtime/cartography-emit.mjs"
+_ACTOR_REGISTRY_REL = "autonomous_kernel/actor-registry.json"
+
+# Lifecycle/standing values that count an actor as part of the LIVE economy.
+_ACTIVE_LIFECYCLES = {"active", "mature", "operational", "live", "promoted"}
+_MATURE_LIFECYCLES = {"mature", "operational", "promoted"}
+
+
+def _read_entity_economy(repo_root: Path) -> Optional[dict[str, Any]]:
+    """Real entity-economy signal for the SOCIAL band — actor-registry census.
+
+    Returns {actorCount, activeCount, matureCount} or None if unreadable. A
+    livelier, more-mature citizen registry carries social rays further; this
+    grows with the federation (genuinely tic-varying over time).
+    """
+    reg = Path(repo_root) / _ACTOR_REGISTRY_REL
+    if not reg.exists():
+        return None
+    try:
+        actors = (json.loads(reg.read_text()).get("actors")) or []
+    except Exception:
+        return None
+    if not isinstance(actors, list) or not actors:
+        return None
+    active = mature = 0
+    for a in actors:
+        if not isinstance(a, dict):
+            continue
+        lc = str(a.get("lifecycle", "")).lower()
+        st = str(a.get("status", "")).lower()
+        standing = str(a.get("standing", "")).lower()
+        if lc in _ACTIVE_LIFECYCLES or st in _ACTIVE_LIFECYCLES or standing in {"citizen", "primary", "resident"}:
+            active += 1
+        if lc in _MATURE_LIFECYCLES or standing in {"citizen", "primary"}:
+            mature += 1
+    return {"actorCount": len(actors), "activeCount": active, "matureCount": mature}
 
 
 def _authored_fallback(reason: str) -> dict[str, Any]:
@@ -42,6 +77,8 @@ def _authored_fallback(reason: str) -> dict[str, Any]:
         "conductanceProvenance": dict(_AUTHORED_PROVENANCE),
         "conductanceSource": "authored_literal_stub_no_producer",
         "measuredBandCount": 0,
+        "consumedBandCount": 3,
+        "measuredConsumedCount": 0,
         "fullyMeasured": False,
         "assemblerFallbackReason": reason,
     }
@@ -51,6 +88,7 @@ def assemble_conductance(
     manifold_stats: Optional[dict[str, Any]],
     repo_root: Path,
     *,
+    observability: Optional[dict[str, Any]] = None,
     physics_runtime_active: Optional[bool] = None,
     timeout_s: float = 8.0,
 ) -> dict[str, Any]:
@@ -73,6 +111,7 @@ def assemble_conductance(
     # band's source when it genuinely exists — absent sources stay authored,
     # per-band, inside cartography (no invented proxies).
     substrate: dict[str, Any] = {}
+    # acoustic — signal-manifold liveness.
     if isinstance(manifold_stats, dict) and isinstance(
         manifold_stats.get("volume_mean"), (int, float)
     ):
@@ -81,6 +120,22 @@ def assemble_conductance(
             "active_signal_count": manifold_stats.get("active_signal_count", 0),
             "volume_entropy": manifold_stats.get("volume_entropy"),
         }
+    # light — observability-surface liveness (conformation recency), supplied by
+    # the caller which holds the conformation + current tic.
+    if (
+        isinstance(observability, dict)
+        and isinstance(observability.get("latestConformationTic"), int)
+        and isinstance(observability.get("currentTic"), int)
+    ):
+        substrate["observability"] = {
+            "latestConformationTic": observability["latestConformationTic"],
+            "currentTic": observability["currentTic"],
+        }
+    # social — entity-economy maturity (actor-registry census), read here.
+    econ = _read_entity_economy(repo_root)
+    if econ:
+        substrate["entityEconomy"] = econ
+    # gravity — intentionally NOT supplied: dead field (engine short-circuits it).
     if isinstance(physics_runtime_active, bool):
         substrate["physicsRuntimeActive"] = physics_runtime_active
 
@@ -118,6 +173,8 @@ def assemble_conductance(
         "conductanceProvenance": provenance,
         "conductanceSource": readings.get("source", "cartography_conductance_v0"),
         "measuredBandCount": measured,
+        "consumedBandCount": int(readings.get("consumedBandCount", 3) or 3),
+        "measuredConsumedCount": int(readings.get("measuredConsumedCount", 0) or 0),
         "fullyMeasured": bool(readings.get("fullyMeasured", False)),
         "assemblerFallbackReason": None,
     }

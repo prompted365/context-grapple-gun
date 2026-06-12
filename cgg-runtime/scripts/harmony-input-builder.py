@@ -438,22 +438,29 @@ def build_terrain_slice(census: dict[str, Any], tic: int, posture: str, mode: st
         conductance_provenance = {b: "authored" for b in conductance}
         conductance_source = "authored_literal_stub_no_producer"
         measured = 0
-    # authored-not-measured canary (/review 401 KI): fires when ANY band is still
-    # authored (a `?? const` over a field doctrine treats as measured must confess
-    # it is painted). Per-band provenance rides terrainSlice into the input JSON.
-    authored_bands = [b for b, p in conductance_provenance.items() if p != "measured"]
-    if authored_bands:
+    # authored-not-measured canary (/review 401 KI): fires for genuinely-`authored`
+    # CONSUMED bands (a `?? const` over a field doctrine treats as measured must
+    # confess). `authored_unconsumed` (gravity — engine short-circuits it) is a
+    # dead field, expected, NOT an alarm. Per-band provenance rides terrainSlice.
+    if conductance_result:
+        measured_consumed = int(conductance_result.get("measuredConsumedCount", measured) or 0)
+        consumed_total = int(conductance_result.get("consumedBandCount", 3) or 3)
+    else:
+        measured_consumed, consumed_total = 0, 3
+    pending_bands = [b for b, p in conductance_provenance.items() if p == "authored"]
+    if pending_bands:
         print(
-            "⚠ harmony canary: terrain.conductance AUTHORED (not measured) bands "
-            f"{authored_bands} — no producer yet; engine ?? 0.5 masks absence. "
-            f"source={conductance_source}, measured={measured}/4. "
+            "⚠ harmony canary: terrain.conductance has UNMEASURED consumed bands "
+            f"{pending_bands} — no producer yet; engine ?? 0.5 masks absence. "
+            f"source={conductance_source}, measured={measured_consumed}/{consumed_total} consumed. "
             "(KI authored-not-measured-canary, /review 401)",
             file=sys.stderr,
         )
     else:
         print(
-            f"✓ harmony: terrain.conductance fully assembled ({measured}/4 measured, "
-            f"source={conductance_source})",
+            f"✓ harmony: all {consumed_total} consumed conductance bands measured "
+            f"({measured_consumed}/{consumed_total}; gravity is a dead field, authored). "
+            f"source={conductance_source}",
             file=sys.stderr,
         )
     # pressureHints: subsystem names (Harmony searches for these substrings in chunks)
@@ -631,12 +638,18 @@ def build_envelope(posture: str, mode: str) -> dict[str, Any]:
     census = read_json(SCENE_CENSUS)
 
     # Assemble terrain.conductance from the cartography producer (β→γ, /review 401):
-    # real signal-manifold stats feed cartography's deriveConductance; the assembler
+    # real substrate signals feed cartography's deriveConductance; the assembler
     # maps to the band contract. Fail-soft to authored literals (canary fires).
+    #   acoustic ← signal-manifold liveness; light ← conformation recency
+    #   (observability); social ← actor-registry (read inside the assembler).
+    #   gravity stays authored (dead field — engine short-circuits it).
     _sigs = conf.get("active_signals", []) or []
-    _cur_tic = int(conf.get("tic_count_physical") or 0)
-    _manifold_stats = build_manifold_active(_sigs, _cur_tic) if _sigs else None
-    conductance_result = assemble_conductance(_manifold_stats, REPO_ROOT)
+    _conf_tic = int(conf.get("tic_count_physical") or 0)
+    _manifold_stats = build_manifold_active(_sigs, _conf_tic) if _sigs else None
+    _observability = {"latestConformationTic": _conf_tic, "currentTic": int(tic)}
+    conductance_result = assemble_conductance(
+        _manifold_stats, REPO_ROOT, observability=_observability
+    )
 
     primary_centroid_embedding = embed_band_kind("COGNITIVE", "BEACON", 100)
     primary_context = {
