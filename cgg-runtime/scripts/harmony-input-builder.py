@@ -420,13 +420,31 @@ def build_terrain_slice(census: dict[str, Any], tic: int, posture: str, mode: st
         }
         for s in top
     ]
-    # conductance: derived (substrate has physics_runtime since tic 202)
+    # conductance: AUTHORED LITERAL STUB — NOT measured/derived. There is NO
+    # cartography producer for terrain.conductance in any phase; these 4 values
+    # are hand-painted, and harmony-engine.mjs:122 masks their absence with
+    # `?? 0.5`. Per /review 401 KI `authored-not-measured-canary`, a `?? const`
+    # over a field doctrine treats as measured MUST confess it is painted —
+    # so we ship `conductanceProvenance` alongside and emit a build-time canary.
+    # The real fix is a conductance ASSEMBLER (β); until it lands, this is honest.
+    # (Prior comment claimed "derived (substrate has physics_runtime since tic
+    # 202)" — that was the painted-number-wearing-the-mask-of-a-measurement.)
     conductance = {
-        "acoustic": 0.72,  # signal manifold breathing
-        "light": 0.58,     # observability surfaces
-        "gravity": 1,      # physics runtime active
-        "social": 0.46,    # visitor economy mature
+        "acoustic": 0.72,  # AUTHORED literal — signal manifold breathing (not sensed)
+        "light": 0.58,     # AUTHORED literal — observability surfaces (not sensed)
+        "gravity": 1,      # AUTHORED literal — physics runtime active (not sensed)
+        "social": 0.46,    # AUTHORED literal — visitor economy mature (not sensed)
     }
+    conductance_provenance = "authored_literal_stub_no_producer"
+    # Build-time canary (retrospective-detectable; goes to stderr so the input
+    # JSON stays clean for the engine but the confession is in the run log).
+    print(
+        "⚠ harmony canary: terrain.conductance is AUTHORED (4 literals), NOT measured "
+        "— no cartography producer; engine ?? 0.5 masks absence. provenance="
+        f"{conductance_provenance}. (KI authored-not-measured-canary, /review 401; "
+        "real fix = conductance assembler β)",
+        file=sys.stderr,
+    )
     # pressureHints: subsystem names (Harmony searches for these substrings in chunks)
     pressure_hints = [s["name"] for s in top_subsystems if s.get("name")]
     # digest: stable hash over census + tic
@@ -440,6 +458,7 @@ def build_terrain_slice(census: dict[str, Any], tic: int, posture: str, mode: st
         "totals": totals,
         "topSubsystems": top_subsystems,
         "conductance": conductance,
+        "conductanceProvenance": conductance_provenance,
         "pressureHints": pressure_hints,
     }
 

@@ -307,8 +307,20 @@ def compile_fragments(zone_root: Path, office: str, tic: int) -> list:
     # --- L0 HARMONY (the framer; orientation only, non-citable by her own contract) ---
     try:
         hd = zone_root / "audit-logs" / "harmony"
-        disp = _load_json(hd / f"disposition-tic-{tic}.json") or _load_json(hd / "disposition-current.json")
+        disp = _load_json(hd / f"disposition-tic-{tic}.json")
+        if not isinstance(disp, dict):
+            disp = _load_json(hd / "disposition-current.json")
         if isinstance(disp, dict):
+            # liveness canary (C4 read-hardening, /review 401 BEACON): this is a
+            # single-thread disposition read with no freshness check — falling back
+            # to disposition-current.json silently uses a STALE orientation that
+            # looks live. Surface staleness diagnostically; still use it (fail-soft).
+            _disp_tic = disp.get("tic")
+            if isinstance(_disp_tic, int) and _disp_tic < tic:
+                frags.append(_frag(zone_root, "harmony.staleness", "harmony/disposition-current",
+                    f"harmony disposition is STALE: tic-{_disp_tic} read at tic-{tic} (lag {tic - _disp_tic}) — L0 orientation lags the field",
+                    "COUNTER",
+                    "liveness canary — the disposition read fell back to a stale tic; treat orientation as lagging, re-invoke harmony if it gates a decision"))
             d = disp.get("disposition") or {}
             if d.get("stance"):
                 lens = "primary lens — calibrates your resolve directly" if primary else "primary lens projected onto your office — same cores, your centroid"
