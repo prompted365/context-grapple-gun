@@ -405,6 +405,224 @@ def compute_enrichment_confidence(enrichment_list):
 
 
 # ---------------------------------------------------------------------------
+# Deterministic-lite baseline classification (tic 409)
+# ---------------------------------------------------------------------------
+#
+# Why this exists: bench-packet-prep.py clusters pending CPRs by
+# enrichment_evidence.key_agreements.lesson_class, which is built ONLY from
+# audit-logs/governance/enrichment/<id>.consolidated.json. Those files were
+# authored by the heavy Tier-1 lens-A/lens-B swarm, which last ran ~tic 207.
+# Every CPR born since falls to bench-packet-prep's "uncovered" cluster, and
+# /review is then tempted to judge from ad hoc reasoning instead of the bench
+# packet — the exact failure the mandatory NAVIGATION review-intake lane was
+# meant to prevent.
+#
+# This produces a DETERMINISTIC-LITE consolidated.json: a live-by-construction
+# baseline classifier that emits the EXACT field bench-packet-prep consumes
+# (agreements[].axis == "lesson_class"). It is NOT a doctrine verdict and NOT
+# high-confidence — it is a baseline so the lane can sort candidates instead of
+# dumping them all in "uncovered". The heavy swarm remains the higher-fidelity
+# layer and is NEVER clobbered (see write_deterministic_lite_consolidated).
+# Invariant: /review cannot depend on a starved optional swarm for baseline
+# lane classification.
+
+# bench-packet-prep cluster buckets (the only lesson_class values that bucket
+# to a named cluster; anything else lands in "other").
+LESSON_CLASS_BUCKETS = ("doctrinal", "engineering", "capacity_demonstration", "paradigm_locked")
+
+# Lowercased substring signals scored per lesson_class bucket. Deterministic and
+# deliberately coarse — this is a baseline heuristic, surfaced at low/medium
+# confidence with an explicit rationale, never presented as a final verdict.
+_LESSON_CLASS_SIGNALS = {
+    "engineering": (
+        "gate", "classifier", "runtime", "script", "hook", "sync", "parser",
+        "scanner", "emitter", "pipeline", "queue", "envelope", "wiring",
+        "boundary", "enforcement", "write signal", "receipt", "override",
+        "precedence", "schema", "verifier", "writeback", "extractor", "router",
+        "harness", "dispatch",
+    ),
+    "doctrinal": (
+        "invariant", "doctrine", "principle", "constitutional", "telos",
+        "jurisdiction", "altitude", "pertinence", "authority", "legitimacy",
+        "promotion requires", "governance is",
+    ),
+    "capacity_demonstration": (
+        "proven", "demonstrated", "first live", "validated at", "n=",
+        "capability", "live fire", "first fire",
+    ),
+    "paradigm_locked": (
+        "paradigm", "worldview", "reframe", "lattice", "substrate orientation",
+        "category error",
+    ),
+}
+
+# Scanner evidence_type -> proof_type axis value (the Architect's proof_type
+# axis: source_stable | cross_reference | live_runtime | sync_parity |
+# evidence_repair). Derived from real gathered evidence, so proof_type is the
+# best-grounded of the three axes (medium confidence when evidence exists).
+_PROOF_TYPE_MAP = {
+    "source_stable": "source_stable",
+    "cross_reference": "cross_reference",
+    "commits_since_birth": "live_runtime",
+    "test_files_modified": "live_runtime",
+    "test_files_exist": "source_stable",
+    "signal_correlation": "live_runtime",
+}
+
+
+def _classify_lesson_class(text):
+    """Keyword-scored lesson_class. Returns (bucket, confidence, rationale)."""
+    t = text.lower()
+    scores = {
+        bucket: sum(1 for s in signals if s in t)
+        for bucket, signals in _LESSON_CLASS_SIGNALS.items()
+    }
+    best = max(scores, key=scores.get)
+    top = scores[best]
+    if top == 0:
+        return "other", "low", "deterministic heuristic: no lesson_class signals matched"
+    ordered = sorted(scores.values(), reverse=True)
+    runner_up = ordered[1] if len(ordered) > 1 else 0
+    confidence = "medium" if (top >= 2 and (top - runner_up) >= 2) else "low"
+    return best, confidence, f"deterministic keyword heuristic: {best} signal_count={top}, margin={top - runner_up}"
+
+
+def _classify_target_surface(cpr, lesson_class, is_shell):
+    """Heuristic promotion-target surface. Returns (value, rationale)."""
+    if is_shell:
+        return "queue-repair", "deterministic heuristic: content-less shell -> evidence-repair lane"
+    text = ((cpr.get("lesson") or "") + " " + (cpr.get("source") or "")).lower()
+    if any(s in text for s in ("federation", "constitutional", "cross-estate", "cross estate")):
+        return "constitution-ledger", "deterministic heuristic: federation/constitutional language"
+    if "backlog" in text and lesson_class == "other":
+        return "backlog", "deterministic heuristic: backlog/work-tracking language"
+    if lesson_class in ("engineering", "doctrinal"):
+        return "cgg-ledger", "deterministic heuristic: CGG-domain doctrine lesson -> cgg-ledger"
+    return "cgg-ledger", "deterministic heuristic: default doctrine surface"
+
+
+def _classify_proof_type(all_evidence, is_shell):
+    """Derive proof_type set from gathered evidence. Returns (value, set, conf, rationale)."""
+    if is_shell or not all_evidence:
+        return "evidence_repair", ["evidence_repair"], "low", "no evidence gathered (content-less shell or unscanned)"
+    types = []
+    for ev in all_evidence:
+        pt = _PROOF_TYPE_MAP.get(ev.get("evidence_type"))
+        if pt and pt not in types:
+            types.append(pt)
+    if not types:
+        return "evidence_repair", ["evidence_repair"], "low", "no proof-bearing evidence types gathered"
+    return "+".join(types), types, "medium", f"derived from gathered evidence: {', '.join(types)}"
+
+
+def derive_baseline_classification(cpr, all_evidence, tic):
+    """Build the deterministic-lite consolidated.json dict for one holding CPR.
+
+    Produces the schema bench-packet-prep.load_enrichment_artifacts() parses
+    (record_id + agreements[{axis,value}]), with extra audit fields (confidence,
+    rationale) the loader preserves but ignores. lesson_class is the ONLY axis
+    the clusterer consumes; target_surface/proof_type are reviewer decision
+    support carried in the file.
+    """
+    source = cpr.get("source") or ""
+    lesson = cpr.get("lesson") or ""
+    is_shell = not source and not lesson  # content-less shell (e.g. model-floor)
+
+    if is_shell:
+        lesson_class, lc_conf, lc_rat = (
+            "other", "low",
+            "deterministic heuristic: content-less shell (no source/lesson) -> unclassifiable, evidence-repair",
+        )
+    else:
+        lesson_class, lc_conf, lc_rat = _classify_lesson_class(lesson + " " + source)
+
+    target_surface, ts_rat = _classify_target_surface(cpr, lesson_class, is_shell)
+    proof_value, proof_set, pf_conf, pf_rat = _classify_proof_type(all_evidence, is_shell)
+
+    agreements = [
+        {"axis": "lesson_class", "value": lesson_class, "confidence": lc_conf, "rationale": lc_rat},
+        {"axis": "target_surface", "value": target_surface, "confidence": "low", "rationale": ts_rat},
+        {"axis": "proof_type", "value": proof_value, "proof_types": proof_set,
+         "confidence": pf_conf, "rationale": pf_rat},
+    ]
+    return {
+        "record_id": cpr.get("id"),
+        "tier": "deterministic-lite",
+        "consolidated_by": "cpr-enrichment-scanner",
+        "consolidated_at_tic": tic,
+        "baseline_classification": True,
+        "not_a_verdict": (
+            "Deterministic baseline lane classification, NOT a /review doctrine "
+            "verdict. Heavy Tier-1 enrichment may layer on later at higher fidelity."
+        ),
+        "agreements_count": len(agreements),
+        "divergences_count": 0,
+        "lens_a_path": "",
+        "lens_b_path": "",
+        "agreements": agreements,
+    }
+
+
+def write_deterministic_lite_consolidated(cpr_id, consolidated, enrichment_dir, dry_run=False):
+    """Write <cpr_id>.consolidated.json, NEVER clobbering heavy (non-lite) output.
+
+    Returns: 'written' | 'refreshed' | 'unchanged' | 'skipped_heavy' | 'dry_run'.
+    """
+    out = Path(enrichment_dir) / f"{cpr_id}.consolidated.json"
+    if out.exists():
+        try:
+            existing = json.loads(out.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            existing = {}
+        if existing.get("tier") != "deterministic-lite":
+            # Heavy Tier-1 (or any non-lite) output present — higher fidelity.
+            # Never downgrade it to a baseline; the swarm layer wins.
+            return "skipped_heavy"
+        # Our own prior baseline — refresh only when classification changed
+        # (ignore consolidated_at_tic so a no-op rebuild does not churn the file).
+        comparable_new = {k: v for k, v in consolidated.items() if k != "consolidated_at_tic"}
+        comparable_old = {k: v for k, v in existing.items() if k != "consolidated_at_tic"}
+        if comparable_new == comparable_old:
+            return "unchanged"
+        status = "refreshed"
+    else:
+        status = "written"
+
+    if dry_run:
+        return "dry_run"
+
+    enrichment_dir_p = Path(enrichment_dir)
+    enrichment_dir_p.mkdir(parents=True, exist_ok=True)
+    tmp = out.with_suffix(".json.tmp")
+    tmp.write_text(json.dumps(consolidated, indent=2) + "\n", encoding="utf-8")
+    os.replace(tmp, out)
+    return status
+
+
+def resolve_current_tic(al_path):
+    """Count counted tic events to resolve current tic (mirrors cadence-ops)."""
+    tic_dir = Path(al_path) / "tics"
+    if not tic_dir.is_dir():
+        return -1
+    total = 0
+    for f in sorted(tic_dir.glob("*.jsonl")):
+        try:
+            for line in f.read_text(encoding="utf-8").splitlines():
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    o = json.loads(line)
+                except json.JSONDecodeError:
+                    continue
+                if o.get("type") == "tic" and o.get("count_mode", "counted") == "counted":
+                    total += 1
+        except OSError:
+            return -1
+    return total
+
+
+# ---------------------------------------------------------------------------
 # Main pipeline
 # ---------------------------------------------------------------------------
 
@@ -417,6 +635,7 @@ def scan_and_enrich(project_dir, dry_run=False, quiet=False):
 
     queue_path = os.path.join(al_path, "cprs", "queue.jsonl")
     signal_dir = Path(al_path) / "signals"
+    enrichment_dir = Path(al_path) / "governance" / "enrichment"
 
     queue = load_queue(queue_path)
     holding = get_holding_cprs(queue)
@@ -427,9 +646,11 @@ def scan_and_enrich(project_dir, dry_run=False, quiet=False):
         return 0
 
     now = datetime.now(timezone.utc).isoformat()
+    current_tic = resolve_current_tic(al_path)
     topo = birth_topology(project_dir)
     updated_count = 0
     entries_to_append = []
+    consolidated_counts = {}
 
     for cpr_id, cpr in holding.items():
         all_evidence = []
@@ -440,6 +661,26 @@ def scan_and_enrich(project_dir, dry_run=False, quiet=False):
         all_evidence.extend(gather_cross_references(cpr, project_dir))
         all_evidence.extend(gather_recurrence_count(cpr, queue))
         all_evidence.extend(gather_target_absence(cpr, project_dir))
+
+        # Deterministic-lite baseline classification (tic 409). Produce the
+        # consolidated.json field bench-packet-prep consumes so this candidate
+        # leaves the "uncovered" cluster — live-by-construction, never clobbers
+        # heavy Tier-1 output. Runs for EVERY holding CPR (including content-less
+        # shells), independent of the enrichment[] dedup-continue branches below.
+        # Fail-soft: a classification error must never block evidence enrichment.
+        try:
+            classification = derive_baseline_classification(cpr, all_evidence, current_tic)
+            cstatus = write_deterministic_lite_consolidated(
+                cpr_id, classification, enrichment_dir, dry_run=dry_run
+            )
+            consolidated_counts[cstatus] = consolidated_counts.get(cstatus, 0) + 1
+            if not quiet and cstatus in ("written", "refreshed", "dry_run"):
+                lc = classification["agreements"][0]["value"]
+                print(f"  {cpr_id}: baseline consolidated {cstatus} (lesson_class={lc})")
+        except Exception as err:  # noqa: BLE001 — fail-soft
+            consolidated_counts["error"] = consolidated_counts.get("error", 0) + 1
+            if not quiet:
+                print(f"  {cpr_id}: baseline consolidated FAILED ({err})")
 
         if not all_evidence:
             # Record scan metadata even with zero evidence — the prior silent
@@ -549,6 +790,9 @@ def scan_and_enrich(project_dir, dry_run=False, quiet=False):
                 fcntl.flock(lf.fileno(), fcntl.LOCK_UN)
 
     if not quiet:
+        if consolidated_counts:
+            summary = ", ".join(f"{k}={v}" for k, v in sorted(consolidated_counts.items()))
+            print(f"  baseline consolidated: {summary}")
         print(f"{updated_count}")
 
     return updated_count

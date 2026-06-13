@@ -685,7 +685,7 @@ def main():
     if args.verbose:
         for e in new_entries:
             origin = e.get("id_origin", "?")
-            print(f"  {e['id']} [{origin}]: {e['lesson'][:60]}...")
+            print(f"  {e['id']} [{origin}]: {e['lesson']}")
         print(f"  counters: {json.dumps(counters)}", file=sys.stderr)
 
     # Print count (consumed by hook wrapper)

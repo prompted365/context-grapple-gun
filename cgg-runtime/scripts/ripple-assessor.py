@@ -548,7 +548,7 @@ def compile_proposals(evaluate_data, classified, triads, tic_counter,
         for cpr in gated:
             lesson = cpr.get("lesson", "unknown")
             birth = cpr.get("birth_tic", 0)
-            L.append(f"- **{lesson[:80]}**")
+            L.append(f"- **{lesson}**")
             L.append(f"  - Source: {cpr.get('source', 'unknown')}")
             L.append(f"  - Birth tic: {birth} | Current tic: {current_tic} | Required delta: {cpr.get('maturity_tics', DEFAULT_MATURITY_TICS)}")
             L.append(f"  - Reason: {cpr.get('_gate_reason', '')}")
@@ -563,7 +563,7 @@ def compile_proposals(evaluate_data, classified, triads, tic_counter,
         for cpr in enriching:
             lesson = cpr.get("lesson", "unknown")
             state = cpr.get("_gate_state", "")
-            L.append(f"- **{lesson[:80]}**")
+            L.append(f"- **{lesson}**")
             L.append(f"  - Source: {cpr.get('source', 'unknown')}")
             L.append(f"  - State: {state}")
             L.append(f"  - Reason: {cpr.get('_gate_reason', '')}")
