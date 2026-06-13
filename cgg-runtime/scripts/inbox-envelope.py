@@ -942,10 +942,18 @@ def emit_attention_debt_signals(zone_root: str, entity_id: str,
                                 stale_items: list, current_tic: int) -> list:
     """Emit attention-debt signals to audit-logs/signals/ for stale inbox items.
 
-    Each stale item becomes one signal entry in YYYY-MM-DD.jsonl.
-    Idempotent: signal IDs are deterministic (entity + message_id + state).
-    Dedup: skips emission if a signal with the same ID already exists in today's file.
-    Returns list of emitted signal dicts.
+    AGGREGATE PER ENTITY (tic 403): ONE attention-debt signal per entity, not one
+    per stale message. The debt stays visible (anti-silencing — a stale WAIT must
+    not go silent; cf. ledger#obligation-lifecycle-must-be-bounded-at-both-ends),
+    but as a SINGLE rollup ray carrying the full stale-message list in its payload,
+    instead of N separate manifold rays. Granular per-message emission (pre-tic-403)
+    flooded the manifold with up to 159 active rays for one backlog — emission
+    GRANULARITY was the leak, never the debt itself. The signal id is deterministic
+    and condition-stable on the ENTITY (the condition is "entity X carries inbox
+    attention-debt"), so dedup-at-write collapses naturally and the daily re-surface
+    is one ray per entity, not one per message.
+    Dedup: skips emission if the entity's aggregate signal already exists in today's file.
+    Returns list of emitted signal dicts (0 or 1 per call).
 
     Wire-cut gate (Wire-Cut Scoping by Capability Class): honors the `signals`
     capability scope. If ~/.claude/.wire-cut-signals or ~/.claude/.wire-cut-all
@@ -988,45 +996,60 @@ def emit_attention_debt_signals(zone_root: str, entity_id: str,
         except OSError:
             pass
 
+    # Aggregate: one rollup signal per entity. The condition is "entity X carries
+    # inbox attention-debt", so the id is keyed on the entity, not each message.
+    count = len(stale_items)
+    oldest = max(stale_items, key=lambda it: it.get("tics_in_state", 0))
+    state_breakdown: dict = {}
+    for it in stale_items:
+        state_breakdown[it["state"]] = state_breakdown.get(it["state"], 0) + 1
+
+    signal_id = f"sig_inbox_attention_debt_{entity_id}"
     emitted = []
-    for item in stale_items:
-        msg_id = item["message_id"]
-        state = item["state"]
-        signal_id = f"sig_inbox_{entity_id}_{msg_id}_{state.lower()}"
+    # Skip if the entity's aggregate already emitted today (one rollup/entity/day).
+    if signal_id in existing_ids:
+        return emitted
 
-        # Skip if already emitted today
-        if signal_id in existing_ids:
-            continue
+    # Volume scales with debt magnitude (more stale messages = louder), floored at
+    # the worst item's tier and capped so a large backlog cannot dominate the manifold.
+    base_vol = oldest.get("volume", 30)
+    vol = min(90, base_vol + min(count - 1, 15) * 4)
 
-        signal = {
-            "id": signal_id,
-            "type": "signal",
-            "status": "active",
-            "band": item.get("signal_band", "COGNITIVE"),
-            "volume": item.get("volume", 40),
-            "source": "inbox_attention_debt",
-            "target_entity": entity_id,
-            "tic": current_tic,
-            "payload": {
-                "inbox_entity": entity_id,
-                "message_id": msg_id,
-                "current_state": state,
-                "stale_since_tic": item.get("stale_since_tic"),
-                "tics_in_state": item.get("tics_in_state"),
-                "subject": item.get("subject", ""),
-                "signal_kind": item.get("signal_kind", "TENSION"),
-            },
-            "reason": item.get("reason", ""),
-            "created_at": now,
-        }
-        try:
-            from lib.atomic_append import atomic_append_jsonl
-            atomic_append_jsonl(signal_file, signal)
-        except ImportError:
-            with open(signal_file, "a", encoding="utf-8") as f:
-                f.write(json.dumps(signal, separators=(",", ":")) + "\n")
-        existing_ids.add(signal_id)
-        emitted.append(signal)
+    signal = {
+        "id": signal_id,
+        "type": "signal",
+        "status": "active",
+        "band": "COGNITIVE",
+        "volume": vol,
+        "source": "inbox_attention_debt",
+        "target_entity": entity_id,
+        "tic": current_tic,
+        "payload": {
+            "inbox_entity": entity_id,
+            "stale_count": count,
+            "states": state_breakdown,
+            "oldest_message_id": oldest.get("message_id"),
+            "oldest_state": oldest.get("state"),
+            "oldest_tics_in_state": oldest.get("tics_in_state"),
+            "oldest_stale_since_tic": oldest.get("stale_since_tic"),
+            # Full list in payload so the debt is auditable per-message without N rays;
+            # capped to keep the record bounded, with a truncation flag for the rest.
+            "message_ids": [it.get("message_id") for it in stale_items[:50]],
+            "message_ids_truncated": count > 50,
+            "signal_kind": "TENSION",
+        },
+        "reason": (f"{count} message(s) stale in inbox "
+                   f"(oldest {oldest.get('tics_in_state')} tics in {oldest.get('state')})"),
+        "created_at": now,
+    }
+    try:
+        from lib.atomic_append import atomic_append_jsonl
+        atomic_append_jsonl(signal_file, signal)
+    except ImportError:
+        with open(signal_file, "a", encoding="utf-8") as f:
+            f.write(json.dumps(signal, separators=(",", ":")) + "\n")
+    existing_ids.add(signal_id)
+    emitted.append(signal)
 
     return emitted
 
