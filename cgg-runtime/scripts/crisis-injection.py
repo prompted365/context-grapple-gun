@@ -22,59 +22,114 @@ from collections import Counter
 from datetime import date
 
 
-def check_signal_storm(signal_dir: str, current_tic: int) -> str | None:
-    """Check for active signal storm using latest-entry-per-ID semantics.
+def _active_manifest_count(signal_dir: str) -> int | None:
+    """Authoritative ACTIVE-state count from active-manifest.jsonl.
 
-    JSONL signal files use append-only updates — the same ID may appear
-    multiple times with different statuses. Only the latest entry per ID
-    represents current state. We check:
-      1. >10 active (non-terminal) signals after dedup
-      2. >50 raw rows for a single ID (emission runaway indicator)
+    The manifest is the curated, post-prune truth (latest-entry-per-id,
+    statuses in {active, acknowledged, working}) — NOT the raw daily emission
+    log. Reading raw daily files as if they were active-state is the exact
+    failure mode the federation KI 'Authoritative-set readers must read the
+    manifest, not aggregate raw emissions' (tic 111) + cgg-ledger
+    'Authoritative Count Discipline' guard against. SIREN already reads the
+    manifest; this check must too, or the same substrate yields two counters
+    that disagree (Disagreement-as-evidence, tic 148).
+
+    Returns the active count, or None if no manifest exists (in which case the
+    caller must NOT fall back to raw-emission counting — raw is not authoritative).
     """
-    today = date.today().isoformat()
-    signal_file = os.path.join(signal_dir, f"{today}.jsonl")
-    if not os.path.isfile(signal_file):
+    manifest = os.path.join(signal_dir, "active-manifest.jsonl")
+    if not os.path.isfile(manifest):
         return None
-
-    # Latest-entry-per-ID (JSONL update model)
+    active_states = {"active", "acknowledged", "working"}
     latest = {}
-    row_counts_current_tic = Counter()
-    with open(signal_file) as f:
+    with open(manifest) as f:
         for line in f:
             try:
                 d = json.loads(line)
-                sid = d.get("id", "")
-                if sid:
-                    latest[sid] = d
-                    # Only count rows from current tic for explosion detection
-                    row_tic = d.get("tic", 0)
-                    if row_tic == current_tic:
-                        row_counts_current_tic[sid] += 1
-            except (json.JSONDecodeError, KeyError):
+            except (json.JSONDecodeError, ValueError):
+                continue
+            sid = d.get("id", "")
+            if sid:
+                latest[sid] = d
+    return sum(1 for d in latest.values() if d.get("status") in active_states)
+
+
+def _raw_emissions_today(signal_dir: str) -> int:
+    """Raw emission VOLUME in today's daily file (signal rows). This is emission
+    telemetry, NEVER active-state — labeled explicitly so it can never be mistaken
+    for the authoritative count again."""
+    today = date.today().isoformat()
+    signal_file = os.path.join(signal_dir, f"{today}.jsonl")
+    if not os.path.isfile(signal_file):
+        return 0
+    n = 0
+    with open(signal_file) as f:
+        for line in f:
+            try:
+                if json.loads(line).get("type") == "signal":
+                    n += 1
+            except (json.JSONDecodeError, ValueError):
                 pass
+    return n
 
-    # Check 1: Raw row explosion at current tic (>50 rows for single ID)
-    explosions = {k: v for k, v in row_counts_current_tic.items() if v > 50}
-    if explosions:
-        worst = max(explosions, key=explosions.get)
-        return (
-            f"[CRISIS SIGNAL: signal ID '{worst}' has {explosions[worst]} raw "
-            f"rows in today's file (threshold: 50). Emission runaway detected. "
-            f"Wire cutter available: touch ~/.claude/.wire-cut-signals to halt "
-            f"signal emission while you investigate. Check: (1) inbox-registry.json "
-            f"for phantom stale entries, (2) installed vs source inbox-envelope.py "
-            f"for dedup guard, (3) signal file for duplicate IDs. Do not assume "
-            f"which is needed — diagnose first.]"
-        )
 
-    # Check 2: Active signal count (non-terminal after dedup)
-    terminal = {"resolved", "dismissed", "superseded"}
-    active = [s for s in latest.values()
-              if s.get("type") == "signal" and s.get("status") not in terminal]
-    if len(active) > 10:
+def check_signal_storm(signal_dir: str, current_tic: int) -> str | None:
+    """Check for active signal storm.
+
+    Two structurally distinct checks, each reading the CORRECT surface:
+      1. Raw per-ID row explosion at the current tic (>50 rows for one ID) — this
+         is a genuine emission-runaway indicator and is read from the raw daily
+         file BY DESIGN; it is explicitly labeled as raw-row volume.
+      2. Authoritative ACTIVE-signal count (>10) — read from active-manifest.jsonl
+         (the curated truth), NOT from raw daily emissions. The raw daily volume is
+         attached only as a separately-labeled telemetry field, never as the
+         threshold input. (Fix tic 406 — bk-boot-crisis-check-manifest-parity:
+         the old Check 2 counted raw daily rows and cried "20 active / runaway"
+         while the manifest held 4.)
+    """
+    today = date.today().isoformat()
+    signal_file = os.path.join(signal_dir, f"{today}.jsonl")
+
+    # Check 1: Raw per-ID row explosion at current tic (>50 rows for single ID).
+    # Read from the daily file by design — this IS raw-emission-volume detection.
+    if os.path.isfile(signal_file):
+        row_counts_current_tic = Counter()
+        with open(signal_file) as f:
+            for line in f:
+                try:
+                    d = json.loads(line)
+                    sid = d.get("id", "")
+                    if sid and d.get("tic", 0) == current_tic:
+                        row_counts_current_tic[sid] += 1
+                except (json.JSONDecodeError, KeyError):
+                    pass
+        explosions = {k: v for k, v in row_counts_current_tic.items() if v > 50}
+        if explosions:
+            worst = max(explosions, key=explosions.get)
+            return (
+                f"[CRISIS SIGNAL: signal ID '{worst}' has {explosions[worst]} raw "
+                f"rows in today's file (threshold: 50). Emission runaway detected. "
+                f"Wire cutter available: touch ~/.claude/.wire-cut-signals to halt "
+                f"signal emission while you investigate. Check: (1) inbox-registry.json "
+                f"for phantom stale entries, (2) installed vs source inbox-envelope.py "
+                f"for dedup guard, (3) signal file for duplicate IDs. Do not assume "
+                f"which is needed — diagnose first.]"
+            )
+
+    # Check 2: Authoritative ACTIVE-signal count — from the MANIFEST, not raw daily.
+    active_count = _active_manifest_count(signal_dir)
+    if active_count is None:
+        # No manifest => cannot assert active-state truth. Do NOT fall back to raw
+        # daily counting (that reintroduces the false-alarm bug). The raw-row
+        # explosion check above still guards genuine emission runaway.
+        return None
+    if active_count > 10:
+        raw_today = _raw_emissions_today(signal_dir)
         return (
-            f"[CRISIS SIGNAL: {len(active)} active signals in today's file "
-            f"(threshold: 10). Possible emission runaway or unresolved storm. "
+            f"[CRISIS SIGNAL: {active_count} active signals "
+            f"(authoritative active-manifest.jsonl, threshold: 10). "
+            f"Possible unresolved storm. ({raw_today} raw emissions in today's "
+            f"daily file — emission VOLUME, not active state; do not conflate.) "
             f"Wire cutter available: touch ~/.claude/.wire-cut-signals to halt "
             f"signal emission while you investigate.]"
         )

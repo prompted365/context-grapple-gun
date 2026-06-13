@@ -827,6 +827,10 @@ fi
 
 FULL_MSG=""
 # Worldview leads — the civic orientation prepends the handoff (Architect, tic 332).
+# The BOOT READ INVARIANT (pseudo_temperature, tic 406) rides INSIDE the worldview as
+# its leading SUBSTRATE fragment (office-worldview.py) — universal across both boot
+# seams + every entity-state — NOT a session-restore-only prepend (that was the wrong
+# lane; the worldview is the single source, rendered here and in subagent-citizen-boot).
 [ -n "$WORLDVIEW_MSG" ] && FULL_MSG="$WORLDVIEW_MSG"
 [ -n "$CGG_MSG" ] && FULL_MSG="${FULL_MSG:+$FULL_MSG }$CGG_MSG"
 [ -n "$SIREN_MSG" ] && FULL_MSG="${FULL_MSG:+$FULL_MSG }$SIREN_MSG"

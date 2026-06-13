@@ -57,6 +57,31 @@ from pathlib import Path
 
 DEFAULT_MAX_CHARS = 3000
 
+# BOOT READ INVARIANT (Architect, tic 406) — the pseudo_temperature gravity line.
+# Rides as the LEADING SUBSTRATE fragment of every worldview (both boot seams, every
+# entity-state) so a clipped/preview-limited boot packet self-reports as must-expand
+# BEFORE any mutation. Tool-agnostic ("expand/read the full packet", not "preview
+# expand"). It is SUBSTRATE — a load-bearing invariant beneath the office that shapes
+# whether you may act (perception debt ≠ authority), not a new action it grants. The
+# receipt fields are named in-line; the enforcement-half (sink + hard gate)
+# mechanization is tracked by bk-boot-full-injection-read-invariant.
+BOOT_READ_INVARIANT_TEXT = (
+    "[BOOT READ INVARIANT · PSEUDO_TEMPERATURE 0.01] DO NOT ACT FROM A CLIPPED PREVIEW. "
+    "If this packet is clipped / truncated / summarized / preview-limited, expand and read it "
+    "IN FULL — sequential, gapless, no skipped middle sections — before acting; the visible "
+    "head is NOT the packet. A packet not read in full is perception debt, and perception debt "
+    "cannot authorize governance mutation. Before ANY mutation (doctrine/ledger inscription, "
+    "/review close, mandate close, backlog state movement, boot/crisis interpretation) record the "
+    "boot receipt: full_boot_injection_read · boot_read_mode · chunking=gapless · omitted_ranges · "
+    "clipped_preview_detected. If a full read is impossible, STOP at read-only inspection and "
+    "surface the limitation — never mutate from a clipped packet."
+)
+BOOT_READ_INVARIANT_REASON = (
+    "the boot-read precondition — universal, not locally editable; gates ALL mutation until the "
+    "packet is read in full (perception debt is not authority). Reading-in-full precedes even "
+    "classifying your own standing."
+)
+
 # The 3 normative directives (pertinence class table + authority + citation) now
 # live in the shared Injection Fabric contract (lib/fragment_contract.py, tic 367)
 # so the routed model (this file) and the registry/migration model (dsn_fragment.py)
@@ -242,6 +267,7 @@ STANDING_POLICY = {
 _DEFAULT_POLICY = dict(cap="FIELD", planes={"L3"}, boundary="standing unresolved — minimal hydration; you are NOT authorized to act; route upward")
 
 _PLANE_BY_PREFIX = (
+    ("boot.", "L0"),  # boot-read invariant — universal precondition (kept for all standings)
     ("harmony.", "L0"),
     ("lane.", "L1"), ("ki.", "L1"),
     ("office.", "L2"),
@@ -279,13 +305,22 @@ def _apply_standing_policy(zone_root: Path, frags: list, standing: str) -> list:
         return frags  # citizen — full worldview unchanged
     cap_ceiling = AUTHORITY_DEFAULTS.get(pol["cap"]) if pol["cap"] else None
     kept = []
-    # APOPHATIC boundary FIRST — "what you are NOT" is a citable constraint, not a drift
+    # BOOT READ INVARIANT FIRST — universal precondition, ABOVE plane-filtering, capping,
+    # and even the standing boundary: reading-in-full precedes classifying your own standing.
+    # Never dropped, never capped (it is a constraint binding everyone equally, not a granted
+    # privilege). (tic 406)
+    inv = next((f for f in frags if f["id"] == "boot.read_invariant"), None)
+    if inv:
+        kept.append(inv)
+    # APOPHATIC boundary NEXT — "what you are NOT" is a citable constraint, not a drift
     if pol["boundary"]:
         kept.append(_frag(zone_root, "standing.boundary", "entity-ontology.md (standing policy)",
             pol["boundary"], "APOPHATIC",
             "your standing boundary — a definitional negation that prevents misclassification; "
             "cite it as a constraint, do not act past it"))
     for f in frags:
+        if f["id"] == "boot.read_invariant":
+            continue  # already placed first, uncapped
         if _fragment_plane(f["id"]) not in pol["planes"]:
             continue  # plane not hydrated for this standing
         if cap_ceiling is not None:
@@ -325,6 +360,13 @@ def compile_fragments(zone_root: Path, office: str, tic: int) -> list:
     frags = []
     base = _office_baseline(zone_root, office, tic)
     primary = _is_primary_office(zone_root, office)
+
+    # --- BOOT READ INVARIANT (tic 406): the leading SUBSTRATE line — pseudo_temperature
+    # gravity. Emitted FIRST so it heads the SUBSTRATE group (render order) and survives
+    # tail truncation; made universal across standings in _apply_standing_policy. ---
+    frags.append(_frag(zone_root, "boot.read_invariant", "cgg-runtime/scripts/office-worldview.py",
+        BOOT_READ_INVARIANT_TEXT, "SUBSTRATE", BOOT_READ_INVARIANT_REASON,
+        receipt=False, boost="boot-read precondition — gates all mutation; read-in-full first"))
 
     # --- L0 HARMONY (the framer; orientation only, non-citable by her own contract) ---
     try:
