@@ -76,13 +76,38 @@ def receipt_id(entity: str, tic: int, fp: str) -> str:
     return hashlib.sha256(f"{entity}:{tic}:{fp}".encode("utf-8")).hexdigest()[:16]
 
 
-# The four semantic fields a complete boot receipt owes (the verification surface).
+# The four semantic fields a complete CIVIC boot receipt owes (the verification surface).
 _OWED_FIELDS = ("understood_scope", "accepted_constraints", "abstentions",
                 "first_action_or_escalation")
 
+# The BOOT-READ fields (tic 406, bk-boot-full-injection-read-invariant): the mutation-gate
+# owed surface. The civic fields above close the boot LOOP; these close the boot-READ
+# precondition that gates governance mutation (perception debt cannot authorize mutation).
+# The pass-state the NARROW + FAIL-CLOSED gate requires:
+#   full_boot_injection_read == True  AND  boot_read_mode == "full"
+#   AND chunking == "gapless"         AND  omitted_ranges == []
+# clipped_preview_detected is recorded for audit but does NOT block (a clip that was then
+# expanded-and-read-in-full is a PASS — the point is reading in full, not never-clipped).
+_BOOT_READ_FIELDS = ("full_boot_injection_read", "boot_read_mode", "chunking",
+                     "omitted_ranges", "clipped_preview_detected")
+
+
+def boot_read_passes(rec: dict) -> tuple:
+    """(passes: bool, reason: str) for the boot-read mutation-gate pass-state."""
+    if rec.get("full_boot_injection_read") is not True:
+        return False, "full_boot_injection_read is not true"
+    if rec.get("boot_read_mode") != "full":
+        return False, f"boot_read_mode={rec.get('boot_read_mode')!r} (need 'full'; 'preview_only'/'not_available' block)"
+    if rec.get("chunking") != "gapless":
+        return False, f"chunking={rec.get('chunking')!r} (need 'gapless')"
+    om = rec.get("omitted_ranges")
+    if om:  # non-empty list (or truthy) = sections were skipped
+        return False, f"omitted_ranges non-empty ({om})"
+    return True, "boot-read receipt complete (full · gapless · no omissions)"
+
 
 def receipt_missing(rec: dict) -> list:
-    """Verify the receipt carries all four owed fields non-empty. Returns the list
+    """Verify the receipt carries all four owed CIVIC fields non-empty. Returns the list
     of missing/empty fields (empty list == complete). The verification half of the
     handshake — a receipt that proves uptake must actually carry the proof."""
     miss = []
@@ -91,6 +116,59 @@ def receipt_missing(rec: dict) -> list:
         if not v or (isinstance(v, (list, str)) and len(v) == 0):
             miss.append(k)
     return miss
+
+
+def _read_records(path: Path) -> list:
+    """All receipt records (raw, in file order). Fail-soft to []."""
+    out = []
+    if not path.exists():
+        return out
+    try:
+        with path.open("r", encoding="utf-8") as fh:
+            for line in fh:
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    out.append(json.loads(line))
+                except json.JSONDecodeError:
+                    continue
+    except OSError:
+        pass
+    return out
+
+
+def gate_decision(root: Path, entity: str, tic: int, path: str = None) -> dict:
+    """The boot-read mutation gate's CORE decision (one source; the hook is a thin shell).
+
+    NARROW + FAIL-CLOSED: allow a governed mutation iff EITHER
+      (1) a valid boot-read receipt exists for (entity, tic) (boot_read_passes), OR
+      (2) a non-expired OVERRIDE receipt covers this (tic[, path]).
+    Else BLOCK. (This function only DECIDES; it never blocks the caller — the hook maps
+    a non-allow decision to PreToolUse exit 2. Note: 'no receipt at all' => BLOCK, by
+    design — missing perception proof is perception debt.)"""
+    recs = [r for r in _read_records(sink_path(root)) if r.get("tic") == tic]
+    # (2) override path — explicit, audited, non-silent
+    for r in recs:
+        if r.get("override") is True and (r.get("entity_id") == entity or r.get("actor") == entity):
+            scope = r.get("override_scope")
+            tp = r.get("touched_path")
+            # scope 'tic' covers any path this tic; a path-scoped override must match the path tail
+            if scope in (None, "", "tic", "all") or not path or not tp or tp in path or path in tp:
+                return {"allow": True, "via": "override", "reason": r.get("reason", ""),
+                        "receipt_id": r.get("receipt_id")}
+    # (1) valid boot-read receipt
+    for r in recs:
+        if entity not in (r.get("entity_id"), r.get("actor")):
+            continue
+        ok, why = boot_read_passes(r)
+        if ok:
+            return {"allow": True, "via": "boot_read_receipt", "reason": why,
+                    "receipt_id": r.get("receipt_id")}
+    # fail-closed
+    near = next(((boot_read_passes(r)[1]) for r in recs
+                 if entity in (r.get("entity_id"), r.get("actor"))), "no receipt for this (entity,tic)")
+    return {"allow": False, "via": "none", "reason": near}
 
 
 def greeting(entity: str, tic: int, missing: list, deduped: bool = False) -> str:
@@ -148,6 +226,14 @@ def emit(args) -> int:
     rec["tic"] = args.tic
     rec.setdefault("booted_from", args.booted_from or "compiled_civic_orientation")
     rec.setdefault("model_of_record", args.model or os.environ.get("CGG_MODEL", "unknown"))
+    # Boot-read fields (tic 406): present iff the caller supplied them (a payload may also
+    # carry them). Recorded as-is; the gate evaluates them via boot_read_passes().
+    if getattr(args, "boot_read_mode", None) is not None:
+        rec["full_boot_injection_read"] = bool(args.full_boot_read)
+        rec["boot_read_mode"] = args.boot_read_mode
+        rec["chunking"] = args.chunking or ("gapless" if args.boot_read_mode == "full" else "n/a")
+        rec["omitted_ranges"] = list(args.omitted_range or [])
+        rec["clipped_preview_detected"] = bool(args.clipped_preview)
 
     fp = content_fingerprint(rec)
     rid = receipt_id(args.entity, args.tic, fp)
@@ -246,6 +332,53 @@ def compact(args) -> int:
     return 0
 
 
+def emit_override(args) -> int:
+    """Emit an OVERRIDE receipt — the explicit, audited, NON-SILENT escape from the
+    boot-read mutation gate (tic 406 spec). Carries actor/tic/reason/touched_path/
+    timestamp/override_scope. The gate honors it; the audit trail records WHY a clipped
+    or receipt-less boot was permitted to mutate. Never a silent bypass."""
+    root = zone_root()
+    path = sink_path(root)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    rec = {
+        "override": True,
+        "actor": args.actor,
+        "entity_id": args.actor,
+        "tic": args.tic,
+        "reason": args.reason,
+        "touched_path": args.touched_path or "",
+        "override_scope": args.override_scope or "tic",
+        "created_at": now_iso(),
+        "model_of_record": args.model or os.environ.get("CGG_MODEL", "unknown"),
+    }
+    rec["receipt_id"] = receipt_id(args.actor, args.tic,
+                                   hashlib.sha256(("override:" + (args.reason or "")).encode()).hexdigest())
+    lock = path.with_suffix(path.suffix + ".lock")
+    with lock.open("w") as lf:
+        fcntl.flock(lf, fcntl.LOCK_EX)
+        try:
+            if rec["receipt_id"] not in existing_ids(path):
+                with os.fdopen(os.open(path, os.O_WRONLY | os.O_CREAT | os.O_APPEND, 0o644), "a", encoding="utf-8") as fh:
+                    fh.write(json.dumps(rec, ensure_ascii=False, sort_keys=True) + "\n")
+        finally:
+            fcntl.flock(lf, fcntl.LOCK_UN)
+    sys.stderr.write(f"⚠️  OVERRIDE receipt recorded for {args.actor} @ tic {args.tic} "
+                     f"(scope={rec['override_scope']}): {args.reason}\n")
+    print(json.dumps({"status": "override_recorded", "receipt_id": rec["receipt_id"],
+                      "actor": args.actor, "tic": args.tic, "scope": rec["override_scope"]}))
+    return 0
+
+
+def gate_check(args) -> int:
+    """Boot-read mutation-gate decision for (entity, tic[, path]). Prints JSON.
+    Exit 0 = ALLOW, exit 3 = BLOCK (distinct from argparse's 2 so callers can tell a
+    block from a usage error)."""
+    root = zone_root()
+    d = gate_decision(root, args.entity, args.tic, args.path)
+    print(json.dumps(d))
+    return 0 if d.get("allow") else 3
+
+
 def main():
     ap = argparse.ArgumentParser(description="Citizen-Boot receipt sink (concurrency-safe, tic-mapped).")
     sub = ap.add_subparsers(dest="cmd", required=True)
@@ -261,7 +394,33 @@ def main():
     e.add_argument("--route")
     e.add_argument("--booted-from", dest="booted_from")
     e.add_argument("--model")
+    # boot-read fields (tic 406) — supply --boot-read-mode to activate the boot-read block
+    e.add_argument("--full-boot-read", dest="full_boot_read", action="store_true",
+                   help="record full_boot_injection_read=true")
+    e.add_argument("--boot-read-mode", choices=["full", "preview_only", "not_available"],
+                   help="boot_read_mode (presence activates the boot-read fields)")
+    e.add_argument("--chunking", choices=["gapless", "partial", "n/a"])
+    e.add_argument("--omitted-range", dest="omitted_range", action="append",
+                   help="a section omitted from the read (repeatable); none = full read")
+    e.add_argument("--clipped-preview", dest="clipped_preview", action="store_true",
+                   help="record clipped_preview_detected=true (informational; does not block)")
     e.set_defaults(func=emit)
+
+    o = sub.add_parser("override", help="emit an audited, non-silent boot-read gate override")
+    o.add_argument("--actor", required=True)
+    o.add_argument("--tic", type=int, required=True)
+    o.add_argument("--reason", required=True)
+    o.add_argument("--touched-path", dest="touched_path")
+    o.add_argument("--override-scope", dest="override_scope", default="tic",
+                   help="'tic' (any path this tic) | a path substring | 'all'")
+    o.add_argument("--model")
+    o.set_defaults(func=emit_override)
+
+    g = sub.add_parser("gate-check", help="boot-read mutation-gate decision (exit 0 allow / 3 block)")
+    g.add_argument("--entity", required=True)
+    g.add_argument("--tic", type=int, required=True)
+    g.add_argument("--path", help="the surface being mutated (for path-scoped overrides)")
+    g.set_defaults(func=gate_check)
 
     l = sub.add_parser("list", help="list receipts (optionally for a tic)")
     l.add_argument("--tic", type=int)
