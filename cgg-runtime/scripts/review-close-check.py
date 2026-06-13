@@ -177,6 +177,14 @@ _RELOCATION_ROOTS = ("audit-logs/governance/dehydration-pipeline-archive",)
 REASON_DEHYDRATION_RESOLVED = "dehydration_resolved"
 REASON_BEHAVIORAL = "behavioral_text_unverifiable"
 REASON_STALE_RELOCATED = "stale_relocated_pointer"
+# anchor_present_text_rephrased — a promoted_to names a heading anchor that EXISTS
+# at the resolved doctrine surface (explicit `<a id>`/`<a name>` tag, or a heading
+# whose GitHub-slug matches), but the verbatim-lesson-text match misses because the
+# lesson (and often the heading prose) was REPHRASED on promotion. The inscription
+# landed at the named anchor — content-match cannot see a rephrased refinement. The
+# anchor is the landed-proof; the rephrase is why literal-text search fails.
+# (bk-review-close-anchor-presence-check, /review 409 surfaced 2 such false positives.)
+REASON_ANCHOR_PRESENT = "anchor_present_text_rephrased"
 
 
 def _strip_scope_hint(s):
@@ -758,12 +766,78 @@ def check_orphans(queue, project_dir, inscribed_ids=None):
 # ---------------------------------------------------------------------------
 
 def _is_codeish_path(path):
-    """True if a resolved path is a code/behavioral surface — a source file or a
-    SKILL.md whose promotion lands as behavior, not quotable text."""
+    """True if a resolved path is a code/behavioral surface — a source file, a
+    SKILL.md, or an agent-definition spec (`agents/*.md`) whose promotion lands as
+    behavior, not quotable text.
+
+    An agent spec under an `agents/` directory is the same behavioral class as
+    SKILL.md: a promotion to it inscribes routing/behavior metadata (e.g. a
+    `landing_kind` field on cpr-stepper.md), not quotable doctrine prose — so a
+    content-matching verifier can never confirm it by literal-text search. Verified
+    instead via target existence + cpr_id git lineage (the behavioral axis).
+    (bk-review-close-anchor-presence-check case 2, /review 409.)
+    """
     base = os.path.basename(path)
     if base == "SKILL.md":
         return True
+    norm = path.replace("\\", "/")
+    if base.endswith(".md") and "/agents/" in norm:
+        return True
     return os.path.splitext(base)[1].lower() in _CODE_SUFFIXES
+
+
+def _extract_path_anchor(target_str):
+    """Return the heading-anchor component of a `.md` target (the text after '#'),
+    or None.
+
+    Only markdown heading anchors qualify — line-range suffixes (`:N-M`) and YAML
+    key-path anchors (`file.yaml#a.b.c`) are NOT heading anchors and return None.
+    The bare path must end in `.md` for the anchor-presence axis to apply.
+    """
+    bare = _strip_scope_hint(target_str).strip()
+    m = re.match(r"^([^#:\s]+\.md)#([^\s]+)$", bare, re.IGNORECASE)
+    if m:
+        return m.group(2)
+    return None
+
+
+def _slugify_heading(text):
+    """GitHub-style heading slug: lowercase, drop non-word/space/hyphen chars,
+    collapse whitespace to single hyphens. Used as the FALLBACK anchor-match when a
+    file carries no explicit `<a id>` tag."""
+    s = text.strip().lower()
+    s = re.sub(r"[^\w\s-]", "", s)
+    s = re.sub(r"\s+", "-", s)
+    return s.strip("-")
+
+
+def _anchor_present_in_markdown(path, anchor):
+    """True if `anchor` resolves to a real location in the markdown file at `path`.
+
+    Two signals, exact-first:
+      1. Explicit anchor tag — `<a id="ANCHOR">` / `<a name="ANCHOR">`. The doctrine
+         ledger emits these under each (rephrasable) heading, so this is the strong
+         exact match that survives heading-prose rephrasing.
+      2. Heading GitHub-slug — a `#…` heading whose slug equals ANCHOR (fallback for
+         markdown surfaces without explicit anchor tags).
+    """
+    content = read_file_safe(path)
+    if not content:
+        return False
+    target = anchor.strip()
+    # 1. explicit <a id="..."> / <a name="..."> tag (exact)
+    if re.search(
+        r'<a\s+(?:id|name)\s*=\s*["\']' + re.escape(target) + r'["\']',
+        content, re.IGNORECASE,
+    ):
+        return True
+    # 2. heading slug fallback
+    tl = target.lower()
+    for line in content.splitlines():
+        m = re.match(r"^#{1,6}\s+(.*)$", line)
+        if m and _slugify_heading(m.group(1)) == tl:
+            return True
+    return False
 
 
 def _resolve_target_path(target_str, project_dir, project_basename=None):
@@ -904,6 +978,7 @@ def classify_known_reason(cpr_id, cpr, project_dir, project_basename=None,
 
     relocated = None
     behavioral = None
+    anchor_present = None
     for t in targets:
         existing = _resolve_target_path(t, project_dir, project_basename)
         if existing is None:
@@ -913,6 +988,10 @@ def classify_known_reason(cpr_id, cpr, project_dir, project_basename=None,
                     relocated = (t, hit)
         elif behavioral is None and _is_codeish_path(existing):
             behavioral = (t, existing)
+        elif anchor_present is None:
+            anchor = _extract_path_anchor(t)
+            if anchor and _anchor_present_in_markdown(existing, anchor):
+                anchor_present = (t, existing, anchor)
 
     if relocated is not None:
         orig, corrected = relocated
@@ -938,9 +1017,26 @@ def classify_known_reason(cpr_id, cpr, project_dir, project_basename=None,
                     "via target existence + cpr_id git lineage (pickaxe -S)",
         }
 
+    if anchor_present is not None:
+        orig, resolved, anchor = anchor_present
+        try:
+            resolved_rel = os.path.relpath(resolved, project_dir)
+        except ValueError:
+            resolved_rel = resolved
+        return REASON_ANCHOR_PRESENT, {
+            "anchored_target": orig,
+            "resolved_path": resolved_rel,
+            "anchor": anchor,
+            "note": "promoted_to names a heading anchor that EXISTS at the resolved "
+                    "doctrine surface (explicit <a id>/<a name> tag or matching "
+                    "heading slug); the inscription landed at the named anchor — the "
+                    "verbatim-lesson-text match misses a rephrased-on-promotion "
+                    "refinement",
+        }
+
     return None, {
-        "note": "no code/behavioral target and no relocation found; inscription "
-                "appears genuinely missing",
+        "note": "no code/behavioral target, no relocation, and no present anchor "
+                "found; inscription appears genuinely missing",
     }
 
 
