@@ -141,6 +141,7 @@ It may freely create or overwrite:
 - `$INSTALL_ROOT/skills/{cadence,review,siren,init-governance}/SKILL.md`
 - `$INSTALL_ROOT/agents/{mogul,ripple-assessor,pattern-curator,ladder-auditor}.md`
 - `$INSTALL_ROOT/hooks/{session-restore-patch,cgg-gate,posttool-microscan}.sh`
+- `$INSTALL_ROOT/hooks/{task-touch-pretool,boot-read-gate}.py` (PreToolUse pair — Python, `python3`-invoked)
 - `$ZONE_ROOT/.ticzone` (only if it does not already exist)
 - `$ZONE_ROOT/.ticignore` (only if it does not already exist)
 - `$ZONE_ROOT/audit-logs/` subdirectories (create only, never delete)
@@ -320,6 +321,8 @@ Copy from CGG plugin root canonical sources to `$INSTALL_ROOT` (scope-dependent)
 **Hooks** (source: `$CGG_PLUGIN_ROOT/cgg-runtime/hooks/` -> target: `$INSTALL_ROOT/hooks/`):
 - `session-restore-patch.sh`
 - `cgg-gate.sh`
+- `task-touch-pretool.py` (PreToolUse advisory — work-shaping)
+- `boot-read-gate.py` (PreToolUse hard gate — blocks doctrine mutation from a clipped boot)
 
 For each surface:
 1. If enterprise policy blocks the surface category, report `[ENTERPRISE BLOCK]` and skip
@@ -357,6 +360,7 @@ Register hooks in the scope-appropriate settings file:
 **Detection**: Read `$SETTINGS_FILE` (or create it if missing). Check whether `hooks` entries exist for:
 - `SessionStart` → hook path to session-restore-patch.sh
 - `UserPromptSubmit` → hook path to cgg-gate.sh
+- `PreToolUse` (matcher `Edit|Write|Bash`) → hooks list contains BOTH `task-touch-pretool.py` AND `boot-read-gate.py` (each a `command` entry invoked via `python3 <path>`, `timeout: 10`). These two are the work-shaping advisory + the boot-read hard gate; a fresh install must re-register them or the gate is live-on-one-machine but not reconstructible (`bk-versioned-hook-registration`).
 
 Hook command paths are scope-dependent:
 - **user scope**: absolute paths (`~/.claude/hooks/session-restore-patch.sh`)
@@ -384,6 +388,23 @@ Hook command paths are scope-dependent:
           {
             "type": "command",
             "command": "~/.claude/hooks/cgg-gate.sh"
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Edit|Write|Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 ~/.claude/hooks/task-touch-pretool.py",
+            "timeout": 10
+          },
+          {
+            "type": "command",
+            "command": "python3 ~/.claude/hooks/boot-read-gate.py",
+            "timeout": 10
           }
         ]
       }
@@ -415,10 +436,35 @@ Hook command paths are scope-dependent:
           }
         ]
       }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Edit|Write|Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 .claude/hooks/task-touch-pretool.py",
+            "timeout": 10
+          },
+          {
+            "type": "command",
+            "command": "python3 .claude/hooks/boot-read-gate.py",
+            "timeout": 10
+          }
+        ]
+      }
     ]
   }
 }
 ```
+
+> **Note (`bk-versioned-hook-registration`, tic 413):** the PreToolUse pair was added to this
+> install contract because the live registration existed only in a hand-edited `~/.claude/settings.json`
+> (in neither repo) — the gate was live-on-one-machine but not reconstructible. The hook SCRIPTS were
+> always versioned + byte-parity-synced; only the *registration record* was the gap. This is the
+> ship-now floor (option A); a data-driven `settings-hooks-manifest.json` that init-governance reads
+> (option B) remains the cleaner target design. Do NOT auto-write settings.json from a script — keep
+> the merge-detection prose so the enterprise-managed-policy pre-check still gates it.
 
 **If already registered**: Report `[exists] hooks in $SETTINGS_FILE` and do not modify.
 
