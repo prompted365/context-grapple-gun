@@ -29,6 +29,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -68,14 +69,46 @@ _DOCTRINE_PATH_MARKERS = (
     "boot-injections/active.jsonl", "signals/active-manifest.jsonl",
     "governance/backlog/backlog.jsonl",
 )
-# Bash command substrings that perform a governed mutation.
-_DOCTRINE_CMD_MARKERS = (
-    "review-promote-writeback.py", "constitution-ledger/ledger.md", "cgg-ledger/ledger.md",
-    "cprs/queue.jsonl", "mandates/current.json", "active-manifest.jsonl",
-    "boot-injections/active.jsonl",
+# Bash governed-state WRITE scripts — invoking these mutates governed state directly.
+_DOCTRINE_WRITE_SCRIPTS = (
+    "review-promote-writeback.py",
 )
-# Things that LOOK mutating but are NOT gated — writing the receipt itself + reads.
+# Governed-state surface path fragments. A WRITE whose target is one of these is a
+# mutation; a READ or git-VERSIONING that merely names one is NOT (tic-407 over-block fix).
+_GOVERNED_SURFACES = (
+    "/CLAUDE.md", "constitution-ledger/ledger.md", "cgg-ledger/ledger.md",
+    "cprs/queue.jsonl", "mandates/current.json", "active-manifest.jsonl",
+    "boot-injections/active.jsonl", "governance/backlog/backlog.jsonl",
+)
+# Things that LOOK mutating but are NOT gated — writing the receipt itself.
 _NEVER_GATE_CMD = ("boot-receipt.py",)
+
+
+def _writes_to_governed(cmd: str) -> bool:
+    """True iff the Bash command performs an ACTUAL write to a governed surface — a
+    > / >> redirect, tee, sed -i, or dd of= whose target is a governed path.
+
+    This is the tic-407 narrowing (bk-boot-gate-bash-read-overblock). READS
+    (cat / grep / head / tail / less / wc / diff / jq / awk) and git-VERSIONING
+    (git add / commit / push / status / diff / log / show) that merely MENTION a
+    governed surface are NOT mutations — versioning an already-mutated file RECORDS
+    state (the mutation was gated at its Edit/Write source), and reading inspects it.
+    Honest-scope limitation: an arbitrary-code write (e.g. a python heredoc opening a
+    governed path in 'a'/'w' mode) is NOT detected here — the Bash classifier gates the
+    enumerable write SIGNALS only; Edit/Write remains the strongly-gated primary path."""
+    for surf in _GOVERNED_SURFACES:
+        if surf not in cmd:
+            continue
+        s = re.escape(surf)
+        if re.search(r">>?\s*[^|&;<>]*" + s, cmd):            # > / >> redirect into surface
+            return True
+        if re.search(r"\btee\b[^|&;]*" + s, cmd):             # tee writes the surface
+            return True
+        if re.search(r"\bsed\b[^|&;]*-i\b[^|&;]*" + s, cmd):  # sed -i in-place edit
+            return True
+        if re.search(r"\bdd\b[^|&;]*of=\S*" + s, cmd):        # dd of= the surface
+            return True
+    return False
 
 
 def _is_doctrine_mutation(tool: str, file_path: str, command: str) -> bool:
@@ -86,11 +119,15 @@ def _is_doctrine_mutation(tool: str, file_path: str, command: str) -> bool:
         cmd = command or ""
         if any(n in cmd for n in _NEVER_GATE_CMD):
             return False  # writing the boot receipt / override is explicitly allowed
-        # backlog STATE movement only (touch --state); plain backlog reads are fine
+        # backlog STATE movement only (touch --state); plain backlog reads/dag are fine
         if "backlog.py" in cmd and "--state" in cmd:
             return True
-        # a git commit/append that touches a governed surface
-        if any(m in cmd for m in _DOCTRINE_CMD_MARKERS):
+        # a known governed-state write-script invocation
+        if any(w in cmd for w in _DOCTRINE_WRITE_SCRIPTS):
+            return True
+        # an ACTUAL write (redirect / tee / sed -i / dd) to a governed surface —
+        # NOT a read, NOT git-versioning that merely names the surface
+        if _writes_to_governed(cmd):
             return True
     return False
 
@@ -204,6 +241,33 @@ def _self_test() -> int:
           not _is_doctrine_mutation("Bash", "", "python3 boot-receipt.py emit --entity ent_x --tic 1"))
     check("Bash ls is NOT gated",
           not _is_doctrine_mutation("Bash", "", "ls -la"))
+    # tic-407 over-block fix (bk-boot-gate-bash-read-overblock): READS + git-VERSIONING
+    # that merely NAME a governed surface are NOT mutations
+    check("Bash cat ledger is NOT gated (read)",
+          not _is_doctrine_mutation("Bash", "", "cat audit-logs/governance/constitution-ledger/ledger.md"))
+    check("Bash grep queue.jsonl is NOT gated (read)",
+          not _is_doctrine_mutation("Bash", "", "grep foo audit-logs/cprs/queue.jsonl"))
+    check("Bash head cgg-ledger is NOT gated (read)",
+          not _is_doctrine_mutation("Bash", "", "head -50 cgg-ledger/ledger.md"))
+    check("Bash git add governed path is NOT gated (versioning)",
+          not _is_doctrine_mutation("Bash", "", "git add audit-logs/governance/constitution-ledger/ledger.md"))
+    check("Bash git commit naming governed path is NOT gated (versioning)",
+          not _is_doctrine_mutation("Bash", "", "git commit -m x -- audit-logs/cprs/queue.jsonl"))
+    check("Bash git diff/status of governed path is NOT gated (versioning)",
+          not _is_doctrine_mutation("Bash", "", "git diff audit-logs/governance/constitution-ledger/ledger.md"))
+    # actual WRITES to a governed surface ARE gated
+    check("Bash >> into queue.jsonl IS gated (redirect write)",
+          _is_doctrine_mutation("Bash", "", "echo '{}' >> audit-logs/cprs/queue.jsonl"))
+    check("Bash > into ledger IS gated (redirect write)",
+          _is_doctrine_mutation("Bash", "", "echo x > audit-logs/governance/constitution-ledger/ledger.md"))
+    check("Bash tee into backlog.jsonl IS gated (write)",
+          _is_doctrine_mutation("Bash", "", "echo x | tee audit-logs/governance/backlog/backlog.jsonl"))
+    check("Bash sed -i on cgg-ledger IS gated (in-place write)",
+          _is_doctrine_mutation("Bash", "", "sed -i 's/a/b/' cgg-ledger/ledger.md"))
+    check("Bash review-promote-writeback.py IS gated (write script)",
+          _is_doctrine_mutation("Bash", "", "python3 review-promote-writeback.py --apply"))
+    check("Bash git commit with NO governed path is NOT gated",
+          not _is_doctrine_mutation("Bash", "", "git commit -m 'tic407 backlog'"))
     # fail-soft envelopes → allow
     check("empty stdin → allow", decide("") == (False, ""))
     check("malformed JSON → allow", decide("{not json") == (False, ""))
