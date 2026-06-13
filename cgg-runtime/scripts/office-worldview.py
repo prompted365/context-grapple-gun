@@ -296,6 +296,28 @@ def _apply_standing_policy(zone_root: Path, frags: list, standing: str) -> list:
     return kept
 
 
+# ----- THE TELOS (single source: autonomous_kernel/telos/root.yaml) --------------
+
+_TELOS_FALLBACK = "defend meaning · hold dissonance · preserve agency — optimize, always, toward trust"
+
+
+def _telos_purpose(zone_root: Path) -> str:
+    """Read the founding telos (compact form) from the telos root — single source of
+    truth. Line-parsed (no yaml dependency on the boot-critical path); fail-soft to the
+    inscribed constant so boot never breaks on a read miss."""
+    try:
+        p = zone_root / "autonomous_kernel" / "telos" / "root.yaml"
+        for line in p.read_text(encoding="utf-8").splitlines():
+            s = line.strip()
+            if s.startswith("founding_purpose_compact:"):
+                v = s.split(":", 1)[1].strip().strip('"').strip("'")
+                if v:
+                    return v
+    except Exception:
+        pass
+    return _TELOS_FALLBACK
+
+
 # ----- THE COMPILER --------------------------------------------------------------
 
 def compile_fragments(zone_root: Path, office: str, tic: int) -> list:
@@ -353,14 +375,29 @@ def compile_fragments(zone_root: Path, office: str, tic: int) -> list:
     except Exception:
         pass
 
-    # --- L1 SUBSTRATE: your lanes (YOURS) + binding KIs (SUBSTRATE) ---
+    # --- L1 SUBSTRATE: founding telos (SUBSTRATE) + your lanes (YOURS) + binding KIs (SUBSTRATE) ---
     try:
+        # The founding telos leads L1 — the purpose every lane below serves. Sourced from
+        # the telos root (single source of truth), recited at the head so it frames all
+        # downstream lanes (YOURS / OFFICE / TERRAIN / FIELD / …), not locally editable.
+        frags.append(_frag(zone_root, "telos.founding", "autonomous_kernel/telos/root.yaml",
+            f"founding telos — {_telos_purpose(zone_root)}", "SUBSTRATE",
+            "the purpose every lane below serves; frames all interpretation — not locally editable",
+            boost="the telos all lanes serve"))
         for i, ln in enumerate(base.get("substrate_lanes") or []):
             frags.append(_frag(zone_root, f"lane.{i}", "worldview/office-lanes.json", ln, "YOURS",
                 "a lane you carry as your own purpose"))
         for i, ki in enumerate(base.get("load_bearing_kis") or []):
             frags.append(_frag(zone_root, f"ki.{i}", "federation/CLAUDE.md", ki, "SUBSTRATE",
                 "federation Key Invariant binding your lane — shapes interpretation, follow the pointer for the body"))
+        # The non-collapse standing order — verbatim, always emitted. The crystallized
+        # Binder-of-Binders / Non-Collapse Covenant mantra, re-seated into the runtime boot
+        # so it is recited again (the circle-back), not only inscribed in the literature.
+        frags.append(_frag(zone_root, "standing.non_collapse",
+            "audit-logs/governance/binder-of-binders-completion-dag-tic393.md",
+            "hold the tension, do not flatten it: the perimeter is wide so the center can wait",
+            "SUBSTRATE",
+            "the non-collapse standing order — hold tensions open; do not infer the center from one pole too early"))
     except Exception:
         pass
 

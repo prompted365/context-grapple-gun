@@ -104,9 +104,13 @@ def greeting(entity: str, tic: int, missing: list, deduped: bool = False) -> str
                 "Fill them and re-emit to close the loop cleanly.")
     if deduped:
         return (f"🌅 already on file — good to see you, {entity}. "
-                f"Receipt for tic {tic} is closed. Have a great tic!")
+                f"Receipt for tic {tic} is closed. "
+                f"🜂 hold the tension, do not flatten it: the perimeter is wide so the center can wait. "
+                f"Have a great tic!")
     return (f"🌅 receipt received — good morning, {entity}! "
-            f"Boot loop closed for tic {tic}. Have a great tic!")
+            f"Boot loop closed for tic {tic}. "
+            f"🜂 hold the tension, do not flatten it: the perimeter is wide so the center can wait. "
+            f"Have a great tic!")
 
 
 def existing_ids(path: Path) -> set:
