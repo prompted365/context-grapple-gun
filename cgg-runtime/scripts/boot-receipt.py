@@ -178,6 +178,23 @@ def gate_decision(root: Path, entity: str, tic: int, path: str = None) -> dict:
     return {"allow": False, "via": "none", "reason": near}
 
 
+# Emitted into the agent's context the moment the receipt is turned in — a couple
+# load-bearing lanes + a read-discipline tripwire. The receipt attests
+# `boot_read_mode=full`; this tail is the perception-layer reminder that the
+# attestation is a promise about the REQUIRED files (NAVIGATION whole/gapless;
+# the bench-packet intake lane for any /review docket), not a formality.
+_BOOT_CLOSE_TAIL = (
+    "🧭 Load-bearing lanes: NAVIGATION.md is the router of routers — read it "
+    "WHOLE & gapless before you build or ask 'where does X live?'; a /review docket "
+    "comes ONLY through the bench-packet intake lane "
+    "(borns → cpr-extract → queue.jsonl → cpr-enrichment-scanner → "
+    "governance/enrichment → bench-packet-prep), never ad hoc grep. "
+    "⚠️ IF YOU DIDNT READ THE REQUIRED FILES MANDATED TO BE READ IN FULL AND "
+    "GAPLESS, YOU BETTER EITHER FIX THAT, OR MOVE FASTER THAN THE ARCHITECT's "
+    "TAXIDERMY SWEEP... DONT BE A SLOPSKILLET, HOMESKILLET :)"
+)
+
+
 def greeting(entity: str, tic: int, missing: list, deduped: bool = False) -> str:
     """The warm form-ack that closes the boot loop and sets session tone.
     Complete + recorded -> good-morning greeting; incomplete -> gentle nudge;
@@ -191,11 +208,13 @@ def greeting(entity: str, tic: int, missing: list, deduped: bool = False) -> str
         return (f"🌅 already on file — good to see you, {entity}. "
                 f"Receipt for tic {tic} is closed. "
                 f"🜂 hold the tension, do not flatten it: the perimeter is wide so the center can wait. "
-                f"Have a great tic!")
+                f"Have a great tic! "
+                f"{_BOOT_CLOSE_TAIL}")
     return (f"🌅 receipt received — good morning, {entity}! "
             f"Boot loop closed for tic {tic}. "
             f"🜂 hold the tension, do not flatten it: the perimeter is wide so the center can wait. "
-            f"Have a great tic!")
+            f"Have a great tic! "
+            f"{_BOOT_CLOSE_TAIL}")
 
 
 def existing_ids(path: Path) -> set:
