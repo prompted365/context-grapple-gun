@@ -144,11 +144,26 @@ def gate_decision(root: Path, entity: str, tic: int, path: str = None) -> dict:
     NARROW + FAIL-CLOSED: allow a governed mutation iff EITHER
       (1) a valid boot-read receipt exists for (entity, tic) (boot_read_passes), OR
       (2) a non-expired OVERRIDE receipt covers this (tic[, path]).
+    PRECEDENCE (tic 407): a valid boot-read receipt is checked FIRST and OUTRANKS an
+    override. The override is the fallback for when a clean full read cannot exist (clipped
+    packet, unavailable injection) — not a substitute that pre-empts a genuine receipt. If
+    the override were evaluated first, a stale/broad cadence-boundary override would MASK an
+    honestly-emitted full-read receipt, reporting via='override' when the clean proof path
+    was in fact satisfied (the exact mis-provenance observed at tic 407 entry). Clean proof
+    wins; override only fills the gap when no clean proof is present.
     Else BLOCK. (This function only DECIDES; it never blocks the caller — the hook maps
     a non-allow decision to PreToolUse exit 2. Note: 'no receipt at all' => BLOCK, by
     design — missing perception proof is perception debt.)"""
     recs = [r for r in _read_records(sink_path(root)) if r.get("tic") == tic]
-    # (2) override path — explicit, audited, non-silent
+    # (1) valid boot-read receipt — checked FIRST so a clean proof outranks any override
+    for r in recs:
+        if entity not in (r.get("entity_id"), r.get("actor")):
+            continue
+        ok, why = boot_read_passes(r)
+        if ok:
+            return {"allow": True, "via": "boot_read_receipt", "reason": why,
+                    "receipt_id": r.get("receipt_id")}
+    # (2) override path — explicit, audited, non-silent — only when NO clean receipt exists
     for r in recs:
         if r.get("override") is True and (r.get("entity_id") == entity or r.get("actor") == entity):
             scope = r.get("override_scope")
@@ -157,14 +172,6 @@ def gate_decision(root: Path, entity: str, tic: int, path: str = None) -> dict:
             if scope in (None, "", "tic", "all") or not path or not tp or tp in path or path in tp:
                 return {"allow": True, "via": "override", "reason": r.get("reason", ""),
                         "receipt_id": r.get("receipt_id")}
-    # (1) valid boot-read receipt
-    for r in recs:
-        if entity not in (r.get("entity_id"), r.get("actor")):
-            continue
-        ok, why = boot_read_passes(r)
-        if ok:
-            return {"allow": True, "via": "boot_read_receipt", "reason": why,
-                    "receipt_id": r.get("receipt_id")}
     # fail-closed
     near = next(((boot_read_passes(r)[1]) for r in recs
                  if entity in (r.get("entity_id"), r.get("actor"))), "no receipt for this (entity,tic)")
