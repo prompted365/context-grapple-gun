@@ -910,6 +910,18 @@ def detect_stale(inbox_path: str, current_tic: int,
             if msg_id in seen:
                 continue
             seen.add(msg_id)
+            # Envelope-only attention-debt (tic 404). Bare hand-drops / staging
+            # files (kind="bare": swarm rails, context dumps, dropped media) are
+            # NOT obligations — they carry no lifecycle contract to progress.
+            # Counting them flooded the debt aggregate with ~149 phantom WAIT
+            # entries (tic 404 inbox sweep: 156 inbound -> 7 real envelopes).
+            # They remain VISIBLE in scan_inbox (a genuine Architect phone-drop is
+            # never invisible), but they do not drive the daily attention-debt nag.
+            # Only real envelopes (flat *.json / <dir>/envelope.json) accrue debt.
+            # cf. ledger#obligation-lifecycle-must-be-bounded-at-both-ends — emission
+            # GRANULARITY (and here, emission SUBJECT) was the leak, not the debt.
+            if kind == "bare":
+                continue
             state = _infer_state(env, name, channel)
             if state in TERMINAL_STATES:
                 continue
