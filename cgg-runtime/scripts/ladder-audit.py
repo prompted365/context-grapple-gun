@@ -17,6 +17,7 @@ import hashlib
 import json
 import os
 import re
+import subprocess
 import sys
 from collections import defaultdict
 from datetime import datetime, timezone
@@ -619,6 +620,336 @@ def emit_downaudit_finding(zone_root, rung, ki_id, verdict, opened_tic, *,
             "summary": summary_text}
 
 
+# ---------------------------------------------------------------------------
+# Stage-0 active-rung selector (ladder-downlane-spec.md §2 Stage 0 / §3 KIND)
+#
+# The down-lane's smallest next build after Stage-3 finding-emit: discover which
+# rungs are ACTIVE — running with their own agent and/or their own tic-zone —
+# so the (forward) down-audit spends friction-budget only where there is real
+# friction to test against, never as a blanket all-rungs sweep.
+#
+# Boundary (per the KIND table — this piece is LOW gate):
+#   - read-only discovery: reads rung markers, .ticzone presence/mtime, git
+#     last-commit recency, and agent-mailbox entry recency. Writes nothing; no
+#     authority; no doctrine mutation; no arena.
+#   - NON-blanket guard: dormant rungs are reported-but-EXCLUDED (their
+#     structural coherence stays with the bare `run_audit` chain scan). The
+#     exclusion is made transparent (Presence/Observation Fallacy Guard —
+#     declare what the watcher can and cannot see, and what it dropped).
+#   - gitignored-rung-safe: a sovereign Pattern-B rung (e.g. global-environmental-
+#     fusion) is gitignored, so git-recency is N/A for it — git-recency is
+#     fail-soft, NEVER the sole disqualifier; an own .ticzone is itself an
+#     own-clock activity signal.
+# ---------------------------------------------------------------------------
+
+RUNG_TOPOLOGY_MARKERS = (
+    ".federation-root", ".estate-root", ".domain-root", ".site-root",
+)
+
+# Default recency window: a rung is ACTIVE if it carries a rung marker AND at
+# least one activity signal landed within this many days. Calibratable via
+# --window-days (down-lane residue D2: an own .ticzone with no recent activity
+# could otherwise read as a false-active — the mtime window is the discriminator).
+# 30d is the "touched within ~a month" threshold; the known dormancy forks
+# (canonical_user ~91d, biome ~51-66d, CPG ~95d) all sit well past it.
+ACTIVE_RUNG_WINDOW_DAYS = 30
+
+# Discovery noise — directories whose nested markers/ticzones are NOT governance
+# rungs (build artifacts, vendor internals, and eval/test FIXTURE .ticzones such
+# as evals/mogul-suborchestrator/files/workspace-* which exist to exercise the
+# tooling, not to be down-audited).
+_RUNG_SKIP_DIRS = {
+    "node_modules", "__pycache__", ".git", "dist", "build", "target",
+    "evals", "fixtures",
+}
+
+# Files whose mtime does NOT indicate rung activity: OS metadata, dir-placeholder
+# stubs, and editor/compiler transients. A .DS_Store touched by Finder (or a
+# .gitkeep created once) must not make a dormant rung read as active (down-lane
+# residue D2 false-active). The disk-truth newest-file signal filters these.
+_NOISE_FILE_BASENAMES = {".DS_Store", "Thumbs.db", "desktop.ini", ".gitkeep"}
+_NOISE_FILE_SUFFIXES = (".pyc", ".pyo", ".swp", ".swo", ".tmp", ".lock")
+
+
+def _days_since_mtime(path, now=None):
+    """Whole/fractional days since a path's mtime; None if it does not exist."""
+    try:
+        mtime = os.path.getmtime(path)
+    except OSError:
+        return None
+    now = now if now is not None else datetime.now(timezone.utc).timestamp()
+    return round((now - mtime) / 86400.0, 1)
+
+
+def _git_last_commit_days(zone_root, rel_dir, now=None):
+    """Days since the last commit touching rel_dir. None if gitignored / no git /
+    not a repo (fail-soft — a gitignored sovereign rung legitimately has no git
+    recency; that is N/A, never a disqualifier)."""
+    try:
+        out = subprocess.run(
+            ["git", "-C", zone_root, "log", "-1", "--format=%ct", "--", rel_dir],
+            capture_output=True, text=True, timeout=10,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return None
+    ts = out.stdout.strip()
+    if out.returncode != 0 or not ts:
+        return None
+    try:
+        commit_ts = int(ts)
+    except ValueError:
+        return None
+    now = now if now is not None else datetime.now(timezone.utc).timestamp()
+    return round((now - commit_ts) / 86400.0, 1)
+
+
+def _resolve_agent_mailbox(zone_root, rung_dir, ticzone):
+    """Best-effort, NON-inventing rung→agent-mailbox resolution.
+
+    Resolution order (each step explicit, never a fuzzy guess):
+      1. an explicit `agent_mailbox` key in the rung's own .ticzone (forward-
+         compatible; a structured declaration wins)
+      2. a convention mailbox `ent_<basename_with_underscores>` IF that directory
+         actually exists under audit-logs/agent-mailboxes/
+    Returns the mailbox dir name or None. A None is HONEST: the holder of a
+    sovereign office may not be derivable from the directory name (e.g.
+    global-environmental-fusion is held by ent_homeskillet_gk, which no
+    convention recovers) — the caller then relies on the own .ticzone as the
+    activity signal instead of guessing a mailbox.
+    """
+    mbox_root = os.path.join(zone_root, "audit-logs", "agent-mailboxes")
+    declared = (ticzone or {}).get("agent_mailbox")
+    if declared:
+        return declared if os.path.isdir(os.path.join(mbox_root, declared)) else None
+    basename = os.path.basename(rung_dir.rstrip(os.sep))
+    candidate = "ent_" + basename.replace("-", "_")
+    if os.path.isdir(os.path.join(mbox_root, candidate)):
+        return candidate
+    return None
+
+
+def _mailbox_recent_days(zone_root, mailbox, now=None):
+    """Days since the newest entry in an agent mailbox; None if unresolved."""
+    if not mailbox:
+        return None
+    mbox = os.path.join(zone_root, "audit-logs", "agent-mailboxes", mailbox)
+    if not os.path.isdir(mbox):
+        return None
+    newest = None
+    for root, _dirs, files in os.walk(mbox):
+        for fn in files:
+            d = _days_since_mtime(os.path.join(root, fn), now=now)
+            if d is not None and (newest is None or d < newest):
+                newest = d
+    return newest
+
+
+def _newest_file_days(dir_path, now=None, file_cap=50000):
+    """Days since the newest file under dir_path — the DISK-TRUTH recency signal
+    that survives .gitignore.
+
+    The git-recency signal is blind to a gitignored rung that is nonetheless
+    actively edited on disk (e.g. the CGG forge source: gitignored in canonical/
+    yet the most-edited domain). Walking the tree for the newest mtime recovers
+    that activity. Noise dirs (node_modules/.git/build/eval-fixtures) are pruned,
+    so real rungs scan only a few hundred files. Returns (days, capped); capped
+    is surfaced rather than silently truncating (no-silent-caps discipline).
+    """
+    now = now if now is not None else datetime.now(timezone.utc).timestamp()
+    newest = None
+    scanned = 0
+    capped = False
+    for root, dirs, files in os.walk(dir_path):
+        dirs[:] = [
+            d for d in dirs
+            if d not in _RUNG_SKIP_DIRS and not (d.startswith(".") and d != ".claude")
+        ]
+        for fn in files:
+            # Skip dotfiles (markers, .ticzone, .gitignore, .DS_Store — config
+            # already covered by the marker/own_ticzone signals) + OS-noise
+            # basenames + editor/compiler transients. The newest-file signal is
+            # CONTENT activity, not config churn.
+            if (fn.startswith(".") or fn in _NOISE_FILE_BASENAMES
+                    or fn.endswith(_NOISE_FILE_SUFFIXES)):
+                continue
+            try:
+                mtime = os.path.getmtime(os.path.join(root, fn))
+            except OSError:
+                continue
+            d = round((now - mtime) / 86400.0, 1)
+            if newest is None or d < newest:
+                newest = d
+            scanned += 1
+            if scanned >= file_cap:
+                capped = True
+                return newest, capped
+    return newest, capped
+
+
+def discover_active_rungs(zone_root, window_days=ACTIVE_RUNG_WINDOW_DAYS):
+    """Stage-0: rank ACTIVE rungs (marker + >=1 recent activity signal) and
+    transparently list the DORMANT ones that are excluded.
+
+    Returns a dict {window_days, active:[...], dormant:[...], scope_declaration}.
+    Each rung entry carries its evidence (the activity signals + why it is
+    active/dormant) so the selector's judgment is auditable, not opaque.
+    """
+    zone_root = os.path.abspath(zone_root)
+    now = datetime.now(timezone.utc).timestamp()
+    root = Path(zone_root)
+
+    # Collect candidate rung dirs: any dir carrying a topology marker OR its own
+    # .ticzone (the site-rung marker / own clock).
+    candidates = {}  # rel_dir -> {markers:set, abs}
+    marker_names = sorted(set(RUNG_TOPOLOGY_MARKERS) | {".ticzone"})
+    for marker in marker_names:
+        for mp in sorted(root.rglob(marker)):
+            parts = mp.relative_to(root).parts
+            if any(p in _RUNG_SKIP_DIRS for p in parts):
+                continue
+            # Skip hidden ancestor dirs (except .claude); the marker itself is
+            # a dotfile so only the ancestors (parts[:-1]) are checked.
+            if any(p.startswith(".") and p != ".claude" for p in parts[:-1]):
+                continue
+            rung_dir = mp.parent
+            rel = str(rung_dir.relative_to(root)) if rung_dir != root else "."
+            entry = candidates.setdefault(rel, {"markers": set(), "abs": str(rung_dir)})
+            entry["markers"].add(marker)
+
+    active, dormant = [], []
+    for rel, info in sorted(candidates.items()):
+        abs_dir = info["abs"]
+        markers = sorted(info["markers"])
+        own_ticzone = ".ticzone" in info["markers"]
+
+        ticzone_cfg = {}
+        if own_ticzone:
+            try:
+                ticzone_cfg = json.loads(
+                    Path(os.path.join(abs_dir, ".ticzone")).read_text(encoding="utf-8")
+                )
+            except (OSError, ValueError):
+                ticzone_cfg = {}
+
+        rung_name = ticzone_cfg.get("name") or (
+            "canonical" if rel == "." else os.path.basename(abs_dir)
+        )
+
+        # Activity signals — each None if unavailable, else days-since-event.
+        ticzone_days = (
+            _days_since_mtime(os.path.join(abs_dir, ".ticzone"), now=now)
+            if own_ticzone else None
+        )
+        marker_days = None
+        for m in info["markers"]:
+            if m == ".ticzone":
+                continue
+            d = _days_since_mtime(os.path.join(abs_dir, m), now=now)
+            if d is not None and (marker_days is None or d < marker_days):
+                marker_days = d
+        git_days = _git_last_commit_days(zone_root, rel, now=now)
+        mailbox = _resolve_agent_mailbox(zone_root, abs_dir, ticzone_cfg)
+        mailbox_days = _mailbox_recent_days(zone_root, mailbox, now=now)
+        files_days, files_capped = _newest_file_days(abs_dir, now=now)
+
+        recent = {}
+        for label, d in (("own_ticzone", ticzone_days), ("git", git_days),
+                         ("mailbox", mailbox_days), ("marker", marker_days),
+                         ("files", files_days)):
+            if d is not None and d <= window_days:
+                recent[label] = d
+
+        has_rung_marker = bool(set(markers) & set(RUNG_TOPOLOGY_MARKERS)) or own_ticzone
+        entry = {
+            "rung": rung_name,
+            "dir": rel,
+            "markers": markers,
+            "own_clock": own_ticzone,
+            "agent_mailbox": mailbox,
+            "signals": {
+                "own_ticzone_days": ticzone_days,
+                "git_last_commit_days": git_days,
+                "mailbox_recent_days": mailbox_days,
+                "marker_mtime_days": marker_days,
+                "newest_file_days": files_days,
+                "newest_file_scan_capped": files_capped,
+            },
+            "recent_signals": recent,
+        }
+
+        if has_rung_marker and recent:
+            entry["selected"] = True
+            entry["best_recency_days"] = min(recent.values())
+            active.append(entry)
+        else:
+            entry["selected"] = False
+            entry["excluded_reason"] = (
+                "no rung marker" if not has_rung_marker
+                else f"no activity signal within {window_days}d "
+                     "(dormant — structural coverage stays with run_audit)"
+            )
+            dormant.append(entry)
+
+    active.sort(key=lambda e: e["best_recency_days"])
+    return {
+        "audited_at": datetime.now(timezone.utc).isoformat(),
+        "zone_root": zone_root,
+        "window_days": window_days,
+        "scope_declaration": (
+            "Reads rung markers + .ticzone presence/mtime + git last-commit recency "
+            "+ agent-mailbox entry recency + newest-file mtime (disk-truth, prunes "
+            "noise dirs), from zone root downward (vendor/build/hidden/eval-fixture "
+            "dirs skipped). git-recency is N/A for gitignored sovereign rungs "
+            "(fail-soft, never a sole disqualifier) — the newest-file signal "
+            "recovers their on-disk activity. CANNOT see: tic-counter advancement "
+            "inside .ticzone (no counter field), nor a mailbox holder that is "
+            "neither name-derivable nor declared via an agent_mailbox key; a capped "
+            "newest-file scan is flagged (newest_file_scan_capped), never silent. "
+            "ACTIVE = rung marker + >=1 activity signal within the window; DORMANT "
+            "rungs are listed-but-excluded, NOT judged."
+        ),
+        "active_count": len(active),
+        "dormant_count": len(dormant),
+        "active": active,
+        "dormant": dormant,
+    }
+
+
+def format_active_rungs(result):
+    """Human-readable Stage-0 active-rung report."""
+    lines = []
+    lines.append("=" * 64)
+    lines.append("LADDER DOWN-LANE · Stage-0 active-rung selector (read-only)")
+    lines.append("=" * 64)
+    lines.append(f"  Zone root:  {result.get('zone_root', '?')}")
+    lines.append(f"  Window:     {result.get('window_days')}d")
+    lines.append(
+        f"  Active:     {result.get('active_count', 0)}    "
+        f"Dormant: {result.get('dormant_count', 0)}"
+    )
+    lines.append("")
+    lines.append("  scope: " + result.get("scope_declaration", ""))
+    lines.append("")
+    lines.append("ACTIVE RUNGS (marker + >=1 activity signal in window) → down-audit sites:")
+    lines.append("-" * 64)
+    if not result.get("active"):
+        lines.append("  (none)")
+    for e in result.get("active", []):
+        sig = ", ".join(f"{k}={v}d" for k, v in sorted(e["recent_signals"].items()))
+        mbox = e.get("agent_mailbox") or "—"
+        clock = "own-clock" if e["own_clock"] else "no-own-clock"
+        lines.append(f"  ▸ {e['rung']}  [{e['dir']}]")
+        lines.append(f"      {clock} · mailbox:{mbox} · recent: {sig}  → SELECTED")
+    lines.append("")
+    lines.append("DORMANT / EXCLUDED (structural coverage stays with run_audit):")
+    lines.append("-" * 64)
+    if not result.get("dormant"):
+        lines.append("  (none)")
+    for e in result.get("dormant", []):
+        lines.append(f"  · {e['rung']}  [{e['dir']}] — {e.get('excluded_reason', '')}")
+    return "\n".join(lines)
+
+
 def main():
     parser = argparse.ArgumentParser(
         description="Ladder Coherence Audit — scan CLAUDE.md governance chain; "
@@ -660,7 +991,26 @@ def main():
                     help="Preview the residue without writing")
     ef.add_argument("--zone-root", default=None, dest="zone_root")
 
+    lar = sub.add_parser(
+        "list-active-rungs",
+        help="Stage-0 down-lane active-rung selector: rank ACTIVE rungs (rung "
+             "marker + >=1 recent activity signal) as down-audit sites and list "
+             "dormant rungs as excluded. Read-only discovery — no mutation.")
+    lar.add_argument("--window-days", type=float, default=ACTIVE_RUNG_WINDOW_DAYS,
+                     dest="window_days",
+                     help=f"Recency window in days (default {ACTIVE_RUNG_WINDOW_DAYS})")
+    lar.add_argument("--zone-root", default=None, dest="zone_root")
+
     args = parser.parse_args()
+
+    if args.command == "list-active-rungs":
+        zone_root = args.zone_root or args.project_dir or resolve_zone_root()
+        result = discover_active_rungs(zone_root, window_days=args.window_days)
+        if args.json:
+            print(json.dumps(result, indent=2))
+        else:
+            print(format_active_rungs(result))
+        return
 
     if args.command == "emit-finding":
         zone_root = args.zone_root or args.project_dir or resolve_zone_root()
