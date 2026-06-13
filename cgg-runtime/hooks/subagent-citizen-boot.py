@@ -155,7 +155,7 @@ def render_boot_injection(tic: int, entity: str, zone_root: Path) -> str:
     try:
         proc = subprocess.run(
             [sys.executable, str(script), "render", "--tic", str(tic),
-             "--audience", entity, "--zone-root", str(zone_root)],
+             "--audience", entity, "--zone-root", str(zone_root), "--max-chars", "1500"],
             capture_output=True, text=True, timeout=10,
         )
         return (proc.stdout or "").strip()

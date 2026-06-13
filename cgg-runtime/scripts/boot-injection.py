@@ -96,8 +96,12 @@ def _audience_match(record_audience, who: str) -> bool:
     return False
 
 
-def render(zone_root: Path, tic: int, who: str) -> str:
-    out = []
+def render(zone_root: Path, tic: int, who: str, max_chars: int = 0) -> str:
+    # Collect (priority, from_tic, text) so the join is PRIORITY-ordered, not
+    # registry-insertion-ordered. Lower priority int = more important (renders
+    # first). `priority` is an OPTIONAL record field (default 50); a missing field
+    # keeps today's behavior except for the deterministic (priority, from_tic) sort.
+    items = []
     for r in _load_registry(zone_root):
         # Render ACTIVE only. A boot-injected pointer is itself a rehydration (a parent-law
         # pointer carried to a citizen's boot); a non-active record injected as if current
@@ -121,15 +125,43 @@ def render(zone_root: Path, tic: int, who: str) -> str:
         rem_at = r.get("reminder_at_tic")
         frm = r.get("inject_from_tic", 0)
         until = r.get("inject_until_tic", 10**9)
+        txt = ""
         if rem_at is not None and tic >= rem_at:
-            txt = r.get("reminder_text") or r.get("inject_text") or ""
-            if txt:
-                out.append(txt.strip())
+            txt = (r.get("reminder_text") or r.get("inject_text") or "").strip()
         elif frm <= tic <= until:
-            txt = r.get("inject_text") or ""
-            if txt:
-                out.append(txt.strip())
-    return " ".join(out).strip()
+            txt = (r.get("inject_text") or "").strip()
+        if not txt:
+            continue
+        try:
+            pri = int(r.get("priority", 50))
+        except (TypeError, ValueError):
+            pri = 50
+        items.append((pri, frm, txt))
+
+    items.sort(key=lambda t: (t[0], t[1]))
+
+    # No budget -> render all (today's behavior, just priority-ordered).
+    if not max_chars:
+        return " ".join(t[2] for t in items).strip()
+
+    # Budgeted: accumulate at UNIT boundaries; the lowest-priority pointers seal
+    # first. The overflow marker points at the full registry so nothing goes dark —
+    # same unit-safe SEALED discipline as the worldview truncation (budget-exempt
+    # closure framing + unit-safe truncation). Never cut mid-fragment.
+    kept, used, sealed_n = [], 0, 0
+    for _pri, _frm, txt in items:
+        add = (1 if kept else 0) + len(txt)  # +1 for the join space
+        if used + add > max_chars and kept:
+            sealed_n += 1
+            continue
+        kept.append(txt)
+        used += add
+    if sealed_n:
+        kept.append(
+            f"[BOOT-INJECTION BUDGET: {sealed_n} lower-priority pointer(s) sealed; "
+            "read audit-logs/boot-injections/active.jsonl in full]"
+        )
+    return " ".join(kept).strip()
 
 
 def main() -> int:
@@ -141,13 +173,16 @@ def main() -> int:
                    help="orchestrator | citizens | ent_<id>")
     r.add_argument("--zone-root", default=None,
                    help="explicit canonical zone root (required for the installed copy)")
+    r.add_argument("--max-chars", type=int, default=0,
+                   help="budget the joined output; 0 = unbounded (default, back-compat). "
+                        "Lowest-priority pointers seal first with a SEALED marker.")
     args = ap.parse_args()
 
     zone_root = _zone_root(Path(__file__).resolve().parent, args.zone_root)
     if zone_root is None:
         return 0  # fail-soft: no zone, no injection
     try:
-        text = render(zone_root, args.tic, args.audience)
+        text = render(zone_root, args.tic, args.audience, args.max_chars)
     except Exception as e:  # never break a boot
         sys.stderr.write(f"[boot-injection] render error: {e}\n")
         return 0
