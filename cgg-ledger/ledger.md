@@ -2584,3 +2584,19 @@ When a live action cannot execute, classify the BLOCKER'S TYPE before reporting 
 <!-- promoted from cpr_blocker_type_classification_gate_vs_capability_vs_build_tic381 (session_lessons_tic_381.md, inline; /review 382 PROMOTE-as-refinement, Architect-ratified — recommended batch). Refines `fix-then-present-self-presentation-honesty` with the gate|capability|build blocker-type taxonomy + per-type routing (adjudicate|provision|build). Composes Presence/Observation-Fallacy-Guard. Tier: reinforced; meta lesson type. Band: COGNITIVE. -->
 
 ---
+
+## Emission Granularity Is the Leak — Aggregate to a Per-Owner Rollup Ray, Not Item-Keyed Flood
+<a id="emission-granularity-is-the-leak-not-the-obligation"></a>
+<!-- ledger-tags: authority_class=signal_and_queue_manifold | rung=domain | domain=context-grapple-gun | promoted_tic=405 | first_appearance_tic=403 -->
+
+When a watcher correctly re-surfaces a standing condition (anti-silencing — a stale WAIT must not go silent) but emits ONE ray PER underlying item, it floods the shared perception surface (the signal manifold) with N rays for a single backlog — and the instinct to "clear the leak" by terminalizing those rays is the silencing anti-pattern (it would silence real debt AND not even hold, because a cross-day re-emit re-fires it). The correct fix is to change emission GRANULARITY, not to silence: emit ONE per-owner AGGREGATE rollup ray (condition-stable id keyed on the OWNER/entity, not the item) carrying the full item list in its payload, with volume scaled to debt magnitude (capped). The debt stays fully visible and auditable (payload.item_ids) and re-surfaces daily until cleared by DECISION — but as one ray per owner, not N.
+
+**Verified tic 403:** the inbox-attention-debt watcher (inbox-envelope.py emit_attention_debt_signals) emitted `sig_inbox_<entity>_<msg>_<state>` per stale WAIT message → 159 active manifold rays for one mailbox backlog (75 in ent_breyden alone); rewritten to emit `sig_inbox_attention_debt_<entity>` per entity → 159 rays collapsed to 19 (raw-daily active 192→52), the 159 granular rays superseded (Option-B, superseded_by the aggregate, debt preserved in payload.message_ids — NOT silenced).
+
+**The distinguishing test of this rule vs the parent:** the parent ("bound the obligation lifecycle at both ends") governs WHETHER an obligation may fall silent; THIS governs the EMISSION CARDINALITY of an obligation that correctly stays loud — a re-surfacing condition over N items is ONE condition-per-owner, not N conditions, and Signal-ID-Determinism ("id derives from the condition") already implies the owner-keyed aggregate id.
+
+**Composes:** anti-silencing (ledger#obligation-lifecycle-must-be-bounded-at-both-ends) + Signal ID Determinism (cgg-ledger) + Authoritative-Set-Readers-Must-Read-the-Manifest (the manifold is a shared perception surface that granular emission pollutes). Net-new candidate: the OWNER-keyed-aggregate-not-item-keyed-flood emission rule. source: deep-investigation-tic403-inbox-aggregate
+
+<!-- promoted from cpr_emission_granularity_is_the_leak_not_the_obligation_tic403 (tic 403→405, /review 405). Source: audit-logs/governance/borns-tic403-emission-granularity.md. Born while finishing v2 signal migration + closing inbox-attention-debt; distinct from obligation-lifecycle-bounded-at-both-ends (cardinality axis, not whether-silent). Band: STRUCTURAL. Confidence_tier: reinforced (empirically proven — 159→19 rays, tic 403). -->
+
+---
