@@ -32,6 +32,8 @@ from pathlib import Path
 # Allow importing zone_root from same directory
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from zone_root import resolve_zone_root, load_ticzone, audit_logs_path, birth_topology
+# Shared active-ray predicate (tic 403): heat-based, retires acknowledged-as-active.
+from lib.signal_active import is_active_ray
 
 
 # ---------------------------------------------------------------------------
@@ -177,7 +179,7 @@ def gather_signal_recurrence(cpr, signals):
     for sid, sig in signals.items():
         if sig.get("subsystem") != subsystem:
             continue
-        if sig.get("status") not in ("active", "working", "acknowledged"):
+        if not is_active_ray(sig):
             continue
         observations.append({
             "id": sid,

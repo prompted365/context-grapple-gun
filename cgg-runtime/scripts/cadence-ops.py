@@ -46,6 +46,12 @@ try:
 except ImportError:
     _emit_cockpit_intent = None
 
+# Shared active-ray predicate (tic 403): retires the raw
+# `status in {active,acknowledged,working}` enum for SIGNALS in favor of the
+# v2 heat projection (a cooled/silenced acknowledged ray no longer counts as
+# active). Warrants keep the status-set predicate below (no heat projection).
+from lib.signal_active import is_active_ray
+
 
 # ---------------------------------------------------------------------------
 # Tic emission
@@ -356,7 +362,7 @@ def write_conformation(zone_root: str, tic_count: int, tic_timestamp: str,
             "subsystem": s.get("subsystem", ""),
         }
         for s in latest_by_signal_id.values()
-        if s.get("status") in active_signal_statuses
+        if is_active_ray(s)
     ]
 
     # Warrants: still scan daily logs (no manifest yet for warrants)

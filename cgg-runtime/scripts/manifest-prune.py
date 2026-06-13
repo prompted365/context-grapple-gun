@@ -55,6 +55,16 @@ from pathlib import Path
 KEEP_STRUCTURAL = {"live", "carried", "dimmed"}
 ARCHIVE_STRUCTURAL = {"resolved", "superseded"}
 
+# Anti-silencing re-escalation knobs — shared with lib/signal_active.py so the
+# retire-acknowledged readers and this re-heat sweep agree on one source of
+# truth. Fail-soft defaults guard the prune against an import hiccup (it runs
+# every /cadence; an import error must never break the sweep).
+try:
+    sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "lib"))
+    from signal_active import REESC_QUIET_TICS, REESC_VOLUME, HEAT_FLOOR  # type: ignore
+except Exception:  # pragma: no cover - defensive
+    REESC_QUIET_TICS, REESC_VOLUME, HEAT_FLOOR = 3, 20.0, 0.01
+
 
 def count_physical_tics(audit_logs_path: Path) -> int:
     """Return the latest counted federation tic from the tic event ledger.
@@ -188,7 +198,48 @@ def project_signal(rec: dict, current_tic: int) -> dict:
         recurrence_factor = 1.0 + 0.1 * min(recurrence_proxy - 1, 3)
         heat = min(1.0, base * carry_factor * recurrence_factor)
 
-    return {
+    # ---- anti-silencing re-escalation (tic 403) ---------------------------
+    # A carried/dimmed ray silenced to heat~=0 with NO owner (resolution_action
+    # / scheduled_drill_tic) must not stay silent by decay — that is the inverse
+    # of the boot-injection "fires forever, nothing retires it" SPOF (tic 402):
+    # "silenced forever, nothing reactivates it." After REESC_QUIET_TICS quiet
+    # tics it RE-HEATS (volume mechanics reactivated) and re-enters the active
+    # set / docket. The quiet clock anchors on the last DECISION/escalation
+    # (acknowledged_tic or a prior re_escalated_at_tic), NOT last_reinforced_tic
+    # (which can re-stamp to current and never age). Exits only by decision:
+    # resolved/dismissed, or an owned carry (resolution_action / scheduled_drill_tic).
+    re_escalated_at_tic = rec.get("re_escalated_at_tic")
+    re_escalation_count = int(rec.get("re_escalation_count", 0) or 0)
+    re_escalation_reminder = False
+    re_escalated_volume = None
+    if (
+        structural_status in ("carried", "dimmed")
+        and heat <= HEAT_FLOOR
+        and not has_resolution_action
+        and raw_status not in ("resolved", "dismissed", "superseded")
+    ):
+        anchors = [
+            t for t in (re_escalated_at_tic, rec.get("acknowledged_tic"))
+            if isinstance(t, int)
+        ]
+        quiet_anchor = max(anchors) if anchors else last_reinforced_tic
+        quiet_tics = max(0, current_tic - int(quiet_anchor or current_tic))
+        if quiet_tics >= REESC_QUIET_TICS:
+            # Reactivate volume mechanics: re-heat above the floor so the ray is
+            # active again (is_active_ray -> True), and stamp the re-escalation so
+            # the next quiet window measures from NOW (sawtooth, not a one-shot).
+            re_escalated_volume = REESC_VOLUME
+            raw_volume = REESC_VOLUME
+            visible_volume = round(REESC_VOLUME, 2)
+            base = min(1.0, visible_volume / 100.0)
+            carry_factor = 1.2  # carried/dimmed re-warmed carry
+            heat = min(1.0, base * carry_factor)
+            structural_status = "carried"
+            re_escalated_at_tic = current_tic
+            re_escalation_count += 1
+            re_escalation_reminder = True
+
+    projection = {
         "structural_status": structural_status,
         "visible_volume": round(visible_volume, 2),
         "heat": round(heat, 4),
@@ -210,6 +261,20 @@ def project_signal(rec: dict, current_tic: int) -> dict:
             ],
         },
     }
+    if re_escalation_reminder:
+        # Reactivate the legacy volume residue too so raw-enum-era readers and
+        # the next projection see the re-heated volume (the "reactivation of the
+        # volume mechanics" the contract requires), and surface a reminder marker
+        # the docket can key on.
+        projection["volume"] = re_escalated_volume
+        projection["re_escalated_at_tic"] = re_escalated_at_tic
+        projection["re_escalation_count"] = re_escalation_count
+        projection["re_escalation_reminder"] = True
+    elif re_escalated_at_tic is not None:
+        # Preserve prior re-escalation provenance without re-firing.
+        projection["re_escalated_at_tic"] = re_escalated_at_tic
+        projection["re_escalation_count"] = re_escalation_count
+    return projection
 
 
 def resolve_zone_root(start: str | None = None) -> Path:

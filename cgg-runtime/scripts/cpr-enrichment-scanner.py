@@ -29,6 +29,8 @@ from pathlib import Path
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from zone_root import resolve_zone_root, load_ticzone, load_subsystems_config, audit_logs_path, birth_topology
 from pattern_miner import gather_recurrence_count
+# Shared active-ray predicate (tic 403): heat-based, retires acknowledged-as-active.
+from lib.signal_active import is_active_ray
 
 
 HOLDING_STATUSES = {"enrichment_needed", "enrichment_eligible"}
@@ -183,8 +185,8 @@ def gather_signal_evidence(cpr, signal_dir):
             try:
                 d = json.loads(line)
                 if (d.get("subsystem") == subsystem
-                        and d.get("status") in ("active", "working", "acknowledged")
-                        and d.get("type") == "signal"):
+                        and d.get("type") == "signal"
+                        and is_active_ray(d)):
                     related_signals = [
                         s for s in related_signals if s.get("id") != d.get("id")
                     ]

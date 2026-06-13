@@ -25,6 +25,8 @@ from pathlib import Path
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "lib"))
 from zone_root import resolve_zone_root, load_ticzone, audit_logs_path
+# Shared active-ray predicate (tic 403): heat-based, retires acknowledged-as-active.
+from lib.signal_active import is_active_ray
 # Shared dehydration-aware doctrine resolver (tic 335 consumer-set fix): a
 # dehydrated rung's promoted bodies live in a sibling ledger.md under
 # `<!-- promoted from cpr_... -->` provenance markers, NOT in the compact
@@ -382,7 +384,7 @@ def load_active_signals(zone_root):
 
     by_subsystem = defaultdict(list)
     for eid, sig in latest.items():
-        if sig.get("status") in ("active", "working", "acknowledged"):
+        if is_active_ray(sig):
             by_subsystem[sig.get("subsystem", "unknown")].append(eid)
 
     return by_subsystem

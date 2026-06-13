@@ -28,6 +28,8 @@ from pathlib import Path
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from zone_root import resolve_zone_root, load_ticzone, audit_logs_path
+# Shared active-ray predicate (tic 403): heat-based, retires acknowledged-as-active.
+from lib.signal_active import is_active_ray
 
 
 # ---------------------------------------------------------------------------
@@ -82,14 +84,13 @@ def gather_signal_evidence(cpr, signal_dir):
 
     for eid, sig in latest.items():
         if sig.get("subsystem") == subsystem and sig.get("type") == "signal":
-            status = sig.get("status", "")
-            if status in ("active", "working", "acknowledged"):
+            if is_active_ray(sig):
                 related.append({
                     "signal_id": eid,
                     "kind": sig.get("kind", "?"),
                     "band": sig.get("band", "?"),
                     "volume": sig.get("volume", 0),
-                    "status": status,
+                    "status": sig.get("status", ""),
                 })
 
     if related:

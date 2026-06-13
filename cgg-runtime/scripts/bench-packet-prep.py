@@ -28,6 +28,8 @@ from pathlib import Path
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "lib"))
 from zone_root import resolve_zone_root, load_ticzone, audit_logs_path, birth_topology
+# Shared active-ray predicate (tic 403): heat-based, retires acknowledged-as-active.
+from lib.signal_active import is_active_ray
 # Shared dehydration-aware doctrine resolver + both-scheme id matcher (tic 335
 # consumer-set fix): post-dehydration a rung's promoted bodies live in a sibling
 # ledger.md, and the majority of promoted ids are `cpr_<slug>` not `CogPR-N`.
@@ -427,7 +429,7 @@ def find_related_signals(cpr, signals):
         return related
 
     for sid, sig in signals.items():
-        if sig.get("subsystem") == subsystem and sig.get("status") in ("active", "working", "acknowledged"):
+        if sig.get("subsystem") == subsystem and is_active_ray(sig):
             related.append({
                 "id": sid,
                 "kind": sig.get("kind", ""),
@@ -543,7 +545,7 @@ def build_bench_packet(project_dir, dry_run=False):
             "status": sig.get("status", ""),
         }
         for sid, sig in signals.items()
-        if sig.get("status") in ("active", "working", "acknowledged")
+        if is_active_ray(sig)
     ]
 
     # Recently promoted (for reviewer awareness)
