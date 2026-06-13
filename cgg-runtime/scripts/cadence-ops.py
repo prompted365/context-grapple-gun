@@ -487,10 +487,16 @@ def compute_due_cycles(tic: int) -> list:
         cycles.extend(["ladder_audit", "runtime_drift_check"])
     if tic % 8 == 0:
         cycles.append("deep_audit")
-    # civil_status_check (CogPR-tic224) deferred: scheduling here without parallel
-    # Mogul agent spec + runner case-branch updates produces a scheduled-but-unexecuted
-    # cycle. Partial close (bench_packet_prep above) lands first; civil_status_check
-    # awaits the multi-surface tranche.
+    if tic % 10 == 0:
+        # civil_status_check (CogPR-tic224) WIRED tic 404: closes the deferred
+        # multi-surface tranche (this scheduler entry + mogul-runner.sh agent-prompt
+        # description + verification case-branch land together, so the cycle is
+        # scheduled AND executed — not scheduled-but-unexecuted). civil-engineer is
+        # an existing AGENT (exists_unwired, NOT missing); the mogul agent spawns it.
+        # mod-10 matches civil-engineer.md's ~10-tic cadence; next fire = tic 410
+        # (= handoff civil_check_due_tic). Closes the 132-tic dormancy (last report
+        # tic 272) and the Conductor-Score-Runtime Parity gap named at tic 224.
+        cycles.append("civil_status_check")
 
     return cycles
 

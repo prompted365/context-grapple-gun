@@ -27,6 +27,11 @@ Until micro-tics are formalized, use tic-sum-derived cycles:
 - stage review material if intervention needed
 - write executive summary
 
+## Every 10 tics (civil maintenance cycle)
+- `civil_status_check` — delegate the civil-engineer subagent (via the standard Agent tool) for routine infrastructure maintenance: index/registry rebuilds, schema/registry parity, canonical-vs-installed sync verification, dormancy + health checks
+- civil-engineer writes its civil-report to `audit-logs/mogul/civil-reports/<date>-tic-N.json`
+- WIRED tic 404 (closes the tic-224 Conductor-Score-Runtime Parity gap: `compute_due_markers` declared `civil_check_due_tic` at mod-10 but `compute_due_cycles` never scheduled it). Next fire after wiring: tic 410.
+
 ## Every review close
 - inscription consistency check
 - follow-on interpretation target check

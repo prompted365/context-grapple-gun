@@ -318,6 +318,7 @@ $MANDATE_CONTENT
    - cache_refresh: run \$ZONE_ROOT/vendor/context-grapple-gun/cgg-runtime/scripts/visitor-economy-monitor.py --cache-refresh \$TIC, report cache state + standing decay + biome health. Your results.cache_refresh object MUST include: {\"cache_state\": ..., \"standing_decay\": ..., \"biome_health\": ...} — EVEN WHEN THE CACHE IS EMPTY (e.g. {\"cache_state\": \"empty\", \"healthy\": true}). Do NOT report cache_refresh only in the prose summary; the structured results.cache_refresh key is the verified artifact.
    - deep_audit: comprehensive multi-rung scan
    - review_close_check: run scripts/review-close-check.py, verify post-review inscription consistency
+   - civil_status_check: SPAWN the existing civil-engineer subagent via the STANDARD Agent tool (subagent_type: civil-engineer) — harness- and sovereign-contract-mediated, Claude Code default runtime; do NOT route it to any external compute backend. It runs the routine infrastructure-maintenance audit (index/registry/sync/health checks per cgg-runtime/agents/civil-engineer.md) and writes its civil-report to audit-logs/mogul/civil-reports/<YYYY-MM-DD>-tic-\$CURRENT_TIC.json. Do NOT reimplement civil logic inline — civil-engineer already exists; you only dispatch it (find-before-create). Your results.civil_status_check object MUST summarize {\"findings_count\": N, \"drift_detected\": N, \"report_path\": \"audit-logs/mogul/civil-reports/...\"}.
 3. Write a DEDICATED structured JSON cycle report using Write tool to EXACTLY this path:
    $STRUCTURED_REPORT
    This file is your governance evidence artifact. It MUST follow the schema below exactly.
@@ -384,9 +385,21 @@ echo "Spawning claude -p for mandate $MANDATE_ID..."
 # (Claude Code blocks nesting by default; headless -p is safe)
 # --dangerously-skip-permissions: no interactive user for tool approval
 # --allowedTools: bounded tool set for governance work
+#
+# Agent added tic 404 (civil-cadence wiring tranche): the runner previously
+# UNDER-granted mogul's declared toolset — mogul.md frontmatter declares
+# `Read, Grep, Glob, Agent, Bash, Write, Edit`, and the MOGUL_PROMPT instructs
+# mogul to "decompose, delegate, advance" — yet --allowedTools omitted Agent, so
+# mogul could never spawn a subagent (a Conductor-Score-Runtime Parity gap in
+# mogul's own tool surface). civil_status_check requires it: civil-engineer is an
+# agent (no civil script exists; find-before-create), so the civil cycle spawns
+# the existing civil-engineer subagent via the STANDARD Agent tool — harness- and
+# sovereign-contract-mediated, Claude Code as the default runtime (no external
+# compute backend routing). Edit kept out of mogul.md (already correct); the fix
+# is the runner aligning to the declared toolset.
 set +e
 env -u CLAUDECODE "$CLAUDE_BIN" -p "$MOGUL_PROMPT" \
-  --allowedTools "Read,Grep,Glob,Bash,Write" \
+  --allowedTools "Read,Grep,Glob,Bash,Write,Agent" \
   --dangerously-skip-permissions \
   --output-format json \
   > "$TRANSCRIPT_FILE" 2>&1
@@ -541,6 +554,29 @@ print('yes' if 'cache_refresh' in r.get('results', {}) else 'no')
 " 2>/dev/null)
           if [ "$HAS_CACHE_RESULT" != "yes" ]; then
             ARTIFACT_ERRORS="${ARTIFACT_ERRORS}cache_refresh: not in structured report results. "
+          fi
+        fi
+        ;;
+      civil_status_check)
+        # civil_status_check (WIRED tic 404) — verify the civil-engineer subagent
+        # produced a fresh civil-report for this tic. Mirrors the review_close_check
+        # artifact-file pattern (the -newer timing bug was fixed per civil F1, tic404).
+        CIVIL_DIR="$AUDIT_LOGS/mogul/civil-reports"
+        if [ -d "$CIVIL_DIR" ]; then
+          CIVIL_COUNT=$(find "$CIVIL_DIR" -name "*tic-${CURRENT_TIC}*.json" -newer "$MANDATE_FILE_SNAPSHOT_REF" 2>/dev/null | wc -l | tr -d ' ')
+        else
+          CIVIL_COUNT=0
+        fi
+        # Accept either a fresh civil-report file OR the structured results key
+        # (lenient like cache_refresh — a clean civil pass still self-reports).
+        if [ "$CIVIL_COUNT" -eq 0 ] && [ -f "$STRUCTURED_REPORT" ]; then
+          HAS_CIVIL_RESULT=$(python3 -c "
+import json
+r = json.load(open('$STRUCTURED_REPORT'))
+print('yes' if 'civil_status_check' in r.get('results', {}) else 'no')
+" 2>/dev/null)
+          if [ "$HAS_CIVIL_RESULT" != "yes" ]; then
+            ARTIFACT_ERRORS="${ARTIFACT_ERRORS}civil_status_check: no civil report produced and not in structured report results. "
           fi
         fi
         ;;
