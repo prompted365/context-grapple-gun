@@ -367,44 +367,192 @@ CRITICAL RULES:
 - The runner will REFUSE to mark mandate consumed if this file is missing or malformed"
 
 # ============================================================================
-# Invoke claude -p with Mogul identity
+# Invoke the mogul agent — backend-selectable (claude default | codex/gpt-5.5)
 # ============================================================================
+#
+# Backend selection (tic 438, Architect-directed): the runner's headless agent
+# lane is per-lane selectable between the Codex / GPT-5.5 backend and Claude Code.
+# Selector: MOGUL_RUNNER_BACKEND env (values: codex | claude).
+#
+# DEFAULT = codex (Architect direction tic 438: "set the 5.5 model to default for
+# mogul"). Claude Code is the explicit fallback (set MOGUL_RUNNER_BACKEND=claude)
+# AND the civil-carve-out lane (always, regardless of default — see fence below).
+#
+# Compute-admission framing (ledger#compute-admission-law-topology-agnostic,
+# promoted /review 324): codex is an EXTERNAL EGRESS backend (OpenAI). This makes
+# the mogul GOVERNANCE lane egress-by-default — an explicit Architect decision,
+# distinct from the compute INFERENCE lane where mlx_local/no-egress stays primary.
+# Per-spawn override remains available (MOGUL_RUNNER_BACKEND=claude). If codex's
+# binary is absent the runner auto-falls-back to claude; a codex RUNTIME error
+# (auth/API) fails the mandate — override to claude to recover. Registered in
+# ak_control_room/providers.yaml.
+#
+# Standing fence (carried verbatim from the prior single-backend comment + the
+# MOGUL_PROMPT civil_status_check instruction): civil_status_check spawns the
+# civil-engineer SUBAGENT, which is Claude-Code-mediated. It NEVER routes to an
+# external compute backend. When backend=codex AND civil_status_check is in the
+# cycle set, the runner CARVES civil out of the codex prompt and dispatches it
+# separately on Claude Code, then merges results.civil_status_check into the
+# codex-written report. (Per Architect tic 438: per-lane selector; civil stays
+# on Claude Code.)
+#
+# Agent added tic 404 (civil-cadence wiring tranche): the claude lane grants the
+# Agent tool so mogul can spawn the civil-engineer subagent (mogul.md declares
+# `Read, Grep, Glob, Agent, Bash, Write, Edit`; --allowedTools must include Agent
+# for civil_status_check). Edit kept out of mogul.md (already correct).
 
+MOGUL_RUNNER_BACKEND="${MOGUL_RUNNER_BACKEND:-codex}"
+
+# Resolve Claude (always needed: the default backend AND the civil carve-out lane)
 CLAUDE_BIN=$(command -v claude 2>/dev/null || true)
-if [ -z "$CLAUDE_BIN" ]; then
-  echo "ERROR: claude CLI not found in PATH" >&2
-  # Transition: running -> failed (guarded write-back)
+
+# Resolve Codex (app-bundle binary preferred — the Volta shim's native binary is
+# absent on this host; /Applications/Codex.app ships a working arm64 codex CLI)
+CODEX_BIN=""
+for _cx in "/Applications/Codex.app/Contents/Resources/codex" "$(command -v codex 2>/dev/null || true)"; do
+  if [ -n "$_cx" ] && [ -x "$_cx" ]; then CODEX_BIN="$_cx"; break; fi
+done
+
+# Does this mandate include the Claude-pinned civil cycle?
+CIVIL_IN_CYCLES=false
+case ",$CYCLES," in *,civil_status_check,*) CIVIL_IN_CYCLES=true;; esac
+
+# Validate the selected backend's binary; fall back to claude if codex is missing.
+if [ "$MOGUL_RUNNER_BACKEND" = "codex" ] && [ -z "$CODEX_BIN" ]; then
+  echo "WARN: backend=codex requested but no codex binary found; falling back to claude" >&2
+  MOGUL_RUNNER_BACKEND="claude"
+fi
+# Claude is required for the default lane AND for the codex+civil carve-out.
+NEED_CLAUDE=false
+[ "$MOGUL_RUNNER_BACKEND" = "claude" ] && NEED_CLAUDE=true
+{ [ "$MOGUL_RUNNER_BACKEND" = "codex" ] && [ "$CIVIL_IN_CYCLES" = true ]; } && NEED_CLAUDE=true
+if [ "$NEED_CLAUDE" = true ] && [ -z "$CLAUDE_BIN" ]; then
+  echo "ERROR: claude CLI not found in PATH (required for backend=$MOGUL_RUNNER_BACKEND${CIVIL_IN_CYCLES:+ + civil carve-out})" >&2
   WB_EXTRA=$(python3 -c "import json;print(json.dumps({'error':'claude CLI not found in PATH'}))")
   set +e; write_current_mandate_status "failed" "$(date -u +%Y-%m-%dT%H:%M:%S+00:00)" "$WB_EXTRA"; set -e
   exit 1
 fi
 
-echo "Spawning claude -p for mandate $MANDATE_ID..."
+echo "Backend: $MOGUL_RUNNER_BACKEND | civil_in_cycles: $CIVIL_IN_CYCLES"
+echo "Spawning $MOGUL_RUNNER_BACKEND agent for mandate $MANDATE_ID..."
 
-# Unset CLAUDECODE to allow nested headless invocation
-# (Claude Code blocks nesting by default; headless -p is safe)
-# --dangerously-skip-permissions: no interactive user for tool approval
-# --allowedTools: bounded tool set for governance work
-#
-# Agent added tic 404 (civil-cadence wiring tranche): the runner previously
-# UNDER-granted mogul's declared toolset — mogul.md frontmatter declares
-# `Read, Grep, Glob, Agent, Bash, Write, Edit`, and the MOGUL_PROMPT instructs
-# mogul to "decompose, delegate, advance" — yet --allowedTools omitted Agent, so
-# mogul could never spawn a subagent (a Conductor-Score-Runtime Parity gap in
-# mogul's own tool surface). civil_status_check requires it: civil-engineer is an
-# agent (no civil script exists; find-before-create), so the civil cycle spawns
-# the existing civil-engineer subagent via the STANDARD Agent tool — harness- and
-# sovereign-contract-mediated, Claude Code as the default runtime (no external
-# compute backend routing). Edit kept out of mogul.md (already correct); the fix
-# is the runner aligning to the declared toolset.
 set +e
-env -u CLAUDECODE "$CLAUDE_BIN" -p "$MOGUL_PROMPT" \
-  --allowedTools "Read,Grep,Glob,Bash,Write,Agent" \
-  --dangerously-skip-permissions \
-  --output-format json \
-  > "$TRANSCRIPT_FILE" 2>&1
-CLAUDE_EXIT=$?
+if [ "$MOGUL_RUNNER_BACKEND" = "codex" ]; then
+  # ---- Codex / GPT-5.5 lane -------------------------------------------------
+  # Hook isolation: --ignore-user-config drops ~/.codex/config.toml, where the
+  # [hooks.state] enablements live -> NO codex hooks fire (cgg-gate would re-enter
+  # the mandate dispatcher; session-restore would inject the ORCHESTRATOR
+  # worldview, the wrong identity for Mogul). Auth still resolves from CODEX_HOME.
+  # sandbox=danger-full-access + approval=never == the --dangerously-skip-permissions
+  # analog. -c model_reasoning_effort=high restores reasoning (config drop zeroes it).
+  CODEX_PROMPT="$MOGUL_PROMPT"
+  if [ "$CIVIL_IN_CYCLES" = true ]; then
+    CODEX_PROMPT="$CODEX_PROMPT
+
+## RUNTIME CARVE-OUT (codex lane — Architect tic 438)
+civil_status_check is handled OUT-OF-BAND by the runner on Claude Code (the
+civil-engineer subagent is Claude-Code-mediated and NEVER routes to an external
+compute backend). Do NOT attempt civil_status_check. Do NOT add a
+results.civil_status_check key — the runner merges it after you finish. Run every
+OTHER cycle in cycle_request.run_now normally, and list only those in
+cycles_executed."
+  fi
+  # stdin from /dev/null is REQUIRED: `codex exec` with a prompt arg still tries
+  # to read stdin, and when spawned headless (stdin is a non-TTY pipe from the
+  # orchestrator) it BLOCKS forever at "Reading additional input from stdin..."
+  # until EOF. /dev/null forces immediate EOF so only the prompt arg is used.
+  # (Verified tic 438: without it, a real round-trip hung 15+ min, zero output.)
+  CODEX_HOME="${CODEX_HOME:-$HOME/.codex}" "$CODEX_BIN" exec \
+    -m gpt-5.5 \
+    -c model_reasoning_effort=high \
+    -s danger-full-access \
+    --skip-git-repo-check \
+    --ignore-user-config \
+    -C "$ZONE_ROOT" \
+    -o "${TRANSCRIPT_FILE%.json}.last-message.txt" \
+    "$CODEX_PROMPT" \
+    < /dev/null \
+    > "$TRANSCRIPT_FILE" 2>&1
+  CLAUDE_EXIT=$?
+else
+  # ---- Claude Code lane (default) ------------------------------------------
+  # Unset CLAUDECODE to allow nested headless invocation (Claude Code blocks
+  # nesting by default; headless -p is safe). --allowedTools includes Agent so
+  # mogul can spawn the civil-engineer subagent for civil_status_check.
+  env -u CLAUDECODE "$CLAUDE_BIN" -p "$MOGUL_PROMPT" \
+    --allowedTools "Read,Grep,Glob,Bash,Write,Agent" \
+    --dangerously-skip-permissions \
+    --output-format json \
+    > "$TRANSCRIPT_FILE" 2>&1
+  CLAUDE_EXIT=$?
+fi
 set -e
+
+# ---- Civil carve-out merge (codex lane + civil requested) -------------------
+# The codex agent ran every cycle EXCEPT civil. Dispatch civil-engineer on Claude
+# Code, capture its summary, and merge results.civil_status_check into the
+# codex-written report BEFORE the per-cycle verification below (which iterates the
+# full $CYCLES and would otherwise flag civil as a missing results key). The fence
+# holds: civil-engineer never touches the external backend.
+if [ "$MOGUL_RUNNER_BACKEND" = "codex" ] && [ "$CIVIL_IN_CYCLES" = true ] && [ $CLAUDE_EXIT -eq 0 ]; then
+  echo "Civil carve-out: dispatching civil-engineer on Claude Code (fence: civil stays sovereign)..."
+  CIVIL_FRAGMENT="$CYCLE_REPORTS_DIR/.${TIMESTAMP}-tic-${CURRENT_TIC}.civil-fragment.json"
+  CIVIL_PROMPT="You are the mogul-runner civil carve-out for tic $CURRENT_TIC. Working directory: $ZONE_ROOT.
+Spawn the civil-engineer subagent (subagent_type: civil-engineer) via the standard Agent tool. It runs the routine infrastructure-maintenance audit (index/registry/sync/health per cgg-runtime/agents/civil-engineer.md) and writes its civil-report to audit-logs/mogul/civil-reports/<YYYY-MM-DD>-tic-$CURRENT_TIC.json.
+Then write EXACTLY this JSON file using the Write tool to: $CIVIL_FRAGMENT
+{\"findings_count\": <int>, \"drift_detected\": <int>, \"report_path\": \"audit-logs/mogul/civil-reports/...\", \"runtime\": \"claude_code\"}
+Do nothing else. Do NOT modify CLAUDE.md, MEMORY.md, queue.jsonl, or any governance surface."
+  set +e
+  env -u CLAUDECODE "$CLAUDE_BIN" -p "$CIVIL_PROMPT" \
+    --allowedTools "Read,Grep,Glob,Bash,Write,Agent" \
+    --dangerously-skip-permissions \
+    --output-format json \
+    >> "$TRANSCRIPT_FILE" 2>&1
+  CIVIL_EXIT=$?
+  set -e
+  # Merge the civil fragment into the codex report (additive; never overwrites
+  # existing results). Failure to produce the fragment fails the mandate — civil
+  # signal must not silently go dark.
+  if [ $CIVIL_EXIT -eq 0 ] && [ -s "$CIVIL_FRAGMENT" ] && [ -f "$STRUCTURED_REPORT" ]; then
+    MERGE_OK=$(SR="$STRUCTURED_REPORT" CF="$CIVIL_FRAGMENT" python3 -c "
+import json, os
+try:
+    r = json.load(open(os.environ['SR']))
+    civ = json.load(open(os.environ['CF']))
+except Exception as e:
+    print('merge_failed: '+str(e)); raise SystemExit
+r.setdefault('results', {})
+r['results']['civil_status_check'] = civ
+ce = r.get('cycles_executed', [])
+if 'civil_status_check' not in ce:
+    ce.append('civil_status_check'); r['cycles_executed'] = ce
+json.dump(r, open(os.environ['SR'], 'w'), indent=2)
+print('OK')
+" 2>&1)
+    echo "Civil merge: $MERGE_OK"
+    [ "$MERGE_OK" != "OK" ] && CLAUDE_EXIT=1
+  else
+    echo "ERROR: civil carve-out failed (exit=$CIVIL_EXIT, fragment missing or report absent) — failing mandate to avoid dropping civil signal" >&2
+    CLAUDE_EXIT=1
+  fi
+fi
+
+# ---- Backend self-identification stamp --------------------------------------
+# Every cycle report says which engine ran it: actor.runtime = the backend.
+# Additive only (never clobbers actor.office/embodiment or an agent-set runtime).
+if [ -f "$STRUCTURED_REPORT" ]; then
+  SR="$STRUCTURED_REPORT" BK="$MOGUL_RUNNER_BACKEND" python3 -c "
+import json, os
+try:
+    r = json.load(open(os.environ['SR']))
+except Exception:
+    raise SystemExit
+a = r.get('actor')
+if isinstance(a, dict) and 'runtime' not in a:
+    a['runtime'] = ('codex_gpt5_5' if os.environ['BK'] == 'codex' else 'claude_code')
+    json.dump(r, open(os.environ['SR'], 'w'), indent=2)
+" 2>/dev/null || true
+fi
 
 # ============================================================================
 # Record completion
@@ -746,10 +894,10 @@ t = {
 print(json.dumps(t))
 " | while IFS= read -r _line; do safe_jsonl_append "$MANDATE_HISTORY_DIR/$TODAY.jsonl" "$_line"; done 2>/dev/null
 else
-  WB_EXTRA=$(WB_EC="$CLAUDE_EXIT" python3 -c "import json,os;print(json.dumps({'error':'claude -p exited with code '+str(os.environ['WB_EC'])}))")
+  WB_EXTRA=$(WB_EC="$CLAUDE_EXIT" WB_BK="$MOGUL_RUNNER_BACKEND" python3 -c "import json,os;print(json.dumps({'error':os.environ['WB_BK']+' backend exited with code '+str(os.environ['WB_EC'])}))")
   set +e; write_current_mandate_status "failed" "$COMPLETED_AT" "$WB_EXTRA"; set -e
 
-  echo "ERROR: claude -p exited with code $CLAUDE_EXIT" >&2
+  echo "ERROR: $MOGUL_RUNNER_BACKEND backend exited with code $CLAUDE_EXIT" >&2
   echo "Mandate $MANDATE_ID failed at $COMPLETED_AT"
   echo "Transcript: $TRANSCRIPT_FILE"
 
