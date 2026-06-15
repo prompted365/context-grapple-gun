@@ -1,0 +1,9 @@
+{
+  "name": "stage",
+  "tz": "UTC",
+  "include": ["."],
+  "bands": ["PRIMITIVE", "COGNITIVE", "SOCIAL"],
+  "muffling_per_hop": 5,
+  "notes": "Arena staging sub-zone for the /stage skill. The file was created empty 2026-03-08 and populated at tic 440 after civil_status_check flagged the 0-byte file as a deterministic JSON-parse throw for any zone_root walk through stage/. context-grapple-gun and canonical_developer carry no own .ticzone, so the walk-up parent is the federation root at canonical/.",
+  "parent_ticzone": "../../../.ticzone"
+}
