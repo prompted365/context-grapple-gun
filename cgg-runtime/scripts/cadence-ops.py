@@ -936,6 +936,37 @@ def main():
             "reason": "audit script not found at expected path",
         }
 
+    # 5b. Mogul telemetry roll-up absorb (tic 425) — the per-tic INVOKER the absorber
+    # never had. `rollup.py build` (recompute-from-present-raw + preserve-absorbed-for-
+    # absent) is idempotent and cheap; running it each cadence keeps reports-rollup.json
+    # .absorbed CURRENT so the tic-405 "raw is droppable ONCE ABSORBED" guarantee actually
+    # holds. Until tic 425 the absorber had ZERO invokers repo-wide: the snapshot silently
+    # froze at tic 405 while raw reports 406–425 lived un-absorbed — a latent dark-tic time
+    # bomb under the cycle-reports retention policy. Same fail-soft observability-subprocess
+    # pattern as the memory-md-audit step above; never blocks cadence. Absorber lives in
+    # canonical at audit-logs/mogul/cycle-reports/rollup.py; resolved from zone_root.
+    rollup_script = Path(zone_root) / "audit-logs" / "mogul" / "cycle-reports" / "rollup.py"
+    if rollup_script.exists():
+        try:
+            rollup_proc = subprocess.run(
+                ["python3", str(rollup_script), "build"],
+                capture_output=True, text=True, timeout=20,
+            )
+            first_line = rollup_proc.stdout.split("\n")[0] if rollup_proc.stdout else None
+            result["mogul_rollup_absorb"] = {
+                "ran": True,
+                "exit_code": rollup_proc.returncode,
+                "ok": rollup_proc.returncode == 0,
+                "summary": first_line,
+            }
+        except Exception as err:  # noqa: BLE001 — fail-soft
+            result["mogul_rollup_absorb"] = {"ran": False, "error": str(err)}
+    else:
+        result["mogul_rollup_absorb"] = {
+            "ran": False,
+            "reason": "rollup absorber not found at expected path",
+        }
+
     # 6. Claude agents snapshot (tic 270) — read-only observability sensor.
     # Born tic 270 under Architect Path C adoption. Captures native Claude
     # Code `claude agents --json` output as sensor data ONLY — never used
