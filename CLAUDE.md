@@ -168,6 +168,8 @@
   - *Ledger:* [`cgg-ledger/ledger.md#arsenal-instructions-carry-only-the-up-lane-ratchet`](cgg-ledger/ledger.md#arsenal-instructions-carry-only-the-up-lane-ratchet)
 - **Fix-Then-Present — a Self-Presentation Doc Describing an Unwired Mechanic As Real IS the Misrepresentation** — Writing a presentation doc before fixing what is broken/misrepresenting produces a doc that lies; audit→decide-write-topology→fix+sync+verify-parity→mark current-vs-target honestly. Validated at two doctrine rungs (CGG arsenal + autonomous_kernel demotion/rollback over-claim). *(tic 377→379)*
   - *Ledger:* [`cgg-ledger/ledger.md#fix-then-present-self-presentation-honesty`](cgg-ledger/ledger.md#fix-then-present-self-presentation-honesty)
+- **Build-and-Gate — Wired-but-Ratification-Gated Consumer for a Doctrine-Adjacent Model** — When you build a doctrine-adjacent model a live consumer would read (boot renderer/router/dispatch gate), don't choose defer-the-wiring vs ship-it-live: build+wire+test the consumer but gate its USE on an explicit `ratified` flag (default false) carried IN the model; /review flips it (ratification IS the flag-flip, no further code change). Build lands hot, effect is one human-gated bit. Needs DUAL proof: dormancy (0-at-false) + full-surface activation (exercise the whole consumer surface at true, not one happy-path — the reciprocal to-side gap that slipped the tic-429 from-side proof). *(tic 429→430)*
+  - *Ledger:* [`cgg-ledger/ledger.md#build-and-gate-ratified-flag-gated-consumer`](cgg-ledger/ledger.md#build-and-gate-ratified-flag-gated-consumer)
 
 ## Subagent And Swarm Delegation
 

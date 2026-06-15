@@ -564,13 +564,22 @@ def compile_fragments(zone_root: Path, office: str, tic: int) -> list:
         # class — understand the relation, do not impersonate. (bk-office-directory-subtelos)
         creg = _load_json(zone_root / "autonomous_kernel" / "actor-registry.json") or {}
         for i, e in enumerate(creg.get("collaboration_edges") or []):
-            if (e.get("edge") == "COLLABORATES_WITH" and e.get("from") == office
-                    and e.get("ratified") is True):
-                arrow = "↔" if e.get("reciprocal") else "→"
-                frags.append(_frag(zone_root, f"collab.{i}", "autonomous_kernel/actor-registry.json",
-                    f"collaborates {arrow} {e['to']}: {e.get('relation','')}", "PEER",
-                    "a direct-collaborator office (lateral working relation, not hierarchy) — "
-                    "understand the relation; do not overwrite or impersonate"))
+            if e.get("edge") != "COLLABORATES_WITH" or e.get("ratified") is not True:
+                continue
+            # Directed edge: surface for the FROM office only. RECIPROCAL edge (↔): surface for
+            # BOTH endpoints — the to-side is the return edge the `reciprocal:true` flag mints
+            # (tic 430: the tic-429 dormancy proof verified the from-side but missed the recip
+            # to-side; a true reciprocal must render bidirectionally). The peer is the OTHER end.
+            is_from = e.get("from") == office
+            is_recip_to = bool(e.get("reciprocal")) and e.get("to") == office
+            if not (is_from or is_recip_to):
+                continue
+            peer = e["to"] if is_from else e["from"]
+            arrow = "↔" if e.get("reciprocal") else "→"
+            frags.append(_frag(zone_root, f"collab.{i}", "autonomous_kernel/actor-registry.json",
+                f"collaborates {arrow} {peer}: {e.get('relation','')}", "PEER",
+                "a direct-collaborator office (lateral working relation, not hierarchy) — "
+                "understand the relation; do not overwrite or impersonate"))
     except Exception:
         pass
 
