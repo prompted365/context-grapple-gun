@@ -41,6 +41,44 @@ BLOCK_RE = re.compile(
 CLOSED_FORM_RE = re.compile(r"<!--\s*--agnostic-candidate\s*-->")
 
 
+# Prose-born fallback (Architect-directed, tic 439 — "support both, but mandate
+# proper in the writing process"). A born CogPR candidate is SOMETIMES authored
+# as human-readable markdown prose — a `## CogPR candidate: \`cpr_<id>\`` heading
+# + a `**status:** pending` (or `status: pending`) line + the lesson body — instead
+# of the canonical `<!-- --agnostic-candidate -->` block. The READER is liberal
+# (it accepts both forms so a prose-authored born is never silently lost); the
+# WRITER stays strict (the structured block is the proper, mandated emitter form —
+# Emitter Surface Declared Interface + Inline CogPR Schema Completeness Required —
+# enforced at the cadence born-authoring step). This fallback is SCOPED to the
+# explicitly-passed --plan-file ONLY (never the CLAUDE.md/MEMORY.md rglob set), so
+# doctrine or memory prose that merely *mentions* a `cpr_` id cannot false-positive.
+# When a structured block already carries an id, the BLOCK form WINS (the prose for
+# that same id is skipped) — dedup-safe.
+PROSE_CANDIDATE_RE = re.compile(
+    r"^#{1,6}\s*CogPR candidate:\s*`?(cpr_[A-Za-z0-9_]+)`?\s*$",
+    re.MULTILINE,
+)
+
+
+def parse_prose_candidate(body_text):
+    """Liberal parser for a prose-authored born body.
+
+    Returns the status string (e.g. 'pending') or '' if no status line is
+    present. The lesson is the full body and is handled by the caller — this
+    helper only resolves the status field, which the mandate-proper discipline
+    still requires (a prose-born without `status: pending` is skipped, same as
+    a block without one).
+    """
+    for raw in body_text.splitlines():
+        # de-emphasize: drop markdown bold/italic/code markers, normalize
+        clean = raw.replace("*", "").replace("`", "").strip()
+        low = clean.lower()
+        if low.startswith("status:") or low.startswith("status :"):
+            val = clean.split(":", 1)[1].strip()
+            return val.split()[0].lower() if val else ""
+    return ""
+
+
 def parse_cpr_block(block_text):
     """Parse YAML-ish CPR block into dict."""
     result = {}
@@ -405,9 +443,17 @@ def extract_cprs(project_dir, dry_run=False, plan_file=None, anomaly_threshold=0
             )
             counters["closed_form_markers_warned"] += 1
 
+        # Track ids captured by the structured-block reader in THIS file so the
+        # prose-born fallback (below) can defer to them — the structured block
+        # is the proper form and always wins (dedup-safe).
+        block_ids_this_file = set()
+
         for match in BLOCK_RE.finditer(text):
             counters["blocks_found"] += 1
             block = parse_cpr_block(match.group(1))
+            _bid = str(block.get("id", "")).strip()
+            if _bid:
+                block_ids_this_file.add(_bid)
             status = block.get("status", "")
             tier = _classify_tier(block, status)
 
@@ -584,6 +630,89 @@ def extract_cprs(project_dir, dry_run=False, plan_file=None, anomaly_threshold=0
             else:
                 counters["extracted_lesson_only"] += 1
             if explicit_id:
+                counters["explicit_id_preserved"] += 1
+
+        # ---- Prose-born fallback pass (Architect-directed tic 439) -------------
+        # "Support both": the reader is liberal — a born CogPR candidate authored
+        # as markdown prose (`## CogPR candidate: \`cpr_<id>\`` heading + a
+        # `status: pending` / `**status:** pending` line + the lesson body) is
+        # accepted, so a prose-authored born is never silently lost — while the
+        # writer stays strict (the `<!-- --agnostic-candidate -->` block is the
+        # proper, mandated form). SCOPED to the explicitly-passed --plan-file ONLY
+        # (never the CLAUDE.md/MEMORY.md rglob set), so doctrine/memory prose that
+        # merely mentions a `cpr_` id cannot false-positive. A structured block for
+        # the same id WINS (skipped here) — dedup-safe.
+        if plan_file and Path(str(gov_file)).resolve() == Path(plan_file).resolve():
+            _cands = list(PROSE_CANDIDATE_RE.finditer(text))
+            for _ci, _cm in enumerate(_cands):
+                _cid = _cm.group(1).strip()
+                if _cid in block_ids_this_file:
+                    continue  # structured block already carries this id
+                _body_start = _cm.end()
+                _body_end = _cands[_ci + 1].start() if _ci + 1 < len(_cands) else len(text)
+                _body = text[_body_start:_body_end].strip()
+                _pstatus = parse_prose_candidate(_body)
+                _cand_line = _block_line_number(text, _cm.start())
+                _locator = f"{gov_file}:{_cand_line}"
+                if _pstatus != "pending":
+                    _key = "skipped_status_not_pending" if _pstatus else "skipped_no_status"
+                    counters[_key] += 1
+                    print(
+                        f"cpr-extract skip [prose {_key}]: {_cid} at {_locator} "
+                        f"— prose-born requires a `status: pending` (or "
+                        f"`**status:** pending`) line. The proper form is the "
+                        f"`<!-- --agnostic-candidate -->` block (Emitter Surface "
+                        f"Declared Interface).",
+                        file=sys.stderr,
+                    )
+                    continue
+                if not _body:
+                    counters["skipped_schema_incomplete"] += 1
+                    continue
+                counters["blocks_found"] += 1
+                _source = _locator
+                _dedup = hashlib.sha256(f"{_source}:{_body}".encode()).hexdigest()[:16]
+                if _dedup in existing_hashes:
+                    counters["skipped_dedup_hash_match"] += 1
+                    continue
+                if _cid in terminal_ids:
+                    counters["terminal_duplicate_skipped"] += 1
+                    continue
+                _btic_m = re.search(r"_tic(\d+)$", _cid)
+                _btic = int(_btic_m.group(1)) if _btic_m else tic_count
+                _entry = {
+                    "type": "cpr",
+                    "id": _cid,
+                    "id_origin": "explicit",
+                    "dedup_hash": _dedup,
+                    "status": "extracted",
+                    "tier": "tier1",
+                    "lesson": _body,
+                    "source": _source,
+                    "source_date": "",
+                    "band": "COGNITIVE",
+                    "motivation_layer": "COGNITIVE",
+                    "subsystem": "",
+                    "recommended_scopes": [],
+                    "rationale": "",
+                    "review_hints": "",
+                    "birth_tic": _btic,
+                    "posture": "",
+                    "extracted_at": now,
+                    "extracted_by": "cpr-extract-prose-fallback",
+                    "source_file": str(gov_file),
+                    "source_block_line": _cand_line,
+                    "birth_rung": topo["birth_rung"],
+                    "birth_scope_path": topo["birth_scope_path"],
+                    "authoring_form": "prose_fallback",
+                }
+                _oc = _origin_context_for(gov_file)
+                if _oc:
+                    _entry["origin_context"] = _oc
+                new_entries.append(_entry)
+                existing_hashes.add(_dedup)
+                counters["blocks_extracted"] += 1
+                counters["extracted_canonical"] += 1
                 counters["explicit_id_preserved"] += 1
 
     if new_entries and not dry_run:

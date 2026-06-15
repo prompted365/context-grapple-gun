@@ -326,6 +326,20 @@ $MANDATE_CONTENT
 5. Do NOT invent cycles beyond what the mandate specifies
 6. Working directory is: $ZONE_ROOT
 
+## CogPR candidates — emit durable lessons (the runner ingests them canonical-side)
+
+If a META cycle (memory_mining, pattern_mining, ladder_audit, deep_audit,
+review_close_check) surfaces a DURABLE CogPR candidate — a new rule, pattern, or
+correction worth /review — emit it as a structured object in a top-level
+\`candidate_cogprs\` array (and/or under results.<cycle>.candidate_cogprs). Each:
+{\"lesson\": \"<the full lesson — REQUIRED>\", \"band\": \"COGNITIVE|STRUCTURAL|PRIMITIVE|SOCIAL\", \"subsystem\": \"...\", \"confidence_tier\": \"tentative|...\", \"lesson_type\": \"...\", \"recommended_scopes\": [\"...\"], \"note\": \"...\", \"source_cycle\": \"<cycle>\"}.
+Do NOT write queue.jsonl yourself — the runner ingests candidate_cogprs into the
+queue (the birth ledger) canonical-side AFTER this report is validated (the
+sole-writer gate: you produce the artifact, the canonical runner is the sole
+writer of governance state; a birth-state row is non-terminal — promotion stays
+/review-gated). Omit the array or leave it empty if nothing durable surfaced — do
+NOT invent candidates to fill it.
+
 ## Cycle report schema (MANDATORY — runner validates this before marking mandate consumed)
 
 Write this EXACT file: $STRUCTURED_REPORT
@@ -341,6 +355,7 @@ Your cycle report MUST be a JSON object with exactly this shape:
   \"timestamp\": \"ISO-8601 now\",
   \"cycles_executed\": [\"list of cycles you ran\"],
   \"artifacts\": {},
+  \"candidate_cogprs\": [],
   \"results\": {
     \"signal_scan\": {},
     \"queue_refresh\": {}
@@ -872,6 +887,28 @@ print(json.dumps(t))
   fi
   echo "Transcript: $TRANSCRIPT_FILE"
   echo "Report:     $STRUCTURED_REPORT"
+
+  # ── Canonical-side CogPR candidate ingest (Architect-directed tic 439) ───────
+  # The backend EMITTED any durable candidates into the report's candidate_cogprs
+  # array (an artifact). THIS is the canonical-side sole-writer that appends them
+  # to the queue (the birth ledger) as NON-terminal birth-state rows — bench-
+  # packet-prep picks them up for /review; promotion stays /review-gated. The
+  # ingest is HARNESS-AGNOSTIC (same write whether codex or claude emitted them;
+  # the harness is recorded as provenance, never as control — compute-admission-
+  # law-topology-agnostic). Fail-soft: the mandate is ALREADY consumed here, so an
+  # ingest hiccup must never un-consume verified governance work — it is additive.
+  COGPR_INGEST="$SCRIPT_DIR/cogpr-ingest.py"
+  if [ -f "$COGPR_INGEST" ] && [ -f "$STRUCTURED_REPORT" ]; then
+    set +e
+    INGEST_OUT=$(python3 "$COGPR_INGEST" --zone-root "$ZONE_ROOT" --report "$STRUCTURED_REPORT" 2>&1)
+    INGEST_RC=$?
+    set -e
+    if [ "$INGEST_RC" -eq 0 ]; then
+      echo "CogPR ingest: $INGEST_OUT"
+    else
+      echo "WARN: cogpr-ingest failed (non-fatal; mandate already consumed): $INGEST_OUT" >&2
+    fi
+  fi
 
   # Record transition with provenance (terminal record for THIS mandate's run;
   # appended to history regardless of detach — history is keyed by $MANDATE_ID,

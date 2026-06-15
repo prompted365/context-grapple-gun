@@ -220,6 +220,18 @@ If `cadence-ops.py` was used in Step 0.5, signal state is already captured in th
 #### Step 2: Extract Lessons (CogPRs)
 Did we establish a new rule or optimize a workflow? If yes, capture it as a `<!-- --agnostic-candidate -->` block using the COGNITIVE band. Route based on truth-state (see write rule below).
 
+**Born-file discipline (tic 439 — support both, mandate proper).** A born may be
+captured inline in MEMORY.md OR as a standalone `audit-logs/governance/borns-tic<N>-<slug>.md`
+file. EITHER way the **proper, mandated form is the `<!-- --agnostic-candidate -->`
+block** (`status: pending` + `lesson` + `source`) — that is what `cpr-extract` reads
+and what carries clean Tier-1 schema into the queue (the birth ledger /review picks up).
+Prose-only borns are a **tolerated reader fallback** (cpr-extract best-effort-parses a
+`## CogPR candidate: \`cpr_<id>\`` heading + a `status: pending` line when the file is
+passed via `--plan-file`) — but the block is the discipline; do not rely on the fallback.
+Candidates surfaced by **Mogul cycles** take a different lane: the backend emits them as
+`candidate_cogprs` in its cycle report and the runner ingests them canonical-side via
+`cogpr-ingest.py` (sole-writer gate) — do not hand-author those as borns.
+
 Include birth context when available:
 - `posture`: current session posture (e.g., "ENG/DIRECT", "OPS/META")
 - `cwd_context`: working directory relative to project root
