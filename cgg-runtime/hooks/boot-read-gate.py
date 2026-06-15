@@ -188,12 +188,15 @@ def decide(raw: str) -> tuple:
             pass
         msg = (
             "Perception debt cannot authorize governance mutation.\n\n"
-            f"The boot packet was not receipted as fully read (sequential, gapless) for tic {tic} "
+            f"The boot packet was not receipted as fully read (surface-typed: prose gapless, "
+            f"JSON/JSONL registries terminal-valve / latest-entry-per-id) for tic {tic} "
             f"[{entity}].\nGate reason: {reason}\n\n"
-            "Emit a complete boot-read receipt, then retry:\n"
+            "Emit a complete boot-read receipt, then retry (the gate blocks ONLY on "
+            "required_unread_ranges — declared apophatic negative space is not debt):\n"
             f"  python3 {_BOOT_RECEIPT} emit --entity {entity} --tic {tic} \\\n"
             "    --understood ... --constraint ... --abstention ... --first-action ... \\\n"
-            "    --full-boot-read --boot-read-mode full --chunking gapless\n"
+            "    --full-boot-read --boot-read-mode full --chunking surface_typed\n"
+            "  (a ranged/partial read also owes --apophatic-bound + --pertinence-rationale)\n"
             "Or, if a full read is genuinely impossible, record an AUDITED override (non-silent):\n"
             f"  python3 {_BOOT_RECEIPT} override --actor {entity} --tic {tic} "
             "--reason \"...\" --touched-path \"<path>\"\n"

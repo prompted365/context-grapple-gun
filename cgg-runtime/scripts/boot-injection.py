@@ -136,7 +136,7 @@ def render(zone_root: Path, tic: int, who: str, max_chars: int = 0) -> str:
             pri = int(r.get("priority", 50))
         except (TypeError, ValueError):
             pri = 50
-        items.append((pri, frm, txt))
+        items.append((pri, frm, txt, r.get("injection_id") or "?"))
 
     items.sort(key=lambda t: (t[0], t[1]))
 
@@ -145,23 +145,42 @@ def render(zone_root: Path, tic: int, who: str, max_chars: int = 0) -> str:
         return " ".join(t[2] for t in items).strip()
 
     # Budgeted: accumulate at UNIT boundaries; the lowest-priority pointers seal
-    # first. The overflow marker points at the full registry so nothing goes dark —
-    # same unit-safe SEALED discipline as the worldview truncation (budget-exempt
-    # closure framing + unit-safe truncation). Never cut mid-fragment.
-    kept, used, sealed_n = [], 0, 0
-    for _pri, _frm, txt in items:
+    # first. The overflow marker is a PERTINENCE MANIFEST (not a bare count) so a
+    # consumer can judge expand-or-not from the marker itself — same standard as the
+    # consumer-side apophatic aperture (cgg-ledger#producer-seal-is-a-typed-field-aperture,
+    # /review 421). Never cut mid-fragment (unit-safe).
+    kept, used, sealed_ids = [], 0, []
+    for _pri, _frm, txt, iid in items:
         add = (1 if kept else 0) + len(txt)  # +1 for the join space
         if used + add > max_chars and kept:
-            sealed_n += 1
+            sealed_ids.append(iid)
             continue
         kept.append(txt)
         used += add
-    if sealed_n:
-        kept.append(
-            f"[BOOT-INJECTION BUDGET: {sealed_n} lower-priority pointer(s) sealed; "
-            "read audit-logs/boot-injections/active.jsonl in full]"
-        )
+    if sealed_ids:
+        kept.append(_seal_manifest(sealed_ids))
     return " ".join(kept).strip()
+
+
+def _seal_manifest(sealed_ids: list) -> str:
+    """The boot-injection budget seal as a PERTINENCE MANIFEST, not a bare count
+    (cgg-ledger#producer-seal-is-a-typed-field-aperture, /review 421). A producer seal must
+    NAME + TYPE its negative space so a consumer can judge expand-or-not from the marker:
+    sealed_ids (the injection_id semantic slugs = the PERTINENCE handle, top-N + '+k more')
+    + a follow_surface + a read_discipline. Carries NO priority_range — RANK ≠ PERTINENCE:
+    what lets a consumer judge expand-or-not is WHAT was sealed (the semantic id), not how the
+    producer ranked it. The omitted pointers RETAIN their pertinence; they are budget-BOUNDED,
+    not foreclosed — expand if pertinent."""
+    n = len(sealed_ids)
+    TOP = 8
+    shown = sealed_ids[:TOP]
+    more = n - len(shown)
+    id_str = ", ".join(shown) + (f" +{more} more" if more > 0 else "")
+    return (
+        f"[BOOT-INJECTION BUDGET — {n} lower-priority pointer(s) bounded by render (not foreclosed): "
+        f"{id_str}. EXPAND if pertinent. follow-surface: audit-logs/boot-injections/active.jsonl "
+        "(read_discipline: latest-entry-per-id / terminal-valve)]"
+    )
 
 
 def main() -> int:

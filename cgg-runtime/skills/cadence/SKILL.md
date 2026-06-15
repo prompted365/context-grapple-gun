@@ -539,6 +539,22 @@ These markers make governance pressure visible and auditable. SessionStart hooks
 
 **Deep audit due marker**: When `deep_audit_due_tic` equals the current tic, Mogul should be delegated a deep audit cycle: multi-rung ladder coherence scan (via ladder-auditor), manifestation pressure scan (via manifestation-tracker), sibling duplication check, overbroad abstraction detection, demotion pressure review. The deep audit produces an execution artifact packet and stages review material if intervention is needed.
 
+#### Standing-Pointer Priority Calibration (light; epoch-boundary)
+
+The boot-injection standing pointers (`audit-logs/boot-injections/active.jsonl`) carry a `priority` field the renderer (`boot-injection.py`) **sorts** by — lowest-priority pointers seal first when the boot budget is exceeded. But **a relative priority is meaningful only if it was authored relative to the active set** (cgg-ledger#priority-is-calibrated-at-cadence-not-boot, /review 421): a number guessed in isolation — or a missing field defaulting to 50 — is accidental placement around a default attractor, not a real ranking.
+
+**Cold boot cannot calibrate** (no session context, no forward direction — it can only render), and a per-write lint on every ad-hoc writer would cage a being-authored judgment into a compliance artifact (constrain-vs-cultivate). The relational writer with the fullest context + forward direction is **/cadence** — it sees the whole session and writes the projection, so calibrating which standing-pointers survive the next boot's budget is the **same future-self-rehydration stewardship as the handoff itself**. The renderer sorts; cadence justifies placement.
+
+At the epoch boundary — only when standing pointers were added/changed this tic, or a pointer has been repeatedly sealed:
+1. Read the active set (`boot-injection.py render --tic <N> --audience orchestrator` shows the priority-ordered + sealed-manifest result; `active.jsonl` is the truth).
+2. Calibrate each touched pointer's `priority` **against the active set** (not in isolation) — what must survive the next boot's budget vs. what may seal first.
+3. Record a one-line `priority_basis` on the record (why this placement, relative to which siblings) — the relational justification, not just the number.
+4. A **repeatedly-sealed** record (it keeps losing the budget) is **flagged for the next cadence pass** to re-evaluate (retire / re-prioritize / promote to a standing brief), never auto-promoted on excitement.
+
+**Lock:** *Priority is relative only if written relationally. The renderer sorts; the writer with fullest context — cadence — justifies placement.* Missing priority = neutral fallback (50) until the next cadence calibration. This is calibration (cultivation), **not a gate** — never block the handoff on a missing `priority_basis`.
+
+<!-- landed-from cpr_priority_is_calibrated_at_cadence_not_boot_tic421 (/review 421 PROMOTE -> cgg-ledger#priority-is-calibrated-at-cadence-not-boot; impl gate tic 422). Band: COGNITIVE. Domain rung: CGG. -->
+
 The user sees this plan in Claude Code's native plan UI with approve/edit/reject/clear options. When approved and context cleared, the plan persists and becomes the active state for the next session.
 
 The session does NOT end until the human acts on the plan. The human may:

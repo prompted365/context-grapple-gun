@@ -68,12 +68,23 @@ DEFAULT_MAX_CHARS = 3000
 BOOT_READ_INVARIANT_TEXT = (
     "[BOOT READ INVARIANT · PSEUDO_TEMPERATURE 0.01] DO NOT ACT FROM A CLIPPED PREVIEW. "
     "If this packet is clipped / truncated / summarized / preview-limited, expand and read it "
-    "IN FULL — sequential, gapless, no skipped middle sections — before acting; the visible "
-    "head is NOT the packet. A packet not read in full is perception debt, and perception debt "
-    "cannot authorize governance mutation. Before ANY mutation (doctrine/ledger inscription, "
-    "/review close, mandate close, backlog state movement, boot/crisis interpretation) record the "
-    "boot receipt: full_boot_injection_read · boot_read_mode · chunking=gapless · omitted_ranges · "
-    "clipped_preview_detected. If a full read is impossible, STOP at read-only inspection and "
+    "IN FULL before acting — the visible head is NOT the packet. FULL is SURFACE-TYPED: "
+    "prose / markdown / specs / handoffs = sequential, gapless, no skipped middle; "
+    "JSON / JSONL / registries / queues / ledgers = the current REQUIRED slice under its "
+    "discipline (terminal-valve / latest-entry-per-id / active-manifest) — NOT every historical "
+    "row — plus an APOPHATIC disclosure of the excluded rows; generated outputs = reopen/read "
+    "back before relying on claims. SEAL-RECEIVER RULE: a producer SEAL (budget truncation) is "
+    "declared negative space, not debt — but the marker alone does NOT prove non-pertinence; if "
+    "your action could depend on sealed material, expand the named follow-surface (by its "
+    "discipline) before acting; if you do not expand, do not infer the sealed contents. A packet "
+    "not read in full is perception debt, and perception debt cannot authorize governance "
+    "mutation. Before ANY mutation (doctrine/ledger inscription, /review close, mandate close, "
+    "backlog state movement, boot/crisis interpretation) record the boot receipt: "
+    "full_boot_injection_read · boot_read_mode · chunking(gapless|surface_typed) · "
+    "required_unread_ranges (THE GATE BLOCKS ONLY ON THIS) · apophatic_range_bounds (named "
+    "negative space — non-blocking) · pertinence_rationale · clipped_preview_detected. Declared "
+    "negative space is not failure — it is how a bounded aperture is made auditable; only "
+    "required unread is gate debt. If a full read is impossible, STOP at read-only inspection and "
     "surface the limitation — never mutate from a clipped packet."
 )
 BOOT_READ_INVARIANT_REASON = (
@@ -617,6 +628,39 @@ def _cross_agent_mesh(zone_root: Path, tic: int) -> list:
 _CLASS_ORDER = ["SUBSTRATE", "YOURS", "OFFICE", "ESCALATE", "APOPHATIC", "PEER", "FIELD", "COUNTER", "ANCESTOR", "SEALED"]
 
 
+def _render_bound_marker(omitted_frags: list, office: str, tic: int) -> str:
+    """The RENDER-BOUND aperture marker — a PERTINENCE MANIFEST of the budget-omitted rays
+    (cgg-ledger#producer-seal-is-a-typed-field-aperture, /review 421).
+
+    A producer SEAL (budget truncation) must meet the SAME standard as the consumer-side
+    apophatic aperture: NAME + TYPE its negative space, not just COUNT it. So the marker
+    carries `sealed_ids` (semantic fragment ids — the PERTINENCE handle, top-N + '+k more')
+    + the `classes` present + a `follow_surface` + a `read_discipline`.
+
+    Two load-bearing distinctions (born #2b):
+      * FIELD ≠ SEALED — budget truncation is a RENDER boundary, NOT a deliberate foreclosure.
+        It does NOT reclassify: each omitted ray RETAINS its own pertinence class (mostly FIELD
+        = expandable-if-pertinent). The marker declares bounded omission; it never re-types the
+        content to SEALED. (Hence the badge is ⟨RENDER-BOUND⟩, never ⟨SEALED⟩.)
+      * RANK ≠ PERTINENCE — the manifest carries NO priority_range. What lets a consumer judge
+        expand-or-not is WHAT was omitted (the semantic id + class), not how the producer ranked it."""
+    n = len(omitted_frags)
+    ids = [f["id"] for f in omitted_frags]
+    classes = sorted({f["pertinence"]["class"] for f in omitted_frags})
+    TOP = 6
+    shown = ids[:TOP]
+    more = n - len(shown)
+    id_str = ", ".join(shown) + (f" +{more} more" if more > 0 else "")
+    return (
+        f"  ⟨RENDER-BOUND·shape-only⟩ worldview render bounded at budget — {n} ray(s) omitted by "
+        f"RENDER, not reclassified (each RETAINS its class): {id_str} [classes: {', '.join(classes)}]. "
+        f"Budget-omitted content keeps its own pertinence — EXPAND if pertinent (do not infer their "
+        f"contents; do not treat them as SEALED-foreclosed). follow-surface: re-render "
+        f"`office-worldview.py render --office {office} --tic {tic} --max-chars 0` (read_discipline: "
+        f"unbounded re-render, or --format json for the typed fragments)."
+    )
+
+
 def render_human(office: str, tic: int, base: dict, frags: list, max_chars: int,
                  zone_root: Path = None, receipt_frame: bool = True) -> str:
     if not frags:
@@ -632,26 +676,33 @@ def render_human(office: str, tic: int, base: dict, frags: list, max_chars: int,
     for f in frags:
         by_class.setdefault(f["pertinence"]["class"], []).append(f)
     lines = [head]
+    line_frags = [None]  # parallel to `lines`: the fragment each line renders (None = head/footer)
     for cls in _CLASS_ORDER:
         items = by_class.get(cls)
         if not items:
             continue
         for f in items:
             lines.append(f"  {_badge(cls, f['authority'], f.get('gated', False))} {f['text']}")
+            line_frags.append(f)
     # compact in-body reminder (the explicit, command-bearing request frame is appended
     # AFTER truncation below so it can never be cut)
     need_receipt = sorted({f["id"] for f in frags if f["receipt"]["required"]})
     if need_receipt:
         lines.append("  ⟜ receipt owed: understood_scope · accepted_constraints · abstentions · first_action_or_escalation")
+        line_frags.append(None)
     body = "\n".join(lines)
     # --max-chars bounds the WORLDVIEW BODY only. Truncation is LINE-SAFE: badge-bearing
     # lines are atomic civic units — a half-cut line can read as a different ray (a
-    # mangled ⟨YOURS·act⟩ is dangerous), so we cut at the last COMPLETE line that fits
-    # and append an explicit SEALED boundary marker (Architect hardening, tic 332).
+    # mangled ⟨YOURS·act⟩ is dangerous), so we cut at the last COMPLETE line that fits.
+    # The boundary marker is a RENDER-BOUND APERTURE (a pertinence MANIFEST), NOT a SEALED
+    # pertinence class (cgg-ledger#producer-seal-is-a-typed-field-aperture, /review 421):
+    # budget truncation does NOT reclassify the omitted rays — each RETAINS its own class
+    # (mostly FIELD = expandable-if-pertinent). The marker NAMES + TYPES its negative space
+    # (sealed_ids + classes + follow_surface + read_discipline), carrying NO priority_range
+    # (RANK ≠ PERTINENCE) so a consumer can judge expand-or-not from the marker itself.
     if max_chars and len(body) > max_chars:
-        sealed = ("  ⟨SEALED·shape-only⟩ worldview body truncated at budget boundary; "
-                  "do not infer omitted rays")
-        budget = max_chars - len(sealed) - 1  # reserve room for the marker line
+        reserve = 460  # generous upper bound for the (variable-length) manifest marker line
+        budget = max_chars - reserve - 1
         kept, used = [], 0
         for ln in lines:
             if used + len(ln) + 1 > budget:
@@ -660,7 +711,10 @@ def render_human(office: str, tic: int, base: dict, frags: list, max_chars: int,
             used += len(ln) + 1
         if not kept:            # head alone overran budget — keep it anyway (never empty)
             kept = [lines[0]]
-        kept.append(sealed)
+        kept_n = len(kept)
+        omitted_frags = [lf for lf in line_frags[kept_n:] if lf is not None]
+        if omitted_frags:
+            kept.append(_render_bound_marker(omitted_frags, office, tic))
         body = "\n".join(kept)
     # The receipt-request framing is DELIBERATELY budget-exempt — appended after the body
     # is bounded, so the loop-closing ritual is never truncated away (Architect, tic 332).

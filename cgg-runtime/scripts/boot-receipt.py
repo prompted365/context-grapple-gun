@@ -80,30 +80,75 @@ def receipt_id(entity: str, tic: int, fp: str) -> str:
 _OWED_FIELDS = ("understood_scope", "accepted_constraints", "abstentions",
                 "first_action_or_escalation")
 
-# The BOOT-READ fields (tic 406, bk-boot-full-injection-read-invariant): the mutation-gate
-# owed surface. The civic fields above close the boot LOOP; these close the boot-READ
-# precondition that gates governance mutation (perception debt cannot authorize mutation).
-# The pass-state the NARROW + FAIL-CLOSED gate requires:
+# The BOOT-READ fields (tic 406, bk-boot-full-injection-read-invariant; apophatic-aperture
+# rename tic 422, /review-421-ratified): the mutation-gate owed surface. The civic fields above
+# close the boot LOOP; these close the boot-READ precondition that gates governance mutation
+# (perception debt cannot authorize mutation). The pass-state the NARROW + FAIL-CLOSED gate
+# requires:
 #   full_boot_injection_read == True  AND  boot_read_mode == "full"
-#   AND chunking == "gapless"         AND  omitted_ranges == []
+#   AND chunking in {"gapless", "surface_typed"}  AND  required_unread_ranges == []
+# APOPHATIC-APERTURE DISCIPLINE (cgg-ledger#apophatic-aperture-disclosure, /review 421): the
+# gate blocks ONLY on `required_unread_ranges` (unread material INSIDE the required surface) —
+# NEVER on declared negative space (`apophatic_range_bounds`). Declaring + typing the excluded
+# rows is how a bounded aperture is made AUDITABLE, not a confession of failure. A ranged/partial
+# read OWES that disclosure (the forcing function): `apophatic_range_bounds` + `pertinence_rationale`.
+# SURFACE-TYPED READ (cgg-ledger#full-read-is-surface-typed): prose/markdown/spec reads are
+# `gapless`; JSON/JSONL/registry reads are `surface_typed` (terminal-valve / latest-entry-per-id —
+# the historical head under terminal-valve discipline is declared negative space, NOT gate debt).
 # clipped_preview_detected is recorded for audit but does NOT block (a clip that was then
 # expanded-and-read-in-full is a PASS — the point is reading in full, not never-clipped).
+# The PRODUCER-SEAL OBSERVATION fields (producer_bounded · producer_bound_kind ·
+# producer_follow_surface · sealed_ids_observed) record what the booting agent saw a producer
+# SEAL (budget truncation, worldview/boot-injection); they are observability, never a gate input —
+# a producer seal is declared negative space (cgg-ledger#producer-seal-is-a-typed-field-aperture).
 _BOOT_READ_FIELDS = ("full_boot_injection_read", "boot_read_mode", "chunking",
-                     "omitted_ranges", "clipped_preview_detected")
+                     "required_unread_ranges", "apophatic_range_bounds",
+                     "pertinence_rationale", "clipped_preview_detected")
+# legacy aliases honored on READ for backward-compat with pre-tic-422 receipts
+_BOOT_READ_FIELDS_LEGACY = ("omitted_ranges",)
+
+
+def _required_unread(rec: dict):
+    """The gate-blocking coverage field. Backward-compatible: prefer the ratified name
+    `required_unread_ranges`; fall back to the legacy `omitted_ranges` for receipts emitted
+    before the tic-422 apophatic-aperture rename. Returns the value (list / None / missing→[])."""
+    if "required_unread_ranges" in rec:
+        return rec.get("required_unread_ranges")
+    if "omitted_ranges" in rec:
+        return rec.get("omitted_ranges")
+    return []
 
 
 def boot_read_passes(rec: dict) -> tuple:
-    """(passes: bool, reason: str) for the boot-read mutation-gate pass-state."""
+    """(passes: bool, reason: str) for the boot-read mutation-gate pass-state.
+
+    Apophatic-aperture discipline (/review 421): the gate keys on `required_unread_ranges`
+    (real unread debt INSIDE the required surface), NEVER on `apophatic_range_bounds` (declared,
+    typed negative space). A ranged read owes its disclosure; declared space owes its rationale."""
     if rec.get("full_boot_injection_read") is not True:
         return False, "full_boot_injection_read is not true"
     if rec.get("boot_read_mode") != "full":
         return False, f"boot_read_mode={rec.get('boot_read_mode')!r} (need 'full'; 'preview_only'/'not_available' block)"
-    if rec.get("chunking") != "gapless":
-        return False, f"chunking={rec.get('chunking')!r} (need 'gapless')"
-    om = rec.get("omitted_ranges")
-    if om:  # non-empty list (or truthy) = sections were skipped
-        return False, f"omitted_ranges non-empty ({om})"
-    return True, "boot-read receipt complete (full · gapless · no omissions)"
+    if rec.get("chunking") not in ("gapless", "surface_typed"):
+        return False, f"chunking={rec.get('chunking')!r} (need 'gapless' for prose or 'surface_typed' for record-stores)"
+    # A RANGED / partial read owes its apophatic disclosure: naming the excluded negative space
+    # (apophatic_range_bounds) AND justifying that the aperture suffices (pertinence_rationale).
+    # The forcing function — to fake it costs nearly the same work as doing it right.
+    if rec.get("apophatic_range_bounds") is not None and not rec.get("pertinence_rationale"):
+        return False, "apophatic_range_bounds declared without pertinence_rationale (a bounded aperture must justify its sufficiency)"
+    # Three-state coverage gate (cgg-ledger#apophatic-aperture-disclosure):
+    #   []        = measured clean coverage           -> PASS
+    #   null/None = N/A / not line-computable          -> PASS only with an alternate coverage proof
+    #               (else `null` becomes the new dodge that the rename was meant to close)
+    #   non-empty = real unread debt in the required surface -> BLOCK
+    ru = _required_unread(rec)
+    if ru is None:
+        if rec.get("coverage_proof_alternate"):
+            return True, "required_unread_ranges N/A with alternate coverage proof (PASS)"
+        return False, "required_unread_ranges is null without an alternate coverage proof (null is not a coverage dodge)"
+    if ru:  # non-empty list (or truthy) = required surface left unread
+        return False, f"required_unread_ranges non-empty ({ru})"
+    return True, "boot-read receipt complete (full · surface-typed · required surface fully covered)"
 
 
 def receipt_missing(rec: dict) -> list:
@@ -257,8 +302,33 @@ def emit(args) -> int:
     if getattr(args, "boot_read_mode", None) is not None:
         rec["full_boot_injection_read"] = bool(args.full_boot_read)
         rec["boot_read_mode"] = args.boot_read_mode
+        # surface-typed: prose=gapless, record-stores=surface_typed; default gapless for a full read
         rec["chunking"] = args.chunking or ("gapless" if args.boot_read_mode == "full" else "n/a")
-        rec["omitted_ranges"] = list(args.omitted_range or [])
+        # the gate-blocking field: required unread INSIDE the required surface. --required-unread-range
+        # is the ratified name; --omitted-range is the legacy alias (still accepted). Emit-site writes
+        # BOTH so a legacy reader (fallback) and the current reader resolve the same coverage state.
+        req_unread = list(args.required_unread_range or args.omitted_range or [])
+        rec["required_unread_ranges"] = req_unread
+        rec["omitted_ranges"] = req_unread  # back-compat mirror
+        # apophatic_range_bounds: the NAMED, TYPED negative space of a ranged read — non-blocking,
+        # but REQUIRED for partial reads (and obligates pertinence_rationale). None = full read,
+        # no excluded space declared.
+        if args.apophatic_bound:
+            rec["apophatic_range_bounds"] = list(args.apophatic_bound)
+        if args.pertinence_rationale:
+            rec["pertinence_rationale"] = args.pertinence_rationale
+        if args.coverage_proof_alternate:
+            rec["coverage_proof_alternate"] = args.coverage_proof_alternate
+        # producer-seal OBSERVATION — what the agent saw a producer SEAL (budget truncation):
+        # observability of declared negative space, NEVER a gate input.
+        if args.producer_bounded:
+            rec["producer_bounded"] = True
+            if args.producer_bound_kind:
+                rec["producer_bound_kind"] = args.producer_bound_kind
+            if args.producer_follow_surface:
+                rec["producer_follow_surface"] = args.producer_follow_surface
+            if args.sealed_id:
+                rec["sealed_ids_observed"] = list(args.sealed_id)
         rec["clipped_preview_detected"] = bool(args.clipped_preview)
 
     fp = content_fingerprint(rec)
@@ -425,9 +495,30 @@ def main():
                    help="record full_boot_injection_read=true")
     e.add_argument("--boot-read-mode", choices=["full", "preview_only", "not_available"],
                    help="boot_read_mode (presence activates the boot-read fields)")
-    e.add_argument("--chunking", choices=["gapless", "partial", "n/a"])
+    e.add_argument("--chunking", choices=["gapless", "surface_typed", "partial", "n/a"],
+                   help="prose/spec reads = 'gapless'; JSON/JSONL/registry reads = 'surface_typed' "
+                        "(terminal-valve / latest-entry-per-id)")
+    e.add_argument("--required-unread-range", dest="required_unread_range", action="append",
+                   help="a range left UNREAD inside the REQUIRED surface (repeatable); none = clean "
+                        "coverage. THE GATE BLOCKS ON THIS. (Ratified name; --omitted-range is the alias.)")
     e.add_argument("--omitted-range", dest="omitted_range", action="append",
-                   help="a section omitted from the read (repeatable); none = full read")
+                   help="[legacy alias for --required-unread-range] a range left unread (repeatable)")
+    e.add_argument("--apophatic-bound", dest="apophatic_bound", action="append",
+                   help="a NAMED, TYPED excluded negative-space bound for a ranged read (repeatable); "
+                        "non-blocking but REQUIRED for partial reads (obligates --pertinence-rationale)")
+    e.add_argument("--pertinence-rationale", dest="pertinence_rationale",
+                   help="why the read aperture satisfies current pertinence (required when "
+                        "--apophatic-bound is given)")
+    e.add_argument("--coverage-proof-alternate", dest="coverage_proof_alternate",
+                   help="an alternate coverage proof that lets required_unread_ranges=null PASS")
+    e.add_argument("--producer-bounded", dest="producer_bounded", action="store_true",
+                   help="record that a producer SEAL (budget truncation) was observed in the boot packet")
+    e.add_argument("--producer-bound-kind", dest="producer_bound_kind",
+                   help="the kind of producer bound observed (e.g. 'budget_truncation', 'worldview_seal')")
+    e.add_argument("--producer-follow-surface", dest="producer_follow_surface",
+                   help="the follow-surface the seal pointed at (e.g. 'audit-logs/boot-injections/active.jsonl')")
+    e.add_argument("--sealed-id", dest="sealed_id", action="append",
+                   help="a semantic id the producer sealed (repeatable) — the pertinence handle, NOT a priority")
     e.add_argument("--clipped-preview", dest="clipped_preview", action="store_true",
                    help="record clipped_preview_detected=true (informational; does not block)")
     e.set_defaults(func=emit)
