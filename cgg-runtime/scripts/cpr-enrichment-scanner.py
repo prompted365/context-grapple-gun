@@ -35,6 +35,14 @@ from lib.signal_active import is_active_ray
 
 HOLDING_STATUSES = {"enrichment_needed", "enrichment_eligible"}
 
+# tic 427 (Architect-directed): the class/tier/type baseline is DECOUPLED from full
+# enrichment. A CogPR at `extracted` gets a thoughtful, non-duplicated baseline-metadata
+# pass (lesson_class / target_surface / proof_type) so a strong candidate is presentable +
+# evaluable PRE-enrichment — full enrichment + maturity-extension are deferred, optional
+# case-betterment, NOT firing-gates. Baseline runs for extracted AND holding; the heavy
+# evidence-gather pass runs for holding only.
+BASELINE_STATUSES = {"extracted"} | HOLDING_STATUSES
+
 
 # ---------------------------------------------------------------------------
 # Queue I/O
@@ -61,10 +69,23 @@ def load_queue(queue_path):
 
 
 def get_holding_cprs(queue_entries):
-    """Filter to CPRs in enrichment holding states."""
+    """Filter to CPRs in enrichment holding states (full evidence-gather pass)."""
     return {
         eid: entry for eid, entry in queue_entries.items()
         if entry.get("status") in HOLDING_STATUSES
+    }
+
+
+def get_extracted_baseline_cprs(queue_entries):
+    """Filter to CPRs at `extracted` (baseline-only pass — no full enrichment).
+
+    These get the class/tier/type baseline metadata WITHOUT a full evidence gather,
+    so a strong candidate is evaluable pre-enrichment. Holding-state CPRs are excluded
+    here because the full holding pass already writes their baseline.
+    """
+    return {
+        eid: entry for eid, entry in queue_entries.items()
+        if entry.get("status") == "extracted"
     }
 
 
@@ -639,8 +660,9 @@ def scan_and_enrich(project_dir, dry_run=False, quiet=False):
 
     queue = load_queue(queue_path)
     holding = get_holding_cprs(queue)
+    extracted = get_extracted_baseline_cprs(queue)
 
-    if not holding:
+    if not holding and not extracted:
         if not quiet:
             print("0")
         return 0
@@ -651,6 +673,35 @@ def scan_and_enrich(project_dir, dry_run=False, quiet=False):
     updated_count = 0
     entries_to_append = []
     consolidated_counts = {}
+
+    # Baseline-only pass over `extracted` candidates (tic 427, Architect-directed
+    # decoupling). Run ONLY derive_baseline_classification + write_deterministic_lite_
+    # consolidated (no evidence gathers, no queue mutation, no status change), so the
+    # class/tier/type baseline is available for evaluation WITHOUT spending a full
+    # enrichment. Full enrichment + maturity-extension stay deferred case-betterment.
+    # Non-duplicated: write_deterministic_lite_consolidated is idempotent (unchanged on
+    # re-run) and never clobbers heavy Tier-1 output. Evidence is [] here — proof_type
+    # honestly reflects the pre-enrichment state.
+    for cpr_id, cpr in extracted.items():
+        try:
+            classification = derive_baseline_classification(cpr, [], current_tic)
+            cstatus = write_deterministic_lite_consolidated(
+                cpr_id, classification, enrichment_dir, dry_run=dry_run
+            )
+            key = f"extracted_baseline_{cstatus}"
+            consolidated_counts[key] = consolidated_counts.get(key, 0) + 1
+            if not quiet and cstatus in ("written", "refreshed", "dry_run"):
+                lc = classification["agreements"][0]["value"]
+                print(
+                    f"  {cpr_id}: extracted-stage baseline {cstatus} "
+                    f"(lesson_class={lc}, full enrichment deferred)"
+                )
+        except Exception as err:  # noqa: BLE001 — fail-soft
+            consolidated_counts["extracted_baseline_error"] = (
+                consolidated_counts.get("extracted_baseline_error", 0) + 1
+            )
+            if not quiet:
+                print(f"  {cpr_id}: extracted-stage baseline FAILED ({err})")
 
     for cpr_id, cpr in holding.items():
         all_evidence = []
