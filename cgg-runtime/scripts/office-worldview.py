@@ -280,11 +280,11 @@ _DEFAULT_POLICY = dict(cap="FIELD", planes={"L3"}, boundary="standing unresolved
 _PLANE_BY_PREFIX = (
     ("boot.", "L0"),  # boot-read invariant — universal precondition (kept for all standings)
     ("harmony.", "L0"),
-    ("lane.", "L1"), ("ki.", "L1"),
+    ("subtelos.", "L1"), ("lane.", "L1"), ("ki.", "L1"),
     ("office.", "L2"),
     ("rung.", "L3"),
     ("tic.", "L4"),
-    ("arc.", "L5"),
+    ("arc.", "L5"), ("collab.", "L5"),
     ("gated_arc.", "L6"), ("review.", "L6"), ("office_counter.", "L6"),
     ("standing.", "L0"),  # the boundary fragment rides with the framer
 )
@@ -437,6 +437,18 @@ def compile_fragments(zone_root: Path, office: str, tic: int) -> list:
             f"founding telos — {_telos_purpose(zone_root)}", "SUBSTRATE",
             "the purpose every lane below serves; frames all interpretation — not locally editable",
             boost="the telos all lanes serve"))
+        # This office's SUBTELOS — its purpose SUBORDINATE to the founding telos, rendered
+        # directly under the founding-telos head. CANDIDATE-GATED: only surfaced once
+        # `ratified: true` (the /review gate flips it). While ratified:false the model is
+        # built + inspectable (office-lanes.json + offices.py directory) but conditions NO
+        # boot — honoring "/review-gate the model before it conditions the next entity's boot"
+        # (bk-office-directory-subtelos, tic 429). office-lanes is the authoritative civic.
+        sub = base.get("subtelos") or {}
+        if sub.get("statement") and sub.get("ratified") is True:
+            frags.append(_frag(zone_root, "subtelos.0", "worldview/office-lanes.json",
+                f"your subtelos (subordinate to the founding telos) — {sub['statement']}", "YOURS",
+                "your office's purpose, subordinate to the founding telos — act from it; "
+                "derived from your declared origin and mutable"))
         for i, ln in enumerate(base.get("substrate_lanes") or []):
             frags.append(_frag(zone_root, f"lane.{i}", "worldview/office-lanes.json", ln, "YOURS",
                 "a lane you carry as your own purpose"))
@@ -541,11 +553,24 @@ def compile_fragments(zone_root: Path, office: str, tic: int) -> list:
     except Exception:
         pass
 
-    # --- L5 OFFICE: your active arcs (YOURS) ---
+    # --- L5 OFFICE: your active arcs (YOURS) + direct-collaborator offices (PEER) ---
     try:
         for i, a in enumerate(base.get("active_arcs") or []):
             frags.append(_frag(zone_root, f"arc.{i}", "worldview/office-lanes.json", a, "YOURS",
                 "your current active arc — part of your purpose this tic"))
+        # Direct-collaborator offices — your LATERAL working relations (COLLABORATES_WITH),
+        # distinct from the MEMBER_OF hierarchy. Sourced from actor-registry collaboration_edges
+        # (sibling array, tic 429). CANDIDATE-GATED: only surfaced once `ratified: true`. PEER
+        # class — understand the relation, do not impersonate. (bk-office-directory-subtelos)
+        creg = _load_json(zone_root / "autonomous_kernel" / "actor-registry.json") or {}
+        for i, e in enumerate(creg.get("collaboration_edges") or []):
+            if (e.get("edge") == "COLLABORATES_WITH" and e.get("from") == office
+                    and e.get("ratified") is True):
+                arrow = "↔" if e.get("reciprocal") else "→"
+                frags.append(_frag(zone_root, f"collab.{i}", "autonomous_kernel/actor-registry.json",
+                    f"collaborates {arrow} {e['to']}: {e.get('relation','')}", "PEER",
+                    "a direct-collaborator office (lateral working relation, not hierarchy) — "
+                    "understand the relation; do not overwrite or impersonate"))
     except Exception:
         pass
 
