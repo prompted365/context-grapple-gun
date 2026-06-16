@@ -138,29 +138,38 @@ fi
 # CogPR counting: inline blocks + queue.jsonl
 # ============================================================================
 
-# Block-aware CogPR counter for inline <!-- --agnostic-candidate --> blocks.
-# Tolerates quoted and unquoted status values — authoring variance is real
+# Block-aware CogPR id emitter for inline <!-- --agnostic-candidate --> blocks.
+# Emits the id of each pending/enrichment_eligible (non-example) block, one per
+# line. Tolerates quoted and unquoted status values — authoring variance is real
 # and a silent undercount blinds the gate that triggers cpr-extract.py.
-count_pending_cprs() {
+# Emitting ids (rather than a raw count) lets the caller reconcile each inline
+# marker against queue.jsonl terminal-per-id: an inline block whose id is already
+# terminal in the queue (promoted/absorbed/...) is a STALE marker, not a live
+# pending CogPR, and must not inflate the boot banner's pending count.
+emit_pending_cpr_ids() {
   awk '
-    function status_val(s,   v) {
+    function field_val(s, key,   v) {
       v = s
-      sub(/.*status:[[:space:]]*/, "", v)
+      sub("^[[:space:]]*" key ":[[:space:]]*", "", v)
       gsub(/["'\''[:space:]]/, "", v)
       return v
     }
-    /<!-- --agnostic-candidate/ { in_block=1; pending=0; example=0 }
-    in_block && /status:/ {
-      sv = status_val($0)
+    /<!-- --agnostic-candidate/ { in_block=1; pending=0; example=0; id="" }
+    in_block && /^[[:space:]]*id:[[:space:]]/ { id = field_val($0, "id") }
+    in_block && /^[[:space:]]*status:/ {
+      sv = field_val($0, "status")
       if (sv == "pending" || sv == "enrichment_eligible") pending=1
       if (sv == "example") example=1
     }
-    in_block && /-->/ { if (pending && !example) c++; in_block=0 }
-    END { print c+0 }
+    in_block && /-->/ { if (pending && !example && id != "") print id; in_block=0 }
   ' "$1"
 }
 
-CPR_COUNT=0
+# Collect inline CogPR ids (not a raw count) so they can be reconciled against
+# queue.jsonl terminal-per-id below. A temp file keeps the find-loop subshell
+# from swallowing the accumulation.
+INLINE_CPR_IDS_FILE=$(mktemp 2>/dev/null || echo "${TMPDIR:-/tmp}/cgg-inline-cpr-ids.$$")
+: > "$INLINE_CPR_IDS_FILE"
 if [ -d "$PROJECT_DIR" ]; then
   # Build find exclusions from .ticignore (always exclude .git)
   FIND_EXCLUDES=(-not -path "*/.git/*")
@@ -177,23 +186,20 @@ if [ -d "$PROJECT_DIR" ]; then
   fi
 
   while IFS= read -r f; do
-    _c=$(count_pending_cprs "$f")
-    CPR_COUNT=$(( CPR_COUNT + _c ))
+    emit_pending_cpr_ids "$f" >> "$INLINE_CPR_IDS_FILE"
   done < <(find "$PROJECT_DIR" \( -name "CLAUDE.md" -o -name "MEMORY.md" \) "${FIND_EXCLUDES[@]}" 2>/dev/null)
 fi
 
 # Auto-memory (gitignored but governance-visible)
 MEMORY_FILE="$HOME/.claude/projects/$PROJECT_KEY/memory/MEMORY.md"
 if [ -f "$MEMORY_FILE" ]; then
-  _mem_count=$(count_pending_cprs "$MEMORY_FILE")
-  CPR_COUNT=$(( CPR_COUNT + _mem_count ))
+  emit_pending_cpr_ids "$MEMORY_FILE" >> "$INLINE_CPR_IDS_FILE"
 fi
 
 # Active plan file (caller-selected by LATEST_PLAN discovery above).
 # Active plan only — never scans the whole plans directory.
 if [ -n "$LATEST_PLAN" ] && [ -f "$LATEST_PLAN" ]; then
-  _plan_count=$(count_pending_cprs "$LATEST_PLAN")
-  CPR_COUNT=$(( CPR_COUNT + _plan_count ))
+  emit_pending_cpr_ids "$LATEST_PLAN" >> "$INLINE_CPR_IDS_FILE"
 fi
 
 # Queue.jsonl counting (latest-entry-per-ID, non-terminal statuses)
@@ -215,6 +221,47 @@ pending = [e for e in entries.values()
 print(len(pending))
 " 2>/dev/null || echo "0")
 fi
+
+# Reconcile inline CogPR markers against queue.jsonl terminal-per-id. An inline
+# <!-- --agnostic-candidate --> block whose id resolves to a TERMINAL queue
+# state (promoted, promoted_spec, absorbed, rejected, superseded, skipped,
+# dismissed, resolved, withdrawn*, merged, closed, terminal-audit) has already
+# been adjudicated — it is a STALE marker, not a live pending CogPR. Count only
+# inline ids absent from the queue or still in a non-terminal state. Without this
+# the banner reads its own stale write-surface as live (self-operation signal
+# discipline / disagreement-as-evidence). NOTE: `deferred` is NOT terminal — a
+# deferred inline candidate is genuinely carried and still counts.
+CPR_COUNT=$(python3 -c "
+import json
+ids_path = '$INLINE_CPR_IDS_FILE'
+queue = '$QUEUE_FILE'
+TERMINAL = {'promoted','promoted_spec','absorbed','rejected','superseded',
+            'skipped','dismissed','resolved','merged','closed','terminal-audit',
+            'withdrawn','withdrawn_inline_tracked'}
+latest = {}
+try:
+    with open(queue) as f:
+        for line in f:
+            line = line.strip()
+            if not line: continue
+            try: d = json.loads(line)
+            except: continue
+            i = d.get('id') or d.get('cogpr_id') or d.get('lesson_id')
+            if i: latest[i] = d.get('status','')
+except FileNotFoundError:
+    pass
+n = 0
+try:
+    for raw in open(ids_path):
+        i = raw.strip()
+        if not i: continue
+        if latest.get(i, '') in TERMINAL: continue
+        n += 1
+except FileNotFoundError:
+    pass
+print(n)
+" 2>/dev/null || echo 0)
+rm -f "$INLINE_CPR_IDS_FILE" 2>/dev/null || true
 
 TOTAL_CPRS=$(( CPR_COUNT + QUEUE_COUNT ))
 
