@@ -389,17 +389,22 @@ CRITICAL RULES:
 # lane is per-lane selectable between the Codex / GPT-5.5 backend and Claude Code.
 # Selector: MOGUL_RUNNER_BACKEND env (values: codex | claude).
 #
-# DEFAULT = codex (Architect direction tic 438: "set the 5.5 model to default for
-# mogul"). Claude Code is the explicit fallback (set MOGUL_RUNNER_BACKEND=claude)
-# AND the civil-carve-out lane (always, regardless of default — see fence below).
+# DEFAULT = claude (Architect direction tic 456: "switch mogul back to claude code
+# for now" — in the canonical mount). Codex/GPT-5.5 is now a per-spawn opt-in
+# (set MOGUL_RUNNER_BACKEND=codex). History: the default was codex from tic 438
+# (Architect: "set the 5.5 model to default for mogul"); flipped back to claude at
+# tic 456 — only the default VALUE moved, the per-lane selector is unchanged.
+# Claude Code is also the civil-carve-out lane (always, regardless of default — see
+# fence below).
 #
 # Compute-admission framing (ledger#compute-admission-law-topology-agnostic,
-# promoted /review 324): codex is an EXTERNAL EGRESS backend (OpenAI). This makes
-# the mogul GOVERNANCE lane egress-by-default — an explicit Architect decision,
-# distinct from the compute INFERENCE lane where mlx_local/no-egress stays primary.
-# Per-spawn override remains available (MOGUL_RUNNER_BACKEND=claude). If codex's
-# binary is absent the runner auto-falls-back to claude; a codex RUNTIME error
-# (auth/API) fails the mandate — override to claude to recover. Registered in
+# promoted /review 324): codex is an EXTERNAL EGRESS backend (OpenAI). With the
+# default flipped back to claude (tic 456) the mogul GOVERNANCE lane is
+# Claude-Code-mediated by default again; codex egress is an explicit per-spawn
+# opt-in (MOGUL_RUNNER_BACKEND=codex), distinct from the compute INFERENCE lane
+# where mlx_local/no-egress stays primary. If codex is requested but its binary is
+# absent the runner auto-falls-back to claude; a codex RUNTIME error (auth/API)
+# fails the mandate — drop the override to recover. Registered in
 # ak_control_room/providers.yaml.
 #
 # Standing fence (carried verbatim from the prior single-backend comment + the
@@ -416,7 +421,7 @@ CRITICAL RULES:
 # `Read, Grep, Glob, Agent, Bash, Write, Edit`; --allowedTools must include Agent
 # for civil_status_check). Edit kept out of mogul.md (already correct).
 
-MOGUL_RUNNER_BACKEND="${MOGUL_RUNNER_BACKEND:-codex}"
+MOGUL_RUNNER_BACKEND="${MOGUL_RUNNER_BACKEND:-claude}"
 
 # Resolve Claude (always needed: the default backend AND the civil carve-out lane)
 CLAUDE_BIN=$(command -v claude 2>/dev/null || true)
