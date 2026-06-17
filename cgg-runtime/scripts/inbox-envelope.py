@@ -208,16 +208,28 @@ def find_envelope_file(inbox_path: str, message_id: str) -> tuple[str | None, st
         if not os.path.isdir(channel_dir):
             continue
         for fname in os.listdir(channel_dir):
-            if not fname.endswith(".json") or fname.startswith("."):
+            if fname.startswith("."):
                 continue
-            if message_id in fname:
-                fpath = os.path.join(channel_dir, fname)
-                try:
-                    data = json.loads(Path(fpath).read_text(encoding="utf-8"))
-                    if data.get("message_id") == message_id:
-                        return fpath, state, data
-                except (json.JSONDecodeError, OSError):
-                    continue
+            entry = os.path.join(channel_dir, fname)
+            # Flat envelope: a <message_id>*.json file in the channel.
+            if fname.endswith(".json") and message_id in fname and os.path.isfile(entry):
+                fpath = entry
+            # Directory envelope (WAIT_<id>/envelope.json) — a FIRST-CLASS form that
+            # scan/sweep/search already read off the filesystem (lane header). The verb
+            # resolver must honor the same contract (parity fix tic 468): descend and
+            # match by the envelope's OWN message_id, NOT the dir name — the dir name may
+            # differ (e.g. WAIT_gk_arrival_ack_penpal_359 vs message_id gk-arrival-ack-359,
+            # underscores vs hyphens), so a name substring match would silently miss it.
+            elif os.path.isdir(entry) and os.path.isfile(os.path.join(entry, "envelope.json")):
+                fpath = os.path.join(entry, "envelope.json")
+            else:
+                continue
+            try:
+                data = json.loads(Path(fpath).read_text(encoding="utf-8"))
+                if data.get("message_id") == message_id:
+                    return fpath, state, data
+            except (json.JSONDecodeError, OSError):
+                continue
     return None, None, None
 
 
@@ -528,17 +540,36 @@ def _transition(inbox_path: str, message_id: str, to_state: str,
 
     priority = data.get("routing", {}).get("priority", "normal")
     etype = data.get("content", {}).get("envelope_type")
-    tic = data["lifecycle"]["source_tic"]
+    # source_tic lives under lifecycle for canonical envelopes, but directory/bare
+    # envelopes carry it under provenance — fall back so dir-envelopes transition.
+    tic = data["lifecycle"].get("source_tic") or data.get("provenance", {}).get("source_tic") or 0
 
-    # Write new file
+    # Write new file / relocate. A directory envelope (WAIT_<id>/envelope.json with
+    # co-located artifacts) is PRESERVED AS a directory through the transition: write the
+    # mutated envelope back, then move the whole dir to the target channel with the new
+    # state prefix (parity with the flat-file path, but keeps the README / EMIT_* artifacts).
     new_fname = envelope_filename(to_state, priority, etype, tic, message_id)
     new_path = envelope_filepath(inbox_path, to_state, new_fname)
     os.makedirs(os.path.dirname(new_path), exist_ok=True)
-    Path(new_path).write_text(json.dumps(data, indent=2), encoding="utf-8")
 
-    # Remove old
-    if os.path.isfile(fpath) and fpath != new_path:
-        os.remove(fpath)
+    src_dir = os.path.dirname(fpath)
+    from_channel_dir = os.path.join(inbox_path, STATE_CHANNELS.get(from_state, ""))
+    is_dir_envelope = (os.path.basename(fpath) == "envelope.json"
+                       and os.path.abspath(src_dir) != os.path.abspath(from_channel_dir))
+    if is_dir_envelope:
+        Path(fpath).write_text(json.dumps(data, indent=2), encoding="utf-8")
+        stem = re.sub(r"^(WAIT|ACTIVE|DONE|DEFER|NACK)_", "", os.path.basename(src_dir))
+        new_dirname = f"{to_state}_{stem}"
+        target_channel_dir = os.path.join(inbox_path, STATE_CHANNELS[to_state])
+        os.makedirs(target_channel_dir, exist_ok=True)
+        new_dir_path = os.path.join(target_channel_dir, new_dirname)
+        if os.path.abspath(src_dir) != os.path.abspath(new_dir_path):
+            os.rename(src_dir, new_dir_path)
+        new_fname = new_dirname
+    else:
+        Path(new_path).write_text(json.dumps(data, indent=2), encoding="utf-8")
+        if os.path.isfile(fpath) and fpath != new_path:
+            os.remove(fpath)
 
     # Update registry
     registry = _load_registry(inbox_path)
