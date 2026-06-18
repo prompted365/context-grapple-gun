@@ -950,6 +950,335 @@ def format_active_rungs(result):
     return "\n".join(lines)
 
 
+# ---------------------------------------------------------------------------
+# Stage-1 KI-selection-by-applicability (ladder-downlane-spec.md §2 Stage 1 / §3 KIND)
+#
+# The down-lane's keystone read-only stage (C9_EXEC_GO, tic 470): for each ACTIVE
+# rung (Stage 0), select which federation KIs plausibly REACH that rung — matched by
+# the KI's ledger lane/terrain_class tags against the rung's declared concerns. The
+# output is a ranked KI-per-rung CANDIDATE list that the (forward) Stage-2 down-audit
+# consumes; it is NOT a down-audit verdict and NOT a mutation.
+#
+# Boundary (per the KIND table — this piece is LOW gate, "read-only matching"):
+#   - read-only: reads the ledger tags + the Stage-0 active set + a rung-concern
+#     source. Writes nothing; no authority; no doctrine mutation; no signal; no arena.
+#   - CANDIDATE (center-hold): the rung-concern source is the tic-467 fork-B DERIVE —
+#     heuristic, coherence-is-not-admission. A selection is a hypothesis about REACH,
+#     never a verdict about FIT (Arena Velocity Guard; the fit test is the Stage-2
+#     rehydration-in-spirit down-audit, which stays forward).
+#   - NON-bias guard: selection must NOT pre-bias toward demotion. `needs_mechanization`
+#     != defective (spec §2 S2 / readiness-map guardrail). Stage 1 answers only "does
+#     this KI plausibly reach here?", never "should it be demoted?".
+#   - honest reconciliation: the concern source is a tic-467 snapshot; the active set
+#     is live. Rungs active-but-unsourced and sourced-but-now-dormant are surfaced
+#     (Disagreement-as-evidence), never silently dropped or invented.
+# ---------------------------------------------------------------------------
+
+DEFAULT_CONCERN_SOURCE_REL = os.path.join(
+    "governance", "c9-rung-concerns-derived-tic467.json")
+LEDGER_REL = os.path.join("governance", "constitution-ledger", "ledger.md")
+
+_LEDGER_INVARIANT_RE = re.compile(r"`invariant_id`:\s*`([a-z0-9_]+)`")
+_LEDGER_TERRAIN_RE = re.compile(r"`terrain_class`:\s*`([a-z0-9_]+)`")
+_LEDGER_TARGET_RUNG_RE = re.compile(r"`target_rung`:\s*`?([a-z0-9_]+)`?")
+# Captures BOTH lane forms: the structured `\`lanes\`: [...]` tag (quoted,
+# underscored) AND the inline `lanes: [...]` provenance-comment form (unquoted,
+# hyphenated). The leading backtick of the structured form sits outside the match.
+_LEDGER_LANES_RE = re.compile(r"lanes`?\s*:\s*\[([^\]]*)\]")
+_LEDGER_HEADING_RE = re.compile(r"^#{2,4}\s+(.+)$", re.MULTILINE)
+
+
+def _norm_tag(s):
+    """Canonicalize a lane/terrain tag for cross-vocabulary matching: the ledger
+    uses underscores (queue_and_state), the rung-concern derive uses hyphens
+    (queue-and-state). Lowercase, strip quotes/space, fold `_` → `-`."""
+    return s.strip().strip('"').strip("'").strip().lower().replace("_", "-")
+
+
+def _parse_ledger_kis(ledger_path):
+    """Parse the constitution-ledger into KI tag records (read-only).
+
+    Returns [{invariant_id, name, terrain_class, lanes, target_rung, tags}]. `tags`
+    is the normalized union of terrain_class + lanes — the match surface. Each KI is
+    anchored on its `invariant_id` tag; its name is the nearest preceding heading; its
+    terrain_class / lanes / target_rung are read from the span up to the next
+    invariant. Both lane forms are captured (structured tag + inline provenance).
+    """
+    try:
+        content = Path(ledger_path).read_text(encoding="utf-8")
+    except (OSError, UnicodeDecodeError):
+        return []
+
+    inv_matches = list(_LEDGER_INVARIANT_RE.finditer(content))
+    headings = [(m.start(), m.group(1).strip())
+                for m in _LEDGER_HEADING_RE.finditer(content)]
+
+    # Entry boundary = the next `### ` heading (each KI is `### Name` → tag block →
+    # verbatim → provenance → next `### `). Bounding the tag/lane collection at the
+    # next h3 heading keeps each entry's `lanes:` attributed to ITS OWN KI — without
+    # this, the LAST invariant_id's span ran to EOF and swallowed every provenance
+    # `lanes:` in the trailing verbatim "Compact-Root Source Bodies" section (the
+    # observed ki_session_memory_pickup 13-lane over-match).
+    h3_starts = sorted(mm.start()
+                       for mm in re.finditer(r"^### ", content, re.MULTILINE))
+
+    def _entry_end(start):
+        nxt_h3 = next((p for p in h3_starts if p > start), len(content))
+        return nxt_h3
+
+    def _name_before(offset):
+        name = ""
+        for pos, text in headings:
+            if pos <= offset:
+                name = text
+            else:
+                break
+        return name
+
+    kis = []
+    for i, m in enumerate(inv_matches):
+        start = m.start()
+        # Bound at the next h3 heading OR the next invariant_id, whichever is nearer
+        # (defensive: an entry with two invariant tags should not bleed into the next).
+        next_inv = inv_matches[i + 1].start() if i + 1 < len(inv_matches) else len(content)
+        end = min(_entry_end(start), next_inv)
+        span = content[start:end]
+
+        inv_id = m.group(1)
+        terrain_m = _LEDGER_TERRAIN_RE.search(span)
+        terrain = terrain_m.group(1) if terrain_m else ""
+        target_m = _LEDGER_TARGET_RUNG_RE.search(span)
+        target_rung = target_m.group(1) if target_m else ""
+
+        lanes = set()
+        for lm in _LEDGER_LANES_RE.finditer(span):
+            for tok in lm.group(1).split(","):
+                tok = tok.strip()
+                if tok:
+                    lanes.add(_norm_tag(tok))
+
+        tags = set(lanes)
+        if terrain:
+            tags.add(_norm_tag(terrain))
+
+        kis.append({
+            "invariant_id": inv_id,
+            "name": _name_before(start) or inv_id.replace("ki_", "").replace("_", " "),
+            "terrain_class": _norm_tag(terrain) if terrain else "",
+            "lanes": sorted(lanes),
+            "target_rung": target_rung,
+            "tags": tags,
+        })
+    return kis
+
+
+def _load_rung_concerns(concern_source_path):
+    """Load the rung-concern source (default: the tic-467 fork-B derive).
+
+    Returns (concern_map, meta) where concern_map is {rung_path: {concerns,
+    scores, recommend_fork_A_declare, raw_concerns}} keyed on the source's per-rung
+    `path` so it joins to the Stage-0 active set `dir`. meta carries the source's
+    `_`-prefixed provenance/fence fields (CANDIDATE marker, tic, status)."""
+    try:
+        data = json.loads(Path(concern_source_path).read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return {}, {}
+    out = {}
+    for _name, rec in (data.get("rungs") or {}).items():
+        path = rec.get("path")
+        if path is None:
+            continue
+        concerns = set(_norm_tag(c) for c in rec.get("candidate_concerns", []))
+        scores = {}
+        for r in rec.get("ranked", []):
+            scores[_norm_tag(r.get("lane", ""))] = r.get("score", 1)
+        out[path] = {
+            "concerns": concerns,
+            "scores": scores,
+            "recommend_fork_A_declare": bool(rec.get("recommend_fork_A_declare")),
+            "raw_concerns": rec.get("candidate_concerns", []),
+        }
+    meta = {k: v for k, v in data.items() if k.startswith("_")}
+    return out, meta
+
+
+def _match_kis_for_rung(kis, concerns, scores):
+    """Rank the KIs that plausibly reach one rung (read-only).
+
+    A KI reaches a rung if its terrain_class is in the rung's concerns OR its lanes
+    intersect them. Score = sum of the rung's concern-score over each matched tag
+    (concern-weighted reach); a terrain_class hit is flagged as the primary axis and
+    breaks ties. Selection ≠ verdict — this is reach, not fit (Stage 2 tests fit)."""
+    out = []
+    for ki in kis:
+        matched = sorted(ki["tags"] & concerns)
+        if not matched:
+            continue
+        terrain_hit = bool(ki["terrain_class"]) and ki["terrain_class"] in concerns
+        basis = []
+        if terrain_hit:
+            basis.append("terrain_class")
+        if set(ki["lanes"]) & concerns:
+            basis.append("lanes")
+        score = sum(scores.get(t, 1) for t in matched)
+        out.append({
+            "invariant_id": ki["invariant_id"],
+            "name": ki["name"],
+            "terrain_class": ki["terrain_class"],
+            "target_rung": ki["target_rung"],
+            "matched_tags": matched,
+            "match_basis": basis,
+            "score": score,
+        })
+    out.sort(key=lambda c: (-c["score"],
+                            0 if "terrain_class" in c["match_basis"] else 1,
+                            c["invariant_id"]))
+    return out
+
+
+def select_kis_per_rung(zone_root, concern_source=None,
+                        window_days=ACTIVE_RUNG_WINDOW_DAYS):
+    """Stage-1: select the federation KIs that plausibly reach each ACTIVE rung.
+
+    Read-only. Returns a CANDIDATE ranked KI-per-rung list plus an honest
+    reconciliation of the live active set against the (snapshot) concern source.
+    NOT a down-audit verdict (Stage 2) and NOT a mutation (Stage 4, /review-gated).
+    """
+    zone_root = os.path.abspath(zone_root)
+    tz_config = load_ticzone(zone_root)
+    al_path = audit_logs_path(zone_root, tz_config)
+
+    ledger_path = os.path.join(al_path, LEDGER_REL)
+    concern_source = concern_source or os.path.join(al_path, DEFAULT_CONCERN_SOURCE_REL)
+
+    kis = _parse_ledger_kis(ledger_path)
+    concern_map, concern_meta = _load_rung_concerns(concern_source)
+    stage0 = discover_active_rungs(zone_root, window_days=window_days)
+
+    active_dirs = {e["dir"] for e in stage0["active"]}
+    sourced_paths = set(concern_map.keys())
+
+    rungs_out = []
+    for e in stage0["active"]:
+        d = e["dir"]
+        rec = concern_map.get(d)
+        if rec is None:
+            rungs_out.append({
+                "rung": e["rung"], "dir": d,
+                "concern_source": "missing",
+                "note": "active in Stage-0 but absent from the concern source "
+                        "(the tic-467 derive predates this rung's activation or did "
+                        "not cover it) — a fork-A declaration or a re-derive is owed "
+                        "before Stage-2 can down-audit it",
+                "ki_candidates": [], "candidate_count": 0,
+            })
+            continue
+        if not rec["concerns"]:
+            rungs_out.append({
+                "rung": e["rung"], "dir": d,
+                "concern_source": "derived-tic467",
+                "recommend_fork_A_declare": rec["recommend_fork_A_declare"],
+                "concerns": sorted(rec["concerns"]),
+                "note": "no concerns derived for this rung (fork-A declaration "
+                        "advised) — no KI candidates until concerns exist",
+                "ki_candidates": [], "candidate_count": 0,
+            })
+            continue
+        cands = _match_kis_for_rung(kis, rec["concerns"], rec["scores"])
+        rungs_out.append({
+            "rung": e["rung"], "dir": d,
+            "concern_source": "derived-tic467",
+            "recommend_fork_A_declare": rec["recommend_fork_A_declare"],
+            "concerns": sorted(rec["concerns"]),
+            "ki_candidates": cands,
+            "candidate_count": len(cands),
+        })
+
+    sourced_but_dormant = sorted(p for p in sourced_paths if p not in active_dirs)
+
+    return {
+        "audited_at": datetime.now(timezone.utc).isoformat(),
+        "zone_root": zone_root,
+        "_status": "Stage-1 KI-selection CANDIDATE — read-only; NOT a down-audit "
+                   "verdict (Stage 2) and NOT a mutation (Stage 4, /review-gated)",
+        "_fence": "center-hold: runs no down-audit, demotes nothing, emits no signal; "
+                  "selection only. A candidate is a hypothesis about reach, not a "
+                  "verdict about fit (Arena Velocity Guard).",
+        "concern_source": os.path.relpath(concern_source, zone_root),
+        "concern_source_meta": concern_meta,
+        "scope_declaration": (
+            "Reads the constitution-ledger KI tags (terrain_class + structured and "
+            "inline `lanes`), the live Stage-0 active-rung set, and the rung-concern "
+            "source (the tic-467 fork-B DERIVE — heuristic CANDIDATE, coherence-is-"
+            "not-admission). MATCHES KI.tags ∩ rung.concerns with hyphen/underscore "
+            "normalization. CANNOT see: whether a selected KI actually rehydrates in "
+            "spirit at the rung (that is the Stage-2 down-audit, forward), nor fork-A "
+            "declared concerns (not authored). The concern source is a tic-467 "
+            "snapshot reconciled against the live active set: active-but-unsourced "
+            "and sourced-but-now-dormant rungs are surfaced, never silently dropped "
+            "or invented (Disagreement-as-evidence)."
+        ),
+        "ki_total_parsed": len(kis),
+        "active_rung_count": len(stage0["active"]),
+        "reconciliation": {
+            "matched": sorted(d for d in active_dirs if d in sourced_paths),
+            "active_but_unsourced": sorted(d for d in active_dirs
+                                           if d not in sourced_paths),
+            "sourced_but_now_dormant": sourced_but_dormant,
+        },
+        "rungs": rungs_out,
+    }
+
+
+def format_select_kis(result, top=15):
+    """Human-readable Stage-1 KI-selection report."""
+    lines = []
+    lines.append("=" * 68)
+    lines.append("LADDER DOWN-LANE · Stage-1 KI-selection-by-applicability (read-only)")
+    lines.append("=" * 68)
+    lines.append(f"  Zone root:       {result.get('zone_root', '?')}")
+    lines.append(f"  Concern source:  {result.get('concern_source', '?')}")
+    lines.append(f"  KIs parsed:      {result.get('ki_total_parsed', 0)}")
+    lines.append(f"  Active rungs:    {result.get('active_rung_count', 0)}")
+    lines.append("")
+    lines.append("  " + result.get("_status", ""))
+    lines.append("  " + result.get("_fence", ""))
+    lines.append("")
+    lines.append("  scope: " + result.get("scope_declaration", ""))
+    rec = result.get("reconciliation", {})
+    lines.append("")
+    lines.append("RECONCILIATION (live active set vs tic-467 concern snapshot):")
+    lines.append("-" * 68)
+    lines.append(f"  matched:                 {', '.join(rec.get('matched', [])) or '(none)'}")
+    lines.append(f"  active-but-unsourced:    {', '.join(rec.get('active_but_unsourced', [])) or '(none)'}")
+    lines.append(f"  sourced-but-now-dormant: {', '.join(rec.get('sourced_but_now_dormant', [])) or '(none)'}")
+    lines.append("")
+    lines.append("KI CANDIDATES PER RUNG (ranked; selection ≠ verdict):")
+    lines.append("-" * 68)
+    for r in result.get("rungs", []):
+        lines.append(f"  ▸ {r['rung']}  [{r['dir']}]  ({r.get('candidate_count', 0)} candidates)")
+        if r.get("concern_source") == "missing":
+            lines.append(f"      ⚠ {r.get('note', '')}")
+            continue
+        if r.get("candidate_count", 0) == 0:
+            lines.append(f"      · {r.get('note', 'no candidates')}")
+            if r.get("recommend_fork_A_declare"):
+                lines.append("      · fork-A declaration advised")
+            continue
+        if r.get("recommend_fork_A_declare"):
+            lines.append("      · fork-A declaration advised (derivation ambiguous)")
+        lines.append(f"      concerns: {', '.join(r.get('concerns', []))}")
+        shown = r["ki_candidates"][:top]
+        for c in shown:
+            basis = "+".join(c["match_basis"])
+            lines.append(f"      [{c['score']:>3}] {c['name'][:54]}")
+            lines.append(f"            ↳ {c['invariant_id']}  ({basis}: {', '.join(c['matched_tags'])})")
+        extra = r["candidate_count"] - len(shown)
+        if extra > 0:
+            lines.append(f"      … + {extra} more (use --json for the full ranked list)")
+    return "\n".join(lines)
+
+
 def main():
     parser = argparse.ArgumentParser(
         description="Ladder Coherence Audit — scan CLAUDE.md governance chain; "
@@ -1001,7 +1330,34 @@ def main():
                      help=f"Recency window in days (default {ACTIVE_RUNG_WINDOW_DAYS})")
     lar.add_argument("--zone-root", default=None, dest="zone_root")
 
+    sk = sub.add_parser(
+        "select-kis",
+        help="Stage-1 down-lane KI-selection-by-applicability: for each ACTIVE "
+             "rung, rank the federation KIs that plausibly reach it "
+             "(KI.tags ∩ rung.concerns). Read-only CANDIDATE list; no down-audit, "
+             "no mutation.")
+    sk.add_argument("--concern-source", default=None, dest="concern_source",
+                    help="Rung-concern source JSON (default: the tic-467 fork-B "
+                         "derive under governance/)")
+    sk.add_argument("--window-days", type=float, default=ACTIVE_RUNG_WINDOW_DAYS,
+                    dest="window_days",
+                    help=f"Stage-0 recency window in days (default {ACTIVE_RUNG_WINDOW_DAYS})")
+    sk.add_argument("--top", type=int, default=15,
+                    help="Max KI candidates shown per rung in human output "
+                         "(JSON always carries the full ranked list)")
+    sk.add_argument("--zone-root", default=None, dest="zone_root")
+
     args = parser.parse_args()
+
+    if args.command == "select-kis":
+        zone_root = args.zone_root or args.project_dir or resolve_zone_root()
+        result = select_kis_per_rung(zone_root, concern_source=args.concern_source,
+                                     window_days=args.window_days)
+        if args.json:
+            print(json.dumps(result, indent=2))
+        else:
+            print(format_select_kis(result, top=args.top))
+        return
 
     if args.command == "list-active-rungs":
         zone_root = args.zone_root or args.project_dir or resolve_zone_root()
