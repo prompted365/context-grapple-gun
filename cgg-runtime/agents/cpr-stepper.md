@@ -65,11 +65,13 @@ extracted → tic_gated → enrichment_needed → enrichment_in_progress → enr
 | State | Gate | Condition |
 |-------|------|-----------|
 | `extracted` | temporal | tic_delta >= maturity_tics (default 3) |
-| `tic_gated` | epistemic | enrichment evidence >=1 entry |
+| `tic_gated` | mechanical (deterministically reconciled — NOT yours to gate) | tic-427 baseline `consolidated.json` exists → **`cpr-gate-advance.py` advances `tic_gated → enrichment_needed` at boot** (synchronous, before the scanner). The baseline IS the pre-enrichment evidence; full `enrichment[]` is gathered downstream at `enrichment_needed`, NOT required to leave `tic_gated`. |
 | `enrichment_needed` | scanner | enrichment scanner gathers evidence |
 | `enrichment_in_progress` | scanner | evidence being gathered (transient) |
 | `enrichment_eligible` | human + tic window | promotable when evidence is sufficient AND conditions met within window |
 | `promotable` | human (/review) | human approves via /review docket |
+
+> **`tic_gated → enrichment_needed` is no longer your transition to gate (tic 470 deadlock fix).** It was a chicken-and-egg: the old gate "enrichment evidence ≥1 entry" required an artifact the scanner only produces for *holding* statuses — i.e. AFTER this transition — so a `tic_gated` row starved forever with an empty `enrichment[]` even when its tic-427 baseline existed. The mechanical step (no DEDUP, no model) is now owned deterministically by `cpr-gate-advance.py`, wired into `session-restore.sh` before the enrichment scanner. You still own `extracted → tic_gated` (which DOES need the model for verify-twin DEDUP) and everything downstream of `enrichment_eligible`. If you encounter a `tic_gated` row at runtime, treat it as in-transit (the reconciler will advance it at the next boot); do not block on the old epistemic gate.
 
 ### Regression Trigger (enrichment_eligible)
 

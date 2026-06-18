@@ -299,6 +299,21 @@ fi
 # Enrichment scanner (background, nonblocking)
 # ============================================================================
 
+# ----------------------------------------------------------------------------
+# CPR gate-advance reconciler (tic 470) — deterministic tic_gated -> enrichment_needed.
+# Runs SYNCHRONOUSLY, BEFORE the HOLDING_CPRS count below, so any row it advances is
+# counted as holding and gets its evidence gathered by the scanner THIS same boot.
+# Closes the enrichment chicken-and-egg deadlock: the model-only cpr-stepper owns
+# extracted->tic_gated (needs DEDUP), but tic_gated->enrichment_needed is mechanical
+# and had no deterministic on-disk owner — so mature tic_gated rows starved forever
+# with an empty enrichment[] even when their tic-427 baseline consolidated.json existed.
+# This reconciler is that owner. Deterministic (no model), idempotent, never promotes.
+# ----------------------------------------------------------------------------
+GATE_ADVANCE=$(resolve_script "cpr-gate-advance.py")
+if [ -n "$GATE_ADVANCE" ] && [ -f "$QUEUE_FILE" ]; then
+  python3 "$GATE_ADVANCE" --project-dir "$PROJECT_DIR" --quiet > /dev/null 2>&1 || true
+fi
+
 HOLDING_CPRS=0
 if [ -f "$QUEUE_FILE" ]; then
   HOLDING_CPRS=$(python3 -c "
