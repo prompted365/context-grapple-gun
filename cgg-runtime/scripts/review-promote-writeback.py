@@ -87,6 +87,27 @@ _PROVENANCE_VERB_RE = re.compile(
 _CANDIDATE_OPEN = "<!-- --agnostic-candidate"
 _CANDIDATE_CLOSE = "-->"
 
+_FEDERATION_LEDGER_REL = os.path.join(
+    "audit-logs", "governance", "constitution-ledger", "ledger.md")
+
+
+def _default_federation_ledger():
+    """Walk up from this script to the federation root and return its
+    constitution-ledger path, or None. Used as the reinforced-by default target."""
+    here = Path(os.path.abspath(__file__)).parent
+    for d in [here, *here.parents]:
+        cand = d / _FEDERATION_LEDGER_REL
+        if cand.is_file():
+            return str(cand)
+    if resolve_zone_root is not None:
+        try:
+            cand = Path(resolve_zone_root()) / _FEDERATION_LEDGER_REL
+            if cand.is_file():
+                return str(cand)
+        except Exception:
+            pass
+    return None
+
 # Strip a trailing `#anchor` / `:N-M` line-range / ` (scope hint)` from a target so
 # we resolve to the bare filesystem path (matches review-close-check normalization).
 _ANCHOR_RE = re.compile(r"^([^#:\s]+\.[A-Za-z]+)(?:[#:][^\s]*)?$")
@@ -297,6 +318,139 @@ def stamp_breadcrumb(cpr_id, promoted_to, birth_tic, review_tic, source,
             "action": "stamp", "breadcrumb": breadcrumb.strip()}
 
 
+# ---------------------------------------------------------------------------
+# Stage-5 down-lane `reinforced_by` stamping (ladder-downlane-spec.md §2 Stage 5,
+# §3 KIND — "MEDIUM, extends review-promote-writeback.py").
+#
+# When a `reinforce_existing` landing occurs — from the up-lane (cpr-stepper) OR a
+# down-audit reinforce-signal (a rung independently re-derived a KI from its own
+# friction) — the TARGET doctrine entry must RECORD it, or the resilience signal is
+# erased at inscription (Drift-1, tic 377). This stamps:
+#
+#   <!-- reinforced_by: <id> (tic N, source: down-audit@<rung> | up-lane). … -->
+#
+# on the target LEDGER entry, idempotently, the same way promoted-from breadcrumbs
+# are stamped — the resilience-visibility half of the ladder (§8 Stage-5 row).
+#
+# id-form footgun guard (the tic-472 promotion `id-form-divergence-voids-cross-
+# surface-writeback`): the TARGET ledger entry is resolved by its ANCHOR (the
+# `invariant_id` tag, the `<a id>` slug, or the heading text) — NEVER by fuzzy
+# cpr_id matching against the reinforcing id, whose form (cpr_x vs cpr_x_ticN vs a
+# short hash) routinely diverges and silently no-ops a cpr_id-keyed writeback.
+# The reinforcing id is recorded INSIDE the comment; it is not the lookup key.
+#
+# Bounding the entry at the next `### ` heading is the same boundary-aware /
+# span-attribution discipline (the OTHER two tic-472 promotions) applied here so a
+# stamp lands inside ITS OWN entry, never bleeding into the next.
+# ---------------------------------------------------------------------------
+
+_HEADING_RE = re.compile(r"^(#{2,4})\s+(.+)$")
+_INVARIANT_TAG_RE = re.compile(r"`invariant_id`:\s*`([A-Za-z0-9_]+)`")
+_ANCHOR_TAG_RE = re.compile(r'<a id="([^"]+)">')
+_REINFORCED_BY_RE = re.compile(r"<!--\s*reinforced_by:\s*(.+?)-->", re.DOTALL)
+_PROMOTED_FROM_RE = re.compile(r"<!--\s*promoted(?:-spec)?\s+from\b.*?-->", re.DOTALL)
+
+
+def _find_entry_span(lines, target_anchor):
+    """Locate the ledger entry for target_anchor and return (start, end) line
+    indices [heading .. line-before-next-heading]. Resolved by anchor, NOT cpr_id.
+
+    Match order (each unambiguous): invariant_id tag → <a id> slug → heading text
+    (slug-normalized substring). Returns (None, None) if unresolved.
+    """
+    # First locate the line that identifies the entry.
+    norm = target_anchor.strip().lower()
+    hit = None
+    for i, ln in enumerate(lines):
+        m = _INVARIANT_TAG_RE.search(ln)
+        if m and m.group(1) == target_anchor:
+            hit = i
+            break
+        a = _ANCHOR_TAG_RE.search(ln)
+        if a and a.group(1) == target_anchor:
+            hit = i
+            break
+    if hit is None:
+        # Fallback: heading text contains the anchor (slug or words).
+        slug = re.sub(r"[^a-z0-9]+", "-", norm).strip("-")
+        for i, ln in enumerate(lines):
+            hm = _HEADING_RE.match(ln)
+            if hm:
+                htext = hm.group(2).strip().lower()
+                hslug = re.sub(r"[^a-z0-9]+", "-", htext).strip("-")
+                if norm in htext or (slug and slug in hslug):
+                    hit = i
+                    break
+    if hit is None:
+        return None, None
+
+    # Walk UP to the entry's heading.
+    start = hit
+    while start > 0 and not _HEADING_RE.match(lines[start]):
+        start -= 1
+    # Walk DOWN to the line before the next heading (entry boundary).
+    end = hit + 1
+    while end < len(lines) and not _HEADING_RE.match(lines[end]):
+        end += 1
+    return start, end
+
+
+def stamp_reinforced_by(ledger_path, target_anchor, reinforced_by, source, tic,
+                        dry_run=False):
+    """Stamp a `reinforced_by` resilience breadcrumb on the ledger entry identified
+    by target_anchor. Idempotent (skips if THIS reinforcing id is already recorded
+    for the entry). Inserts after the entry's `promoted from` provenance close if
+    present, else at the end of the entry span. Returns an action dict.
+    """
+    lpath = Path(ledger_path)
+    try:
+        content = lpath.read_text(encoding="utf-8")
+    except (OSError, UnicodeDecodeError) as exc:
+        return {"action": "error", "reason": str(exc), "ledger": str(lpath)}
+
+    lines = content.splitlines(keepends=True)
+    start, end = _find_entry_span(lines, target_anchor)
+    if start is None:
+        return {"action": "error", "target_anchor": target_anchor,
+                "reason": "entry not found by invariant_id / <a id> slug / heading "
+                          "(resolved by ANCHOR, never fuzzy cpr_id)"}
+
+    span_text = "".join(lines[start:end])
+    # Idempotency: this reinforcing id already recorded for this entry.
+    for m in _REINFORCED_BY_RE.finditer(span_text):
+        if reinforced_by in m.group(1):
+            return {"action": "noop", "target_anchor": target_anchor,
+                    "reason": f"reinforced_by {reinforced_by} already stamped here"}
+
+    breadcrumb = (
+        f"<!-- reinforced_by: {reinforced_by} (tic {tic}, source: {source}). "
+        f"Independent rediscovery / down-audit reinforce-signal — resilience evidence "
+        f"(the KI re-derived from rung friction, not merely mentioned). Stamped by "
+        f"review-promote-writeback (Stage 5). -->\n"
+    )
+
+    # Insert after the entry's `promoted from` provenance close (within the span),
+    # else at the end of the span (before the next heading).
+    insert_at = end  # default: end of entry span
+    for k in range(start, end):
+        if _PROMOTED_FROM_RE.search(lines[k]):
+            insert_at = k + 1
+            break
+
+    # Ensure the inserted line is on its own line (preceding line ends with \n).
+    if insert_at > 0 and not lines[insert_at - 1].endswith("\n"):
+        lines[insert_at - 1] = lines[insert_at - 1] + "\n"
+
+    if not dry_run:
+        lines[insert_at:insert_at] = [breadcrumb]
+        lpath.write_text("".join(lines), encoding="utf-8")
+
+    return {"action": "stamp", "target_anchor": target_anchor,
+            "reinforced_by": reinforced_by, "source": source, "tic": tic,
+            "ledger": str(lpath), "insert_line": insert_at + 1,
+            "breadcrumb": breadcrumb.strip()}
+
+
 def writeback(cpr_id, promoted_to, review_tic, status="promoted",
               birth_tic=None, source=None, dry_run=False, search_dir=None):
     """Run both writeback halves for one promoted CogPR. Returns a report dict."""
@@ -327,10 +481,24 @@ def main():
         description="Review Promote Writeback — emit-side inline-status-flip + "
                     "auto-memory breadcrumb stamp (complement to review-close-check.py)"
     )
-    parser.add_argument("--cpr-id", required=True)
-    parser.add_argument("--promoted-to", required=True,
-                        help="The promotion target (ledger anchor or auto-memory file)")
+    parser.add_argument("--cpr-id", required=True,
+                        help="The CogPR id (promote mode) OR the reinforcing id "
+                             "recorded inside the breadcrumb (reinforced-by mode)")
+    parser.add_argument("--promoted-to", required=False, default=None,
+                        help="The promotion target (ledger anchor or auto-memory file). "
+                             "Required in promote mode; unused in reinforced-by mode.")
     parser.add_argument("--review-tic", type=int, required=True)
+    # --- Stage-5 reinforced-by mode (ladder down-lane §5) ---
+    parser.add_argument("--reinforce-target-anchor", default=None,
+                        dest="reinforce_target_anchor",
+                        help="LEDGER-ENTRY ANCHOR to stamp reinforced_by on "
+                             "(invariant_id / <a id> slug / heading). Presence "
+                             "switches to reinforced-by mode. Resolved by anchor, "
+                             "NEVER fuzzy cpr_id (id-form-divergence footgun).")
+    parser.add_argument("--reinforce-source", default=None, dest="reinforce_source",
+                        help="Reinforcement source: down-audit@<rung> | up-lane")
+    parser.add_argument("--reinforce-ledger", default=None, dest="reinforce_ledger",
+                        help="Ledger path (default: federation constitution-ledger)")
     parser.add_argument("--birth-tic", type=int, default=None,
                         help="Birth tic (parsed from cpr_id tic suffix if omitted)")
     parser.add_argument("--status", default="promoted",
@@ -345,6 +513,36 @@ def main():
     parser.add_argument("--dry-run", action="store_true")
     parser.add_argument("--json", action="store_true", dest="output_json")
     args = parser.parse_args()
+
+    # --- Stage-5 reinforced-by mode (down-lane §5): stamp a resilience breadcrumb
+    # on a LEDGER entry resolved by anchor. Distinct from the promote-writeback
+    # (which is scoped to auto-memory targets). ---
+    if args.reinforce_target_anchor:
+        if not args.reinforce_source:
+            parser.error("--reinforce-source is required in reinforced-by mode "
+                         "(e.g. 'down-audit@global-environmental-fusion' or 'up-lane')")
+        ledger = args.reinforce_ledger or _default_federation_ledger()
+        if not ledger:
+            parser.error("could not resolve a default federation ledger; pass "
+                         "--reinforce-ledger explicitly")
+        action = stamp_reinforced_by(
+            ledger, args.reinforce_target_anchor, args.cpr_id,
+            args.reinforce_source, args.review_tic, dry_run=args.dry_run)
+        if args.output_json:
+            print(json.dumps(action, indent=2))
+        else:
+            tag = " (dry-run)" if args.dry_run else ""
+            print(f"reinforced_by stamp{tag}: {action.get('action')} "
+                  f"→ {action.get('target_anchor')}")
+            if action.get("action") == "stamp":
+                print(f"  {action['ledger']}:{action['insert_line']}")
+                print(f"  {action['breadcrumb']}")
+            elif action.get("action") in ("noop", "error"):
+                print(f"  ({action.get('reason')})")
+        return 0
+
+    if not args.promoted_to:
+        parser.error("--promoted-to is required in promote mode")
 
     report = writeback(
         args.cpr_id, args.promoted_to, args.review_tic,

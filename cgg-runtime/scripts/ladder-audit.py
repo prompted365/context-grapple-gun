@@ -38,7 +38,7 @@ from doctrine_surfaces import resolve_doctrine_surfaces  # noqa: E402
 # Stage-3 down-lane finding-emit reuses the EXISTING manifold writer (no new
 # store): dedup-at-write keyed on the deterministic signal_id (Dedup-at-Write +
 # JSONL Atomic Writes KIs). `lib/` is on sys.path via the insert above.
-from atomic_append import dedup_signal_append  # noqa: E402
+from atomic_append import dedup_signal_append, atomic_append_jsonl  # noqa: E402
 
 
 # ---------------------------------------------------------------------------
@@ -1613,6 +1613,583 @@ def format_downaudit_packet(packet):
     return "\n".join(lines)
 
 
+# ---------------------------------------------------------------------------
+# Stage-4 finding routing + held-state durability + arena-brief
+#   (ladder-downlane-spec.md §2 Stage 4, §4 hold_in_dissonance, §3 KIND table)
+#
+# Stage 4 is the down-lane's ONLY mutation locus — and even here the buildable
+# pieces are read-only or signal-state, NEVER doctrine. The HIGH-gate doctrine
+# inscription (demote/reword/reinforce) is /review-only (Review-Execution-
+# Delegation); these surfaces only PREPARE and OBSERVE it:
+#
+#   - `list-findings`  : read-only projection of the down-audit finding set,
+#                        grouped by Stage-3/4 routing, with held-band staleness
+#                        (§4 + D4). The /review-surfaced down-lane view.
+#   - `stage-brief`    : read-only — assembles the `/stage` arena brief for a
+#                        `damaging` (or re-tested held) finding. Does NOT open the
+#                        arena (the orchestrator runs /stage) and does NOT inscribe.
+#                        Mirrors the Stage-2 packet-assembler discipline.
+#   - `resolve-finding`: signal-state transition (NOT doctrine) — closes a held/
+#                        damaging finding signal AFTER /review rules, carrying a
+#                        mandatory receipt (terminal-state-change-requires-receipt).
+#                        /review-gated; does not touch the ledger.
+#
+# Center-hold (do not violate): a `damaging` finding is a HYPOTHESIS routed to an
+# arena, never an auto-demotion (Arena Velocity Guard). A held dissonance is
+# preserved, re-tested at /review, never auto-resolved (§4). `needs_mechanization`
+# is NOT defective. The arena's verdict routes to /review; only /review inscribes.
+# ---------------------------------------------------------------------------
+
+# How a recorded Stage-2/3 verdict routes at Stage 4 (the §2 Stage-3 routing rule
+# + the Stage-4 mutation locus). Read-only classification — nothing here mutates
+# doctrine; `damaging` opens a /stage arena (stage-brief), the rest record.
+DOWNAUDIT_ROUTING = {
+    "clean":               "record (healthy; reinforce-signal if independent rediscovery → Stage 5)",
+    "N/A":                 "record (correctly scoped away — a concede_local win)",
+    "needs_mechanization": "record + aggregate (forward, NOT defective; breadth decides system-wide)",
+    "damaging":            "→ /stage re-eval arena (stage-brief) — HYPOTHESIS, never auto-demote",
+    "hold_in_dissonance":  "held band (§4) — preserve tension; re-test at /review, never auto-resolve",
+}
+
+# A held dissonance carried this many tics without re-test is flagged for re-test
+# at /review (down-lane residue D4 — held dissonances must not be silently immortal).
+DISSONANCE_STALE_TICS = 8
+
+# The Stage-4 arena's legal outcomes (the 8-outcome taxonomy from
+# doctrine-lifecycle-spec.md §6 + `reinforce` + the net-new `hold_in_dissonance`).
+# Each routes to /review as a VERDICT — never self-inscribed by this script.
+DOWNAUDIT_ARENA_OUTCOMES = {
+    "confirmed": "hydrates cleanly under arena pressure; the `damaging` first-read "
+                 "was local — no change to the KI.",
+    "needs_clarification": "spirit right, local interpretation unstable → reword the "
+                           "expression so the spirit carries (no scope change).",
+    "needs_mechanization": "doctrine right, no enforcement surface exists here yet → "
+                           "forward, NOT a demote.",
+    "overbroad_demote": "the KI over-claimed scope → lower its target_rung or scope "
+                        "it locally.",
+    "localized": "true only at a narrower rung → relocate; prevent false "
+                 "universalization.",
+    "stale": "no longer matches current operating reality → staleness route "
+             "(clarify/demote/retire/supersede).",
+    "conflict_found": "collides with a sibling principle or local constraint → "
+                      "reconcile; do not silently overwrite.",
+    "exception_needed": "the KI survives but a bounded exception must be recorded.",
+    "recenter_required": "right region, wrong/incomplete centroid → recenter, not "
+                         "reword.",
+    "reinforce": "the RUNG is wrong, not the KI; the friction is a local error and the "
+                 "KI holds (often → a born truth at the rung; Stage 5 reinforced_by).",
+    "hold_in_dissonance": "genuine unresolved tension → hold the contradiction rather "
+                          "than force a premature collapse (§4 held band).",
+}
+
+# Recommended justification_class vocabulary for a resolve-finding receipt
+# (terminal-state-change-requires-receipt KI). Free-form is accepted, but a
+# resolution should name WHY the held/damaging signal may now go terminal.
+DOWNAUDIT_RESOLUTION_CLASSES = (
+    "arena_adjudicated",     # a /stage arena → /review verdict resolved it
+    "rung_matured",          # the rung grew the missing enforcement/context
+    "sibling_ki_landed",     # a sibling KI landed and dissolved the tension
+    "architect_ruled",       # the Architect ruled on the dissonance
+    "local_error_confirmed", # the friction was a local error; the KI holds (reinforce)
+    "superseded_by_redown",  # a fresh down-audit produced a different verdict
+)
+
+
+def _resolve_federation_tic(zone_root):
+    """Best-effort read of the current federation tic (domain_counter_after) from
+    the canonical tic log (Temporal Scope Discipline). None if unavailable."""
+    tz_config = load_ticzone(zone_root)
+    al_path = audit_logs_path(zone_root, tz_config)
+    tic_dir = Path(al_path) / "tics"
+    if not tic_dir.is_dir():
+        return None
+    latest = None
+    for f in sorted(tic_dir.glob("*.jsonl")):
+        try:
+            lines = f.read_text(encoding="utf-8").splitlines()
+        except (OSError, UnicodeDecodeError):
+            continue
+        for line in lines:
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                d = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            val = d.get("domain_counter_after")
+            if isinstance(val, int):
+                latest = val
+    return latest
+
+
+def load_downaudit_findings(zone_root):
+    """Read every down-audit finding from the signal manifold, projected
+    terminal-per-id (latest entry wins — the Terminal-State Valve discipline).
+
+    Returns a list of the latest signal dict per signal_id. Read-only. The
+    active-manifest is skipped (thin entries without payload); the full signal
+    rows in the daily files carry the (rung, ki_id, verdict, opened_tic) payload.
+    """
+    tz_config = load_ticzone(zone_root)
+    al_path = audit_logs_path(zone_root, tz_config)
+    signal_dir = Path(al_path) / "signals"
+    if not signal_dir.is_dir():
+        return []
+    latest = {}
+    for f in sorted(signal_dir.glob("*.jsonl")):
+        if f.name == "active-manifest.jsonl":
+            continue
+        try:
+            lines = f.read_text(encoding="utf-8").splitlines()
+        except (OSError, UnicodeDecodeError):
+            continue
+        for line in lines:
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                d = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            if d.get("signal_type") != DOWNAUDIT_FINDING_SIGNAL_TYPE:
+                continue
+            eid = d.get("signal_id") or d.get("id")
+            if eid:
+                latest[eid] = d
+    return list(latest.values())
+
+
+def _finding_entry(sig, current_tic=None):
+    """Normalize a finding signal into a flat entry (read-only)."""
+    payload = sig.get("payload", {})
+    verdict = payload.get("verdict", "?")
+    entry = {
+        "signal_id": sig.get("signal_id") or sig.get("id"),
+        "verdict": verdict,
+        "rung": payload.get("rung"),
+        "ki_id": payload.get("ki_id"),
+        "opened_tic": payload.get("opened_tic"),
+        "reinforce_signal": payload.get("reinforce_signal", False),
+        "status": sig.get("status", "active"),
+        "active": is_active_ray(sig),
+        "summary": payload.get("summary") or sig.get("summary", ""),
+        "artifact": payload.get("finding_artifact"),
+        "routing": DOWNAUDIT_ROUTING.get(verdict, "record"),
+    }
+    resolution = payload.get("resolution")
+    if resolution:
+        entry["resolution"] = resolution
+    if (verdict == "hold_in_dissonance" and entry["active"]
+            and current_tic is not None and isinstance(entry["opened_tic"], int)):
+        held = current_tic - entry["opened_tic"]
+        entry["tics_held"] = held
+        entry["stale_for_retest"] = held >= DISSONANCE_STALE_TICS
+    return entry
+
+
+def _finding_aggregation(findings, ki_id, active_rung_count=None):
+    """Breadth of a KI's down-audit findings across active rungs (the fault-locator,
+    spec §2 Stage 2 / Disagreement-as-evidence). single | multi | all-rung."""
+    rungs = sorted({(f.get("payload", {}).get("rung") or "")
+                    for f in findings
+                    if f.get("payload", {}).get("ki_id") == ki_id
+                    and f.get("payload", {}).get("rung")})
+    # A backfilled FORK finding may carry a comma-joined multi-rung string; split it.
+    expanded = set()
+    for r in rungs:
+        for part in str(r).split(","):
+            part = part.strip()
+            if part:
+                expanded.add(part)
+    n = len(expanded)
+    if n <= 1:
+        breadth = "single-rung"
+        interp = ("local machinery / context / understanding — record; no doctrine "
+                  "action by default (the arena tests local-vs-doctrine for THIS rung)")
+    elif active_rung_count and n >= active_rung_count:
+        breadth = "all-rung"
+        interp = ("SPLIT required: record-defective (illegible/over-broad/no-gate → "
+                  "clarify/demote/localize) vs needs-mechanization (doctrine fine, no "
+                  "system-wide enforcement substrate yet — do NOT demote good forward-"
+                  "doctrine for being early)")
+    else:
+        breadth = "multi-rung"
+        interp = ("DOCTRINE clarity / scope / legibility defect until proven otherwise "
+                  "→ Stage-4 arena")
+    return {"breadth": breadth, "rungs_with_finding": sorted(expanded),
+            "rung_count": n, "default_interpretation": interp}
+
+
+def list_downaudit_findings(zone_root, current_tic=None):
+    """Stage-4 read-only projection of the down-audit finding set, grouped by
+    routing, with held-band staleness (D4). The /review-surfaced down-lane view."""
+    if current_tic is None:
+        current_tic = _resolve_federation_tic(zone_root)
+    raw = load_downaudit_findings(zone_root)
+    grouped = defaultdict(list)
+    held, damaging = [], []
+    for sig in raw:
+        entry = _finding_entry(sig, current_tic=current_tic)
+        grouped[entry["verdict"]].append(entry)
+        if entry["verdict"] == "hold_in_dissonance" and entry["active"]:
+            held.append(entry)
+        if entry["verdict"] == "damaging" and entry["active"]:
+            damaging.append(entry)
+    counts = {v: len(items) for v, items in grouped.items()}
+    return {
+        "audited_at": datetime.now(timezone.utc).isoformat(),
+        "zone_root": os.path.abspath(zone_root),
+        "current_tic": current_tic,
+        "_status": "Stage-4 finding projection — READ-ONLY; surfaces the down-lane "
+                   "finding set for /review. Mutates nothing.",
+        "_fence": "center-hold: read-only; opens no arena, resolves nothing, demotes "
+                  "nothing. `damaging` → stage-brief (a hypothesis, /review-gated); the "
+                  "held band is preserved + staleness-flagged, never auto-resolved.",
+        "scope_declaration": (
+            "Reads the signal manifold daily files (terminal-per-id, latest wins; "
+            "active-manifest skipped — it lacks payload), filtered to "
+            f"signal_type={DOWNAUDIT_FINDING_SIGNAL_TYPE}. current_tic resolved from "
+            "the canonical tic log (domain_counter_after) if not supplied. CANNOT see "
+            "whether a held tension has since dissolved at its rung — that is a fresh "
+            "down-audit (re-test), surfaced by the staleness flag, not inferred here."
+        ),
+        "total_findings": len(raw),
+        "counts_by_verdict": counts,
+        "routing": DOWNAUDIT_ROUTING,
+        "damaging_awaiting_arena": damaging,
+        "held_band": held,
+        "stale_held_for_retest": [h for h in held if h.get("stale_for_retest")],
+        "findings_by_verdict": dict(grouped),
+    }
+
+
+def format_findings_list(result):
+    """Human-readable Stage-4 finding projection."""
+    lines = []
+    lines.append("=" * 70)
+    lines.append("LADDER DOWN-LANE · Stage-4 finding projection (read-only; /review view)")
+    lines.append("=" * 70)
+    lines.append(f"  Zone root:    {result.get('zone_root', '?')}")
+    lines.append(f"  Current tic:  {result.get('current_tic')}")
+    lines.append(f"  Findings:     {result.get('total_findings', 0)}  "
+                 f"counts: {result.get('counts_by_verdict', {})}")
+    lines.append("")
+    lines.append("  " + result.get("_status", ""))
+    lines.append("  " + result.get("_fence", ""))
+    lines.append("")
+    lines.append("  scope: " + result.get("scope_declaration", ""))
+    lines.append("")
+    dmg = result.get("damaging_awaiting_arena", [])
+    lines.append(f"DAMAGING → /stage ARENA (Stage 4; HYPOTHESIS, never auto-demote): {len(dmg)}")
+    lines.append("-" * 70)
+    if not dmg:
+        lines.append("  (none — no damaging finding awaiting an arena this tic)")
+    for d in dmg:
+        lines.append(f"  ⚠ {d['ki_id']} @ {d['rung']}  [{d['signal_id']}]")
+        lines.append(f"      → ladder-audit.py stage-brief --signal-id {d['signal_id']}")
+        if d.get("summary"):
+            lines.append(f"      {d['summary'][:96]}")
+    lines.append("")
+    held = result.get("held_band", [])
+    lines.append(f"HELD BAND — hold_in_dissonance (§4; preserve tension, re-test): {len(held)}")
+    lines.append("-" * 70)
+    if not held:
+        lines.append("  (none held)")
+    for h in held:
+        th = h.get("tics_held")
+        stale = " ⏳ STALE — re-test at /review" if h.get("stale_for_retest") else ""
+        held_str = f"held {th} tics" if th is not None else "held"
+        lines.append(f"  · {h['ki_id']} @ {h['rung']}  [{h['signal_id']}]  ({held_str}){stale}")
+        if h.get("summary"):
+            lines.append(f"      {h['summary'][:96]}")
+    lines.append("")
+    lines.append("RECORDED (clean / N/A / needs_mechanization — no arena):")
+    lines.append("-" * 70)
+    for v in ("clean", "N/A", "needs_mechanization"):
+        items = result.get("findings_by_verdict", {}).get(v, [])
+        for it in items:
+            rf = " [reinforce]" if it.get("reinforce_signal") else ""
+            lines.append(f"  {v:<20} {it['ki_id']} @ {it['rung']}{rf}")
+    return "\n".join(lines)
+
+
+def build_stage_brief(zone_root, signal_id=None, rung=None, ki_id=None,
+                      current_tic=None, window_days=ACTIVE_RUNG_WINDOW_DAYS):
+    """Stage-4 read-only: assemble the `/stage` arena brief for a `damaging` (or
+    re-tested held) down-audit finding. Does NOT open the arena and does NOT
+    inscribe — the orchestrator runs /stage; the arena verdict routes to /review.
+    """
+    if current_tic is None:
+        current_tic = _resolve_federation_tic(zone_root)
+    zone_root = os.path.abspath(zone_root)
+    raw = load_downaudit_findings(zone_root)
+
+    # Resolve the target finding by signal_id, or by (rung, ki_id).
+    sig = None
+    if signal_id:
+        sig = next((s for s in raw
+                    if (s.get("signal_id") or s.get("id")) == signal_id), None)
+    elif rung and ki_id:
+        for s in raw:
+            p = s.get("payload", {})
+            if p.get("ki_id") == ki_id and (
+                    p.get("rung") == rung or rung in str(p.get("rung", ""))):
+                sig = s
+                break
+
+    base = {
+        "audited_at": datetime.now(timezone.utc).isoformat(),
+        "zone_root": zone_root,
+        "current_tic": current_tic,
+        "stage": "C9 Stage-4 arena BRIEF (read-only PREP — NOT a verdict, NOT inscription)",
+        "_status": "Stage-4 /stage arena BRIEF — read-only. The orchestrator runs "
+                   "/stage with this brief; the arena VERDICT routes to /review "
+                   "(review-execute inscribes). This script opens no arena, inscribes "
+                   "nothing, demotes nothing.",
+        "_fence": "center-hold: a `damaging` finding is a HYPOTHESIS (Arena Velocity "
+                  "Guard), never an auto-demotion. The arena contests the KI's FIT at "
+                  "the rung; only /review may demote/reword/reinforce. NEVER inscribe "
+                  "from this brief.",
+    }
+    if sig is None:
+        base["ok"] = False
+        base["error"] = (
+            "no down-audit finding resolves the request "
+            f"(signal_id={signal_id!r}, rung={rung!r}, ki_id={ki_id!r}). "
+            "Run `ladder-audit.py list-findings` to see the finding set."
+        )
+        return base
+
+    entry = _finding_entry(sig, current_tic=current_tic)
+    verdict = entry["verdict"]
+    if verdict not in ("damaging", "hold_in_dissonance"):
+        base["ok"] = False
+        base["error"] = (
+            f"finding {entry['signal_id']} is `{verdict}` — Stage-4 arenas open only "
+            "for `damaging` (route-to-arena) or `hold_in_dissonance` (re-test). A "
+            f"`{verdict}` finding records; it does not open an arena (spec §2 Stage 3)."
+        )
+        base["finding"] = entry
+        return base
+
+    target_ki = entry["ki_id"]
+    ledger_path = os.path.join(audit_logs_path(zone_root, load_ticzone(zone_root)),
+                               LEDGER_REL)
+    kis = _parse_ledger_kis(ledger_path, include_body=True)
+    ki = next((k for k in kis if k["invariant_id"] == target_ki), None)
+
+    stage0 = discover_active_rungs(zone_root, window_days=window_days)
+    active_rung_count = stage0.get("active_count")
+    agg = _finding_aggregation(raw, target_ki, active_rung_count=active_rung_count)
+
+    rung_name = entry["rung"]
+    contested = (
+        f"Does the federation KI `{target_ki}` rehydrate IN SPIRIT at the `{rung_name}` "
+        f"rung — or is its applicability-claim here foreign / over-scoped / "
+        f"load-bearing-but-N/A (the `{verdict}` finding)?"
+    )
+    base.update({
+        "ok": True,
+        "finding": entry,
+        "target_ki": target_ki,
+        "rung": rung_name,
+        "ki_body": (ki or {}).get("body", ""),
+        "ki_body_resolved": ki is not None,
+        "aggregation": agg,
+        "contested_question": contested,
+        "arena_geometry": (
+            "opposing-values (the KI's scope/fit is the contested question) — per "
+            "Opposing-Values Geometry for Constitutional Questions; OA-VPL-T if "
+            "multi-office breadth is wanted. Advocates hold genuinely different values "
+            "(KI-holds-here vs KI-is-damaging-here vs KI-needs-local-mechanization)."
+        ),
+        "suggested_positions": [
+            "KI HOLDS at this rung — the `damaging` first-read was local "
+            "(→ confirmed / reinforce: the rung erred, not the KI)",
+            "KI is DAMAGING/over-scoped here — its applicability-claim does not carry "
+            "(→ overbroad_demote / localized / needs_clarification / recenter_required)",
+            "KI is RIGHT but UNENFORCED here — forward, not defective "
+            "(→ needs_mechanization)",
+            "GENUINE unresolved tension — neither collapse is honest "
+            "(→ hold_in_dissonance)",
+        ],
+        "legal_outcomes": DOWNAUDIT_ARENA_OUTCOMES,
+        "routing_rule": (
+            "The arena produces ONE outcome as GOVERNANCE INPUT, not a verdict. It "
+            "routes to /review (a CogPR / docket entry); review-execute inscribes any "
+            "demote/reword/reinforce (HIGH gate, /review-only). NEVER auto-demote "
+            "(Arena Velocity Guard). On `hold_in_dissonance`, leave the held band open "
+            "(resolve-finding only after /review rules)."
+        ),
+        "stage_invocation_hint": (
+            f"/stage opposing-values  \"{contested}\"  "
+            "(feed this brief as the arena context: the KI body, the rung friction, "
+            "the finding, the aggregation breadth, the legal outcomes)"
+        ),
+        "friction_pointer": (
+            f"python3 cgg-runtime/scripts/lib/load_doctrine_chain.py {rung_name}  "
+            "# the rung's CLAUDE.md chain; arena advocates read the rung's real friction"
+        ),
+        "scope_declaration": (
+            "Read-only Stage-4 arena-brief assembler. Reads: the target finding from "
+            "the manifold, the KI's ledger BODY, the Stage-0 active-rung breadth for "
+            "this KI. Writes nothing, opens no arena, inscribes nothing. CANNOT decide "
+            "the outcome (the arena does) and does not pre-bias toward demotion "
+            "(`needs_mechanization`/`reinforce` are first-class non-demote outcomes)."
+        ),
+    })
+    if entry.get("artifact"):
+        base["finding_artifact"] = entry["artifact"]
+    if ki is None:
+        base["ki_body_note"] = (
+            f"KI `{target_ki}` not found in the constitution-ledger as an "
+            "`invariant_id` — the arena must source the doctrine body manually "
+            "(it may be a CGG-ledger or compact-root entry, not federation-ledger)."
+        )
+    return base
+
+
+def format_stage_brief(brief):
+    """Human-readable Stage-4 arena brief."""
+    lines = []
+    lines.append("=" * 70)
+    lines.append("LADDER DOWN-LANE · Stage-4 /stage ARENA BRIEF (read-only; NOT a verdict)")
+    lines.append("=" * 70)
+    if not brief.get("ok"):
+        lines.append(f"  ✗ {brief.get('error', 'could not assemble brief')}")
+        return "\n".join(lines)
+    lines.append(f"  Target KI:   {brief['target_ki']}")
+    lines.append(f"  Rung:        {brief['rung']}")
+    lines.append(f"  Finding:     {brief['finding']['verdict']}  "
+                 f"[{brief['finding']['signal_id']}]")
+    agg = brief.get("aggregation", {})
+    lines.append(f"  Breadth:     {agg.get('breadth')}  "
+                 f"(rungs: {', '.join(agg.get('rungs_with_finding', [])) or '—'})")
+    lines.append("")
+    lines.append("  " + brief.get("_status", ""))
+    lines.append("  " + brief.get("_fence", ""))
+    lines.append("")
+    lines.append("  scope: " + brief.get("scope_declaration", ""))
+    lines.append("")
+    lines.append("CONTESTED QUESTION:")
+    lines.append("-" * 70)
+    lines.append("  " + brief.get("contested_question", ""))
+    lines.append("")
+    lines.append(f"  default interpretation ({agg.get('breadth')}): {agg.get('default_interpretation', '')}")
+    lines.append("")
+    lines.append("ARENA GEOMETRY:")
+    lines.append("-" * 70)
+    lines.append("  " + brief.get("arena_geometry", ""))
+    lines.append("")
+    lines.append("SUGGESTED POSITIONS (genuinely different values):")
+    for p in brief.get("suggested_positions", []):
+        lines.append(f"  • {p}")
+    lines.append("")
+    lines.append("LEGAL OUTCOMES (route to /review as a verdict — NEVER self-inscribed):")
+    lines.append("-" * 70)
+    for o in sorted(brief.get("legal_outcomes", {})):
+        lines.append(f"  · {o}: {brief['legal_outcomes'][o][:84]}")
+    lines.append("")
+    lines.append("ROUTING: " + brief.get("routing_rule", ""))
+    lines.append("")
+    lines.append("INVOKE: " + brief.get("stage_invocation_hint", ""))
+    lines.append("FRICTION: " + brief.get("friction_pointer", ""))
+    body = (brief.get("ki_body") or "").strip()
+    if body:
+        lines.append("")
+        lines.append("KI BODY (the spirit the arena judges against):")
+        lines.append("-" * 70)
+        lines.append(body[:1200] + ("…" if len(body) > 1200 else ""))
+    if brief.get("ki_body_note"):
+        lines.append("")
+        lines.append("  ⚠ " + brief["ki_body_note"])
+    return "\n".join(lines)
+
+
+def resolve_downaudit_finding(zone_root, signal_id, review_tic, resolved_to,
+                              justification, *, justification_class=None,
+                              reversible=None, made_known=None, resolved_tic=None,
+                              dry_run=False):
+    """Receipted terminal transition of a held/damaging finding SIGNAL (signal-state,
+    NOT doctrine). /review-gated. Appends a `resolved` row (Terminal-State Valve)
+    carrying the receipt per `terminal-state-change-requires-receipt`. Does NOT
+    mutate the ledger — any demote/reword the resolution implies is /review's act.
+    """
+    if resolved_to not in DOWNAUDIT_ARENA_OUTCOMES:
+        raise ValueError(
+            f"Unknown resolved_to '{resolved_to}'. Valid: "
+            f"{', '.join(sorted(DOWNAUDIT_ARENA_OUTCOMES))}"
+        )
+    if not justification:
+        raise ValueError("a resolve-finding receipt requires --justification "
+                          "(terminal-state-change-requires-receipt).")
+
+    raw = load_downaudit_findings(zone_root)
+    sig = next((s for s in raw
+                if (s.get("signal_id") or s.get("id")) == signal_id), None)
+    if sig is None:
+        return {"ok": False, "error": f"no finding signal '{signal_id}' on the manifold"}
+    if not is_active_ray(sig):
+        return {"ok": False, "error": f"finding '{signal_id}' is already terminal "
+                f"(status={sig.get('status')}); resolve is idempotent — no re-close.",
+                "current": _finding_entry(sig)}
+
+    now = datetime.now(timezone.utc)
+    date_str = now.strftime("%Y-%m-%d")
+    resolved_tic = resolved_tic if resolved_tic is not None else _resolve_federation_tic(zone_root)
+
+    receipt = {
+        "resolved_to": resolved_to,
+        "review_tic": review_tic,
+        "resolved_tic": resolved_tic,
+        "justification": justification,
+        "justification_class": justification_class or "arena_adjudicated",
+        "reversible": reversible if reversible is not None else True,
+        "made_known": made_known or f"resolve-finding @ /review {review_tic}",
+        "resolved_at": now.isoformat(),
+    }
+
+    resolved_signal = dict(sig)  # carry the original shape; flip terminal + receipt
+    resolved_signal["status"] = "resolved"
+    resolved_signal["structural_status"] = "resolved"
+    resolved_signal["resolved_at"] = now.isoformat()
+    payload = dict(resolved_signal.get("payload", {}))
+    payload["resolution"] = receipt
+    resolved_signal["payload"] = payload
+
+    manifest_entry = {
+        "signal_id": signal_id,
+        "signal_type": DOWNAUDIT_FINDING_SIGNAL_TYPE,
+        "status": "resolved",
+        "structural_status": "resolved",
+        "resolved_to": resolved_to,
+        "review_tic": review_tic,
+        "summary": (f"down-audit finding resolved → {resolved_to} "
+                    f"(/review {review_tic}): {justification[:80]}"),
+    }
+
+    if dry_run:
+        return {"ok": True, "dry_run": True, "signal_id": signal_id,
+                "receipt": receipt, "resolved_signal": resolved_signal}
+
+    tz_config = load_ticzone(zone_root)
+    al_path = audit_logs_path(zone_root, tz_config)
+    signal_dir = os.path.join(al_path, "signals")
+    os.makedirs(signal_dir, exist_ok=True)
+    signal_file = os.path.join(signal_dir, f"{date_str}.jsonl")
+    manifest_path = os.path.join(signal_dir, "active-manifest.jsonl")
+
+    # Terminal transition = append a new row with the SAME signal_id (latest-per-id
+    # wins). NOT dedup_signal_append (which would refuse the duplicate id).
+    atomic_append_jsonl(signal_file, resolved_signal)
+    atomic_append_jsonl(manifest_path, manifest_entry)
+
+    return {"ok": True, "dry_run": False, "signal_id": signal_id,
+            "resolved_to": resolved_to, "receipt": receipt,
+            "summary": manifest_entry["summary"]}
+
+
 def main():
     parser = argparse.ArgumentParser(
         description="Ladder Coherence Audit — scan CLAUDE.md governance chain; "
@@ -1702,7 +2279,92 @@ def main():
                     help=f"Stage-0 recency window in days (default {ACTIVE_RUNG_WINDOW_DAYS})")
     da.add_argument("--zone-root", default=None, dest="zone_root")
 
+    lf = sub.add_parser(
+        "list-findings",
+        help="Stage-4 down-lane finding projection: read-only view of the down-audit "
+             "finding set (terminal-per-id), grouped by routing, with held-band "
+             "(hold_in_dissonance §4) staleness. The /review-surfaced down-lane view. "
+             "Read-only — opens no arena, resolves nothing.")
+    lf.add_argument("--current-tic", type=int, default=None, dest="current_tic",
+                    help="Current federation tic (auto-resolved from the tic log if omitted)")
+    lf.add_argument("--zone-root", default=None, dest="zone_root")
+
+    sb = sub.add_parser(
+        "stage-brief",
+        help="Stage-4 down-lane arena brief: for a `damaging` (or re-tested held) "
+             "finding, assemble the read-only `/stage` arena brief (contested "
+             "question, opposing-values geometry, KI body, aggregation breadth, legal "
+             "outcomes). Read-only prep — does NOT open the arena, does NOT inscribe.")
+    sb.add_argument("--signal-id", default=None, dest="signal_id",
+                    help="Finding signal_id to brief (e.g. sig_ladder_down_audit_finding_xxxx)")
+    sb.add_argument("--rung", default=None,
+                    help="Alternative to --signal-id: the rung (with --ki-id)")
+    sb.add_argument("--ki-id", default=None, dest="ki_id",
+                    help="Alternative to --signal-id: the KI invariant_id (with --rung)")
+    sb.add_argument("--current-tic", type=int, default=None, dest="current_tic",
+                    help="Current federation tic (auto-resolved if omitted)")
+    sb.add_argument("--window-days", type=float, default=ACTIVE_RUNG_WINDOW_DAYS,
+                    dest="window_days")
+    sb.add_argument("--zone-root", default=None, dest="zone_root")
+
+    rf = sub.add_parser(
+        "resolve-finding",
+        help="Stage-4 down-lane finding resolution: receipted terminal transition of "
+             "a held/damaging finding SIGNAL (signal-state, NOT doctrine) AFTER /review "
+             "rules. /review-gated — requires --review-tic + --resolved-to + "
+             "--justification. Does not touch the ledger (demote/reword is /review's act).")
+    rf.add_argument("--signal-id", required=True, dest="signal_id",
+                    help="Finding signal_id to resolve")
+    rf.add_argument("--review-tic", required=True, type=int, dest="review_tic",
+                    help="The /review tic that ruled on this finding")
+    rf.add_argument("--resolved-to", required=True, dest="resolved_to",
+                    choices=sorted(DOWNAUDIT_ARENA_OUTCOMES),
+                    help="The arena/review outcome the finding resolved to")
+    rf.add_argument("--justification", required=True,
+                    help="Why this finding may now go terminal (receipt-required)")
+    rf.add_argument("--justification-class", default=None, dest="justification_class",
+                    help="Recommended: " + ", ".join(DOWNAUDIT_RESOLUTION_CLASSES))
+    rf.add_argument("--irreversible", action="store_true",
+                    help="Mark the resolution NOT reversible (default: reversible)")
+    rf.add_argument("--made-known", default=None, dest="made_known",
+                    help="Where the resolution was surfaced (default: /review tic)")
+    rf.add_argument("--resolved-tic", type=int, default=None, dest="resolved_tic",
+                    help="Tic of resolution (auto-resolved if omitted)")
+    rf.add_argument("--dry-run", action="store_true", dest="dry_run",
+                    help="Preview the receipt + resolved row without writing")
+    rf.add_argument("--zone-root", default=None, dest="zone_root")
+
     args = parser.parse_args()
+
+    if args.command == "list-findings":
+        zone_root = args.zone_root or args.project_dir or resolve_zone_root()
+        result = list_downaudit_findings(zone_root, current_tic=args.current_tic)
+        if args.json:
+            print(json.dumps(result, indent=2))
+        else:
+            print(format_findings_list(result))
+        return
+
+    if args.command == "stage-brief":
+        zone_root = args.zone_root or args.project_dir or resolve_zone_root()
+        brief = build_stage_brief(
+            zone_root, signal_id=args.signal_id, rung=args.rung, ki_id=args.ki_id,
+            current_tic=args.current_tic, window_days=args.window_days)
+        if args.json:
+            print(json.dumps(brief, indent=2))
+        else:
+            print(format_stage_brief(brief))
+        return
+
+    if args.command == "resolve-finding":
+        zone_root = args.zone_root or args.project_dir or resolve_zone_root()
+        result = resolve_downaudit_finding(
+            zone_root, args.signal_id, args.review_tic, args.resolved_to,
+            args.justification, justification_class=args.justification_class,
+            reversible=(not args.irreversible), made_known=args.made_known,
+            resolved_tic=args.resolved_tic, dry_run=args.dry_run)
+        print(json.dumps(result, indent=2))
+        return
 
     if args.command == "down-audit":
         zone_root = args.zone_root or args.project_dir or resolve_zone_root()
