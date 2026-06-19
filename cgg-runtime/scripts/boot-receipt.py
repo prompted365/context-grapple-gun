@@ -310,6 +310,32 @@ def emit(args) -> int:
         req_unread = list(args.required_unread_range or args.omitted_range or [])
         rec["required_unread_ranges"] = req_unread
         rec["omitted_ranges"] = req_unread  # back-compat mirror
+        # GENERATOR-SIDE FOOTGUN GUARD (tic 474 — discharges cpr_f1e70b03 / Generator-vs-Local-Repair):
+        # --omitted-range NAMES the non-blocking apophatic category but is a legacy ALIAS for the
+        # BLOCKING --required-unread-range. The worldview's own "N rays omitted by RENDER … expand if
+        # pertinent" language primes an agent to file RENDER-bounded negative space here, where it
+        # silently becomes gate debt. Warn at emit-time (louder when the value reads apophatic) so the
+        # fix lives at the generator surface, not as per-boot vigilance that recurs every fresh context.
+        if args.omitted_range:
+            _apophatic_markers = ("render", "omitted by", "budget", "expand if pertinent",
+                                  "expand-if-pertinent", "apophatic", "negative space", "field-class")
+            _looks_apophatic = any(
+                m in str(v).lower() for v in args.omitted_range for m in _apophatic_markers
+            )
+            sys.stderr.write(
+                "WARN boot-receipt: --omitted-range is a LEGACY BLOCKING ALIAS for "
+                "--required-unread-range; its value was filed as required_unread_ranges (gate debt).\n"
+            )
+            if _looks_apophatic:
+                sys.stderr.write(
+                    "     Your value reads as RENDER-bounded / budget-omitted negative space "
+                    "('expand if pertinent') — that is NON-BLOCKING apophatic space. Use "
+                    "--apophatic-bound (+ --pertinence-rationale), NOT --omitted-range.\n"
+                )
+            sys.stderr.write(
+                "     Honest flags: --required-unread-range (BLOCKS the gate) | "
+                "--apophatic-bound (non-blocking, expand-if-pertinent).\n"
+            )
         # apophatic_range_bounds: the NAMED, TYPED negative space of a ranged read — non-blocking,
         # but REQUIRED for partial reads (and obligates pertinence_rationale). None = full read,
         # no excluded space declared.
