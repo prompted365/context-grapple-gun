@@ -27,7 +27,9 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "lib"))
 from zone_root import resolve_zone_root, load_ticzone, audit_logs_path
 # Shared active-ray predicate (tic 403): heat-based, retires acknowledged-as-active.
-from lib.signal_active import is_active_ray
+# TERMINAL_STATUSES / TERMINAL_STRUCTURAL are the canonical reader-side terminal
+# sets — a finding in one of these has left the LIVE set (Terminal-State Valve).
+from lib.signal_active import is_active_ray, TERMINAL_STATUSES, TERMINAL_STRUCTURAL
 # Shared dehydration-aware doctrine resolver (tic 335 consumer-set fix): a
 # dehydrated rung's promoted bodies live in a sibling ledger.md under
 # `<!-- promoted from cpr_... -->` provenance markers, NOT in the compact
@@ -1788,6 +1790,21 @@ def _finding_entry(sig, current_tic=None):
     return entry
 
 
+def _finding_is_terminal(sig):
+    """Terminal-State Valve on the down-lane READ surface: a finding whose latest
+    signal row is terminal (resolved / dismissed / superseded — by `status` or v2
+    `structural_status`) has left the LIVE finding set. The read projection
+    excludes it from the active verdict grouping/counts /review consults for live
+    attention, but surfaces it in a separate receipt-bearing bucket so the
+    resolution never goes dark. Scoped to TERMINAL statuses only — a cooled-but-
+    unresolved (carried/dimmed) finding stays in the live set, since it is quiet,
+    not closed. The data loader (load_downaudit_findings) stays full terminal-per-
+    id; this valve lives in the projection, where resolve-finding idempotency and
+    stage-brief lookup still need to see terminal rows."""
+    return (sig.get("status") in TERMINAL_STATUSES
+            or sig.get("structural_status") in TERMINAL_STRUCTURAL)
+
+
 def _finding_aggregation(findings, ki_id, active_rung_count=None):
     """Breadth of a KI's down-audit findings across active rungs (the fault-locator,
     spec §2 Stage 2 / Disagreement-as-evidence). single | multi | all-rung."""
@@ -1828,15 +1845,24 @@ def list_downaudit_findings(zone_root, current_tic=None):
         current_tic = _resolve_federation_tic(zone_root)
     raw = load_downaudit_findings(zone_root)
     grouped = defaultdict(list)
-    held, damaging = [], []
+    held, damaging, resolved = [], [], []
     for sig in raw:
         entry = _finding_entry(sig, current_tic=current_tic)
+        if _finding_is_terminal(sig):
+            # Terminal-State Valve: partition the resolved/dismissed finding into
+            # its own receipt-bearing bucket (audit trail preserved) and EXCLUDE
+            # it from the active verdict grouping/counts. Fixes the read-surface
+            # gap where a resolve-finding left the closed N/A still projected
+            # (bk-list-findings-excludes-resolved, surfaced tic 474).
+            resolved.append(entry)
+            continue
         grouped[entry["verdict"]].append(entry)
         if entry["verdict"] == "hold_in_dissonance" and entry["active"]:
             held.append(entry)
         if entry["verdict"] == "damaging" and entry["active"]:
             damaging.append(entry)
     counts = {v: len(items) for v, items in grouped.items()}
+    active_total = sum(counts.values())
     return {
         "audited_at": datetime.now(timezone.utc).isoformat(),
         "zone_root": os.path.abspath(zone_root),
@@ -1852,11 +1878,17 @@ def list_downaudit_findings(zone_root, current_tic=None):
             f"signal_type={DOWNAUDIT_FINDING_SIGNAL_TYPE}. current_tic resolved from "
             "the canonical tic log (domain_counter_after) if not supplied. CANNOT see "
             "whether a held tension has since dissolved at its rung — that is a fresh "
-            "down-audit (re-test), surfaced by the staleness flag, not inferred here."
+            "down-audit (re-test), surfaced by the staleness flag, not inferred here. "
+            "Terminal-State Valve: resolved/dismissed/superseded findings are "
+            "partitioned into resolved_findings (receipt-bearing) and EXCLUDED from "
+            "the active counts_by_verdict / findings_by_verdict that /review reads."
         ),
         "total_findings": len(raw),
+        "active_findings": active_total,
+        "terminal_findings": len(resolved),
         "counts_by_verdict": counts,
         "routing": DOWNAUDIT_ROUTING,
+        "resolved_findings": resolved,
         "damaging_awaiting_arena": damaging,
         "held_band": held,
         "stale_held_for_retest": [h for h in held if h.get("stale_for_retest")],
@@ -1872,8 +1904,10 @@ def format_findings_list(result):
     lines.append("=" * 70)
     lines.append(f"  Zone root:    {result.get('zone_root', '?')}")
     lines.append(f"  Current tic:  {result.get('current_tic')}")
-    lines.append(f"  Findings:     {result.get('total_findings', 0)}  "
-                 f"counts: {result.get('counts_by_verdict', {})}")
+    _term = result.get("terminal_findings", 0)
+    _term_note = f" (+{_term} resolved/terminal — see below)" if _term else ""
+    lines.append(f"  Findings:     {result.get('active_findings', result.get('total_findings', 0))} active"
+                 f"{_term_note}  counts: {result.get('counts_by_verdict', {})}")
     lines.append("")
     lines.append("  " + result.get("_status", ""))
     lines.append("  " + result.get("_fence", ""))
@@ -1911,6 +1945,18 @@ def format_findings_list(result):
         for it in items:
             rf = " [reinforce]" if it.get("reinforce_signal") else ""
             lines.append(f"  {v:<20} {it['ki_id']} @ {it['rung']}{rf}")
+    resolved = result.get("resolved_findings", [])
+    if resolved:
+        lines.append("")
+        lines.append(f"RESOLVED / TERMINAL (Terminal-State Valve — off the live set; receipt-bearing): {len(resolved)}")
+        lines.append("-" * 70)
+        for it in resolved:
+            res = it.get("resolution") or {}
+            to = res.get("resolved_to", "?")
+            jc = res.get("justification_class", "?")
+            rtic = res.get("review_tic", "?")
+            lines.append(f"  ✓ {it['verdict']:<18} {it['ki_id']} @ {it['rung']}  "
+                         f"[{it['signal_id']}]  → {it.get('status')}/{to} ({jc}, /review {rtic})")
     return "\n".join(lines)
 
 
