@@ -995,7 +995,7 @@ def _norm_tag(s):
     return s.strip().strip('"').strip("'").strip().lower().replace("_", "-")
 
 
-def _parse_ledger_kis(ledger_path):
+def _parse_ledger_kis(ledger_path, include_body=False):
     """Parse the constitution-ledger into KI tag records (read-only).
 
     Returns [{invariant_id, name, terrain_class, lanes, target_rung, tags}]. `tags`
@@ -1003,6 +1003,12 @@ def _parse_ledger_kis(ledger_path):
     anchored on its `invariant_id` tag; its name is the nearest preceding heading; its
     terrain_class / lanes / target_rung are read from the span up to the next
     invariant. Both lane forms are captured (structured tag + inline provenance).
+
+    With include_body=True each KI also carries `body` (the doctrine TEXT the Stage-2
+    down-audit judges against, not just the tag name) + `body_truncated`. The body
+    runs heading → the entry's OWN `<!-- promoted from … -->` provenance close — NOT
+    the next `### ` (which would over-collect the trailing bullet-form KIs, the
+    body-side of the same span-attribution discipline the tag scan applies).
     """
     try:
         content = Path(ledger_path).read_text(encoding="utf-8")
@@ -1012,6 +1018,15 @@ def _parse_ledger_kis(ledger_path):
     inv_matches = list(_LEDGER_INVARIANT_RE.finditer(content))
     headings = [(m.start(), m.group(1).strip())
                 for m in _LEDGER_HEADING_RE.finditer(content)]
+
+    def _heading_pos_before(offset):
+        pos_out = None
+        for pos, _text in headings:
+            if pos <= offset:
+                pos_out = pos
+            else:
+                break
+        return pos_out
 
     # Entry boundary = the next `### ` heading (each KI is `### Name` → tag block →
     # verbatim → provenance → next `### `). Bounding the tag/lane collection at the
@@ -1061,14 +1076,31 @@ def _parse_ledger_kis(ledger_path):
         if terrain:
             tags.add(_norm_tag(terrain))
 
-        kis.append({
+        rec = {
             "invariant_id": inv_id,
             "name": _name_before(start) or inv_id.replace("ki_", "").replace("_", " "),
             "terrain_class": _norm_tag(terrain) if terrain else "",
             "lanes": sorted(lanes),
             "target_rung": target_rung,
             "tags": tags,
-        })
+        }
+        if include_body:
+            body_start = _heading_pos_before(start)
+            body_start = body_start if body_start is not None else start
+            prov = content.find("<!-- promoted", start)
+            body_end = end
+            if prov != -1 and prov < end:
+                close = content.find("-->", prov)
+                body_end = (close + 3) if close != -1 else end
+            body = content[body_start:body_end].strip()
+            truncated = len(body) > DOWNAUDIT_MAX_BODY_CHARS
+            if truncated:
+                body = (body[:DOWNAUDIT_MAX_BODY_CHARS].rstrip() +
+                        f"\n… [body truncated at {DOWNAUDIT_MAX_BODY_CHARS} chars — "
+                        f"full at ledger entry `{inv_id}`]")
+            rec["body"] = body
+            rec["body_truncated"] = truncated
+        kis.append(rec)
     return kis
 
 
@@ -1279,6 +1311,308 @@ def format_select_kis(result, top=15):
     return "\n".join(lines)
 
 
+# ---------------------------------------------------------------------------
+# Stage-2 down-audit packet-assembler (ladder-downlane-spec.md §2 Stage 2 / §3 KIND)
+#
+# The down-lane's first JUDGMENT stage: the rehydration-in-spirit fit-test. For an
+# ACTIVE rung, assemble the read-only PACKET a (read-only) ladder-auditor consumes
+# to judge, per (rung, KI), whether the KI rehydrates IN SPIRIT here — clean | N/A |
+# damaging — against the rung's real friction. The VERDICT is the auditor's act
+# (returned as text); this assembler only PREPARES the judgment, and the orchestrator
+# lands the verdict via `emit-finding` (Stage 3, already wired). A deterministic
+# script cannot judge "rehydrates in spirit" — that is the whole point: Stage 2 is
+# JUDGMENT, not the Stage-1 tag-match — so the buildable read-only piece is the
+# packet + the mandatory scope-declaration envelope, NOT a verdict.
+#
+# Boundary (per the KIND table — this is the read-only HALF of the MEDIUM Stage-2
+# gate; the judgment half extends the ladder-auditor agent, which is also read-only:
+# tools Read/Grep/Glob, no Write/Edit/Bash):
+#   - read-only: reads the Stage-1 selection, the ledger KI bodies, and the rung's
+#     Stage-0 activity/friction signals. Writes nothing; no signal; no arena; no
+#     doctrine mutation.
+#   - CANDIDATE / center-hold: a selected KI is a hypothesis about REACH (Stage 1);
+#     the packet does NOT pre-decide FIT. A `damaging` verdict (when the auditor
+#     returns one) is a HYPOTHESIS routed to /stage (Stage 4, /review-gated), NEVER
+#     an auto-demotion (Arena Velocity Guard); `needs_mechanization` != defective.
+#   - scope-declared-before-judgment: the packet carries a MANDATORY scope envelope
+#     (Presence/Observation Fallacy Guard) — structural facts pre-filled, judgment-
+#     time slots left for the auditor. A down-audit without a declared fire-shape is
+#     "hallucination dressed as judgment" (spec §2 S2).
+#   - dual-mode + honest disagreement: default targets the rung's top-N Stage-1
+#     candidates (pipeline-honest, in_selection:true); an explicit --ki-id may target
+#     a KI OUTSIDE the selection (the spec's manual/from-root down-audit, e.g.
+#     frame-protocol × fusion-outpost) — flagged in_selection:false so the
+#     selection-vs-narrative disagreement is surfaced, never silently honored
+#     (Disagreement-as-evidence).
+# ---------------------------------------------------------------------------
+
+DOWNAUDIT_MAX_BODY_CHARS = 4000
+
+# The Stage-2 verdict taxonomy + the routing rule each verdict triggers. Carried IN
+# the packet so the auditor judges against the same contract the orchestrator emits
+# under (emit-finding) — no drift between what is asked and what is recorded.
+DOWNAUDIT_VERDICT_CONTRACT = {
+    "clean": "the KI rehydrates in spirit at this rung; cross-ray centroid-routed "
+             "understanding holds here → record (Stage 3). If the rung re-derived "
+             "this KI from its OWN recent friction, set reinforce:true (independent "
+             "rediscovery → resilience evidence).",
+    "N/A": "the KI does not reach this rung — correctly scoped away. This is a WIN, "
+           "not a gap (the `concede_local` mirror) → record.",
+    "needs_mechanization": "the KI is right and forward, but no enforcement substrate "
+                           "exists here yet. NOT defective — do not route to demote. "
+                           "→ record; aggregation across rungs decides if system-wide.",
+    "damaging": "the KI rehydrates as foreign, N/A-but-load-bearing, or actively "
+                "harmful here. This is a HYPOTHESIS, not a verdict (Arena Velocity "
+                "Guard) → record + route to a /stage re-eval arena (Stage 4, "
+                "/review-gated). NEVER an auto-demotion.",
+    "hold_in_dissonance": "a genuine unresolved tension between the KI and this rung's "
+                          "lived reality; hold the contradiction rather than force a "
+                          "premature collapse (§4) → record as the held band.",
+}
+
+
+def _resolve_rung_in_selection(sel, rung):
+    """Find a rung record in the Stage-1 selection by dir, name, or basename."""
+    for r in sel["rungs"]:
+        if rung in (r["dir"], r["rung"], os.path.basename(r["dir"])):
+            return r
+    return None
+
+
+def _downaudit_target(ki, cand):
+    """Build the per-KI target entry for the down-audit packet (read-only).
+
+    `ki` is the parsed ledger record (with body); `cand` is the Stage-1 candidate
+    record for this rung if the KI is in-selection, else None (explicit/outside-
+    selection target — the disagreement is surfaced via in_selection:false)."""
+    if ki is None:
+        return None
+    entry = {
+        "invariant_id": ki["invariant_id"],
+        "name": ki["name"],
+        "terrain_class": ki["terrain_class"],
+        "lanes": ki["lanes"],
+        "target_rung": ki["target_rung"],
+        "in_selection": cand is not None,
+        "body": ki.get("body", ""),
+        "body_truncated": ki.get("body_truncated", False),
+    }
+    if cand is not None:
+        entry["selection"] = {
+            "score": cand["score"],
+            "match_basis": cand["match_basis"],
+            "matched_tags": cand["matched_tags"],
+        }
+    else:
+        entry["selection_note"] = (
+            "OUTSIDE the rung's Stage-1 selection — explicit/manual down-audit "
+            "(the tic-467 concern derive does not connect this KI to this rung). "
+            "Surfaced as Disagreement-as-evidence, not silently honored; the "
+            "down-audit verdict is still valid but the SELECTION gap is itself a "
+            "signal (fork-A concern declaration may be owed for this rung)."
+        )
+    return entry
+
+
+def build_downaudit_packet(zone_root, rung, ki_ids=None, top=3,
+                           opened_tic=None, window_days=ACTIVE_RUNG_WINDOW_DAYS):
+    """Stage-2: assemble the read-only down-audit packet for one ACTIVE rung.
+
+    Read-only. Returns the packet a (read-only) ladder-auditor consumes to judge
+    rehydration-in-spirit per (rung, KI). NOT a verdict (the auditor judges) and NOT
+    a mutation (Stage 4, /review-gated). The orchestrator lands the auditor's returned
+    verdict via `emit-finding` (Stage 3).
+    """
+    zone_root = os.path.abspath(zone_root)
+    tz_config = load_ticzone(zone_root)
+    al_path = audit_logs_path(zone_root, tz_config)
+    ledger_path = os.path.join(al_path, LEDGER_REL)
+
+    sel = select_kis_per_rung(zone_root, window_days=window_days)
+    rung_rec = _resolve_rung_in_selection(sel, rung)
+
+    base = {
+        "audited_at": datetime.now(timezone.utc).isoformat(),
+        "zone_root": zone_root,
+        "stage": "C9 Stage-2 down-audit packet (read-only PREP — NOT a verdict)",
+        "_status": "Stage-2 down-audit PACKET — read-only; the verdict is the "
+                   "(read-only) ladder-auditor's act, landed by the orchestrator via "
+                   "emit-finding (Stage 3). NOT a mutation (Stage 4, /review-gated).",
+        "_fence": "center-hold: the packet runs no down-audit itself, demotes nothing, "
+                  "emits no signal, opens no arena. A selected KI is a hypothesis about "
+                  "reach (Stage 1); this packet does not pre-decide fit. A `damaging` "
+                  "verdict is a hypothesis → /stage (Stage 4), NEVER auto-demote.",
+        "requested_rung": rung,
+        "opened_tic": opened_tic,
+    }
+
+    if rung_rec is None:
+        # Honest: the down-lane is active-rung-only. Surface whether the rung is
+        # dormant/unknown vs active-but-unsourced — never invent a packet.
+        recon = sel.get("reconciliation", {})
+        base["ok"] = False
+        base["error"] = (
+            f"rung '{rung}' is not in the live Stage-1 active selection — the "
+            "down-lane is active-rung-only (dormant/unknown rungs stay with the "
+            "structural run_audit chain scan). Active rungs this tic: "
+            + ", ".join(sorted(r["dir"] for r in sel["rungs"]))
+        )
+        base["reconciliation"] = recon
+        return base
+
+    kis = _parse_ledger_kis(ledger_path, include_body=True)
+    ki_by_id = {k["invariant_id"]: k for k in kis}
+    in_sel = {c["invariant_id"]: c for c in (rung_rec.get("ki_candidates") or [])}
+
+    targets, unresolved = [], []
+    if ki_ids:
+        for kid in ki_ids:
+            ki = ki_by_id.get(kid)
+            if ki is None:
+                unresolved.append({"invariant_id": kid,
+                                   "error": "not found in the constitution-ledger"})
+                continue
+            targets.append(_downaudit_target(ki, in_sel.get(kid)))
+    else:
+        for cand in (rung_rec.get("ki_candidates") or [])[:top]:
+            ki = ki_by_id.get(cand["invariant_id"])
+            t = _downaudit_target(ki, cand)
+            if t is not None:
+                targets.append(t)
+
+    # Rung friction (read-only): Stage-0 activity signals for this rung + active
+    # signal subsystems with a name-overlap flag. The auditor reads the rung's own
+    # CLAUDE.md chain + recent friction itself (it has Read/Grep/Glob) — the packet
+    # gives it the hard-to-locate ledger KI bodies + the pointers, never pre-judges.
+    stage0 = discover_active_rungs(zone_root, window_days=window_days)
+    rung_dir = rung_rec["dir"]
+    stage0_entry = next((e for e in stage0["active"] if e["dir"] == rung_dir), None)
+    signals_by_sub = load_active_signals(zone_root)
+    rung_basename = os.path.basename(rung_dir)
+    overlapping = {sub: ids for sub, ids in signals_by_sub.items()
+                   if rung_basename in sub or sub in rung_dir or sub in rung_rec["rung"]}
+
+    base.update({
+        "ok": True,
+        "rung": rung_rec["rung"],
+        "rung_dir": rung_dir,
+        "concern_source": rung_rec.get("concern_source"),
+        "rung_concerns": rung_rec.get("concerns", []),
+        "recommend_fork_A_declare": rung_rec.get("recommend_fork_A_declare", False),
+        "target_mode": "explicit_ki_ids" if ki_ids else f"top_{top}_stage1_candidates",
+        "targets": targets,
+        "unresolved_ki_ids": unresolved,
+        "friction": {
+            "rung_activity_signals": (stage0_entry or {}).get("recent_signals", {}),
+            "rung_doctrine_chain_cmd":
+                f"python3 cgg-runtime/scripts/lib/load_doctrine_chain.py "
+                f"{rung_dir}  # the auditor reads the rung's CLAUDE.md chain here",
+            "active_signal_subsystems": sorted(signals_by_sub.keys()),
+            "subsystems_name_overlapping_rung": overlapping,
+            "friction_scope_note": (
+                "Signal subsystems are federation-wide; a rung-name overlap is a "
+                "weak heuristic. The auditor must read the rung's OWN recent friction "
+                "(its CLAUDE.md chain, recent born/arena/signal surfaces) and declare "
+                "what it could and could NOT access — do not infer friction from this "
+                "list alone."
+            ),
+        },
+        "verdict_contract": DOWNAUDIT_VERDICT_CONTRACT,
+        "scope_declaration_envelope": {
+            "prefilled_by_assembler": {
+                "loaded": "the rung's Stage-1 selection (live), each target KI's BODY "
+                          "from the constitution-ledger (read-only), the rung's Stage-0 "
+                          "activity signals, the active-signal subsystem list",
+                "concern_source": rung_rec.get("concern_source"),
+                "concern_source_caveat": "the rung-concern derive is the tic-467 fork-B "
+                                         "CANDIDATE (coherence-is-not-admission); a thin "
+                                         "or fork-A-flagged concern set is itself signal",
+                "cannot_see_from_assembler": "whether each KI actually rehydrates in "
+                          "spirit (THAT is the auditor's judgment), the rung's live "
+                          "operational friction beyond mtime recency, any non-name-"
+                          "matched signal relevance",
+            },
+            "auditor_must_declare_at_judgment": [
+                "which rung surfaces it actually read (CLAUDE.md chain, which friction)",
+                "which friction it could NOT access (the fire-shape envelope)",
+                "the reflexive caveat where it judges a KI in its own operating set "
+                "(D3: a dulling auditor cannot fully audit the doctrine that dulled it)",
+            ],
+        },
+        "emit_contract": {
+            "note": "Return one verdict block per target KI (verdict + scope + "
+                    "reasoning + reinforce flag). The ORCHESTRATOR lands each via: "
+                    "ladder-audit.py emit-finding --rung <dir> --ki-id <id> "
+                    "--verdict <v> --opened-tic <N> [--reinforce-signal] [--summary]. "
+                    "The auditor does NOT write (no Bash/Write/Edit).",
+            "valid_verdicts": sorted(DOWNAUDIT_VERDICTS),
+        },
+        "scope_declaration": (
+            "Read-only Stage-2 PACKET assembler. Reads: the live Stage-1 selection, "
+            "each target KI's ledger BODY (heading→own provenance close, bounded so it "
+            "does not over-collect trailing bullet KIs), the rung's Stage-0 activity "
+            "signals, the active-signal subsystem list. Writes nothing, emits no "
+            "signal, opens no arena. CANNOT judge fit (the auditor does) and does not "
+            "pre-bias toward demotion. Dual-mode: default = top-N in-selection "
+            "candidates (pipeline-honest); explicit --ki-id = may be outside-selection "
+            "(flagged in_selection:false, the disagreement surfaced)."
+        ),
+    })
+    return base
+
+
+def format_downaudit_packet(packet):
+    """Human-readable Stage-2 down-audit packet."""
+    lines = []
+    lines.append("=" * 70)
+    lines.append("LADDER DOWN-LANE · Stage-2 down-audit PACKET (read-only prep; NOT a verdict)")
+    lines.append("=" * 70)
+    if not packet.get("ok"):
+        lines.append(f"  ✗ {packet.get('error', 'could not assemble packet')}")
+        return "\n".join(lines)
+    lines.append(f"  Rung:            {packet['rung']}  [{packet['rung_dir']}]")
+    lines.append(f"  Opened tic:      {packet.get('opened_tic')}")
+    lines.append(f"  Concern source:  {packet.get('concern_source')}  "
+                 f"(fork-A advised: {packet.get('recommend_fork_A_declare')})")
+    lines.append(f"  Rung concerns:   {', '.join(packet.get('rung_concerns', [])) or '(none)'}")
+    lines.append(f"  Target mode:     {packet.get('target_mode')}")
+    lines.append("")
+    lines.append("  " + packet.get("_status", ""))
+    lines.append("  " + packet.get("_fence", ""))
+    lines.append("")
+    lines.append("  scope: " + packet.get("scope_declaration", ""))
+    lines.append("")
+    lines.append(f"TARGET KIs ({len(packet.get('targets', []))}) — judge rehydration-in-spirit per KI:")
+    lines.append("-" * 70)
+    for t in packet.get("targets", []):
+        flag = "IN-SELECTION" if t["in_selection"] else "⚠ OUTSIDE-SELECTION (explicit)"
+        lines.append(f"  ▸ {t['name'][:60]}")
+        lines.append(f"      {t['invariant_id']}  [{flag}]  terrain={t['terrain_class']} "
+                     f"target_rung={t['target_rung']}")
+        if t.get("selection"):
+            s = t["selection"]
+            lines.append(f"      reach: score={s['score']} "
+                         f"basis={'+'.join(s['match_basis'])} tags={s['matched_tags']}")
+        elif t.get("selection_note"):
+            lines.append(f"      {t['selection_note'][:120]}")
+        body = (t.get("body") or "").strip().replace("\n", " ")
+        lines.append(f"      body: {body[:200]}{'…' if len(body) > 200 else ''}")
+    for u in packet.get("unresolved_ki_ids", []):
+        lines.append(f"  ✗ {u['invariant_id']} — {u['error']}")
+    lines.append("")
+    lines.append("VERDICT CONTRACT (the auditor returns one block per KI):")
+    lines.append("-" * 70)
+    for v in sorted(packet.get("verdict_contract", {})):
+        lines.append(f"  · {v}: {packet['verdict_contract'][v][:88]}")
+    lines.append("")
+    lines.append("FRICTION + SCOPE: the auditor reads the rung's own CLAUDE.md chain "
+                 "(load_doctrine_chain) + recent friction and DECLARES its fire-shape "
+                 "envelope before judging.")
+    lines.append("EMIT: orchestrator lands each verdict via `ladder-audit.py emit-finding` "
+                 "(Stage 3). The auditor does not write.")
+    return "\n".join(lines)
+
+
 def main():
     parser = argparse.ArgumentParser(
         description="Ladder Coherence Audit — scan CLAUDE.md governance chain; "
@@ -1347,7 +1681,39 @@ def main():
                          "(JSON always carries the full ranked list)")
     sk.add_argument("--zone-root", default=None, dest="zone_root")
 
+    da = sub.add_parser(
+        "down-audit",
+        help="Stage-2 down-lane down-audit PACKET: for an ACTIVE rung, assemble the "
+             "read-only packet a ladder-auditor consumes to judge rehydration-in-"
+             "spirit (clean|N/A|damaging) per KI. Read-only prep — NOT a verdict, "
+             "NOT a mutation; the verdict is the auditor's act, landed via emit-finding.")
+    da.add_argument("--rung", required=True,
+                    help="Active rung to down-audit (dir, name, or basename)")
+    da.add_argument("--ki-id", action="append", dest="ki_ids", default=None,
+                    help="Specific KI invariant_id to target (repeatable). If omitted, "
+                         "defaults to the rung's top-N Stage-1 candidates. An explicit "
+                         "id may be OUTSIDE the selection (flagged in_selection:false).")
+    da.add_argument("--top", type=int, default=3,
+                    help="When --ki-id omitted, how many top Stage-1 candidates to target")
+    da.add_argument("--opened-tic", type=int, default=None, dest="opened_tic",
+                    help="Tic the down-audit fires (stamped into the packet)")
+    da.add_argument("--window-days", type=float, default=ACTIVE_RUNG_WINDOW_DAYS,
+                    dest="window_days",
+                    help=f"Stage-0 recency window in days (default {ACTIVE_RUNG_WINDOW_DAYS})")
+    da.add_argument("--zone-root", default=None, dest="zone_root")
+
     args = parser.parse_args()
+
+    if args.command == "down-audit":
+        zone_root = args.zone_root or args.project_dir or resolve_zone_root()
+        packet = build_downaudit_packet(
+            zone_root, args.rung, ki_ids=args.ki_ids, top=args.top,
+            opened_tic=args.opened_tic, window_days=args.window_days)
+        if args.json:
+            print(json.dumps(packet, indent=2))
+        else:
+            print(format_downaudit_packet(packet))
+        return
 
     if args.command == "select-kis":
         zone_root = args.zone_root or args.project_dir or resolve_zone_root()
