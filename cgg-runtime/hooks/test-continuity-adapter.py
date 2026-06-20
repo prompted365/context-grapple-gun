@@ -3,7 +3,7 @@
 
 Hermetic: each test builds a temp zone-root sandbox (.ticzone + minimal audit-logs)
 and runs continuity-adapter.py against it via --zone-root. The real federation is
-never touched. Exit 0 iff all of T-A..T-G pass.
+never touched. Exit 0 iff all of T-A..T-H pass.
 
   T-A no hook installed by the adapter (no hook-registration file appears)
   T-B pre receipt does not claim post survival (observed_continuity == null)
@@ -12,6 +12,8 @@ never touched. Exit 0 iff all of T-A..T-G pass.
   T-E receipt failure is fail-soft (exit 0 even when the sink is unwritable)
   T-F duplicate event is idempotent (one receipt for an identical re-fire)
   T-G divergence honesty (changed state -> divergence_status != intact)
+  T-H cross-session retrospective canary (session-terminal receipt links to the prior
+      session's ENTITY receipt; identity-anchored — task drift is legitimate cross-session)
 """
 import json
 import os
@@ -157,6 +159,37 @@ with tempfile.TemporaryDirectory() as d:
     post = next((x for x in receipts(z) if x["lifecycle_event"] == "compact.post"), None)
     broken = post and post["divergence_status"] == "broken"
     check("T-G divergence-broken", bool(broken), f"divergence={post and post['divergence_status']} (expected broken)")
+
+# T-H: cross-session retrospective canary — a session-terminal receipt with NO same-session
+# prior links to the prior session's ENTITY receipt; identity-anchored (task drift legitimate).
+with tempfile.TemporaryDirectory() as d:
+    z = Path(d)
+    make_sandbox(z, mandate="task-A")
+    run("SessionEnd", z, {"session_id": "sA"})           # chain-start: unverified (no prior)
+    rA = next((x for x in receipts(z) if x.get("session_id") == "sA"), None)
+    # new session, SAME identity, CHANGED task (legitimate cross-session) -> intact, NOT drifted
+    (z / "audit-logs/mogul/mandates/current.json").write_text(json.dumps({"task": "task-B"}), encoding="utf-8")
+    run("SessionEnd", z, {"session_id": "sB"})
+    rB = next((x for x in receipts(z) if x.get("session_id") == "sB"), None)
+    check("T-H cross-session-intact",
+          bool(rB) and rB.get("continuity_scope") == "cross_session"
+          and rB.get("previous_receipt_pointer") == (rA or {}).get("receipt_id")
+          and rB.get("divergence_status") == "intact",
+          f"scope={rB and rB.get('continuity_scope')} ptr={rB and rB.get('previous_receipt_pointer')} "
+          f"div={rB and rB.get('divergence_status')} (expected cross_session/linked/intact)")
+
+# T-H: cross-session identity loss -> broken (the canary's alarm, not a fail-soft blind spot)
+with tempfile.TemporaryDirectory() as d:
+    z = Path(d)
+    make_sandbox(z, roles=["interactive_orchestrator", "session_lead"])
+    run("SessionEnd", z, {"session_id": "sA"})
+    (z / "autonomous_kernel/actor-registry.json").write_text(json.dumps({"actors": [
+        {"entity_id": "ent_homeskillet", "roles": ["DIFFERENT_ROLE"]}]}), encoding="utf-8")
+    run("SessionEnd", z, {"session_id": "sB"})
+    rB = next((x for x in receipts(z) if x.get("session_id") == "sB"), None)
+    check("T-H cross-session-broken",
+          bool(rB) and rB.get("continuity_scope") == "cross_session" and rB.get("divergence_status") == "broken",
+          f"scope={rB and rB.get('continuity_scope')} div={rB and rB.get('divergence_status')} (expected cross_session/broken)")
 
 print()
 passed = sum(1 for _, c, _ in results if c)

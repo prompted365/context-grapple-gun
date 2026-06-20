@@ -192,15 +192,40 @@ def find_prior(records: list[dict], session_id: str, want_event: str | None = No
     return None
 
 
-def compute_divergence(observed: dict, prior_expected: dict | None) -> str:
-    """v0 divergence semantics: identity loss = broken; task loss = drifted;
-    identity+task preserved = intact (governance/render drift is legitimate);
-    no linked prior = unverified."""
-    if not prior_expected:
+def find_prior_entity(records: list[dict], entity: str, exclude_session: str | None = None) -> dict | None:
+    """Most recent receipt for this ENTITY from a DIFFERENT session — the cross-session
+    continuity chain. The M2 retrospective canary: did the office's identity survive from
+    its last recorded receipt to now? A session-terminal receipt (stop/session.end) almost
+    never has a same-session prior, so without this the canary fails soft to `unverified`
+    ~98% of the time (tic-475 C9 down-audit finding). The entity chain is the right anchor:
+    continuity is a per-office property across the discontinuity, not a per-session one."""
+    for r in reversed(records):
+        if r.get("entity_id") != entity:
+            continue
+        if exclude_session is not None and r.get("session_id") == exclude_session:
+            continue
+        return r
+    return None
+
+
+def compute_divergence(observed: dict, prior_state: dict | None, cross_session: bool = False) -> str:
+    """v0 divergence semantics. No linked prior = unverified.
+
+    Within-session (compaction pre->post): identity loss = broken; task loss = drifted;
+      identity+task preserved = intact (governance/render drift is legitimate). The task
+      SHOULD survive a compaction, so task drift is a meaningful within-session signal.
+
+    Cross-session (retrospective session->session, same entity): the active-task surface
+      (mandate) legitimately changes EVERY tic, so cross-session task drift is the normal
+      state, not a continuity violation — anchoring on it would report `drifted` always
+      (as uninformative as the `unverified` it replaces). The meaningful cross-session
+      invariant is IDENTITY survival: identity loss = broken; identity preserved = intact
+      (task/governance/render drift are all legitimate across the discontinuity)."""
+    if not prior_state:
         return "unverified"
-    if observed["identity_hash"] != prior_expected.get("identity_hash"):
+    if observed["identity_hash"] != prior_state.get("identity_hash"):
         return "broken"
-    if observed["active_task_hash"] != prior_expected.get("active_task_hash"):
+    if not cross_session and observed["active_task_hash"] != prior_state.get("active_task_hash"):
         return "drifted"
     return "intact"
 
@@ -287,14 +312,25 @@ def main() -> int:
         records = read_sink(sink)
 
         is_pre = event == "compact.pre"
-        # link target: post links to the matching pre; stop/end link to the latest receipt
+        # link target: post links to the matching same-session pre; stop/end link to the
+        # latest same-session receipt, else fall back to the cross-session ENTITY chain
+        # (the M2 retrospective canary — a session-terminal receipt rarely has a same-session
+        # prior, so without the entity fallback it fails soft to `unverified` ~98% of the time).
+        cross_session = False
         if event == "compact.post":
             prior = find_prior(records, session_id, "compact.pre")
         elif event in ("stop", "session.end"):
             prior = find_prior(records, session_id, None)
+            if prior is None:
+                prior = find_prior_entity(records, entity, exclude_session=session_id)
+                cross_session = prior is not None
         else:
             prior = None
-        prior_expected = (prior or {}).get("expected_continuity") if prior else None
+        # compare against the prior receipt's ACTUAL end-state: observed_continuity for a
+        # stop/post; expected_continuity for a pre (which carries observed=null by grammar law)
+        prior_state = None
+        if prior:
+            prior_state = prior.get("observed_continuity") or prior.get("expected_continuity")
 
         receipt = {
             "schema": SCHEMA_VERSION,
@@ -307,10 +343,11 @@ def main() -> int:
             "tic": tic,
             **observed,
             "previous_receipt_pointer": (prior or {}).get("receipt_id") if prior else None,
+            "continuity_scope": "none" if is_pre else ("cross_session" if cross_session else "within_session"),
             # grammar law: pre DECLARES expectation; only post/stop CLAIM survival
-            "expected_continuity": observed if is_pre else (prior_expected or observed),
+            "expected_continuity": observed if is_pre else (prior_state or observed),
             "observed_continuity": None if is_pre else observed,
-            "divergence_status": "unverified" if is_pre else compute_divergence(observed, prior_expected),
+            "divergence_status": "unverified" if is_pre else compute_divergence(observed, prior_state, cross_session),
             "fail_soft": True,
         }
 
