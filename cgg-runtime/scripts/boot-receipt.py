@@ -119,6 +119,38 @@ def _required_unread(rec: dict):
     return []
 
 
+# A boot-read range value "reads apophatic" (non-blocking render-bounded negative space) when it
+# carries one of these self-identifying markers. The worldview RENDER-BOUND banner uses exactly this
+# vocabulary ("N rays omitted by RENDER … expand if pertinent"), which is what primes an agent to
+# reach for --omitted-range for material that is genuinely non-blocking.
+_APOPHATIC_MARKERS = ("render", "omitted by", "budget", "expand if pertinent",
+                      "expand-if-pertinent", "apophatic", "negative space", "field-class")
+
+
+def classify_boot_read_ranges(required_unread_range, omitted_range):
+    """Split boot-read range declarations into (BLOCKING required-unread, NON-BLOCKING apophatic).
+
+    --required-unread-range is always BLOCKING (real unread inside the required surface).
+    --omitted-range is a legacy alias whose NAME means render-bounded negative space. The tic-474
+    guard merely WARNED while still filing every --omitted-range value as gate debt — a named footgun
+    whose teeth stayed in (cpr_named_footgun_guard_leaves_sibling_site_unfixed_tic481). Here the
+    classification is LOAD-BEARING: each --omitted-range value that self-reads apophatic (carries an
+    _APOPHATIC_MARKERS token) is REROUTED to the non-blocking apophatic set instead of silently
+    self-DoS'ing the boot it was closing; a non-apophatic value stays BLOCKING (legacy semantics
+    preserved for genuine required-unread, recoverable via the loud emit-time warning).
+
+    Returns (req_unread: list, rerouted_apophatic: list).
+    """
+    req_unread = list(required_unread_range or [])
+    rerouted = []
+    for v in (omitted_range or []):
+        if any(m in str(v).lower() for m in _APOPHATIC_MARKERS):
+            rerouted.append(v)
+        else:
+            req_unread.append(v)
+    return req_unread, rerouted
+
+
 def boot_read_passes(rec: dict) -> tuple:
     """(passes: bool, reason: str) for the boot-read mutation-gate pass-state.
 
@@ -305,42 +337,33 @@ def emit(args) -> int:
         # surface-typed: prose=gapless, record-stores=surface_typed; default gapless for a full read
         rec["chunking"] = args.chunking or ("gapless" if args.boot_read_mode == "full" else "n/a")
         # the gate-blocking field: required unread INSIDE the required surface. --required-unread-range
-        # is the ratified name; --omitted-range is the legacy alias (still accepted). Emit-site writes
-        # BOTH so a legacy reader (fallback) and the current reader resolve the same coverage state.
-        req_unread = list(args.required_unread_range or args.omitted_range or [])
-        rec["required_unread_ranges"] = req_unread
-        rec["omitted_ranges"] = req_unread  # back-compat mirror
-        # GENERATOR-SIDE FOOTGUN GUARD (tic 474 — discharges cpr_f1e70b03 / Generator-vs-Local-Repair):
-        # --omitted-range NAMES the non-blocking apophatic category but is a legacy ALIAS for the
-        # BLOCKING --required-unread-range. The worldview's own "N rays omitted by RENDER … expand if
-        # pertinent" language primes an agent to file RENDER-bounded negative space here, where it
-        # silently becomes gate debt. Warn at emit-time (louder when the value reads apophatic) so the
-        # fix lives at the generator surface, not as per-boot vigilance that recurs every fresh context.
+        # is the ratified BLOCKING name; --omitted-range is the legacy alias whose NAME means
+        # non-blocking render-bounded space. classify_boot_read_ranges() splits per-value: a value that
+        # self-reads apophatic is REROUTED to the non-blocking apophatic field instead of silent gate debt
+        # (tic 482 load-bearing fix; see the helper for the full rationale). Announced, never silent.
+        req_unread, _rerouted = classify_boot_read_ranges(args.required_unread_range, args.omitted_range)
         if args.omitted_range:
-            _apophatic_markers = ("render", "omitted by", "budget", "expand if pertinent",
-                                  "expand-if-pertinent", "apophatic", "negative space", "field-class")
-            _looks_apophatic = any(
-                m in str(v).lower() for v in args.omitted_range for m in _apophatic_markers
-            )
-            sys.stderr.write(
-                "WARN boot-receipt: --omitted-range is a LEGACY BLOCKING ALIAS for "
-                "--required-unread-range; its value was filed as required_unread_ranges (gate debt).\n"
-            )
-            if _looks_apophatic:
+            if _rerouted:
                 sys.stderr.write(
-                    "     Your value reads as RENDER-bounded / budget-omitted negative space "
-                    "('expand if pertinent') — that is NON-BLOCKING apophatic space. Use "
-                    "--apophatic-bound (+ --pertinence-rationale), NOT --omitted-range.\n"
+                    f"WARN boot-receipt: {len(_rerouted)} --omitted-range value(s) read as RENDER-bounded "
+                    "negative space and were REROUTED to apophatic_range_bounds (non-blocking), not filed as "
+                    "gate debt. Prefer --apophatic-bound; apophatic space obligates --pertinence-rationale. "
+                    "If any rerouted value is GENUINELY required-unread, re-emit with --required-unread-range.\n"
                 )
-            sys.stderr.write(
-                "     Honest flags: --required-unread-range (BLOCKS the gate) | "
-                "--apophatic-bound (non-blocking, expand-if-pertinent).\n"
-            )
+            if len(req_unread) > len(list(args.required_unread_range or [])):
+                sys.stderr.write(
+                    "WARN boot-receipt: --omitted-range is a LEGACY BLOCKING ALIAS for --required-unread-range; "
+                    "non-apophatic value(s) were filed as required_unread_ranges (gate debt). "
+                    "Use --required-unread-range to be explicit.\n"
+                )
+        rec["required_unread_ranges"] = req_unread
+        rec["omitted_ranges"] = req_unread  # back-compat mirror (blocking set only)
         # apophatic_range_bounds: the NAMED, TYPED negative space of a ranged read — non-blocking,
         # but REQUIRED for partial reads (and obligates pertinence_rationale). None = full read,
-        # no excluded space declared.
-        if args.apophatic_bound:
-            rec["apophatic_range_bounds"] = list(args.apophatic_bound)
+        # no excluded space declared. Includes any --omitted-range values rerouted above.
+        _apophatic = list(args.apophatic_bound or []) + _rerouted
+        if _apophatic:
+            rec["apophatic_range_bounds"] = _apophatic
         if args.pertinence_rationale:
             rec["pertinence_rationale"] = args.pertinence_rationale
         if args.coverage_proof_alternate:
