@@ -6,6 +6,52 @@
 # Falls back to direct append if flock is unavailable (with warning).
 # Enforces single-line invariant: multi-line JSON is compacted before append.
 
+# ── promote-writeback physics gate (bk-emitter-review-wiring, tic 481) ──────────
+# When a PROMOTE-class CogPR row lands in queue.jsonl, fire the emit-side writeback
+# (review-promote-writeback.py: inline status flip + auto-memory breadcrumb) AT THE
+# APPEND BOUNDARY, so the writeback can no longer be silently skipped by an LLM applier
+# — it is enforced as a side-effect of the promotion itself, the SAME boundary that
+# writes the queue row (the way the queue is already written via atomic-append, not Edit).
+# Moves the emit-side writeback from prompt-level "review-execute should call it" to
+# enforced-at-the-execution-boundary (three-layer tool economics: physics layer).
+#
+# Safety contract: scoped to */cprs/queue.jsonl + promote-class status ONLY (every other
+# JSONL append is byte-for-byte unchanged — the case in atomic_append never matches them);
+# fires AFTER the row is durably appended (cannot corrupt the write); idempotent (re-fire
+# is a no-op); fully fail-soft (always returns 0; never affects the append's result).
+_cgg_fire_promote_writeback() {
+  local row="$1"
+  # cheap bash pre-filter: only promote-class rows are candidates (no python spawn for
+  # the frequent extracted/enrichment/deferred/skipped queue writes).
+  case "$row" in
+    *'"promoted"'*|*'"promoted_spec"'*|*'"absorbed"'*) : ;;
+    *) return 0 ;;
+  esac
+  local rpw
+  rpw="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." 2>/dev/null && pwd)/review-promote-writeback.py"
+  [ -f "$rpw" ] || return 0
+  # precise check + dispatch: parse the row, fire ONLY for a promote-class `status`.
+  python3 - "$rpw" "$row" <<'PY' 2>/dev/null || true
+import json, subprocess, sys
+rpw, row = sys.argv[1], sys.argv[2]
+try:
+    d = json.loads(row)
+except Exception:
+    sys.exit(0)
+if d.get("status") not in ("promoted", "promoted_spec", "absorbed"):
+    sys.exit(0)
+cpr_id, promoted_to, review_tic = d.get("id"), d.get("promoted_to"), d.get("review_tic")
+if not (cpr_id and promoted_to and review_tic is not None):
+    sys.exit(0)  # incomplete promote row — the explicit review-execute call covers it
+subprocess.run(
+    ["python3", rpw, "--cpr-id", str(cpr_id), "--promoted-to", str(promoted_to),
+     "--review-tic", str(review_tic), "--status", str(d["status"])],
+    check=False,
+)
+PY
+  return 0
+}
+
 atomic_append() {
   local target="$1"
   local content="$2"
@@ -55,6 +101,12 @@ atomic_append() {
     printf '%s\n' "$content" >> "$target"
     rmdir "$lock_dir" 2>/dev/null
   fi
+
+  # promote-writeback physics gate — fire AFTER the row is durably appended, scoped to
+  # the CogPR queue + promote-class rows only. Fail-soft; never alters the append result.
+  case "$target" in
+    */cprs/queue.jsonl) _cgg_fire_promote_writeback "$content" || true ;;
+  esac
 }
 
 # Python-callable version for subprocess invocation

@@ -196,6 +196,18 @@ gaps mint the false-positives `review-close-check.py` then re-derives cold every
 The fix is structural: invoke the deterministic writeback helper in the SAME writeback as
 queue.jsonl, the way the queue itself is mutated via `atomic-append.sh` rather than Edit.
 
+> **PHYSICS-LAYER ENFORCEMENT (tic 481, bk-emitter-review-wiring):** this writeback now
+> ALSO fires automatically as a side-effect of the Step 4 queue append — `atomic-append.sh`
+> detects a promote-class row (`status` ∈ promoted / promoted_spec / absorbed) landing in
+> `*/cprs/queue.jsonl` and invokes `review-promote-writeback.py` at that boundary. The
+> emit-side writeback moved from prompt-level "you should call it" to enforced-at-the-
+> execution-boundary; it can no longer be silently skipped. This explicit Step 3 invocation
+> COEXISTS with the boundary gate (layered enforcement — *When consequence of error rises,
+> mechanisms must coexist across enforcement layers*); both are idempotent, so firing both
+> is a no-op. The helper also now resolves the inline block by a TOLERANT id-set +
+> content-identity bridge (closing the queue-hash-id vs born-long-form-id silent no-op) and
+> advances ANY non-terminal status, not just `pending`.
+
 **Required invocation (Bash), once per PROMOTE verdict:**
 
 ```bash
