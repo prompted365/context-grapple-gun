@@ -226,11 +226,80 @@ def load_existing_state(queue_file):
     return hashes, terminal_ids
 
 
-def find_governance_files(project_dir, excludes, plan_file=None):
+# Session-lessons born home (Emitter Surface Declared Interface, tic 483).
+# Borns authored at /cadence Step 2 land in the auto-memory directory as
+# session_lessons_tic_<N>[...].md files carrying BLOCK-form
+# `<!-- --agnostic-candidate -->` markers. The boot counts them as inline
+# CogPRs, but cpr-extract historically scanned only MEMORY.md / CLAUDE.md — so
+# those borns were UNREACHABLE by the extractor (the tic-481 and tic-482 borns
+# had to be rescued by hand via --plan-file). That violated the promoted CGG
+# invariant *Emitter Surface Declared Interface* (any surface emitting
+# --agnostic-candidate blocks must be reachable by cpr-extract.py).
+#
+# The scan is RECENCY-BOUNDED, not unconditional: only session_lessons files
+# whose parsed tic is within SESSION_LESSONS_RECENCY_WINDOW of the NEWEST
+# session_lessons file present (the born frontier — NOT an external tic counter,
+# which over-counts; see select_session_lessons_files) are scanned. This closes
+# the forward gap (this tic's + recently-authored
+# borns become reachable automatically) WITHOUT mass-extracting the historical
+# backlog — 88 never-extracted borns across tics ≤398 as of tic 483, which are
+# a separate /review-gated decision, never a silent extractor side effect. The
+# BLOCK form is unambiguous (a file carries it only by deliberate emission), so
+# the scan carries the same false-positive safety as scanning MEMORY.md; the
+# prose-mention fallback stays --plan-file-only.
+SESSION_LESSONS_RE = re.compile(r"session_lessons_tic_(\d+)")
+SESSION_LESSONS_RECENCY_WINDOW = 3
+
+
+def select_session_lessons_files(memory_dir, window=SESSION_LESSONS_RECENCY_WINDOW):
+    """Pure: select the recency-bounded (most-recent) session_lessons born files.
+
+    Anchors the window on the MAXIMUM tic present among session_lessons_tic_<N>[...].md
+    files in memory_dir — the frontier of authored borns — and returns those whose
+    parsed tic N satisfies ``N >= max_present_tic - window``. Files whose name
+    carries no parseable tic are skipped. ``window < 0`` disables (legacy
+    MEMORY.md/CLAUDE.md-only behavior); a window ≥ the tic span selects all (the
+    gated historical-sweep escape hatch — never the default). Deterministic
+    ordering by (tic, name).
+
+    Self-anchoring on the surface's own newest entry is DELIBERATE: it is robust
+    to drift in any EXTERNAL tic counter. get_tic_count() aggregates raw tic
+    EVENTS (audit-logs/tics/*.jsonl) and over-counts the authoritative
+    conformation tic (observed 487 vs authoritative 483 at tic 483) — anchoring
+    the window on that raw count silently misaligns the scan so the CURRENT born
+    is never reached, which is the exact silent-reachability failure this scan
+    exists to cure. The frontier of the born files themselves is the only
+    authoritative anchor for "recently authored." Mirrors *Authoritative-set
+    readers must read the manifest, not aggregate raw emissions*.
+    """
+    md = Path(memory_dir)
+    if window < 0 or not md.is_dir():
+        return []
+    entries = []
+    for f in md.glob("session_lessons_tic_*.md"):
+        m = SESSION_LESSONS_RE.search(f.name)
+        if m:
+            entries.append((int(m.group(1)), f.name, f))
+    if not entries:
+        return []
+    threshold = max(t for t, _, _ in entries) - window
+    selected = sorted(
+        (e for e in entries if e[0] >= threshold), key=lambda e: (e[0], e[1])
+    )
+    return [f for _, _, f in selected]
+
+
+def find_governance_files(project_dir, excludes, plan_file=None,
+                          session_lessons_window=SESSION_LESSONS_RECENCY_WINDOW):
     """Find CLAUDE.md and MEMORY.md files, respecting .ticignore.
 
     If plan_file is given, append that single plan file to the scan set —
     scope is the ACTIVE plan only (caller is responsible for selecting it).
+
+    Also appends the recency-bounded session_lessons born files from the
+    auto-memory directory (see select_session_lessons_files + the
+    SESSION_LESSONS_RECENCY_WINDOW comment). session_lessons_window < 0 disables
+    that scan (legacy MEMORY.md/CLAUDE.md-only behavior).
     """
     gov_files = []
     for name in ["CLAUDE.md", "MEMORY.md"]:
@@ -244,13 +313,18 @@ def find_governance_files(project_dir, excludes, plan_file=None):
 
     # Also check auto-memory (gitignored but governance-visible)
     project_key = project_dir.replace("/", "-")
-    auto_memory = (
-        Path.home() / ".claude" / "projects" / project_key / "memory" / "MEMORY.md"
-    )
+    memory_dir = Path.home() / ".claude" / "projects" / project_key / "memory"
+    auto_memory = memory_dir / "MEMORY.md"
     if auto_memory.is_file():
         # Avoid double-counting if auto_memory is somehow also in project_dir
         if auto_memory not in gov_files:
             gov_files.append(auto_memory)
+
+    # Recency-bounded session_lessons born home (Emitter Surface Declared
+    # Interface, tic 483) — frontier-anchored; never sweeps the historical backlog.
+    for sl in select_session_lessons_files(memory_dir, session_lessons_window):
+        if sl not in gov_files:
+            gov_files.append(sl)
 
     # Active plan file (optional) — caller-selected via session-restore.sh's
     # LATEST_PLAN discovery. Never scans the whole plans directory.
@@ -350,7 +424,8 @@ def _origin_context_for(gov_file):
     return "session"
 
 
-def extract_cprs(project_dir, dry_run=False, plan_file=None, anomaly_threshold=0.5):
+def extract_cprs(project_dir, dry_run=False, plan_file=None, anomaly_threshold=0.5,
+                 session_lessons_window=SESSION_LESSONS_RECENCY_WINDOW):
     """Main extraction: scan governance files, classify by tier, dedup, append.
 
     Patch E (tic 188) widens the accepted schema with tiered capture. The
@@ -390,7 +465,10 @@ def extract_cprs(project_dir, dry_run=False, plan_file=None, anomaly_threshold=0
     queue_file = os.path.join(al_path, "cprs", "queue.jsonl")
     excludes = load_ticignore(project_dir)
     existing_hashes, terminal_ids = load_existing_state(queue_file)
-    gov_files = find_governance_files(project_dir, excludes, plan_file=plan_file)
+    gov_files = find_governance_files(
+        project_dir, excludes, plan_file=plan_file,
+        session_lessons_window=session_lessons_window,
+    )
     tic_count = get_tic_count(project_dir)
     topo = birth_topology(project_dir)
     now = datetime.now(timezone.utc).isoformat()
@@ -802,6 +880,15 @@ def main():
     )
     parser.add_argument("--dry-run", action="store_true")
     parser.add_argument("--verbose", action="store_true")
+    parser.add_argument(
+        "--session-lessons-window",
+        type=int,
+        default=SESSION_LESSONS_RECENCY_WINDOW,
+        help="Recency window (in tics) for scanning the session_lessons born "
+             "home. Default scans only the current tic and the prior few; "
+             "<0 disables; a value >= current tic intentionally sweeps the "
+             "historical backlog (gated — never the default).",
+    )
     args = parser.parse_args()
 
     project_dir = args.project_dir or resolve_zone_root()
@@ -809,6 +896,7 @@ def main():
         project_dir,
         dry_run=args.dry_run,
         plan_file=args.plan_file,
+        session_lessons_window=args.session_lessons_window,
     )
 
     if args.verbose:
