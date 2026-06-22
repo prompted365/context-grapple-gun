@@ -79,6 +79,45 @@ def parse_prose_candidate(body_text):
     return ""
 
 
+# YAML block-scalar header detection for parse_cpr_block. A born field may use
+# a block scalar to carry a multi-line body:
+#   lesson: |        (literal — newlines preserved)
+#   lesson: >        (folded  — single newlines fold to spaces; blank lines stay)
+# A valid header is the indicator (| or >) optionally followed by a chomping
+# indicator (-/+) and/or a single indentation digit. The header must be the
+# WHOLE value; anything else (`x > y`, `>50`, `> text`) is a plain scalar.
+#
+# tic 484 bug: parse_cpr_block handled only the exact literal `|` and had no
+# folded `>` branch, so `lesson: >` fell through to the plain-scalar path and
+# stored the bare `">"` indicator, discarding the body. The born then passed the
+# schema-present/content-empty extraction gate and only surfaced malformed at
+# /review (cpr_hop_receipt_chain_outcome_mapping_tic371; blast radius 1; born
+# cpr_cpr_extract_does_not_fold_yaml_block_scalars_silent_born_content_loss_tic484).
+_BLOCK_SCALAR_HEADER_RE = re.compile(r"^([|>])(?:[+-]?\d?|\d[+-]?)$")
+
+
+def _fold_block_lines(block_lines):
+    """Fold a YAML folded (`>`) block-scalar body.
+
+    Folding rule (faithful-enough for born bodies): consecutive non-empty lines
+    join with a single space; each blank line becomes a newline (paragraph
+    break). ``block_lines`` is the already-collected, lstripped, trailing-blank-
+    trimmed body — the same collection the literal `|` path produces.
+    """
+    out = []
+    prev_blank = True  # leading content gets no leading space
+    for ln in block_lines:
+        if ln == "":
+            out.append("\n")
+            prev_blank = True
+        else:
+            if not prev_blank:
+                out.append(" ")
+            out.append(ln)
+            prev_blank = False
+    return "".join(out).strip()
+
+
 def parse_cpr_block(block_text):
     """Parse YAML-ish CPR block into dict."""
     result = {}
@@ -95,10 +134,15 @@ def parse_cpr_block(block_text):
         key, val = line.split(":", 1)
         key = key.strip()
         val = val.strip()
-        if val == "|":
-            # YAML block scalar — collect indented lines until dedent
-            # (Patched tic 207: prior version stored "|" literally as the value,
-            # producing the evidence: "|" placeholder bug surfaced by Tier 1 swarm.)
+        _bs = _BLOCK_SCALAR_HEADER_RE.match(val)
+        if _bs:
+            # YAML block scalar — collect indented lines until dedent, then join
+            # by indicator: `|` literal (newlines preserved; patched tic 207,
+            # prior version stored "|" literally — the evidence:"|" placeholder
+            # bug) and `>` folded (newlines folded to spaces; patched tic 484,
+            # prior version had no folded branch and stored the bare ">"
+            # indicator — the silent born content-loss bug).
+            indicator = _bs.group(1)
             block_lines = []
             i += 1
             while i < len(lines):
@@ -114,7 +158,10 @@ def parse_cpr_block(block_text):
             # Trim trailing blank lines but preserve internal structure
             while block_lines and not block_lines[-1]:
                 block_lines.pop()
-            result[key] = "\n".join(block_lines).strip()
+            if indicator == ">":
+                result[key] = _fold_block_lines(block_lines)
+            else:
+                result[key] = "\n".join(block_lines).strip()
             continue
         if val == "":
             # List value — collect indented items
@@ -487,6 +534,7 @@ def extract_cprs(project_dir, dry_run=False, plan_file=None, anomaly_threshold=0
         "skipped_dedup_hash_match": 0,
         "terminal_duplicate_skipped": 0,
         "closed_form_markers_warned": 0,
+        "skipped_block_scalar_bare_indicator": 0,
     }
 
     for gov_file in gov_files:
@@ -617,6 +665,27 @@ def extract_cprs(project_dir, dry_run=False, plan_file=None, anomaly_threshold=0
                 queue_status = "enrichment_needed"
                 pending_class = "schema_incomplete"
                 no_evidence_reason = "lesson_only_candidate_requires_enrichment"
+
+            # Verifier (tic 484, bk-cpr-extract-block-scalar-fold): a lesson that
+            # is a bare YAML block-scalar indicator (`>`/`|`/`>-`/`|-`/…) means the
+            # body was lost — either a parse_cpr_block fold regression OR a quoted
+            # `lesson: ">"` authoring that the block-scalar path never sees. Refuse
+            # to admit the malformed, content-empty row to the queue and surface it
+            # loudly (verify-by-use) — the way cpr_hop_receipt_chain_outcome_mapping_tic371
+            # should have been caught at extraction rather than at /review.
+            if isinstance(lesson, str) and _BLOCK_SCALAR_HEADER_RE.match(lesson.strip()):
+                counters["skipped_block_scalar_bare_indicator"] += 1
+                _bid = str(block.get("id", "")).strip()
+                print(
+                    f"cpr-extract skip [block_scalar_bare_indicator]: "
+                    f"{_bid or block_locator} — lesson resolved to a bare YAML "
+                    f"block-scalar indicator {lesson.strip()!r} (no folded/literal "
+                    f"body captured). `lesson: >` / `lesson: |` must carry an "
+                    f"indented body; a quoted `lesson: \">\"` is malformed. See "
+                    f"bk-cpr-extract-block-scalar-fold (tic 484).",
+                    file=sys.stderr,
+                )
+                continue
 
             dedup_hash = hashlib.sha256(
                 f"{source}:{lesson}".encode()

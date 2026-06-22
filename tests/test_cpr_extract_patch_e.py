@@ -283,6 +283,129 @@ lesson: "Dedup target lesson."
         self.assertEqual(counters["skipped_dedup_hash_match"], 1)
 
 
+class BlockScalarParsing(unittest.TestCase):
+    """Direct parse_cpr_block tests for YAML block-scalar handling (tic 484).
+
+    Bug: parse_cpr_block handled only the exact literal `|` and had no folded
+    `>` branch, so `lesson: >` stored the bare ">" indicator and discarded the
+    body. Fix: detect block-scalar headers generally, fold `>` (newlines→spaces,
+    blank lines→newline), preserve `|` (newlines verbatim).
+    """
+
+    def test_folded_joins_lines_with_space(self):
+        block = (
+            "status: pending\n"
+            "lesson: >\n"
+            "  First folded line\n"
+            "  second folded line\n"
+        )
+        out = cpr_extract.parse_cpr_block(block)
+        self.assertEqual(out["lesson"], "First folded line second folded line")
+        self.assertNotEqual(out["lesson"], ">")
+
+    def test_folded_blank_line_is_paragraph_break(self):
+        block = (
+            "lesson: >\n"
+            "  Para one line one\n"
+            "  para one line two\n"
+            "\n"
+            "  Para two\n"
+        )
+        out = cpr_extract.parse_cpr_block(block)
+        self.assertEqual(
+            out["lesson"],
+            "Para one line one para one line two\nPara two",
+        )
+
+    def test_folded_with_chomping_indicator(self):
+        # `>-` is a valid folded header (strip chomping) — must still fold
+        block = "lesson: >-\n  alpha\n  beta\n"
+        out = cpr_extract.parse_cpr_block(block)
+        self.assertEqual(out["lesson"], "alpha beta")
+
+    def test_literal_preserves_newlines_regression(self):
+        # tic 207 behavior must be preserved by the tic 484 generalization
+        block = "lesson: |\n  line A\n  line B\n"
+        out = cpr_extract.parse_cpr_block(block)
+        self.assertEqual(out["lesson"], "line A\nline B")
+
+    def test_plain_scalar_with_gt_is_not_block_scalar(self):
+        # a value that merely CONTAINS `>` (`x > y`) is a plain scalar, not a header
+        block = "threshold: x > y\nstatus: pending\n"
+        out = cpr_extract.parse_cpr_block(block)
+        self.assertEqual(out["threshold"], "x > y")
+        self.assertEqual(out["status"], "pending")
+
+    def test_folded_header_with_no_body_is_empty(self):
+        # `>` followed immediately by a dedented key collects no body → empty
+        # (routes to skip_schema_incomplete downstream, not to the verifier)
+        block = "lesson: >\nstatus: pending\n"
+        out = cpr_extract.parse_cpr_block(block)
+        self.assertEqual(out["lesson"], "")
+        self.assertEqual(out["status"], "pending")
+
+
+class BlockScalarExtraction(unittest.TestCase):
+    """End-to-end extraction tests for the block-scalar fold fix (tic 484)."""
+
+    def setUp(self):
+        self.tmp = tempfile.mkdtemp(prefix="block_scalar_test_")
+        self.zone = _make_zone(self.tmp)
+
+    def tearDown(self):
+        import shutil
+        shutil.rmtree(self.tmp, ignore_errors=True)
+
+    def _extract(self, dry_run=True):
+        return cpr_extract.extract_cprs(str(self.zone), dry_run=dry_run)
+
+    def test_folded_born_extracts_real_body_not_indicator(self):
+        # REGRESSION (tic 484): the cpr_hop_receipt_chain_outcome_mapping_tic371
+        # shape — a folded `lesson: >` born — must extract its real body, never
+        # the bare ">" indicator.
+        block = """<!-- --agnostic-candidate
+id: cpr_repro_folded_tic371
+status: pending
+source: "session_lessons_tic_372.md"
+lesson: >
+  hop receipt chain outcome mapping —
+  folded multi-line body that must NOT
+  collapse to a bare indicator.
+-->
+"""
+        _write_memory(self.zone, block)
+        entries, counters = self._extract()
+        self.assertEqual(counters["blocks_extracted"], 1)
+        self.assertEqual(counters["skipped_block_scalar_bare_indicator"], 0)
+        e = entries[0]
+        self.assertEqual(e["id"], "cpr_repro_folded_tic371")
+        self.assertEqual(e["tier"], "tier1")
+        self.assertEqual(
+            e["lesson"],
+            "hop receipt chain outcome mapping — folded multi-line body "
+            "that must NOT collapse to a bare indicator.",
+        )
+        self.assertNotEqual(e["lesson"], ">")
+
+    def test_quoted_bare_indicator_lesson_is_verifier_skipped(self):
+        # The quoted-indicator authoring path (`lesson: ">"`) bypasses the
+        # block-scalar branch (quotes), so the verifier must catch it: refuse
+        # the malformed content-empty row and count the skip.
+        block = """<!-- --agnostic-candidate
+id: cpr_malformed_quoted_indicator
+status: pending
+source: "src"
+lesson: ">"
+-->
+"""
+        _write_memory(self.zone, block)
+        entries, counters = self._extract()
+        self.assertEqual(counters["blocks_found"], 1)
+        self.assertEqual(counters["blocks_extracted"], 0)
+        self.assertEqual(counters["skipped_block_scalar_bare_indicator"], 1)
+        self.assertEqual(len(entries), 0)
+
+
 def main():
     suite = unittest.TestLoader().loadTestsFromModule(sys.modules[__name__])
     runner = unittest.TextTestRunner(verbosity=2)
