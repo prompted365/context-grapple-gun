@@ -977,7 +977,7 @@ def format_active_rungs(result):
 # ---------------------------------------------------------------------------
 
 DEFAULT_CONCERN_SOURCE_REL = os.path.join(
-    "governance", "c9-rung-concerns-derived-tic467.json")
+    "governance", "c9-rung-concerns-derived-tic490.json")
 LEDGER_REL = os.path.join("governance", "constitution-ledger", "ledger.md")
 
 _LEDGER_INVARIANT_RE = re.compile(r"`invariant_id`:\s*`([a-z0-9_]+)`")
@@ -1187,6 +1187,10 @@ def select_kis_per_rung(zone_root, concern_source=None,
 
     kis = _parse_ledger_kis(ledger_path)
     concern_map, concern_meta = _load_rung_concerns(concern_source)
+    # Label follows the source file (never drift again): "derived-tic<N>" from the
+    # source's own _tic, falling back to "derived" if the source carries no tic.
+    _cs_label = (f"derived-tic{concern_meta.get('_tic')}"
+                 if concern_meta.get("_tic") is not None else "derived")
     stage0 = discover_active_rungs(zone_root, window_days=window_days)
 
     active_dirs = {e["dir"] for e in stage0["active"]}
@@ -1210,7 +1214,7 @@ def select_kis_per_rung(zone_root, concern_source=None,
         if not rec["concerns"]:
             rungs_out.append({
                 "rung": e["rung"], "dir": d,
-                "concern_source": "derived-tic467",
+                "concern_source": _cs_label,
                 "recommend_fork_A_declare": rec["recommend_fork_A_declare"],
                 "concerns": sorted(rec["concerns"]),
                 "note": "no concerns derived for this rung (fork-A declaration "
@@ -1221,7 +1225,7 @@ def select_kis_per_rung(zone_root, concern_source=None,
         cands = _match_kis_for_rung(kis, rec["concerns"], rec["scores"])
         rungs_out.append({
             "rung": e["rung"], "dir": d,
-            "concern_source": "derived-tic467",
+            "concern_source": _cs_label,
             "recommend_fork_A_declare": rec["recommend_fork_A_declare"],
             "concerns": sorted(rec["concerns"]),
             "ki_candidates": cands,
