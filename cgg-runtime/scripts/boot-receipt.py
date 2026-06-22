@@ -35,6 +35,7 @@ import fcntl
 import hashlib
 import json
 import os
+import re
 import sys
 from pathlib import Path
 
@@ -329,6 +330,14 @@ def emit(args) -> int:
     rec["tic"] = args.tic
     rec.setdefault("booted_from", args.booted_from or "compiled_civic_orientation")
     rec.setdefault("model_of_record", args.model or os.environ.get("CGG_MODEL", "unknown"))
+    # LADDER explain-back (tic 491): the baked-in drift-audit field. Recorded as-is; the canonical
+    # ladder text is fixed in the worldview render, so divergence across these explain-backs (scanned
+    # across tics in boot-receipts.jsonl) is the drift signal at the crux. Sentence count is
+    # observability only — NEVER gate-blocking (a 4- or 6-sentence explain-back still records).
+    if getattr(args, "ladder_explainback", None):
+        rec["ladder_explainback"] = args.ladder_explainback
+        rec["ladder_explainback_sentence_count"] = len(
+            [s for s in re.split(r"[.!?]+(?:\s|$)", args.ladder_explainback.strip()) if s.strip()])
     # Boot-read fields (tic 406): present iff the caller supplied them (a payload may also
     # carry them). Recorded as-is; the gate evaluates them via boot_read_passes().
     if getattr(args, "boot_read_mode", None) is not None:
@@ -407,10 +416,17 @@ def emit(args) -> int:
             fcntl.flock(lf, fcntl.LOCK_UN)
 
     ack = greeting(args.entity, args.tic, missing)
+    lb = rec.get("ladder_explainback")
+    if lb:
+        ack += (f" 🪜 ladder explain-back recorded ({rec.get('ladder_explainback_sentence_count')} "
+                "sentences) to the drift-audit lane.")
+    else:
+        ack += " 🪜 NOTE: no --ladder-explainback this tic — the crux drift-audit wants your 5 sentences every tic."
     sys.stderr.write(ack + "\n")
     print(json.dumps({"status": "recorded", "receipt_id": rid, "entity": args.entity,
                       "tic": args.tic, "sink": str(path.relative_to(root)),
-                      "missing_fields": missing, "ack": ack}))
+                      "missing_fields": missing, "ack": ack,
+                      "ladder_explainback_recorded": bool(lb)}))
     return 0
 
 
@@ -539,6 +555,13 @@ def main():
     e.add_argument("--route")
     e.add_argument("--booted-from", dest="booted_from")
     e.add_argument("--model")
+    # LADDER explain-back (tic 491) — the 5-sentence regenerated-from-boot crux re-statement;
+    # the baked-in drift-audit field. Recorded as-is; never gate-blocking (observability lane).
+    e.add_argument("--ladder-explainback", dest="ladder_explainback",
+                   help="EXACTLY five sentences explaining the dehydration↔rehydration ladder, "
+                        "regenerated from THIS boot's worldview text (not copied from a handoff). "
+                        "Recorded to the drift-audit lane; the canonical ladder text is fixed, so "
+                        "divergence across explain-backs is the drift signal at the crux.")
     # boot-read fields (tic 406) — supply --boot-read-mode to activate the boot-read block
     e.add_argument("--full-boot-read", dest="full_boot_read", action="store_true",
                    help="record full_boot_injection_read=true")

@@ -160,7 +160,71 @@ def _boot_receipt_path(zone_root: Path) -> str:
                / "cgg-runtime" / "scripts" / "boot-receipt.py")
 
 
-def render_receipt_frame(office: str, tic: int, disp: str, zone_root: Path) -> str:
+# ─────────────────────────────────────────────────────────────────────────────
+# THE LADDER — dehydration↔rehydration, written VERBATIM into both boot seams every
+# tic (Architect-directed + cost-authorized, tic 491). NOT a pointer: the full
+# skeleton + load-bearing muscle inline, so the crux we keep rediscovering is READ,
+# not chased. Budget-EXEMPT (appended after the worldview body is bounded). The boot
+# receipt asks for a 5-sentence explain-back regenerated from THIS text — the canonical
+# body never moves, the explain-back does, and the gap is a baked-in drift audit at the
+# core crux. Citizen-gated (orchestrator + citizen offices; non-citizen boots stay minimal).
+# ─────────────────────────────────────────────────────────────────────────────
+LADDER_EXPLAINER = """
+THE ONE PICTURE — WHY A LADDER. Wisdom here lives on a ladder with two lanes that are one ladder read in two directions. The UP-LANE is DEHYDRATION: a concrete, local, costly experience is distilled to its core truth — its centroid — and inscribed in the ledger as doctrine. The DOWN-LANE is REHYDRATION: a ledgered truth is carried back to a live inciting incident and re-applied in the exact shape the moment demands. The cardinal law: JUDGMENT travels and rehydrates; LOAD-BEARING LOCAL SEMANTICS stay home. A parent rung's law SHAPES a child rung's wisdom (orients its judgment); it never DEFINES the child's reality (local operational semantics are sovereign). Everything below is what that one sentence costs in practice — and what we keep paying twice because we forget it.
+
+WHAT DOCTRINE IS (AND IS NOT). Ledger doctrine is not a changelog of fixes and not a heap of rules. It is the dehydrated CORE TRUTH that underpins a symptom — most often DERIVED FROM a symptom — and that recurs across surface-different forms which are the SAME at universal-truth level. A principle is defined partly by what it IS (its kataphatic facets, the positive shape) and, most heavily, by what it is NOT (its apophatic perimeter, the negative space). The center is held OPEN: full meaning is approached from many rays and never collapsed to one. So a costly local symptom is a RAY — it points inward at an increasingly-coherent kataphatic facet of a principle whose centroid is held open. Compression UP the ladder is toward that centroid, never toward a shorter line count; an entry's first sentence is a heuristic HANDLE for the centroid, never a substitute for the body — follow the pointer, never assume the body.
+
+TWO MEANINGS OF "DERIVABLE" — NEVER CONFLATE THEM. This conflation wastes the most cycles. (a) Derivable-FROM-A-SYMPTOM is HOW doctrine is BORN — every law starts as a symptom dehydrated to its truth. (b) Derivable-FROM-EXISTING-KIs is the NON-DERIVABILITY GATE that keeps a candidate OUT of doctrine — if a principle is already entailed by combining existing invariants, it belongs in a spec or a memory, not as net-new law. A lesson can be BOTH derivable-from-existing-law AND worth persisting: doctrine status (gate b) is a separate question from persistence (does it need a durable home that loads where it fires). SKIP ≠ DISCARD.
+
+THE QUIVER. Symptoms that look unrelated on the surface are the SAME quiver once dehydrated to universal-truth level. "A born is schema-present but content-empty," "a metric reads zero because the instrument is blind," "an artifact exists but its meaning was never delivered" — different surfaces, one centroid: presence/structure ≠ fulfillment. Naming the quiver prevents re-inscribing one truth under five names, and lets one ledger entry rehydrate to a symptom that shares no keywords with it. The quiver is a SHAPE relation, not a word relation.
+
+DEHYDRATION DISCIPLINE (THE UP-LANE GATE). Three teeth, all load-bearing. (1) Compress to the CENTROID, not the character count — dehydration is principle-EXTRACTION, not truncation; the honest test is whether a nested rung can REHYDRATE the invariant in the spirit it came from (the fidelity proof). (2) The gate must STRUCTURALLY REFUSE load-bearing local semantics — exact schemas, enum values, registry keys, wire/protocol fields, adapter contracts, domain lexemes — whose MEANING IS THEIR SPECIFICITY; abstracting them UP breaks them, because the higher rung lacks the context that gives them meaning. (3) Any federation principle that touches such semantics must DISCLAIM magic rehydration: a JIT actor handed "apply the law to local" cannot reconstruct an exact schema from a principle — it returns a plausible-but-WRONG one (the bounded-delegation-masks-bugs failure on the rehydration axis). Judgment dehydrates; semantics stay home; reconstructed-from-a-principle is the failure mode.
+
+THE COSTLY-RECURRENCE FORK (CASE 1 vs CASE 2). When an operational lesson costs you AGAIN — re-probed wrong, re-diagnosed, a keystone re-deferred — it is exactly one of two things, and the cures are opposite. CASE 1 — UNDER-DEHYDRATED: the principle should be in the ledger but was never generalized correctly → cure: dehydrate it, ledger the moral. CASE 2 — PROPERLY DEHYDRATED BUT UN-APPLIED: the truth IS ledgered; it simply was not REHYDRATED at the local inciting incident → cure: wire the rehydration ray to fire at the locus; do NOT write a new principle (that doubles the doctrine while the real gap is application). Operational lessons ARE a kind of doctrine that occurs locally; at federation scope the lesson's MORAL is ledgered and its REHYDRATION/APPLICATION METHOD becomes a ray pointing back at the universal truth — a truth that sits as a balance of tradeoffs between competing principles. Most recurring pain is Case 2: the law exists; it was not rehydrated where needed. Diagnose the case BEFORE you reach for the ledger pen.
+
+REHYDRATION IS SHAPE-DERIVED, NOT GREP (THE DOWN-LANE). The piece we rediscover most, and get wrong under pressure. Rehydration — finding which ledgered truth an inciting symptom belongs to — is a SHAPE / TRAJECTORY / FIELD process. It is NOT a lexical or semantic keyword search. Grep, and a plain LOCATE over NAVIGATION / the router-of-routers, is the DEGENERATE CHILD: it infers belonging from ONE pole — the keyword surface — committing the council's cardinal error (center inferred from one pole too early). It fails HARDEST exactly where lexeme and centroid diverge — the meta / doctrine-shape slices that matter most. LOCATING A CONTAINER IS NOT REHYDRATING ITS MEANING. The lexical match is a pickled bear: preserved mass that cannot eat. NAVIGATION and the routers LOCATE; they do not REHYDRATE — that gap is live, and it is why a runtime rehydrator is the federation's crown-jewel obligation.
+
+THE STRIKE — HOW A SHAPE IS PRODUCED. A symptom (or a slice of substrate) is RUN through the six-ray council perimeter; the strike PRODUCES the thing's shape. KAT ⟨IS⟩ — the centroid: what it positively is. APO ⟨IS-NOT⟩ — the HEAVIEST ray: the negative space that sharpens it; the families it explicitly excludes. PAR ⟨HOLDS⟩ — the tension it carries without collapsing. PLE ⟨COMPLEMENT⟩ — what completes it or sits beside it. ENA ⟨COUNTER⟩ — the counter-pressure / failure mode it answers. TEL ⟨TELOS⟩ — the purpose it serves. The perimeter is carried WHOLE (IS-NOT heaviest) until the centroid is honestly triangulated — never collapse to one pole early. And the still point is NEVER struck: capture the origin and the field goes FLAT — there is nothing left to measure novelty from. Cables route IN and AROUND the frozen centroid, never INTO it. This center-exclusion is load-bearing apophatic doctrine, not decoration: the frozen center is the REFERENCE FRAME the measurement survives by.
+
+THE SPLAT — THE SHAPE MADE COMPARABLE. The strike's output is a SPLAT: a centroid μ PLUS an anisotropic FIELD Σ around it — the thing AND its terrain — placed in a space that measures MORE THAN SEMANTICS. The proven lineage is OT's 16-dimensional archetype-shape (gradient / spectrum / temporal / meta), with a gaussian splat and a Mahalanobis-DIAGONAL distance; the dimensions are TERRAIN, not lexemes. We pull the MECHANIC — (μ,Σ) + field + Mahalanobis-NN + gaussian splat — and re-author the DIMENSIONS to the governing terrain; porting OT's narrative-acoustic dimensions verbatim would prove "OT classifies federation-shaped things in acoustic space," the wrong claim. Rehydration is then NEAREST-NEIGHBOR by CONFORMATION-PROXIMITY: match the system's current SHAPE — failure mode, drift band, context pressure — to the shape at the time the truth was earned, not the similarity of words. The field Σ matters because distance must weigh what is AROUND the thing, not only the point. And the APO / IS-NOT ray is a VETO, not a normal dimension: if a candidate principle's centroid family sits inside the symptom's explicit exclusion set, it is pushed FAR regardless of shared words. The federation's "no vector-DB retrieval at the federation rung" ban targets SEMANTIC retrieval — the lexical proxy, grep's sin — and is therefore FULFILLED, not violated, by shape-NN: do not retrieve by semantic similarity; retrieve by shape conformation.
+
+WORKED EXAMPLE — THE FLIP (carry this as the canonical instance). Symptom: "a /review SKIP verdict left a derivable-but-costly lesson with no session-loading home, and it recurred verbatim ~15 tics later." GREP reads its words — "rehydrate, locate, retrieve" — and matches harpoon-is-covenant-strike (a RETRIEVAL-MECHANIC truth): WRONG centroid. The STRIKE reads its shape: KAT = a lifecycle/persistence gap; APO = explicitly NOT a retrieval-mechanic problem (once homed, the lesson retrieves fine — the gap is whether SKIP keeps it at all). The IS-NOT VETO pushes harpoon-covenant-strike far; the nearest centroid is governance-is-instrumental (un-exercised library), with the DEFER-persistence discipline as its sibling. Two independent blind strikers, reading the ledger bodies, reproduced the flip. The lexeme fooled grep; the shape did not. THIS is why the down-lane is a strike, not a search.
+
+THE FIDELITY-TEST COROLLARY. The act of CHECKING whether something is properly ledgered is ITSELF a rehydration. So it inherits the law: you cannot grep your way to a "properly-ledgered" verdict. When you ask "does this truth already live in the ledger, at the right altitude?", STRIKE the symptom into its shape and find the conformation-proximate centroid — do not keyword-match the corpus. Answering "is it ledgered?" by grep is the most common way we re-inscribe a truth already present, or miss one that is.
+
+THE LOCKS (NON-NEGOTIABLE). (1) TWO-STAGE BOUNDARY: the strike PRODUCES the splat, and the splat must CARRY its six-ray source receipt — never let an embedding become an opaque authority object. (2) NN PROPOSES; GOVERNANCE AUTHORIZES — a nearest-neighbor is a candidate rehydration, never an application; coherence-is-not-admission. (3) THE CENTER IS NEVER STRUCK. (4) DEHYDRATION STRUCTURALLY REFUSES load-bearing local semantics — judgment travels, semantics stay home, reconstruction is the failure. (5) PARENT LAW REHYDRATES THROUGH THE CURRENT CHAIN (downward authority only); applying from a stale cache / moved pointer is drift, not inheritance. (6) SKIP ≠ DISCARD — a derivable-but-costly lesson still needs a durable home that loads where it fires.
+
+THE PIECES WE KEEP REDISCOVERING (say them back). Doctrine is the centroid UNDER a symptom, not the symptom; the quiver binds surface-different symptoms to one truth. Apophatic (IS-NOT) is the heaviest ray; the center is held open and never struck. A costly recurrence is Case 1 (ledger it) or Case 2 (rehydrate it where it fires) — usually Case 2. Rehydration is shape/field-derived; grep/locate is the degenerate child; locate ≠ rehydrate. The strike produces the splat; the splat carries its rays; NN proposes, governance authorizes. The "no semantic vector DB" ban is FULFILLED by shape-NN (terrain), not broken by it. "Derivable" has two meanings; SKIP ≠ DISCARD; judgment dehydrates, semantics stay home.
+
+— POINTERS / FOOTNOTES —
+[1] dehydrate↔rehydrate ladder (matched pair): constitution-ledger#load-bearing-local-semantics-not-jit-rehydratable-preserve-at-rung + #no-magical-inheritance-across-rungs.
+[2] harpoon = covenant strike, not lexical match (locate ≠ rehydrate; the degenerate child): constitution-ledger §"A harpoon is a covenant STRIKE".
+[3] center-exclusion / frozen centroid / cables in-and-around-never-into: harpoon-office/README.md + harpoonv2-office-charter-tic414.md (§0.1).
+[4] the six-ray council (KAT/APO/PAR/PLE/ENA/TEL): harpoon-office/cable_lattice/src/lens_forks.py.
+[5] shape splat (μ,Σ), gaussian splat, Mahalanobis-diagonal, 16D archetype: OT operationTorque/crates/harpoon/src/archetype_shape.rs (provenance) → federation candidate shape_field_rehydration: harpoon-office/shape-rehydration-proof/.
+[6] conformation-proximity retrieval (shape, not text): ~/.claude global memory "Multi-Layer Memory with Corrective Feedback".
+[7] "no vector DB at federation rung" = ban on SEMANTIC retrieval, fulfilled by shape-NN: tactical-hydration (RTCH) IS-NOT.
+[8] coherence-is-not-admission / NN-proposes-governance-authorizes: harpoon-office standing fences.
+[9] Case-1/Case-2 fork + fidelity-test corollary + the flip: borns-tic491-rehydration-is-field-derived-not-grep.md → /review.
+
+— CITATIONS SPACE — Your 5-sentence explain-back is recorded to audit-logs/boot-injections/boot-receipts.jsonl via boot-receipt.py --ladder-explainback. Scan that lane across tics for drift at the crux: the canonical text above is fixed; divergence in the explain-backs is the signal.
+"""
+
+
+def render_ladder_explainer(tic: int) -> str:
+    """THE LADDER — budget-exempt, verbatim, every tic (orchestrator + citizen). The full
+    body inline (not a pointer): the crux we keep rediscovering, read rather than chased.
+    A 5-sentence explain-back (requested in the receipt frame) is regenerated from THIS text
+    each tic; the canonical body never moves, the explain-back does, and the gap is the
+    baked-in drift audit. Architect-directed + cost-authorized, tic 491."""
+    return (
+        f"\n━━━ THE LADDER · dehydration↔rehydration · boot-verbatim every tic · tic {tic} "
+        "(budget-exempt — read in FULL; this is the crux you explain back in five sentences) ━━━"
+        + LADDER_EXPLAINER
+    )
+
+
+def render_receipt_frame(office: str, tic: int, disp: str, zone_root: Path, ladder: bool = False) -> str:
     """The receipt-REQUEST framing — explicit, warm, and DELIBERATELY budget-exempt.
 
     This is NOT the worldview body and is NOT counted against --max-chars. It is the
@@ -169,7 +233,7 @@ def render_receipt_frame(office: str, tic: int, disp: str, zone_root: Path) -> s
     governance. The sink (boot-receipt.py emit) verifies + greets back. The greeting sets
     session tone; the ledger (boot-receipts.jsonl) populates the long-run receipt lane."""
     rp = _boot_receipt_path(zone_root)
-    return (
+    frame = (
         "\n━━━ BOOT RECEIPT · your first response closes the boot loop "
         "(framing — NOT counted against the worldview budget) ━━━\n"
         f"Good morning, {disp}. You booted from a compiled civic orientation, not a memory "
@@ -178,12 +242,24 @@ def render_receipt_frame(office: str, tic: int, disp: str, zone_root: Path) -> s
         f"  python3 {rp} emit --entity {office} --tic {tic} \\\n"
         '    --understood "…" --constraint "…" --abstention "…" '
         '--first-action "…" --route "cadence/review" \\\n'
-        '    --model "<your model id, e.g. claude-opus-4-8>"\n'
-        "  owed: understood_scope · accepted_constraints · abstentions · "
-        "first_action_or_escalation\n"
-        "  (signer = --entity; model = --model — two distinct fields, never a "
+        '    --model "<your model id, e.g. claude-opus-4-8>"'
+        + ('  \\\n    --ladder-explainback "<EXACTLY five sentences>"' if ladder else "")
+        + "\n  owed: understood_scope · accepted_constraints · abstentions · "
+        "first_action_or_escalation"
+        + (" · ladder_explainback" if ladder else "")
+        + "\n  (signer = --entity; model = --model — two distinct fields, never a "
         "conflated 'entity-modelcode' signature)"
     )
+    if ladder:
+        frame += (
+            "\n  ⟜ LADDER EXPLAIN-BACK (required, EVERY tic): in EXACTLY FIVE sentences, explain "
+            "THE LADDER (the dehydration↔rehydration block above) back — regenerated from THIS "
+            "boot's text THIS tic, NOT copied forward from your handoff (the handoff shapes your "
+            "verbiage; it must NOT be your understanding). The canonical ladder text never moves; "
+            "your five sentences will, tic to tic; the gap between them is the BAKED-IN DRIFT AUDIT "
+            "at the core crux. If you cannot say it in five, you have not rehydrated it — you have located it."
+        )
+    return frame
 
 
 def _zone_root(start: Path, explicit: str = None):
@@ -750,10 +826,21 @@ def render_human(office: str, tic: int, base: dict, frags: list, max_chars: int,
         if omitted_frags:
             kept.append(_render_bound_marker(omitted_frags, office, tic))
         body = "\n".join(kept)
-    # The receipt-request framing is DELIBERATELY budget-exempt — appended after the body
-    # is bounded, so the loop-closing ritual is never truncated away (Architect, tic 332).
+    # THE LADDER + the receipt-request framing are DELIBERATELY budget-exempt — appended AFTER
+    # the body is bounded, so the loop-closing ritual + the crux explainer are never truncated
+    # away (Architect, tic 332 / tic 491). The ladder is citizen-gated (orchestrator + citizen
+    # offices get the full dehydration↔rehydration explainer verbatim every tic; non-citizen
+    # boots — guest / artifact / task_scoped_worker — stay minimal). The receipt frame then asks
+    # for a 5-sentence explain-back regenerated from THIS text: a baked-in drift audit at the crux.
+    is_citizen = False
+    try:
+        is_citizen = (_entity_standing(zone_root, office) == "citizen") if zone_root is not None else False
+    except Exception:
+        is_citizen = False
+    if is_citizen:
+        body = body + "\n" + render_ladder_explainer(tic)
     if receipt_frame:
-        body = body + "\n" + render_receipt_frame(office, tic, disp, zone_root or Path("."))
+        body = body + "\n" + render_receipt_frame(office, tic, disp, zone_root or Path("."), ladder=is_citizen)
     return body
 
 
