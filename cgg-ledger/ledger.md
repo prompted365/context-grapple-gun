@@ -104,6 +104,14 @@ Downstream surfaces (INSTALL.md, academy guide, init-governance SKILL.md) update
 - `/reload-plugins` — activate plugin changes without restart (2.1.69)
 - Shared project configs across worktrees (2.1.63)
 
+### Re-validated against 2.1.185 (tic 485 /review)
+
+- Matcher-group array format (optional regex `matcher` + `hooks[]`) **unchanged** and confirmed honored — the running orchestrator booted through it. All registered events recognized by the 2.1.185 binary string table: SessionStart, UserPromptSubmit, PreToolUse, PostToolUse, PreCompact, **PostCompact**, SessionEnd, SubagentStart.
+- Hook **types** now include `prompt` / `agent` / `mcp` beyond `command` / `http` — a hook can invoke a prompt, a subagent, or an MCP tool, not only a shell command.
+- ~20+ events available (e.g. PostToolUseFailure, PermissionRequest/Denied, UserPromptExpansion, Stop/StopFailure, PostToolBatch, SubagentStop, Elicitation/ElicitationResult, Setup, CwdChanged, FileChanged, ConfigChange, WorktreeCreate/Remove, TaskCreated/Completed).
+- The tool surface is now **lazy/deferred** — many tools load on demand via ToolSearch rather than being present upfront; capability-probing must check the deferred surface, not only the base tool set.
+- `hookSpecificOutput.additionalContext` injection still holds (live-proven; not detailed in the published schema — runtime is ground truth). Probe-surface hierarchy: binary string-table + live-boot > published schema/docs > changelog — see [`#harness-agnostic-is-verified-against-runtime-ground-truth-not-lagging-published-schema`](#harness-agnostic-is-verified-against-runtime-ground-truth-not-lagging-published-schema). <!-- currency C1, tic 485 /review -->
+
 <!-- promoted from CogPR-1 (tic 1), updated tic 2 after second format break. Source: ~/.claude/projects/-Users-breydentaylor-canonical/memory/MEMORY.md -->
 
 ---
@@ -147,6 +155,7 @@ The `Task` tool was renamed to `Agent` in Claude Code 2.1.63. All CGG agent fron
 - **Frontmatter**: `tools: Read, Grep, Glob, Agent, Bash`
 - **Spawn restriction**: `Agent(subagent-name)` restricts which subagents can be spawned
 - The `Task` alias may still work but should not be relied upon
+- **Re tic 485 (2.1.185):** the name `Task` is now **RE-USED** for task-management tools (`TaskCreate` / `TaskList` / `TaskGet` / `TaskUpdate` / `TaskStop` / `TaskOutput`) — a feature **distinct from** `Agent` (subagent spawn). The 2.1.63 Task→Agent rename still stands; the name-reuse is a separate later development. Agent frontmatter spawn capability = `Agent`. Without this note the "Task renamed to Agent" line reads as a contradiction against current docs (which describe `Agent` as the subagent tool and `Task*` as task-management). <!-- currency C2, tic 485 /review -->
 
 <!-- promoted from CogPR-5 (tic 3→5). Source: code.claude.com/docs/en/sub-agents. Applied to mogul.md at f26f21b. -->
 
@@ -2768,5 +2777,89 @@ A lifecycle transition deadlocks SILENTLY when its only on-disk writer is an uns
 **Refinement note:** Composes the silent-no-op family — Conductor-Score-Runtime Parity (the tool names a discipline it does not mechanically complete) + the tic-470 silent-transition-deadlock (a step that runs and mutates nothing, invisibly) + Atomic-Dual-Surface-Invariant-Mechanization (a tool implementing one half of a dual-surface invariant must complete the other half or surface). Net-new teeth: the ID-FORM DIVERGENCE across extraction surfaces (surrogate hash vs declared id) as the specific silent-no-op trigger + the `flipped==promoted` post-assertion.
 
 <!-- promoted from cpr_c44d2064b9c82f51 (tic 471→472, /review 472). Source: audit-logs/governance/borns-tic471-ledger-span-attribution-bound-at-structural-delimiter.md (2nd agnostic-candidate block). REFINE-child of Atomic-Dual-Surface-Invariant-Mechanization; silent-no-op family. Band: COGNITIVE. signer ent_review_execute. -->
+
+---
+
+## New Consumer Over Long-Lived Emitter Surface Must Be Scope-Bounded, Not Retroactive
+<a id="new-consumer-over-long-lived-emitter-surface-must-be-scope-bounded-not-retroactive"></a>
+<!-- ledger-tags: authority_class=signal_and_queue_manifold | rung=domain | domain=context-grapple-gun | promoted_tic=485 | first_appearance_tic=483 | refines=emitter-surface-declared-interface | inverts=structural-transform-implies-closed-consumer-set-obligation | confidence_tier=tentative | relations=composes:conductor-score-runtime-parity-cgg-application,dedup-at-write-using-canonical-identity,terminal-state-valve-pattern -->
+
+Wiring a NEW automatic consumer to a LONG-LIVED emitter surface that has accreted history is a retroactive-ingestion hazard, not just a reachability fix. When a surface emits governance artifacts (here: session_lessons_tic_<N>.md emitting BLOCK-form --agnostic-candidate borns) and a downstream automatic consumer (cpr-extract's scan set) was never wired to read it, two things are simultaneously true: (a) the forward gap is real and doctrine-mandated to close — *Emitter Surface Declared Interface* requires every --agnostic-candidate emitter be reachable by cpr-extract, and the boot already COUNTS these borns while the extractor cannot REACH them (a two-reader-disagreement / Conductor-Score-Runtime parity gap on the same surface); and (b) the surface holds an accreted backlog (here ~195 born-ids since tic 164) that an UNCONDITIONAL new consumer would silently mass-ingest on its first run. The cure is to scope-bound the new consumer (recency window / status gate) so it closes the FORWARD gap without sweeping the HISTORICAL accumulation — and to surface that historical backlog as an EXPLICITLY-GATED, separately-adjudicated decision, never a consumer side effect. The recency bound must be PROVABLY INERT at install time on the current state (0 new extractions today, the already-reachable items dedup-skipped) AND must expose a gated escape hatch (here --session-lessons-window N) so the historical sweep, if ever wanted, is a deliberate /review-gated act. This is the DUAL of *a structural transform on a shared surface creates a closed consumer-set update obligation*: that KI governs RELOCATING content (obligating existing readers to update); this governs ADDING a reader over existing/accreted content (obligating a scope bound so history is not silently swallowed).
+
+<!-- promoted from cpr_new_consumer_over_long_lived_emitter_surface_must_be_scope_bounded_not_retroactive_tic483 (tic 483→485, /review 485). Source: session_lessons_tic_483.md. Refines Emitter Surface Declared Interface; INVERTS federation structural-transform-implies-closed-consumer-set-obligation (new-reader-over-accreted-content vs relocation-obligates-readers). Band: COGNITIVE. signer ent_review_execute. -->
+
+---
+
+## Footgun Guard at Perception Layer Warns After the Footgun Already Fired
+<a id="footgun-guard-at-perception-layer-warns-after-the-footgun-already-fired"></a>
+<!-- ledger-tags: authority_class=forensic_and_drift_investigation | rung=domain | domain=context-grapple-gun | promoted_tic=485 | first_appearance_tic=482 | refines=detection-affordance-tracking | composes=autonomous-agent-tool-economics-physics-vs-perception | confidence_tier=tentative | relations=supports:named-footgun-guard-leaves-sibling-site-unfixed -->
+
+A footgun GUARD that only DETECTS-and-WARNS is a perception-layer guard: the warning fires AFTER the hazardous value has already been written, so the footgun still fires. A guard is only complete when its own computed classification is LOAD-BEARING at the physics layer — it must ROUTE/HALT the value at the write boundary, not decorate a downstream warning. Concretely: boot-receipt.py's `--omitted-range` (a legacy alias whose NAME means render-bounded negative space) filed every value into the BLOCKING `required_unread_ranges`; the tic-474 guard COMPUTED `_looks_apophatic` per value, emitted a precise warning that the value reads as non-blocking apophatic space — then threw that computed classification away and filed it as gate debt regardless, silently self-DoS'ing the governance-mutation gate of the very boot whose loop it was closing (proven live: the orchestrator's own tic-482 boot blocked on a reasonable flag choice). The cure moved the guard from perception (warn) to physics (reroute-before-write): per-value, the same classification now routes apophatic values to the non-blocking `apophatic_range_bounds` and leaves genuine required-unread blocking. Doctrine: when a guard can CLASSIFY a hazard it must ENFORCE on that classification at the execution boundary; a warn-only guard that recomputes-then-discards its verdict leaves the hazard fully live — detection_affordance without enforcement_affordance is not a guard.
+
+<!-- promoted from cpr_footgun_guard_at_perception_layer_warns_after_the_footgun_already_fired_tic482 (tic 482→485, /review 485). Source: session_lessons_tic_482.md. Refines Detection Affordance Tracking (a guard that recomputes-then-discards is perception-layer, not physics-layer). Supports sibling cgg-ledger#named-footgun-guard-leaves-sibling-site-unfixed. Band: COGNITIVE. signer ent_review_execute. -->
+
+---
+
+## Named Footgun Guard Leaves Sibling Site Unfixed
+<a id="named-footgun-guard-leaves-sibling-site-unfixed"></a>
+<!-- ledger-tags: authority_class=review_and_promotion_discipline | rung=domain | domain=context-grapple-gun | promoted_tic=485 | first_appearance_tic=481 | refines=named-is-not-landed-gate | composes=structural-transform-implies-closed-consumer-set-obligation,id-form-divergence-voids-cross-surface-writeback | confidence_tier=tentative | relations=supports:footgun-guard-at-perception-layer-warns-after-the-footgun-already-fired -->
+
+A promoted footgun-guard applied to ONE function silently leaves a SIBLING function in the SAME FILE carrying the un-guarded footgun the promotion already named — the fix-site and the bug-sibling-site are a closed consumer set. tic-472 promoted `id-form-divergence-voids-cross-surface-writeback` and fixed `stamp_reinforced_by` in review-promote-writeback.py (resolve a ledger entry by anchor/id-set, never a single fuzzy cpr_id), but `flip_inline_status` — same file, same cross-surface-writeback class (id-keyed match against an inline candidate block) — kept the single exact-cpr_id match for 9 tics, silently no-op'ing (inline_blocks_flipped=0, clean exit) whenever the queue carried a hash-derived id (cpr_<dedup_hash>) while the born block declared a different / absent id. Every boot then miscounted stale-promoted CogPRs as pending. The cure was to PORT the same id-set + content-identity (dedup_hash) resolution from the already-fixed sibling. Doctrine: a named-footgun promotion owes a sibling-site audit at intake (grep the file / surface for the SAME operation class and the SAME bug shape), the same way a structural transform owes a consumer-set manifest — the promotion's consumer set INCLUDES same-file siblings performing the same operation. Discriminator: 'did this guard land at the ONLY site of this operation class, or are there siblings doing the same operation un-guarded?'
+
+<!-- promoted from cpr_named_footgun_guard_leaves_sibling_site_unfixed_tic481 (tic 481→485, /review 485). Source: session_lessons_tic_481.md. Refines Named-Is-Not-Landed Gate (a bug-fix promotion's consumer-set includes same-file siblings of the same operation class). Distinct axis from sibling cgg-ledger#footgun-guard-at-perception-layer-warns-after-the-footgun-already-fired (enforcement-LAYER vs coverage-SITE). Supports edge to that sibling. Band: COGNITIVE. signer ent_review_execute. -->
+
+---
+
+## Harness-Agnostic Is Verified Against Runtime Ground Truth, Not Lagging Published Schema
+<a id="harness-agnostic-is-verified-against-runtime-ground-truth-not-lagging-published-schema"></a>
+<!-- ledger-tags: authority_class=external_schema_volatility | rung=domain | domain=context-grapple-gun | promoted_tic=485 | first_appearance_tic=484 | refines=volatile-schema-validation-discipline-probe-before-bind,epistemic-volatility-notice | composes=authoritative-set-readers-manifest-not-raw-emissions,disagreement-as-evidence | confidence_tier=tentative -->
+
+"Harness-agnostic" is not a static property a mounted governance stack HAS — it is a property RE-EARNED at every external-harness version bump by re-confirming each coupling against RUNTIME GROUND TRUTH, because published docs/schema/changelog all LAG the shipped binary. This sharpens Probe-Before-Bind by establishing a PROBE-SURFACE HIERARCHY for externally-versioned primitives: (1) the installed BINARY's recognized-string set is ground truth for 'is this settings key / hook event honored' — and it BEATS the published JSON schema (schemastore), which can be STALE relative to the binary (proven: schemastore lacked showClearContextOnPlanAccept/autoCompactEnabled/useAutoModeDuringPlan while the 2.1.185 binary recognized all 26 of our keys); (2) a LIVE in-session observation is ground truth for an I/O contract and beats schema-SILENCE — the hookSpecificOutput.additionalContext injection contract is not detailed in the published schema (a claude-code-guide could only mark it 'cannot-verify'), yet it demonstrably FIRED this session, which is dispositive; (3) published docs/schema are the next tier (current but laggy); (4) a CHANGELOG name alone is the weakest (the original Probe-Before-Bind floor). COROLLARY (collision-safety as a structural, VERIFIED invariant, not an assumed one): a mounted governance skill-stack survives built-in name-collisions ONLY because skill-resolution precedence is Personal > Bundled/built-in — a built-in shipping a colliding name (here built-in /review vs CGG's constitutional /review gate) is the one shadowed, not ours — BUT the precedence ORDER is itself externally-versioned, so it must be CONFIRMED (docs, confidence-A) rather than assumed to have been preserved across the bump. The discipline: on a harness version bump, do not assume the mount is intact AND do not assume it is broken; re-probe each coupling against the highest available ground-truth tier (binary string table, then live boot, then docs, never changelog-name), and treat a probe DISAGREEMENT (here a zsh non-word-splitting false-negative on the collision sweep) as evidence to resolve by direct inspection, not a result to average.
+
+<!-- promoted from cpr_harness_agnostic_is_verified_against_runtime_ground_truth_not_lagging_published_schema_tic484 (tic 484→485, /review 485). Source: session_lessons_tic_484.md. Refines Volatile-Schema Validation Discipline (Probe-Before-Bind): adds probe-surface hierarchy (binary string-table + live-boot > published schema/docs > changelog) + personal-skill-precedence collision-safety corollary. Band: COGNITIVE. signer ent_review_execute. -->
+
+---
+
+## Stage Prose Template Compression Must Be Declared
+<a id="stage-prose-template-compression-must-be-declared"></a>
+<!-- ledger-tags: authority_class=arena_and_reasoning_geometry | rung=domain | domain=context-grapple-gun | promoted_tic=485 | first_appearance_tic=376 | refines=arena-velocity-guard | confidence_tier=tentative -->
+
+The OA-VPL-T (and VPL/CRX) arena templates prescribe full phases (context→defense→REBUTTAL→
+synthesis→pressure-extraction) + a per-phase record trail in PROSE (spec.md), with NO tasks.yaml
+DAG. So "no skipping phases — enforced via task blockers" is aspirational: nothing mechanically
+stops a LEAD from fusing context+defense, skipping rebuttal, and writing zero records (exactly the
+tic-376 failure). Single-round convergence WITHOUT rebuttal carries false-convergence risk the
+rebuttal phase exists to test (Arena Velocity Guard). Fix (PARTIALLY LANDED this session in
+/stage SKILL.md invariants #5/#8): (1) any compression (phase fusion / rebuttal skip / fewer rounds
+/ wildcard-instead-of-rebuttal) is a DECLARED exception recorded in spec `compression:` + pressure-
+report `compression_applied`; silent compression is a named breach. (2) Arena is not `completed`
+until the record set exists ON DISK (per-phase files, synthesis.md, pressure-report JSON,
+registry.jsonl append); in-context relay is NOT a substitute (Manual-Ceremony-as-Pipeline-Substitute).
+(3) Unrebutted convergence → pressure-report `false_convergence_risk: unrebutted`.
+REMAINING (deeper fix, not done): add real tasks.yaml DAGs to the prose-only templates so phase-
+gating is MECHANICAL not LEAD-discipline. SKILL.md patch makes compression legible; tasks.yaml
+would make it blocked.
+
+<!-- promoted from cpr_stage_prose_template_compression_must_be_declared_tic376 (tic 376→485, /review 485). Source: session_lessons_tic_376.md. Refines Arena Velocity Guard (declared-exception + on-disk completion gate + false_convergence_risk:unrebutted metadata). Band: COGNITIVE. signer ent_review_execute. -->
+
+---
+
+## Promoted-Spec Build Obligation Outlives Spec-Doc Archival or Move
+<a id="promoted-spec-build-obligation-outlives-spec-doc-archival-or-move"></a>
+<!-- ledger-tags: authority_class=review_and_promotion_discipline | rung=domain | domain=context-grapple-gun | promoted_tic=485 | first_appearance_tic=396 | refines=named-is-not-landed-gate | composes=terminal-state-change-requires-receipt-and-no-signal-goes-dark | confidence_tier=tentative -->
+
+A promoted-spec (already past /review) can be silently dropped at the spec→impl / deprecation step, and the cruft it was meant to prevent accumulates as the tombstone that proves the drop. Tic-269 inbox-attention-debt mass-resolve primitive was promoted_spec (/review 269), spec written tic-271, then moved to deprecated-docs and never built; 159 dormant WAIT signals accumulated for ~127 tics as the visible evidence — surfaced only when the Architect noticed raw-scan bloat at tic 396. The terminal of a promoted-spec is promoted_spec→built (or explicit re-defer), NOT promoted_spec; a deprecation move on the spec DOC must not silently retire the build OBLIGATION (the obligation outlives the doc). Detection affordance: the prevented cruft IS the detector — its accumulation rate measures how long the drop has gone unbuilt.
+
+<!-- promoted from cpr_c67dad39aea12d29 (tic 396→485, /review 485). Source: session_lessons_tic_396.md. Refines Named-Is-Not-Landed Gate with cross-ref to federation terminal-state-change-requires-receipt-and-no-signal-goes-dark (a promoted-spec's BUILD obligation outlives a spec-doc archival/move). Band: COGNITIVE. signer ent_review_execute. -->
+
+---
+
+## Uncommitted-By-Design Content Requires Physics-Layer Gitignore Guard
+<a id="uncommitted-by-design-content-requires-physics-layer-gitignore-guard"></a>
+<!-- ledger-tags: authority_class=sync_and_install_parity | rung=domain | domain=context-grapple-gun | promoted_tic=485 | first_appearance_tic=396 | refines=claimed-install-state-requires-auditable-sync-log-proof | composes=versioning-is-mandatory | confidence_tier=tentative -->
+
+"Uncommitted-by-design" is fragile ambient state, not a guard. A transient surface whose contents must NOT be committed (inbound courier drops, privacy tranches, unprocessed deliveries) cannot rely on the discipline-layer convention "remember not to commit these" — because a single broad `git add -A` (or `git add <dir>`) sweeps them the moment an attentive scope slips. The guard must be physics-layer: gitignore the transient class so a broad add CANNOT stage it, paired with a tracked paths-only receipt/manifest that preserves provenance + disposition + a commit-hint. When content crosses to canonical it is committed at its canonical path; the courier copy stays ignored. (tic-396: a /cadence `git add -A audit-logs/` swept 23 uncommitted-by-design inbound files incl. a privacy literary tranche to the private remote; scrubbed via --force-with-lease; root-caused with a gitignore courier-drop class + INBOUND_DROP_RECEIPT.md.)
+
+<!-- promoted from cpr_d565cb1cbc67d82d (tic 396→485, /review 485). Source: session_lessons_tic_396.md. Cross-ref federation Versioning is mandatory (gitignore as physics-layer guard for uncommitted-by-design content; convention alone fails vs git add -A). Band: COGNITIVE. signer ent_review_execute. -->
 
 ---
