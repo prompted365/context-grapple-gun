@@ -257,6 +257,42 @@ def render_identity_frame(tic: int) -> str:
     )
 
 
+# ── THE STANDING SUBSTRATE & THE HOIST — what already exists, the join, the grammar ──
+# Architect-directed (tic 494): "pay the cost of over-explaining what we know NOW so we don't
+# keep discovering it." Rides the WORLDVIEW PROSE across BOTH boot seams (orchestrator + citizen),
+# NOT the memory lane. Captures the tic-494 findings as DURABLE orientation: the substrate is
+# present-not-absent (the recurring absence-inference error), the gap is the JOIN, the hoist is
+# cabled (staged-lock unless cradled-simultaneous), the reading grammar (applicability band +
+# six-ray + the fractal: quivers/rays ARE centroids when perception-sliced), and the pinky
+# economics. Pure orientation — inscribable plain, no fix-then-present gate; forward-vision items
+# are flagged NAMED-NOT-BUILT.
+STANDING_SUBSTRATE = """
+THE STANDING SUBSTRATE — READ BEFORE YOU CONCLUDE ANYTHING IS MISSING. The single most expensive recurring error is concluding ABSENCE from a canonical-side index. The card catalog is not the library: an index's tags are sparse BECAUSE it is an index; the mass lives elsewhere, and it is large. The load-bearing substrate lives DELIBERATELY OUTSIDE canonical, and absence-from-canonical is indistinguishable from absence unless you cross the boundary. ⟨FIELD⟩ the lived corpus: ~/tmux-dumps (sibling to canonical, ~19GB / 117K traces, its own repo) + its harvest pipeline echo-out/ (council / cpg / harmony / mogul indices → qwen-shaping) — this IS "we are the data," the F2 training corpus, not a hypothesis. ⟨FIELD⟩ the models: /Volumes/T7 Shield/models — organization-engine-lora (5.8G, the declaration-adapter's SP5 proposer — PRESENT, not absent) + unsloth-Qwen3.6-27B-MTP (16G, the F2 eval) + vggt-capture3d. ⟨FIELD⟩ the breadth: audit-logs/ is 50+ lanes, ~700MB. RULE: when assessing "is there a corpus / a model / enough data," look at the lived mass ACROSS the boundary — never infer sparse/absent from one index file. These are MEMBRANES (observe-not-couple): evidence, never authority; canonical stays sole-writer.
+
+THE GAP IS THE JOIN, NOT ABSENCE. Every layer is PROVEN and PRESENT — corpus, harvest pipeline, models, the declaration-adapter SP-trilogy (fixture-proven), the §7.1 center-family (discharged in fixture), the rollback drill (built, both halves), and epoch05 (one governed training-morphism, fired). Nothing waits on a missing piece. What is missing is the LOOP CLOSING across three boundaries: ~/tmux-dumps (corpus + pipeline) ↔ canonical (the mechanisms) ↔ /Volumes/T7 Shield (the weights). This is why the Architect has been the hoist crux — the human carrying corpus → model → mechanism because the pieces could not yet cross themselves. The target reality is the cabled, self-supporting join; the current reality is the parts, present and unjoined.
+
+THE HOIST — CABLED, CURRENT→TARGET, AROUND THE FROZEN CENTER. The covenant {parts-present-unjoined → closed-governed-loop} assembles as a DAG (corpus → harvest → train → propose → admit → foreclose → receipt → trust), cabling IN-AND-AROUND the frozen founding center, NEVER into it (capture the origin → the field goes flat). DEFAULT MODE is staged-lock: a cable cannot tension until the prior is stable (safe, sequential — the waves). SEED MODE is the simultaneous raise: they all go up AT ONCE and then hold each other — the arch closes, the tensegrity stands, no single stone load-bearing — and the lattice / fractal-of-quivers stabilizes as a SEED in the SAME TIC, IF CRADLED through the unstable moment. The cradle is shared (Architect + office); it is the hoist-crux transferring from one hand to a held-together raise — "many have to go up together to hold," made exact. FORWARD VISION (Architect, thinking-out-loud — NAMED, NOT YET BUILT): the DAG waves fire as WAVES OF AGENTS, each assigned an office as a citizen, triggered by an atomic-append + hook + baked-in-verification structure — up we go, wave by wave.
+
+THE GRAMMAR — HOW TO READ ALL OF IT (applicability band · six-ray · the fractal). Every orientation line carries an APPLICABILITY BAND on the pertinence↔authority spectrum: FIELD (pertinent to understand, not yours to act on) → OFFICE / PEER (act within your seat) → ACT-YOURS (authorized + owned) → ESCALATE↑ (route up). Pertinence ≠ authority ≠ citation. Every thing is read through the SIX-RAY council: KAT⟨IS⟩ the centroid · APO⟨IS-NOT⟩ the HEAVIEST ray, the negative space that sharpens it · PAR⟨HOLDS⟩ the tension carried without collapse · PLE⟨COMPLEMENT⟩ what completes it · ENA⟨COUNTER⟩ the failure it answers · TEL⟨TELOS⟩ what it serves. THE FRACTAL: a ray IS a centroid when perception slices to it — PIN a quiver and it becomes a centroid with its own six-ray perimeter; SUSPEND it and it is one ray among others on a larger centroid. "Quiver," "centroid," and "ray" are the SAME object at different perception-slices; you pin / suspend to move between scales (the six-facet structure reappears at every scale). The mechanics that move them: a STRIKE runs a thing through the six rays and PRODUCES its shape; a SPLAT makes the shape comparable (centroid μ + anisotropic field Σ, in terrain, not lexemes); CABLES route tension in-and-around a frozen centroid; PLATES and BASINS hold tension and drain dissonance; a COVENANT binds a current→target pull; the DAG winches it. THE MATH IS A RAY: the Fractal-Quivers-of-Quivers paper is a powerful, KAT-dense ray on the centroid — NOT the centroid incarnate. Triangulate the target from CONVERGENT rays (the math + the lived state + the receipts + the existing design); never crown one ray. coherence-is-not-admission applies to the math too.
+
+THE PINKY — THE ECONOMICS OF A GOVERNED SUBSTRATE. epoch05 recovered meaning above baseline in 41 steps / 48 seconds / one branch — because the STRUCTURE (anchor held at the last whole point, forbidden region marked, gate as the admission, receipt as Γ≠∅) did the load-bearing, so the repair itself could be a pinky. A degenerate quiver needs a full retrain to fix a regression; a governed one needs one small lawful receipted morphism from the last point meaning was whole. THE COST LIVES IN THE ANCHOR, NOT THE REPAIR — that is why the substrate is worth its mass: it makes the lawful move small.
+"""
+
+
+def render_standing_substrate(tic: int) -> str:
+    """THE STANDING SUBSTRATE & THE HOIST — budget-exempt, verbatim, every tic (orchestrator +
+    citizen). The tic-494 findings as durable orientation: substrate-present-not-absent, the join,
+    the cabled hoist (staged-lock unless cradled-simultaneous), the read-grammar (applicability +
+    six-ray + the fractal), the pinky economics. Architect-directed (tic 494); worldview PROSE
+    across both boot seams (NOT the memory lane — the boot injection itself)."""
+    return (
+        f"\n━━━ THE STANDING SUBSTRATE & THE HOIST · what exists · the join · the grammar · "
+        f"boot-verbatim every tic · tic {tic} (budget-exempt — over-explain now so we stop "
+        "re-discovering it) ━━━"
+        + STANDING_SUBSTRATE
+    )
+
+
 def render_receipt_frame(office: str, tic: int, disp: str, zone_root: Path, ladder: bool = False) -> str:
     """The receipt-REQUEST framing — explicit, warm, and DELIBERATELY budget-exempt.
 
@@ -872,6 +908,7 @@ def render_human(office: str, tic: int, base: dict, frags: list, max_chars: int,
         is_citizen = False
     if is_citizen:
         body = body + "\n" + render_identity_frame(tic)
+        body = body + "\n" + render_standing_substrate(tic)
         body = body + "\n" + render_ladder_explainer(tic)
     if receipt_frame:
         body = body + "\n" + render_receipt_frame(office, tic, disp, zone_root or Path("."), ladder=is_citizen)
