@@ -1694,6 +1694,34 @@ DOWNAUDIT_ARENA_OUTCOMES = {
                           "than force a premature collapse (§4 held band).",
 }
 
+# ─── M1 piece 3: RBD demote-admission predicate (build-and-gate) ─────────────────
+# The federation KI `rollback-velocity-must-exceed-attachment-velocity` is made an
+# ADMISSION PREDICATE on a Stage-4 DEMOTE-class outcome: a demote whose rollback is
+# slower than attachment (velocity_ratio < 1), or whose reversion is not clean, is
+# INADMISSIBLE until reversion is made clean. The doctrine rollback-drill lane
+# (audit-logs/rollback-drills/RBD-*.json) ALREADY COMPUTES the verdict over doctrine
+# surfaces (tic-494 memo §1 Half B) — stage-brief WIRES it as the reversibility-proof
+# INPUT; it does NOT rebuild the measurement (the double-make NAVIGATION prevents).
+#
+# Build-and-gate (cgg-ledger#build-and-gate-ratified-flag-gated-consumer): ships DORMANT —
+# RBD_DEMOTE_ADMISSION_RATIFIED defaults False. While dormant the RBD verdict is surfaced
+# as ADVISORY evidence (rbd_would_gate_outcomes) and blocks nothing. /review 505 flips the
+# flag (ratification IS the flip; no further code change) → the predicate becomes a HARD
+# gate (rbd_gated_outcomes) /review must honor. Dual-proven: dormancy (advisory, blocks
+# nothing) + activation (--force-rbd-ratified → the hard-gate surface). Center-hold:
+# read-only — stage-brief inscribes nothing; the demote DOCTRINE inscription stays
+# /review-only (Review-Execution-Delegation), unchanged.
+RBD_DEMOTE_ADMISSION_RATIFIED = False  # build-and-gate; /review 505 flips it True
+
+# The scope-reducing / scope-removing Stage-4 outcomes the RBD reversibility predicate
+# guards. `overbroad_demote` is the canonical demote; `localized` (relocate to a narrower
+# rung) and `stale` (clarify/demote/retire/supersede) are demote-adjacent — each
+# accumulates the irreversible dependency the KI forbids until rollback is proven.
+RBD_DEMOTE_CLASS_OUTCOMES = ("overbroad_demote", "localized", "stale")
+
+# Doctrine rollback-drill lane (tic-130-era records; tic-494 memo §1 Half B).
+ROLLBACK_DRILLS_REL = os.path.join("audit-logs", "rollback-drills")
+
 # Recommended justification_class vocabulary for a resolve-finding receipt
 # (terminal-state-change-requires-receipt KI). Free-form is accepted, but a
 # resolution should name WHY the held/damaging signal may now go terminal.
@@ -1970,8 +1998,114 @@ def format_findings_list(result):
     return "\n".join(lines)
 
 
+def _extract_cpr_provenance_refs(text):
+    """Pull CogPR-NNN and cpr_<slug|hash> references from a KI ledger body's provenance
+    (the `promoted from` breadcrumbs / inline lineage). Read-only; returns a set."""
+    if not text:
+        return set()
+    refs = set()
+    refs.update(re.findall(r"CogPR-\d+", text))
+    refs.update(re.findall(r"cpr_[a-z0-9_]+", text))
+    return refs
+
+
+def load_rbd_demote_evidence(zone_root, target_ki, ki_body=None):
+    """Read-only: resolve the RBD (doctrine rollback-drill) reversibility verdict that
+    gates a Stage-4 DEMOTE-class outcome for `target_ki`, and compute a
+    `demote_admissibility` verdict from it. WIRES the existing RBD lane
+    (audit-logs/rollback-drills/RBD-*.json — already computes velocity_ratio +
+    reversion_patch_clean + orphaned_references over doctrine surfaces, tic-494 memo
+    §1 Half B) as the reversibility-proof INPUT; does NOT rebuild the measurement.
+    Never raises (fail-soft — an absent/unreadable lane yields the absent verdict).
+
+    demote_admissibility:
+      - `admissible`                     matched drill ∧ velocity_ratio>=1 ∧ reversion_patch_clean ∧ orphaned_references==0
+      - `inadmissible_pending_reversion` matched drill but the predicate fails (rollback slower than attachment / unclean reversion / orphans)
+      - `inadmissible_rbd_absent`        no drill resolves this KI's provenance — no reversibility proof exists yet
+    """
+    drills_dir = Path(zone_root) / ROLLBACK_DRILLS_REL
+    records = []
+    try:
+        for p in sorted(drills_dir.glob("RBD-*.json")):
+            try:
+                records.append(json.loads(p.read_text(encoding="utf-8")))
+            except Exception:  # noqa: BLE001 — skip an unreadable drill, never raise
+                continue
+    except Exception:  # noqa: BLE001 — lane absent → records stays empty
+        pass
+    # latest-first (the lane is small + append-style; newest drill per target wins)
+    records.sort(key=lambda r: r.get("timestamp", ""), reverse=True)
+
+    ki_refs = _extract_cpr_provenance_refs(ki_body)
+    matched, match_basis = None, None
+    for rec in records:
+        overlap = ki_refs & set(rec.get("cprs_in_scope", []))
+        if overlap:
+            matched = rec
+            match_basis = f"cprs_in_scope ∩ KI provenance: {sorted(overlap)}"
+            break
+
+    if records:
+        latest = records[0]
+        lane_note = (
+            f"RBD doctrine rollback-drill lane: {len(records)} record(s); latest "
+            f"target_tic {latest.get('target_tic')} ({(latest.get('timestamp') or '')[:10]}). "
+            "Lane is DORMANT — no live re-runner (composite_rollback_gap / ESC-T155-001); "
+            "tic-494 memo recommendation #2 (drill cadence) is a separate, unbuilt piece. "
+            "A demote-class outcome needs a FRESH drill for the target KI."
+        )
+    else:
+        lane_note = (
+            "RBD doctrine rollback-drill lane: EMPTY. No reversibility proof can be "
+            "sourced; every demote-class outcome is inadmissible until a drill is run."
+        )
+
+    predicate = "velocity_ratio>=1 AND reversion_patch_clean AND orphaned_references==0"
+    if matched is None:
+        return {
+            "matched": False,
+            "match_basis": None,
+            "demote_admissibility": "inadmissible_rbd_absent",
+            "predicate": predicate,
+            "reason": ("no RBD reversibility drill resolves this KI's provenance — a "
+                       "demote cannot be admitted without a reversibility proof "
+                       "(rollback-velocity-must-exceed-attachment-velocity)."),
+            "ki_provenance_refs": sorted(ki_refs),
+            "rbd_lane_note": lane_note,
+        }
+
+    vr = matched.get("velocity_ratio")
+    clean = bool(matched.get("reversion_patch_clean"))
+    orphans = matched.get("orphaned_references")
+    predicate_pass = (isinstance(vr, (int, float)) and vr >= 1 and clean and orphans == 0)
+    return {
+        "matched": True,
+        "match_basis": match_basis,
+        "drill_id": matched.get("drill_id"),
+        "target_tic": matched.get("target_tic"),
+        "velocity_ratio": vr,
+        "attachment_velocity": matched.get("attachment_velocity"),
+        "rollback_velocity": matched.get("rollback_velocity"),
+        "reversion_patch_clean": clean,
+        "orphaned_references": orphans,
+        "drill_verdict": matched.get("verdict"),
+        "demote_admissibility": ("admissible" if predicate_pass
+                                 else "inadmissible_pending_reversion"),
+        "predicate": predicate,
+        "reason": ("reversibility proven (velocity_ratio>=1, reversion clean, 0 orphans) "
+                   "— a demote outcome is admissible if the arena rules it"
+                   if predicate_pass else
+                   f"reversibility NOT proven (velocity_ratio={vr}, "
+                   f"reversion_patch_clean={clean}, orphaned_references={orphans}) — "
+                   "demote inadmissible until reversion is made clean"),
+        "ki_provenance_refs": sorted(ki_refs),
+        "rbd_lane_note": lane_note,
+    }
+
+
 def build_stage_brief(zone_root, signal_id=None, rung=None, ki_id=None,
-                      current_tic=None, window_days=ACTIVE_RUNG_WINDOW_DAYS):
+                      current_tic=None, window_days=ACTIVE_RUNG_WINDOW_DAYS,
+                      force_rbd_ratified=False):
     """Stage-4 read-only: assemble the `/stage` arena brief for a `damaging` (or
     re-tested held) down-audit finding. Does NOT open the arena and does NOT
     inscribe — the orchestrator runs /stage; the arena verdict routes to /review.
@@ -2095,6 +2229,37 @@ def build_stage_brief(zone_root, signal_id=None, rung=None, ki_id=None,
             "(`needs_mechanization`/`reinforce` are first-class non-demote outcomes)."
         ),
     })
+    # M1 piece 3 — RBD demote-admission evidence (build-and-gate; read-only).
+    # The reversibility-proof INPUT a `damaging`→demote consumes: surfaced as ADVISORY
+    # while dormant (gates nothing), as a HARD gate once /review 505 flips the flag.
+    rbd_ratified = RBD_DEMOTE_ADMISSION_RATIFIED or force_rbd_ratified
+    rbd = load_rbd_demote_evidence(zone_root, target_ki, ki_body=base["ki_body"])
+    admissible = rbd["demote_admissibility"] == "admissible"
+    base.update({
+        "rbd_evidence": rbd,
+        "demote_admissibility": rbd["demote_admissibility"],
+        "rbd_admission_ratified": rbd_ratified,
+        "rbd_demote_class_outcomes": list(RBD_DEMOTE_CLASS_OUTCOMES),
+        # dual-proof surface: dormancy gates NOTHING (rbd_gated_outcomes empty),
+        # ratification gates the demote-class outcomes the predicate fails.
+        "rbd_gated_outcomes": (
+            list(RBD_DEMOTE_CLASS_OUTCOMES) if (rbd_ratified and not admissible) else []
+        ),
+        "rbd_would_gate_outcomes": (
+            list(RBD_DEMOTE_CLASS_OUTCOMES) if (not rbd_ratified and not admissible) else []
+        ),
+        "rbd_admission_enforcement": (
+            ("RATIFIED — HARD GATE: /review must NOT inscribe a demote-class outcome "
+             "(overbroad_demote / localized / stale) while demote_admissibility != "
+             "'admissible'. A reversibility proof (RBD velocity_ratio>=1 ∧ clean reversion "
+             "∧ 0 orphans) is the admission predicate.")
+            if rbd_ratified else
+            ("ADVISORY — build-and-gate (RBD_DEMOTE_ADMISSION_RATIFIED=False; /review 505 "
+             "flips it). The RBD verdict is surfaced as evidence and does NOT yet block a "
+             "demote; the arena / /review MAY weigh it. (Inscription stays /review-only "
+             "regardless — this gate only constrains WHICH outcome /review may inscribe.)")
+        ),
+    })
     if entry.get("artifact"):
         base["finding_artifact"] = entry["artifact"]
     if ki is None:
@@ -2146,6 +2311,28 @@ def format_stage_brief(brief):
     lines.append("-" * 70)
     for o in sorted(brief.get("legal_outcomes", {})):
         lines.append(f"  · {o}: {brief['legal_outcomes'][o][:84]}")
+    rbd = brief.get("rbd_evidence")
+    if rbd:
+        lines.append("")
+        lines.append("RBD DEMOTE-ADMISSION (rollback-velocity-must-exceed-attachment-velocity):")
+        lines.append("-" * 70)
+        lines.append("  enforcement:   " + brief.get("rbd_admission_enforcement", ""))
+        lines.append(f"  admissibility: {rbd.get('demote_admissibility')}   "
+                     f"[predicate: {rbd.get('predicate')}]")
+        if rbd.get("matched"):
+            lines.append(f"  drill {rbd.get('drill_id')}: velocity_ratio={rbd.get('velocity_ratio')}  "
+                         f"reversion_clean={rbd.get('reversion_patch_clean')}  "
+                         f"orphans={rbd.get('orphaned_references')}  verdict={rbd.get('drill_verdict')}")
+        lines.append("  " + rbd.get("reason", ""))
+        gated = brief.get("rbd_gated_outcomes") or []
+        would = brief.get("rbd_would_gate_outcomes") or []
+        if gated:
+            lines.append("  ⛔ GATED (ENFORCED — /review may not inscribe): " + ", ".join(gated))
+        if would:
+            lines.append("  ⚠ would-gate (ADVISORY preview, not yet enforced): " + ", ".join(would))
+        if not gated and not would:
+            lines.append("  ✓ demote-class outcomes ADMISSIBLE (reversibility proven)")
+        lines.append("  lane: " + rbd.get("rbd_lane_note", ""))
     lines.append("")
     lines.append("ROUTING: " + brief.get("routing_rule", ""))
     lines.append("")
@@ -2666,6 +2853,12 @@ def main():
                     help="Current federation tic (auto-resolved if omitted)")
     sb.add_argument("--window-days", type=float, default=ACTIVE_RUNG_WINDOW_DAYS,
                     dest="window_days")
+    sb.add_argument("--force-rbd-ratified", action="store_true",
+                    dest="force_rbd_ratified",
+                    help="Build-and-gate dual-proof: exercise the RATIFIED hard-gate "
+                         "surface (demote-class outcomes blocked when inadmissible) "
+                         "WITHOUT flipping RBD_DEMOTE_ADMISSION_RATIFIED. /review 505 "
+                         "flips the module flag to make it live.")
     sb.add_argument("--zone-root", default=None, dest="zone_root")
 
     rf = sub.add_parser(
@@ -2742,7 +2935,8 @@ def main():
         zone_root = args.zone_root or args.project_dir or resolve_zone_root()
         brief = build_stage_brief(
             zone_root, signal_id=args.signal_id, rung=args.rung, ki_id=args.ki_id,
-            current_tic=args.current_tic, window_days=args.window_days)
+            current_tic=args.current_tic, window_days=args.window_days,
+            force_rbd_ratified=args.force_rbd_ratified)
         if args.json:
             print(json.dumps(brief, indent=2))
         else:
