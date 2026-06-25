@@ -1711,7 +1711,7 @@ DOWNAUDIT_ARENA_OUTCOMES = {
 # nothing) + activation (--force-rbd-ratified → the hard-gate surface). Center-hold:
 # read-only — stage-brief inscribes nothing; the demote DOCTRINE inscription stays
 # /review-only (Review-Execution-Delegation), unchanged.
-RBD_DEMOTE_ADMISSION_RATIFIED = False  # build-and-gate; /review 505 flips it True
+RBD_DEMOTE_ADMISSION_RATIFIED = True  # build-and-gate RATIFIED at /review 505 (tic 505, Architect-gated) — now a HARD admission predicate on demote-class outcomes
 
 # The scope-reducing / scope-removing Stage-4 outcomes the RBD reversibility predicate
 # guards. `overbroad_demote` is the canonical demote; `localized` (relocate to a narrower
