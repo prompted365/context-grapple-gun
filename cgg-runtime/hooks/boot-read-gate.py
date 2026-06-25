@@ -191,6 +191,26 @@ def _current_tic() -> int | None:
     return None
 
 
+_BORN_TIC_RE = re.compile(r"borns-tic(\d+)-")
+
+
+def _born_work_tic(target: str) -> int | None:
+    """Work-tic re-key (tic-504 refinement of Precondition-Gate Perimeter Completeness).
+
+    A born is written at /cadence Step 2, AFTER Step 0.5 emits the next tic — so the live
+    mandate's current_tic is already the NEXT session's tic, whose boot receipt cannot exist
+    yet. But the born's TRUE attestation anchor is its OWN work-tic, encoded in the filename
+    `borns-tic<N>-…`, which the CLOSING session DID receipt at boot. Return <N> so the gate
+    keys the check on that work-tic, not the moving current_tic. Keeps the teeth (a born for a
+    tic with no receipt still blocks — the regex must match AND the work-tic's receipt must
+    exist); kills the cadence-close spirit-false-positive. Returns None for non-born targets
+    (fall back to current_tic — unchanged behavior)."""
+    if not target:
+        return None
+    m = _BORN_TIC_RE.search(target)
+    return int(m.group(1)) if m else None
+
+
 def _entity(evt: dict) -> str:
     aid = evt.get("agent_id") or ""
     return aid if aid.startswith("ent_") else "ent_homeskillet"
@@ -215,6 +235,14 @@ def decide(raw: str) -> tuple:
             return False, ""  # can't resolve tic → fail-soft OPEN (gate bug, not debt)
         entity = _entity(evt)
         target = fp or cmd
+        # Work-tic re-key: a born write (`borns-tic<N>-…`) is attested by its OWN work-tic's
+        # receipt, not the live current_tic (which /cadence Step 0.5 already advanced to the
+        # next session's tic before the Step-2 born write). Keys the gate-check to the work-tic
+        # so a legitimate session-close capture passes; a born for an un-receipted tic still
+        # blocks. Non-born targets keep current_tic (unchanged).
+        _wt = _born_work_tic(target)
+        if _wt is not None:
+            tic = _wt
         if not _BOOT_RECEIPT.exists():
             return False, ""  # receipt script absent → fail-soft OPEN
         r = subprocess.run(
@@ -340,6 +368,13 @@ def _self_test() -> int:
     check("malformed JSON → allow", decide("{not json") == (False, ""))
     check("source-file Edit envelope → allow",
           decide(json.dumps({"tool_name": "Edit", "tool_input": {"file_path": "src/x.rs"}})) == (False, ""))
+    # work-tic re-key (tic-504 refinement): a born's attestation anchor is its OWN work-tic
+    check("born path → work-tic parsed from filename",
+          _born_work_tic("audit-logs/governance/borns-tic503-x.md") == 503)
+    check("born path with multi-digit tic → work-tic parsed",
+          _born_work_tic("a/borns-tic504-c9-downlane.md") == 504)
+    check("non-born path → no work-tic (falls back to current_tic)",
+          _born_work_tic("audit-logs/governance/constitution-ledger/ledger.md") is None)
 
     print()
     if failures:
