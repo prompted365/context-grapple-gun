@@ -213,6 +213,8 @@
   - *Ledger:* [`cgg-ledger/ledger.md#atomic-commit-discipline-multi-file-mutations`](cgg-ledger/ledger.md#atomic-commit-discipline-multi-file-mutations)
 - **Gate Contracts (Not Vibes)** — A gate is a contract surface, not a vibe or preference.
   - *Ledger:* [`cgg-ledger/ledger.md#gate-contracts-not-vibes`](cgg-ledger/ledger.md#gate-contracts-not-vibes)
+- **Precondition-Gate Perimeter Completeness** — A precondition gate must cover every surface that becomes counsel/review input, OR explicitly declare each exemption; silent asymmetry is the defect (symmetric complement of the tic-407 mutation-gate classifier).
+  - *Ledger:* [`cgg-ledger/ledger.md#precondition-gate-perimeter-completeness`](cgg-ledger/ledger.md#precondition-gate-perimeter-completeness)
 - **Shape Fingerprint Provenance** — Composite shape hash `sha256(content_hash + ctime + birthtime + inode)` creates a deterministic fingerprint robust to single-axis spoofing.
   - *Ledger:* [`cgg-ledger/ledger.md#shape-fingerprint-provenance`](cgg-ledger/ledger.md#shape-fingerprint-provenance)
 - **Read-Side Verification Complement** — Append-only ledgers provide write-side integrity but without read-side chain verification a malicious or buggy reader can present out-of-order entries as canonical.

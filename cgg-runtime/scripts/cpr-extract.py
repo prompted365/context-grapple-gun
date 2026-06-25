@@ -336,8 +336,60 @@ def select_session_lessons_files(memory_dir, window=SESSION_LESSONS_RECENCY_WIND
     return [f for _, _, f in selected]
 
 
+# audit-logs/governance/borns-tic<N>-*.md born home (Emitter Surface Declared
+# Interface, tic 498 — the SIBLING-SITE fix). The tic-483 fix wired the
+# session_lessons born home into cpr-extract but left this sibling born home
+# UNWIRED: sessions author standalone born detail-docs as
+# audit-logs/governance/borns-tic<N>-<slug>.md carrying BLOCK-form
+# `<!-- --agnostic-candidate` markers, and cpr-extract never scanned that
+# directory — so a born whose candidate block lived ONLY there (not also inlined
+# into MEMORY.md / session_lessons) was silently UNREACHABLE. Confirmed tic 498:
+# 9 of 55 borns-*.md IDs stranded out of queue.jsonl, all the recent cohort
+# (tic 493-498) — stranded because MEMORY.md was over its load limit so the
+# blocks were never mirrored to a reachable surface. This is the CGG invariant
+# *Named Footgun Guard Leaves Sibling Site Unfixed* applied to the born-reach
+# fix itself. SAME RECENCY DISCIPLINE as session_lessons: frontier-anchored on
+# the newest borns-*.md tic present (NOT an external counter), window-bounded so
+# this tic's + recently-authored borns become reachable WITHOUT mass-extracting
+# the historical backlog (the already-queued 46 are dedup-skipped at write
+# regardless; the window bounds the un-extracted historical cohort, which stays
+# a separate /review-gated decision). BLOCK form is unambiguous (deliberate
+# emission only), so the false-positive safety matches MEMORY.md scanning.
+BORNS_RE = re.compile(r"borns-tic(\d+)")
+BORNS_RECENCY_WINDOW = 6
+
+
+def select_borns_files(governance_dir, window=BORNS_RECENCY_WINDOW):
+    """Pure: select the recency-bounded (most-recent) audit-logs/governance born
+    detail-doc files (borns-tic<N>-*.md), mirroring select_session_lessons_files.
+
+    Anchors the window on the MAXIMUM tic present among borns-tic<N>-*.md files in
+    governance_dir (the born frontier — NOT an external tic counter, which
+    over-counts), returning those whose parsed tic N satisfies
+    ``N >= max_present_tic - window``. ``window < 0`` disables. Deterministic
+    ordering by (tic, name). Self-anchoring on the surface's own newest entry is
+    deliberate (Authoritative-set readers must read the manifest, not aggregate
+    raw emissions)."""
+    gd = Path(governance_dir)
+    if window < 0 or not gd.is_dir():
+        return []
+    entries = []
+    for f in gd.glob("borns-tic*.md"):
+        m = BORNS_RE.search(f.name)
+        if m:
+            entries.append((int(m.group(1)), f.name, f))
+    if not entries:
+        return []
+    threshold = max(t for t, _, _ in entries) - window
+    selected = sorted(
+        (e for e in entries if e[0] >= threshold), key=lambda e: (e[0], e[1])
+    )
+    return [f for _, _, f in selected]
+
+
 def find_governance_files(project_dir, excludes, plan_file=None,
-                          session_lessons_window=SESSION_LESSONS_RECENCY_WINDOW):
+                          session_lessons_window=SESSION_LESSONS_RECENCY_WINDOW,
+                          borns_window=BORNS_RECENCY_WINDOW):
     """Find CLAUDE.md and MEMORY.md files, respecting .ticignore.
 
     If plan_file is given, append that single plan file to the scan set —
@@ -372,6 +424,18 @@ def find_governance_files(project_dir, excludes, plan_file=None,
     for sl in select_session_lessons_files(memory_dir, session_lessons_window):
         if sl not in gov_files:
             gov_files.append(sl)
+
+    # Sibling born home: audit-logs/governance/borns-tic<N>-*.md (Emitter Surface
+    # Declared Interface, tic 498 sibling-site fix). Frontier-anchored + recency-
+    # bounded; dedup-at-write skips the already-queued cohort. Never mass-extracts
+    # the historical backlog (window-bounded; that stays a /review-gated decision).
+    try:
+        gov_dir = Path(audit_logs_path(project_dir, load_ticzone(project_dir))) / "governance"
+        for bf in select_borns_files(gov_dir, borns_window):
+            if bf not in gov_files:
+                gov_files.append(bf)
+    except Exception:
+        pass  # fail-soft: a borns-scan error never blocks the core MEMORY/CLAUDE scan
 
     # Active plan file (optional) — caller-selected via session-restore.sh's
     # LATEST_PLAN discovery. Never scans the whole plans directory.
@@ -472,7 +536,8 @@ def _origin_context_for(gov_file):
 
 
 def extract_cprs(project_dir, dry_run=False, plan_file=None, anomaly_threshold=0.5,
-                 session_lessons_window=SESSION_LESSONS_RECENCY_WINDOW):
+                 session_lessons_window=SESSION_LESSONS_RECENCY_WINDOW,
+                 borns_window=BORNS_RECENCY_WINDOW):
     """Main extraction: scan governance files, classify by tier, dedup, append.
 
     Patch E (tic 188) widens the accepted schema with tiered capture. The
@@ -515,6 +580,7 @@ def extract_cprs(project_dir, dry_run=False, plan_file=None, anomaly_threshold=0
     gov_files = find_governance_files(
         project_dir, excludes, plan_file=plan_file,
         session_lessons_window=session_lessons_window,
+        borns_window=borns_window,
     )
     tic_count = get_tic_count(project_dir)
     topo = birth_topology(project_dir)
@@ -958,6 +1024,15 @@ def main():
              "<0 disables; a value >= current tic intentionally sweeps the "
              "historical backlog (gated — never the default).",
     )
+    parser.add_argument(
+        "--borns-window",
+        type=int,
+        default=BORNS_RECENCY_WINDOW,
+        help="Recency window (in tics) for scanning the audit-logs/governance/"
+             "borns-tic<N>-*.md born home. Default scans the frontier cohort only; "
+             "<0 disables; a large value (>= the tic span) intentionally sweeps the "
+             "historical born backlog (gated, explicit, dedup-safe — never the default).",
+    )
     args = parser.parse_args()
 
     project_dir = args.project_dir or resolve_zone_root()
@@ -966,6 +1041,7 @@ def main():
         dry_run=args.dry_run,
         plan_file=args.plan_file,
         session_lessons_window=args.session_lessons_window,
+        borns_window=args.borns_window,
     )
 
     if args.verbose:
