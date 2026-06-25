@@ -1661,6 +1661,12 @@ DOWNAUDIT_ROUTING = {
 # at /review (down-lane residue D4 — held dissonances must not be silently immortal).
 DISSONANCE_STALE_TICS = 8
 
+# Campaign coverage heuristic (down-lane-run driver): a (rung, KI) pair last
+# down-audited this many tics ago is flagged "stale" (a re-audit candidate). Longer
+# than DISSONANCE_STALE_TICS — a held-tension re-test is more urgent than a clean/N/A
+# coverage refresh. Heuristic + overridable (--coverage-stale-tics); NEVER a gate.
+DOWNAUDIT_COVERAGE_STALE_TICS = 12
+
 # The Stage-4 arena's legal outcomes (the 8-outcome taxonomy from
 # doctrine-lifecycle-spec.md §6 + `reinforce` + the net-new `hold_in_dissonance`).
 # Each routes to /review as a VERDICT — never self-inscribed by this script.
@@ -2240,6 +2246,311 @@ def resolve_downaudit_finding(zone_root, signal_id, review_tic, resolved_to,
             "summary": manifest_entry["summary"]}
 
 
+# ---------------------------------------------------------------------------
+# down-lane-run — the C9 down-audit RUNTIME driver (M1, ladder-downlane-spec.md)
+#
+# The §1 Sovereign Boot Authority spec (ratified tic 502) names M1 as "C9 down-lane
+# WIRED — the missing down-audit RUNTIME". Stages 0–5 were each built as atomic
+# subcommands (tic 380→473) but had to be HAND-CHAINED every tic (the tic-490 inline
+# pass, the tic-493 4-seat medley): list-active-rungs → select-kis → down-audit (per
+# rung) → ladder-auditor judgment → emit-finding. There was no runtime that RAN the
+# audit — only parts an orchestrator assembled by hand. This driver is that runtime:
+# it runs Stage 0→1→2 across the active rung set in ONE read-only pass and computes
+# coverage/due-ness against the EXISTING finding manifold, so the down-lane becomes
+# self-pacing (it knows which (rung,KI) pairs are never-audited or stale) instead of
+# depending on a human to remember to chain the subcommands.
+#
+# Boundary (this piece is read-only / no-new-authority — spec §gated_by: "Read-only
+# pieces (selector, down-audit, finding-emit) extend ladder-audit.py without new
+# authority"):
+#   - composes only the wired READ-ONLY stages (discover_active_rungs +
+#     select_kis_per_rung + build_downaudit_packet) + reads load_downaudit_findings.
+#   - emits NO finding (the ladder-auditor judges; the orchestrator lands via
+#     emit-finding — Stage 3), opens NO arena, mutates NO doctrine (Stage 4 is
+#     /review-only), creates NO new state-store (coverage is read from the manifold;
+#     output is a regenerable read-only report — self-conditioning thin-terminal-
+#     residue boundary).
+#   - stays ACTIVE-RUNG + SELECTION-scoped (never a blanket sweep — that is the bare
+#     run_audit structural pass). A rung that cannot be down-audited (unsourced / no
+#     candidates) is SURFACED, never invented (Disagreement-as-evidence).
+#   - a "due" pair is a campaign HYPOTHESIS about what to re-audit, never a verdict
+#     about fit and never a demotion pressure (Arena Velocity Guard).
+# ---------------------------------------------------------------------------
+
+def _downlane_coverage_index(zone_root):
+    """Map (rung-identity, ki_id) -> latest-by-opened_tic finding summary.
+
+    Read-only, from the EXISTING down-audit finding manifold (terminal-per-id). A
+    backfilled finding may carry a comma-joined multi-rung string; each part is keyed
+    separately. The latest opened_tic wins (the most recent audit of that pair)."""
+    idx = {}
+    for sig in load_downaudit_findings(zone_root):
+        p = sig.get("payload", {})
+        ki_id = p.get("ki_id")
+        rung = p.get("rung")
+        ot = p.get("opened_tic")
+        if not ki_id or not rung:
+            continue
+        terminal = _finding_is_terminal(sig)
+        for part in str(rung).split(","):
+            part = part.strip()
+            if not part:
+                continue
+            key = (part, ki_id)
+            cur = idx.get(key)
+            cur_ot = (cur or {}).get("opened_tic")
+            if cur is None or (isinstance(ot, int)
+                               and (not isinstance(cur_ot, int) or ot >= cur_ot)):
+                idx[key] = {
+                    "opened_tic": ot,
+                    "verdict": p.get("verdict"),
+                    "signal_id": sig.get("signal_id") or sig.get("id"),
+                    "terminal": terminal,
+                }
+    return idx
+
+
+def _downlane_coverage_for_pair(idx, rung_idents, ki_id, current_tic, stale_tics):
+    """Coverage of one (rung, KI) campaign pair against the finding index.
+
+    rung_idents = the identities the rung can be keyed by (dir / name / basename),
+    mirroring _resolve_rung_in_selection so a finding emitted under any of them is
+    matched. Returns never_audited | stale | fresh + the last audit's tic/verdict."""
+    hit = None
+    for ident in rung_idents:
+        h = idx.get((ident, ki_id))
+        if h is None:
+            continue
+        if hit is None or (isinstance(h.get("opened_tic"), int)
+                           and (not isinstance(hit.get("opened_tic"), int)
+                                or h["opened_tic"] >= hit["opened_tic"])):
+            hit = h
+    if hit is None:
+        return {"coverage": "never_audited", "last_audited_tic": None,
+                "last_verdict": None, "tics_since": None, "last_signal_id": None}
+    ot = hit.get("opened_tic")
+    tics_since = (current_tic - ot) if (isinstance(current_tic, int)
+                                        and isinstance(ot, int)) else None
+    coverage = "stale" if (tics_since is not None and tics_since >= stale_tics) else "fresh"
+    return {"coverage": coverage, "last_audited_tic": ot,
+            "last_verdict": hit.get("verdict"), "tics_since": tics_since,
+            "last_signal_id": hit.get("signal_id"),
+            "last_finding_terminal": hit.get("terminal")}
+
+
+def run_downlane_campaign(zone_root, rung=None, top=3, opened_tic=None,
+                          current_tic=None,
+                          coverage_stale_tics=DOWNAUDIT_COVERAGE_STALE_TICS,
+                          window_days=ACTIVE_RUNG_WINDOW_DAYS, include_packets=True):
+    """C9 down-lane RUNTIME driver (M1): run Stage 0→1→2 across the active rung set in
+    ONE read-only pass + compute coverage/due-ness from the EXISTING finding manifold.
+
+    Read-only / no-new-authority. Assembles the full Stage-2 packet-set + a coverage
+    manifest; emits NO finding (the ladder-auditor judges, the orchestrator lands via
+    emit-finding), opens NO arena, mutates NO doctrine, creates NO new state-store. The
+    down-lane stays active-rung + selection-scoped; unsourced rungs are surfaced, not
+    invented."""
+    zone_root = os.path.abspath(zone_root)
+    if current_tic is None:
+        current_tic = _resolve_federation_tic(zone_root)
+    if opened_tic is None:
+        opened_tic = current_tic
+
+    sel = select_kis_per_rung(zone_root, window_days=window_days)
+    cov_idx = _downlane_coverage_index(zone_root)
+
+    rung_records = sel.get("rungs", [])
+    if rung is not None:
+        rr = _resolve_rung_in_selection(sel, rung)
+        rung_records = [rr] if rr is not None else []
+
+    rungs_out, due_now = [], []
+    campaign_pairs = never = stale = fresh = 0
+
+    for rr in rung_records:
+        rung_dir = rr["dir"]
+        rung_name = rr["rung"]
+        idents = {rung_dir, rung_name, os.path.basename(rung_dir)}
+        cands = rr.get("ki_candidates") or []
+        auditable = bool(cands)
+
+        rec = {
+            "rung": rung_name, "dir": rung_dir,
+            "concern_source": rr.get("concern_source"),
+            "recommend_fork_A_declare": rr.get("recommend_fork_A_declare", False),
+            "auditable": auditable,
+        }
+        if not auditable:
+            rec["skip_reason"] = rr.get("note") or (
+                "no Stage-1 KI candidates — cannot down-audit this rung until its "
+                "concerns are sourced (fork-A declaration / re-derive owed). Surfaced, "
+                "not invented (Disagreement-as-evidence).")
+            rec["pairs"] = []
+            rungs_out.append(rec)
+            continue
+
+        targets = cands[:top]
+        pairs = []
+        for c in targets:
+            ki_id = c["invariant_id"]
+            cov = _downlane_coverage_for_pair(
+                cov_idx, idents, ki_id, current_tic, coverage_stale_tics)
+            pair = {"ki_id": ki_id, "name": c.get("name", ""),
+                    "selection_score": c.get("score")}
+            pair.update(cov)
+            pairs.append(pair)
+            campaign_pairs += 1
+            if cov["coverage"] == "never_audited":
+                never += 1
+                due_now.append({"rung": rung_name, "dir": rung_dir, "ki_id": ki_id,
+                                "name": c.get("name", ""), "reason": "never_audited",
+                                "last_audited_tic": None, "tics_since": None})
+            elif cov["coverage"] == "stale":
+                stale += 1
+                due_now.append({"rung": rung_name, "dir": rung_dir, "ki_id": ki_id,
+                                "name": c.get("name", ""), "reason": "stale",
+                                "last_audited_tic": cov["last_audited_tic"],
+                                "tics_since": cov["tics_since"]})
+            else:
+                fresh += 1
+        rec["pairs"] = pairs
+        rec["due_count"] = sum(1 for p in pairs
+                               if p["coverage"] in ("never_audited", "stale"))
+
+        if include_packets:
+            packet = build_downaudit_packet(
+                zone_root, rung_dir, ki_ids=None, top=top,
+                opened_tic=opened_tic, window_days=window_days)
+            rec["packet"] = packet
+            rec["packet_ok"] = bool(packet.get("ok"))
+        rungs_out.append(rec)
+
+    # never_audited first, then stale oldest-first (largest tics_since first)
+    due_now.sort(key=lambda d: (0 if d["reason"] == "never_audited" else 1,
+                                -(d.get("tics_since") or 0)))
+
+    return {
+        "audited_at": datetime.now(timezone.utc).isoformat(),
+        "zone_root": zone_root,
+        "stage": "C9 down-lane campaign (read-only RUNTIME driver — Stage 0→1→2 + coverage)",
+        "_status": "Down-lane campaign PLAN — read-only RUNTIME driver (M1). Assembles "
+                   "the full Stage-2 down-audit packet-set across the active rung set in "
+                   "one pass + a coverage/due manifest from the EXISTING finding "
+                   "manifold. NOT verdicts (the ladder-auditor judges), NOT a mutation "
+                   "(Stage 4 /review-gated).",
+        "_fence": "center-hold: runs no down-audit itself, emits no finding, opens no "
+                  "arena, demotes nothing, creates no new state-store. Coverage is read "
+                  "from the signal manifold; a 'due' pair is a campaign HYPOTHESIS, "
+                  "never a verdict about fit (Arena Velocity Guard).",
+        "current_tic": current_tic,
+        "opened_tic": opened_tic,
+        "coverage_stale_tics": coverage_stale_tics,
+        "top_per_rung": top,
+        "rung_filter": rung,
+        "include_packets": include_packets,
+        "concern_source": sel.get("concern_source"),
+        "scope_declaration": (
+            "Composes the wired read-only stages: Stage-0 discover_active_rungs (rung "
+            "marker + recency), Stage-1 select_kis_per_rung (KI.tags ∩ rung.concerns, "
+            "CANDIDATE), Stage-2 build_downaudit_packet (the ladder-auditor's read-only "
+            "judgment packet) — for every ACTIVE, SOURCED rung. Coverage is read from "
+            "the down-audit finding manifold (load_downaudit_findings, terminal-per-id), "
+            "keyed (rung-identity, ki_id) → latest opened_tic. CANNOT judge fit (the "
+            "auditor does), CANNOT down-audit an unsourced rung (surfaced, not invented), "
+            "does not pre-bias toward demotion. coverage_stale_tics (default "
+            f"{coverage_stale_tics}) is a heuristic re-audit window, overridable, never "
+            "a gate."
+        ),
+        "active_rung_count": sel.get("active_rung_count"),
+        "campaigned_rung_count": len(rungs_out),
+        "reconciliation": sel.get("reconciliation", {}),
+        "coverage_summary": {
+            "campaign_pairs": campaign_pairs,
+            "never_audited": never,
+            "stale": stale,
+            "fresh": fresh,
+            "due_now": never + stale,
+        },
+        "rungs": rungs_out,
+        "due_now": due_now,
+        "dispatch_hint": (
+            "Spawn one read-only ladder-auditor seat per packet (or a parallel 4-seat "
+            "medley, as the tic-493 campaign did). The seat declares its fire-shape "
+            "envelope + the D3 reflexive caveat, judges each (rung, KI), and returns "
+            "verdicts as text. The ORCHESTRATOR (sole writer) lands each via "
+            "`ladder-audit.py emit-finding`. This driver assembles + tracks coverage; it "
+            "never judges, emits, or inscribes. Prioritize due_now (never_audited first)."
+        ),
+    }
+
+
+def format_downlane_campaign(result):
+    """Human-readable down-lane campaign plan (read-only RUNTIME driver)."""
+    lines = []
+    lines.append("=" * 74)
+    lines.append("LADDER DOWN-LANE · campaign RUNTIME driver (read-only; M1 — Stage 0→1→2 + coverage)")
+    lines.append("=" * 74)
+    lines.append(f"  Zone root:      {result.get('zone_root', '?')}")
+    lines.append(f"  Current tic:    {result.get('current_tic')}    opened_tic: {result.get('opened_tic')}")
+    lines.append(f"  Concern source: {result.get('concern_source', '?')}")
+    lines.append(f"  Coverage-stale: ≥{result.get('coverage_stale_tics')} tics    top/rung: {result.get('top_per_rung')}")
+    lines.append(f"  Active rungs:   {result.get('active_rung_count')}    campaigned: {result.get('campaigned_rung_count')}")
+    lines.append("")
+    lines.append("  " + result.get("_status", ""))
+    lines.append("  " + result.get("_fence", ""))
+    lines.append("")
+    cs = result.get("coverage_summary", {})
+    lines.append("COVERAGE SUMMARY (campaign pairs across active rungs):")
+    lines.append("-" * 74)
+    lines.append(f"  pairs: {cs.get('campaign_pairs', 0)}    "
+                 f"never-audited: {cs.get('never_audited', 0)}    "
+                 f"stale: {cs.get('stale', 0)}    fresh: {cs.get('fresh', 0)}    "
+                 f"→ DUE NOW: {cs.get('due_now', 0)}")
+    rec = result.get("reconciliation", {})
+    if rec.get("active_but_unsourced"):
+        lines.append("  ⚠ active-but-unsourced (cannot down-audit until sourced): "
+                     + ", ".join(rec["active_but_unsourced"]))
+    lines.append("")
+    lines.append("PER-RUNG COVERAGE (selection ≠ verdict; a 'due' pair is a campaign hypothesis):")
+    lines.append("-" * 74)
+    for r in result.get("rungs", []):
+        if not r.get("auditable"):
+            lines.append(f"  · {r['rung']}  [{r['dir']}] — SKIP: {(r.get('skip_reason', '') or '')[:62]}")
+            continue
+        pk = ""
+        if result.get("include_packets"):
+            pk = " · packet:OK" if r.get("packet_ok") else " · packet:ERR"
+        lines.append(f"  ▸ {r['rung']}  [{r['dir']}]  "
+                     f"({r.get('due_count', 0)} due / {len(r.get('pairs', []))} pairs){pk}")
+        for p in r.get("pairs", []):
+            cov = p["coverage"]
+            mark = {"never_audited": "○ NEVER", "stale": "◐ STALE",
+                    "fresh": "● fresh "}.get(cov, cov)
+            if cov == "stale":
+                extra = f"  (last tic {p['last_audited_tic']}, {p['tics_since']}t ago, was {p['last_verdict']})"
+            elif cov == "fresh":
+                extra = f"  (tic {p['last_audited_tic']}, {p['last_verdict']})"
+            else:
+                extra = ""
+            lines.append(f"      {mark}  {p['ki_id']}{extra}")
+    due = result.get("due_now", [])
+    lines.append("")
+    lines.append(f"DUE-NOW CAMPAIGN ({len(due)} pairs — recommended next ladder-auditor dispatch, never_audited first):")
+    lines.append("-" * 74)
+    if not due:
+        lines.append("  (none — every campaign pair is fresh within the coverage window)")
+    for d in due[:40]:
+        if d["reason"] == "never_audited":
+            lines.append(f"  ○ {d['rung'][:26]:<26} {d['ki_id']}  [never audited]")
+        else:
+            lines.append(f"  ◐ {d['rung'][:26]:<26} {d['ki_id']}  [stale {d.get('tics_since')}t]")
+    if len(due) > 40:
+        lines.append(f"  … + {len(due) - 40} more (use --json for the full list)")
+    lines.append("")
+    lines.append("  dispatch: " + result.get("dispatch_hint", ""))
+    return "\n".join(lines)
+
+
 def main():
     parser = argparse.ArgumentParser(
         description="Ladder Coherence Audit — scan CLAUDE.md governance chain; "
@@ -2384,6 +2695,38 @@ def main():
                     help="Preview the receipt + resolved row without writing")
     rf.add_argument("--zone-root", default=None, dest="zone_root")
 
+    dlr = sub.add_parser(
+        "down-lane-run",
+        help="C9 down-lane RUNTIME driver (M1): run Stage 0→1→2 across the active rung "
+             "set in ONE read-only pass + compute coverage/due-ness from the EXISTING "
+             "finding manifold. The 'missing down-audit runtime' the §1 Sovereign Boot "
+             "Authority spec names — turns the hand-chained subcommands into a self-"
+             "pacing campaign. Read-only: assembles packets + coverage, emits no "
+             "finding, opens no arena, mutates no doctrine, creates no new state-store.")
+    dlr.add_argument("--rung", default=None,
+                     help="Scope the campaign to one active rung (dir/name/basename). "
+                          "Default: all active, sourced rungs.")
+    dlr.add_argument("--top", type=int, default=3,
+                     help="Top-N Stage-1 candidates per rung to campaign (default 3, "
+                          "matching the down-audit packet default)")
+    dlr.add_argument("--opened-tic", type=int, default=None, dest="opened_tic",
+                     help="Tic stamped into the assembled packets (default: current tic)")
+    dlr.add_argument("--current-tic", type=int, default=None, dest="current_tic",
+                     help="Current federation tic for coverage staleness "
+                          "(auto-resolved from the tic log if omitted)")
+    dlr.add_argument("--coverage-stale-tics", type=int,
+                     default=DOWNAUDIT_COVERAGE_STALE_TICS, dest="coverage_stale_tics",
+                     help="A (rung,KI) pair last audited >= this many tics ago is "
+                          f"flagged stale/re-audit (heuristic, default "
+                          f"{DOWNAUDIT_COVERAGE_STALE_TICS}; never a gate)")
+    dlr.add_argument("--window-days", type=float, default=ACTIVE_RUNG_WINDOW_DAYS,
+                     dest="window_days",
+                     help=f"Stage-0 recency window in days (default {ACTIVE_RUNG_WINDOW_DAYS})")
+    dlr.add_argument("--no-packets", action="store_true", dest="no_packets",
+                     help="Skip Stage-2 packet assembly — emit only the coverage/due "
+                          "manifest (fast path for cadence display)")
+    dlr.add_argument("--zone-root", default=None, dest="zone_root")
+
     args = parser.parse_args()
 
     if args.command == "list-findings":
@@ -2414,6 +2757,24 @@ def main():
             reversible=(not args.irreversible), made_known=args.made_known,
             resolved_tic=args.resolved_tic, dry_run=args.dry_run)
         print(json.dumps(result, indent=2))
+        return
+
+    if args.command == "down-lane-run":
+        zone_root = args.zone_root or args.project_dir or resolve_zone_root()
+        result = run_downlane_campaign(
+            zone_root, rung=args.rung, top=args.top, opened_tic=args.opened_tic,
+            current_tic=args.current_tic,
+            coverage_stale_tics=args.coverage_stale_tics,
+            window_days=args.window_days, include_packets=(not args.no_packets))
+        if args.output:
+            Path(args.output).parent.mkdir(parents=True, exist_ok=True)
+            Path(args.output).write_text(
+                json.dumps(result, indent=2) + "\n", encoding="utf-8")
+            print(f"Down-lane campaign written to {args.output}")
+        elif args.json:
+            print(json.dumps(result, indent=2))
+        else:
+            print(format_downlane_campaign(result))
         return
 
     if args.command == "down-audit":
