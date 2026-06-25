@@ -501,6 +501,76 @@ def compute_due_cycles(tic: int) -> list:
     return cycles
 
 
+# --- M1 cadence-wiring (tic 503): C9 down-lane campaign auto-fire (build-and-gate) ---
+# The down-lane RUNTIME driver (ladder-audit.py down-lane-run, built tic 503) computes
+# coverage/due-ness across the active rung set from the EXISTING finding manifold. This
+# step auto-fires it on the ladder_audit cadence (mod 5, per compute_due_cycles) so the
+# down-lane becomes self-pacing instead of hand-chained (the tic-490/493 manual campaigns)
+# — the cadence half of M1 ("C9 down-lane WIRED", sovereign-boot-authority-spec.md §4).
+#
+# Build-and-gate (cgg-ledger#build-and-gate-ratified-flag-gated-consumer): the wiring
+# touches the load-bearing cadence clock, so it ships DORMANT — C9_DOWNLANE_CADENCE_RATIFIED
+# defaults False (a no-op that records its own dormancy). /review flips the flag (ratification
+# IS the flag-flip; no further code change). Dual-proven: dormancy (False → no-op, writes
+# nothing) + activation (force_ratified → full surface at the ladder_audit-due tic).
+#
+# Center-hold: the driver is READ-ONLY — it emits no finding (the ladder-auditor judges, the
+# orchestrator lands via emit-finding), opens no arena, mutates no doctrine, no new state-store
+# (the campaign artifact is a regenerable overwrite-latest observability file). Fail-soft.
+C9_DOWNLANE_CADENCE_RATIFIED = False
+
+
+def run_c9_downlane_cadence_step(zone_root, tic, force_ratified=False):
+    """Auto-fire the read-only C9 down-lane RUNTIME driver when the ladder_audit cycle is
+    due (M1 cadence-wiring). Build-and-gate: DORMANT unless ratified. Read-only, fail-soft;
+    never raises, never blocks cadence. Returns a result dict (ran / dormant / not_due /
+    error) recording exactly why it did or did not fire."""
+    ratified = C9_DOWNLANE_CADENCE_RATIFIED or force_ratified
+    try:
+        due = "ladder_audit" in compute_due_cycles(tic)
+    except Exception as err:  # noqa: BLE001 — fail-soft
+        return {"ran": False, "error": f"due-check failed: {err}"}
+    if not ratified:
+        return {
+            "ran": False, "ratified": False, "due": due,
+            "reason": "DORMANT (build-and-gate: C9_DOWNLANE_CADENCE_RATIFIED=False; "
+                      "/review 503 flips it). The down-lane-run driver is built + wired; "
+                      "only its cadence auto-fire is flag-gated.",
+        }
+    if not due:
+        return {
+            "ran": False, "ratified": True, "due": False,
+            "reason": f"ladder_audit not due at tic {tic} (fires mod 5); no campaign this cadence",
+        }
+    script = Path(__file__).resolve().parent / "ladder-audit.py"
+    if not script.exists():
+        return {"ran": False, "ratified": True, "due": True,
+                "reason": f"ladder-audit.py not found at {script}"}
+    artifact = (Path(zone_root) / "audit-logs" / "governance"
+                / "c9-downlane-campaign-latest.json")
+    try:
+        proc = subprocess.run(
+            ["python3", str(script), "--output", str(artifact),
+             "down-lane-run", "--no-packets", "--current-tic", str(tic)],
+            capture_output=True, text=True, timeout=90,
+        )
+        due_now = None
+        try:
+            data = json.loads(artifact.read_text(encoding="utf-8"))
+            due_now = data.get("coverage_summary", {}).get("due_now")
+        except Exception:  # noqa: BLE001 — artifact-parse best-effort
+            pass
+        return {
+            "ran": True, "ratified": True, "due": True,
+            "exit_code": proc.returncode, "ok": proc.returncode == 0,
+            "artifact": str(artifact), "due_now": due_now,
+            "summary": (f"down-lane campaign assembled: {due_now} due-now pairs "
+                        f"(tic {tic}) — dispatch ladder-auditor seats from the artifact"),
+        }
+    except Exception as err:  # noqa: BLE001 — fail-soft
+        return {"ran": False, "ratified": True, "due": True, "error": str(err)}
+
+
 def wait_for_runner_quiescence(mandate_path: Path, timeout_s: float = 30.0,
                                 poll_interval_s: float = 2.0) -> dict:
     """Wait for mogul-runner to leave 'running' state before mandate write.
@@ -966,6 +1036,16 @@ def main():
             "ran": False,
             "reason": "rollup absorber not found at expected path",
         }
+
+    # 5c. C9 down-lane campaign auto-fire (tic 503, M1 cadence-wiring) — build-and-gate,
+    # ships DORMANT. When the ladder_audit cycle is due (mod 5, per compute_due_cycles)
+    # AND ratified, fires the read-only down-lane RUNTIME driver (ladder-audit.py
+    # down-lane-run) to assemble the coverage/due campaign the orchestrator dispatches
+    # ladder-auditor seats from — the cadence half of M1 (turns the tic-490/493
+    # hand-chained campaigns into a self-pacing lane). Center-hold: read-only (no finding,
+    # no arena, no doctrine mutation). Same fail-soft observability-subprocess pattern as
+    # the steps above; never blocks cadence. /review 503 flips C9_DOWNLANE_CADENCE_RATIFIED.
+    result["c9_downlane_cadence"] = run_c9_downlane_cadence_step(zone_root, tic_count)
 
     # 6. Claude agents snapshot (tic 270) — read-only observability sensor.
     # Born tic 270 under Architect Path C adoption. Captures native Claude
