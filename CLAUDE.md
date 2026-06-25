@@ -36,6 +36,8 @@
   - *Ledger:* [`cgg-ledger/ledger.md#arguments-frontmatter-is-decorative`](cgg-ledger/ledger.md#arguments-frontmatter-is-decorative)
 - **Extractor Surface Schema Contract** — Tools that extract governance artifacts (CogPRs, signals, bench packets) from canonical surfaces must declare their input schema contract — which files they read, what section markers they search for, what output stru…
   - *Ledger:* [`cgg-ledger/ledger.md#extractor-surface-schema-contract`](cgg-ledger/ledger.md#extractor-surface-schema-contract)
+- **Harness-Agnostic Is Verified Against Runtime Ground Truth** — "Harness-agnostic" is not a static property but one RE-EARNED at every external-harness version bump by re-confirming each coupling against runtime ground truth, not lagging published schema.
+  - *Ledger:* [`cgg-ledger/ledger.md#harness-agnostic-is-verified-against-runtime-ground-truth-not-lagging-published-schema`](cgg-ledger/ledger.md#harness-agnostic-is-verified-against-runtime-ground-truth-not-lagging-published-schema)
 
 ## Mandate And Cadence Ops
 
@@ -71,6 +73,8 @@
   - *Ledger:* [`cgg-ledger/ledger.md#cross-cadence-rails-inbox-marker-dependency-satisfaction-primitive`](cgg-ledger/ledger.md#cross-cadence-rails-inbox-marker-dependency-satisfaction-primitive)
 - **review-close-check Verifier — Dehydration Blindspot** — review-close-check.py searches canonical/CLAUDE.md for promoted CogPR text and emits `promoted_text_missing` findings when not found.
   - *Ledger:* [`cgg-ledger/ledger.md#review-close-check-verifier-dehydration-blindspot`](cgg-ledger/ledger.md#review-close-check-verifier-dehydration-blindspot)
+- **Priority Is Calibrated at Cadence, Not Boot** — A relative priority score is meaningful only against the active terminal set, so it is calibrated at cadence, not frozen at boot.
+  - *Ledger:* [`cgg-ledger/ledger.md#priority-is-calibrated-at-cadence-not-boot`](cgg-ledger/ledger.md#priority-is-calibrated-at-cadence-not-boot)
 
 ## Arena And Reasoning Geometry
 
@@ -102,6 +106,8 @@
   - *Ledger:* [`cgg-ledger/ledger.md#oa-vpl-t-arena-geometry`](cgg-ledger/ledger.md#oa-vpl-t-arena-geometry)
 - **Shared-Telos Arena: Stress Method-Optimization, Not Intent Divergence** — In a shared-Telos office arena, convergence-on-INTENT is expected and low-information; the adversarial yield is each office advocating the METHOD-of-execution that optimizes its OWN stewardship lens. *(tic 377)*
   - *Ledger:* [`cgg-ledger/ledger.md#shared-telos-arena-stress-method-not-intent`](cgg-ledger/ledger.md#shared-telos-arena-stress-method-not-intent)
+- **Stage Prose Template Compression Must Be Declared** — The OA-VPL-T/VPL/CRX arena templates prescribe full phases; if a run compresses them, the compression must be DECLARED, not silently applied.
+  - *Ledger:* [`cgg-ledger/ledger.md#stage-prose-template-compression-must-be-declared`](cgg-ledger/ledger.md#stage-prose-template-compression-must-be-declared)
 
 ## Signal And Queue Manifold
 
@@ -139,6 +145,14 @@
   - *Ledger:* [`cgg-ledger/ledger.md#queue-jsonl-drift-audit-primitive`](cgg-ledger/ledger.md#queue-jsonl-drift-audit-primitive)
 - **Self-Conditioning Discipline — Thin Terminal Residue Prevents Regression** — A self-conditioning declaration discipline needs a thin append-only terminal residue on an existing surface to avoid regressing into a rebuilt mutable state-store; the residue/state-store boundary = append-only+terminal+existing-surface (legitimate) vs mutable+polled+new-surface (category error). *(tic 377)*
   - *Ledger:* [`cgg-ledger/ledger.md#self-conditioning-discipline-needs-thin-terminal-residue`](cgg-ledger/ledger.md#self-conditioning-discipline-needs-thin-terminal-residue)
+- **Machine-Emitter Emit/Resolve Symmetry + Chronological Status-Truth** — A machine-emitter writing a signal on condition-DETECTION must carry a paired resolve-on-HEAL path, or signals accumulate as write-only TENSION debt.
+  - *Ledger:* [`cgg-ledger/ledger.md#machine-emitter-emit-resolve-symmetry-and-chronological-status-truth`](cgg-ledger/ledger.md#machine-emitter-emit-resolve-symmetry-and-chronological-status-truth)
+- **Emission Granularity Is the Leak** — A watcher that correctly re-surfaces a standing condition but emits ONE ray PER underlying item floods the manifold; aggregate to a per-owner rollup ray.
+  - *Ledger:* [`cgg-ledger/ledger.md#emission-granularity-is-the-leak-not-the-obligation`](cgg-ledger/ledger.md#emission-granularity-is-the-leak-not-the-obligation)
+- **An Absorber That Makes Raw Droppable Needs a Per-Tic Invoker** — A telemetry/state absorber whose contract is "raw becomes droppable because it is absorbed first" must have a per-tic invoker, or its snapshot freezes and the no-dark guarantee silently lapses.
+  - *Ledger:* [`cgg-ledger/ledger.md#absorber-needs-per-tic-invoker-or-no-dark-guarantee-lapses`](cgg-ledger/ledger.md#absorber-needs-per-tic-invoker-or-no-dark-guarantee-lapses)
+- **New Consumer Over Long-Lived Emitter Surface Must Be Scope-Bounded, Not Retroactive** — Wiring a NEW automatic consumer to a long-lived emitter surface with accreted history is a retroactive-ingestion hazard; scope-bound the consumer (recency window), don't retro-ingest all history.
+  - *Ledger:* [`cgg-ledger/ledger.md#new-consumer-over-long-lived-emitter-surface-must-be-scope-bounded-not-retroactive`](cgg-ledger/ledger.md#new-consumer-over-long-lived-emitter-surface-must-be-scope-bounded-not-retroactive)
 
 ## Review And Promotion Discipline
 
@@ -170,6 +184,16 @@
   - *Ledger:* [`cgg-ledger/ledger.md#fix-then-present-self-presentation-honesty`](cgg-ledger/ledger.md#fix-then-present-self-presentation-honesty)
 - **Build-and-Gate — Wired-but-Ratification-Gated Consumer for a Doctrine-Adjacent Model** — When you build a doctrine-adjacent model a live consumer would read (boot renderer/router/dispatch gate), don't choose defer-the-wiring vs ship-it-live: build+wire+test the consumer but gate its USE on an explicit `ratified` flag (default false) carried IN the model; /review flips it (ratification IS the flag-flip, no further code change). Build lands hot, effect is one human-gated bit. Needs DUAL proof: dormancy (0-at-false) + full-surface activation (exercise the whole consumer surface at true, not one happy-path — the reciprocal to-side gap that slipped the tic-429 from-side proof). *(tic 429→430)*
   - *Ledger:* [`cgg-ledger/ledger.md#build-and-gate-ratified-flag-gated-consumer`](cgg-ledger/ledger.md#build-and-gate-ratified-flag-gated-consumer)
+- **Baseline Classification Decoupled From Enrichment Firing Lane** — A CogPR's classification baseline (class/tier/type) must be DECOUPLED from the full-enrichment firing lane, so a baseline exists before enrichment runs.
+  - *Ledger:* [`cgg-ledger/ledger.md#baseline-classification-decoupled-from-enrichment-firing-lane`](cgg-ledger/ledger.md#baseline-classification-decoupled-from-enrichment-firing-lane)
+- **A Covenant-Strike Fires Only Post-/review-Ratification** — A terminal-essence covenant-strike fires only post-/review-ratification — craft is separated from strike by BOTH a /review gate AND a boot boundary.
+  - *Ledger:* [`cgg-ledger/ledger.md#covenant-strike-fires-only-post-review-ratification`](cgg-ledger/ledger.md#covenant-strike-fires-only-post-review-ratification)
+- **Silent Transition Deadlock (Gate Checks the Next State's Output)** — A lifecycle transition deadlocks silently when its only writer is an unscheduled model-only agent AND its gate requires an artifact produced only AFTER the transition; give it a deterministic on-disk reconciler.
+  - *Ledger:* [`cgg-ledger/ledger.md#silent-transition-deadlock-gate-checks-next-state-output`](cgg-ledger/ledger.md#silent-transition-deadlock-gate-checks-next-state-output)
+- **ID-Form Divergence Voids Cross-Surface Writeback** *(refines Atomic Dual-Surface Invariant Mechanization)* — A cross-surface writeback must key on the SAME id-form the target carries; a fresh surrogate id (content hash) vs the source's declared id silently no-ops the writeback.
+  - *Ledger:* [`cgg-ledger/ledger.md#id-form-divergence-voids-cross-surface-writeback`](cgg-ledger/ledger.md#id-form-divergence-voids-cross-surface-writeback)
+- **Promoted-Spec Build Obligation Outlives Spec-Doc Archival or Move** — A promoted-spec's build obligation survives the spec doc being archived/moved; dropping it at the spec→impl/deprecation step lets the cruft it was meant to prevent accumulate.
+  - *Ledger:* [`cgg-ledger/ledger.md#promoted-spec-build-obligation-outlives-spec-doc-archival-or-move`](cgg-ledger/ledger.md#promoted-spec-build-obligation-outlives-spec-doc-archival-or-move)
 
 ## Subagent And Swarm Delegation
 
@@ -187,6 +211,10 @@
   - *Ledger:* [`cgg-ledger/ledger.md#mixed-subagent-lead-swarm-geometry`](cgg-ledger/ledger.md#mixed-subagent-lead-swarm-geometry)
 - **Triplet Self-Spawn for Substrate Moments — Three-Posture Instance Reference** — Triplet self-spawn dispatches three same-skill instances on a single substrate signal, differentiated by POSTURE (not task), so the postures triangulate into a synthesis no single posture would produce — sub-class of…
   - *Ledger:* [`cgg-ledger/ledger.md#triplet-self-spawn-for-substrate-moments-three-posture-instance-reference`](cgg-ledger/ledger.md#triplet-self-spawn-for-substrate-moments-three-posture-instance-reference)
+- **Headless Delegate Structured Emission Contract** — When a headless delegate (`claude -p`) executes work a downstream verifier reads, the delegate must emit the verifier's required structured key per executed unit (declare the contract in the prompt).
+  - *Ledger:* [`cgg-ledger/ledger.md#headless-delegate-structured-emission-contract`](cgg-ledger/ledger.md#headless-delegate-structured-emission-contract)
+- **Shadow/Apprentice Requires Full Input Parity and Co-Mutation** — A shadow/apprentice model must get the SAME full input fidelity + output capacity + co-mutation as the process it shadows, or measured dissonance reflects harness limits, not the process.
+  - *Ledger:* [`cgg-ledger/ledger.md#shadow-apprentice-requires-full-input-parity-and-co-mutation`](cgg-ledger/ledger.md#shadow-apprentice-requires-full-input-parity-and-co-mutation)
 
 ## Sync And Install Parity
 
@@ -202,6 +230,8 @@
   - *Ledger:* [`cgg-ledger/ledger.md#verifier-install-path-via-sync-manifest`](cgg-ledger/ledger.md#verifier-install-path-via-sync-manifest)
 - **Boot-Seam Duality (Primary SessionStart vs Citizens SubagentStart)** — The primary orchestrator boots via SessionStart (`session-restore.sh`, exec'd from an INSTALLED copy via a patch shim); spawned citizens boot via SubagentStart (`subagent-citizen-boot.py`, fires from SOURCE). A boot injection for "every citizen including the primary" is TWO wirings — wiring only SubagentStart silently omits the primary; verify sync-parity on the installed SessionStart hook specifically.
   - *Ledger:* [`cgg-ledger/ledger.md#boot-seam-duality-primary-sessionstart-citizens-subagentstart`](cgg-ledger/ledger.md#boot-seam-duality-primary-sessionstart-citizens-subagentstart)
+- **Live-Wiring Is a Build, Not a Config Flip** — Live-wiring a render-proven tool into a hook EVENT is a BUILD (full build+sync+parity discipline), not a config flip.
+  - *Ledger:* [`cgg-ledger/ledger.md#live-wiring-is-a-build-not-a-config-flip`](cgg-ledger/ledger.md#live-wiring-is-a-build-not-a-config-flip)
 
 ## Verification And Proof Discipline
 
@@ -229,6 +259,28 @@
   - *Ledger:* [`cgg-ledger/ledger.md#atomic-dual-surface-invariant-mechanization`](cgg-ledger/ledger.md#atomic-dual-surface-invariant-mechanization)
 - **Cross-File Pointer Integrity Verification** — When a multi-file refactor produces a new authoring artifact whose body contains pointers (anchors, hyperlinks, refs) into a companion artifact, the pre-swap verification gate MUST include a pointer-integrity diff: co…
   - *Ledger:* [`cgg-ledger/ledger.md#cross-file-pointer-integrity-verification`](cgg-ledger/ledger.md#cross-file-pointer-integrity-verification)
+- **Self-Locating Artifact Test Isolation** — A self-locating runtime artifact (resolves its operating root by walking up from `Path(__file__)` to a marker) needs explicit root-pinning under test, or fixtures leak into the real zone.
+  - *Ledger:* [`cgg-ledger/ledger.md#self-locating-artifact-test-isolation`](cgg-ledger/ledger.md#self-locating-artifact-test-isolation)
+- **Clean Primary Proof Outranks the Audited Escape-Hatch in Gate Precedence** — A gate admitting both a clean primary proof (valid receipt) and an audited escape-hatch (override) must evaluate the clean proof FIRST — the override is the fallback, never the precedent.
+  - *Ledger:* [`cgg-ledger/ledger.md#clean-proof-outranks-escape-hatch-in-gate-precedence`](cgg-ledger/ledger.md#clean-proof-outranks-escape-hatch-in-gate-precedence)
+- **A Mutation Gate's Command Classifier Gates the WRITE SIGNAL, Not the Mere Path MENTION** — A mutation gate classifying free-form COMMANDS (Bash) must gate the WRITE SIGNAL, not the mere MENTION of a governed path (else it over-blocks reads that merely reference the path).
+  - *Ledger:* [`cgg-ledger/ledger.md#mutation-gate-classifier-gates-write-signal-not-path-mention`](cgg-ledger/ledger.md#mutation-gate-classifier-gates-write-signal-not-path-mention)
+- **Blocker-Type Taxonomy (Gate vs Capability vs Build)** — When a live action cannot execute, classify the BLOCKER'S TYPE (gate / capability / build) before reporting — each has a different owner and resolution; never fake a live receipt against a fake transport.
+  - *Ledger:* [`cgg-ledger/ledger.md#blocker-type-classification-gate-vs-capability-vs-build`](cgg-ledger/ledger.md#blocker-type-classification-gate-vs-capability-vs-build)
+- **Apophatic-Aperture Disclosure** — A bounded read/render receipt proves SUFFICIENCY by declaring the read aperture AND naming the excluded negative space as real and potentially load-bearing.
+  - *Ledger:* [`cgg-ledger/ledger.md#apophatic-aperture-disclosure-prove-coverage-name-negative-space`](cgg-ledger/ledger.md#apophatic-aperture-disclosure-prove-coverage-name-negative-space)
+- **Full-Read Is Surface-Typed** — "Full read" is surface-typed: a JSONL registry's required coverage is its terminal-valve projection (latest-per-id), not every historical row.
+  - *Ledger:* [`cgg-ledger/ledger.md#full-read-is-surface-typed-terminal-valve-coverage-is-required-coverage`](cgg-ledger/ledger.md#full-read-is-surface-typed-terminal-valve-coverage-is-required-coverage)
+- **Producer Seal Is a Typed Field Aperture** — A producer-side SEAL (budget truncation) must meet the consumer-side apophatic standard: name the sealed IDs, not just a count.
+  - *Ledger:* [`cgg-ledger/ledger.md#producer-seal-is-a-typed-field-aperture-sealed-ids-not-count`](cgg-ledger/ledger.md#producer-seal-is-a-typed-field-aperture-sealed-ids-not-count)
+- **The Corrector Inherits the Verification Obligation** — When a workflow/subagent returns a PATCH bundled with PREDICTED metrics, the corrector must MEASURE each against the real artifact, not trust the prediction.
+  - *Ledger:* [`cgg-ledger/ledger.md#the-corrector-inherits-the-verification-obligation`](cgg-ledger/ledger.md#the-corrector-inherits-the-verification-obligation)
+- **Anchor-Field Iteration Over-Collects When the Last Anchor Is Unbounded** *(refines Boundary-Aware Body Extraction)* — Iterating an ANCHOR field and collecting co-located text "to the next same-anchor occurrence" over-collects at every boundary the anchor doesn't mark; bound each record at its next structural heading.
+  - *Ledger:* [`cgg-ledger/ledger.md#anchor-field-iteration-over-collects-last-anchor-unbounded`](cgg-ledger/ledger.md#anchor-field-iteration-over-collects-last-anchor-unbounded)
+- **Footgun Guard at Perception Layer Warns After the Footgun Already Fired** — A footgun guard that only DETECTS-and-WARNS is a perception-layer guard (fires after the damage); the real fix is a physics-layer guard at the execution boundary.
+  - *Ledger:* [`cgg-ledger/ledger.md#footgun-guard-at-perception-layer-warns-after-the-footgun-already-fired`](cgg-ledger/ledger.md#footgun-guard-at-perception-layer-warns-after-the-footgun-already-fired)
+- **Named Footgun Guard Leaves Sibling Site Unfixed** — A footgun-guard applied to ONE function silently leaves a SIBLING function in the same file carrying the un-guarded footgun the promotion already named — fix-site and bug-sibling-site are a closed consumer set.
+  - *Ledger:* [`cgg-ledger/ledger.md#named-footgun-guard-leaves-sibling-site-unfixed`](cgg-ledger/ledger.md#named-footgun-guard-leaves-sibling-site-unfixed)
 
 ## Memory And Inscription Hygiene
 
@@ -366,3 +418,5 @@
   - *Ledger:* [`cgg-ledger/ledger.md#r-roadrunner-runtime-context-sharpening-pattern`](cgg-ledger/ledger.md#r-roadrunner-runtime-context-sharpening-pattern)
 - **Cockpit.intent Invocation Discipline (T2b)** — `cockpit.intent` (30th envelope class, `ak_control_room/envelopes.yaml`) emits via three governed surfaces per T2b spec (`audit-logs/governance/cockpit-intent-t2b-invocation-discipline-spec-tic264.md`); a fourth surfa…
   - *Ledger:* [`cgg-ledger/ledger.md#cockpit-intent-invocation-discipline-t2b`](cgg-ledger/ledger.md#cockpit-intent-invocation-discipline-t2b)
+- **Uncommitted-By-Design Content Requires Physics-Layer Gitignore Guard** — "Uncommitted-by-design" is fragile ambient state, not a guard; enforce it with a physics-layer .gitignore so it can't be accidentally committed.
+  - *Ledger:* [`cgg-ledger/ledger.md#uncommitted-by-design-content-requires-physics-layer-gitignore-guard`](cgg-ledger/ledger.md#uncommitted-by-design-content-requires-physics-layer-gitignore-guard)
