@@ -517,7 +517,12 @@ def compute_due_cycles(tic: int) -> list:
 # Center-hold: the driver is READ-ONLY — it emits no finding (the ladder-auditor judges, the
 # orchestrator lands via emit-finding), opens no arena, mutates no doctrine, no new state-store
 # (the campaign artifact is a regenerable overwrite-latest observability file). Fail-soft.
-C9_DOWNLANE_CADENCE_RATIFIED = False
+#
+# RATIFIED /review 503 (Architect-directed "continue M1 cadence-wiring, via /review"): the
+# build-and-gate flag is flipped True — the dual-proof (dormancy + activation @ tic 505) was
+# the ratification evidence. The lane is now LIVE: at each ladder_audit-due cadence (mod 5,
+# first fire tic 505) it assembles the read-only coverage/due campaign. The cadence half of M1.
+C9_DOWNLANE_CADENCE_RATIFIED = True  # /review 503 — was False (dormant build-and-gate)
 
 
 def run_c9_downlane_cadence_step(zone_root, tic, force_ratified=False):
