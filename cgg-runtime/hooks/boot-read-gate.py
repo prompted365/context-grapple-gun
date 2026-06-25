@@ -9,9 +9,11 @@ anti-pattern, the very refinement promoted at /review 406).
 POSTURE — NARROW + FAIL-CLOSED (Architect, tic 406):
   * NARROW — gates ONLY the governance-mutation class (doctrine/ledger inscription,
     CLAUDE.md mutation, queue.jsonl promotion/terminal movement, mandate close/status
-    mutation, backlog state movement, boot-injection mutation, active-manifest mutation).
-    Read/Grep/Glob, diagnostic Bash, draft/spec prep, and WRITING THE BOOT RECEIPT ITSELF
-    are never gated.
+    mutation, backlog state movement, boot-injection mutation, active-manifest mutation)
+    AND the review-INPUT class (tic 502, arm A): born candidates, counsel/review
+    verification receipts, ripple proposals, enrichment consolidations, and proof-VERDICT
+    edits recorded onto specs. Read/Grep/Glob, diagnostic Bash, plain draft/spec prep
+    (no verdict marker), and WRITING THE BOOT RECEIPT ITSELF are never gated.
   * FAIL-CLOSED on the CONDITION — a missing / false / preview_only / incomplete boot-read
     receipt for the current tic BLOCKS a governed mutation (PreToolUse exit 2). Perception
     debt cannot authorize governance mutation. The audited, non-silent escape is an
@@ -69,16 +71,46 @@ _DOCTRINE_PATH_MARKERS = (
     "boot-injections/active.jsonl", "signals/active-manifest.jsonl",
     "governance/backlog/backlog.jsonl",
 )
+# ── review-input perimeter (tic 502 · bk-boot-read-gate-review-input-perimeter · ARM A) ──
+# LAW cgg-ledger#precondition-gate-perimeter-completeness: a precondition gate must COVER every
+# surface that becomes counsel/review INPUT, OR explicitly DECLARE the exemption — a silent
+# asymmetry is the defect. Arm A (Architect, tic 502): EXTEND coverage. The tic-500 evidence —
+# the gate blocked `backlog.py --state` (a STATE surface) but let a born Write + a
+# counsel-verification-receipt Edit land un-gated — is the asymmetry this closes. These Edit/Write
+# file_path tails ARE review-input surfaces, authored as FINALIZED review input (not reversible
+# draft prep), so review input cannot be authored under perception debt:
+_REVIEW_INPUT_PATH_MARKERS = (
+    "/borns-",                       # born CogPR candidates → cpr-extract → /review
+    "grapple-proposals/",            # ripple-assessor proposal packet → /review docket
+    "governance/enrichment/",        # CogPR enrichment consolidations → /review
+    "_COUNSEL_VERIFICATION",         # counsel/review verification receipts (PACKET form)
+    "counsel-verification",
+    "-verification-receipt",
+)
+# DECLARED EXEMPTION (the perimeter's other half — the LAW is satisfied by cover-OR-declare):
+#   * Plain spec / draft prep — a `*-spec-*.md` (or any governance/*.md) edited WITHOUT a verdict
+#     marker — stays UN-gated: it is reversible authoring, and /review RE-READS it fresh at the
+#     human gate, so the load-bearing read-attestation is at /review-TIME, not draft-WRITE-time.
+#     HOLDING the tic-407 tension: do NOT collapse to "gate every spec edit" (that re-introduces
+#     the over-block). The narrow review-INPUT case on a spec — RECORDING a proof/review VERDICT
+#     onto it — IS gated, detected by a verdict marker in the WRITTEN CONTENT (below), not by path.
+_VERDICT_CONTENT_MARKERS = (
+    "review_verdict:", "review_verdict=",
+    "verdict: PROMOTE", "verdict: PATH", "verdict: DEFER", "verdict: REJECT", "verdict: SKIP",
+)
 # Bash governed-state WRITE scripts — invoking these mutates governed state directly.
 _DOCTRINE_WRITE_SCRIPTS = (
     "review-promote-writeback.py",
 )
 # Governed-state surface path fragments. A WRITE whose target is one of these is a
 # mutation; a READ or git-VERSIONING that merely names one is NOT (tic-407 over-block fix).
+# Includes the path-identifiable review-input surfaces (tic 502) so a redirect/tee/sed-i write
+# to a born / proposal / enrichment file is gated symmetrically with the Edit/Write path.
 _GOVERNED_SURFACES = (
     "/CLAUDE.md", "constitution-ledger/ledger.md", "cgg-ledger/ledger.md",
     "cprs/queue.jsonl", "mandates/current.json", "active-manifest.jsonl",
     "boot-injections/active.jsonl", "governance/backlog/backlog.jsonl",
+    "/borns-", "grapple-proposals/", "governance/enrichment/",
 )
 # Things that LOOK mutating but are NOT gated — writing the receipt itself.
 _NEVER_GATE_CMD = ("boot-receipt.py",)
@@ -111,10 +143,21 @@ def _writes_to_governed(cmd: str) -> bool:
     return False
 
 
-def _is_doctrine_mutation(tool: str, file_path: str, command: str) -> bool:
+def _is_doctrine_mutation(tool: str, file_path: str, command: str, content: str = "") -> bool:
     if tool in ("Edit", "Write", "NotebookEdit"):
         fp = file_path or ""
-        return any(m in fp for m in _DOCTRINE_PATH_MARKERS)
+        # governed-STATE surfaces (always gated)
+        if any(m in fp for m in _DOCTRINE_PATH_MARKERS):
+            return True
+        # review-INPUT surfaces (tic 502, arm A) — finalized review input, gated by path
+        if any(m in fp for m in _REVIEW_INPUT_PATH_MARKERS):
+            return True
+        # a proof/review VERDICT recorded onto a spec / governance markdown — review input by
+        # CONTENT, not path (so plain spec drafting stays un-gated: the declared exemption above)
+        if fp.endswith(".md") and ("governance/" in fp or "-spec-" in fp or "_spec_" in fp):
+            if any(v in (content or "") for v in _VERDICT_CONTENT_MARKERS):
+                return True
+        return False
     if tool == "Bash":
         cmd = command or ""
         if any(n in cmd for n in _NEVER_GATE_CMD):
@@ -163,7 +206,9 @@ def decide(raw: str) -> tuple:
         ti = evt.get("tool_input") or {}
         fp = ti.get("file_path") or ""
         cmd = ti.get("command") or ""
-        if not _is_doctrine_mutation(tool, fp, cmd):
+        # written content (for the review-input verdict-content check) — Edit=new_string, Write=content
+        content = ti.get("new_string") or ti.get("content") or ""
+        if not _is_doctrine_mutation(tool, fp, cmd, content):
             return False, ""  # NARROW — not a governed mutation, never gate
         tic = _current_tic()
         if tic is None:
@@ -236,6 +281,25 @@ def _self_test() -> int:
           not _is_doctrine_mutation("Edit", "src/main.rs", ""))
     check("Read is never a mutation (no Edit/Write/Bash)",
           not _is_doctrine_mutation("Read", "audit-logs/governance/constitution-ledger/ledger.md", ""))
+    # review-input perimeter (tic 502, bk-boot-read-gate-review-input-perimeter, ARM A)
+    check("Write a born IS review-input-gated",
+          _is_doctrine_mutation("Write", "audit-logs/governance/borns-tic502-x.md", ""))
+    check("Write grapple-proposals IS review-input-gated",
+          _is_doctrine_mutation("Write", "/Users/x/.claude/grapple-proposals/latest.md", ""))
+    check("Write enrichment consolidation IS review-input-gated",
+          _is_doctrine_mutation("Write", "audit-logs/governance/enrichment/CogPR-9.consolidated.json", ""))
+    check("Edit counsel-verification receipt IS review-input-gated",
+          _is_doctrine_mutation("Edit", "audit-logs/governance/SOVEREIGN_PACKET_COUNSEL_VERIFICATION_TIC500.md", ""))
+    check("Edit a spec WITHOUT a verdict marker is NOT gated (draft-prep exemption held — tic-407 tension)",
+          not _is_doctrine_mutation("Edit", "audit-logs/governance/foo-spec-tic1.md", "", "draft prose about the strike mechanic"))
+    check("Edit a spec WITH a verdict marker IS gated (proof-verdict review input, by content)",
+          _is_doctrine_mutation("Edit", "audit-logs/governance/foo-spec-tic1.md", "", "STRIKE-3 result\nreview_verdict: PROMOTE"))
+    check("Write a NON-governance .md is NOT gated even with a verdict-looking word (scoped to governance/spec)",
+          not _is_doctrine_mutation("Write", "docs/readme.md", "", "verdict: PROMOTE"))
+    check("Bash > into a born IS review-input-gated (redirect write)",
+          _is_doctrine_mutation("Bash", "", "echo x > audit-logs/governance/borns-tic502-y.md"))
+    check("Bash cat a born is NOT gated (read, tic-407 tension held)",
+          not _is_doctrine_mutation("Bash", "", "cat audit-logs/governance/borns-tic502-y.md"))
     check("Bash backlog.py touch --state IS gated",
           _is_doctrine_mutation("Bash", "", "python3 backlog.py touch x --state done"))
     check("Bash backlog.py dag (read) is NOT gated",
