@@ -2103,6 +2103,311 @@ def load_rbd_demote_evidence(zone_root, target_ki, ki_body=None):
     }
 
 
+# ─── M1 piece 3 complement: the RBD doctrine rollback-drill RE-RUNNER ─────────
+# load_rbd_demote_evidence (above) CONSUMES RBD-*.json records. Until tic 506 the
+# lane held only 3 tic-130-era records and had NO live re-runner
+# (composite_rollback_gap / ESC-T155-001), so the `admissible` demote-admissibility
+# path was lifecycle-UNREACHABLE — every KI read `inadmissible_rbd_absent`. This
+# subcommand is that re-runner (tic-494 memo recommendation #2): it computes a
+# FRESH doctrine rollback-drill for a target promotion (tic/commit → cprs_in_scope
+# → doctrine files mutated → reversibility + velocity) and writes a schema-faithful
+# record to the EXISTING lane the consumer reads. It does NOT rebuild the
+# velocity-ratio measurement under a new name — that would be the double-make the
+# memo §4 "What NOT to do" forbids; the record schema and write target are the
+# existing ones (Inter-Engine Integration Emission: producer emits the consumer's
+# format).
+#
+# CENTER-HOLD — read-only on DOCTRINE. It runs `git diff` / `git apply --check -R`
+# (which only VERIFY — --check never writes, -R only tests reverse-apply, the
+# worktree is never mutated), scans the corpus read-only, and writes only a
+# regenerable drill record (like down-lane-run's --output report). It inscribes NO
+# doctrine and demotes NOTHING: the demote DECISION stays HIGH-gate /review-only.
+# The record is EVIDENCE the /review-gated demote consumes, never an action — so
+# there is no new ungated effect to flag-gate (the human gate is /review itself).
+#
+# CADENCE DECISION (tic-494 memo recommendation #2, the explicit half): the
+# re-runner fires EVENT-DRIVEN — manually for a reachability proof, and at /review
+# when a demote-class verdict needs a fresh reversibility proof for its target KI.
+# It is explicitly NOT periodic: the demote queue is event-sparse (0 damaging
+# findings at tic 506), so a periodic RBD cadence would re-run drills with no
+# demote pending — the exact "mounted bear" (can-it-eat) the federation warns
+# against. The memo says EITHER a live re-runner OR an explicit event-driven-only
+# decision closes the WATCH honestly; this build does BOTH.
+#
+# THE VELOCITY MODEL IS LOAD-BEARING LOCAL SEMANTICS — it stays home. The JUDGMENT
+# that travels up the ladder is the federation KI
+# rollback-velocity-must-exceed-attachment-velocity; the FORMULA below is this
+# rung's transparent local instantiation, NOT a reconstruction of the lost
+# tic-130 producer (reconstructing an exact formula from a principle is the
+# magic-rehydration failure the ladder forbids).
+
+# Doctrine-plane pathspecs the cross-reference scan searches. References that
+# matter for reversion dependency are DOCTRINE references (other specs, ledgers,
+# CLAUDE.mds) — NOT append-only audit-log history (commentary, not live dependency).
+RBD_DOCTRINE_REF_PATHSPECS = (
+    "autonomous_kernel",
+    os.path.join("audit-logs", "governance", "constitution-ledger"),
+    os.path.join("canonical_developer", "context-grapple-gun", "cgg-ledger"),
+    ":(glob)**/CLAUDE.md",
+    "CLAUDE.md",
+)
+
+
+def _is_doctrine_surface(path):
+    """A changed path counts as a DOCTRINE surface for RBD reversion purposes
+    (read-only). The same plane the cross-reference scan covers."""
+    p = path.replace("\\", "/")
+    base = p.rsplit("/", 1)[-1]
+    if base == "CLAUDE.md":
+        return True
+    if base == "ledger.md" and ("constitution-ledger" in p or "cgg-ledger" in p):
+        return True
+    if p.startswith("autonomous_kernel/") and p.endswith(".md"):
+        return True
+    return False
+
+
+def _git_capture(zone_root, git_args, input_text=None, timeout=20):
+    """Run a git subcommand; return (returncode, stdout, stderr). Fail-soft —
+    never raises (mirrors _git_last_commit_days). Read-only/verify callers only;
+    nothing here mutates the worktree."""
+    try:
+        out = subprocess.run(
+            ["git", "-C", zone_root, *git_args],
+            capture_output=True, text=True, timeout=timeout, input=input_text,
+        )
+        return out.returncode, out.stdout, out.stderr
+    except (OSError, subprocess.SubprocessError):
+        return 1, "", "git-unavailable"
+
+
+def _resolve_target_commit(zone_root, target_tic=None, target_commit=None):
+    """Resolve the promotion commit to drill. Prefer an explicit --target-commit;
+    else the newest commit whose subject names the target tic (`Tic <N>`). Returns
+    a dict (short/full/parent/subject) or None if unresolved. Read-only."""
+    sha = None
+    if target_commit:
+        rc, out, _ = _git_capture(
+            zone_root, ["rev-parse", "--verify", f"{target_commit}^{{commit}}"])
+        if rc == 0 and out.strip():
+            sha = out.strip()
+    elif target_tic is not None:
+        rc, out, _ = _git_capture(
+            zone_root, ["log", "-E", "--format=%H",
+                        "--grep", rf"[Tt]ic {target_tic}( |:|$|\b)", "-n", "1"])
+        if rc == 0 and out.strip():
+            sha = out.strip().splitlines()[0]
+    if not sha:
+        return None
+    rc, full, _ = _git_capture(zone_root, ["rev-parse", sha])
+    full = full.strip() or sha
+    _, short, _ = _git_capture(zone_root, ["rev-parse", "--short", sha])
+    _, pfull, _ = _git_capture(zone_root, ["rev-parse", f"{sha}^"])
+    _, pshort, _ = _git_capture(zone_root, ["rev-parse", "--short", f"{sha}^"])
+    _, subj, _ = _git_capture(zone_root, ["log", "-1", "--format=%s", sha])
+    return {
+        "short": short.strip() or full[:7],
+        "full": full,
+        "parent_short": pshort.strip() or (pfull.strip()[:7] if pfull.strip() else None),
+        "parent_full": pfull.strip() or None,
+        "subject": subj.strip(),
+    }
+
+
+def run_rbd_drill(zone_root, target_tic=None, target_commit=None, cprs=None,
+                  current_tic=None, dry_run=False):
+    """Compute a FRESH doctrine rollback-drill (RBD) record for a target promotion
+    and (unless dry_run) write it to the EXISTING audit-logs/rollback-drills/ lane.
+    Read-only on doctrine; never mutates the worktree. See the section header for
+    the center-hold + the local velocity model. Returns a result dict."""
+    zone_root = os.path.abspath(zone_root)
+    if current_tic is None:
+        current_tic = _resolve_federation_tic(zone_root)
+    commit = _resolve_target_commit(
+        zone_root, target_tic=target_tic, target_commit=target_commit)
+    if commit is None:
+        return {
+            "ok": False,
+            "error": (f"no promotion commit resolved for target_tic={target_tic} / "
+                      f"target_commit={target_commit} — pass --target-commit explicitly"),
+            "wrote": None,
+        }
+    parent = commit["parent_full"]
+    target = commit["full"]
+    diff_range = f"{parent}..{target}" if parent else target
+
+    # Files changed by the promotion, filtered to DOCTRINE surfaces.
+    _, names_out, _ = _git_capture(zone_root, ["diff", "--name-only", diff_range])
+    all_files = [f for f in names_out.splitlines() if f.strip()]
+    doctrine_files = [f for f in all_files if _is_doctrine_surface(f)]
+
+    # Patch size over the doctrine files (added+deleted lines, numstat).
+    patch_lines = 0
+    if doctrine_files:
+        _, ns, _ = _git_capture(
+            zone_root, ["diff", "--numstat", diff_range, "--", *doctrine_files])
+        for line in ns.splitlines():
+            parts = line.split("\t")
+            if len(parts) >= 2:
+                for n in parts[:2]:
+                    try:
+                        patch_lines += int(n)
+                    except ValueError:
+                        pass
+
+    # cprs_in_scope: explicit, else extracted from the commit message.
+    if cprs:
+        cprs_in_scope = sorted(set(cprs))
+    else:
+        _, body, _ = _git_capture(zone_root, ["log", "-1", "--format=%B", target])
+        cprs_in_scope = sorted(_extract_cpr_provenance_refs(body))
+
+    # reversion_patch_clean: can the promotion be reverse-applied to the CURRENT
+    # tree without conflict? `git apply --check -R` VERIFIES only (never writes).
+    # An empty doctrine diff → nothing to revert on the doctrine plane → clean.
+    reversion_patch_clean = True
+    if doctrine_files:
+        _, patch, _ = _git_capture(
+            zone_root, ["diff", diff_range, "--", *doctrine_files])
+        if patch.strip():
+            rc_check, _, _ = _git_capture(
+                zone_root, ["apply", "--check", "-R", "--recount", "-"],
+                input_text=patch)
+            reversion_patch_clean = (rc_check == 0)
+
+    # cross_references / orphaned_references: references to this promotion's cprs
+    # across the DOCTRINE plane. Orphans = refs living OUTSIDE the files the revert
+    # would touch (they would dangle if the promotion were reverted).
+    ref_files = set()
+    for cid in cprs_in_scope:
+        rc, hits, _ = _git_capture(
+            zone_root, ["grep", "-l", "-F", "-e", cid, "--", *RBD_DOCTRINE_REF_PATHSPECS])
+        if rc == 0:
+            for hf in hits.splitlines():
+                hf = hf.strip()
+                if hf:
+                    ref_files.add(hf)
+    doctrine_set = set(doctrine_files)
+    cross_references_found = len(ref_files)
+    orphaned_references = len([f for f in ref_files if f not in doctrine_set])
+
+    # ── the local velocity model (load-bearing local semantics; stays home) ──
+    # attachment_velocity: downstream doctrine references accreted, per tic since
+    #   promotion.  rollback_velocity: dependency mass a single clean revert can
+    #   shed, per tic — a clean revert with no surviving orphans sheds everything
+    #   it touches (+1 for the revert op itself); orphans throttle it; an unclean
+    #   reversion cannot apply atomically (capacity 0).  velocity_ratio >= 1 ⟺ the
+    #   undo can keep pace with what has attached = the federation KI satisfied.
+    if current_tic is not None and target_tic is not None:
+        tics_since_raw = current_tic - target_tic
+    else:
+        tics_since_raw = None
+    tics_since = max(tics_since_raw, 1) if isinstance(tics_since_raw, int) else 1
+    attachment_velocity = round(cross_references_found / tics_since, 3)
+    if reversion_patch_clean and orphaned_references == 0:
+        rollback_capacity = float(cross_references_found) + 1.0
+    elif reversion_patch_clean:
+        rollback_capacity = float(max(cross_references_found - orphaned_references, 0))
+    else:
+        rollback_capacity = 0.0
+    rollback_velocity = round(rollback_capacity / tics_since, 3)
+    if attachment_velocity > 0:
+        velocity_ratio = round(rollback_velocity / attachment_velocity, 3)
+    else:
+        velocity_ratio = 1.0 if (reversion_patch_clean and orphaned_references == 0) else 0.0
+
+    if velocity_ratio >= 1 and reversion_patch_clean and orphaned_references == 0:
+        verdict = "ok"
+    elif velocity_ratio >= 0.5 and reversion_patch_clean:
+        verdict = "warning"
+    else:
+        verdict = "critical"
+
+    now = datetime.now(timezone.utc)
+    epoch = int(now.timestamp())
+    tic_label = target_tic if target_tic is not None else commit["short"]
+    drill_id = f"RBD-{tic_label}-{epoch}"
+    record = {
+        "drill_id": drill_id,
+        "target_commit": commit["short"],
+        "target_commit_full": commit["full"],
+        "parent_commit": commit["parent_short"],
+        "target_tic": target_tic,
+        "cprs_in_scope": cprs_in_scope,
+        "files_mutated": doctrine_files,
+        "file_count": len(doctrine_files),
+        "patch_lines": patch_lines,
+        "reversion_patch_clean": reversion_patch_clean,
+        "cross_references_found": cross_references_found,
+        "orphaned_references": orphaned_references,
+        "attachment_velocity": attachment_velocity,
+        "rollback_velocity": rollback_velocity,
+        "velocity_ratio": velocity_ratio,
+        "tics_since_promotion": tics_since_raw,
+        "verdict": verdict,
+        "timestamp": now.isoformat(),
+        "produced_by": "ladder-audit.py rbd-drill-run",
+        "drill_model": "re-runner v0 (tic 506); local Half-B velocity semantics",
+    }
+    demote_admissible = (velocity_ratio >= 1 and reversion_patch_clean
+                         and orphaned_references == 0)
+    result = {
+        "ok": True,
+        "dry_run": dry_run,
+        "record": record,
+        "would_demote_admissibility": ("admissible" if demote_admissible
+                                       else "inadmissible_pending_reversion"),
+        "commit_subject": commit["subject"],
+        "all_files_changed": len(all_files),
+        "doctrine_files_changed": len(doctrine_files),
+        "note": ("not a doctrine-promotion commit (no doctrine surface changed) — "
+                 "degenerate drill" if not doctrine_files else None),
+        "wrote": None,
+    }
+    if not dry_run:
+        drills_dir = Path(zone_root) / ROLLBACK_DRILLS_REL
+        drills_dir.mkdir(parents=True, exist_ok=True)
+        out_path = drills_dir / f"{drill_id}.json"
+        out_path.write_text(json.dumps(record, indent=2) + "\n", encoding="utf-8")
+        result["wrote"] = str(out_path)
+    return result
+
+
+def format_rbd_drill(result):
+    """Human-readable RBD re-runner output (read-only producer)."""
+    lines = []
+    lines.append("=" * 74)
+    lines.append("RBD DOCTRINE ROLLBACK-DRILL · re-runner (M1 complement; tic-494 memo rec #2)")
+    lines.append("=" * 74)
+    if not result.get("ok"):
+        lines.append(f"  ✗ {result.get('error', 'unresolved')}")
+        return "\n".join(lines)
+    rec = result["record"]
+    lines.append(f"  drill_id:        {rec['drill_id']}    {'(DRY-RUN — not written)' if result['dry_run'] else 'WRITTEN: ' + str(result.get('wrote'))}")
+    lines.append(f"  target:          tic {rec['target_tic']}  commit {rec['target_commit']} (parent {rec['parent_commit']})")
+    lines.append(f"  subject:         {result.get('commit_subject', '')[:64]}")
+    lines.append(f"  cprs_in_scope:   {', '.join(rec['cprs_in_scope']) or '(none found)'}")
+    lines.append(f"  doctrine files:  {rec['file_count']} of {result.get('all_files_changed')} changed  ({rec['patch_lines']} patch lines)")
+    if result.get("note"):
+        lines.append(f"  ⚠ {result['note']}")
+    for f in rec["files_mutated"]:
+        lines.append(f"      - {f}")
+    lines.append("")
+    lines.append("  REVERSIBILITY:")
+    lines.append(f"    reversion_patch_clean: {rec['reversion_patch_clean']}   "
+                 f"orphaned_references: {rec['orphaned_references']}   "
+                 f"cross_references_found: {rec['cross_references_found']}")
+    lines.append(f"    attachment_velocity:   {rec['attachment_velocity']}   "
+                 f"rollback_velocity: {rec['rollback_velocity']}   "
+                 f"tics_since_promotion: {rec['tics_since_promotion']}")
+    lines.append(f"    velocity_ratio:        {rec['velocity_ratio']}   →  verdict: {rec['verdict'].upper()}")
+    lines.append("")
+    lines.append(f"  ⇒ would_demote_admissibility: {result['would_demote_admissibility']}")
+    lines.append("    (predicate: velocity_ratio>=1 AND reversion_patch_clean AND orphaned_references==0)")
+    lines.append("    The demote DECISION stays /review-only — this record is reversibility EVIDENCE, not an action.")
+    return "\n".join(lines)
+
+
 def build_stage_brief(zone_root, signal_id=None, rung=None, ki_id=None,
                       current_tic=None, window_days=ACTIVE_RUNG_WINDOW_DAYS,
                       force_rbd_ratified=False):
@@ -2920,6 +3225,31 @@ def main():
                           "manifest (fast path for cadence display)")
     dlr.add_argument("--zone-root", default=None, dest="zone_root")
 
+    rdr = sub.add_parser(
+        "rbd-drill-run",
+        help="M1 complement: the RBD doctrine rollback-drill RE-RUNNER (tic-494 memo "
+             "rec #2). Compute a FRESH reversibility drill for a target promotion "
+             "(tic/commit → cprs_in_scope → doctrine files → reversibility + velocity) "
+             "and write a schema-faithful record to the EXISTING rollback-drills lane "
+             "the demote-admissibility consumer reads — making the `admissible` path "
+             "lifecycle-reachable. Read-only on doctrine; never mutates the worktree "
+             "(git apply --check -R verifies only). The demote DECISION stays /review-only.")
+    rdr.add_argument("--target-tic", type=int, default=None, dest="target_tic",
+                     help="Tic whose promotion the drill measures (resolves the commit "
+                          "whose subject names this tic; or pass --target-commit)")
+    rdr.add_argument("--target-commit", default=None, dest="target_commit",
+                     help="Explicit promotion commit to drill (preferred over --target-tic)")
+    rdr.add_argument("--cprs", default=None,
+                     help="Comma-separated cprs_in_scope override (CogPR-NNN / cpr_slug); "
+                          "default: extracted from the commit message")
+    rdr.add_argument("--current-tic", type=int, default=None, dest="current_tic",
+                     help="Current federation tic for tics_since_promotion "
+                          "(auto-resolved from the tic log if omitted)")
+    rdr.add_argument("--dry-run", action="store_true", dest="dry_run",
+                     help="Compute the drill record WITHOUT writing (dormancy proof; "
+                          "lane unchanged)")
+    rdr.add_argument("--zone-root", default=None, dest="zone_root")
+
     args = parser.parse_args()
 
     if args.command == "list-findings":
@@ -2969,6 +3299,25 @@ def main():
             print(json.dumps(result, indent=2))
         else:
             print(format_downlane_campaign(result))
+        return
+
+    if args.command == "rbd-drill-run":
+        zone_root = args.zone_root or args.project_dir or resolve_zone_root()
+        cprs = None
+        if args.cprs:
+            cprs = [c.strip() for c in args.cprs.split(",") if c.strip()]
+        result = run_rbd_drill(
+            zone_root, target_tic=args.target_tic, target_commit=args.target_commit,
+            cprs=cprs, current_tic=args.current_tic, dry_run=args.dry_run)
+        if args.output:
+            Path(args.output).parent.mkdir(parents=True, exist_ok=True)
+            Path(args.output).write_text(
+                json.dumps(result, indent=2) + "\n", encoding="utf-8")
+            print(f"RBD drill result written to {args.output}")
+        elif args.json:
+            print(json.dumps(result, indent=2))
+        else:
+            print(format_rbd_drill(result))
         return
 
     if args.command == "down-audit":
