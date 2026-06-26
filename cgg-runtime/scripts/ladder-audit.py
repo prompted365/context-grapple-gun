@@ -1719,6 +1719,33 @@ RBD_DEMOTE_ADMISSION_RATIFIED = True  # build-and-gate RATIFIED at /review 505 (
 # accumulates the irreversible dependency the KI forbids until rollback is proven.
 RBD_DEMOTE_CLASS_OUTCOMES = ("overbroad_demote", "localized", "stale")
 
+# ─── M1 complement: the RBD drill AUTO-INVOCATION flag (build-and-gate; tic 507) ───
+# RBD_DEMOTE_ADMISSION_RATIFIED (above) made the RBD verdict a HARD gate on demote-class
+# outcomes (/review 505). The RBD re-runner `rbd-drill-run` (tic 506) made the `admissible`
+# path lifecycle-reachable. The residual the tic-506 build receipt named honestly: the
+# /review-flow wiring that AUTO-invokes the re-runner on a demote-class verdict is
+# "documented-not-yet-mechanized" — today the /review operator HAND-runs
+# `rbd-drill-run --target-commit … --cprs …` for a demote-class target. This flag gates
+# that auto-invocation.
+#
+# It is ORTHOGONAL to RBD_DEMOTE_ADMISSION_RATIFIED (do not conflate): that flag decides
+# whether the RBD verdict BLOCKS a demote (ratified True); THIS flag decides whether a
+# missing fresh drill is AUTO-PRODUCED on a demote-class verdict vs hand-run by the
+# operator. Auto-producing the reversibility evidence is itself a (small, regenerable)
+# governance write, so it ships human-gated.
+#
+# Build-and-gate (cgg-ledger#build-and-gate-ratified-flag-gated-consumer): ships DORMANT —
+# default False. While dormant `rbd_autodrill_for_demote` surfaces the exact `rbd-drill-run`
+# PLAN it WOULD fire (writes nothing, fires nothing); /review 507 flips it True → the
+# `rbd-autodrill` subcommand FIRES the re-runner (regenerable drill record only). The
+# cadence stays EVENT-DRIVEN (fires on the consuming demote-class verdict, never periodic —
+# the tic-506 born; a periodic drill with no demote pending is the mounted-bear). Dual-
+# proven: dormancy (plan-only, lane unchanged) + activation (--force-autodrill → fires +
+# the consumer reads the fresh `admissible`, proven in isolated test repos). Center-hold:
+# read-only on DOCTRINE — the demote DECISION stays HIGH-gate /review-only; the read-only
+# Stage-4 stage-brief surfaces the PLAN only and never fires regardless of the flag.
+RBD_AUTODRILL_RATIFIED = False  # build-and-gate: DORMANT — /review 507 flips False→True (ratification IS the flip; no further code change)
+
 # Doctrine rollback-drill lane (tic-130-era records; tic-494 memo §1 Half B).
 ROLLBACK_DRILLS_REL = os.path.join("audit-logs", "rollback-drills")
 
@@ -2408,6 +2435,162 @@ def format_rbd_drill(result):
     return "\n".join(lines)
 
 
+# ─── M1 complement: the /review-flow AUTO-INVOCATION of the re-runner (tic 507) ──────
+# When a demote-class verdict needs a fresh reversibility proof and none exists
+# (`inadmissible_rbd_absent`), today the operator HAND-runs `rbd-drill-run`. This
+# resolver + the autodrill function mechanize that hand-step (build-and-gate, dormant).
+
+def _resolve_ki_promotion_target(ki_body):
+    """Resolve, from a KI's ledger BODY, the promotion the RBD drill should measure.
+    The promotion COMMIT is the /review-execute commit at the KI's promote/review tic;
+    the cprs are the KI's provenance refs. Read-only; returns a dict (never raises).
+
+    Preference for the tic that names the promotion commit subject (`Tic <N>`):
+      promoted_tic: tag  >  `(tic B->R)` breadcrumb review-tic R  >  first_appearance_tic.
+    """
+    cprs = sorted(_extract_cpr_provenance_refs(ki_body))
+    promoted_tic = None
+    if ki_body:
+        # Ledger tags are backtick-wrapped: `promoted_tic`: `406`. Tolerate the
+        # backticks/colon/whitespace between the key and the digit.
+        m = re.search(r"promoted_tic[`:\s]*(\d+)", ki_body)
+        if m:
+            promoted_tic = int(m.group(1))
+        if promoted_tic is None:
+            # `promoted from CogPR-N (tic B->R)` — R is the /review (promotion) tic.
+            # Provenance uses an ASCII (`->`) or unicode (`→`) arrow.
+            m = re.search(r"\(tic\s+\d+\s*(?:-+>|→)\s*(\d+)", ki_body)
+            if m:
+                promoted_tic = int(m.group(1))
+        if promoted_tic is None:
+            m = re.search(r"first_appearance_tic[`:\s]*(\d+)", ki_body)
+            if m:
+                promoted_tic = int(m.group(1))
+    return {"promoted_tic": promoted_tic, "cprs": cprs}
+
+
+def rbd_autodrill_for_demote(zone_root, target_ki, ki_body=None, current_tic=None,
+                             target_tic=None, cprs=None, ratified=False):
+    """The /review-flow AUTO-INVOCATION of the RBD re-runner for a demote-class verdict.
+    Build-and-gate, DORMANT by default (ratified=False → plan-only, writes nothing).
+
+    Flow: read the current demote-admissibility for `target_ki`; if it is already
+    `admissible` a fresh proof exists → no autodrill needed. Else resolve the KI's
+    promotion target (tic + cprs) from its ledger provenance (or explicit overrides) and:
+      - DORMANT  → surface the exact `rbd-drill-run` PLAN it WOULD fire (no write).
+      - RATIFIED → fire `run_rbd_drill` (regenerable drill record), then re-read the
+        evidence and return the now-fresh admissibility (the consumer reads it back).
+
+    Center-hold: read-only on DOCTRINE; the only write is run_rbd_drill's regenerable
+    drill record (gated on `ratified`); the demote DECISION stays /review-only.
+    Never raises (fail-soft). Returns a result dict.
+    """
+    zone_root = os.path.abspath(zone_root)
+    if current_tic is None:
+        current_tic = _resolve_federation_tic(zone_root)
+
+    before = load_rbd_demote_evidence(zone_root, target_ki, ki_body=ki_body)
+    base = {
+        "ok": True,
+        "target_ki": target_ki,
+        "ratified": bool(ratified),
+        "ratified_source": ("RBD_AUTODRILL_RATIFIED/--force-autodrill"
+                            if ratified else "DORMANT (RBD_AUTODRILL_RATIFIED=False)"),
+        "evidence_before": before,
+        "demote_class_outcomes": list(RBD_DEMOTE_CLASS_OUTCOMES),
+        "_fence": ("read-only on DOCTRINE; the demote DECISION stays /review-only. "
+                   "While dormant this surfaces the PLAN only and writes nothing."),
+        "wrote": None,
+    }
+    if before["demote_admissibility"] == "admissible":
+        base["action"] = "none_needed"
+        base["note"] = ("a fresh reversibility proof already resolves this KI "
+                        f"({before.get('drill_id')}) — no autodrill needed.")
+        return base
+
+    # Resolve the promotion target (explicit overrides win, else ledger provenance).
+    resolved = _resolve_ki_promotion_target(ki_body)
+    eff_tic = target_tic if target_tic is not None else resolved["promoted_tic"]
+    eff_cprs = cprs if cprs else (resolved["cprs"] or None)
+    plan = {
+        "subcommand": "rbd-drill-run",
+        "target_tic": eff_tic,
+        "cprs": eff_cprs,
+        "invocation": (
+            "python3 ladder-audit.py rbd-drill-run "
+            f"--zone-root {zone_root} "
+            + (f"--target-tic {eff_tic} " if eff_tic is not None else "--target-commit <SHA> ")
+            + (f"--cprs {','.join(eff_cprs)}" if eff_cprs else "").strip()
+        ).strip(),
+    }
+    base["plan"] = plan
+
+    if eff_tic is None and not (target_tic or cprs):
+        # Degenerate: provenance gave no promotion tic — the operator must supply a target.
+        base["action"] = "unresolved_target"
+        base["note"] = ("could not resolve the KI's promotion commit from its ledger "
+                        "provenance — supply --target-tic or --target-commit explicitly.")
+        return base
+
+    if not ratified:
+        base["action"] = "would_autodrill"
+        base["note"] = ("DORMANT (build-and-gate) — the re-runner is NOT auto-fired. "
+                        "Run the planned invocation by hand, or /review 507 flips "
+                        "RBD_AUTODRILL_RATIFIED True to auto-fire it on a demote-class "
+                        "verdict.")
+        return base
+
+    # RATIFIED — fire the re-runner (regenerable drill record), then re-read evidence.
+    drill = run_rbd_drill(zone_root, target_tic=eff_tic, cprs=eff_cprs,
+                          current_tic=current_tic, dry_run=False)
+    base["drill_result"] = drill
+    base["wrote"] = drill.get("wrote")
+    if not drill.get("ok"):
+        base["action"] = "autodrill_failed"
+        base["note"] = drill.get("error", "re-runner could not resolve the target commit")
+        return base
+    after = load_rbd_demote_evidence(zone_root, target_ki, ki_body=ki_body)
+    base["action"] = "autodrilled"
+    base["evidence_after"] = after
+    base["demote_admissibility"] = after["demote_admissibility"]
+    base["note"] = (
+        f"auto-fired the re-runner ({drill['record']['drill_id']}); the consumer now "
+        f"reads `{after['demote_admissibility']}` for this KI."
+    )
+    return base
+
+
+def format_rbd_autodrill(result):
+    """Human-readable RBD autodrill output (the /review-flow auto-invocation)."""
+    lines = []
+    lines.append("=" * 74)
+    lines.append("RBD AUTODRILL · /review-flow auto-invocation of the re-runner (tic 507)")
+    lines.append("=" * 74)
+    if not result.get("ok"):
+        lines.append(f"  ✗ {result.get('error', 'failed')}")
+        return "\n".join(lines)
+    before = result.get("evidence_before", {})
+    lines.append(f"  target KI:         {result['target_ki']}")
+    lines.append(f"  ratified:          {result['ratified']}   ({result['ratified_source']})")
+    lines.append(f"  admissibility now: {before.get('demote_admissibility')}")
+    lines.append(f"  action:            {result['action'].upper()}")
+    plan = result.get("plan")
+    if plan:
+        lines.append("")
+        lines.append("  WOULD-FIRE PLAN:")
+        lines.append(f"    target_tic: {plan.get('target_tic')}   cprs: {', '.join(plan.get('cprs') or []) or '(none)'}")
+        lines.append(f"    $ {plan.get('invocation')}")
+    if result.get("action") == "autodrilled":
+        after = result.get("evidence_after", {})
+        lines.append("")
+        lines.append(f"  FIRED — wrote: {result.get('wrote')}")
+        lines.append(f"  admissibility after: {after.get('demote_admissibility')}")
+    lines.append("")
+    lines.append(f"  → {result.get('note', '')}")
+    lines.append(f"  ⓘ {result.get('_fence', '')}")
+    return "\n".join(lines)
+
+
 def build_stage_brief(zone_root, signal_id=None, rung=None, ki_id=None,
                       current_tic=None, window_days=ACTIVE_RUNG_WINDOW_DAYS,
                       force_rbd_ratified=False):
@@ -2565,6 +2748,14 @@ def build_stage_brief(zone_root, signal_id=None, rung=None, ki_id=None,
              "regardless — this gate only constrains WHICH outcome /review may inscribe.)")
         ),
     })
+    # M1 complement (tic 507): surface the RBD AUTODRILL PLAN — the `rbd-drill-run`
+    # invocation the /review flow would auto-fire on a demote-class verdict to make a
+    # currently-absent reversibility proof exist. stage-brief is READ-ONLY PREP: it
+    # passes ratified=False so this NEVER fires (plan-only); the firing surface is the
+    # `rbd-autodrill` subcommand, gated on RBD_AUTODRILL_RATIFIED (/review 507).
+    base["rbd_autodrill"] = rbd_autodrill_for_demote(
+        zone_root, target_ki, ki_body=base["ki_body"], current_tic=current_tic,
+        ratified=False)
     if entry.get("artifact"):
         base["finding_artifact"] = entry["artifact"]
     if ki is None:
@@ -3250,6 +3441,29 @@ def main():
                           "lane unchanged)")
     rdr.add_argument("--zone-root", default=None, dest="zone_root")
 
+    rad = sub.add_parser(
+        "rbd-autodrill",
+        help="M1 complement: the /review-flow AUTO-INVOCATION of the RBD re-runner on a "
+             "demote-class verdict (tic 507). For a target KI, resolve its promotion from "
+             "ledger provenance and — DORMANT (build-and-gate) — surface the exact "
+             "rbd-drill-run PLAN it would fire; RATIFIED (/review 507 flips "
+             "RBD_AUTODRILL_RATIFIED) — auto-fire the re-runner so the consumer reads a "
+             "fresh reversibility proof. Read-only on doctrine; the demote DECISION stays "
+             "/review-only.")
+    rad.add_argument("--target-ki", required=True, dest="target_ki",
+                     help="The invariant_id of the demote-class target KI (its ledger "
+                          "BODY supplies the promotion provenance)")
+    rad.add_argument("--target-tic", type=int, default=None, dest="target_tic",
+                     help="Override the promotion tic (else resolved from KI provenance)")
+    rad.add_argument("--cprs", default=None,
+                     help="Override cprs_in_scope (comma-separated; else from provenance)")
+    rad.add_argument("--current-tic", type=int, default=None, dest="current_tic",
+                     help="Current federation tic (auto-resolved from the tic log if omitted)")
+    rad.add_argument("--force-autodrill", action="store_true", dest="force_autodrill",
+                     help="Exercise the RATIFIED firing path WITHOUT flipping the module "
+                          "flag (activation proof; fires run_rbd_drill)")
+    rad.add_argument("--zone-root", default=None, dest="zone_root")
+
     args = parser.parse_args()
 
     if args.command == "list-findings":
@@ -3318,6 +3532,37 @@ def main():
             print(json.dumps(result, indent=2))
         else:
             print(format_rbd_drill(result))
+        return
+
+    if args.command == "rbd-autodrill":
+        zone_root = args.zone_root or args.project_dir or resolve_zone_root()
+        # Resolve the KI body from the federation ledger (its provenance drives resolution).
+        ki_body = ""
+        try:
+            ledger_path = os.path.join(
+                audit_logs_path(zone_root, load_ticzone(zone_root)), LEDGER_REL)
+            kis = _parse_ledger_kis(ledger_path, include_body=True)
+            ki = next((k for k in kis if k["invariant_id"] == args.target_ki), None)
+            if ki:
+                ki_body = ki.get("body", "")
+        except Exception:  # noqa: BLE001 — fail-soft; explicit overrides can still resolve
+            ki_body = ""
+        cprs = None
+        if args.cprs:
+            cprs = [c.strip() for c in args.cprs.split(",") if c.strip()]
+        ratified = RBD_AUTODRILL_RATIFIED or args.force_autodrill
+        result = rbd_autodrill_for_demote(
+            zone_root, args.target_ki, ki_body=ki_body, current_tic=args.current_tic,
+            target_tic=args.target_tic, cprs=cprs, ratified=ratified)
+        if args.output:
+            Path(args.output).parent.mkdir(parents=True, exist_ok=True)
+            Path(args.output).write_text(
+                json.dumps(result, indent=2) + "\n", encoding="utf-8")
+            print(f"RBD autodrill result written to {args.output}")
+        elif args.json:
+            print(json.dumps(result, indent=2))
+        else:
+            print(format_rbd_autodrill(result))
         return
 
     if args.command == "down-audit":

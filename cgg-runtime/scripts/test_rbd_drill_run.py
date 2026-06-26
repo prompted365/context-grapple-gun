@@ -159,5 +159,94 @@ class TestRbdDrillRun(unittest.TestCase):
         self.assertIsNone(res["wrote"])
 
 
+class TestRbdAutodrill(unittest.TestCase):
+    """The /review-flow AUTO-INVOCATION of the re-runner (tic 507; build-and-gate).
+
+    Guards the dormancy (plan-only, no write) and activation (fires → consumer reads
+    fresh admissible) halves, the none-needed short-circuit, the unresolved-target
+    degenerate, and the backtick/unicode-arrow provenance resolver. Isolated tmp git
+    repos; the real zone is never touched (Self-Locating Artifact Test Isolation)."""
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.repo = self.tmp.name
+        self.addCleanup(self.tmp.cleanup)
+        _init_repo(self.repo)
+        _write(self.repo, "autonomous_kernel/demo-spec.md",
+               "# Demo spec\n\nbaseline body line\n")
+        _commit(self.repo, "Tic 900: baseline doctrine")
+        _write(self.repo, "autonomous_kernel/demo-spec.md",
+               "# Demo spec\n\nbaseline body line\nPROMOTED addition for CogPR-901\n")
+        _commit(self.repo, "Tic 901: promote CogPR-901 into demo-spec")
+        # a KI body whose provenance resolves to the tic-901 promotion
+        self.ki_body = "Demo KI body. `promoted_tic`: `901`. promoted from CogPR-901."
+
+    def test_resolve_ki_promotion_target_parses_backtick_and_arrow(self):
+        """The resolver reads backtick-wrapped `promoted_tic` tags and falls back to a
+        unicode-arrow `(tic B->R)` provenance breadcrumb."""
+        r1 = la._resolve_ki_promotion_target(self.ki_body)
+        self.assertEqual(r1["promoted_tic"], 901)
+        self.assertIn("CogPR-901", r1["cprs"])
+        r2 = la._resolve_ki_promotion_target(
+            "no tag here, but promoted from CogPR-7 (tic 504 → 505 PROMOTE).")
+        self.assertEqual(r2["promoted_tic"], 505)
+
+    def test_dormant_plans_but_writes_nothing(self):
+        """DORMANT (ratified=False): surfaces the would-fire plan, writes no drill."""
+        lane = Path(self.repo) / la.ROLLBACK_DRILLS_REL
+        before = list(lane.glob("RBD-*.json")) if lane.is_dir() else []
+        res = la.rbd_autodrill_for_demote(
+            self.repo, "demo-ki", ki_body=self.ki_body, current_tic=902,
+            ratified=False)
+        self.assertTrue(res["ok"], res)
+        self.assertEqual(res["action"], "would_autodrill")
+        self.assertFalse(res["ratified"])
+        self.assertEqual(res["plan"]["target_tic"], 901)
+        self.assertIn("CogPR-901", res["plan"]["cprs"])
+        self.assertIsNone(res["wrote"])
+        after = list(lane.glob("RBD-*.json")) if lane.is_dir() else []
+        self.assertEqual(len(before), len(after))
+
+    def test_ratified_fires_and_consumer_reads_admissible(self):
+        """RATIFIED (ratified=True): fires the re-runner (writes a drill), and the
+        consumer reads back a FRESH `admissible` — the activation proof."""
+        res = la.rbd_autodrill_for_demote(
+            self.repo, "demo-ki", ki_body=self.ki_body, current_tic=902,
+            ratified=True)
+        self.assertTrue(res["ok"], res)
+        self.assertEqual(res["action"], "autodrilled")
+        self.assertTrue(res["ratified"])
+        self.assertIsNotNone(res["wrote"])
+        self.assertTrue(Path(res["wrote"]).exists())
+        # before was absent, after is admissible — the gate's admissible path reached
+        self.assertEqual(res["evidence_before"]["demote_admissibility"],
+                         "inadmissible_rbd_absent")
+        self.assertEqual(res["demote_admissibility"], "admissible")
+
+    def test_none_needed_when_fresh_proof_exists(self):
+        """If a fresh drill already resolves the KI (admissible), autodrill is a
+        no-op (action none_needed) and writes nothing further."""
+        # pre-seed a fresh admissible drill for CogPR-901
+        la.run_rbd_drill(self.repo, target_tic=901, current_tic=902, dry_run=False)
+        lane = Path(self.repo) / la.ROLLBACK_DRILLS_REL
+        before = list(lane.glob("RBD-*.json"))
+        res = la.rbd_autodrill_for_demote(
+            self.repo, "demo-ki", ki_body=self.ki_body, current_tic=902,
+            ratified=True)
+        self.assertEqual(res["action"], "none_needed")
+        self.assertIsNone(res["wrote"])
+        after = list(lane.glob("RBD-*.json"))
+        self.assertEqual(len(before), len(after))
+
+    def test_unresolved_target_when_no_provenance(self):
+        """A KI body with no resolvable promotion tic/cprs returns unresolved_target
+        and writes nothing, even when ratified."""
+        res = la.rbd_autodrill_for_demote(
+            self.repo, "mystery-ki", ki_body="a body with no provenance markers",
+            current_tic=902, ratified=True)
+        self.assertEqual(res["action"], "unresolved_target")
+        self.assertIsNone(res["wrote"])
+
+
 if __name__ == "__main__":
     unittest.main()
