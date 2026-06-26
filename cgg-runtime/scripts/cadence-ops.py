@@ -594,7 +594,7 @@ def run_c9_downlane_cadence_step(zone_root, tic, force_ratified=False):
 # NO signal (signal PERSISTENCE is the ORTHOGONAL M2_STALENESS_PERSISTENCE_RATIFIED flag in
 # ladder-audit.py; the cadence step does NOT pass --persist), opens no arena, mutates no
 # doctrine, no new store. Same fail-soft observability-subprocess pattern; never blocks cadence.
-M2_STALENESS_CADENCE_RATIFIED = False  # build-and-gate: DORMANT — /review flips False→True (ratification IS the flip; no further code change)
+M2_STALENESS_CADENCE_RATIFIED = True  # RATIFIED /review tic 513 (Architect sign-off "RAT --A"; flipped False→True). Cadence-staleness READ-ONLY scan now fires each cadence to a regenerable overwrite-latest artifact; emits NO signal (persistence is the orthogonal ladder-audit flag).
 
 
 def run_m2_staleness_cadence_step(zone_root, tic, force_ratified=False):

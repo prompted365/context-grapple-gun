@@ -1763,7 +1763,7 @@ RBD_DEMOTE_CLASS_OUTCOMES = ("overbroad_demote", "localized", "stale")
 # the consumer reads the fresh `admissible`, proven in isolated test repos). Center-hold:
 # read-only on DOCTRINE — the demote DECISION stays HIGH-gate /review-only; the read-only
 # Stage-4 stage-brief surfaces the PLAN only and never fires regardless of the flag.
-RBD_AUTODRILL_RATIFIED = False  # build-and-gate: DORMANT — /review 507 flips False→True (ratification IS the flip; no further code change)
+RBD_AUTODRILL_RATIFIED = True  # RATIFIED /review tic 513 (Architect sign-off "RAT --A"; flipped False→True — build-and-gate flip, no further code change). Auto-fires the rollback DRILL (proof exercise) on demote-class events; the demote DECISION stays HIGH-gate /review-only.
 
 # Doctrine rollback-drill lane (tic-130-era records; tic-494 memo §1 Half B).
 ROLLBACK_DRILLS_REL = os.path.join("audit-logs", "rollback-drills")
@@ -3567,7 +3567,7 @@ def format_staleness_scan(result):
 # Center-hold: staleness_scan() itself stays READ-ONLY (unchanged; persists nothing — the
 # tic-509 contract). This residue is a SEPARATE gated function. A rollup is a HYPOTHESIS ping
 # (kind WATCH), opens no arena, mutates no doctrine, proposes only re-examination; NO new store.
-M2_STALENESS_PERSISTENCE_RATIFIED = False  # build-and-gate: DORMANT — /review flips False→True (ratification IS the flip; no further code change)
+M2_STALENESS_PERSISTENCE_RATIFIED = True  # RATIFIED /review tic 513 (Architect sign-off "RAT --A"; flipped False→True). Turns on staleness DETECTION/persistence only — the S2 ACTION half stays precondition-gated on a real Stage-4 damaging finding.
 STALENESS_CANDIDATE_SIGNAL_TYPE = "ladder.staleness_candidate"
 # Rollup observability weight: WATCH so /review sees it; modest volume — a re-examination
 # HYPOTHESIS is softer pressure than a down-audit `damaging` (40) / `hold_in_dissonance` (35).
