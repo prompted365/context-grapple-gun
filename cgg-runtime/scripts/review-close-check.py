@@ -531,14 +531,23 @@ def check_promoted(cpr_id, cpr, project_dir, inscribed_ids=None, lesson_fallback
 
 
 # Provenance-comment recognition (extended at tic 282 per D7 W2 — review-close-check
-# search-path family). Catches all governance-style provenance verbs (promoted,
-# promoted-spec, absorbed, refined, extended, merged, superseded) regardless of
-# the verb→ref-keyword shape ("from", "by", "at tic N /review from"). Compound
-# references with multiple cpr_xxx refs in one comment are captured as a set
-# (refined-from-A+B pattern observed in ledger.md).
+# search-path family; extended again tic 515 — verifier-split chapter 2). Catches all
+# governance-style provenance verbs (promoted, promoted-spec, absorbed, refinement[ edge],
+# refined, extended, merged, superseded) regardless of the verb→ref-keyword shape
+# ("from", "by", "at tic N /review from"). Compound references with multiple cpr_xxx refs
+# in one comment are captured as a set (refined-from-A+B pattern observed in ledger.md).
+#
+# tic-515 fix (cgg-ledger#inscription-verification-reason-coded-dehydration-provenance-aware):
+# a REFINEMENT-EDGE promotion lands as `**Refinement — …**` prose + a
+# `<!-- refinement edge from cpr_X -->` provenance comment appended to a PARENT entry's
+# anchor. The verb "refinement" was NOT in the alternation, so build_inscribed_index never
+# saw those cpr_ids, so check_promoted's provenance-index axis (the strongest signal) never
+# fired and they false-orphaned as GENUINE. "refinement" precedes "refined" so the
+# alternation matches the longer form first. The provenance comment is the strongest
+# inscription witness — the verb-set must recognize every governed inscription verb.
 _PROVENANCE_VERB_RE = re.compile(
     r"<!--\s*(?:"
-    r"(?:promoted-spec|promoted|absorbed|refined|extended|merged|superseded)"
+    r"(?:promoted-spec|promoted|absorbed|refinement|refined|conformation|conformed|extended|merged|superseded)"
     r"|CPR-ID:"
     r").*?-->",
     re.IGNORECASE | re.DOTALL,
