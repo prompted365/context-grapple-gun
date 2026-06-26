@@ -3475,13 +3475,15 @@ def staleness_scan(zone_root, current_tic=None,
                 "but its route is already known (supersede); needs disambiguation "
                 "before detection, not built here."),
             "persistence_residue": (
-                "FORWARD (/review-gated) — emitting candidates as a thin terminal "
-                "`ladder.staleness_candidate` signal residue is a (small) mutation; it "
-                "ships build-and-gate after /review, not in this read-only scan."),
+                "BUILT DORMANT (build-and-gate, tic 510) — `persist_staleness_candidates` "
+                "emits a per-class `ladder.staleness_candidate` rollup residue (NOT this "
+                "read-only scan); gated on M2_STALENESS_PERSISTENCE_RATIFIED (default False). "
+                "`--persist` surfaces the plan; /review flips the flag to make it write."),
             "cadence_wiring": (
-                "FORWARD (/review-gated) — auto-firing this scan per /cadence is "
-                "activation; /review decides the wiring (a blanket periodic scan with "
-                "nothing to route would be the mounted-bear)."),
+                "BUILT DORMANT (build-and-gate, tic 510) — cadence-ops.py "
+                "`run_m2_staleness_cadence_step` auto-fires this read-only scan on the "
+                "ladder_audit cadence (mod 5); gated on M2_STALENESS_CADENCE_RATIFIED "
+                "(default False). /review flips the flag (mirrors the C9 cadence auto-fire)."),
             "action_half_S2": (
                 "FORWARD (precondition-gated) — staleness ROUTING inscription "
                 "(clarify/localize/supersede/retire/demote) waits on a real Stage-4 "
@@ -3530,13 +3532,241 @@ def format_staleness_scan(result):
             lines.append(f"  … + {len(items) - 40} more (use --json for the full list)")
         lines.append("")
     fr = result.get("forward_residues", {})
-    lines.append("FORWARD (not in this read-only scan — /review-gated / precondition-gated):")
+    lines.append("FORWARD / GATED (not in this read-only scan):")
     lines.append("-" * 74)
     for k in ("persistence_residue", "cadence_wiring", "action_half_S2",
               "supersession_orphan_detection"):
         if k in fr:
             lines.append(f"  · {k}: {fr[k]}")
     return "\n".join(lines)
+
+
+# ─── M2 ACTIVATION piece 1: staleness-candidate persistence residue (build-and-gate; tic 510) ───
+# The read-only DETECTION half (staleness_scan, S0+S1, tic 509) produces a candidate set but
+# persists NOTHING — the federation can SEE stale doctrine only WITHIN one scan, never ACROSS
+# tics. This piece persists the candidate set as a thin terminal residue on the EXISTING signal
+# manifold so /review has a durable marker (the observability half of M2; staleness-routing-
+# spec.md §3 last row + §4).
+#
+# Build-and-gate (cgg-ledger#build-and-gate-ratified-flag-gated-consumer): ships DORMANT —
+# M2_STALENESS_PERSISTENCE_RATIFIED defaults False. While dormant `--persist` surfaces the
+# would-be emit/resolve PLAN and writes NOTHING; /review flips the flag (ratification IS the
+# flip; no further code change). Dual-proven: dormancy (plan-only, writes nothing) + activation
+# (--force-persist → the rollup signals land + heal).
+#
+# Emission GRANULARITY (cgg-ledger#emission-granularity-is-the-leak): NOT one signal per
+# candidate (the 89 freshness-overdue would FLOOD the manifold) — ONE rollup ray PER staleness-
+# signal CLASS (the per-owner rollup the KI prescribes; ≤3 active). The CURRENT count + the full
+# candidate list live in the regenerable scan artifact (overwrite-latest); the signal is the
+# durable condition-present PING (STABLE id per class), so it never carries a stale count.
+# EMIT/RESOLVE symmetry (cgg-ledger#machine-emitter-emit-resolve-symmetry-and-chronological-
+# status-truth): a class that heals to 0 candidates resolves its prior rollup — no write-only
+# TENSION debt. SR4 (per-candidate decay/re-test discipline) stays a FORWARD residue; the rollup
+# is a condition present/absent marker, not a per-candidate accumulation surface.
+#
+# Center-hold: staleness_scan() itself stays READ-ONLY (unchanged; persists nothing — the
+# tic-509 contract). This residue is a SEPARATE gated function. A rollup is a HYPOTHESIS ping
+# (kind WATCH), opens no arena, mutates no doctrine, proposes only re-examination; NO new store.
+M2_STALENESS_PERSISTENCE_RATIFIED = False  # build-and-gate: DORMANT — /review flips False→True (ratification IS the flip; no further code change)
+STALENESS_CANDIDATE_SIGNAL_TYPE = "ladder.staleness_candidate"
+# Rollup observability weight: WATCH so /review sees it; modest volume — a re-examination
+# HYPOTHESIS is softer pressure than a down-audit `damaging` (40) / `hold_in_dissonance` (35).
+STALENESS_CANDIDATE_VOLUME = 20
+
+
+def compute_staleness_rollup_signal_id(staleness_signal):
+    """Deterministic, condition-stable signal ID for a staleness-candidate ROLLUP.
+
+    Keyed on (signal_type, staleness_signal class) — STABLE per class, NOT tic/count — so a
+    re-scan dedups idempotently (the COUNT lives in the regenerable artifact, never frozen in
+    the signal) and there is exactly ONE active rollup per staleness-signal class
+    (Emission-Granularity-Is-the-Leak: the per-owner rollup ray; Signal ID Determinism KI).
+    """
+    parts = [STALENESS_CANDIDATE_SIGNAL_TYPE, f"class={staleness_signal}"]
+    h = hashlib.sha256("|".join(parts).encode("utf-8")).hexdigest()[:8]
+    return f"sig_ladder_staleness_candidate_{h}"
+
+
+def load_staleness_rollups(zone_root):
+    """Read staleness-candidate rollup signals from the manifold, terminal-per-id projected
+    (latest entry wins — the Terminal-State Valve discipline). Read-only; the active-manifest
+    file is skipped (thin entries). Returns the latest signal dict per signal_id."""
+    tz_config = load_ticzone(zone_root)
+    al_path = audit_logs_path(zone_root, tz_config)
+    signal_dir = Path(al_path) / "signals"
+    if not signal_dir.is_dir():
+        return []
+    latest = {}
+    for f in sorted(signal_dir.glob("*.jsonl")):
+        if f.name == "active-manifest.jsonl":
+            continue
+        try:
+            lines = f.read_text(encoding="utf-8").splitlines()
+        except (OSError, UnicodeDecodeError):
+            continue
+        for line in lines:
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                d = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            if d.get("signal_type") != STALENESS_CANDIDATE_SIGNAL_TYPE:
+                continue
+            eid = d.get("signal_id") or d.get("id")
+            if eid:
+                latest[eid] = d
+    return list(latest.values())
+
+
+def persist_staleness_candidates(zone_root, scan_result, opened_tic=None, *,
+                                 force=False, dry_run=False,
+                                 source="ladder-audit.py", artifact_rel=None):
+    """M2 ACTIVATION piece 1 (build-and-gate): persist the read-only scan's candidate set as a
+    thin terminal rollup residue on the EXISTING signal manifold — ONE rollup ray per staleness-
+    signal CLASS (Emission-Granularity-Is-the-Leak), with emit-on-present / resolve-on-heal
+    symmetry (Machine-Emitter Emit/Resolve Symmetry). Dedup-at-write on the STABLE per-class id
+    (re-scan is idempotent); the CURRENT count lives in the regenerable artifact, never frozen
+    in the signal.
+
+    DORMANT unless M2_STALENESS_PERSISTENCE_RATIFIED or `force`: dormant returns the would-be
+    emit/resolve PLAN and writes NOTHING (the build-and-gate dormancy surface; /review flips the
+    flag — ratification IS the flip). Center-hold: a rollup is a HYPOTHESIS ping (WATCH) — opens
+    no arena, mutates no doctrine, proposes only re-examination; no new store. Fail-soft on a
+    bare/absent manifold."""
+    ratified = M2_STALENESS_PERSISTENCE_RATIFIED or force
+    if opened_tic is None:
+        opened_tic = scan_result.get("current_tic")
+
+    by_class = defaultdict(list)
+    for c in scan_result.get("candidates", []):
+        by_class[c["signal"]].append(c)
+    present_classes = set(by_class.keys())
+
+    plan_emit = []
+    for cls in sorted(present_classes):
+        items = by_class[cls]
+        plan_emit.append({
+            "signal_id": compute_staleness_rollup_signal_id(cls),
+            "staleness_signal": cls,
+            "candidate_count": len(items),
+            "top_targets": [c["target"] for c in items[:5]],
+            "proposed_routes": sorted({c["proposed_next_action"] for c in items}),
+        })
+
+    # Heal: an active rollup whose class is no longer present this scan → resolve it
+    # (emit/resolve symmetry — a healed condition must not leave write-only TENSION debt).
+    active_rollups = load_staleness_rollups(zone_root)
+    plan_resolve = []
+    for sig in active_rollups:
+        if not is_active_ray(sig):
+            continue
+        cls = (sig.get("payload") or {}).get("staleness_signal")
+        if cls and cls not in present_classes:
+            plan_resolve.append({
+                "signal_id": sig.get("signal_id") or sig.get("id"),
+                "staleness_signal": cls,
+                "reason": "healed — 0 candidates this scan",
+            })
+
+    if not ratified:
+        return {
+            "ran": False, "ratified": False,
+            "reason": "DORMANT (build-and-gate: M2_STALENESS_PERSISTENCE_RATIFIED=False; "
+                      "/review flips it). The read-only staleness-scan is built + live; only "
+                      "the candidate-residue PERSISTENCE is flag-gated. Plan-only — writes nothing.",
+            "would_emit": plan_emit,
+            "would_resolve": plan_resolve,
+            "_fence": "center-hold: dormant = NO write. A rollup is a HYPOTHESIS ping (WATCH); "
+                      "opens no arena, mutates no doctrine; no new store.",
+        }
+
+    if dry_run:
+        return {"ran": False, "ratified": True, "dry_run": True,
+                "would_emit": plan_emit, "would_resolve": plan_resolve}
+
+    tz_config = load_ticzone(zone_root)
+    al_path = audit_logs_path(zone_root, tz_config)
+    signal_dir = os.path.join(al_path, "signals")
+    os.makedirs(signal_dir, exist_ok=True)
+    now = datetime.now(timezone.utc)
+    date_str = now.strftime("%Y-%m-%d")
+    signal_file = os.path.join(signal_dir, f"{date_str}.jsonl")
+    manifest_path = os.path.join(signal_dir, "active-manifest.jsonl")
+
+    emitted, deduped = [], []
+    for p in plan_emit:
+        cls, sig_id = p["staleness_signal"], p["signal_id"]
+        summary_text = (f"staleness candidates [{cls}]: {p['candidate_count']} "
+                        f"re-examination hypotheses → {', '.join(p['proposed_routes'])} "
+                        f"(see artifact; a HYPOTHESIS set, not a verdict)")
+        payload = {
+            "staleness_signal": cls,
+            "candidate_count": p["candidate_count"],
+            "top_targets": p["top_targets"],
+            "proposed_routes": p["proposed_routes"],
+            "opened_tic": opened_tic,
+            "scan_artifact": artifact_rel,
+            "note": ("read-only DETECTION rollup; the CURRENT count + full set live in the "
+                     "regenerable scan artifact (this signal is the durable condition-present "
+                     "ping). Every route is a RE-EXAMINATION, never a demote — the S2 ACTION "
+                     "half is /review-gated + precondition-gated + RBD-gated."),
+        }
+        signal = {
+            "type": "signal", "id": sig_id, "signal_id": sig_id,
+            "signal_type": STALENESS_CANDIDATE_SIGNAL_TYPE,
+            "kind": "WATCH", "band": "COGNITIVE", "status": "active",
+            "volume": STALENESS_CANDIDATE_VOLUME, "max_volume": 100, "tick_count": 0,
+            "subsystem": "ladder_staleness", "source": source,
+            "source_date": date_str, "created_at": now.isoformat(),
+            "payload": payload, "origin": "deterministic",
+        }
+        written = dedup_signal_append(signal_file, signal, manifest_path=manifest_path)
+        if written:
+            dedup_signal_append(manifest_path, {
+                "signal_id": sig_id, "signal_type": STALENESS_CANDIDATE_SIGNAL_TYPE,
+                "kind": "WATCH", "band": "COGNITIVE", "status": "active",
+                "volume": STALENESS_CANDIDATE_VOLUME,
+                "source_file": f"signals/{date_str}.jsonl", "summary": summary_text,
+            })
+            emitted.append(sig_id)
+        else:
+            deduped.append(sig_id)
+
+    resolved = []
+    for r in plan_resolve:
+        sig = next((s for s in active_rollups
+                    if (s.get("signal_id") or s.get("id")) == r["signal_id"]), None)
+        if sig is None:
+            continue
+        healed = dict(sig)
+        healed["status"] = "resolved"
+        healed["structural_status"] = "resolved"
+        healed["resolved_at"] = now.isoformat()
+        hp = dict(healed.get("payload", {}))
+        hp["resolution"] = {
+            "resolved_to": "healed", "resolved_tic": opened_tic,
+            "justification": "0 candidates of this class this scan (emit/resolve symmetry)",
+            "made_known": "staleness rollup heal (machine)",
+        }
+        healed["payload"] = hp
+        # Terminal transition = append same signal_id (latest-per-id wins); NOT dedup
+        # (which would refuse the duplicate id) — mirrors resolve_downaudit_finding.
+        atomic_append_jsonl(signal_file, healed)
+        atomic_append_jsonl(manifest_path, {
+            "signal_id": r["signal_id"], "signal_type": STALENESS_CANDIDATE_SIGNAL_TYPE,
+            "status": "resolved", "structural_status": "resolved",
+            "summary": f"staleness rollup [{r['staleness_signal']}] healed (0 candidates)",
+        })
+        resolved.append(r["signal_id"])
+
+    return {
+        "ran": True, "ratified": True,
+        "emitted": emitted, "deduplicated": deduped, "resolved": resolved,
+        "summary": (f"persisted {len(emitted)} new + {len(deduped)} dedup rollup(s); "
+                    f"healed {len(resolved)} (per-class rollup, emit/resolve symmetric)"),
+    }
 
 
 def main():
@@ -3798,6 +4028,16 @@ def main():
     ss.add_argument("--window-days", type=float, default=ACTIVE_RUNG_WINDOW_DAYS,
                     dest="window_days",
                     help=f"Stage-0 recency window in days (default {ACTIVE_RUNG_WINDOW_DAYS})")
+    ss.add_argument("--persist", action="store_true",
+                    help="M2 ACTIVATION piece 1 (build-and-gate, DORMANT): persist the "
+                         "candidate set as a per-class rollup residue on the signal manifold "
+                         "(emit-on-present / resolve-on-heal). Gated on "
+                         "M2_STALENESS_PERSISTENCE_RATIFIED — dormant surfaces the emit/resolve "
+                         "PLAN and writes NOTHING; /review flips the flag to make it persist.")
+    ss.add_argument("--force-persist", action="store_true", dest="force_persist",
+                    help="Force the persistence ACTIVATION surface (dual-proof: bypasses the "
+                         "dormant gate to exercise the full emit/resolve surface before "
+                         "ratification; the scan itself stays read-only).")
     ss.add_argument("--zone-root", default=None, dest="zone_root")
 
     args = parser.parse_args()
@@ -3841,15 +4081,33 @@ def main():
             coverage_stale_tics=args.coverage_stale_tics,
             window_days=args.window_days,
             freshness_root_rel=args.freshness_root_rel)
+        # M2 ACTIVATION piece 1 (build-and-gate): persist the candidate set as a per-class
+        # rollup residue. The scan above stays READ-ONLY; persistence is the SEPARATE gated
+        # function. Dormant (default) → plan-only, writes nothing. /review flips the flag.
+        if args.persist or args.force_persist:
+            result["persistence"] = persist_staleness_candidates(
+                zone_root, result, opened_tic=result.get("current_tic"),
+                force=args.force_persist, artifact_rel=args.output)
         if args.output:
             Path(args.output).parent.mkdir(parents=True, exist_ok=True)
             Path(args.output).write_text(
                 json.dumps(result, indent=2) + "\n", encoding="utf-8")
             print(f"Staleness scan written to {args.output}")
+            if "persistence" in result:
+                print(f"Persistence: {result['persistence'].get('reason') or result['persistence'].get('summary')}")
         elif args.json:
             print(json.dumps(result, indent=2))
         else:
             print(format_staleness_scan(result))
+            if "persistence" in result:
+                pz = result["persistence"]
+                print("")
+                print("PERSISTENCE (M2 ACTIVATION piece 1, build-and-gate):")
+                print("-" * 74)
+                print(f"  {pz.get('reason') or pz.get('summary')}")
+                if not pz.get("ratified"):
+                    we, wr = pz.get("would_emit", []), pz.get("would_resolve", [])
+                    print(f"  would emit {len(we)} rollup(s), resolve {len(wr)} (DORMANT — wrote nothing)")
         return
 
     if args.command == "down-lane-run":

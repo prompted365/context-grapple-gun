@@ -576,6 +576,80 @@ def run_c9_downlane_cadence_step(zone_root, tic, force_ratified=False):
         return {"ran": False, "ratified": True, "due": True, "error": str(err)}
 
 
+# --- M2 cadence-wiring (tic 510): staleness-scan auto-fire (build-and-gate) ---
+# The read-only staleness DETECTION half (ladder-audit.py staleness-scan, S0+S1, built tic
+# 509) composes the freshness / held-dissonance / coverage signals into a staleness-candidate
+# set. This step auto-fires it on the SAME ladder_audit cadence (mod 5) as the C9 down-lane —
+# its companion lane (staleness-scan CONSUMES the C9 coverage manifold) — so /review always
+# has a CURRENT staleness-candidate artifact instead of a hand-run scan. The cadence half of
+# M2's detection (sovereign-boot-authority-spec.md §4; staleness-routing-spec.md §8).
+#
+# Build-and-gate (cgg-ledger#build-and-gate-ratified-flag-gated-consumer): the wiring touches
+# the load-bearing cadence clock, so it ships DORMANT — M2_STALENESS_CADENCE_RATIFIED defaults
+# False (a no-op recording its own dormancy). /review flips the flag (ratification IS the
+# flip; no further code change). Dual-proven: dormancy (False → no-op, writes nothing) +
+# activation (force_ratified → the artifact at a ladder_audit-due tic). Mirrors the C9 step.
+#
+# Center-hold: it fires the READ-ONLY scan to a regenerable overwrite-latest artifact — emits
+# NO signal (signal PERSISTENCE is the ORTHOGONAL M2_STALENESS_PERSISTENCE_RATIFIED flag in
+# ladder-audit.py; the cadence step does NOT pass --persist), opens no arena, mutates no
+# doctrine, no new store. Same fail-soft observability-subprocess pattern; never blocks cadence.
+M2_STALENESS_CADENCE_RATIFIED = False  # build-and-gate: DORMANT — /review flips False→True (ratification IS the flip; no further code change)
+
+
+def run_m2_staleness_cadence_step(zone_root, tic, force_ratified=False):
+    """Auto-fire the read-only M2 staleness-scan when the ladder_audit cycle is due (M2
+    cadence-wiring, companion to the C9 down-lane step). Build-and-gate: DORMANT unless
+    ratified. Read-only (refreshes the candidate artifact; emits NO signal — that is the
+    separate persistence flag), fail-soft; never raises, never blocks cadence. Returns a
+    result dict (ran / dormant / not_due / error) recording exactly why it did or did not fire."""
+    ratified = M2_STALENESS_CADENCE_RATIFIED or force_ratified
+    try:
+        due = "ladder_audit" in compute_due_cycles(tic)
+    except Exception as err:  # noqa: BLE001 — fail-soft
+        return {"ran": False, "error": f"due-check failed: {err}"}
+    if not ratified:
+        return {
+            "ran": False, "ratified": False, "due": due,
+            "reason": "DORMANT (build-and-gate: M2_STALENESS_CADENCE_RATIFIED=False; "
+                      "/review flips it). The staleness-scan detector is built + live; "
+                      "only its cadence auto-fire is flag-gated.",
+        }
+    if not due:
+        return {
+            "ran": False, "ratified": True, "due": False,
+            "reason": f"ladder_audit not due at tic {tic} (fires mod 5); no scan this cadence",
+        }
+    script = Path(__file__).resolve().parent / "ladder-audit.py"
+    if not script.exists():
+        return {"ran": False, "ratified": True, "due": True,
+                "reason": f"ladder-audit.py not found at {script}"}
+    artifact = (Path(zone_root) / "audit-logs" / "governance"
+                / "m2-staleness-candidates-latest.json")
+    try:
+        proc = subprocess.run(
+            ["python3", str(script), "--output", str(artifact),
+             "--project-dir", str(zone_root),
+             "staleness-scan", "--current-tic", str(tic)],
+            capture_output=True, text=True, timeout=90,
+        )
+        candidate_count = None
+        try:
+            data = json.loads(artifact.read_text(encoding="utf-8"))
+            candidate_count = data.get("candidate_count")
+        except Exception:  # noqa: BLE001 — artifact-parse best-effort
+            pass
+        return {
+            "ran": True, "ratified": True, "due": True,
+            "exit_code": proc.returncode, "ok": proc.returncode == 0,
+            "artifact": str(artifact), "candidate_count": candidate_count,
+            "summary": (f"staleness scan assembled: {candidate_count} candidates "
+                        f"(tic {tic}) — read-only; /review reads the artifact"),
+        }
+    except Exception as err:  # noqa: BLE001 — fail-soft
+        return {"ran": False, "ratified": True, "due": True, "error": str(err)}
+
+
 def wait_for_runner_quiescence(mandate_path: Path, timeout_s: float = 30.0,
                                 poll_interval_s: float = 2.0) -> dict:
     """Wait for mogul-runner to leave 'running' state before mandate write.
@@ -1051,6 +1125,15 @@ def main():
     # no arena, no doctrine mutation). Same fail-soft observability-subprocess pattern as
     # the steps above; never blocks cadence. /review 503 flips C9_DOWNLANE_CADENCE_RATIFIED.
     result["c9_downlane_cadence"] = run_c9_downlane_cadence_step(zone_root, tic_count)
+
+    # 5d. M2 staleness-scan auto-fire (tic 510, M2 cadence-wiring) — build-and-gate, ships
+    # DORMANT. Companion to 5c: when ladder_audit is due (mod 5) AND ratified, fires the
+    # read-only staleness DETECTION scan (ladder-audit.py staleness-scan) to a regenerable
+    # artifact so /review always has a CURRENT staleness-candidate set. Center-hold: read-only
+    # (emits no signal — persistence is the orthogonal M2_STALENESS_PERSISTENCE_RATIFIED flag;
+    # no arena, no doctrine mutation). Same fail-soft pattern; never blocks cadence. /review
+    # flips M2_STALENESS_CADENCE_RATIFIED.
+    result["m2_staleness_cadence"] = run_m2_staleness_cadence_step(zone_root, tic_count)
 
     # 6. Claude agents snapshot (tic 270) — read-only observability sensor.
     # Born tic 270 under Architect Path C adoption. Captures native Claude

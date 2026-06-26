@@ -183,5 +183,127 @@ class TestStalenessScan(unittest.TestCase):
         self.assertGreaterEqual(res["candidate_count"], 2)
 
 
+class TestPersistenceResidue(unittest.TestCase):
+    """M2 ACTIVATION piece 1 (build-and-gate): `persist_staleness_candidates`. Dual-proof —
+    dormancy (writes nothing) + activation (per-class rollup, dedup, emit/resolve symmetry).
+    Honors Emission-Granularity-Is-the-Leak (one rollup per CLASS, never per candidate)."""
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.root = self.tmp.name
+        self.addCleanup(self.tmp.cleanup)
+        # 4 freshness-overdue specs (one class) → proves rollup, not per-candidate flood.
+        _write(self.root, "autonomous_kernel/a.md", _spec("active", 100))
+        _write(self.root, "autonomous_kernel/b.md", _spec("active", 110))
+        _write(self.root, "autonomous_kernel/c.md", _spec("forward", 120))
+        _write(self.root, "autonomous_kernel/d.md", _spec("dormant", 130))
+
+    def _scan(self):
+        return la.staleness_scan(self.root, current_tic=509)
+
+    def _signal_files(self):
+        return sorted(str(p) for p in Path(self.root).rglob("*.jsonl"))
+
+    def test_dormant_writes_nothing_and_plans(self):
+        before = self._signal_files()
+        res = la.persist_staleness_candidates(self.root, self._scan(), opened_tic=509)
+        self.assertFalse(res["ratified"])
+        self.assertFalse(res["ran"])
+        self.assertEqual(self._signal_files(), before)  # build-and-gate dormancy: no write
+        # the would-emit PLAN is surfaced: one rollup for the single present class
+        self.assertEqual(len(res["would_emit"]), 1)
+        self.assertEqual(res["would_emit"][0]["staleness_signal"], "freshness_overdue")
+        self.assertEqual(res["would_emit"][0]["candidate_count"], 4)
+
+    def test_activation_emits_one_rollup_per_class_not_per_candidate(self):
+        res = la.persist_staleness_candidates(
+            self.root, self._scan(), opened_tic=509, force=True)
+        self.assertTrue(res["ran"])
+        self.assertEqual(len(res["emitted"]), 1)  # 4 candidates → ONE rollup (not a flood)
+        rollups = [r for r in la.load_staleness_rollups(self.root)
+                   if la.is_active_ray(r)]
+        self.assertEqual(len(rollups), 1)
+        r = rollups[0]
+        self.assertEqual(r["signal_type"], la.STALENESS_CANDIDATE_SIGNAL_TYPE)
+        self.assertEqual(r["kind"], "WATCH")
+        self.assertEqual(r["band"], "COGNITIVE")
+        self.assertEqual(r["payload"]["staleness_signal"], "freshness_overdue")
+        self.assertEqual(r["payload"]["candidate_count"], 4)
+
+    def test_activation_is_idempotent_dedup_at_write(self):
+        scan = self._scan()
+        first = la.persist_staleness_candidates(self.root, scan, opened_tic=509, force=True)
+        second = la.persist_staleness_candidates(self.root, scan, opened_tic=509, force=True)
+        self.assertEqual(len(first["emitted"]), 1)
+        self.assertEqual(len(second["emitted"]), 0)       # re-scan dedups
+        self.assertEqual(len(second["deduplicated"]), 1)
+        rollups = [r for r in la.load_staleness_rollups(self.root) if la.is_active_ray(r)]
+        self.assertEqual(len(rollups), 1)                  # still exactly one active
+
+    def test_emit_resolve_symmetry_heals_on_zero(self):
+        # emit (class present), then re-persist a scan with NO candidates → heal it.
+        la.persist_staleness_candidates(self.root, self._scan(), opened_tic=509, force=True)
+        empty_scan = {"current_tic": 510, "candidates": []}
+        healed = la.persist_staleness_candidates(
+            self.root, empty_scan, opened_tic=510, force=True)
+        self.assertEqual(len(healed["resolved"]), 1)       # emit/resolve symmetry
+        active = [r for r in la.load_staleness_rollups(self.root) if la.is_active_ray(r)]
+        self.assertEqual(active, [])                       # no write-only TENSION debt
+
+    def test_stable_id_per_class(self):
+        a = la.compute_staleness_rollup_signal_id("freshness_overdue")
+        b = la.compute_staleness_rollup_signal_id("freshness_overdue")
+        c = la.compute_staleness_rollup_signal_id("coverage_stale")
+        self.assertEqual(a, b)        # condition-stable
+        self.assertNotEqual(a, c)     # distinct per class
+        self.assertTrue(a.startswith("sig_ladder_staleness_candidate_"))
+
+
+class TestCadenceAutoFire(unittest.TestCase):
+    """M2 ACTIVATION piece 2 (build-and-gate): cadence-ops.run_m2_staleness_cadence_step.
+    Dual-proof — dormancy (no-op, no artifact) + not-due + activation (artifact at a
+    ladder_audit-due tic). Read-only: refreshes the artifact, emits no signal."""
+
+    @classmethod
+    def setUpClass(cls):
+        _co_spec = importlib.util.spec_from_file_location(
+            "cadence_ops", os.path.join(_HERE, "cadence-ops.py"))
+        cls.co = importlib.util.module_from_spec(_co_spec)
+        _co_spec.loader.exec_module(cls.co)
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.root = self.tmp.name
+        self.addCleanup(self.tmp.cleanup)
+        _write(self.root, "autonomous_kernel/a.md", _spec("active", 100))
+        self.artifact = (Path(self.root) / "audit-logs" / "governance"
+                         / "m2-staleness-candidates-latest.json")
+
+    def test_dormant_no_op_writes_no_artifact(self):
+        res = self.co.run_m2_staleness_cadence_step(self.root, 510)  # 510 % 5 == 0, due
+        self.assertFalse(res["ratified"])
+        self.assertFalse(res["ran"])
+        self.assertTrue(res["due"])  # due but dormant — proves the gate, not the schedule
+        self.assertFalse(self.artifact.exists())
+
+    def test_not_due_when_ratified_but_off_cadence(self):
+        res = self.co.run_m2_staleness_cadence_step(self.root, 511, force_ratified=True)
+        self.assertTrue(res["ratified"])
+        self.assertFalse(res["due"])   # 511 % 5 != 0
+        self.assertFalse(res["ran"])
+        self.assertFalse(self.artifact.exists())
+
+    def test_activation_fires_read_only_scan_to_artifact(self):
+        res = self.co.run_m2_staleness_cadence_step(self.root, 510, force_ratified=True)
+        self.assertTrue(res["ran"])
+        self.assertTrue(res["ok"])
+        self.assertTrue(self.artifact.exists())
+        self.assertGreaterEqual(res["candidate_count"], 1)  # found the overdue spec
+        # read-only: the scan artifact is detection output, NOT a persisted signal
+        sigs = list((Path(self.root) / "audit-logs" / "signals").glob("*.jsonl")) \
+            if (Path(self.root) / "audit-logs" / "signals").is_dir() else []
+        self.assertEqual(sigs, [])  # cadence step emits NO signal (orthogonal flag)
+
+
 if __name__ == "__main__":
     unittest.main()
