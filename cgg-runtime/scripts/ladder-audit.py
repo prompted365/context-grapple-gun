@@ -1667,6 +1667,25 @@ DISSONANCE_STALE_TICS = 8
 # coverage refresh. Heuristic + overridable (--coverage-stale-tics); NEVER a gate.
 DOWNAUDIT_COVERAGE_STALE_TICS = 12
 
+# M2 staleness-scan heuristic (staleness-routing-spec.md §2/§3 S0): a doctrine
+# surface whose `last_validated_tic` frontmatter is this many tics behind the current
+# federation tic is flagged freshness-OVERDUE — overdue for a re-validation CHECK
+# against current substrate (the Volatility Handling Law's L4-probe), NOT a verdict
+# that it is stale. Longer than the coverage window — a spec's claims drift slower
+# than audit-coverage of a (rung,KI) pair. Heuristic + overridable
+# (--freshness-stale-tics); NEVER a gate. SR1 (per-terrain/per-rung calibration) is a
+# forward residue — a founding KI goes stale slower than a fast-churning estate spec;
+# this global default is the `DOWNAUDIT_COVERAGE_STALE_TICS` precedent (a real,
+# overridable window, never a gate), refined per-terrain later.
+FRESHNESS_STALE_TICS = 50
+
+# The doctrine surfaces the freshness scan reads (declared scope, not the whole repo):
+# the kernel-rung specs carry the `status` + `last_validated_tic` frontmatter
+# convention (autonomous_kernel/CLAUDE.md "Status Convention for Specs"). The scan is
+# bounded to this surface; surfaces WITHOUT the frontmatter are out-of-signal-scope
+# (declared), never inferred-fresh. Overridable via --freshness-root.
+FRESHNESS_SCAN_ROOT_REL = "autonomous_kernel"
+
 # The Stage-4 arena's legal outcomes (the 8-outcome taxonomy from
 # doctrine-lifecycle-spec.md §6 + `reinforce` + the net-new `hold_in_dissonance`).
 # Each routes to /review as a VERDICT — never self-inscribed by this script.
@@ -3234,6 +3253,292 @@ def format_downlane_campaign(result):
     return "\n".join(lines)
 
 
+# ─── M2 staleness routing — S0 detector + S1 classifier (read-only) ──────────────
+# staleness-routing-spec.md §3–§4. The buildable-now DETECTION half of M2: compose
+# the staleness signals the federation ALREADY produces (§2) into a per-surface
+# staleness-candidate set + a PROPOSED re-examination route — read-only, no doctrine
+# mutation, no signal persistence, no cadence wiring. The ACTION half (S2 routing
+# inscription) is NOT here — it is /review-gated AND precondition-gated on a real
+# Stage-4 `stale`/`damaging` finding (can-it-eat); the demote-class subset of that
+# action is RBD-gated (RBD_DEMOTE_CLASS_OUTCOMES). The scan is a COMPOSER, not a new
+# freshness metric (tic-503 born: the missing runtime of a multi-stage lane is the
+# absent composer, not a missing stage).
+
+_FM_LAST_VALIDATED_RE = re.compile(r"^\s*last_validated_tic:\s*(\d+)", re.MULTILINE)
+_FM_STATUS_RE = re.compile(r"^\s*status:\s*([A-Za-z_][A-Za-z0-9_]*)", re.MULTILINE)
+_FM_FIRST_AUTHORED_RE = re.compile(r"^\s*first_authored_tic:\s*(\d+)", re.MULTILINE)
+# Frontmatter-bearing doctrine surfaces: kernel specs (.md) + typed registries /
+# meta sidecars (.yaml / .meta.yaml) that carry the convention.
+_FRESHNESS_SUFFIXES = (".md", ".yaml", ".meta.yaml")
+
+
+def _load_doctrine_freshness(zone_root, current_tic, freshness_stale_tics,
+                             freshness_root_rel=FRESHNESS_SCAN_ROOT_REL):
+    """Read-only S0a freshness signal: scan the declared doctrine-surface root for
+    `last_validated_tic` frontmatter and flag surfaces whose validation is OVERDUE
+    (current_tic - last_validated_tic >= freshness_stale_tics).
+
+    A surface WITHOUT a `last_validated_tic` is out-of-signal-scope (declared) — it is
+    skipped, never inferred-fresh. Never raises (fail-soft per surface). Returns
+    (overdue_list, scanned_count, skipped_no_frontmatter). `overdue` carries status +
+    first_authored_tic so the classifier can apply the `needs_mechanization ≠ stale`
+    discriminator (a `forward` spec overdue for validation is not stale for being early)."""
+    root = Path(zone_root) / freshness_root_rel
+    overdue, scanned, skipped = [], 0, 0
+    if not root.is_dir():
+        return overdue, scanned, skipped
+    for p in sorted(root.rglob("*")):
+        if not p.is_file():
+            continue
+        if not any(p.name.endswith(sfx) for sfx in _FRESHNESS_SUFFIXES):
+            continue
+        try:
+            head = p.read_text(encoding="utf-8")[:4000]
+        except (OSError, UnicodeDecodeError):
+            continue
+        m = _FM_LAST_VALIDATED_RE.search(head)
+        if not m:
+            skipped += 1
+            continue
+        scanned += 1
+        lv = int(m.group(1))
+        if not isinstance(current_tic, int):
+            continue
+        tics_since = current_tic - lv
+        if tics_since < freshness_stale_tics:
+            continue
+        sm = _FM_STATUS_RE.search(head)
+        fm = _FM_FIRST_AUTHORED_RE.search(head)
+        overdue.append({
+            "surface": os.path.relpath(str(p), zone_root),
+            "last_validated_tic": lv,
+            "tics_since_validated": tics_since,
+            "status": (sm.group(1) if sm else None),
+            "first_authored_tic": (int(fm.group(1)) if fm else None),
+        })
+    overdue.sort(key=lambda d: -(d.get("tics_since_validated") or 0))
+    return overdue, scanned, skipped
+
+
+def _classify_staleness_candidate(signal, payload):
+    """S1 classifier (read-only judgment): map a staleness candidate to a PROPOSED
+    RE-EXAMINATION route — never a demote. Detection-only: with no confirmed Stage-4
+    `stale` verdict in hand, the only honest route is to re-examine (re-validate /
+    re-test / re-audit) so a /stage arena can CONFIRM or dismiss the hypothesis. The
+    §3 routes (clarify/localize/supersede/retire) are post-arena and live in the
+    /review-gated + RBD-gated ACTION half — surfaced here as the gated downstream, not
+    proposed. Returns (proposed_next_action, route_note)."""
+    if signal == "freshness_overdue":
+        status = payload.get("status")
+        if status == "forward":
+            return ("revalidate_or_confirm_still_forward",
+                    "forward spec overdue for a freshness check — re-validate against "
+                    "current substrate OR confirm still-forward; NOT a demote "
+                    "(needs_mechanization ≠ stale — do not demote forward-doctrine "
+                    "for being early).")
+        if status == "dormant":
+            return ("reconfirm_dormancy",
+                    "dormant spec overdue — re-confirm dormancy still holds or its "
+                    "trigger conditions changed; NOT a demote.")
+        return ("revalidate",
+                "active spec overdue for the Volatility-Handling L4-probe — re-validate "
+                "claims against current substrate; overdue ≠ confirmed-stale.")
+    if signal == "held_dissonance_stale":
+        return ("retest_dissonance",
+                "held dissonance carried past its re-test window (D4) — fire a fresh "
+                "down-audit so it is not silently immortal; re-test, never auto-resolve.")
+    if signal == "coverage_stale":
+        return ("reaudit",
+                "(rung,KI) coverage stale — re-run the C9 down-lane (down-lane-run) for "
+                "this pair; coverage-staleness is an INPUT, not the doctrine verdict.")
+    return ("review", "unclassified staleness candidate — route to /review.")
+
+
+def staleness_scan(zone_root, current_tic=None,
+                   freshness_stale_tics=FRESHNESS_STALE_TICS,
+                   coverage_stale_tics=DOWNAUDIT_COVERAGE_STALE_TICS,
+                   window_days=ACTIVE_RUNG_WINDOW_DAYS,
+                   freshness_root_rel=FRESHNESS_SCAN_ROOT_REL):
+    """M2 staleness DETECTION (S0 detector + S1 classifier) — read-only.
+
+    Composes the staleness signals the federation already produces (staleness-routing-
+    spec.md §2) into ONE staleness-candidate set per surface/finding, each with a
+    PROPOSED re-examination route (S1). Read-only / no-new-authority: reads frontmatter
+    + the EXISTING finding manifold + the C9 coverage manifold; persists NOTHING, emits
+    NO signal, opens NO arena, mutates NO doctrine, wires into NO cadence. A candidate
+    is a staleness HYPOTHESIS, never a verdict — convergence routes to a /stage arena →
+    /review (Arena Velocity Guard). The ACTION half (S2 routing inscription) is NOT
+    here: it is /review-gated AND precondition-gated on a real Stage-4 `stale`/`damaging`
+    finding (can-it-eat); demote-class routes are additionally RBD-gated."""
+    zone_root = os.path.abspath(zone_root)
+    if current_tic is None:
+        current_tic = _resolve_federation_tic(zone_root)
+
+    candidates = []
+
+    # S0a — freshness: doctrine surfaces overdue for re-validation (last_validated_tic).
+    overdue, fresh_scanned, fresh_skipped = _load_doctrine_freshness(
+        zone_root, current_tic, freshness_stale_tics, freshness_root_rel)
+    for o in overdue:
+        action, note = _classify_staleness_candidate("freshness_overdue", o)
+        candidates.append({
+            "signal": "freshness_overdue",
+            "target": o["surface"],
+            "detail": (f"last_validated_tic={o['last_validated_tic']} "
+                       f"({o['tics_since_validated']}t ago), status={o['status']}"),
+            "tics_since": o["tics_since_validated"],
+            "status": o.get("status"),
+            "proposed_next_action": action,
+            "route_note": note,
+            "confirmed_stale": False,
+            "demote_class_route": False,
+        })
+
+    # S0b — held-dissonance staleness: reuse the Stage-4 finding projection (D4).
+    findings = list_downaudit_findings(zone_root, current_tic=current_tic)
+    held_stale = findings.get("stale_held_for_retest", [])
+    for h in held_stale:
+        action, note = _classify_staleness_candidate("held_dissonance_stale", h)
+        candidates.append({
+            "signal": "held_dissonance_stale",
+            "target": f"{h.get('ki_id')} @ {h.get('rung')}",
+            "detail": (f"held {h.get('tics_held')}t (≥{DISSONANCE_STALE_TICS}) "
+                       f"[{h.get('signal_id')}]"),
+            "tics_since": h.get("tics_held"),
+            "signal_id": h.get("signal_id"),
+            "proposed_next_action": action,
+            "route_note": note,
+            "confirmed_stale": False,
+            "demote_class_route": False,
+        })
+
+    # S0c — coverage staleness: reuse the C9 down-lane coverage manifold (fast path).
+    camp = run_downlane_campaign(
+        zone_root, current_tic=current_tic, coverage_stale_tics=coverage_stale_tics,
+        window_days=window_days, include_packets=False)
+    cov_stale = [d for d in camp.get("due_now", []) if d.get("reason") == "stale"]
+    for c in cov_stale:
+        action, note = _classify_staleness_candidate("coverage_stale", c)
+        candidates.append({
+            "signal": "coverage_stale",
+            "target": f"{c.get('ki_id')} @ {c.get('rung')}",
+            "detail": (f"last audited tic {c.get('last_audited_tic')} "
+                       f"({c.get('tics_since')}t ago, ≥{coverage_stale_tics})"),
+            "tics_since": c.get("tics_since"),
+            "proposed_next_action": action,
+            "route_note": note,
+            "confirmed_stale": False,
+            "demote_class_route": False,
+        })
+
+    by_signal = defaultdict(int)
+    for c in candidates:
+        by_signal[c["signal"]] += 1
+
+    return {
+        "audited_at": datetime.now(timezone.utc).isoformat(),
+        "zone_root": zone_root,
+        "stage": "M2 staleness DETECTION (read-only S0 detector + S1 classifier)",
+        "_status": "Staleness candidate set — read-only DETECTION half of M2 "
+                   "(staleness-routing-spec.md §3–§4). Composes the EXISTING staleness "
+                   "signals (§2) into candidates + PROPOSED re-examination routes. NOT "
+                   "verdicts (a /stage arena → /review confirms), NOT a mutation.",
+        "_fence": "center-hold: read-only — persists nothing, emits no signal, opens no "
+                  "arena, demotes nothing, mutates no doctrine, wires into no cadence. A "
+                  "candidate is a staleness HYPOTHESIS (Arena Velocity Guard). Every "
+                  "proposed route is a RE-EXAMINATION (re-validate/re-test/re-audit), "
+                  "never a demote — the demote-class ACTION (S2) is /review-gated AND "
+                  "precondition-gated on a real Stage-4 `stale` finding AND RBD-gated.",
+        "current_tic": current_tic,
+        "freshness_stale_tics": freshness_stale_tics,
+        "coverage_stale_tics": coverage_stale_tics,
+        "scope_declaration": (
+            "S0a freshness: scans frontmatter `last_validated_tic` under "
+            f"{freshness_root_rel}/ (the declared `status`+`last_validated_tic` "
+            "convention surface; surfaces without it are out-of-signal-scope, never "
+            "inferred-fresh). S0b held-dissonance: reuses list-findings "
+            "stale_held_for_retest (DISSONANCE_STALE_TICS, D4). S0c coverage: reuses "
+            "down-lane-run due_now[reason=stale] (DOWNAUDIT_COVERAGE_STALE_TICS). "
+            "CANNOT confirm staleness (a /stage arena does); freshness-overdue means "
+            "overdue for a re-validation CHECK (Volatility Handling L4-probe), NOT "
+            "confirmed-stale. Thresholds are heuristic re-examination windows, "
+            "overridable, NEVER gates."
+        ),
+        "freshness_surfaces_scanned": fresh_scanned,
+        "freshness_surfaces_skipped_no_frontmatter": fresh_skipped,
+        "candidate_count": len(candidates),
+        "candidates_by_signal": dict(by_signal),
+        "candidates": candidates,
+        "forward_residues": {
+            "supersession_orphan_detection": (
+                "FORWARD (SR2) — a superseded-but-not-transitioned entry looks stale "
+                "but its route is already known (supersede); needs disambiguation "
+                "before detection, not built here."),
+            "persistence_residue": (
+                "FORWARD (/review-gated) — emitting candidates as a thin terminal "
+                "`ladder.staleness_candidate` signal residue is a (small) mutation; it "
+                "ships build-and-gate after /review, not in this read-only scan."),
+            "cadence_wiring": (
+                "FORWARD (/review-gated) — auto-firing this scan per /cadence is "
+                "activation; /review decides the wiring (a blanket periodic scan with "
+                "nothing to route would be the mounted-bear)."),
+            "action_half_S2": (
+                "FORWARD (precondition-gated) — staleness ROUTING inscription "
+                "(clarify/localize/supersede/retire/demote) waits on a real Stage-4 "
+                "`stale`/`damaging` finding; demote-class is RBD-gated "
+                f"({', '.join(RBD_DEMOTE_CLASS_OUTCOMES)})."),
+        },
+    }
+
+
+def format_staleness_scan(result):
+    """Human-readable M2 staleness DETECTION (read-only S0+S1)."""
+    lines = []
+    lines.append("=" * 74)
+    lines.append("LADDER STALENESS-SCAN · M2 DETECTION (read-only; S0 detector + S1 classifier)")
+    lines.append("=" * 74)
+    lines.append(f"  Zone root:      {result.get('zone_root', '?')}")
+    lines.append(f"  Current tic:    {result.get('current_tic')}")
+    lines.append(f"  Freshness-stale: ≥{result.get('freshness_stale_tics')}t    "
+                 f"coverage-stale: ≥{result.get('coverage_stale_tics')}t")
+    lines.append(f"  Freshness surfaces: {result.get('freshness_surfaces_scanned')} scanned, "
+                 f"{result.get('freshness_surfaces_skipped_no_frontmatter')} skipped (no frontmatter)")
+    lines.append("")
+    lines.append("  " + result.get("_status", ""))
+    lines.append("  " + result.get("_fence", ""))
+    lines.append("")
+    lines.append("  scope: " + result.get("scope_declaration", ""))
+    lines.append("")
+    by = result.get("candidates_by_signal", {})
+    lines.append(f"CANDIDATE SUMMARY ({result.get('candidate_count', 0)} total — "
+                 "each a HYPOTHESIS, route = re-examination, never a demote):")
+    lines.append("-" * 74)
+    lines.append(f"  freshness_overdue: {by.get('freshness_overdue', 0)}    "
+                 f"held_dissonance_stale: {by.get('held_dissonance_stale', 0)}    "
+                 f"coverage_stale: {by.get('coverage_stale', 0)}")
+    lines.append("")
+    for sig in ("freshness_overdue", "held_dissonance_stale", "coverage_stale"):
+        items = [c for c in result.get("candidates", []) if c["signal"] == sig]
+        if not items:
+            continue
+        lines.append(f"{sig.upper()} ({len(items)}):")
+        lines.append("-" * 74)
+        for c in items[:40]:
+            lines.append(f"  · {c['target']}")
+            lines.append(f"      {c['detail']}  → {c['proposed_next_action']}")
+        if len(items) > 40:
+            lines.append(f"  … + {len(items) - 40} more (use --json for the full list)")
+        lines.append("")
+    fr = result.get("forward_residues", {})
+    lines.append("FORWARD (not in this read-only scan — /review-gated / precondition-gated):")
+    lines.append("-" * 74)
+    for k in ("persistence_residue", "cadence_wiring", "action_half_S2",
+              "supersession_orphan_detection"):
+        if k in fr:
+            lines.append(f"  · {k}: {fr[k]}")
+    return "\n".join(lines)
+
+
 def main():
     parser = argparse.ArgumentParser(
         description="Ladder Coherence Audit — scan CLAUDE.md governance chain; "
@@ -3464,6 +3769,37 @@ def main():
                           "flag (activation proof; fires run_rbd_drill)")
     rad.add_argument("--zone-root", default=None, dest="zone_root")
 
+    ss = sub.add_parser(
+        "staleness-scan",
+        help="M2 staleness DETECTION (read-only S0 detector + S1 classifier; "
+             "staleness-routing-spec.md §3–§4). Composes the EXISTING staleness signals "
+             "(last_validated_tic freshness + held-dissonance-stale + coverage-stale) "
+             "into a staleness-candidate set + a PROPOSED re-examination route per "
+             "candidate. Read-only: persists nothing, emits no signal, opens no arena, "
+             "mutates no doctrine, wires into no cadence. A candidate is a HYPOTHESIS; "
+             "the demote-class ACTION half (S2) is /review-gated AND precondition-gated "
+             "on a real Stage-4 `stale` finding AND RBD-gated.")
+    ss.add_argument("--current-tic", type=int, default=None, dest="current_tic",
+                    help="Current federation tic (auto-resolved from the tic log if omitted)")
+    ss.add_argument("--freshness-stale-tics", type=int, default=FRESHNESS_STALE_TICS,
+                    dest="freshness_stale_tics",
+                    help="A doctrine surface whose last_validated_tic is >= this many "
+                         f"tics behind current is flagged freshness-overdue (heuristic, "
+                         f"default {FRESHNESS_STALE_TICS}; never a gate). SR1: per-terrain "
+                         "calibration is forward.")
+    ss.add_argument("--coverage-stale-tics", type=int,
+                    default=DOWNAUDIT_COVERAGE_STALE_TICS, dest="coverage_stale_tics",
+                    help=f"Coverage-staleness window (default {DOWNAUDIT_COVERAGE_STALE_TICS}; "
+                         "never a gate)")
+    ss.add_argument("--freshness-root", default=FRESHNESS_SCAN_ROOT_REL,
+                    dest="freshness_root_rel",
+                    help="Doctrine-surface root (relative to zone) the freshness scan "
+                         f"reads (default {FRESHNESS_SCAN_ROOT_REL})")
+    ss.add_argument("--window-days", type=float, default=ACTIVE_RUNG_WINDOW_DAYS,
+                    dest="window_days",
+                    help=f"Stage-0 recency window in days (default {ACTIVE_RUNG_WINDOW_DAYS})")
+    ss.add_argument("--zone-root", default=None, dest="zone_root")
+
     args = parser.parse_args()
 
     if args.command == "list-findings":
@@ -3495,6 +3831,25 @@ def main():
             reversible=(not args.irreversible), made_known=args.made_known,
             resolved_tic=args.resolved_tic, dry_run=args.dry_run)
         print(json.dumps(result, indent=2))
+        return
+
+    if args.command == "staleness-scan":
+        zone_root = args.zone_root or args.project_dir or resolve_zone_root()
+        result = staleness_scan(
+            zone_root, current_tic=args.current_tic,
+            freshness_stale_tics=args.freshness_stale_tics,
+            coverage_stale_tics=args.coverage_stale_tics,
+            window_days=args.window_days,
+            freshness_root_rel=args.freshness_root_rel)
+        if args.output:
+            Path(args.output).parent.mkdir(parents=True, exist_ok=True)
+            Path(args.output).write_text(
+                json.dumps(result, indent=2) + "\n", encoding="utf-8")
+            print(f"Staleness scan written to {args.output}")
+        elif args.json:
+            print(json.dumps(result, indent=2))
+        else:
+            print(format_staleness_scan(result))
         return
 
     if args.command == "down-lane-run":
