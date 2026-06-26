@@ -882,16 +882,32 @@ def render_human(office: str, tic: int, base: dict, frags: list, max_chars: int,
     if max_chars and len(body) > max_chars:
         reserve = 460  # generous upper bound for the (variable-length) manifest marker line
         budget = max_chars - reserve - 1
-        kept, used = [], 0
-        for ln in lines:
-            if used + len(ln) + 1 > budget:
-                break
-            kept.append(ln)
-            used += len(ln) + 1
-        if not kept:            # head alone overran budget — keep it anyway (never empty)
-            kept = [lines[0]]
-        kept_n = len(kept)
-        omitted_frags = [lf for lf in line_frags[kept_n:] if lf is not None]
+        # MUST-SURVIVE rays are budget-EXEMPT — the same status the IDENTITY/STANDING/LADDER prose
+        # already enjoys below (appended after truncation). Two rays are load-bearing-at-boot and
+        # may never be sealed by a tight seam:
+        #   • boot.read_invariant — the gate that says "DO NOT ACT FROM A CLIPPED PREVIEW … expand
+        #     the follow-surface." Clipping IT defeats the gate: a reader who never sees the
+        #     invariant has no instruction to expand the seal (the perception-debt→mutation hole).
+        #   • standing.boundary — the APOPHATIC "what you are NOT" for capped (non-citizen) standings.
+        # At the live citizen seam (--max-chars 2200) head+reserve exhausts the budget BEFORE any
+        # ray renders, so prefix-truncation defeated _apply_standing_policy's invariant-first order
+        # (every ray RENDER-BOUND, 0 visible). Forcing these two in (index-based, order-preserving)
+        # bounds only the REMAINDER. (tic 514 citizen-boot eval, GAP-1.)
+        MUST_SURVIVE = {"boot.read_invariant", "standing.boundary"}
+        forced_idx = {0} | {i for i in range(len(lines))
+                            if line_frags[i] is not None and line_frags[i]["id"] in MUST_SURVIVE}
+        kept_idx = set(forced_idx)
+        used = sum(len(lines[i]) + 1 for i in forced_idx)
+        for i in range(len(lines)):
+            if i in kept_idx:
+                continue
+            if used + len(lines[i]) + 1 > budget:
+                continue  # skip (not break): a later must-survive ray is already forced in
+            kept_idx.add(i)
+            used += len(lines[i]) + 1
+        kept = [lines[i] for i in sorted(kept_idx)]  # order-preserving (gaps allowed)
+        omitted_frags = [line_frags[i] for i in range(len(lines))
+                         if i not in kept_idx and line_frags[i] is not None]
         if omitted_frags:
             kept.append(_render_bound_marker(omitted_frags, office, tic))
         body = "\n".join(kept)

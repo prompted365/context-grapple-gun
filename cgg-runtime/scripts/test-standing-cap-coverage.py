@@ -76,6 +76,20 @@ for s, ent in sorted(sample.items()):
         check(f"non-citizen {s} ({ent}): ZERO act-authorized fragments", len(acts) == 0)
         check(f"non-citizen {s} ({ent}): carries APOPHATIC boundary", has_apo)
 
+# 5. GAP-1 regression guard (tic 514 citizen-boot eval): the boot-read invariant and the APOPHATIC
+#    standing.boundary are MUST-SURVIVE — they must render IN-BODY at the live seam budgets even when
+#    the budget would otherwise seal them. Clipping the invariant defeats the very gate that says
+#    "do not act from a clipped preview … expand the follow-surface."
+SEAMS = {"citizen": 2200, "non-citizen": 2600}  # subagent-citizen-boot.py / session-restore.sh
+for s, ent in sorted(sample.items()):
+    frags = owv.compile_fragments(ZR, ent, 399)
+    base = owv._office_baseline(ZR, ent, 399)
+    must = {f["id"]: f["text"] for f in frags if f["id"] in {"boot.read_invariant", "standing.boundary"}}
+    seam = SEAMS["citizen"] if s == "citizen" else SEAMS["non-citizen"]
+    body = owv.render_human(ent, 399, base, frags, seam, zone_root=ZR, receipt_frame=False)
+    for fid, ftext in must.items():
+        check(f"{s} {ent}: '{fid}' survives the {seam}-char seam in-body (GAP-1)", ftext[:60] in body)
+
 print()
 if failures:
     print(f"{len(failures)} FAILED:", ", ".join(failures))
