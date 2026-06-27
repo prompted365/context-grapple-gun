@@ -247,6 +247,62 @@ def _default_queue():
     return None
 
 
+# ---------------------------------------------------------------------------
+# Sibling born-home writeback scope (bk-borns-home-writeback-flip-scope, tic 517→).
+# A born's inline candidate block lives in the FEDERATION born home
+# (audit-logs/governance/borns-tic<N>-*.md), NOT in the auto-memory dir — cpr-extract
+# started extracting borns from there at tic 498 (Emitter Surface Declared Interface),
+# so the EXTRACT side reaches them but this WRITEBACK side does not: flip_inline_status
+# globs only the auto-memory dir, leaving a promoted born's `status:` pending forever —
+# every boot then miscounts it, the SAME silent-no-op class as the tic-481 id-form
+# divergence fix one surface over (cgg-ledger#named-footgun-guard-leaves-sibling-site-
+# unfixed: fix-site + bug-sibling-site are a closed consumer set).
+#
+# BUILD-AND-GATE (cgg-ledger#build-and-gate-ratified-flag-gated-consumer): the born-home
+# scan is BUILT + WIRED + dual-proof-TESTED, but its USE is gated on this flag
+# (default False = dormant) because the governing doctrine `cpr_borns_governance_home`
+# (the born home IS a governance home consumers must scan) is DEFERRED at /review (one
+# conformation owed). /review flips this ONE constant to True — ratification IS the
+# flag-flip, no further code change; callers (review-execute) pass scan_borns=None and
+# inherit the gate. Dual proof lives in test_review_promote_writeback.py: dormancy
+# (0-flip at False) + full-surface activation (flip + terminal-noop + content-bridge at
+# True), not one happy path.
+#
+# NOT recency-windowed — the apophatic boundary against cpr-extract's select_borns_files
+# (which IS windowed, BORNS_RECENCY_WINDOW=6, to avoid mass-extracting ~88 historical
+# borns). The writeback is keyed on a specific cpr_id / content-hash, so it must reach a
+# born of ANY age: a born promoted now could be tics old, and windowing it to the born
+# frontier would silently fail to flip it (the very silent-no-op this file fights). The
+# New-Consumer scope-bound (cgg-ledger#new-consumer-over-long-lived-emitter-surface-must-
+# be-scope-bounded-not-retroactive) governs bulk DISCOVERY (sweeping for NEW blocks),
+# NOT a targeted by-id WRITEBACK whose key IS its bound.
+# ---------------------------------------------------------------------------
+
+_BORNS_HOME_REL = os.path.join("audit-logs", "governance")
+_BORNS_GLOB = "borns-tic*.md"
+BORNS_WRITEBACK_RATIFIED = False  # /review-519 flips to True (ratification IS the flip)
+
+
+def _default_borns_home():
+    """Resolve the federation born home (audit-logs/governance, where borns-tic<N>-*.md
+    live) by walking up from this script, then via zone_root. Returns a Path or None.
+    Mirrors _default_queue: the forge copy resolves via walk-up; the installed copy under
+    ~/.claude resolves via zone_root (no audit-logs/ on the ~/.claude walk-up path)."""
+    here = Path(os.path.abspath(__file__)).parent
+    for d in [here, *here.parents]:
+        cand = d / _BORNS_HOME_REL
+        if cand.is_dir():
+            return cand
+    if resolve_zone_root is not None:
+        try:
+            cand = Path(resolve_zone_root()) / _BORNS_HOME_REL
+            if cand.is_dir():
+                return cand
+        except Exception:
+            pass
+    return None
+
+
 def _compute_dedup_hash(source, lesson):
     """`sha256(f'{source}:{lesson}')[:16]` — the EXACT id-minting formula from
     cpr-extract.py:543-545. Kept in lock-step so a recomputed inline-block hash matches
@@ -345,10 +401,14 @@ def resolve_promotion_id_set(cpr_id, queue_path=None):
 
 
 def flip_inline_status(cpr_id, new_status, review_tic, promoted_to,
-                       dry_run=False, search_dir=None, id_set=None, dedup_hash=None):
+                       dry_run=False, search_dir=None, id_set=None, dedup_hash=None,
+                       scan_borns=None, borns_dir=None):
     """Advance a NON-TERMINAL `status:` -> new_status in the candidate block for cpr_id.
 
-    Scans every *.md in the auto-memory dir (MEMORY.md + topic files). A candidate block
+    Scans every *.md in the auto-memory dir (MEMORY.md + topic files) AND — when the
+    born-home scan is ratified (scan_borns; None -> BORNS_WRITEBACK_RATIFIED gate) —
+    every borns-tic*.md in the federation born home (audit-logs/governance), FULL corpus
+    (not recency-windowed; see module header). A candidate block
     MATCHES when its declared `id:` is in `id_set` (default {cpr_id}) OR — the content
     bridge — its recomputed `sha256(source:lesson)[:16]` equals `dedup_hash`. For each
     matched block whose status is non-terminal (pending / enrichment_* / extracted /
@@ -362,15 +422,26 @@ def flip_inline_status(cpr_id, new_status, review_tic, promoted_to,
     (a matched non-terminal block that the caller's `flipped == expected` post-assert
     expects to have flipped) so a matched-but-unflipped block surfaces loudly instead of
     exiting silently. Returns a list of action dicts (one per block touched / inspected)."""
-    search_dir = Path(search_dir) if search_dir else AUTO_MEMORY_DIR
+    primary_dir = Path(search_dir) if search_dir else AUTO_MEMORY_DIR
+    scan_borns_effective = (BORNS_WRITEBACK_RATIFIED if scan_borns is None
+                            else bool(scan_borns))
     actions = []
-    if not search_dir.is_dir():
-        return actions
-
     id_set = set(id_set) if id_set else set()
     id_set.add(cpr_id)
 
-    for fpath in sorted(search_dir.glob("*.md")):
+    # (fpath, surface) search list. Auto-memory (*.md) always; the born home
+    # (borns-tic*.md) only when the build-and-gate flag resolves true — FULL corpus, NOT
+    # recency-windowed (a by-id writeback must reach a born of any age). The born home is
+    # skipped when it equals primary_dir (no double-scan) or is unresolvable (fail-soft).
+    scan_files = []
+    if primary_dir.is_dir():
+        scan_files.extend((f, "auto_memory") for f in sorted(primary_dir.glob("*.md")))
+    if scan_borns_effective:
+        bh = Path(borns_dir) if borns_dir else _default_borns_home()
+        if bh is not None and Path(bh).is_dir() and Path(bh) != primary_dir:
+            scan_files.extend((f, "borns") for f in sorted(Path(bh).glob(_BORNS_GLOB)))
+
+    for fpath, surface in scan_files:
         try:
             text = fpath.read_text(encoding="utf-8")
         except (OSError, UnicodeDecodeError):
@@ -408,14 +479,14 @@ def flip_inline_status(cpr_id, new_status, review_tic, promoted_to,
             if status_idx is None:
                 # Matched but unflippable (no status line) — an anomaly worth surfacing.
                 actions.append({
-                    "file": str(fpath), "cpr_id": cpr_id, "block_id": blk_id,
+                    "file": str(fpath), "surface": surface, "cpr_id": cpr_id, "block_id": blk_id,
                     "matched_by": matched_by, "flippable": True,
                     "action": "skip", "reason": "no status line in block",
                 })
                 continue
             if cur_status in _TERMINAL_STATUSES:
                 actions.append({
-                    "file": str(fpath), "cpr_id": cpr_id, "block_id": blk_id,
+                    "file": str(fpath), "surface": surface, "cpr_id": cpr_id, "block_id": blk_id,
                     "matched_by": matched_by, "flippable": False,
                     "action": "noop", "reason": f"status already terminal '{cur_status}'",
                 })
@@ -432,7 +503,7 @@ def flip_inline_status(cpr_id, new_status, review_tic, promoted_to,
             if inserts:
                 lines[status_idx + 1:status_idx + 1] = inserts
             actions.append({
-                "file": str(fpath), "cpr_id": cpr_id, "block_id": blk_id,
+                "file": str(fpath), "surface": surface, "cpr_id": cpr_id, "block_id": blk_id,
                 "matched_by": matched_by, "flippable": True,
                 "action": "flip", "from": cur_status, "to": new_status,
                 "added": [s.strip() for s in inserts],
@@ -621,7 +692,7 @@ def stamp_reinforced_by(ledger_path, target_anchor, reinforced_by, source, tic,
 
 def writeback(cpr_id, promoted_to, review_tic, status="promoted",
               birth_tic=None, source=None, dry_run=False, search_dir=None,
-              queue_path=None, resolve_aliases=None):
+              queue_path=None, resolve_aliases=None, scan_borns=None, borns_dir=None):
     """Run both writeback halves for one promoted CogPR. Returns a report dict.
 
     Resolves a tolerant id-set + content-identity hash from the queue before the inline
@@ -638,11 +709,16 @@ def writeback(cpr_id, promoted_to, review_tic, status="promoted",
 
     inline = flip_inline_status(cpr_id, status, review_tic, promoted_to,
                                 dry_run=dry_run, search_dir=search_dir,
-                                id_set=id_set, dedup_hash=dedup_hash)
+                                id_set=id_set, dedup_hash=dedup_hash,
+                                scan_borns=scan_borns, borns_dir=borns_dir)
     breadcrumb = stamp_breadcrumb(cpr_id, promoted_to, birth_tic, review_tic,
                                   source, dry_run=dry_run, am_dir=search_dir)
 
     flipped = sum(1 for a in inline if a.get("action") == "flip")
+    # Born-home legibility: which surface a match landed on, and the effective gate state.
+    scanned_borns = (BORNS_WRITEBACK_RATIFIED if scan_borns is None else bool(scan_borns))
+    blocks_matched_in_borns = sum(
+        1 for a in inline if a.get("matched_by") and a.get("surface") == "borns")
     # post-assert: every MATCHED + FLIPPABLE block must have flipped. By construction
     # they do; a mismatch (e.g. a matched block with no status line) is a real anomaly
     # the guard surfaces instead of exiting clean on `inline_blocks_flipped=0`.
@@ -664,6 +740,8 @@ def writeback(cpr_id, promoted_to, review_tic, status="promoted",
             "blocks_matched": blocks_matched,
             "matched_by_content_hash": matched_by_content,
             "queue_resolved": resolve_aliases,
+            "scanned_borns": scanned_borns,
+            "blocks_matched_in_borns": blocks_matched_in_borns,
         },
         "summary": {
             "inline_blocks_flipped": flipped,
@@ -712,6 +790,14 @@ def main():
     parser.add_argument("--queue-path", default=None, dest="queue_path",
                         help="Override the CogPR queue path for id-set resolution "
                              "(default: federation audit-logs/cprs/queue.jsonl; test hook)")
+    parser.add_argument("--scan-borns", action="store_true", default=None,
+                        dest="scan_borns",
+                        help="Force-scan the federation born home "
+                             "(audit-logs/governance/borns-tic*.md) for the inline flip. "
+                             "Absent -> the BORNS_WRITEBACK_RATIFIED gate (default dormant "
+                             "until /review ratifies cpr_borns_governance_home).")
+    parser.add_argument("--borns-dir", default=None, dest="borns_dir",
+                        help="Override the born home dir (test hook).")
     parser.add_argument("--dry-run", action="store_true")
     parser.add_argument("--json", action="store_true", dest="output_json")
     args = parser.parse_args()
@@ -751,6 +837,7 @@ def main():
         status=args.status, birth_tic=args.birth_tic, source=args.source,
         dry_run=args.dry_run, search_dir=args.search_dir,
         queue_path=args.queue_path,
+        scan_borns=args.scan_borns, borns_dir=args.borns_dir,
     )
 
     s = report["summary"]
@@ -772,6 +859,12 @@ def main():
         bridge = f", content-bridge={res['dedup_hash']}" if res["dedup_hash"] else ""
         print(f"  resolution: {len(res['id_set'])} id(s) searched{bridge}; "
               f"blocks matched={res['blocks_matched']}")
+        if res.get("scanned_borns"):
+            print(f"  born-home scanned (ratified); blocks matched in borns="
+                  f"{res['blocks_matched_in_borns']}")
+        elif res.get("blocks_matched") == 0:
+            print("  born-home NOT scanned (BORNS_WRITEBACK_RATIFIED dormant; "
+                  "--scan-borns to force)")
         if s.get("id_divergence_bridged"):
             print(f"  ⚑ id-form divergence BRIDGED via content-hash "
                   f"({res['matched_by_content_hash']} block(s))")

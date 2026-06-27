@@ -282,5 +282,103 @@ class TestIdFormDivergence(unittest.TestCase):
         self.assertTrue(report["summary"]["post_assert_flipped_eq_expected"])
 
 
+class TestBornsHomeWritebackGate(unittest.TestCase):
+    """bk-borns-home-writeback-flip-scope (tic 517→): the flip must reach a born's inline
+    block in the federation born home (audit-logs/governance/borns-tic*.md). BUILD-AND-GATE
+    (default-dormant flag, /review flips ONE constant) + NOT recency-windowed (a by-id
+    writeback reaches a born of any age). Dual proof: dormancy + full-surface activation."""
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.root = Path(self.tmp.name)
+        self.am = self.root / "memory"      # auto-memory dir
+        self.borns = self.root / "borns"    # stand-in for audit-logs/governance
+        self.am.mkdir()
+        self.borns.mkdir()
+        self.addCleanup(self.tmp.cleanup)
+
+    def _born(self, tic, slug, cpr_id, status="extracted"):
+        p = self.borns / f"borns-tic{tic}-{slug}.md"
+        p.write_text(_candidate(cpr_id, status=status), encoding="utf-8")
+        return p
+
+    # --- DORMANCY: gate False -> born home untouched, auto-memory unaffected ---
+    def test_dormant_false_leaves_born_unflipped_but_auto_memory_flips(self):
+        (self.am / "MEMORY.md").write_text(_candidate("cpr_am_tic500"), encoding="utf-8")
+        born = self._born(516, "demo", "cpr_born_tic516")
+        am_actions = rpw.flip_inline_status(
+            "cpr_am_tic500", "promoted", 519, "feedback_x.md",
+            search_dir=self.am, scan_borns=False, borns_dir=self.borns)
+        self.assertEqual(sum(a["action"] == "flip" for a in am_actions), 1)
+        born_actions = rpw.flip_inline_status(
+            "cpr_born_tic516", "promoted", 519, "feedback_x.md",
+            search_dir=self.am, scan_borns=False, borns_dir=self.borns)
+        self.assertEqual(sum(a["action"] == "flip" for a in born_actions), 0)
+        self.assertIn("status: extracted", born.read_text(encoding="utf-8"))
+
+    # --- ACTIVATION: gate True -> born home scanned & flipped, surface-tagged ---
+    def test_active_true_flips_born_block_with_surface_tag(self):
+        born = self._born(516, "demo", "cpr_born_tic516")
+        actions = rpw.flip_inline_status(
+            "cpr_born_tic516", "promoted", 519, "feedback_x.md",
+            search_dir=self.am, scan_borns=True, borns_dir=self.borns)
+        flips = [a for a in actions if a["action"] == "flip"]
+        self.assertEqual(len(flips), 1)
+        self.assertEqual(flips[0]["surface"], "borns")
+        text = born.read_text(encoding="utf-8")
+        self.assertIn("status: promoted", text)
+        self.assertIn("promoted_tic: 519", text)
+        self.assertNotIn("status: extracted", text)
+
+    # --- FULL SURFACE (not one happy path): terminal status in a born is a noop ---
+    def test_active_terminal_status_in_born_is_noop(self):
+        born = self._born(516, "done", "cpr_born_tic516", status="promoted")
+        actions = rpw.flip_inline_status(
+            "cpr_born_tic516", "promoted", 519, "feedback_x.md",
+            search_dir=self.am, scan_borns=True, borns_dir=self.borns)
+        self.assertTrue(
+            any(a["action"] == "noop" and a["surface"] == "borns" for a in actions))
+        self.assertIn("status: promoted", born.read_text(encoding="utf-8"))
+
+    # --- FULL SURFACE: the content-hash bridge resolves an id-less born block ---
+    def test_active_content_bridge_in_born(self):
+        p = self.borns / "borns-tic516-idless.md"
+        p.write_text(_candidate_no_id(), encoding="utf-8")
+        h = rpw._compute_dedup_hash("handoff", "a durable lesson")
+        q = self.root / "queue.jsonl"
+        q.write_text(json.dumps({"id": f"cpr_{h}", "dedup_hash": h,
+                                 "status": "promoted", "review_tic": 519}) + "\n",
+                     encoding="utf-8")
+        report = rpw.writeback(
+            f"cpr_{h}", "ledger.md#anchor", 519, status="promoted",
+            search_dir=self.am, queue_path=q, scan_borns=True, borns_dir=self.borns)
+        self.assertEqual(report["summary"]["inline_blocks_flipped"], 1)
+        self.assertEqual(report["resolution"]["matched_by_content_hash"], 1)
+        self.assertEqual(report["resolution"]["blocks_matched_in_borns"], 1)
+        self.assertTrue(report["resolution"]["scanned_borns"])
+
+    # --- APOPHATIC BOUNDARY: an OLD born still flips (NOT recency-windowed) ---
+    def test_old_born_flipped_not_recency_windowed(self):
+        self._born(999, "frontier", "cpr_frontier_tic999")
+        old = self._born(200, "ancient", "cpr_ancient_tic200")
+        actions = rpw.flip_inline_status(
+            "cpr_ancient_tic200", "promoted", 519, "feedback_x.md",
+            search_dir=self.am, scan_borns=True, borns_dir=self.borns)
+        self.assertEqual(sum(a["action"] == "flip" for a in actions), 1)
+        self.assertIn("status: promoted", old.read_text(encoding="utf-8"))
+
+    # --- SHIPPED DEFAULT couples to the gate constant (green across the /review flip) ---
+    def test_shipped_default_matches_gate_constant(self):
+        self._born(516, "demo", "cpr_born_tic516")
+        actions = rpw.flip_inline_status(
+            "cpr_born_tic516", "promoted", 519, "feedback_x.md",
+            search_dir=self.am, scan_borns=None, borns_dir=self.borns)
+        flips = sum(a["action"] == "flip" for a in actions)
+        if rpw.BORNS_WRITEBACK_RATIFIED:
+            self.assertEqual(flips, 1)   # ratified: born scanned by default
+        else:
+            self.assertEqual(flips, 0)   # dormant: born NOT scanned by default
+
+
 if __name__ == "__main__":
     unittest.main()
