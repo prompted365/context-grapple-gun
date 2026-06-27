@@ -193,22 +193,51 @@ def _current_tic() -> int | None:
 
 _BORN_TIC_RE = re.compile(r"borns-tic(\d+)-")
 
+# Bash WRITE-DESTINATION patterns: a born file appearing as the TARGET of an ACTUAL write op
+# (redirect / tee / sed -i / dd of=) — NOT as a mere argument, read, or git-versioning
+# reference. Mirrors _writes_to_governed's write-signal discipline, scoped to born targets.
+_BASH_BORN_WRITE_RE = (
+    re.compile(r">>?\s*[^|&;<>]*borns-tic(\d+)-"),            # > / >> redirect into a born
+    re.compile(r"\btee\b[^|&;]*borns-tic(\d+)-"),             # tee writes the born
+    re.compile(r"\bsed\b[^|&;]*-i\b[^|&;]*borns-tic(\d+)-"),  # sed -i in-place edit of a born
+    re.compile(r"\bdd\b[^|&;]*of=\S*borns-tic(\d+)-"),        # dd of= the born
+)
 
-def _born_work_tic(target: str) -> int | None:
-    """Work-tic re-key (tic-504 refinement of Precondition-Gate Perimeter Completeness).
 
-    A born is written at /cadence Step 2, AFTER Step 0.5 emits the next tic — so the live
-    mandate's current_tic is already the NEXT session's tic, whose boot receipt cannot exist
-    yet. But the born's TRUE attestation anchor is its OWN work-tic, encoded in the filename
-    `borns-tic<N>-…`, which the CLOSING session DID receipt at boot. Return <N> so the gate
-    keys the check on that work-tic, not the moving current_tic. Keeps the teeth (a born for a
-    tic with no receipt still blocks — the regex must match AND the work-tic's receipt must
-    exist); kills the cadence-close spirit-false-positive. Returns None for non-born targets
-    (fall back to current_tic — unchanged behavior)."""
-    if not target:
-        return None
-    m = _BORN_TIC_RE.search(target)
-    return int(m.group(1)) if m else None
+def _born_write_target_tic(tool: str, file_path: str, command: str) -> int | None:
+    """Work-tic re-key — tic-504 refinement, HARDENED tic 520.
+    (bk-boot-read-gate-operative-tic-from-session-state ·
+     cgg-ledger#mutation-gate-classifier-gates-write-signal-not-path-mention,
+     refinement: parameter-from-authoritative-state.)
+
+    WHY THE RE-KEY EXISTS (tic 504): a born is written at /cadence Step 2, AFTER Step 0.5
+    emits the next tic — so the live mandate's current_tic is already the NEXT session's tic,
+    whose boot receipt cannot exist yet. The born's TRUE attestation anchor is its OWN
+    work-tic, encoded in the filename `borns-tic<N>-…`, which the CLOSING session DID receipt
+    at boot. Re-key the gate-check to <N> so a legitimate session-close born capture passes.
+
+    THE HARDENING (tic 520, the physics fix): the re-key keys on the WRITE TARGET only —
+    `file_path` for Edit/Write/NotebookEdit, or the redirect/tee/sed-i/dd DESTINATION for
+    Bash. The operative tic is authoritative SESSION STATE (current_tic); a tic embedded in a
+    command ARGUMENT (`--cpr-id cpr_…_tic401`) or a born path merely NAMED for read /
+    git-versioning (`git add …/borns-tic503-x.md`; `review-promote-writeback … --plan-file
+    …/borns-tic401-….md`) is DATA, not the clock — it must NOT hijack the operative tic. That
+    was the tic-518 footgun: a /review writeback naming a tic-bearing CogPR id / born path was
+    gated to that historical tic and blocked though the session held a valid receipt. The
+    pre-520 code ran the born regex over `fp or cmd` (the WHOLE Bash command string), so any
+    born/cpr token anywhere in a command re-keyed it. Now only a born FILE being AUTHORED
+    re-keys. Teeth preserved: a born for an un-receipted work-tic still blocks (the destination
+    must match AND that work-tic's receipt must exist). Returns None for everything else —
+    caller keeps current_tic, the session clock."""
+    if tool in ("Edit", "Write", "NotebookEdit"):
+        m = _BORN_TIC_RE.search(file_path or "")
+        return int(m.group(1)) if m else None
+    if tool == "Bash":
+        for rx in _BASH_BORN_WRITE_RE:
+            m = rx.search(command or "")
+            if m:
+                return int(m.group(1))
+    return None
 
 
 def _entity(evt: dict) -> str:
@@ -235,12 +264,14 @@ def decide(raw: str) -> tuple:
             return False, ""  # can't resolve tic → fail-soft OPEN (gate bug, not debt)
         entity = _entity(evt)
         target = fp or cmd
-        # Work-tic re-key: a born write (`borns-tic<N>-…`) is attested by its OWN work-tic's
-        # receipt, not the live current_tic (which /cadence Step 0.5 already advanced to the
-        # next session's tic before the Step-2 born write). Keys the gate-check to the work-tic
-        # so a legitimate session-close capture passes; a born for an un-receipted tic still
-        # blocks. Non-born targets keep current_tic (unchanged).
-        _wt = _born_work_tic(target)
+        # Operative tic = authoritative SESSION STATE (current_tic, resolved above). The ONLY
+        # content-derived re-key is the born work-tic, and it keys on the WRITE TARGET (the born
+        # being AUTHORED — fp for Edit/Write, or a redirect/tee/sed-i/dd destination for Bash),
+        # never on a tic embedded in a command argument / read / versioning reference. A tic in
+        # an arg is DATA, not the clock (tic-518 footgun: a /review writeback naming a tic-bearing
+        # id was gated to that historical tic and blocked). A born for an un-receipted work-tic
+        # still blocks (teeth preserved); everything else keeps the session tic.
+        _wt = _born_write_target_tic(tool, fp, cmd)
         if _wt is not None:
             tic = _wt
         if not _BOOT_RECEIPT.exists():
@@ -368,13 +399,33 @@ def _self_test() -> int:
     check("malformed JSON → allow", decide("{not json") == (False, ""))
     check("source-file Edit envelope → allow",
           decide(json.dumps({"tool_name": "Edit", "tool_input": {"file_path": "src/x.rs"}})) == (False, ""))
-    # work-tic re-key (tic-504 refinement): a born's attestation anchor is its OWN work-tic
-    check("born path → work-tic parsed from filename",
-          _born_work_tic("audit-logs/governance/borns-tic503-x.md") == 503)
-    check("born path with multi-digit tic → work-tic parsed",
-          _born_work_tic("a/borns-tic504-c9-downlane.md") == 504)
-    check("non-born path → no work-tic (falls back to current_tic)",
-          _born_work_tic("audit-logs/governance/constitution-ledger/ledger.md") is None)
+    # work-tic re-key — tic-504 refinement HARDENED tic 520 (bk-boot-read-gate-operative-tic-from-session-state):
+    # the re-key keys on the WRITE TARGET only; a tic embedded in a Bash command arg/reference is DATA.
+    # LEGITIMATE — a born FILE being AUTHORED re-keys to its own work-tic:
+    check("Write a born → work-tic parsed from file_path",
+          _born_write_target_tic("Write", "audit-logs/governance/borns-tic503-x.md", "") == 503)
+    check("Edit a born (multi-digit, slug) → work-tic parsed from file_path",
+          _born_write_target_tic("Edit", "a/borns-tic504-c9-downlane.md", "") == 504)
+    check("Bash redirect INTO a born → work-tic parsed from the write destination",
+          _born_write_target_tic("Bash", "", "echo x >> audit-logs/governance/borns-tic520-y.md") == 520)
+    check("Bash tee INTO a born → work-tic parsed from the write destination",
+          _born_write_target_tic("Bash", "", "echo x | tee audit-logs/governance/borns-tic521-z.md") == 521)
+    # THE FOOTGUN (tic 518) — a tic embedded in a command ARGUMENT / read / versioning reference is DATA, NOT the clock:
+    check("Bash writeback naming a tic-bearing cpr_id → NO re-key (tic-518 footgun fixed)",
+          _born_write_target_tic("Bash", "", "python3 review-promote-writeback.py --cpr-id cpr_x_presence_observation_tic401") is None)
+    check("Bash writeback --plan-file naming a born path → NO re-key (born is a READ arg, not a write target)",
+          _born_write_target_tic("Bash", "", "python3 review-promote-writeback.py --cpr-id cpr_x_tic401 --plan-file audit-logs/governance/borns-tic401-x.md") is None)
+    check("Bash command redirecting to /tmp while NAMING a born → NO re-key (born precedes the redirect)",
+          _born_write_target_tic("Bash", "", "python3 review-promote-writeback.py --plan-file audit-logs/governance/borns-tic401-x.md > /tmp/log.txt") is None)
+    check("Bash git add of a born → NO re-key (versioning reference, not a write redirect)",
+          _born_write_target_tic("Bash", "", "git add audit-logs/governance/borns-tic503-x.md") is None)
+    check("Bash cat/read of a born → NO re-key",
+          _born_write_target_tic("Bash", "", "cat audit-logs/governance/borns-tic503-x.md") is None)
+    # a non-born Edit/Write keeps current_tic (no re-key)
+    check("Edit a ledger (non-born) → no work-tic re-key (keeps current_tic)",
+          _born_write_target_tic("Edit", "audit-logs/governance/constitution-ledger/ledger.md", "") is None)
+    check("Write a non-born source file → no work-tic re-key",
+          _born_write_target_tic("Write", "src/x.rs", "") is None)
 
     print()
     if failures:
