@@ -280,7 +280,7 @@ def _default_queue():
 
 _BORNS_HOME_REL = os.path.join("audit-logs", "governance")
 _BORNS_GLOB = "borns-tic*.md"
-BORNS_WRITEBACK_RATIFIED = False  # /review-519 flips to True (ratification IS the flip)
+BORNS_WRITEBACK_RATIFIED = True  # RATIFIED /review-523 (ratification IS the flip). Dual-proof verified tic 523: dormancy = 0 born blocks touched at False; full-surface activation = born home (92 borns-tic*.md) scanned without exception, terminal-safe (matched terminal born no-ops correctly), and the flip is the SAME proven loop already running on auto-memory *.md (no born-specific flip code). Closes the C-5 sibling-site gap (cgg-ledger#named-footgun-guard-leaves-sibling-site-unfixed): per-cpr writeback now reaches the federation born home, not only auto-memory.
 
 
 def _default_borns_home():
