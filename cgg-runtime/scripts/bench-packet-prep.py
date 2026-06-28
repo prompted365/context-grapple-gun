@@ -439,6 +439,98 @@ def find_related_signals(cpr, signals):
     return related[:5]
 
 
+def reconcile_surfaced_ids(load_queue_pending_ids, effective_state):
+    """Reconcile bench-packet's load_queue pending set with the compiler's
+    live_now classification — the tic-222 contract reader cure.
+
+    The tic-222 compile-lane upgrade declares that bench-packet-prep MUST
+    consume effective_state as its state source rather than reading raw queue
+    rows directly. Before this cure that contract was only half-honored: the
+    compiler was invoked and cross-checked, but `pending_cogprs` was still
+    built purely from `load_queue`. The divergence is structural:
+
+      - the compiler (`queue_state_compile.py`) treats 'deferred' as an ACTIVE
+        status that RE-ACTIVATES once `re_eval_tic` is reached (bucket
+        'live_now'); a still-parked deferred is bucket 'parked_to_<tic>'.
+      - `load_queue` here treats 'deferred' as TERMINAL (sticky), so a
+        re-activated DEFER never reaches `get_pending_cprs` — it is masked.
+
+    That masking is the C-3 reader divergence
+    (cgg-ledger#status-value-reader-disagreement-sticky-masks-reactivated-item).
+
+    APOPHATIC GUARD — why this is a UNION, not a wholesale flip:
+    the compiler's ACTIVE_STATUSES does NOT recognize 'pending' or
+    'review_ready' (bench-packet does). Those rows compile to bucket
+    'unknown'/'metadata' and would be SILENTLY DROPPED by a naive
+    `pending_cogprs = live_now` replacement (the reconstructed-from-a-principle
+    failure: the higher reader lacks the context the lower status carries).
+    So we surface:
+
+        compiler_live_now
+        ∪ (load_queue_pending MINUS items the compiler explicitly PARKS or
+           TERMINALIZES)
+
+    Items load_queue surfaces that the compiler does not recognize (no state /
+    'unknown' / 'metadata' bucket) are KEPT — the compiler does not govern
+    those statuses, so it cannot be authority to remove them.
+
+    Returns (surfaced_ids:set, live_now_ids:set, reconciliation:dict|None).
+    reconciliation is None when no compiler output is available (DEGRADED) —
+    the caller then falls back to load_queue_pending_ids as the sole source.
+    """
+    if not effective_state:
+        return set(load_queue_pending_ids), set(), None
+
+    states = effective_state.get("states", {})
+    live_now_ids = {
+        sid for sid, s in states.items() if s.get("bucket") == "live_now"
+    }
+
+    parked_or_terminal = set()
+    for sid in load_queue_pending_ids:
+        s = states.get(sid)
+        if not s:
+            continue  # compiler has no state -> doesn't govern -> keep
+        bucket = s.get("bucket", "")
+        if bucket.startswith("parked_to_") or bucket.startswith("terminal_"):
+            parked_or_terminal.add(sid)
+
+    kept_from_load_queue = set(load_queue_pending_ids) - parked_or_terminal
+    surfaced = live_now_ids | kept_from_load_queue
+
+    reconciliation = {
+        "reader_source": "compiler_live_now_union_loadqueue_park_aware",
+        "compiler_live_now_count": len(live_now_ids),
+        "load_queue_pending_count": len(load_queue_pending_ids),
+        "surfaced_count": len(surfaced),
+        # reader-cure ADDS: live per the compiler, masked by load_queue's sticky
+        # 'deferred' terminal-valve (re-activated DEFERs) + compiler-active
+        # statuses load_queue never surfaces (tic_gated / promotable /
+        # enrichment_in_progress).
+        "added_from_compiler_live_now": sorted(live_now_ids - set(load_queue_pending_ids))[:50],
+        # compiler PARKS: load_queue would have surfaced these, but the compiler
+        # parks them (deferred/active with re_eval_tic > current_tic) — excluded.
+        "parked_by_compiler": sorted(parked_or_terminal)[:50],
+        # compiler-BLIND keeps: load_queue surfaces these, the compiler does not
+        # recognize the status (e.g. 'pending'/'review_ready') — kept, not dropped.
+        "kept_compiler_blind": sorted(
+            set(load_queue_pending_ids) - live_now_ids - parked_or_terminal
+        )[:50],
+        "axis_note": (
+            "tic-222 contract: pending_cogprs is reconciled to the compiler's "
+            "live_now classification. 'deferred' is ACTIVE in the compiler "
+            "(re-activates at re_eval_tic) but terminal in load_queue, so "
+            "re-activated DEFERs were masked — now surfaced. UNION (not "
+            "replacement) keeps 'pending'/'review_ready' rows the compiler's "
+            "ACTIVE_STATUSES does not recognize; compiler-parked items "
+            "(re_eval_tic > current_tic) are excluded. "
+            "Resolves cgg-ledger#status-value-reader-disagreement-sticky-masks-"
+            "reactivated-item (C-3, tic 522)."
+        ),
+    }
+    return surfaced, live_now_ids, reconciliation
+
+
 def build_bench_packet(project_dir, dry_run=False):
     """Build the full bench packet."""
     project_dir = os.path.abspath(project_dir)
@@ -473,11 +565,36 @@ def build_bench_packet(project_dir, dry_run=False):
 
     pending = get_pending_cprs(queue)
     recently_promoted = get_recently_promoted(queue)
+    load_queue_pending_ids = set(pending.keys())
     # tic was computed earlier (before compiler invocation)
 
-    # Build per-CPR dossier
+    # C-3 reader cure (tic 523): reconcile the surfaced set to the compiler's
+    # live_now classification (tic-222 contract) so re-activated DEFERs that
+    # load_queue's sticky 'deferred' terminal-valve masks are surfaced. Union
+    # with park-aware subtraction — see reconcile_surfaced_ids() for the
+    # apophatic guard against dropping compiler-unrecognized statuses.
+    surfaced_ids, live_now_ids, reconciliation = reconcile_surfaced_ids(
+        load_queue_pending_ids, effective_state
+    )
+
+    # Build per-CPR dossier over the reconciled surfaced set. Row data comes
+    # from load_queue's canonical map (it carries every id's latest row,
+    # terminal or active — including the 'deferred' row of a re-activated item).
+    surfaced_rows = []
+    for cpr_id in surfaced_ids:
+        cpr = queue.get(cpr_id)
+        if cpr is None:
+            # Compiler named a live id absent from the queue map — a
+            # compiler/queue path divergence. Surface it; do not fabricate.
+            sys.stderr.write(
+                f"[bench-packet-prep] WARNING: surfaced id {cpr_id} has no "
+                f"queue row (compiler/queue path divergence) — skipped.\n"
+            )
+            continue
+        surfaced_rows.append((cpr_id, cpr))
+
     pending_cogprs = []
-    for cpr_id, cpr in sorted(pending.items(), key=lambda x: x[1].get("birth_tic", 0)):
+    for cpr_id, cpr in sorted(surfaced_rows, key=lambda x: x[1].get("birth_tic", 0)):
         related = find_related_cprs(cpr, queue)
         related_signals = find_related_signals(cpr, signals)
 
@@ -499,11 +616,24 @@ def build_bench_packet(project_dir, dry_run=False):
         enrichment_evidence = enrichment_artifacts.get(cpr_id, {})
         cpr_hotspots = enrichment_hotspots.get(cpr_id, [])
 
+        # Reader-cure provenance (tic 523): record WHY this dossier was
+        # surfaced so the reconciliation is auditable, not silent.
+        row_status = cpr.get("status", "")
+        if reconciliation is None:
+            state_source = "load_queue_degraded"          # compiler unavailable
+        elif cpr_id in live_now_ids:
+            state_source = "compiler_live_now"             # compiler-authoritative live
+        else:
+            state_source = "load_queue_compiler_blind"     # status compiler doesn't recognize
+        reactivated_from_deferred = (row_status == "deferred")
+
         dossier = {
             "id": cpr_id,
             "lesson": cpr.get("lesson", ""),
             "birth_tic": cpr.get("birth_tic", 0),
             "status": cpr.get("status", ""),
+            "state_source": state_source,
+            "reactivated_from_deferred": reactivated_from_deferred,
             "band": cpr.get("band", "COGNITIVE"),
             "subsystem": cpr.get("subsystem", ""),
             "recommended_scopes": cpr.get("recommended_scopes", []),
@@ -597,17 +727,21 @@ def build_bench_packet(project_dir, dry_run=False):
         if pending_cogprs else 0.0
     )
 
-    # Compile-lane cross-check: existing pending (from load_queue's terminal-
-    # valve) vs effective_state.live_now (from compiler's stricter terminal-
-    # valve). Disagreement-as-Evidence per federation KI; both readings valid
-    # on declared filter axes.
+    # Compile-lane cross-check: the RAW divergence between load_queue's
+    # terminal-valve view (pre-cure) and effective_state.live_now (compiler's
+    # stricter valve). Kept for Disagreement-as-Evidence visibility per the
+    # tic-223 ledger discipline (surface BOTH reader views with axis labels;
+    # do not silently absorb one as canonical). `reader_reconciliation` below
+    # records how the C-3 reader cure resolved this divergence into the
+    # actually-surfaced pending_cogprs set.
     compile_lane_cross_check = None
     if effective_state:
         compiler_live_now_ids = {
             sid for sid, s in effective_state.get("states", {}).items()
             if s.get("bucket") == "live_now"
         }
-        existing_pending_ids = {c["id"] for c in pending_cogprs}
+        # Pre-cure view: what load_queue's terminal-valve ALONE would surface.
+        existing_pending_ids = set(load_queue_pending_ids)
         compile_lane_cross_check = {
             "existing_pending_count": len(existing_pending_ids),
             "compiler_live_now_count": len(compiler_live_now_ids),
@@ -615,11 +749,13 @@ def build_bench_packet(project_dir, dry_run=False):
             "only_in_existing_pending": sorted(existing_pending_ids - compiler_live_now_ids)[:10],
             "only_in_compiler_live_now": sorted(compiler_live_now_ids - existing_pending_ids)[:10],
             "axis_note": (
-                "existing_pending uses bench-packet-prep's terminal-valve "
+                "existing_pending = load_queue terminal-valve, PRE-CURE "
                 "(treats 'deferred' as terminal-eligible-for-surface); "
-                "compiler_live_now uses strict terminal-state valve "
+                "compiler_live_now = strict terminal-state valve "
                 "(deferred items with re_eval_tic > current_tic = parked). "
-                "Both readings valid on declared filter axes."
+                "Both readings valid on declared filter axes. The C-3 reader "
+                "cure reconciles them into pending_cogprs — see "
+                "reader_reconciliation."
             ),
         }
 
@@ -637,6 +773,9 @@ def build_bench_packet(project_dir, dry_run=False):
         ),
         "strike_stack_candidates": strike_stack,
         "compile_lane_cross_check": compile_lane_cross_check,
+        # C-3 reader cure (tic 523): how the surfaced pending set was reconciled
+        # to the compiler's live_now classification (None in DEGRADED mode).
+        "reader_reconciliation": reconciliation,
         "pending_cogprs": pending_cogprs,
         "active_signals": active_signals,
         "promoted_since_last_review": promoted_since,
