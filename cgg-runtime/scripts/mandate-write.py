@@ -59,40 +59,59 @@ def read_existing_mandate(mandate_path: Path) -> dict | None:
         return None
 
 
+# Terminal mandate statuses — the ONLY statuses that license a supersede. A terminal
+# mandate is already consumed or dead, so its run_now cycles are done and recording a
+# supersession (rather than merging) is truthful. mogul-runner writes the lifecycle:
+# pending (build_mandate) -> running (mogul-runner.sh ~L200, on start) -> consumed
+# (mogul-runner.sh ~L882, on complete); "failed"/"superseded" are the other terminal exits.
+_TERMINAL_MANDATE_STATUSES = ("consumed", "failed", "superseded")
+
+
 def merge_or_supersede(existing: dict | None, new_cycles: list[str]) -> tuple[list[str], list[str], list[str]]:
-    """Determine merge/supersede behavior.
+    """Determine merge/supersede behavior for the mandate about to be written.
+
+    INVARIANT (/review Step 8.5 + cgg-ledger *Even-Tic Review-Close Routing*):
+    **MERGE a live mandate; SUPERSEDE only a terminal one.** Superseding a live mandate
+    silently drops its unconsumed run_now cycles (harmony_invoke / signal_scan /
+    queue_refresh / review_close_check / …) — the exact cycles the next session requires
+    Mogul to run. "No cycle overlap" is NOT a license to supersede.
+
+    The discriminator is **status (lifecycle liveness), NOT trigger.kind.** A live
+    review-close mandate (trigger.kind == "review", written by /review Step 8.5) is merged
+    exactly like a live cadence mandate (kind == "cadence") — both carry cycles the next
+    session owes. Keying supersede on trigger.kind == "review" would REINTRODUCE the
+    tic-530 drop (cpr_cadence_ops_supersedes_review_close_mandate_dropping_unconsumed_cycle
+    _tic530). Do not add a trigger.kind discriminator here.
+
+    DEFAULT IS THE NON-DESTRUCTIVE MOVE: any status that is not *explicitly terminal* is
+    treated as live and MERGED. This closes the status-vocabulary-drift gap — an
+    unrecognized live status (older runner, hand-authored mandate, new lifecycle state)
+    can no longer fall through to a fresh-write that silently drops a live obligation.
 
     Returns: (final_cycles, merged_from, supersedes)
     """
     if existing is None:
         return new_cycles, [], []
 
-    existing_status = existing.get("status", "pending")  # backwards compat: no status = pending
+    existing_status = existing.get("status", "pending")  # no status = pending (live)
     existing_id = existing.get("mandate_id", "")
 
-    if existing_status in ("pending", "running"):
-        # MERGE: absorb existing cycles
-        existing_cycles = existing.get("cycle_request", {}).get("run_now", [])
-        merged = list(new_cycles)
-        for c in existing_cycles:
-            if c not in merged:
-                merged.append(c)
-
-        # Also check existing due markers for overdue cycles
-        tc = existing.get("tic_context", {})
-        # (caller should handle due marker absorption via --cycles arg)
-
-        merged_from = [existing_id] if existing_id else []
-        return merged, merged_from, []
-
-    elif existing_status in ("consumed", "failed", "superseded"):
-        # Fresh write, record supersession
+    if existing_status in _TERMINAL_MANDATE_STATUSES:
+        # SUPERSEDE — the existing mandate is terminal; its cycles are already done.
         supersedes = [existing_id] if existing_id else []
         return new_cycles, [], supersedes
 
-    else:
-        # Unknown status — treat as fresh write
-        return new_cycles, [], []
+    # MERGE — the existing mandate is live (pending / running) OR carries a status we do
+    # not recognize as terminal and must therefore not assume is dead. Absorb its
+    # unconsumed run_now cycles so none are dropped (dedup-preserving; the caller handles
+    # overdue due-marker absorption via its --cycles arg).
+    existing_cycles = existing.get("cycle_request", {}).get("run_now", [])
+    merged = list(new_cycles)
+    for c in existing_cycles:
+        if c not in merged:
+            merged.append(c)
+    merged_from = [existing_id] if existing_id else []
+    return merged, merged_from, []
 
 
 def build_mandate(
