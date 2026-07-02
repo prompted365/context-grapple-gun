@@ -324,7 +324,7 @@ If a swarm exceeds timeout or agents fail:
 | **Consolidation** | Lead synthesizes adversarial positions | Lead merges parallel outputs |
 | **Template source** | Arena templates (triangulation, lattice) | Swarm spec (internal/external/hybrid) |
 
-Both use the same underlying mechanics (Agent tool, dependency DAG, phase gating) but serve different purposes. A swarm produces deliverables; a stage produces governance inputs.
+Both use the same underlying mechanics (the lead harness's dispatch surface, dependency DAG, phase gating) but serve different purposes. A swarm produces deliverables; a stage produces governance inputs.
 
 ## References
 

@@ -172,7 +172,7 @@ except: print('error|||')
       else
         # No runner — leave status pending, surface for LLM/manual execution
         log_meta "{\"timestamp\":\"$TIMESTAMP\",\"action\":\"mogul_mandate_surfaced\",\"mandate_id\":\"$MANDATE_ID\",\"cycles\":\"$HEAVY_CYCLES\",\"status\":\"pending\"}"
-        MANDATE_OUTPUT="[MOGUL MANDATE PENDING] Heavy governance cycles due: $HEAVY_CYCLES. Spawn Mogul agent (Agent tool, subagent_type: mogul, run_in_background: true) to execute mandated cycles. Mandate at: $MANDATE_FILE. Mandate ID: $MANDATE_ID. Non-blocking. [MOGUL PROTOCOL v1: (1) Spawn with Agent tool (subagent_type: mogul, run_in_background: true). (2) Mogul reads mandate from MANDATE_FILE, transitions pending->running->consumed. (3) If mandate fails, check audit-logs/mogul/cycle-reports/ for diagnostics. (4) Mandate is governance overhead — complete it, report compactly, then focus on user work.]"
+        MANDATE_OUTPUT="[MOGUL MANDATE PENDING] Heavy governance cycles due: $HEAVY_CYCLES. Dispatch the Mogul office steward in background — an entity at the appropriate state, via the lead harness's active dispatch surface — to execute mandated cycles. Mandate at: $MANDATE_FILE. Mandate ID: $MANDATE_ID. Non-blocking. [MOGUL PROTOCOL v1: (1) Dispatch mogul in background via the active harness dispatch surface (non-blocking). (2) Mogul reads mandate from MANDATE_FILE, transitions pending->running->consumed. (3) If mandate fails, check audit-logs/mogul/cycle-reports/ for diagnostics. (4) Mandate is governance overhead — complete it, report compactly, then focus on user work.]"
       fi
     elif [ -n "$ALL_CYCLES" ]; then
       # Lightweight cycles — execute inline and consume
@@ -468,9 +468,9 @@ print(json.dumps(body))
     fi
 
     if [ "$RIPPLE_ROUTED" = "true" ] && [ -n "$RIPPLE_INBOX" ]; then
-      ASSESSOR_OUTPUT="[CGG TRIGGER FIRED] $RIPPLE_INBOX [RIPPLE PROTOCOL v1: (1) Spawn ripple-assessor in background (Agent tool, subagent_type: ripple-assessor). (2) NON-BLOCKING — proceed with user work immediately. (3) Assessor writes proposals to ~/.claude/grapple-proposals/latest.md. (4) You do NOT need to wait for completion. (5) Proposals are consumed when user runs /review, not before.] $PLAN_REF. Expected CogPR count: $EXPECTED_CPRS. Handoff ID: $HANDOFF_ID."
+      ASSESSOR_OUTPUT="[CGG TRIGGER FIRED] $RIPPLE_INBOX [RIPPLE PROTOCOL v1: (1) Dispatch the ripple-assessor office steward in background via the lead harness's active dispatch surface. (2) NON-BLOCKING — proceed with user work immediately. (3) Assessor writes proposals to ~/.claude/grapple-proposals/latest.md. (4) You do NOT need to wait for completion. (5) Proposals are consumed when user runs /review, not before.] $PLAN_REF. Expected CogPR count: $EXPECTED_CPRS. Handoff ID: $HANDOFF_ID."
     else
-      ASSESSOR_OUTPUT="[CGG TRIGGER FIRED] [RIPPLE PROTOCOL v1: (1) Spawn ripple-assessor in background (Agent tool, subagent_type: ripple-assessor). (2) NON-BLOCKING — proceed with user work immediately. (3) Assessor writes proposals to ~/.claude/grapple-proposals/latest.md. (4) You do NOT need to wait for completion. (5) Proposals are consumed when user runs /review, not before.] $PLAN_REF. Expected CogPR count: $EXPECTED_CPRS. Handoff ID: $HANDOFF_ID."
+      ASSESSOR_OUTPUT="[CGG TRIGGER FIRED] [RIPPLE PROTOCOL v1: (1) Dispatch the ripple-assessor office steward in background via the lead harness's active dispatch surface. (2) NON-BLOCKING — proceed with user work immediately. (3) Assessor writes proposals to ~/.claude/grapple-proposals/latest.md. (4) You do NOT need to wait for completion. (5) Proposals are consumed when user runs /review, not before.] $PLAN_REF. Expected CogPR count: $EXPECTED_CPRS. Handoff ID: $HANDOFF_ID."
     fi
   fi
 fi
