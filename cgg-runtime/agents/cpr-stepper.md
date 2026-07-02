@@ -226,7 +226,7 @@ Otherwise, queue for human review via `/review` docket.
 
 - CPR queue: `audit-logs/cprs/queue.jsonl`
 - Review log: `audit-logs/reviews/YYYY-MM-DD.jsonl`
-- Tic counter: `audit-logs/tics/*.jsonl` (count type=tic entries)
+- Tic counter: `audit-logs/tics/*.jsonl` — read `domain_counter_after` from the LATEST tic event (the canonical authority). Do NOT count raw type=tic rows: duplicate historical emissions over-count the authority (557 raw vs canonical 553 observed at tic 553), and an over-counted "now" mis-gates every temporal maturity check (bk-cpr-extract-tic-count-drift, fixed tic 554).
 
 ## File-Access Discipline
 
