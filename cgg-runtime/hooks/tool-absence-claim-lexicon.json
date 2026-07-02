@@ -1,0 +1,41 @@
+{
+  "version": 1,
+  "doc": "CONTENT half of bk-tool-absence-physics-gate (engine-content separation is mandatory for federation-grade gate primitives). The ENGINE is hooks/tool-absence-claim-gate.py; term lists and claim shapes live HERE and may evolve without touching the automaton. Patterns are case-insensitive regex; an optional named group 'tool' captures the claimed-absent tool token — the gate runs a tool-specific receipt check only when the captured token is in known_tools (prevents 'a'/'the' false specificity).",
+  "patterns": [
+    {
+      "id": "named-tool-absent",
+      "regex": "\\b(?P<tool>[A-Za-z][A-Za-z0-9_-]*)\\s+tool\\s+(?:is\\s+|was\\s+)?(?:absent|unavailable|missing|not\\s+available|not\\s+enabled|not\\s+present)\\b"
+    },
+    {
+      "id": "tool-absent-bare",
+      "regex": "\\btool\\s+(?:is\\s+|was\\s+)?(?:absent|unavailable|missing|not\\s+available|not\\s+enabled)\\b"
+    },
+    {
+      "id": "absent-this-session",
+      "regex": "\\b(?P<tool>[A-Za-z][A-Za-z0-9_-]*)\\s+(?:is\\s+|was\\s+)?(?:absent|unavailable|missing)\\s+(?:this|from\\s+this|in\\s+this)\\s+(?:session|context|runtime)\\b"
+    },
+    {
+      "id": "not-reachable-verdict",
+      "regex": "\\bNOT_REACHABLE\\b"
+    },
+    {
+      "id": "not-spawnable",
+      "regex": "\\b(?:isn'?t|is\\s+not|not|cannot\\s+be|can'?t\\s+be)\\s+spawn(?:able|ed)\\b"
+    },
+    {
+      "id": "no-such-tool-conclusion",
+      "regex": "\\bno\\s+(?:such\\s+)?(?P<tool>Agent|Workflow|Task|Skill|ToolSearch|SendMessage)\\s+tool\\b"
+    }
+  ],
+  "known_tools": [
+    "Agent", "Workflow", "Task", "Skill", "ToolSearch", "SendMessage",
+    "Bash", "Read", "Write", "Edit", "Glob", "Grep", "WebFetch", "WebSearch",
+    "TaskCreate", "TaskOutput", "Monitor", "EnterPlanMode", "ExitPlanMode"
+  ],
+  "exempt_path_fragments": [
+    "tool-absence-claim-lexicon.json",
+    "tool-absence-claim-gate.py",
+    "tool-probe-receipt.py",
+    "tool-probe-receipts.jsonl"
+  ]
+}
