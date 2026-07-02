@@ -21,6 +21,16 @@
       "decision_required": null,
       "notes": "Trigger-manifest arena.pressure + arena.harpoon_assessment. Post-arena pressure-report ingest. Sync evidence at tic 188."
     },
+    "boundary-surveillance": {
+      "status": "current",
+      "activity_state": "dormant_unexercised",
+      "parity_state": "pending",
+      "routing_state": "missing",
+      "last_validated_tic": 543,
+      "validation_source": "audit-logs/governance/receipts/2026-07-02-tic543-boundary-surveillance-contract-port.md",
+      "decision_required": null,
+      "notes": "Contract port of OT Mechanics 6+20 (harpoon-ingestion-matrix SS7 discriminator, n=4). 3-pass pipeline: passes 1-2 degraded-lawful (structural/banded), pass-3 conformation mode typed-rejects until archivist retrieval.mode ratification. No Write tool by design (cannot mint signals). Trigger-manifest wiring deferred by design \u2014 activation routing is a separate governed step; rides /review."
+    },
     "cbux-steward": {
       "status": "current",
       "activity_state": "dormant_unexercised",
@@ -108,6 +118,19 @@
       "decision_required": null,
       "notes": "Trigger-manifest mogul.mandate; SessionStart mandate emission; cycle-reports/2026-05-03T011856-tic-218.report.json confirms tic 218 run."
     },
+    "pattern-curator": {
+      "status": "current",
+      "activity_state": "fallback_unused",
+      "parity_state": "verified",
+      "routing_state": "delegated_only",
+      "last_validated_tic": 222,
+      "validation_source": "audit-logs/governance/cgg-review-tic222-decisions.md",
+      "decision_required": null,
+      "notes": "Functionally superseded by adversarial pair (pattern-curator-direct + pattern-curator-meta) in standard governance flows. Architect decision pending: archive or clarify the tier-1/2-only fallback contract.",
+      "resolved_at_tic": 222,
+      "resolution_artifact": "audit-logs/governance/cgg-review-tic222-decisions.md",
+      "resolution_verdict": "CLARIFY (no archive)"
+    },
     "pattern-curator-direct": {
       "status": "current",
       "activity_state": "episodic",
@@ -127,19 +150,6 @@
       "validation_source": "audit-logs/agent-mailboxes/ent_breyden/inbound/cgg-runtime-agent-matrix-tic219.md",
       "decision_required": null,
       "notes": "Mogul team T3; 4-tic pattern_mining cycle (next tic 220). Blindness Rule enforced."
-    },
-    "pattern-curator": {
-      "status": "current",
-      "activity_state": "fallback_unused",
-      "parity_state": "verified",
-      "routing_state": "delegated_only",
-      "last_validated_tic": 222,
-      "validation_source": "audit-logs/governance/cgg-review-tic222-decisions.md",
-      "decision_required": null,
-      "notes": "Functionally superseded by adversarial pair (pattern-curator-direct + pattern-curator-meta) in standard governance flows. Architect decision pending: archive or clarify the tier-1/2-only fallback contract.",
-      "resolved_at_tic": 222,
-      "resolution_artifact": "audit-logs/governance/cgg-review-tic222-decisions.md",
-      "resolution_verdict": "CLARIFY (no archive)"
     },
     "prevention-architect": {
       "status": "current",
