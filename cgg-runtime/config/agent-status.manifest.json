@@ -24,7 +24,7 @@
     "boundary-surveillance": {
       "status": "current",
       "activity_state": "dormant_unexercised",
-      "parity_state": "pending",
+      "parity_state": "verified",
       "routing_state": "missing",
       "last_validated_tic": 543,
       "validation_source": "audit-logs/governance/receipts/2026-07-02-tic543-boundary-surveillance-contract-port.md",
