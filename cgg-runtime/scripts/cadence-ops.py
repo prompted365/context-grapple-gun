@@ -182,8 +182,15 @@ def load_queue_pending(queue_path: str) -> list:
         except json.JSONDecodeError:
             continue
 
-    pending_statuses = {"pending", "enrichment_needed", "enrichment_eligible",
-                        "extracted", "review_ready"}
+    # All NON-TERMINAL lifecycle states (CPR LIFECYCLE v1: extracted -> tic_gated
+    # -> enrichment_needed -> enrichment_eligible -> promotable -> promoted).
+    # The set previously omitted tic_gated / enrichment_in_progress / promotable,
+    # so in-docket entries went dark in the conformation the moment the stepper
+    # advanced them past extracted (tic 549->550 pending_cogprs:0-vs-5 reader
+    # blind spot). deferred stays excluded: parked-not-pending.
+    pending_statuses = {"pending", "extracted", "tic_gated", "enrichment_needed",
+                        "enrichment_in_progress", "enrichment_eligible",
+                        "promotable", "review_ready"}
     result = []
     for e in entries.values():
         if e.get("status") not in pending_statuses:
