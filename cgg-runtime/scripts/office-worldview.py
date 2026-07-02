@@ -573,6 +573,30 @@ def compile_fragments(zone_root: Path, office: str, tic: int) -> list:
     except Exception:
         pass
 
+    # --- L0b CONTAGION (conformation-proximity echo; non-citable by the packet's own
+    # contract). This read is the CONSUMER half of the contagion heartbeat (GO ratified
+    # /review 545, bk-contagion-heartbeat-cycle): the per-tic contagion_heartbeat mandate
+    # cycle produces the disposition; this boot render eats it — closing the written-
+    # never-read mounted-bear gap (can-it-eat dataflow-liveness predicate). The staleness
+    # canary is the demand-side tooth: a frozen pointer becomes loud at every boot. ---
+    try:
+        cp = _load_json(zone_root / "audit-logs" / "contagion" / "current-pointer.json")
+        if isinstance(cp, dict):
+            _cp_tic = cp.get("tic")
+            if isinstance(_cp_tic, int) and _cp_tic < tic:
+                frags.append(_frag(zone_root, "contagion.staleness", "contagion/current-pointer",
+                    f"contagion heartbeat STALE: disposition tic-{_cp_tic} read at tic-{tic} (lag {tic - _cp_tic}) — the conformation echo lags the field; the heartbeat cycle missed",
+                    "COUNTER",
+                    "liveness canary — the per-tic contagion_heartbeat did not land for this tic; treat the echo as lagging"))
+            if cp.get("one_way_injection"):
+                frags.append(_frag(zone_root, "contagion.echo", f"contagion/disposition-tic-{_cp_tic}",
+                    f"conformation echo (shape-match against learned terrain, not text): {cp['one_way_injection']}",
+                    "SUBSTRATE",
+                    "a disposition, not a verdict — shapes ambient behavior by conformation proximity; quoting it verbatim is its failure mode",
+                    may_quote=False))
+    except Exception:
+        pass
+
     # --- L1 SUBSTRATE: founding telos (SUBSTRATE) + your lanes (YOURS) + binding KIs (SUBSTRATE) ---
     try:
         # The founding telos leads L1 — the purpose every lane below serves. Sourced from

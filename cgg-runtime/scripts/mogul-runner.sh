@@ -311,9 +311,10 @@ $MANDATE_CONTENT
    - memory_mining: scan MEMORY.md chain for recurring patterns, write findings
    - pattern_mining: run scripts/pattern_miner.py, output to audit-logs/patterns/
    - harmony_invoke: run scripts/harmony-invoke.sh (kernel-class autonomous_kernel.meaning.disposition; produces disposition packet to audit-logs/harmony/disposition-tic-N.json + appends invocations.jsonl audit trail). Read-only kernel; does not mutate governance state.
+   - contagion_heartbeat: run scripts/contagion-invoke.sh (kernel-class ContagionMatch v0, harmony_invoke's sibling seam; conformation-proximity match over learned coordinates — NOT LLM-backed, NOT coupled to the 27B; produces disposition packet to audit-logs/contagion/disposition-tic-N.json + refreshes current-pointer.json + appends invocations.jsonl). Read-only kernel; emits a NON-CITABLE shaping packet; does not mutate governance state. The office-worldview boot render consumes current-pointer.json (staleness-canaried) — this cycle is the producer half of that heartbeat (GO ratified /review 545).
    - enrichment_scan: run scripts/cpr-enrichment-scanner.py, assess enrichment-eligible CPRs
    - ladder_audit: audit CLAUDE.md chain coherence
-   - runtime_drift_check: compare installed vs canonical runtime surfaces. ALSO run scripts/check-harmony-readonly.py --json — verifies harmony engine src/harmony/*.ts modules contain no forbidden imports (atomic_append/queue/signals/manifest-prune/mandate/conformation) or write patterns (writeFileSync/appendFileSync/.write()). Surface any violations as drift findings (treat as TENSION/COGNITIVE per existing drift severity classification).
+   - runtime_drift_check: compare installed vs canonical runtime surfaces. ALSO run scripts/check-harmony-readonly.py --json AND scripts/check-contagion-readonly.py --json — each verifies its engine's modules contain no forbidden imports (atomic_append/queue/signals/manifest-prune/mandate/conformation) or write patterns (writeFileSync/appendFileSync/.write()). Surface any violations as drift findings (treat as TENSION/COGNITIVE per existing drift severity classification).
    - prompt_stack_audit: run scripts/prompt-stack-audit.py, scan CLAUDE.md chain for conflicts
    - cache_refresh: run \$ZONE_ROOT/vendor/context-grapple-gun/cgg-runtime/scripts/visitor-economy-monitor.py --cache-refresh \$TIC, report cache state + standing decay + biome health. Your results.cache_refresh object MUST include: {\"cache_state\": ..., \"standing_decay\": ..., \"biome_health\": ...} — EVEN WHEN THE CACHE IS EMPTY (e.g. {\"cache_state\": \"empty\", \"healthy\": true}). Do NOT report cache_refresh only in the prose summary; the structured results.cache_refresh key is the verified artifact.
    - deep_audit: comprehensive multi-rung scan
@@ -667,6 +668,27 @@ print('yes' if 'pattern_mining' in r.get('results', {}) else 'no')
         fi
         if [ ! -f "$HARMONY_INVOCATIONS" ]; then
           ARTIFACT_ERRORS="${ARTIFACT_ERRORS}harmony_invoke: invocations.jsonl missing. "
+        fi
+        ;;
+      contagion_heartbeat)
+        # Verify disposition exists for this tic AND current-pointer.json was
+        # re-aimed at this tic. The pointer-tic check is the anti-freeze tooth:
+        # the pointer sat frozen at tic 453 for 93 tics while dispositions went
+        # written-never-read (GO ratified /review 545, bk-contagion-heartbeat-
+        # cycle). Kernel is read-only; contagion-invoke.sh produces the audit
+        # artifacts; the office-worldview boot render is the demand-side consumer.
+        CONTAGION_DISPOSITION="$AUDIT_LOGS/contagion/disposition-tic-$CURRENT_TIC.json"
+        CONTAGION_POINTER="$AUDIT_LOGS/contagion/current-pointer.json"
+        if [ ! -f "$CONTAGION_DISPOSITION" ]; then
+          ARTIFACT_ERRORS="${ARTIFACT_ERRORS}contagion_heartbeat: disposition-tic-$CURRENT_TIC.json missing. "
+        fi
+        if [ -f "$CONTAGION_POINTER" ]; then
+          CONTAGION_POINTER_TIC=$(python3 -c "import json;print(json.load(open('$CONTAGION_POINTER')).get('tic',''))" 2>/dev/null)
+          if [ "$CONTAGION_POINTER_TIC" != "$CURRENT_TIC" ]; then
+            ARTIFACT_ERRORS="${ARTIFACT_ERRORS}contagion_heartbeat: current-pointer.json tic=$CONTAGION_POINTER_TIC, expected $CURRENT_TIC (frozen pointer). "
+          fi
+        else
+          ARTIFACT_ERRORS="${ARTIFACT_ERRORS}contagion_heartbeat: current-pointer.json missing. "
         fi
         ;;
       enrichment_scan)

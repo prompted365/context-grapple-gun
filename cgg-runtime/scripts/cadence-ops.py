@@ -457,6 +457,15 @@ def compute_due_cycles(tic: int) -> list:
     # at mod 4 (the original tic-213 piggyback rationale was cycle
     # proliferation avoidance, not pattern_mining coupling per se).
     cycles = ["queue_refresh", "signal_scan", "harmony_invoke"]  # always due
+    # contagion_heartbeat joins the always-due lane as harmony_invoke's sibling
+    # (GO ratified /review 545, bk-contagion-heartbeat-cycle). The ContagionMatch
+    # v0 kernel had fired 2x ever (tics 443/453) with its disposition written-
+    # never-read — a mounted bear under the can-it-eat dataflow-liveness predicate.
+    # The heartbeat closes both halves: this per-tic producer (runner verifies the
+    # disposition artifact per tic, anti-freeze pointer check included) + the
+    # office-worldview boot consumer (reads current-pointer.json with a staleness
+    # canary). NOT LLM-backed; NOT coupled to the 27B — node engine, ~1s, local.
+    cycles.append("contagion_heartbeat")
 
     if tic % 2 == 0:
         # T6a (tic 259 close, landed at tic 260 entry): re-include review_close_check
