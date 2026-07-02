@@ -803,8 +803,12 @@ def scan_and_enrich(project_dir, dry_run=False, quiet=False):
             )
 
     if entries_to_append and not dry_run:
-        # Update-in-place: replace existing entries by ID instead of appending
-        # duplicates. Read all lines, substitute matching IDs, write back.
+        # Update-in-place bounded to the LATEST row per id: evidence folds into
+        # the live head row, but earlier rows for the same id are lifecycle
+        # history (extracted, tic_gated, …) under the append-only +
+        # latest-entry-per-id contract. Replacing EVERY id-matching line
+        # destroyed those history rows once ids carried multiple rows
+        # (stepper transition appends) — caught live at tic 550.
         update_map = {e["id"]: e for e in entries_to_append}
         p = Path(queue_path)
         os.makedirs(os.path.dirname(queue_path), exist_ok=True)
@@ -815,26 +819,23 @@ def scan_and_enrich(project_dir, dry_run=False, quiet=False):
             fcntl.flock(lf.fileno(), fcntl.LOCK_EX)
             try:
                 lines = p.read_text(encoding="utf-8").splitlines() if p.exists() else []
-                new_lines = []
-                replaced_ids = set()
-                for line in lines:
+                last_idx = {}
+                for i, line in enumerate(lines):
                     line_s = line.strip()
                     if not line_s:
-                        new_lines.append(line)
                         continue
                     try:
-                        d = json.loads(line_s)
-                        eid = d.get("id", "")
-                        if eid in update_map:
-                            new_lines.append(json.dumps(update_map[eid], separators=(",", ":"), default=str))
-                            replaced_ids.add(eid)
-                        else:
-                            new_lines.append(line)
+                        eid = json.loads(line_s).get("id", "")
                     except json.JSONDecodeError:
-                        new_lines.append(line)
+                        continue
+                    if eid in update_map:
+                        last_idx[eid] = i
+                new_lines = list(lines)
+                for eid, i in last_idx.items():
+                    new_lines[i] = json.dumps(update_map[eid], separators=(",", ":"), default=str)
                 # Append any entries whose IDs were not found in existing lines
                 for eid, entry in update_map.items():
-                    if eid not in replaced_ids:
+                    if eid not in last_idx:
                         new_lines.append(json.dumps(entry, separators=(",", ":"), default=str))
                 p.write_text("\n".join(new_lines) + "\n", encoding="utf-8")
             finally:

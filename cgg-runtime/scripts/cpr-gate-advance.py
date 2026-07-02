@@ -29,8 +29,12 @@ GATE (deterministic, no model):
    this step does NOT re-check it.)
 
 SAFETY:
-  - Append/replace-in-place under flock (mirrors cpr-enrichment-scanner.py writeback).
-  - Only ever touches rows whose CURRENT status is exactly `tic_gated`.
+  - APPENDS transition rows under flock. The queue is append-only history read
+    latest-entry-per-id; a transition writer must never rewrite prior rows. The
+    earlier replace-by-id writeback substituted EVERY id-matching line, which
+    destroyed prior lifecycle rows (extracted, tic_gated) once ids legitimately
+    carried multiple history rows (stepper appends) — caught live at tic 550.
+  - Only ever advances rows whose CURRENT (latest-per-id) status is exactly `tic_gated`.
   - Stamps a transition breadcrumb (prior_status, gate_advanced_at_tic, gate_advanced_by).
   - Idempotent: a second run finds no `tic_gated`-with-baseline rows and writes nothing.
   - Never writes CLAUDE.md / MEMORY.md / ledger. Never promotes.
@@ -107,8 +111,8 @@ def find_advanceable(queue_entries, enrichment_dir):
     return advanceable
 
 
-def writeback_in_place(queue_path, update_map):
-    """Replace matching id rows in queue.jsonl under flock (no duplicate append)."""
+def append_transitions(queue_path, update_map):
+    """Append transition rows under flock (append-only history; latest-per-id is state)."""
     import fcntl
     p = Path(queue_path)
     os.makedirs(os.path.dirname(queue_path), exist_ok=True)
@@ -116,28 +120,15 @@ def writeback_in_place(queue_path, update_map):
     with open(lockfile, "w") as lf:
         fcntl.flock(lf.fileno(), fcntl.LOCK_EX)
         try:
-            lines = p.read_text(encoding="utf-8").splitlines() if p.exists() else []
-            new_lines = []
-            replaced = set()
-            for line in lines:
-                s = line.strip()
-                if not s:
-                    new_lines.append(line)
-                    continue
-                try:
-                    d = json.loads(s)
-                    eid = d.get("id", "")
-                    if eid in update_map:
-                        new_lines.append(json.dumps(update_map[eid], separators=(",", ":"), default=str))
-                        replaced.add(eid)
-                    else:
-                        new_lines.append(line)
-                except json.JSONDecodeError:
-                    new_lines.append(line)
-            for eid, entry in update_map.items():
-                if eid not in replaced:
-                    new_lines.append(json.dumps(entry, separators=(",", ":"), default=str))
-            p.write_text("\n".join(new_lines) + "\n", encoding="utf-8")
+            needs_newline = (
+                p.exists() and p.stat().st_size > 0
+                and not p.read_text(encoding="utf-8").endswith("\n")
+            )
+            with open(p, "a", encoding="utf-8") as f:
+                if needs_newline:
+                    f.write("\n")
+                for entry in update_map.values():
+                    f.write(json.dumps(entry, separators=(",", ":"), default=str) + "\n")
         finally:
             fcntl.flock(lf.fileno(), fcntl.LOCK_UN)
 
@@ -173,7 +164,7 @@ def advance_gated(project_dir, dry_run=False, quiet=False):
             print(f"  {eid}: tic_gated -> enrichment_needed (baseline: {os.path.basename(baseline)})")
 
     if not dry_run:
-        writeback_in_place(queue_path, update_map)
+        append_transitions(queue_path, update_map)
 
     if not quiet:
         verb = "would advance" if dry_run else "advanced"
