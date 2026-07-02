@@ -1222,6 +1222,10 @@ Timeline lock (freezing the edited base track before generation) requires re-tra
 
 <!-- promoted from CogPR-181 (tic 146→146). Source: demotion lifecycle build. -->
 
+- **The tic-COUNT AUTHORITY reader must read the canonical authority, not aggregate raw emissions** *(refinement — the time-consumer instance of Authoritative-set-readers)* — the two bullets above bind a duration READER to federation-tic scope; this binds the tic-COUNT reader itself. A function answering "what tic is it" must read the canonical authority — `domain_counter_after` on the LATEST tic event — never a count of raw `type=tic` rows. When "what time is it" is itself derived by aggregation, every temporal gate downstream inherits the aggregation's drift, and the failure is invisible until a stamped time is *impossible*: a born extracted without an in-block `birth_tic` is stamped `birth_tic = raw_count > current_tic`, silently over-holding its maturity gate every future born until raw-count catches up. This is the time-consumer face of the federation KI *Authoritative-set readers must read the manifest, not aggregate raw emissions* — the same centroid, applied to the clock the gates read. (Validated: cpr-extract `get_tic_count()` aggregated 557 raw rows vs canonical 553; both tic-552 borns stamped `birth_tic=557` (> current tic), over-holding the maturity gate ~4 tics; fixed CGG `360b952` to read `domain_counter_after`; `bk-cpr-extract-tic-count-drift` done tic 554.)
+
+<!-- promoted from cpr_tic_time_readers_read_canonical_authority_not_raw_count_tic553 (/review tic 556, PROMOTE-as-refinement). Source: tic 553 live session — cpr-stepper flagged impossible birth_tic=557. Ray on #authoritative-set-readers-must-read-the-manifest-not-aggregate-raw-emissions. -->
+
 ---
 
 ## Governed Bridge Mechanics
