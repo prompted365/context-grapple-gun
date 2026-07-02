@@ -69,6 +69,18 @@ AUTO_MEMORY_DIR = (
 # Data loading
 # ---------------------------------------------------------------------------
 
+# Additive lifecycle-state recognition (terminal-taxonomy APPLICATION tranche,
+# verdict tic 555 PROMOTE-SPEC). A row settled by the SHARED additive
+# `lifecycle_state` field (and not `promoted`) is a settled disposition carrying
+# its own per-row receipt — it needs no promoted-text/orphan close-check. Making
+# the recognition explicit discharges the closed consumer-set obligation without
+# a behavior change (these ids already fell through the status dispatch).
+# Spec: audit-logs/governance/terminal-taxonomy-strike-verdict-tic555.md
+LIFECYCLE_SETTLED_STATES = frozenset({
+    "terminal_positive", "terminal_negative", "obligated_waiting", "suspensive",
+})
+
+
 def load_queue(queue_path):
     """Load CPR queue (latest-entry-per-ID-wins). Returns dict of id->entry."""
     entries = {}
@@ -1115,6 +1127,15 @@ def run_check(project_dir, dry_run=False):
 
         elif status == "skipped":
             all_findings.extend(check_skipped(cpr_id, cpr))
+
+        elif cpr.get("lifecycle_state", "") in LIFECYCLE_SETTLED_STATES:
+            # Settled by additive lifecycle_state (terminal_positive/negative,
+            # obligated_waiting, suspensive) and not one of the checked statuses
+            # above — a settled disposition carrying its own per-row receipt; no
+            # promoted-text/orphan close-check applies. Explicit recognition of
+            # the shared field; no behavior change (these ids already fell
+            # through the status dispatch before tic 555).
+            continue
 
     # Orphan check across all promoted
     all_findings.extend(check_orphans(queue, project_dir, inscribed_ids))

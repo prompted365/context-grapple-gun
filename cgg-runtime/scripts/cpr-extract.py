@@ -234,13 +234,30 @@ TERMINAL_STATUSES = frozenset({
     "deferred", "dismissed", "resolved", "skipped",
 })
 
+# Additive lifecycle-state valve (terminal-taxonomy APPLICATION tranche, verdict
+# tic 555 PROMOTE-SPEC). The status enum above is HELD (10+ readers); the 5
+# orphan statuses (promoted_spec / implemented / withdrawn_inline_tracked /
+# terminal-audit / production_validated_pending_natural_falsification) were
+# NOT in TERMINAL_STATUSES, so their 46 ids ESCAPED this valve — a stale
+# re-extraction could inject an "extracted" row over an already-settled id.
+# Fix reads the SHARED additive `lifecycle_state` field (engine-content
+# separation) instead of widening the status enum: any id whose latest row
+# carries a settled lifecycle_state is valve-protected too. `obligated_waiting`
+# is settled FOR THE VALVE (never re-extract) even though it is live for its
+# build/falsification obligation elsewhere.
+# Spec: audit-logs/governance/terminal-taxonomy-strike-verdict-tic555.md
+LIFECYCLE_SETTLED_STATES = frozenset({
+    "terminal_positive", "terminal_negative", "obligated_waiting", "suspensive",
+})
+
 
 def load_existing_state(queue_file):
     """Load dedup hashes AND terminal ids from existing queue.jsonl.
 
     Returns (hashes, terminal_ids):
       hashes       — set of all dedup_hash values seen (for source:lesson dedup)
-      terminal_ids — set of ids whose latest entry is in a terminal status
+      terminal_ids — set of ids whose latest entry is settled (terminal status
+                     OR a settled additive lifecycle_state)
 
     JSONL is append-only; latest entry per id wins. A CPR may appear with
     status=extracted, then later status=promoted; the second row is the
@@ -249,6 +266,7 @@ def load_existing_state(queue_file):
     """
     hashes = set()
     latest_status_by_id = {}
+    latest_lifecycle_by_id = {}
     if not os.path.isfile(queue_file):
         return hashes, set()
     for line in open(queue_file, encoding="utf-8"):
@@ -266,9 +284,14 @@ def load_existing_state(queue_file):
         if eid:
             # JSONL append-only: each subsequent occurrence overwrites
             latest_status_by_id[eid] = d.get("status", "")
+            # lifecycle_state may be absent on a row; track it only when present
+            # so a later row without the field does not clear an earlier stamp.
+            if "lifecycle_state" in d:
+                latest_lifecycle_by_id[eid] = d.get("lifecycle_state", "")
     terminal_ids = {
         eid for eid, status in latest_status_by_id.items()
         if status in TERMINAL_STATUSES
+        or latest_lifecycle_by_id.get(eid) in LIFECYCLE_SETTLED_STATES
     }
     return hashes, terminal_ids
 

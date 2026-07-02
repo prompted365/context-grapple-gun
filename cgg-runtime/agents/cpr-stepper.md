@@ -253,3 +253,22 @@ instruction.
 - **IS-NOT (today):** the state machine **terminates** at `promoted`/`rejected`/`absorbed`. There is **no** post-promotion lifecycle — no `clarified`, `demoted`, `localized`, `stale`, `under_down_audit`, or `needs_mechanization` advancement. A promoted lesson cannot currently be moved.
 - **Forward role:** the stepper advances the **full** lifecycle, carrying post-promotion states as an **additive `lifecycle_state` field** (the same pattern that added `landing_kind` at tic 377); `held`/`hold_in_dissonance` becomes a real parked state.
 - **Discipline (hard):** lifecycle rides **additive `lifecycle_state` metadata, NEVER status-enum expansion** — the status enum is HELD (10+ readers: build_queue_index, governance_query, review-close-check, bench-packet-prep…). doctrine-LAW routes through /review; the stepper is mechanical (no promotion/demotion authority).
+
+## Settled-State Taxonomy — APPLIED (tic 555 verdict, tic 557 application)
+
+> **Status: APPLIED.** The terminal-taxonomy strike verdict (PROMOTE-SPEC, /review 555) named a settled-state taxonomy and its application tranche landed tic 557 (46 orphan-status ids stamped). This is the **up-lane SETTLED** classification — distinct from the post-promotion *demotion* lifecycle above (`clarified`/`demoted`/`localized`/…), which stays FORWARD.
+
+The queue's settled positions are decidable from a shared, closed vocabulary of **terminal moves** carried by the additive `lifecycle_state` field (status enum HELD — never expanded). Every consumer reads this ONE field instead of a private per-status terminal set (engine-content separation — the fix that closed the tic-554 "each consumer corrects differently" Disagreement-as-evidence shape):
+
+| `lifecycle_state` | kind | statuses that map here | receipt |
+|---|---|---|---|
+| `terminal_positive` | positive terminal | `promoted`, `absorbed`, `resolved`, `implemented` (→ justification `completed`) | justification_class + receipt |
+| `terminal_negative` | negative terminal | `rejected`, `skipped`, `dismissed`, `withdrawn_inline_tracked` (→ `withdrawn`) | justification_class + receipt |
+| `suspensive` | parked-with-schedule | `deferred`, `superseded` | keeps valve protection; re-entry via `re_eval_tic` |
+| `obligated_waiting` | settled-for-valve, live-for-obligation | `promoted_spec`, `production_validated_pending_natural_falsification` | `waiting_class` + `lifecycle_closure_condition` |
+
+**Homes for the previously-orphaned halves** (the tic-554 "asymmetric enum halves" gap — extractor-terminal but absent from the lifecycle diagram, so the next reader re-derived them): `skipped`/`dismissed` → `terminal_negative`; `deferred`/`superseded` → `suspensive`; `resolved` → `terminal_positive`. These are settled; the stepper does not re-advance them.
+
+**`obligated_waiting` is NOT terminal and NOT pending** — settled for the terminal valve (never re-extract) but carrying a live build (`promoted_spec` → the spec at `promoted_to`) or falsification (`production_validated…`) obligation, surfaced in an obligations projection, never the pending docket. Its receipt closes at the /review gate that lands the build.
+
+**Discipline (unchanged):** lifecycle rides additive `lifecycle_state` metadata, NEVER status-enum expansion. The stepper is mechanical — it reads and passes `lifecycle_state` through unchanged; it never mints a terminal move (that authority stays at /review, applied by the tranche). Spec: `audit-logs/governance/terminal-taxonomy-strike-verdict-tic555.md`.

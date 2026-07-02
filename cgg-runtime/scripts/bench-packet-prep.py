@@ -49,6 +49,20 @@ TERMINAL_STATUSES = frozenset({
     "deferred", "dismissed", "resolved", "skipped",
 })
 
+# Additive lifecycle-state valve (terminal-taxonomy APPLICATION tranche, verdict
+# tic 555 PROMOTE-SPEC). The DEGRADED-fallback load_queue below classified only
+# by the (HELD) status enum, so the 5 orphan statuses would surface as live
+# candidates when the compiler is unavailable — a private per-status correction
+# in the compiler was the only thing settling them. Reading the SHARED additive
+# `lifecycle_state` field settles them here too (engine-content separation), so
+# the fallback no longer depends on the compiler hardcoding each orphan status.
+# `obligated_waiting` is settled for the docket (never a live candidate) even
+# though it carries a live build/falsification obligation surfaced elsewhere.
+# Spec: audit-logs/governance/terminal-taxonomy-strike-verdict-tic555.md
+LIFECYCLE_SETTLED_STATES = frozenset({
+    "terminal_positive", "terminal_negative", "obligated_waiting", "suspensive",
+})
+
 
 def invoke_compiler_and_load_effective_state(al_path, current_tic):
     """Invoke queue_state_compile.py and load its outputs.
@@ -144,9 +158,13 @@ def load_queue(queue_path):
 
     canonical = {}
     for eid, entries_list in by_id.items():
+        # Settled = terminal status OR settled additive lifecycle_state (the 46
+        # orphan-status ids stamped at tic 557 are settled by lifecycle_state,
+        # not by their HELD status). Latest settled entry is the disposition.
         terminal_entries = [
             e for e in entries_list
             if e.get("status", "") in TERMINAL_STATUSES
+            or e.get("lifecycle_state", "") in LIFECYCLE_SETTLED_STATES
         ]
         if terminal_entries:
             # Latest terminal entry is the canonical disposition

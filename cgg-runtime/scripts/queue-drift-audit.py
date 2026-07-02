@@ -72,6 +72,30 @@ TERMINAL_STATUSES = {
     "superseded",
 }
 
+# Additive lifecycle-state valve (terminal-taxonomy APPLICATION tranche, verdict
+# tic 555 PROMOTE-SPEC). The 5 orphan statuses used to land in the "other"
+# bucket (settled but unrecognized), and each peer reader corrected differently
+# — the Disagreement-as-evidence shape. Reading the SHARED additive
+# `lifecycle_state` field settles them here too: an id is terminal for this
+# audit when its status is terminal OR its lifecycle_state is settled.
+# `obligated_waiting` is settled (not overdue-active, not "other") even though
+# it carries a live build/falsification obligation surfaced elsewhere.
+# Spec: audit-logs/governance/terminal-taxonomy-strike-verdict-tic555.md
+LIFECYCLE_SETTLED_STATES = {
+    "terminal_positive",
+    "terminal_negative",
+    "obligated_waiting",
+    "suspensive",
+}
+
+
+def _is_terminal(row):
+    """Settled = terminal status OR settled additive lifecycle_state."""
+    return (
+        row.get("status", "") in TERMINAL_STATUSES
+        or row.get("lifecycle_state", "") in LIFECYCLE_SETTLED_STATES
+    )
+
 ACTIVE_STATUSES = {
     "pending",
     "extracted",
@@ -162,7 +186,7 @@ def audit(overdue_threshold=DEFAULT_OVERDUE_THRESHOLD_TICS, current_tic=None):
             [r.get("status", "") for r in all_rows[:-1]] if duplicate_count > 0 else []
         )
 
-        if status in TERMINAL_STATUSES:
+        if _is_terminal(row):
             terminal_count += 1
             # Only flag terminal entries with duplicate rows whose presence
             # could mislead a raw-line reader (any duplicate count > 0).
