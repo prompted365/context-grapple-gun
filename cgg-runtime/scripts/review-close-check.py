@@ -645,16 +645,22 @@ def build_inscribed_index(project_dir):
 
 
 def check_deferred(cpr_id, cpr):
-    """Verify deferred CPR has updated review_tic."""
+    """Verify deferred CPR has updated review_tic.
+
+    Accepts either key variant: review_tic (script writers) or reviewed_tic
+    (hand-authored /review writebacks, e.g. tic500-pass1) — both carry the
+    same review provenance (schema key signature drift, conductor-score-runtime
+    parity mechanism class 3).
+    """
     findings = []
 
-    review_tic = cpr.get("review_tic")
+    review_tic = cpr.get("review_tic", cpr.get("reviewed_tic"))
     if review_tic is None:
         findings.append({
             "type": "deferred_no_review_tic",
             "severity": "warning",
             "cpr_id": cpr_id,
-            "message": f"{cpr_id} deferred but review_tic not set",
+            "message": f"{cpr_id} deferred but review_tic/reviewed_tic not set",
         })
 
     return findings
@@ -1101,9 +1107,11 @@ def run_check(project_dir, dry_run=False):
             all_findings.extend(check_promoted(cpr_id, cpr, project_dir, inscribed_ids, lesson_fallbacks))
 
         elif status in ("deferred", "enrichment_eligible"):
-            # Deferred CPRs should have a review_tic
-            if cpr.get("review_tic") is not None:
-                all_findings.extend(check_deferred(cpr_id, cpr))
+            # Deferred CPRs should have review provenance. Call unconditionally:
+            # a call-site guard on the same predicate the check tests made the
+            # deferred_no_review_tic finding-class unreachable (dead check,
+            # found tic 554 via a 35-vs-36 counter delta).
+            all_findings.extend(check_deferred(cpr_id, cpr))
 
         elif status == "skipped":
             all_findings.extend(check_skipped(cpr_id, cpr))
@@ -1152,7 +1160,7 @@ def run_check(project_dir, dry_run=False):
 
     # Count by verdict
     promoted_count = sum(1 for c in queue.values() if c.get("status") == "promoted")
-    deferred_count = sum(1 for c in queue.values() if c.get("status") in ("deferred", "enrichment_eligible") and c.get("review_tic"))
+    deferred_count = sum(1 for c in queue.values() if c.get("status") in ("deferred", "enrichment_eligible") and (c.get("review_tic") or c.get("reviewed_tic")))
     skipped_count = sum(1 for c in queue.values() if c.get("status") == "skipped")
 
     historical_count = sum(1 for c in queue.values() if c.get("historical_artifact"))
@@ -1232,7 +1240,13 @@ def run_check(project_dir, dry_run=False):
         if (mandate_tic is not None or mandate_id) and os.path.exists(output_path):
             try:
                 prior = json.loads(Path(output_path).read_text(encoding="utf-8"))
-                if prior.get("findings") == report["findings"]:
+                # Compare full report content minus the volatile timestamp —
+                # findings-only comparison let a stale verdict_counts survive a
+                # counter repair (tic 554: on-disk deferred=35 vs runtime 36).
+                _volatile = ("generated_at",)
+                prior_norm = {k: v for k, v in prior.items() if k not in _volatile}
+                report_norm = {k: v for k, v in report.items() if k not in _volatile}
+                if prior_norm == report_norm:
                     decision = "skip"
                 else:
                     decision = "replace"
