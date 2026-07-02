@@ -310,6 +310,22 @@ Use the `EnterPlanMode` tool to switch to Claude Code's native plan mode. This i
 #### Step 4: Write the Handoff as the Plan
 Generate a NEW native plan. The plan content IS the handoff — a **bridge surface** carrying session state between contexts, not authoring truth or constitutional record. This is the ONE AND ONLY place the handoff gets written. Claude Code auto-saves the plan to `~/.claude/plans/` when approved, and references it in the next session.
 
+##### The Handoff Is a Delta Charge, Not a Map (mandatory content scope)
+
+Division of labor, stated once: **the worldview injection owns the map; the handoff owns the duty.** The orchestrator boot (worldview injection + boot pointers + NAVIGATION) already delivers identity, the pointer map, the navigation grammar, and the field's shape to the next session — the handoff must NOT re-hydrate them. The handoff's job is the **residue only**:
+
+- **last-tic delta** — what changed, receipts not lore (commits SHA-cited, corrections made on the record)
+- **banked hazards** — unresolved, named, with where they're banked (never silently carried)
+- **obligations owed at entry** — borns to inscribe, mandates to consume, gates that fire
+- **fervor-binding** — posture and duty for the next instance (zeal, not sentiment)
+- **truth boundaries** — rung-collapse guards, swept-slice discipline, whatever must not be flattened
+
+**Forbidden anti-pattern:** an over-assigned handoff that re-embeds the map — topology re-explanations, goal lists that duplicate the backlog, "where things live" prose that duplicates NAVIGATION. This duplicates injection-owned content into a surface that is OVERWRITTEN EVERY TIC, and it lies structurally: it implies the map lives in the handoff, so find-ability degrades to handoff-dependence — the exact failure NAVIGATION-as-primary (tic 405) and backlog-as-home (tic 404) were built to prevent. Those two directives relocate map-mass OUT of the handoff; this contract names what remains IN.
+
+Verification: if a handoff section would still be true three tics from now, it probably belongs in NAVIGATION, the backlog, or a topic file — not the handoff.
+
+<!-- promoted from cpr_cadence_handoff_is_delta_charge_not_map_tic544 (session_lessons_tic_544.md, inline + queue; tic 544→/review 545 PROMOTE, Architect-gated ["apply as recommended", live; contract Architect-directed at tic-544 close]. Target adjudicated: the /cadence skill handoff-writing step (skill-contract inscription, not ledger law). Supports navigation-router-of-routers-tic405 + backlog-central-pointer-tic404 — both relocate map-mass out; this names the handoff's positive residual contract. Working proof: the tic-544→545 handoff was authored in delta-charge form as the first instance and carried the tic-545 entry cleanly. Band: COGNITIVE. Domain rung: CGG (install-owned surface — runtime sync on commit). -->
+
 ##### Handoff Title Format: work-tic vs entry-tic (mandatory)
 
 A close handoff names TWO tics, not one: the tic the session **worked under** and the tic emitted by /cadence for the **next session's entry**. Naming only one collapses the distinction and propagates off-kilter framing into future sessions.
