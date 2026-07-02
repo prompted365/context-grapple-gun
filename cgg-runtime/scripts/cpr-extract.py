@@ -448,8 +448,24 @@ def find_governance_files(project_dir, excludes, plan_file=None,
 
 
 def get_tic_count(project_dir):
-    """Get current project tic count from audit-logs/tics/*.jsonl."""
+    """Get the current canonical tic from audit-logs/tics/*.jsonl.
+
+    Reads `domain_counter_after` from the LATEST tic event (Temporal Scope
+    Discipline; mirrors ladder-audit._resolve_federation_tic) — NOT a count of
+    raw `type=tic` rows. Raw aggregation over-counts the authority whenever
+    duplicate/uncounted historical emissions exist (557 raw vs canonical 553
+    observed at tic 553), and every born extracted WITHOUT an in-block
+    birth_tic then gets stamped a birth_tic > current tic — an unreachable
+    state that silently over-holds its temporal maturity gate until raw-count
+    catches up. *Authoritative-set readers must read the manifest, not
+    aggregate raw emissions* applied to the time consumer
+    (bk-cpr-extract-tic-count-drift, tic 553→554; born
+    cpr_tic_time_readers_read_canonical_authority_not_raw_count_tic553).
+    Raw-count is retained ONLY as fallback for tic logs predating the
+    domain_counter_after field.
+    """
     tic_count = 0
+    latest_counter = None
     tz_config = load_ticzone(project_dir)
     al_path = audit_logs_path(project_dir, tz_config)
     tic_dir = os.path.join(al_path, "tics")
@@ -464,9 +480,12 @@ def get_tic_count(project_dir):
                 d = json.loads(line)
                 if d.get("type") == "tic":
                     tic_count += 1
+                    val = d.get("domain_counter_after")
+                    if isinstance(val, int):
+                        latest_counter = val
             except (json.JSONDecodeError, TypeError):
                 continue
-    return tic_count
+    return latest_counter if latest_counter is not None else tic_count
 
 
 def _classify_tier(block, status):
