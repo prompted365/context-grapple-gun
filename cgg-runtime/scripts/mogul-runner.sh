@@ -52,8 +52,20 @@ resolve_zone_root() {
 
 ZONE_ROOT=$(resolve_zone_root)
 
+# Resolve the CGG runtime scripts root (generator-surface fix, tic 552 — the
+# mandate prompt previously hardcoded a vendor/ layout that does not exist in
+# this federation; the drift fired 4 cross-tic times, 545→552, before landing
+# here at the generator). Probe known layouts in order; first hit wins.
+CGG_SCRIPTS=""
+for cgg_cand in \
+  "$ZONE_ROOT/vendor/context-grapple-gun/cgg-runtime/scripts" \
+  "$ZONE_ROOT/canonical_developer/context-grapple-gun/cgg-runtime/scripts" \
+  "$HOME/.claude/cgg-runtime/scripts"; do
+  [ -d "$cgg_cand" ] && CGG_SCRIPTS="$cgg_cand" && break
+done
+
 # Resolve rung topology for provenance embedding
-RUNG_RESOLVER="$ZONE_ROOT/vendor/context-grapple-gun/cgg-runtime/scripts/rung_resolver.py"
+RUNG_RESOLVER="$CGG_SCRIPTS/rung_resolver.py"
 BIRTH_RUNG="unknown"
 TOPOLOGY_JSON="{}"
 if [ -f "$RUNG_RESOLVER" ]; then
@@ -306,20 +318,20 @@ $MANDATE_CONTENT
 
 1. Read and execute ONLY the cycles in cycle_request.run_now: $CYCLES
 2. For each cycle, produce evidence artifacts:
-   - queue_refresh: scan audit-logs/cprs/queue.jsonl, report state. First run: python3 \$ZONE_ROOT/vendor/context-grapple-gun/cgg-runtime/scripts/arena-pressure-ingest.py --zone-root \$ZONE_ROOT --quiet to discover arena candidates before scanning.
+   - queue_refresh: scan audit-logs/cprs/queue.jsonl, report state. First run: python3 $CGG_SCRIPTS/arena-pressure-ingest.py --zone-root \$ZONE_ROOT --quiet to discover arena candidates before scanning.
    - signal_scan: AUTHORITATIVE COUNT IS PRE-COMPUTED. The runner has already read audit-logs/signals/active-manifest.jsonl (curated truth, post-prune) and counted signals with status in {active, acknowledged, working}. Authoritative count: $AUTH_SIGNAL_COUNT. Authoritative signal_ids: $AUTH_SIGNAL_IDS. Your report MUST use these values verbatim — do NOT re-derive from daily files, do NOT count raw emissions. Daily files audit-logs/signals/*.jsonl are raw emissions, not authoritative state. Your results.signal_scan object MUST include: {\"active_count\": $AUTH_SIGNAL_COUNT, \"active_signal_ids\": $AUTH_SIGNAL_IDS, \"authoritative_source\": \"active-manifest.jsonl (pre-computed by mogul-runner.sh)\"}.
    - memory_mining: scan MEMORY.md chain for recurring patterns, write findings
-   - pattern_mining: run scripts/pattern_miner.py, output to audit-logs/patterns/
-   - harmony_invoke: run scripts/harmony-invoke.sh (kernel-class autonomous_kernel.meaning.disposition; produces disposition packet to audit-logs/harmony/disposition-tic-N.json + appends invocations.jsonl audit trail). Read-only kernel; does not mutate governance state.
-   - contagion_heartbeat: run scripts/contagion-invoke.sh (kernel-class ContagionMatch v0, harmony_invoke's sibling seam; conformation-proximity match over learned coordinates — NOT LLM-backed, NOT coupled to the 27B; produces disposition packet to audit-logs/contagion/disposition-tic-N.json + refreshes current-pointer.json + appends invocations.jsonl). Read-only kernel; emits a NON-CITABLE shaping packet; does not mutate governance state. The office-worldview boot render consumes current-pointer.json (staleness-canaried) — this cycle is the producer half of that heartbeat (GO ratified /review 545).
-   - enrichment_scan: run scripts/cpr-enrichment-scanner.py, assess enrichment-eligible CPRs
+   - pattern_mining: run $CGG_SCRIPTS/pattern_miner.py, output to audit-logs/patterns/
+   - harmony_invoke: run $CGG_SCRIPTS/harmony-invoke.sh (kernel-class autonomous_kernel.meaning.disposition; produces disposition packet to audit-logs/harmony/disposition-tic-N.json + appends invocations.jsonl audit trail). Read-only kernel; does not mutate governance state.
+   - contagion_heartbeat: run $CGG_SCRIPTS/contagion-invoke.sh (kernel-class ContagionMatch v0, harmony_invoke's sibling seam; conformation-proximity match over learned coordinates — NOT LLM-backed, NOT coupled to the 27B; produces disposition packet to audit-logs/contagion/disposition-tic-N.json + refreshes current-pointer.json + appends invocations.jsonl). Read-only kernel; emits a NON-CITABLE shaping packet; does not mutate governance state. The office-worldview boot render consumes current-pointer.json (staleness-canaried) — this cycle is the producer half of that heartbeat (GO ratified /review 545).
+   - enrichment_scan: run $CGG_SCRIPTS/cpr-enrichment-scanner.py, assess enrichment-eligible CPRs
    - ladder_audit: audit CLAUDE.md chain coherence
-   - runtime_drift_check: compare installed vs canonical runtime surfaces. ALSO run scripts/check-harmony-readonly.py --json AND scripts/check-contagion-readonly.py --json — each verifies its engine's modules contain no forbidden imports (atomic_append/queue/signals/manifest-prune/mandate/conformation) or write patterns (writeFileSync/appendFileSync/.write()). Surface any violations as drift findings (treat as TENSION/COGNITIVE per existing drift severity classification).
-   - prompt_stack_audit: run scripts/prompt-stack-audit.py, scan CLAUDE.md chain for conflicts
-   - cache_refresh: run \$ZONE_ROOT/vendor/context-grapple-gun/cgg-runtime/scripts/visitor-economy-monitor.py --cache-refresh \$TIC, report cache state + standing decay + biome health. Your results.cache_refresh object MUST include: {\"cache_state\": ..., \"standing_decay\": ..., \"biome_health\": ...} — EVEN WHEN THE CACHE IS EMPTY (e.g. {\"cache_state\": \"empty\", \"healthy\": true}). Do NOT report cache_refresh only in the prose summary; the structured results.cache_refresh key is the verified artifact.
+   - runtime_drift_check: compare installed vs canonical runtime surfaces. ALSO run $CGG_SCRIPTS/check-harmony-readonly.py --json AND $CGG_SCRIPTS/check-contagion-readonly.py --json — each verifies its engine's modules contain no forbidden imports (atomic_append/queue/signals/manifest-prune/mandate/conformation) or write patterns (writeFileSync/appendFileSync/.write()). Surface any violations as drift findings (treat as TENSION/COGNITIVE per existing drift severity classification).
+   - prompt_stack_audit: run $CGG_SCRIPTS/prompt-stack-audit.py, scan CLAUDE.md chain for conflicts
+   - cache_refresh: run $CGG_SCRIPTS/visitor-economy-monitor.py --cache-refresh \$TIC, report cache state + standing decay + biome health. Your results.cache_refresh object MUST include: {\"cache_state\": ..., \"standing_decay\": ..., \"biome_health\": ...} — EVEN WHEN THE CACHE IS EMPTY (e.g. {\"cache_state\": \"empty\", \"healthy\": true}). Do NOT report cache_refresh only in the prose summary; the structured results.cache_refresh key is the verified artifact.
    - deep_audit: comprehensive multi-rung scan
-   - review_close_check: run scripts/review-close-check.py, verify post-review inscription consistency
-   - civil_status_check: SPAWN the existing civil-engineer subagent via the STANDARD Agent tool (subagent_type: civil-engineer) — harness- and sovereign-contract-mediated, Claude Code default runtime; do NOT route it to any external compute backend. It runs the routine infrastructure-maintenance audit (index/registry/sync/health checks per cgg-runtime/agents/civil-engineer.md) and writes its civil-report to audit-logs/mogul/civil-reports/<YYYY-MM-DD>-tic-\$CURRENT_TIC.json. Do NOT reimplement civil logic inline — civil-engineer already exists; you only dispatch it (find-before-create). Your results.civil_status_check object MUST summarize {\"findings_count\": N, \"drift_detected\": N, \"report_path\": \"audit-logs/mogul/civil-reports/...\"}.
+   - review_close_check: run $CGG_SCRIPTS/review-close-check.py, verify post-review inscription consistency
+   - civil_status_check: DISPATCH the existing civil-engineer office steward — an entity at the appropriate state, via the lead harness's active dispatch surface (under Claude Code: subagent_type: civil-engineer) — harness- and sovereign-contract-mediated; do NOT route it to any external compute backend. It runs the routine infrastructure-maintenance audit (index/registry/sync/health checks per cgg-runtime/agents/civil-engineer.md) and writes its civil-report to audit-logs/mogul/civil-reports/<YYYY-MM-DD>-tic-\$CURRENT_TIC.json. Do NOT reimplement civil logic inline — civil-engineer already exists; you only dispatch it (find-before-create). Your results.civil_status_check object MUST summarize {\"findings_count\": N, \"drift_detected\": N, \"report_path\": \"audit-logs/mogul/civil-reports/...\"}.
 3. Write a DEDICATED structured JSON cycle report using Write tool to EXACTLY this path:
    $STRUCTURED_REPORT
    This file is your governance evidence artifact. It MUST follow the schema below exactly.
@@ -519,7 +531,7 @@ if [ "$MOGUL_RUNNER_BACKEND" = "codex" ] && [ "$CIVIL_IN_CYCLES" = true ] && [ $
   echo "Civil carve-out: dispatching civil-engineer on Claude Code (fence: civil stays sovereign)..."
   CIVIL_FRAGMENT="$CYCLE_REPORTS_DIR/.${TIMESTAMP}-tic-${CURRENT_TIC}.civil-fragment.json"
   CIVIL_PROMPT="You are the mogul-runner civil carve-out for tic $CURRENT_TIC. Working directory: $ZONE_ROOT.
-Spawn the civil-engineer subagent (subagent_type: civil-engineer) via the standard Agent tool. It runs the routine infrastructure-maintenance audit (index/registry/sync/health per cgg-runtime/agents/civil-engineer.md) and writes its civil-report to audit-logs/mogul/civil-reports/<YYYY-MM-DD>-tic-$CURRENT_TIC.json.
+Dispatch the civil-engineer office steward via the lead harness's active dispatch surface (an entity at the appropriate state; under Claude Code: subagent_type: civil-engineer). It runs the routine infrastructure-maintenance audit (index/registry/sync/health per cgg-runtime/agents/civil-engineer.md) and writes its civil-report to audit-logs/mogul/civil-reports/<YYYY-MM-DD>-tic-$CURRENT_TIC.json.
 Then write EXACTLY this JSON file using the Write tool to: $CIVIL_FRAGMENT
 {\"findings_count\": <int>, \"drift_detected\": <int>, \"report_path\": \"audit-logs/mogul/civil-reports/...\", \"runtime\": \"claude_code\"}
 Do nothing else. Do NOT modify CLAUDE.md, MEMORY.md, queue.jsonl, or any governance surface."
