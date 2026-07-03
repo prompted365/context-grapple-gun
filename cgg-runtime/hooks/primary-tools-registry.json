@@ -1,0 +1,97 @@
+{
+  "version": 1,
+  "doc": "CONTENT half of the primary-tool-search guard (engine-content separation is mandatory for federation-grade gate primitives). The ENGINE is hooks/primary-tool-search-guard.py; tool names + lite-specs live HERE and may evolve without touching the automaton. Sibling to tool-absence-claim-lexicon.json (the WRITE-boundary guard); this guard fires EARLIER, at the ToolSearch call, before the false 'not-found' signal can form. Occurrence history: feedback_agent-tool-presence-probe #1-#9. A ToolSearch searches ONLY the DEFERRED registry; a PRIMARY (top-level) tool is never in it, so a no-match for a primary tool is EXPECTED and is not evidence that it is unreachable.",
+  "classes": {
+    "reliably_primary": "Top-level in Claude Code by design — essentially never deferred. ToolSearch will not return it; a no-match is expected and means 'already available', not 'unreachable'. Invoke it directly.",
+    "usually_primary_session_variable": "Usually top-level, but MAY be moved to the deferred registry in a given session. If ToolSearch DID return it, use it from there; if it returned nothing, it is primary this session — invoke it directly. Either way it is reachable."
+  },
+  "primary_tools": {
+    "Agent": {
+      "class": "reliably_primary",
+      "aliases": ["Task"],
+      "lite_spec": "Spawn a subagent / delegate a task or broad search. subagent_type picks the agent (fork inherits your full context; other/omitted = fresh). The agent's final message returns as the tool result. Runs in background when subagent_type is a custom agent.",
+      "invoke": "Agent(description, prompt, subagent_type?, model?)"
+    },
+    "Task": {
+      "class": "reliably_primary",
+      "alias_of": "Agent",
+      "lite_spec": "Legacy name for Agent (renamed in Claude Code 2.1.63). Use Agent. Never in the deferred registry.",
+      "invoke": "Agent(...)"
+    },
+    "Bash": {
+      "class": "reliably_primary",
+      "lite_spec": "Run a shell command. Supports run_in_background + timeout. Prefer dedicated file/search tools where one fits.",
+      "invoke": "Bash(command, description?, run_in_background?, timeout?)"
+    },
+    "Read": {
+      "class": "reliably_primary",
+      "lite_spec": "Read a file (text, images, PDF pages, notebooks) with line numbers. offset/limit for large files.",
+      "invoke": "Read(file_path, offset?, limit?, pages?)"
+    },
+    "Edit": {
+      "class": "reliably_primary",
+      "lite_spec": "Exact string replacement in a file you have Read this session. replace_all for every occurrence.",
+      "invoke": "Edit(file_path, old_string, new_string, replace_all?)"
+    },
+    "Write": {
+      "class": "reliably_primary",
+      "lite_spec": "Create or fully overwrite a file (must have Read an existing target first).",
+      "invoke": "Write(file_path, content)"
+    },
+    "Skill": {
+      "class": "reliably_primary",
+      "lite_spec": "Invoke a skill by name (the /slash-commands). Only invoke skills in the available-skills list.",
+      "invoke": "Skill(skill, args?)"
+    },
+    "Workflow": {
+      "class": "reliably_primary",
+      "lite_spec": "Run a deterministic multi-agent orchestration script (opt-in / ultracode only). Fan-out, pipeline, verify.",
+      "invoke": "Workflow(script | scriptPath | name, args?)"
+    },
+    "Artifact": {
+      "class": "reliably_primary",
+      "lite_spec": "Publish an HTML/Markdown file as a hosted, default-private artifact page. Load the artifact-design skill first.",
+      "invoke": "Artifact(file_path, favicon, description?, url?)"
+    },
+    "AskUserQuestion": {
+      "class": "reliably_primary",
+      "lite_spec": "Ask the user a blocking decision that is genuinely theirs (1-4 questions, 2-4 options each).",
+      "invoke": "AskUserQuestion(questions)"
+    },
+    "ScheduleWakeup": {
+      "class": "reliably_primary",
+      "lite_spec": "Schedule when to resume a /loop dynamic-mode iteration (delaySeconds, reason, prompt).",
+      "invoke": "ScheduleWakeup(delaySeconds, reason, prompt)"
+    },
+    "ReportFindings": {
+      "class": "reliably_primary",
+      "lite_spec": "Report code-review findings as a typed list (only when the review instructions ask for it).",
+      "invoke": "ReportFindings(findings, level?)"
+    },
+    "ToolSearch": {
+      "class": "reliably_primary",
+      "lite_spec": "Fetch schemas for DEFERRED tools so they become callable. Searches the deferred registry ONLY — it cannot return a primary tool (this guard).",
+      "invoke": "ToolSearch(query, max_results)"
+    },
+    "Glob": {
+      "class": "usually_primary_session_variable",
+      "lite_spec": "Fast filename/path glob matching. Often primary; may be deferred in some sessions.",
+      "invoke": "Glob(pattern, path?)"
+    },
+    "Grep": {
+      "class": "usually_primary_session_variable",
+      "lite_spec": "Ripgrep content search. Often primary; may be deferred in some sessions.",
+      "invoke": "Grep(pattern, path?, output_mode?, ...)"
+    },
+    "TodoWrite": {
+      "class": "usually_primary_session_variable",
+      "lite_spec": "Session todo list. Session-variable; in this federation the Task* tools (TaskCreate/TaskUpdate/TaskList) are the tracked equivalent.",
+      "invoke": "TodoWrite(todos)"
+    },
+    "NotebookEdit": {
+      "class": "usually_primary_session_variable",
+      "lite_spec": "Edit a Jupyter notebook cell. Session-variable.",
+      "invoke": "NotebookEdit(notebook_path, new_source, ...)"
+    }
+  }
+}
