@@ -225,6 +225,18 @@ A self-locating runtime artifact — one that resolves its operating root by wal
 
 ---
 
+## Fixture-Green Is Not Trainer-Green
+<a id="fixture-green-is-not-trainer-green"></a>
+<!-- ledger-tags: authority_class=verification_and_proof_discipline | rung=domain | domain=context-grapple-gun | born_tic=556 | promoted_tic=563 | heritage=H-2.1 -->
+
+**Fixture-proof and trainer-proof are different evidence classes; a fixture pass cannot flip a trainer-gated wire.** A mechanism proven green in FIXTURES (the SP-trilogy 36/36, the splat/strike proofs, a live docket-rehydration) is evidence the MECHANISM holds — NOT evidence it is safe to couple live. This bites hardest when the mechanism's live consumer is a BOOT COMPILER that shapes every office's context injection: the terrain-cost / epitaph / disposition / wisdom-whisper coupling lands at three points in `office-worldview.py`, and a fixture-green result there must not be read as authorization to wire the boot-time consumer. The discipline is **build-and-gate**: build + fixture-prove the mechanism, but gate its live use on a distinct trainer-proof — *proven on the TRAINER, not the contract* (`autonomous_kernel/terrain-training-doctrine-spec.md` Do-not-wire constraint).
+
+**Why a ray, not a net-new parent (non-derivability):** this refines the federation *Presence/Observation Fallacy Guard* — its *observed-success-does-not-prove-content-validity-without-fingerprint* + *presence-of-artifact-does-not-prove-semantic-fulfillment* clauses — sharpened to the EVIDENCE-CLASS distinction (fixture vs trainer) at a boot-compiler consumer. It loads where it fires (CGG-rung `office-worldview.py`). SKIP≠DISCARD: derivable-from-an-existing-guard, but given a durable home at its fire-locus.
+
+<!-- promoted from cpr_terrain_worldview_coupling_is_build_and_gate_fixture_green_not_trainer_green_tic556 (born tic 556, /review tic 563, Architect-directed "ratify the opTorq shit" + pull-in). Verdict: PROMOTE as ray-refinement of the Presence/Observation Fallacy Guard (not net-new compact-root KI). OT heritage: H-2.1 (grounded tic 558 — crates/harpoon/src/archetype_shape.rs `face1416d6ddd517`, fusion_core/narrative_physics_layer.py `933dfc5d5a4d5d30`). Membrane held: heritage = FIELD lineage, confers no authority, promotes nothing. Band: COGNITIVE. signer ent_homeskillet (claude-opus-4-8). -->
+
+---
+
 ## Cycle-Based Windows in Mixed-Frequency Event Streams
 <a id="cycle-based-windows-in-mixed-frequency-event-streams"></a>
 <!-- ledger-tags: authority_class=signal_and_queue_manifold | rung=domain | domain=context-grapple-gun | dehydrated_tic=314 -->
