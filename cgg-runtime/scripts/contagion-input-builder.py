@@ -40,6 +40,27 @@ LEARNED_COORDS = os.path.join(ROOT, "audit-logs", "patterns", "f2-learned-coordi
 RESOLVED_ARCHIVE = os.path.join(ROOT, "audit-logs", "signals", "resolved-archive.jsonl")
 
 # ---------------------------------------------------------------------------
+# OPT-IN kernel enrichment: 16D -> 9D narrative-physics projection (cable C-OT4).
+# GUARDED: if the kernel module (or numpy) is absent, the builder behaves EXACTLY
+# as before — the physics-projection block is simply omitted from the envelope.
+# The projection is a SAFETY/DRIFT layer; here it folds a projection-derived 9D
+# structural shape + a normalized drift_band into the contagion input, so the
+# kernel projection is genuinely IN the dataflow (consumed, not stared at).
+# ---------------------------------------------------------------------------
+_PROJECTION_DIR = os.path.join(ROOT, "autonomous_kernel")
+if _PROJECTION_DIR not in sys.path:
+    sys.path.insert(0, _PROJECTION_DIR)
+try:
+    from ot_narrative_physics_projection import (  # noqa: E402
+        to_contagion_shape as _kernel_to_contagion_shape,
+        narrative_drift_band as _kernel_narrative_drift_band,
+        PROJECTION_INSTRUMENT_VERSION as _KERNEL_PROJECTION_VERSION,
+    )
+    _PROJECTION_AVAILABLE = True
+except Exception:  # ImportError, or numpy absent — fail SOFT, stay non-breaking
+    _PROJECTION_AVAILABLE = False
+
+# ---------------------------------------------------------------------------
 # THE SHARED STRUCTURAL DIMENSION SCHEMA (fence #2 — shape, never text)
 # ---------------------------------------------------------------------------
 # Each axis is a structural property a conformation AND a learned coordinate
@@ -290,6 +311,98 @@ def load_epitaph_shapes():
 
 
 # ---------------------------------------------------------------------------
+# Derive a DOCUMENTED PROXY 16D "meaning" signature from the 8D structural
+# conformation vector, so the kernel's 16D->9D projection has an input here.
+#
+# HONEST PROVENANCE: this builder has no native 16D audio/meaning signature —
+# its native shape is the 8D STRUCT_DIMS governance vector. The proxy below maps
+# each governance axis onto the projection's declared 16D slot layout (see
+# `project_16_to_9` docstring) so the projection consumes a finite, interpretable
+# input. It is a PROXY, not a measured signature; the projection version string
+# is carried alongside so the mapping's provenance is auditable.
+#   sig16 slots: [0]attack [1]decay(log) [2]sustain [3]release
+#                [4]sub_bass [5]bass [6]low_mid [7]mid [8]high_mid [9]high
+#                [10]onset(log) [11]inter_onset_var [12]periodicity
+#                [13]coherence [14]valence [15]resolution
+# ---------------------------------------------------------------------------
+def proxy_sig16_from_struct8(vec8):
+    """Map the 8D STRUCT_DIMS conformation vector to a 16D proxy signature.
+
+    Governance semantics -> projection slots (documented, deterministic):
+      failure_pressure  -> attack + inter_onset_variance (sharp, unstable onset)
+      signal_density    -> onset density + sustain (busy, sustained field)
+      drift_band        -> decay + (inverse) coherence (volatile = incoherent)
+      manifold_tension  -> release + periodicity loss
+      pending_pressure  -> mid/high energy (unresolved upper-band load)
+      well_worn         -> coherence + resolution (settled, resolved contour)
+      estate_hazard     -> sub_bass/bass weight (heavy low-end hazard floor)
+      epitaph_proximity -> (inverse) valence + resolution deficit
+    """
+    fp, sd, db, mt, pp, ww, eh, ep = (list(vec8) + [0.0] * 8)[:8]
+
+    def c(x):
+        try:
+            x = float(x)
+        except (TypeError, ValueError):
+            return 0.0
+        return max(0.0, min(1.0, x))
+
+    fp, sd, db, mt, pp, ww, eh, ep = c(fp), c(sd), c(db), c(mt), c(pp), c(ww), c(eh), c(ep)
+
+    attack = fp
+    decay = db
+    sustain = sd
+    release = mt
+    # band ratios: hazard sits low, pending sits mid/high; kept in [0,1]
+    sub_bass = c(0.5 * eh)
+    bass = c(0.3 * eh + 0.1)
+    low_mid = c(0.2 + 0.3 * ww)
+    mid = c(0.3 * pp + 0.1)
+    high_mid = c(0.3 * pp)
+    high = c(0.4 * pp)
+    onset = sd
+    inter_onset_var = fp
+    periodicity = c(1.0 - mt)
+    coherence = c(ww * (1.0 - db))
+    valence = c(1.0 - ep)
+    resolution = c(ww)
+
+    return [
+        attack, decay, sustain, release,
+        sub_bass, bass, low_mid, mid, high_mid, high,
+        onset, inter_onset_var, periodicity,
+        coherence, valence, resolution,
+    ]
+
+
+def physics_projection_block(vec8):
+    """Compute the OPT-IN kernel physics-projection enrichment for a struct8 vec.
+
+    Returns None when the kernel projection is unavailable (guard is soft), so
+    the caller omits the block and the envelope is byte-identical to legacy.
+    """
+    if not _PROJECTION_AVAILABLE:
+        return None
+    sig16 = proxy_sig16_from_struct8(vec8)
+    shape9 = _kernel_to_contagion_shape(sig16)          # kernel EATS here
+    drift_band_9d = _kernel_narrative_drift_band(sig16)  # kernel EATS here
+    return {
+        "instrument_version": _KERNEL_PROJECTION_VERSION,
+        "cable": "C-OT4",
+        "shape9": [round(float(x), 4) for x in shape9],
+        "drift_band_9d": round(float(drift_band_9d), 4),
+        "proxy_sig16": [round(float(x), 4) for x in sig16],
+        "note": (
+            "16D->9D narrative-physics projection folded from a DOCUMENTED PROXY "
+            "16D signature derived from the 8D STRUCT_DIMS conformation vector "
+            "(this builder has no native 16D signature). shape9 is a drop-in "
+            "learned-coordinate shapeVector; drift_band_9d is a normalized [0,1] "
+            "diagonal-Mahalanobis drift scalar vs a neutral-prior baseline."
+        ),
+    }
+
+
+# ---------------------------------------------------------------------------
 def build(posture=None, geometry="conformation"):
     conf_path = latest_conformation()
     conf = json.load(open(conf_path))
@@ -323,6 +436,15 @@ def build(posture=None, geometry="conformation"):
             "n_epitaphs": len(epis),
         },
     }
+
+    # OPT-IN: fold the kernel 16D->9D narrative-physics projection into the
+    # envelope. Additive — present only when the kernel module is importable;
+    # the legacy contagion contract (currentShape / learnedCoordinates /
+    # epitaphProfiles) is untouched on every path.
+    _proj = physics_projection_block(cur_vec)
+    if _proj is not None:
+        envelope["physicsProjection"] = _proj
+        envelope["_sources"]["physics_projection"] = "autonomous_kernel/ot_narrative_physics_projection.py"
 
     os.makedirs(CONTAGION_DIR, exist_ok=True)
     out_path = os.path.join(CONTAGION_DIR, f"input-tic-{tic}.json")
