@@ -28,6 +28,14 @@ MODE="${MODE:-${CGG_STATUSLINE_MODE:-FULL}}"
 
 mkdir -p "$HARMONY_DIR"
 
+# 0. Braid step (cable BR5, fail-soft): refresh the braid packet BEFORE input
+#    assembly so the builder can ingest a current-tic braid. Any failure here
+#    leaves the legacy harmony lane fully intact (braid-invoke is itself
+#    fail-soft and exits 0; the guard below is belt-and-suspenders).
+echo "→ braid-invoke.sh (braid step, fail-soft)"
+bash "$SCRIPT_DIR/braid-invoke.sh" || \
+  echo "WARN harmony: braid step failed — continuing without braid (fail-soft)" >&2
+
 # 1. Build input from federation state
 echo "→ harmony-input-builder.py posture=$POSTURE mode=$MODE"
 INPUT_PATH=$(CGG_POSTURE="$POSTURE" CGG_STATUSLINE_MODE="$MODE" \
@@ -47,6 +55,15 @@ node --input-type=module -e "
   console.log('disposition:', out.disposition?.stance, '|', 'meaning:', out.acousticSignature?.meaningState ?? 'n/a');
 " || { echo "ERR: engine invocation failed" >&2; exit 1; }
 
+# 2.5 Voice step (cable BR5, fail-soft): bounded-morphism ambient voice
+#     proposer — constrained LLM line, validator-gated, honest template
+#     fallback. Writes the voice object INTO the disposition file (additive).
+#     HARMONY_VOICE=off skips the LLM inside the script. Any failure leaves
+#     the disposition standing without a voice object (legacy-equivalent).
+echo "→ harmony-voice.py (voice step, fail-soft)"
+python3 "$SCRIPT_DIR/harmony-voice.py" --disposition "$DISPOSITION_PATH" || \
+  echo "WARN harmony: voice step failed — disposition stands without voice (fail-soft)" >&2
+
 # 3. Update disposition-current.json (compact pointer for statusline)
 python3 <<PY
 import json, time, pathlib
@@ -61,6 +78,16 @@ meaning = (acoustic.get("meaningState")
 snr = (acoustic.get("snr")
        or d.get("acousticSignature", {}).get("snr")
        or d.get("snr"))
+# Cable BR5 additions (fail-soft): ambient voice from the disposition's
+# additive voice object; braid_tic from the braid current-pointer (null if
+# either surface is absent — honest nulls, never fabricated).
+voice = d.get("voice") or {}
+braid_tic = None
+try:
+    braid_ptr = pathlib.Path("$REPO") / "audit-logs" / "braid" / "current-pointer.json"
+    braid_tic = json.loads(braid_ptr.read_text()).get("tic")
+except Exception:
+    braid_tic = None
 current = {
     "tic": $TIC,
     "generated_at": time.strftime("%Y-%m-%dT%H:%M:%S.000Z", time.gmtime()),
@@ -72,6 +99,9 @@ current = {
     "source_disposition": str(p.relative_to(pathlib.Path("$REPO"))),
     "posture": "$POSTURE",
     "mode": "$MODE",
+    "ambient_voice": voice.get("ambient_voice"),
+    "voice_source": voice.get("voice_source"),
+    "braid_tic": braid_tic,
 }
 out = pathlib.Path("$HARMONY_DIR/disposition-current.json")
 out.write_text(json.dumps(current, indent=2) + "\n")

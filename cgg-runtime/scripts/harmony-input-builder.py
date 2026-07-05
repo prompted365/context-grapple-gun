@@ -66,6 +66,7 @@ REPO_ROOT = _resolve_repo_root()
 
 CONFORMATION_DIR = REPO_ROOT / "audit-logs" / "conformations"
 QUEUE_FILE = REPO_ROOT / "audit-logs" / "cprs" / "queue.jsonl"
+BRAID_DIR = REPO_ROOT / "audit-logs" / "braid"
 SCENE_CENSUS = (
     REPO_ROOT
     / "audit-logs"
@@ -381,6 +382,177 @@ def build_chunk_from_cpr(c: dict[str, Any], queue_lookup: dict[str, dict[str, An
         "bandHint": "ACOUSTIC",
         "relayDepth": 2,
     }
+
+
+def load_braid_packet(braid_dir: pathlib.Path | None = None) -> dict[str, Any] | None:
+    """Load the current braid packet via audit-logs/braid/current-pointer.json.
+
+    Cable BR5 (braid covenant tic 569). FAIL-SOFT: any absent/corrupt surface
+    returns None and the builder behaves EXACTLY as it did before the braid
+    existed (content survives expression failure — Volatility Handling KI).
+    Read-only; never writes the braid surface.
+    """
+    d = braid_dir if braid_dir is not None else BRAID_DIR
+    try:
+        pointer = read_json(d / "current-pointer.json")
+        rel = pointer.get("braid_packet_path")
+        if not rel:
+            return None
+        pkt_path = REPO_ROOT / rel if not str(rel).startswith("/") else pathlib.Path(rel)
+        if braid_dir is not None and not str(rel).startswith("/"):
+            # fixture dirs resolve relative to themselves when the pointer names
+            # a bare filename (selftest hermeticity); repo-relative paths keep
+            # the live behavior.
+            candidate = d / pathlib.Path(rel).name
+            if candidate.exists():
+                pkt_path = candidate
+        pkt = read_json(pkt_path)
+        if not isinstance(pkt, dict) or pkt.get("type") != "lattice.braid.tic":
+            return None
+        return pkt
+    except Exception:
+        return None
+
+
+# Shared collapse zones for all braid-derived chunks (SPEC §BR5.1): the three
+# ways a braid ray dies — quoted as command (non-citable pressure only),
+# read as warnings alone (wisdom overall, the covenant's founding directive),
+# collapsed to argmax (mixture-of-models, never classification).
+BRAID_COLLAPSE_ZONES = ["quoted-as-command", "warning-only-read", "argmax collapse"]
+
+
+def build_chunks_from_braid(braid_packet: dict[str, Any]) -> list[dict[str, Any]]:
+    """Braid packet → up to 3 returnedChunks (SPEC §BR5.1).
+
+    (a) wisdom-pressure chunk — ACOUSTIC; LESSON when wisdom-dominant,
+        TENSION when caution-dominant.
+    (b) traversal chunk — GRAVITY; BOUNDARY only at route_advisory=="near_ponr",
+        else TENSION.
+    (c) trajectory chunk — LIGHT; BEACON on steady trajectory, TENSION when
+        jerk flags fire or trust velocity turns negative.
+
+    All texts are OBSERVATIONAL (non-imperative — same guard family as
+    aesop_archetype_field._IMPERATIVE_RE): the braid shapes, it never
+    instructs. Chunks carry provenance to the braid packet file.
+    """
+    chunks: list[dict[str, Any]] = []
+    tic = int(braid_packet.get("tic") or 0)
+    provenance_id = f"audit-logs/braid/braid-tic-{tic}.json"
+
+    af = braid_packet.get("archetype_field") or {}
+    wp = braid_packet.get("wisdom_pressure") or {}
+    tp = braid_packet.get("traversal_physics") or {}
+    traj = braid_packet.get("trajectory") or {}
+
+    wisdom_mass = float(af.get("wisdom_mass") or 0.0)
+    caution_mass = float(af.get("caution_mass") or 0.0)
+    dominant = af.get("dominant") or {}
+    route = str(tp.get("route_advisory") or "unknown")
+
+    # (a) wisdom-pressure chunk
+    wisdom_dominant = wisdom_mass > caution_mass
+    kind_a = "LESSON" if wisdom_dominant else "TENSION"
+    hint = wp.get("wisdom_hydration_hint") or wp.get("failure_mode_inverse")
+    if not hint:
+        hint = (
+            "No archetype prior carries meaningful weight at this conformation; "
+            "the field reads as unfamiliar terrain."
+        )
+    moral = dominant.get("moral") or ""
+    fable = dominant.get("fable") or ""
+    text_a = (
+        f"Braid wisdom-pressure at tic {tic}: {hint} "
+        + (f"Nearest working centroid: '{fable}' — {moral} " if moral else "")
+        + f"The grade ahead reads {route}. Wisdom mass {wisdom_mass:.4f}, "
+        f"caution mass {caution_mass:.4f} — a mixture reading, not a verdict."
+    )[:CHUNK_TEXT_MAX]
+    chunks.append({
+        "chunkId": f"braid.wisdom.{tic}",
+        "source": "council",
+        "text": text_a,
+        "sourceCentroid": {
+            "centroidId": "centroid.braid.wisdom_pressure",
+            "rung": "council",
+            "label": "Braid Wisdom Pressure",
+            "embedding": embed_band_kind("BRAID", kind_a, int(caution_mass * 100)),
+            "collapseZones": list(BRAID_COLLAPSE_ZONES),
+            "siblingOverlaps": ["signal manifold", "harmony disposition", "economy heartbeat"],
+        },
+        "provenance": {"sourceId": provenance_id, "tic": tic},
+        "signalKindHint": kind_a,
+        "bandHint": "ACOUSTIC",
+        "relayDepth": 2,
+    })
+
+    # (b) traversal chunk
+    kind_b = "BOUNDARY" if route == "near_ponr" else "TENSION"
+    barrier = (tp.get("barrier_cost") or {})
+    nearest = barrier.get("nearest_ponr") or {}
+    text_b = (
+        f"Braid traversal physics at tic {tic}: route advisory {route}; "
+        f"barrier cost {barrier.get('value', 'n/a')} "
+        f"(elevation {tp.get('elevation', 'n/a')}). Nearest point of no return: "
+        f"'{nearest.get('id', 'none')}' on axis {nearest.get('axis', 'n/a')} at "
+        f"distance {nearest.get('distance_to_ponr', 'n/a')}. Traversal grows "
+        f"costlier as that distance closes — the terrain is speaking, not a rule."
+    )[:CHUNK_TEXT_MAX]
+    chunks.append({
+        "chunkId": f"braid.traversal.{tic}",
+        "source": "council",
+        "text": text_b,
+        "sourceCentroid": {
+            "centroidId": "centroid.braid.traversal",
+            "rung": "council",
+            "label": "Braid Traversal Physics",
+            "embedding": embed_band_kind("BRAID", kind_b, int(float(barrier.get("value") or 0.0))),
+            "collapseZones": list(BRAID_COLLAPSE_ZONES),
+            "siblingOverlaps": ["gravity wells", "economy breach flags", "substrate projection"],
+        },
+        "provenance": {"sourceId": provenance_id, "tic": tic},
+        "signalKindHint": kind_b,
+        "bandHint": "GRAVITY",
+        "relayDepth": 2,
+    })
+
+    # (c) trajectory chunk
+    jerk_flags = list(traj.get("jerk_flags") or [])
+    tick = traj.get("tick_scale") or {}
+    trust_d1 = ((tick.get("trust") or {}).get("d1"))
+    trust_sign = (
+        "rising" if isinstance(trust_d1, (int, float)) and trust_d1 > 0
+        else "falling" if isinstance(trust_d1, (int, float)) and trust_d1 < 0
+        else "flat-or-unread"
+    )
+    kind_c = "TENSION" if (jerk_flags or trust_sign == "falling") else "BEACON"
+    text_c = (
+        f"Braid trajectory at tic {tic}: trust velocity reads {trust_sign}"
+        + (f" (d1={trust_d1})" if isinstance(trust_d1, (int, float)) else "")
+        + (
+            f"; jerk flags fired: {', '.join(jerk_flags[:4])}."
+            if jerk_flags
+            else "; no jerk flags — the derivatives sit inside their calibrated bands."
+        )
+        + " Scalars here are projections; the trajectory object is the record."
+    )[:CHUNK_TEXT_MAX]
+    chunks.append({
+        "chunkId": f"braid.trajectory.{tic}",
+        "source": "council",
+        "text": text_c,
+        "sourceCentroid": {
+            "centroidId": "centroid.braid.trajectory",
+            "rung": "council",
+            "label": "Braid Trajectory Field",
+            "embedding": embed_band_kind("BRAID", kind_c, len(jerk_flags)),
+            "collapseZones": list(BRAID_COLLAPSE_ZONES),
+            "siblingOverlaps": ["economy cadence", "tick/tic dial", "conformation history"],
+        },
+        "provenance": {"sourceId": provenance_id, "tic": tic},
+        "signalKindHint": kind_c,
+        "bandHint": "LIGHT",
+        "relayDepth": 2,
+    })
+
+    return chunks
 
 
 def embed_band_kind(band: str, kind: str, weight: int) -> list[float]:
@@ -701,6 +873,27 @@ def build_envelope(posture: str, mode: str) -> dict[str, Any]:
         "receiverRegister": receiver_register,
         "returnedChunks": build_returned_chunks(conf, queue_lookup),
     }
+
+    # Braid ingestion (cable BR5, braid covenant tic 569). GUARDED: when no
+    # braid packet is loadable the envelope is byte-identical to the pre-braid
+    # builder (fail-soft — content survives expression failure). When present:
+    # up to 3 braid chunks join returnedChunks and the envelope gains top-level
+    # traversalPhysics verbatim (engine ignores unknown fields — verified:
+    # runHarmonyEngine reads named fields only).
+    braid_packet = load_braid_packet()
+    if braid_packet is not None:
+        try:
+            envelope["returnedChunks"].extend(build_chunks_from_braid(braid_packet))
+            envelope["traversalPhysics"] = braid_packet.get("traversal_physics")
+            print(
+                f"✓ harmony: braid packet ingested (tic={braid_packet.get('tic')}, "
+                f"route={((braid_packet.get('traversal_physics') or {}).get('route_advisory'))})",
+                file=sys.stderr,
+            )
+        except Exception as exc:  # fail-soft: braid failure never breaks the lane
+            print(f"⚠ harmony: braid ingestion failed fail-soft ({exc})", file=sys.stderr)
+    else:
+        print("⚠ harmony: no braid packet available — legacy envelope (fail-soft)", file=sys.stderr)
     return envelope
 
 
@@ -721,13 +914,122 @@ def _tolerance_for_mode(mode: str) -> float:
     return {"OFF": 0.5, "LITE": 0.65, "FULL": 0.80}.get(mode.upper(), 0.72)
 
 
+def _selftest_braid() -> int:
+    """Hermetic selftest for the BR5 braid-ingestion lane (no live surfaces).
+
+    House style: numbered checks, [PASS]/[FAIL] lines, final N/N RESULT.
+    Deterministic — fixture packets only; never touches audit-logs/.
+    """
+    import re as _re
+    import tempfile
+
+    # Same imperative-guard family as aesop_archetype_field._IMPERATIVE_RE:
+    # braid chunk text is observational pressure, never command.
+    imperative_re = _re.compile(r"\b(must|never|always|shall|do\s+not|don'?t)\b", _re.IGNORECASE)
+
+    def fixture_packet(route: str, wisdom: float, caution: float,
+                       jerks: list[str], trust_d1: float) -> dict[str, Any]:
+        return {
+            "type": "lattice.braid.tic",
+            "tic": 570,
+            "archetype_field": {
+                "wisdom_mass": wisdom,
+                "caution_mass": caution,
+                "dominant": {"id": "cried_wolf", "fable": "The Boy Who Cried Wolf",
+                             "moral": "Repeated false alarms spend the trust a true alarm will later need."},
+            },
+            "wisdom_pressure": {
+                "wisdom_hydration_hint": ("A steady pace arrives while bursts and naps are still trading places."
+                                          if wisdom > caution else None),
+                "failure_mode_inverse": (None if wisdom > caution else
+                                         "'The Boy Who Cried Wolf' names the nearest failure shape."),
+            },
+            "traversal_physics": {
+                "route_advisory": route,
+                "elevation": 0.81,
+                "barrier_cost": {"value": 12.0, "nearest_ponr": {
+                    "id": "cried_wolf", "axis": "epitaph_proximity", "distance_to_ponr": 0.0}},
+            },
+            "trajectory": {"jerk_flags": jerks,
+                           "tick_scale": {"trust": {"d1": trust_d1}}},
+        }
+
+    checks: list[tuple[str, bool]] = []
+
+    # [1] caution/near_ponr fixture: 3 chunks, kinds TENSION/BOUNDARY, bands right
+    pkt = fixture_packet("near_ponr", 0.0, 1.0, [], 0.0002)
+    chunks = build_chunks_from_braid(pkt)
+    checks.append(("three_chunks_emitted", len(chunks) == 3))
+    checks.append(("wisdom_chunk_tension_when_caution_dominant",
+                   chunks[0]["signalKindHint"] == "TENSION" and chunks[0]["bandHint"] == "ACOUSTIC"))
+    checks.append(("traversal_chunk_boundary_only_at_near_ponr",
+                   chunks[1]["signalKindHint"] == "BOUNDARY" and chunks[1]["bandHint"] == "GRAVITY"))
+    checks.append(("trajectory_chunk_beacon_when_steady",
+                   chunks[2]["signalKindHint"] == "BEACON" and chunks[2]["bandHint"] == "LIGHT"))
+
+    # [2] wisdom/cheap fixture: LESSON + TENSION (not BOUNDARY) kinds
+    pkt2 = fixture_packet("cheap", 0.9, 0.1, [], 0.0001)
+    chunks2 = build_chunks_from_braid(pkt2)
+    checks.append(("wisdom_chunk_lesson_when_wisdom_dominant", chunks2[0]["signalKindHint"] == "LESSON"))
+    checks.append(("traversal_chunk_tension_off_ponr", chunks2[1]["signalKindHint"] == "TENSION"))
+
+    # [3] jerk flags / falling trust flip trajectory chunk to TENSION
+    pkt3 = fixture_packet("rising", 0.5, 0.5, ["tick_scale.g_t.jerk_high"], -0.001)
+    chunks3 = build_chunks_from_braid(pkt3)
+    checks.append(("trajectory_chunk_tension_on_jerk_or_falling_trust",
+                   chunks3[2]["signalKindHint"] == "TENSION"))
+
+    # [4] non-imperative texts across all fixtures (observational guard)
+    all_texts = [c["text"] for c in chunks + chunks2 + chunks3]
+    checks.append(("chunk_texts_non_imperative",
+                   all(imperative_re.search(t) is None for t in all_texts)))
+
+    # [5] schema completeness per chunk (engine-required fields)
+    def complete(c: dict[str, Any]) -> bool:
+        sc = c.get("sourceCentroid", {})
+        return all(k in c for k in ("chunkId", "source", "text", "provenance",
+                                    "signalKindHint", "bandHint", "relayDepth")) and \
+            all(k in sc for k in ("centroidId", "rung", "label", "embedding",
+                                  "collapseZones", "siblingOverlaps")) and \
+            sc["collapseZones"] == BRAID_COLLAPSE_ZONES and \
+            c["provenance"]["sourceId"] == "audit-logs/braid/braid-tic-570.json"
+    checks.append(("chunk_schema_complete", all(complete(c) for c in chunks)))
+
+    # [6] fail-soft loader: absent dir → None; corrupt pointer → None
+    with tempfile.TemporaryDirectory() as td:
+        tdp = pathlib.Path(td)
+        checks.append(("loader_none_on_absent_surface", load_braid_packet(tdp / "nope") is None))
+        (tdp / "current-pointer.json").write_text("{not json")
+        checks.append(("loader_none_on_corrupt_pointer", load_braid_packet(tdp) is None))
+        # wrong-type packet rejected
+        (tdp / "current-pointer.json").write_text(json.dumps({"braid_packet_path": "pkt.json"}))
+        (tdp / "pkt.json").write_text(json.dumps({"type": "not.a.braid"}))
+        checks.append(("loader_none_on_wrong_packet_type", load_braid_packet(tdp) is None))
+        # valid fixture loads
+        (tdp / "pkt.json").write_text(json.dumps(pkt))
+        loaded = load_braid_packet(tdp)
+        checks.append(("loader_loads_valid_fixture", isinstance(loaded, dict) and loaded.get("tic") == 570))
+
+    passed = sum(1 for _, ok in checks if ok)
+    for name, ok in checks:
+        print(f"  [{'PASS' if ok else 'FAIL'}] {name}")
+    print("=" * 74)
+    print(f"RESULT: {passed}/{len(checks)} checks passed — {'OK' if passed == len(checks) else 'FAIL'}")
+    return 0 if passed == len(checks) else 1
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--posture", default=os.environ.get("CGG_POSTURE", "OPS/DIRECT"))
     ap.add_argument("--mode", default=os.environ.get("CGG_STATUSLINE_MODE", "FULL"))
     ap.add_argument("--output-dir", default=str(HARMONY_DIR))
     ap.add_argument("--print", action="store_true", help="print path of written input on success")
+    ap.add_argument("--selftest", action="store_true",
+                    help="run the hermetic BR5 braid-lane selftest and exit")
     args = ap.parse_args()
+
+    if args.selftest:
+        return _selftest_braid()
 
     HARMONY_DIR.mkdir(parents=True, exist_ok=True)
 
