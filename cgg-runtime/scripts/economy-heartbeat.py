@@ -158,7 +158,7 @@ def run_assembled_economy(tic: int) -> dict:
 
     live_buf = ccoin.EconomyBuffer(current_supply=100_000.0, reserves=20_000.0,
                                    usd_rate=1.0, is_live=True)
-    emitter = ccoin.BreachEmitter()                      # breach flags -> live telemetry (the wire)
+    emitter = ccoin.BreachEmitter(tic=tic)               # breach flags -> live telemetry (the wire)
     econ = ccoin.Economy(live_buf, config, phase, currency="ucoin",
                          is_shadow=False, emitter=emitter)
 
