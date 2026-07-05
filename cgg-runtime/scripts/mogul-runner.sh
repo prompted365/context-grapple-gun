@@ -324,6 +324,7 @@ $MANDATE_CONTENT
    - pattern_mining: run $CGG_SCRIPTS/pattern_miner.py, output to audit-logs/patterns/
    - harmony_invoke: run $CGG_SCRIPTS/harmony-invoke.sh (kernel-class autonomous_kernel.meaning.disposition; produces disposition packet to audit-logs/harmony/disposition-tic-N.json + appends invocations.jsonl audit trail). Read-only kernel; does not mutate governance state.
    - contagion_heartbeat: run $CGG_SCRIPTS/contagion-invoke.sh (kernel-class ContagionMatch v0, harmony_invoke's sibling seam; conformation-proximity match over learned coordinates — NOT LLM-backed, NOT coupled to the 27B; produces disposition packet to audit-logs/contagion/disposition-tic-N.json + refreshes current-pointer.json + appends invocations.jsonl). Read-only kernel; emits a NON-CITABLE shaping packet; does not mutate governance state. The office-worldview boot render consumes current-pointer.json (staleness-canaried) — this cycle is the producer half of that heartbeat (GO ratified /review 545).
+   - economy_heartbeat: run $CGG_SCRIPTS/economy-invoke.sh (the c-coin shadow economy, H-2.5 seed; runs ONE economy tic in gunslinger seed mode — the 128-agent nautilus swarm accrues trust -> aggregate g_t -> gates the mint (coin<->trust closed), the federal exchange is held/normalized at the tic boundary, EconomyBreachFlags stay first-class visible; deterministic/local, NOT LLM-backed; produces audit-logs/economy/economy-tic-N.json + refreshes current-pointer.json + appends invocations.jsonl). Read-only of governance state; writes ONLY to audit-logs/economy/; does not mutate signals/queue/mandate/conformations. Producer half of the economy heartbeat (Architect "wire" GO tic 568). Your results.economy_heartbeat object MUST include {\"tic\": N, \"mode\": \"gunslinger\", \"g_t\": ..., \"mint_total\": ..., \"seed_stabilized\": bool, \"breach_flags\": [...]}.
    - enrichment_scan: run $CGG_SCRIPTS/cpr-enrichment-scanner.py, assess enrichment-eligible CPRs
    - ladder_audit: audit CLAUDE.md chain coherence
    - runtime_drift_check: compare installed vs canonical runtime surfaces. ALSO run $CGG_SCRIPTS/check-harmony-readonly.py --json AND $CGG_SCRIPTS/check-contagion-readonly.py --json — each verifies its engine's modules contain no forbidden imports (atomic_append/queue/signals/manifest-prune/mandate/conformation) or write patterns (writeFileSync/appendFileSync/.write()). Surface any violations as drift findings (treat as TENSION/COGNITIVE per existing drift severity classification).
@@ -701,6 +702,25 @@ print('yes' if 'pattern_mining' in r.get('results', {}) else 'no')
           fi
         else
           ARTIFACT_ERRORS="${ARTIFACT_ERRORS}contagion_heartbeat: current-pointer.json missing. "
+        fi
+        ;;
+      economy_heartbeat)
+        # Verify the economy tick snapshot exists for this tic AND
+        # current-pointer.json was re-aimed at this tic (anti-freeze tooth,
+        # mirroring contagion_heartbeat). The seed now runs itself each tic
+        # (Architect "wire" GO tic 568); economy-invoke.sh is the producer half.
+        ECONOMY_SNAPSHOT="$AUDIT_LOGS/economy/economy-tic-$CURRENT_TIC.json"
+        ECONOMY_POINTER="$AUDIT_LOGS/economy/current-pointer.json"
+        if [ ! -f "$ECONOMY_SNAPSHOT" ]; then
+          ARTIFACT_ERRORS="${ARTIFACT_ERRORS}economy_heartbeat: economy-tic-$CURRENT_TIC.json missing. "
+        fi
+        if [ -f "$ECONOMY_POINTER" ]; then
+          ECONOMY_POINTER_TIC=$(python3 -c "import json;print(json.load(open('$ECONOMY_POINTER')).get('tic',''))" 2>/dev/null)
+          if [ "$ECONOMY_POINTER_TIC" != "$CURRENT_TIC" ]; then
+            ARTIFACT_ERRORS="${ARTIFACT_ERRORS}economy_heartbeat: current-pointer.json tic=$ECONOMY_POINTER_TIC, expected $CURRENT_TIC (frozen pointer). "
+          fi
+        else
+          ARTIFACT_ERRORS="${ARTIFACT_ERRORS}economy_heartbeat: current-pointer.json missing. "
         fi
         ;;
       enrichment_scan)

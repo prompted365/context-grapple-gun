@@ -473,6 +473,17 @@ def compute_due_cycles(tic: int) -> list:
     # office-worldview boot consumer (reads current-pointer.json with a staleness
     # canary). NOT LLM-backed; NOT coupled to the 27B — node engine, ~1s, local.
     cycles.append("contagion_heartbeat")
+    # economy_heartbeat joins the always-due lane as contagion_heartbeat's
+    # sibling (Architect-directed "wire" GO, tic 568; H-2.5 economy seed). Runs
+    # ONE c-coin economy tic in gunslinger seed mode: the 128-agent nautilus
+    # swarm accrues trust -> aggregate g_t -> gates the mint (coin<->trust
+    # closed), the federal exchange is HELD/normalized at the tic boundary, and
+    # the EconomyBreachFlags stay first-class visible (no structurally-invisible
+    # zero-mint). Deterministic, local, ~seconds; NOT LLM-backed. economy-invoke.sh
+    # produces economy-tic-N.json + current-pointer.json (anti-freeze tooth) +
+    # appends invocations.jsonl; the runner verifies the artifact + pointer
+    # freshness (can-it-eat producer half — the seed now runs itself each tic).
+    cycles.append("economy_heartbeat")
 
     if tic % 2 == 0:
         # T6a (tic 259 close, landed at tic 260 entry): re-include review_close_check
