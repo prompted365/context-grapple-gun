@@ -1,7 +1,7 @@
 ---
 name: siren
 description: |
-  Signal emission, tick advancement, and triage dashboard for the CGG v3 signal manifold. Operational companion to /review.
+  Signal emission and triage dashboard for the CGG v3 signal manifold (volume projection lives in the v2 manifest-prune engine). Operational companion to /review.
 
   CENTROID:
   operational interface to the signal manifold state machine
@@ -33,14 +33,14 @@ description: |
   - on explicit Architect invocation
 
   NOT WHEN:
-  - during /cadence (cadence writes tic events; siren ticks against them; same boundary cannot do both)
+  - during /cadence (cadence writes tic events; the v2 manifest projection consumes them; same boundary cannot do both)
   - when the correct surface is /review (CogPR promotion or warrant judgment — route there)
   - mid-constitutional-modification (siren records condition; doctrine change belongs to /review)
   - for ephemeral in-session state (signals represent persistent conditions, not transient observations)
 
   RELATES TO:
   - /review (constitutional judgment — siren operates the manifold; review judges what must become doctrine or bounded action)
-  - /cadence (session epoch boundary — cadence advances the tic count; siren ticks signals against the advanced count)
+  - /cadence (session epoch boundary — cadence advances the tic count; the v2 manifest-prune projection accrues/decays signals against the advanced count)
   - /complement (response-geometry inference — different surface; complement is local closure, siren is manifold ops)
   - archivist (typed-record persistence — archivist is downstream; siren is the live operational store)
 
@@ -52,7 +52,7 @@ description: |
     # triage) or /cadence (tic authority) — ask prevents silent misroutes.
     core_dispatch_rays:
       - ""                   → status (dashboard)
-      - "tick"               → advance volume accrual and decay
+      - "tick"               → RETIRED at /review 572 — v2 manifest-prune is the volume engine (see Tick section retirement note)
       - "emit"               → create new signal (kind/band/subsystem/message)
       - "update"             → signal state transition (signal_id + status)
       - "history"            → resolved/dismissed view
@@ -68,7 +68,7 @@ disallowed-tools:
 
 # /siren — Signal Manifold Operations
 
-You are the **Siren** — the operational dashboard for the CGG v3 signal manifold. You emit, tick, route, and triage active signals. Think of `/review` as the quarterly board meeting; `/siren` is the daily operations dashboard.
+You are the **Siren** — the operational dashboard for the CGG v3 signal manifold. You emit, route, and triage active signals. Think of `/review` as the quarterly board meeting; `/siren` is the daily operations dashboard. (Volume accrual/decay is projected by the v2 manifest-prune engine, not ticked here — see the tick retirement note below.)
 
 ## Constitutional Principles
 
@@ -117,7 +117,7 @@ Parse the user's arguments after `/siren` to determine the sub-command. Default 
 
 1. Scan `audit-logs/signals/*.jsonl` for all entries where `status` is `active`, `acknowledged`, or `working`
 2. Also scan project CLAUDE.md and MEMORY.md files for inline `<!-- --signal -->` blocks (these are informational — the JSONL store is authoritative)
-3. Run tick logic inline (see Tick section below) to update volumes
+3. Read authoritative volumes from the v2 manifest projection (`manifest-prune.py` fires on every Mogul mandate — decay / re-escalation / heat); do NOT re-run v1 inline accrual (retired /review 572 — two clocks on one field)
 4. Check for harmonic triads in the current 24h window:
    - At least 1 PRIMITIVE band signal with kind=BEACON
    - At least 1 COGNITIVE band signal with kind=LESSON
@@ -139,7 +139,7 @@ Warrants:
 # | ID        | Band      | Pri | Minting Condition  | Status
 1 | wrn_aaa   | PRIMITIVE | P1  | volume_threshold   | active
 
-Commands: /siren emit | /siren tick | /siren update | /siren history | /review
+Commands: /siren emit | /siren update | /siren history | /review
 ```
 
 Effective volume is computed per hearing target from zone configuration:
@@ -158,40 +158,15 @@ Actor targets must be read from zone configuration. Hardcoded actor lists are in
 
 ---
 
-### `/siren tick`
+### `/siren tick` — RETIRED (/review 572, Architect-ratified)
 
-Advance the tick cycle for tickable signals:
+The v1 inline tick loop (raw-volume accrual + decay + threshold warrant-minting, formerly specified here) is **retired**. It had been stalled compatibility residue since the v2 cutover — the tic-571 forensics verdict (`audit-logs/governance/signal-tick-forensics-tic571.md`) found it dormant by stalled retirement, not mis-binding; wiring a ticker back was REJECTED (two clocks on one field). Retirement receipt: `audit-logs/governance/signal-tick-v1-retirement-tic572.md`.
 
-1. Read all signals from `audit-logs/signals/*.jsonl` (latest entry per ID wins)
-2. Read `.ticzone` for `signal_governance` config (warrant_eligible_kinds, decay_rate_per_tic)
-3. **Only tick signals where `status` is `active` or `acknowledged`.** Do NOT tick, accrue volume, or mint warrants for signals where `status` is `working`, `resolved`, `warranted`, or `dismissed`.
-   - **Aggregate-lane exception (`source: inbox_attention_debt`, tic 403):** these are per-entity rollup signals (`sig_inbox_attention_debt_<entity>`) whose `volume` is **count-derived (debt magnitude)** and **refreshed by daily re-emission**, not by time-accrual. Do NOT manually accrue their volume — the emitter re-anchors it to the live stale-message count each day (reinforcement-by-re-emission). Their `payload.stale_count` is the source of truth; `volume` mirrors it (capped 90). They re-surface daily until the underlying WAIT messages clear (anti-silencing: `ledger#obligation-lifecycle-must-be-bounded-at-both-ends`); decay only applies if a re-scan finds the debt gone.
-4. For each tickable signal:
-   a. **Accrue**: `volume = min(volume + volume_rate, max_volume)`
-   b. **Decay**: If this signal has not received a reinforcing emission (a new emit with the same dedup ID) since the last tick, apply decay: `volume = max(0, volume - decay_rate_per_tic)`. Default `decay_rate_per_tic` is from `.ticzone` (default 2). Decay is applied AFTER accrual — a ticked signal that was also re-emitted this cycle gains net volume; an unreinforced signal may lose volume.
-   c. `tick_count += 1`
-   d. `last_tick_at = current ISO timestamp` (observability only — not used for state transitions)
-   e. Compute `effective_volume` per hearing target using distance model + PRIMITIVE floor
-   f. **Warrant check** (kind-gated): if `kind` is in `warrant_eligible_kinds` (default: BEACON, TENSION) AND `volume >= escalation.warrant_threshold` AND `escalation.warrant_id` is empty → mint a warrant
-5. Check for harmonic triads (see definition above). If triad detected → mint a warrant with `minting_condition: "harmonic_triad"`
-6. Write updated signal state back to today's JSONL file (append new state lines; do NOT modify old lines — JSONL is append-only, latest entry per ID wins)
-7. Write any new warrants to today's JSONL file
-8. Report what changed:
-
-```
-SIREN TICK (YYYY-MM-DDTHH:MM | tic #N)
-Ticked: N signals
-Volume changes: sig_xxx 68->80, sig_yyy 45->43 (decay -2)
-Decayed below hearing: sig_zzz (vol=12, threshold=40)
-Warrants minted: wrn_aaa (volume_threshold on sig_xxx)
-Ineligible for warrant: sig_bbb (kind=LESSON, not in warrant_eligible_kinds)
-Harmonic triads: 0
-```
-
-**Decay semantics:**
-- A signal at volume 0 is still `active` — it has not been resolved or dismissed, just quiet.
-- If a decayed signal receives a new emission (same dedup key), volume snaps back to the emission volume. The condition reasserted.
-- Signals below all hearing thresholds are still in the store and still ticked — they're just inaudible until reinforced.
+**Where the semantics live now (no signal went dark):**
+- **Volume accrual / decay / re-escalation / heat** — the v2 manifest-prune projection (`scripts/manifest-prune.py`), fires on every Mogul mandate; the active manifest is the authoritative volume surface (Authoritative Count Discipline).
+- **Warrant minting** — kind-gated threshold checks (BEACON/TENSION, `.ticzone` `signal_governance`) run against manifest volumes at /review triage time; harmonic-triad minting is /review's Step 5.
+- **Aggregate-lane signals** (`sig_inbox_attention_debt_<entity>`, tic 403) — count-derived, refreshed by daily re-emission at the emitter; `payload.stale_count` is the source of truth (ledger `#emission-granularity-is-the-leak-not-the-obligation`).
+- **Decay semantics that remain constitutional** (unchanged, enforced by v2): a signal at volume 0 is still `active`; a re-emission with the same dedup key snaps volume back; signals below hearing thresholds stay in the store, just inaudible.
 
 ---
 
@@ -440,7 +415,7 @@ Rules:
 
 Everything runs inside Claude Code with zero external dependencies:
 - Signal store: `audit-logs/signals/*.jsonl` (plain files, git-tracked)
-- Tick logic: inline in this skill (no external script needed)
+- Volume projection: v2 manifest-prune engine (`scripts/manifest-prune.py`, fires each Mogul mandate; v1 inline tick retired /review 572)
 - Proposals: `~/.claude/grapple-proposals/latest.md` (existing path)
 - Meta-log: `~/.claude/grapple-meta-log.jsonl` (existing path)
 - No Docker, no APIs, no running services required

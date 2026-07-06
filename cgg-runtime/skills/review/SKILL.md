@@ -36,7 +36,7 @@ description: |
 
   RELATES TO:
   - /cadence (clock — cadence captures lessons, review inscribes them; cadence writes, review judges)
-  - /siren (signal classifier — siren classifies condition and tick, review evaluates whether classification warrants doctrinal action)
+  - /siren (signal classifier — siren classifies condition, the v2 manifest-prune engine projects volume, review evaluates whether classification warrants doctrinal action)
   - review-execute agent (mechanical executor — review produces verdicts, executor applies; review judges, executor mutates)
   - queue.jsonl + active-manifest.jsonl (authoritative inputs — review reads queue state and signal manifest directly; pre-/review enrichment cycle was dropped at tic 293 as parity-in-name-only)
 
@@ -122,13 +122,13 @@ Read all `audit-logs/signals/*.jsonl` files. For each line, parse the JSON objec
 - **Signals** (`type: "signal"`): collect where `status` is `active`
 - **Warrants** (`type: "warrant"`): collect where `status` is `active` or `acknowledged`
 
-### 4. Run Tick Logic Inline
+### 4. Read Signal Volume State (v1 inline tick RETIRED — /review 572)
 
-For each active signal:
-1. `volume = min(volume + volume_rate, max_volume)` — accrue since last tick
-2. Compute `effective_volume` per hearing target: `effective_volume = volume - (directory_hops(source, target) * 5)`
-3. Check warrant minting: if `volume >= escalation.warrant_threshold` AND no warrant minted yet -> mint warrant
-4. Write updated state to today's `audit-logs/signals/YYYY-MM-DD.jsonl`
+Do NOT run v1 inline volume accrual here (retired, Architect-ratified; receipt: `audit-logs/governance/signal-tick-v1-retirement-tic572.md` — two clocks on one field). Instead:
+
+1. Read authoritative volumes from the v2 manifest projection — the active manifest / bench packet `active_signals` (manifest-prune fires decay/re-escalation/heat on every Mogul mandate)
+2. Compute `effective_volume` per hearing target where triage needs it: `effective_volume = volume - (directory_hops(source, target) * muffling_per_hop)`
+3. Check warrant minting against manifest volumes: if `volume >= escalation.warrant_threshold` AND kind is warrant-eligible AND no warrant minted yet -> mint warrant (write to today's `audit-logs/signals/YYYY-MM-DD.jsonl`)
 
 Note: Signals do not expire. Valid terminal states are `resolved` (with evidence) and `dismissed` (with human rationale). There is no TTL-based forgetting path.
 
