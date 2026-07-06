@@ -98,8 +98,8 @@ Use the governance query provenance (`index_freshness`, `computed_at_tic`) to as
 
 Search for `<!-- --agnostic-candidate -->` blocks with `status: "pending"` in governance files only:
 
-1. Glob for `**/CLAUDE.md` and `**/MEMORY.md` in the project
-2. Also check `~/.claude/projects/*/memory/MEMORY.md` (auto-memory — gitignored but governance-visible)
+1. Glob for `**/CLAUDE.md` and `**/MEMORY.md` in the project (repo-side surfaces only)
+2. Auto-memory (`~/.claude/projects/*/memory/`) is **NOT** a governance/extraction surface (decoupled tic 570 — memory is not governance; memory is Claude-Code-specific, the Federation is not). Borns land in `audit-logs/governance/borns-tic<N>-*.md`; the queue is the authoritative intake.
 3. Exclude paths matching `.ticignore` patterns at project root. Default exclusions (if no .ticignore): vendor/, node_modules/, .git/, .claude/skills/
 4. Skip blocks where `status: "example"` — those are documentation templates, not pending items
 

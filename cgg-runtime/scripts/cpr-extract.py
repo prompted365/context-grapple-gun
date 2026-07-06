@@ -317,6 +317,15 @@ def load_existing_state(queue_file):
 # BLOCK form is unambiguous (a file carries it only by deliberate emission), so
 # the scan carries the same false-positive safety as scanning MEMORY.md; the
 # prose-mention fallback stays --plan-file-only.
+#
+# SUPERSEDED — DECOUPLED tic 570 (binder-addendum; original rationale above
+# preserved, not rewritten). Architect-directed: memory is not governance, and
+# memory is Claude-Code-specific while the Federation is not — so NO auto-memory
+# surface (MEMORY.md or session_lessons) is an extraction source anymore. Borns
+# land in the repo-side audit-logs/governance/borns-tic<N>-*.md home (tic 498
+# sibling-site lane, retained below). select_session_lessons_files survives as
+# PURE RESCUE TOOLING for /review-gated historical rescues via --plan-file; it
+# is no longer called by collect_gov_files.
 SESSION_LESSONS_RE = re.compile(r"session_lessons_tic_(\d+)")
 SESSION_LESSONS_RECENCY_WINDOW = 3
 
@@ -418,10 +427,9 @@ def find_governance_files(project_dir, excludes, plan_file=None,
     If plan_file is given, append that single plan file to the scan set —
     scope is the ACTIVE plan only (caller is responsible for selecting it).
 
-    Also appends the recency-bounded session_lessons born files from the
-    auto-memory directory (see select_session_lessons_files + the
-    SESSION_LESSONS_RECENCY_WINDOW comment). session_lessons_window < 0 disables
-    that scan (legacy MEMORY.md/CLAUDE.md-only behavior).
+    Auto-memory surfaces (MEMORY.md + session_lessons in ~/.claude) are NOT
+    scanned since tic 570 — memory is not governance (see the DECOUPLED note
+    below). session_lessons_window is a deprecated no-op kept for back-compat.
     """
     gov_files = []
     for name in ["CLAUDE.md", "MEMORY.md"]:
@@ -433,20 +441,16 @@ def find_governance_files(project_dir, excludes, plan_file=None,
             if not should_exclude(rel, excludes):
                 gov_files.append(f)
 
-    # Also check auto-memory (gitignored but governance-visible)
-    project_key = project_dir.replace("/", "-")
-    memory_dir = Path.home() / ".claude" / "projects" / project_key / "memory"
-    auto_memory = memory_dir / "MEMORY.md"
-    if auto_memory.is_file():
-        # Avoid double-counting if auto_memory is somehow also in project_dir
-        if auto_memory not in gov_files:
-            gov_files.append(auto_memory)
-
-    # Recency-bounded session_lessons born home (Emitter Surface Declared
-    # Interface, tic 483) — frontier-anchored; never sweeps the historical backlog.
-    for sl in select_session_lessons_files(memory_dir, session_lessons_window):
-        if sl not in gov_files:
-            gov_files.append(sl)
+    # MEMORY DECOUPLED (tic 570, Architect-directed: memory is not governance).
+    # The auto-memory directory (~/.claude/projects/<key>/memory/ — MEMORY.md and
+    # session_lessons_tic_*.md) is NO LONGER an extraction surface: memory is
+    # Claude-Code-specific working aid; the Federation's emitter surfaces are
+    # harness-agnostic (repo-side CLAUDE.md rglob above, the
+    # audit-logs/governance/borns-tic<N>-*.md born home below, and an explicit
+    # --plan-file). Historical memory-side blocks stay on disk and remain
+    # rescuable ONLY via explicit --plan-file under a /review-gated decision
+    # (select_session_lessons_files is retained as pure rescue tooling, unwired).
+    # session_lessons_window is accepted-but-ignored for caller back-compat.
 
     # Sibling born home: audit-logs/governance/borns-tic<N>-*.md (Emitter Surface
     # Declared Interface, tic 498 sibling-site fix). Frontier-anchored + recency-
@@ -1061,10 +1065,10 @@ def main():
         "--session-lessons-window",
         type=int,
         default=SESSION_LESSONS_RECENCY_WINDOW,
-        help="Recency window (in tics) for scanning the session_lessons born "
-             "home. Default scans only the current tic and the prior few; "
-             "<0 disables; a value >= current tic intentionally sweeps the "
-             "historical backlog (gated — never the default).",
+        help="DEPRECATED no-op since tic 570 (memory is not governance — "
+             "auto-memory surfaces are no longer extraction sources). Accepted "
+             "for caller back-compat; historical rescues go through an explicit "
+             "--plan-file under a /review-gated decision.",
     )
     parser.add_argument(
         "--borns-window",

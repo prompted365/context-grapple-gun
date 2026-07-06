@@ -17,6 +17,11 @@ scanned automatically; the historical backlog is NEVER swept as an extractor
 side effect (it is a separate /review-gated decision). These cases test the pure
 selection helper directly — nothing touches the real queue.
 
+DECOUPLED tic 570 (Architect-directed: memory is not governance): the helper is
+NO LONGER wired into collect_gov_files — auto-memory surfaces are not extraction
+sources. It survives as pure rescue tooling for /review-gated --plan-file
+rescues; these tests remain valid for that helper contract.
+
 Run:  python3 -m unittest test_cpr_extract_session_lessons   (from cgg-runtime/scripts/)
 """
 import importlib.util
