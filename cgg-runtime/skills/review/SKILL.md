@@ -400,11 +400,11 @@ These files require EXTRA confirmation before writing:
 - `~/.claude/CLAUDE.md` (global root) — always ask explicitly
 - Any file tagged `[GLOBAL_INVARIANT]` — always ask explicitly
 
-For project-level CLAUDE.md files: standard Plan Mode approval is sufficient.
+For project-level CLAUDE.md files: the in-tic ratified question-set verdict is sufficient.
 
 ## Safety Rules
 
-- **NEVER** auto-promote CogPRs without user approval (Plan Mode is mandatory)
+- **NEVER** auto-promote CogPRs without user approval (the in-tic ratification question set is mandatory — the Architect's answers ARE the gate)
 - **NEVER** auto-acknowledge or auto-dismiss warrants without user approval
 - **NEVER** delete lessons from source files — only update their status flags
 - **NEVER** modify lesson content during promotion unless the user explicitly approves a MODIFY verdict
