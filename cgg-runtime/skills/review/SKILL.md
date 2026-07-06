@@ -163,9 +163,15 @@ For each pattern-sourced proposal:
 - **Producer dedup-at-write** (`pattern_miner.emit_pattern_envelopes`): a pattern-sourced envelope is never re-emitted if its canonical id already exists in the queue's latest-entry projection (any status). This means the `extracted` tier no longer re-floods with already-resolved ids — a pattern-sourced proposal you see here is *fresh*, not a re-extraction of a promoted/absorbed twin. (Earlier docket cruft from the ~280-tic re-flood was drained by the cpr-stepper at tic 368.)
 - **Async cpr_step lane** (intelligent, decoupled): `extracted`/`tic_gated` entries are advanced + DEDUP'd by the **cpr-stepper agent**, surfaced as a background-spawn instruction at SessionStart (primary only; `[CPR STEP …]`). It is **not** a `compute_due_cycles` cycle. The stepper performs the cross-id semantic dedup (verify-twin-before-absorb) that is *judgment*, mutates `queue.jsonl` state only, and **never promotes** — promotion stays here at /review. So if you see raw `extracted`/`tic_gated` entries that look like already-promoted lessons under a different id, the cpr-stepper is the surface that absorbs them; do not promote a duplicate. If steppable entries are present and the stepper has not yet run this session, you may dispatch it in background via the lead harness's active dispatch surface (an entity at the appropriate state — e.g. a `cpr-stepper` subagent under Claude Code) before finalizing the docket, then read the post-stepped state.
 
-### 6. Present Unified Docket (Plan Mode)
+### 6. Present Unified Docket (Ratification Question Set)
 
-Enter Plan Mode. Present the docket in three sections, ordered by priority:
+Present the docket as an **in-tic ratification question set** via AskUserQuestion — verdict by verdict; the Architect's answers ARE the judgment. Do **NOT** present the docket as a plan (EnterPlanMode/ExitPlanMode): plan-approval wraps the human gate inside the agent's execution framing and inverts it. *(Architect-taught /review 570 — "surface as a question set not a plan… questions for ratification in same tic"; precedent /review 522 "Architect-gated [AskUserQuestion approval]".)*
+
+Mechanics:
+- One question per docket item, grouped in rounds of ≤4 (Section A/B triage first when present, then Section C CogPRs, then any decision items).
+- Each question carries the strike recommendation FIRST (label suffixed "(Recommended)"), with the standard verdict options (PROMOTE | SKIP | MODIFY | MERGE | DEFER | SUPERSEDE; ACKNOWLEDGE | DISMISS | ESCALATE for warrants). Strike-before-recommend: give a real verdict with confidence — never a crouched option list.
+- Items with no verdict owed (held-to-schedule, no-action holds) are REPORTED in the docket text, not asked.
+- The three-section structure below is the CONTENT shape the questions draw from:
 
 ```markdown
 ## Section A: Harmonic Triad Alerts
@@ -231,7 +237,7 @@ Enter Plan Mode. Present the docket in three sections, ordered by priority:
 - **Reasoning**: <2-3 sentences>
 ```
 
-Wait for user approval before proceeding.
+Ratify verdict-by-verdict through the question set — the answers are the judgment; then execute the ratified verdicts in the same tic (Step 7). No separate plan-approval pass.
 
 ### 7. Apply Approved Actions
 
