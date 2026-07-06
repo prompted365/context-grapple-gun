@@ -255,7 +255,41 @@ AUTH_SIGNAL_COUNT=0
 AUTH_SIGNAL_IDS="[]"
 if [ -f "$ACTIVE_MANIFEST" ]; then
   AUTH_SIGNAL_DATA=$(python3 -c "
-import json
+import json, os, sys
+# Active-ray predicate — SOURCE OF TRUTH: lib/signal_active.py (single-owner
+# v2-projection retirement of the raw status-enum, tic 403; reader sweep tic
+# 571). Import from the lib when path-reachable; else run the faithful
+# embedded replica below (keep it in lockstep with signal_active.py).
+is_active_ray = None
+for _libdir in ['$SCRIPT_DIR/lib', os.path.expanduser('~/.claude/cgg-runtime/scripts/lib')]:
+    if _libdir and os.path.isdir(_libdir):
+        sys.path.insert(0, _libdir)
+        try:
+            from signal_active import is_active_ray
+            break
+        except Exception:
+            sys.path.pop(0)
+if is_active_ray is None:
+    _TERM = frozenset({'resolved','dismissed','superseded'})
+    _TERM_SS = frozenset({'resolved','superseded'})
+    _CARRY = frozenset({'carried','dimmed'})
+    _HEAT_FLOOR = 0.01
+    def _heat(rec):
+        h = rec.get('heat')
+        if h is not None:
+            try: return float(h)
+            except (TypeError, ValueError): pass
+        if rec.get('status','active') in _TERM: return 0.0
+        vv = rec.get('visible_volume')
+        if vv is None: vv = rec.get('volume', 0) or 0
+        try: return min(1.0, max(0.0, float(vv)/100.0))
+        except (TypeError, ValueError): return 0.0
+    def is_active_ray(rec):
+        status = rec.get('status','active'); ss = rec.get('structural_status')
+        if status in _TERM or ss in _TERM_SS: return False
+        if ss == 'live' or (ss is None and status in ('active','working')): return True
+        if ss in _CARRY: return _heat(rec) > _HEAT_FLOOR
+        return _heat(rec) > _HEAT_FLOOR
 ids = []
 try:
     with open('$ACTIVE_MANIFEST') as f:
@@ -267,7 +301,7 @@ try:
                 obj = json.loads(line)
             except Exception:
                 continue
-            if obj.get('status') in ('active', 'acknowledged', 'working'):
+            if is_active_ray(obj):
                 sid = obj.get('signal_id')
                 if sid and sid not in ids:
                     ids.append(sid)
@@ -319,7 +353,7 @@ $MANDATE_CONTENT
 1. Read and execute ONLY the cycles in cycle_request.run_now: $CYCLES
 2. For each cycle, produce evidence artifacts:
    - queue_refresh: scan audit-logs/cprs/queue.jsonl, report state. First run: python3 $CGG_SCRIPTS/arena-pressure-ingest.py --zone-root \$ZONE_ROOT --quiet to discover arena candidates before scanning.
-   - signal_scan: AUTHORITATIVE COUNT IS PRE-COMPUTED. The runner has already read audit-logs/signals/active-manifest.jsonl (curated truth, post-prune) and counted signals with status in {active, acknowledged, working}. Authoritative count: $AUTH_SIGNAL_COUNT. Authoritative signal_ids: $AUTH_SIGNAL_IDS. Your report MUST use these values verbatim — do NOT re-derive from daily files, do NOT count raw emissions. Daily files audit-logs/signals/*.jsonl are raw emissions, not authoritative state. Your results.signal_scan object MUST include: {\"active_count\": $AUTH_SIGNAL_COUNT, \"active_signal_ids\": $AUTH_SIGNAL_IDS, \"authoritative_source\": \"active-manifest.jsonl (pre-computed by mogul-runner.sh)\"}.
+   - signal_scan: AUTHORITATIVE COUNT IS PRE-COMPUTED. The runner has already read audit-logs/signals/active-manifest.jsonl (curated truth, post-prune) and counted ACTIVE RAYS per the shared is_active_ray predicate (lib/signal_active.py — structurally live, or carried/dimmed with heat above floor; the raw status enum is retired). Authoritative count: $AUTH_SIGNAL_COUNT. Authoritative signal_ids: $AUTH_SIGNAL_IDS. Your report MUST use these values verbatim — do NOT re-derive from daily files, do NOT count raw emissions. Daily files audit-logs/signals/*.jsonl are raw emissions, not authoritative state. Your results.signal_scan object MUST include: {\"active_count\": $AUTH_SIGNAL_COUNT, \"active_signal_ids\": $AUTH_SIGNAL_IDS, \"authoritative_source\": \"active-manifest.jsonl (pre-computed by mogul-runner.sh)\"}.
    - memory_mining: scan MEMORY.md chain for recurring patterns, write findings
    - pattern_mining: run $CGG_SCRIPTS/pattern_miner.py, output to audit-logs/patterns/
    - harmony_invoke: run $CGG_SCRIPTS/harmony-invoke.sh (kernel-class autonomous_kernel.meaning.disposition; produces disposition packet to audit-logs/harmony/disposition-tic-N.json + appends invocations.jsonl audit trail). Read-only kernel; does not mutate governance state.

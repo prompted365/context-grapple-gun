@@ -1639,6 +1639,15 @@ def format_downaudit_packet(packet):
 #                        damaging finding signal AFTER /review rules, carrying a
 #                        mandatory receipt (terminal-state-change-requires-receipt).
 #                        /review-gated; does not touch the ledger.
+#   - `reaffirm-finding`: signal-state re-affirm (NOT doctrine) — lands a re-test
+#                        whose conclusion is "the finding stands" on the EXISTING
+#                        active finding (same signal_id, latest-per-id; verdict
+#                        unchanged, stays ACTIVE), refreshing last_retested_tic /
+#                        retest_count so the D4 staleness clock re-anchors to the
+#                        re-test. The THIRD leg of emit/resolve symmetry — goes
+#                        AROUND emit-finding's by-design dedup-refusal, never
+#                        through it (tic-570 re-test gap; bk-downlane-retest-
+#                        write-path).
 #
 # Center-hold (do not violate): a `damaging` finding is a HYPOTHESIS routed to an
 # arena, never an auto-demotion (Arena Velocity Guard). A held dissonance is
@@ -1654,7 +1663,8 @@ DOWNAUDIT_ROUTING = {
     "N/A":                 "record (correctly scoped away — a concede_local win)",
     "needs_mechanization": "record + aggregate (forward, NOT defective; breadth decides system-wide)",
     "damaging":            "→ /stage re-eval arena (stage-brief) — HYPOTHESIS, never auto-demote",
-    "hold_in_dissonance":  "held band (§4) — preserve tension; re-test at /review, never auto-resolve",
+    "hold_in_dissonance":  "held band (§4) — preserve tension; re-test at /review, never auto-resolve; "
+                           "a 'stands' re-test lands via reaffirm-finding (clock re-anchor, stays active)",
 }
 
 # A held dissonance carried this many tics without re-test is flagged for re-test
@@ -1866,11 +1876,23 @@ def _finding_entry(sig, current_tic=None):
     resolution = payload.get("resolution")
     if resolution:
         entry["resolution"] = resolution
+    last_retested = payload.get("last_retested_tic")
+    if isinstance(last_retested, int):
+        entry["last_retested_tic"] = last_retested
+    if payload.get("retest_count"):
+        entry["retest_count"] = payload["retest_count"]
     if (verdict == "hold_in_dissonance" and entry["active"]
             and current_tic is not None and isinstance(entry["opened_tic"], int)):
         held = current_tic - entry["opened_tic"]
         entry["tics_held"] = held
-        entry["stale_for_retest"] = held >= DISSONANCE_STALE_TICS
+        # D4 staleness re-anchors to the LAST receipted re-test when one exists
+        # (reaffirm-finding, the third symmetry leg): the flag asks "has this hold
+        # been RE-TESTED recently?", not "how old is it?". tics_held keeps the
+        # honest total age (never resets) so mounting pressure stays legible.
+        anchor = last_retested if isinstance(last_retested, int) else entry["opened_tic"]
+        since_retest = current_tic - anchor
+        entry["tics_since_retest"] = since_retest
+        entry["stale_for_retest"] = since_retest >= DISSONANCE_STALE_TICS
     return entry
 
 
@@ -1963,6 +1985,9 @@ def list_downaudit_findings(zone_root, current_tic=None):
             "the canonical tic log (domain_counter_after) if not supplied. CANNOT see "
             "whether a held tension has since dissolved at its rung — that is a fresh "
             "down-audit (re-test), surfaced by the staleness flag, not inferred here. "
+            "Held-band staleness anchors to the last receipted re-test "
+            "(reaffirm-finding) when one exists, else opened_tic; tics_held always "
+            "counts from opened_tic (total age never resets). "
             "Terminal-State Valve: resolved/dismissed/superseded findings are "
             "partitioned into resolved_findings (receipt-bearing) and EXCLUDED from "
             "the active counts_by_verdict / findings_by_verdict that /review reads."
@@ -2018,6 +2043,11 @@ def format_findings_list(result):
         th = h.get("tics_held")
         stale = " ⏳ STALE — re-test at /review" if h.get("stale_for_retest") else ""
         held_str = f"held {th} tics" if th is not None else "held"
+        if h.get("retest_count"):
+            # mounting-pressure legibility: total age never resets; each receipted
+            # re-affirm is a visible, countable event (D4 center-hold).
+            held_str += (f", re-affirmed ×{h['retest_count']}"
+                         f" @ t{h.get('last_retested_tic')}")
         lines.append(f"  · {h['ki_id']} @ {h['rung']}  [{h['signal_id']}]  ({held_str}){stale}")
         if h.get("summary"):
             lines.append(f"      {h['summary'][:96]}")
@@ -2948,6 +2978,118 @@ def resolve_downaudit_finding(zone_root, signal_id, review_tic, resolved_to,
             "summary": manifest_entry["summary"]}
 
 
+def reaffirm_downaudit_finding(zone_root, signal_id, justification, *,
+                               retest_tic=None, artifact=None, made_known=None,
+                               dry_run=False):
+    """Receipted RE-AFFIRM of an ACTIVE finding whose re-test concluded "the
+    finding stands" (verdict unchanged) — the THIRD leg of emit/resolve symmetry
+    (Machine-Emitter Emit/Resolve Symmetry): emit lands a NEW condition, resolve
+    terminalizes a HEALED one, reaffirm records a RE-TESTED-AND-STANDING one.
+    Before this leg a 'hold stands' re-test had nowhere to land — emit-finding
+    dedup-refuses the active id, resolve-finding is terminal-only — so the held
+    band's D4 STALE flag could never clear (the tic-570 re-test gap,
+    audit-logs/governance/downaudit-retest-tic570.md).
+
+    Goes AROUND the emit dedup-refusal, never through it: emit-finding's
+    dedup-at-write on the condition-stable signal_id is BY DESIGN (it bounds the
+    Stage-3 observability half; tic-570 purpose-first assessment). This path
+    appends a new row with the SAME signal_id (latest-per-id wins — the
+    resolve-finding append discipline), keeping the finding ACTIVE with its
+    verdict unchanged, and refreshes payload.last_retested_tic so the D4
+    staleness clock re-anchors to the RE-TEST, not the original opening.
+
+    D4 center-hold (the bk-downlane-retest-write-path open design question,
+    answered structurally, not by silencing): the STALE flag clears only on a
+    RECEIPTED re-test, and the mounting pressure stays legible —
+      - tics_held still counts from opened_tic (total hold age NEVER resets);
+      - retest_count accumulates on every reaffirm (a hold re-affirmed x5 is
+        visible /review pressure, not a comfortable snooze);
+      - the receipt (justification, plus the durable re-test artifact) is
+        mandatory, mirroring resolve-finding's receipt obligation.
+
+    Signal-state only, NOT doctrine. Refuses a terminal finding — a resolved/
+    dismissed/superseded finding is closed; if its condition recurs that is a
+    fresh condition (a fresh emit), not a re-affirmation.
+    """
+    if not justification:
+        raise ValueError("a reaffirm-finding receipt requires --justification "
+                         "(a re-test lands with evidence, never bare).")
+
+    raw = load_downaudit_findings(zone_root)
+    sig = next((s for s in raw
+                if (s.get("signal_id") or s.get("id")) == signal_id), None)
+    if sig is None:
+        return {"ok": False, "error": f"no finding signal '{signal_id}' on the manifold"}
+    if _finding_is_terminal(sig):
+        return {"ok": False,
+                "error": f"finding '{signal_id}' is terminal "
+                         f"(status={sig.get('status')}) — a closed finding cannot be "
+                         "re-affirmed. If the condition recurred, that is a NEW "
+                         "condition: land it via emit-finding.",
+                "current": _finding_entry(sig)}
+
+    now = datetime.now(timezone.utc)
+    date_str = now.strftime("%Y-%m-%d")
+    retest_tic = retest_tic if retest_tic is not None else _resolve_federation_tic(zone_root)
+
+    payload = dict(sig.get("payload", {}))
+    retest_count = int(payload.get("retest_count") or 0) + 1
+    receipt = {
+        "disposition": "reaffirmed",  # the finding stands; verdict unchanged
+        "retest_tic": retest_tic,
+        "justification": justification,
+        "made_known": made_known or f"reaffirm-finding @ tic {retest_tic}",
+        "reaffirmed_at": now.isoformat(),
+    }
+    if artifact:
+        receipt["retest_artifact"] = artifact
+
+    reaffirmed_signal = dict(sig)  # carry the original shape; verdict/status untouched
+    payload["last_retested_tic"] = retest_tic
+    payload["retest_count"] = retest_count
+    payload["last_retest"] = receipt
+    reaffirmed_signal["payload"] = payload
+    reaffirmed_signal["reaffirmed_at"] = now.isoformat()
+
+    summary_text = (
+        f"down-audit finding re-affirmed (stands, re-test x{retest_count} "
+        f"@ tic {retest_tic}): {justification[:80]}"
+    )
+    manifest_entry = {
+        "signal_id": signal_id,
+        "signal_type": DOWNAUDIT_FINDING_SIGNAL_TYPE,
+        "status": reaffirmed_signal.get("status", "active"),
+        "reaffirmed": True,
+        "retest_tic": retest_tic,
+        "retest_count": retest_count,
+        "summary": summary_text,
+    }
+
+    if dry_run:
+        return {"ok": True, "dry_run": True, "signal_id": signal_id,
+                "verdict": payload.get("verdict"), "retest_tic": retest_tic,
+                "retest_count": retest_count, "receipt": receipt,
+                "reaffirmed_signal": reaffirmed_signal}
+
+    tz_config = load_ticzone(zone_root)
+    al_path = audit_logs_path(zone_root, tz_config)
+    signal_dir = os.path.join(al_path, "signals")
+    os.makedirs(signal_dir, exist_ok=True)
+    signal_file = os.path.join(signal_dir, f"{date_str}.jsonl")
+    manifest_path = os.path.join(signal_dir, "active-manifest.jsonl")
+
+    # Re-affirm = append a new row with the SAME signal_id (latest-per-id wins),
+    # exactly the resolve-finding discipline. NOT dedup_signal_append (which would
+    # refuse the duplicate id — that refusal is emit-finding's, by design).
+    atomic_append_jsonl(signal_file, reaffirmed_signal)
+    atomic_append_jsonl(manifest_path, manifest_entry)
+
+    return {"ok": True, "dry_run": False, "signal_id": signal_id,
+            "verdict": payload.get("verdict"), "retest_tic": retest_tic,
+            "retest_count": retest_count, "receipt": receipt,
+            "summary": summary_text}
+
+
 # ---------------------------------------------------------------------------
 # down-lane-run — the C9 down-audit RUNTIME driver (M1, ladder-downlane-spec.md)
 #
@@ -2991,6 +3133,14 @@ def _downlane_coverage_index(zone_root):
         ki_id = p.get("ki_id")
         rung = p.get("rung")
         ot = p.get("opened_tic")
+        # A receipted re-affirm (reaffirm-finding, third symmetry leg) IS a fresh
+        # audit of the pair: coverage freshness keys on the latest audit EVENT —
+        # the re-test tic when one exists — else the opening tic. Without this, a
+        # re-affirmed pair reads coverage-stale forever and is re-dispatched every
+        # campaign (the same tic-570 nowhere-to-land loop, coverage-side).
+        lrt = p.get("last_retested_tic")
+        if isinstance(lrt, int) and (not isinstance(ot, int) or lrt > ot):
+            ot = lrt
         if not ki_id or not rung:
             continue
         terminal = _finding_is_terminal(sig)
@@ -3919,6 +4069,35 @@ def main():
                     help="Preview the receipt + resolved row without writing")
     rf.add_argument("--zone-root", default=None, dest="zone_root")
 
+    raf = sub.add_parser(
+        "reaffirm-finding",
+        help="Stage-4 down-lane re-test landing: receipted RE-AFFIRM of an ACTIVE "
+             "finding whose re-test concluded 'the finding stands' (verdict "
+             "unchanged). The THIRD leg of emit/resolve symmetry — goes AROUND "
+             "emit-finding's by-design dedup-refusal, never through it. Appends a "
+             "same-signal_id row (latest-per-id) refreshing last_retested_tic / "
+             "retest_count so the D4 staleness clock re-anchors to the re-test; "
+             "keeps the finding ACTIVE (never terminalizes), touches no doctrine. "
+             "Refuses terminal findings (a recurred condition is a fresh emit). "
+             "tics_held never resets and retest_count accumulates — mounting "
+             "pressure stays legible (tic-570 gap; bk-downlane-retest-write-path).")
+    raf.add_argument("--signal-id", required=True, dest="signal_id",
+                     help="Finding signal_id to re-affirm "
+                          "(e.g. sig_ladder_down_audit_finding_xxxx)")
+    raf.add_argument("--retest-tic", type=int, default=None, dest="retest_tic",
+                     help="Tic the re-test ran (auto-resolved from the tic log if omitted)")
+    raf.add_argument("--justification", required=True,
+                     help="Why the finding still stands (receipt-required — a "
+                          "re-test lands with evidence, never bare)")
+    raf.add_argument("--artifact", default=None,
+                     help="Path to the durable re-test receipt/artifact (provenance, "
+                          "e.g. audit-logs/governance/downaudit-retest-tic570.md)")
+    raf.add_argument("--made-known", default=None, dest="made_known",
+                     help="Where the re-test was surfaced (default: reaffirm tic)")
+    raf.add_argument("--dry-run", action="store_true", dest="dry_run",
+                     help="Preview the receipt + re-affirmed row without writing")
+    raf.add_argument("--zone-root", default=None, dest="zone_root")
+
     dlr = sub.add_parser(
         "down-lane-run",
         help="C9 down-lane RUNTIME driver (M1): run Stage 0→1→2 across the active rung "
@@ -4070,6 +4249,15 @@ def main():
             args.justification, justification_class=args.justification_class,
             reversible=(not args.irreversible), made_known=args.made_known,
             resolved_tic=args.resolved_tic, dry_run=args.dry_run)
+        print(json.dumps(result, indent=2))
+        return
+
+    if args.command == "reaffirm-finding":
+        zone_root = args.zone_root or args.project_dir or resolve_zone_root()
+        result = reaffirm_downaudit_finding(
+            zone_root, args.signal_id, args.justification,
+            retest_tic=args.retest_tic, artifact=args.artifact,
+            made_known=args.made_known, dry_run=args.dry_run)
         print(json.dumps(result, indent=2))
         return
 

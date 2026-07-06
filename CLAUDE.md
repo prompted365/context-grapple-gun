@@ -153,6 +153,8 @@
   - *Ledger:* [`cgg-ledger/ledger.md#absorber-needs-per-tic-invoker-or-no-dark-guarantee-lapses`](cgg-ledger/ledger.md#absorber-needs-per-tic-invoker-or-no-dark-guarantee-lapses)
 - **New Consumer Over Long-Lived Emitter Surface Must Be Scope-Bounded, Not Retroactive** — Wiring a NEW automatic consumer to a long-lived emitter surface with accreted history is a retroactive-ingestion hazard; scope-bound the consumer (recency window), don't retro-ingest all history.
   - *Ledger:* [`cgg-ledger/ledger.md#new-consumer-over-long-lived-emitter-surface-must-be-scope-bounded-not-retroactive`](cgg-ledger/ledger.md#new-consumer-over-long-lived-emitter-surface-must-be-scope-bounded-not-retroactive)
+- **A Status Value Readers Disagree On (Terminal vs Active) Sticky-Masks a Re-Activated Item — DEFER Must Write the Spec Status, Not the Divergent One** — A /review DEFER verdict has a SPEC-CORRECT representation — `status: enrichment_eligible` + pending_class + maturity_window_tics (SKILL Step-7) — and a NON-SPEC one — `status: deferred`; they are NOT interchangeable, because `deferred` is a status the READERS DISAGREE ON. *(tic 521→522)*
+  - *Ledger:* [`cgg-ledger/ledger.md#status-value-reader-disagreement-sticky-masks-reactivated-item`](cgg-ledger/ledger.md#status-value-reader-disagreement-sticky-masks-reactivated-item)
 
 ## Review And Promotion Discipline
 
@@ -194,6 +196,14 @@
   - *Ledger:* [`cgg-ledger/ledger.md#id-form-divergence-voids-cross-surface-writeback`](cgg-ledger/ledger.md#id-form-divergence-voids-cross-surface-writeback)
 - **Promoted-Spec Build Obligation Outlives Spec-Doc Archival or Move** — A promoted-spec's build obligation survives the spec doc being archived/moved; dropping it at the spec→impl/deprecation step lets the cruft it was meant to prevent accumulate.
   - *Ledger:* [`cgg-ledger/ledger.md#promoted-spec-build-obligation-outlives-spec-doc-archival-or-move`](cgg-ledger/ledger.md#promoted-spec-build-obligation-outlives-spec-doc-archival-or-move)
+- **SKIP ≠ DISCARD — A Derivable Operational Lesson With Recurring Cost Still Needs a Session-Loading Home** — A /review verdict of SKIP / not-net-new-doctrine (derivable) decides DOCTRINE STATUS; it does NOT decide whether the lesson should PERSIST. *(tic 490→515)*
+  - *Ledger:* [`cgg-ledger/ledger.md#skip-not-discard-derivable-costly-lesson-needs-loading-home`](cgg-ledger/ledger.md#skip-not-discard-derivable-costly-lesson-needs-loading-home)
+- **Stale Intake Artifact Must Be Regenerated Through Its Lane, Not Bypassed by an Ad-Hoc Scan** — When a pipeline's terminal artifact is STALE (e.g. the /review bench-packet at tic 480 with 0 items), the correct move is to REGENERATE it by RE-RUNNING its producing lane (cpr-enrichment-scanner → bench-packet-prep), NOT to bypass it with an ad-hoc inline scan of the upstream substrate (queue.jsonl). *(tic 505→515)*
+  - *Ledger:* [`cgg-ledger/ledger.md#stale-intake-artifact-regenerate-through-lane-not-bypass`](cgg-ledger/ledger.md#stale-intake-artifact-regenerate-through-lane-not-bypass)
+- **Inscription-Verification Is Reason-Coded, Dehydration-Aware, and Provenance-Anchored — Verifier-Split Chapter 2** — The post-inscription consistency verifier (`review-close-check.py`) has three coupled correctness gaps, all one centroid — a content-matching verifier mis-classifies confirmed-present inscriptions as GENUINE orphans/missing because its matching axis is wrong for the inscription's SHAPE. *(tics 493-514→515)*
+  - *Ledger:* [`cgg-ledger/ledger.md#inscription-verification-reason-coded-dehydration-provenance-aware`](cgg-ledger/ledger.md#inscription-verification-reason-coded-dehydration-provenance-aware)
+- **Zero-Divergence In A Single-Lens Baseline Is Structural, Not Cross-Lens Agreement** — A deterministic-lite consolidated.json reading "agreements_count: N, divergences_count: 0" is NOT evidence of cross-lens convergence — it is a single-classifier baseline where zero-divergence is TRUE BY CONSTRUCTION (one lens cannot disagree with itself; lens_a_path/lens_b_path are empty; the file self-stamps not_a_verdict). *(tic 566→570)*
+  - *Ledger:* [`cgg-ledger/ledger.md#zero-divergence-single-lens-baseline-structural`](cgg-ledger/ledger.md#zero-divergence-single-lens-baseline-structural)
 
 ## Subagent And Swarm Delegation
 
@@ -281,6 +291,8 @@
   - *Ledger:* [`cgg-ledger/ledger.md#footgun-guard-at-perception-layer-warns-after-the-footgun-already-fired`](cgg-ledger/ledger.md#footgun-guard-at-perception-layer-warns-after-the-footgun-already-fired)
 - **Named Footgun Guard Leaves Sibling Site Unfixed** — A footgun-guard applied to ONE function silently leaves a SIBLING function in the same file carrying the un-guarded footgun the promotion already named — fix-site and bug-sibling-site are a closed consumer set.
   - *Ledger:* [`cgg-ledger/ledger.md#named-footgun-guard-leaves-sibling-site-unfixed`](cgg-ledger/ledger.md#named-footgun-guard-leaves-sibling-site-unfixed)
+- **Fixture-Green Is Not Trainer-Green** — Fixture-proof and trainer-proof are different evidence classes; a fixture pass cannot flip a trainer-gated wire. *(tic 556→563)*
+  - *Ledger:* [`cgg-ledger/ledger.md#fixture-green-is-not-trainer-green`](cgg-ledger/ledger.md#fixture-green-is-not-trainer-green)
 
 ## Memory And Inscription Hygiene
 

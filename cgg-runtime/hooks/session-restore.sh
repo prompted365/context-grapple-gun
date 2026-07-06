@@ -767,7 +767,41 @@ for f in sorted(glob.glob('$SIGNAL_DIR/*.jsonl')):
             if d.get('type') == 'warrant':
                 warrants[eid] = d
         except: pass
-active_sigs = [s for s in signals if s.get('status') in ('active','acknowledged','working')]
+# Active-ray predicate — SOURCE OF TRUTH: cgg-runtime/scripts/lib/signal_active.py
+# (single-owner v2-projection retirement of the raw status-enum, tic 403; reader
+# sweep tic 571). Import from the lib when path-reachable; else run the faithful
+# embedded replica below (keep it in lockstep with signal_active.py).
+is_active_ray = None
+for _libdir in ['$CGG_SCRIPTS_DIR/lib', os.path.expanduser('~/.claude/cgg-runtime/scripts/lib')]:
+    if _libdir and os.path.isdir(_libdir):
+        sys.path.insert(0, _libdir)
+        try:
+            from signal_active import is_active_ray
+            break
+        except Exception:
+            sys.path.pop(0)
+if is_active_ray is None:
+    _TERM = frozenset({'resolved','dismissed','superseded'})
+    _TERM_SS = frozenset({'resolved','superseded'})
+    _CARRY = frozenset({'carried','dimmed'})
+    _HEAT_FLOOR = 0.01
+    def _heat(rec):
+        h = rec.get('heat')
+        if h is not None:
+            try: return float(h)
+            except (TypeError, ValueError): pass
+        if rec.get('status','active') in _TERM: return 0.0
+        vv = rec.get('visible_volume')
+        if vv is None: vv = rec.get('volume', 0) or 0
+        try: return min(1.0, max(0.0, float(vv)/100.0))
+        except (TypeError, ValueError): return 0.0
+    def is_active_ray(rec):
+        status = rec.get('status','active'); ss = rec.get('structural_status')
+        if status in _TERM or ss in _TERM_SS: return False
+        if ss == 'live' or (ss is None and status in ('active','working')): return True
+        if ss in _CARRY: return _heat(rec) > _HEAT_FLOOR
+        return _heat(rec) > _HEAT_FLOOR
+active_sigs = [s for s in signals if is_active_ray(s)]
 active_wrns = [w for w in warrants.values() if w.get('status') in ('active','acknowledged')]
 if not active_sigs and not active_wrns:
     sys.exit(0)

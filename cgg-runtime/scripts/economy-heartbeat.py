@@ -13,6 +13,18 @@ It REUSES the PROVEN assembly of `seed_the_ember.py` (cables SWARM -> CADENCE ->
 PRICING, MODES as the winch) — the exact working call sequence that seeded the ember
 at tic 568 — adapted to a per-tic parameterized run.
 
+MOVING (tic 571 — the economy fuckin moves)
+-------------------------------------------
+The seed phase re-seeded the swarm every invocation (fixed asymptotic trust ramp),
+so consecutive tics replayed byte-identical economics. Now the heartbeat rides
+`autonomous_kernel/economy_motion.py`: trust is PERFORMANCE-DRIVEN (each tick the
+128 agents react to a rotating market regime, realize pnl on their side, roll
+their windows, rescore trust — BOTH directions), and the full state (buffer,
+cumulative counters, per-agent trust+performance, market regime) CARRIES across
+tics via audit-logs/economy/economy-state.json. tic N+1 CONTINUES tic N. The
+advance guard types every run genesis|continue|replay — a re-fire of an
+already-advanced tic runs as REPLAY (no state write, no series clobber).
+
 FENCES / MEMBRANE
 -----------------
   * Read-only of federation / governance state. This handler NEVER writes signals,
@@ -80,8 +92,13 @@ import ccoin_shadow_economy as ccoin        # noqa: E402
 import economy_cadence as cadence           # noqa: E402
 # PRICING cable
 import visitor_economy_pricing as pricing   # noqa: E402
+# MOTION layer — performance-driven trust + carry-state (tic 571: the economy MOVES)
+import economy_motion as motion             # noqa: E402
 # MODES cable — the winch operating-mode dial
 from winch_modes import WinchDial           # noqa: E402  (DissonanceBasin + RollbackDrill are used inside fire_seed)
+
+# The carry ledger — the series' spine. tic N+1 CONTINUES tic N through this file.
+STATE_PATH = ECON_DIR / "economy-state.json"
 
 # The economy DAG the gunslinger raises as one frontier (SWARM -> CADENCE -> PRICING,
 # all non-gated => all exec-ready). Defined inline; no covenant-surface file is written
@@ -142,9 +159,11 @@ def run_assembled_economy(tic: int) -> dict:
 
     # -----------------------------------------------------------------------
     # CADENCE cable — ONE FULL TIC (1000 ticks) of the assembled economy driven by
-    # the 128-agent swarm. Trust accrues per tick; each tick the aggregate g_t gates
-    # the mint via step_from_swarm; at the tic boundary the FederalExchange normalizes
-    # the held rate (center-exclusion applied to money).
+    # the 128-agent swarm. MOVING (tic 571): trust is PERFORMANCE-DRIVEN (react ->
+    # pnl -> rolling window -> score_trust, both directions, regime-rotated) and the
+    # whole state CARRIES across tics through the carry ledger — tic N+1 continues
+    # tic N; it does not replay it. At the tic boundary the FederalExchange
+    # normalizes the held rate (center-exclusion applied to money).
     # -----------------------------------------------------------------------
     dial = cadence.CadenceDial(ticks_per_tic=cadence.DEFAULT_TICKS_PER_TIC)
     conformation = "ot-economy-heartbeat"
@@ -153,14 +172,37 @@ def run_assembled_economy(tic: int) -> dict:
 
     federal = cadence.FederalExchange(held_rate=1.0)     # frozen center anchor
 
-    tic_agents = swarm_mod.spawn_swarm(seed=42)          # start at t=0.5 (< tau)
-    ACCRUAL_RATE = 0.003                                 # asymptotic: t += r*(1-t)
+    # --- carry ledger: load the series state; the advance guard types the run ---
+    carry = motion.load_state(str(STATE_PATH))
+    series_mode = motion.advance_guard(carry, tic)       # genesis | continue | replay
+    if series_mode == "genesis":
+        tic_agents = swarm_mod.spawn_swarm(seed=motion.SWARM_SEED)   # t=0.5 (< tau)
+        market = motion.MarketState()
+        live_buf = ccoin.EconomyBuffer(current_supply=100_000.0, reserves=20_000.0,
+                                       usd_rate=1.0, is_live=True)
+        carried_from_tic = None
+        carried_cumulative = None
+    else:
+        tic_agents = motion.restore_swarm(carry)
+        market = motion.restore_market(carry)
+        b = carry["buffer"]
+        live_buf = ccoin.EconomyBuffer(current_supply=b["current_supply"],
+                                       reserves=b["reserves"],
+                                       usd_rate=b["usd_rate"], is_live=True)
+        carried_from_tic = int(carry["tic"])
+        carried_cumulative = dict(carry.get("cumulative") or {})
 
-    live_buf = ccoin.EconomyBuffer(current_supply=100_000.0, reserves=20_000.0,
-                                   usd_rate=1.0, is_live=True)
+    rng = motion.tic_rng(tic)                            # deterministic per (seed, tic)
+    trust_start = swarm_mod.aggregate_g_t(tic_agents)
+
     emitter = ccoin.BreachEmitter(tic=tic)               # breach flags -> live telemetry (the wire)
     econ = ccoin.Economy(live_buf, config, phase, currency="ucoin",
                          is_shadow=False, emitter=emitter)
+    if carried_cumulative:
+        # the series' cumulative counters continue across the boundary
+        econ.mint_total = float(carried_cumulative.get("mint_total", 0.0))
+        econ.burn_total_cum = float(carried_cumulative.get("burn_total", 0.0))
+        econ.generation = int(carried_cumulative.get("generation", 0))
 
     floor_trap = econ.floor_trap                         # cap>=seed guard
     supply_before = econ.buffer.current_supply
@@ -179,12 +221,13 @@ def run_assembled_economy(tic: int) -> dict:
     last_result = None
 
     for i in range(n_ticks):
-        # the 128-agent swarm accrues trust this tick (asymptotic toward 1.0)
-        for a in tic_agents:
-            a.trust.t = min(1.0, a.trust.t + ACCRUAL_RATE * (1.0 - a.trust.t))
+        # MOVING trust: the 128 agents react to the rotating market frame,
+        # realize pnl on their side, roll their windows, and rescore trust —
+        # trust moves BOTH directions (economy_motion.performance_tick).
+        g = motion.performance_tick(tic_agents, market, rng)
         # WIRE: aggregate g_t -> mint gate (coin<->trust closure, live)
-        r = econ.step_from_swarm(
-            tic_agents, confidence=0.9, opportunities_sum=3000.0,
+        r = econ.step(
+            trust=g, confidence=0.9, opportunities_sum=3000.0,
             realized_gap=0.5, consensus_elasticity=0.5,
             tau=0.70, k=0.10, reserves_share=0.20, fee_units=100,
         )
@@ -237,9 +280,9 @@ def run_assembled_economy(tic: int) -> dict:
         "ticks_with_mint": ticks_with_mint,
         "first_mint_tick": first_mint_tick,
         "zero_mint_ticks": n_ticks - ticks_with_mint,
-        "swarm_seed_trust": 0.5,
+        "swarm_trust_start": round(trust_start, 6),
         "swarm_final_aggregate_g_t": round(swarm_final_g_t, 6),
-        "swarm_trust_accrued": (swarm_final_g_t > 0.5),
+        "swarm_trust_moved": (abs(swarm_final_g_t - trust_start) > 1e-9),
         "g_t_trajectory_samples": g_t_samples,
         "breach_flag_tick_counts": breach_flag_ticks,
         "breach_emitter_records": emitter.emitted,
@@ -250,7 +293,25 @@ def run_assembled_economy(tic: int) -> dict:
             "anchor_frozen_center_excluded": norm.anchor_frozen,
             "federal_normalizations": federal.normalizations,
         },
+        "series": {
+            "mode": series_mode,                        # genesis | continue | replay
+            "carried_from_tic": carried_from_tic,       # None on genesis
+            "cumulative_mint_total": round(econ.mint_total, 6),
+            "cumulative_burn_total": round(econ.burn_total_cum, 6),
+            "cumulative_generation": econ.generation,
+            "market": {"spread": round(market.spread, 6),
+                       "elasticity": round(market.elasticity, 6),
+                       "global_tick": market.global_tick},
+        },
     }
+
+    # --- CARRY: persist the series state so the NEXT tic CONTINUES this one.
+    # Replay mode never writes — the guard exists so a re-fire of an already-
+    # advanced tic cannot silently double-advance the series.
+    if series_mode != "replay":
+        motion.save_state(str(STATE_PATH),
+                          motion.serialize_state(tic, econ.buffer, econ,
+                                                 tic_agents, market))
 
     # -----------------------------------------------------------------------
     # PRICING cable — anchor coin -> usd off the LIVE federal rate (held, band-checked).
@@ -352,6 +413,7 @@ def stabilization_verdict(econ_trace: dict, fire: dict) -> dict:
         "federal_anchor_frozen": cad["tic_boundary"]["anchor_frozen_center_excluded"],
         "pricing_anchored_in_band": price["coin_usd_anchored"] and price["within_band"],
         "breach_flags_visible": cad["breach_emitter_records"] >= 0,   # emitted + counted
+        "swarm_trust_moved": cad["swarm_trust_moved"],   # MOTION: trust responded to performance
     }
     seed_stabilized = all(checks.values())
 
@@ -375,6 +437,8 @@ def write_outputs(tic: int, econ_trace: dict, fire: dict, verdict: dict) -> dict
     ECON_DIR.mkdir(parents=True, exist_ok=True)
 
     cad = econ_trace["CADENCE"]
+    series = cad["series"]
+    series_mode = series["mode"]
     breach_flags = verdict["breach_flags_fired_during_tic"]
     seed_stabilized = bool(verdict["seed_stabilized"])
     mode = fire["mode"]
@@ -383,6 +447,8 @@ def write_outputs(tic: int, econ_trace: dict, fire: dict, verdict: dict) -> dict
     snapshot = {
         "type": "economy.heartbeat.tic",
         "tic": tic,
+        "series_mode": series_mode,
+        "carried_from_tic": series["carried_from_tic"],
         "supply": cad["supply_after"],
         "reserves": cad["reserves_after"],
         "reserve_ratio": cad["final_reserve_ratio"],
@@ -413,19 +479,26 @@ def write_outputs(tic: int, econ_trace: dict, fire: dict, verdict: dict) -> dict
         "membrane": "held; canonical sole-writer; no OT runtime ref; writes only audit-logs/economy/",
         "generated_at": time.strftime("%Y-%m-%dT%H:%M:%S.000Z", time.gmtime()),
     }
-    snap_path = ECON_DIR / f"economy-tic-{tic}.json"
+    # REPLAY never clobbers the series artifacts: its snapshot lands beside the
+    # series row, and the pointer (the anti-freeze tooth) stays on the series.
+    if series_mode == "replay":
+        snap_path = ECON_DIR / f"economy-tic-{tic}-replay.json"
+    else:
+        snap_path = ECON_DIR / f"economy-tic-{tic}.json"
     snap_path.write_text(json.dumps(snapshot, indent=2) + "\n", encoding="utf-8")
 
     # 2) current-pointer.json (compact latest pointer; tic == N is the anti-freeze tooth)
-    pointer = {
-        "tic": tic,
-        "economy_tic_path": str(snap_path.relative_to(ROOT)),
-        "generated_at": time.strftime("%Y-%m-%dT%H:%M:%S.000Z", time.gmtime()),
-        "breach_flags": breach_flags,
-        "seed_stabilized": seed_stabilized,
-    }
     ptr_path = ECON_DIR / "current-pointer.json"
-    ptr_path.write_text(json.dumps(pointer, indent=2) + "\n", encoding="utf-8")
+    if series_mode != "replay":
+        pointer = {
+            "tic": tic,
+            "economy_tic_path": str(snap_path.relative_to(ROOT)),
+            "generated_at": time.strftime("%Y-%m-%dT%H:%M:%S.000Z", time.gmtime()),
+            "breach_flags": breach_flags,
+            "seed_stabilized": seed_stabilized,
+            "series_mode": series_mode,
+        }
+        ptr_path.write_text(json.dumps(pointer, indent=2) + "\n", encoding="utf-8")
 
     # 3) invocations.jsonl (append-only audit trail)
     inv_path = ECON_DIR / "invocations.jsonl"
@@ -433,6 +506,7 @@ def write_outputs(tic: int, econ_trace: dict, fire: dict, verdict: dict) -> dict
         "tic": tic,
         "invoked_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
         "mode": mode,
+        "series_mode": series_mode,
         "g_t": cad["swarm_final_aggregate_g_t"],
         "mint_total": cad["mint_accrued"],
         "breach_flags": breach_flags,
@@ -470,8 +544,9 @@ def main() -> int:
     else:
         print(
             f"economy heartbeat tic={tic}: mode={fire['mode']} "
+            f"series={cad['series']['mode']} "
             f"seed_stabilized={verdict['seed_stabilized']} "
-            f"g_t={cad['swarm_final_aggregate_g_t']:.4f} "
+            f"g_t={cad['swarm_trust_start']:.4f}->{cad['swarm_final_aggregate_g_t']:.4f} "
             f"mint={cad['mint_accrued']:.2f} burn={cad['burn_accrued']:.2f} "
             f"supply={cad['supply_after']:.2f} rr={cad['final_reserve_ratio']:.4f} "
             f"breach_flags={verdict['breach_flags_fired_during_tic']} "
