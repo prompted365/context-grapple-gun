@@ -1824,8 +1824,15 @@ def load_downaudit_findings(zone_root):
     terminal-per-id (latest entry wins — the Terminal-State Valve discipline).
 
     Returns a list of the latest signal dict per signal_id. Read-only. The
-    active-manifest is skipped (thin entries without payload); the full signal
-    rows in the daily files carry the (rung, ki_id, verdict, opened_tic) payload.
+    active-manifest AND resolved-archive are skipped — both are derived/secondary
+    projections (thin rows without payload; see runtime-sync.py's _derived set and
+    manifest-prune.py, their writer). The daily files are the primary chronological
+    record and carry every terminal row plus the (rung, ki_id, verdict, opened_tic)
+    payload. Reading the archive here breaks chronology: it sorts AFTER the daily
+    files, so its thin terminal copy would override a chronologically NEWER active
+    row for a recurred (rung, ki, verdict) — the re-detected finding goes dark at
+    the exact moment it re-fires (tic-573 tranche-1 landing: 17/36 findings
+    valve-swallowed until this reader honored the authoritative-set discipline).
     """
     tz_config = load_ticzone(zone_root)
     al_path = audit_logs_path(zone_root, tz_config)
@@ -1834,7 +1841,7 @@ def load_downaudit_findings(zone_root):
         return []
     latest = {}
     for f in sorted(signal_dir.glob("*.jsonl")):
-        if f.name == "active-manifest.jsonl":
+        if f.name in ("active-manifest.jsonl", "resolved-archive.jsonl"):
             continue
         try:
             lines = f.read_text(encoding="utf-8").splitlines()
