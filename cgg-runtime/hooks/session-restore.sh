@@ -190,11 +190,11 @@ if [ -d "$PROJECT_DIR" ]; then
   done < <(find "$PROJECT_DIR" \( -name "CLAUDE.md" -o -name "MEMORY.md" \) "${FIND_EXCLUDES[@]}" 2>/dev/null)
 fi
 
-# Auto-memory (gitignored but governance-visible)
-MEMORY_FILE="$HOME/.claude/projects/$PROJECT_KEY/memory/MEMORY.md"
-if [ -f "$MEMORY_FILE" ]; then
-  emit_pending_cpr_ids "$MEMORY_FILE" >> "$INLINE_CPR_IDS_FILE"
-fi
+# Auto-memory DECOUPLED (tic 570 — memory is not governance): the inline
+# count no longer scans ~/.claude auto-memory. Counting memory-side blocks
+# here would inflate TOTAL_CPRS and fire the cpr-extract gate for blocks the
+# extractor (correctly) can no longer reach — a permanent phantom count.
+# Repo-side CLAUDE.md/MEMORY.md (above) + the active plan (below) remain.
 
 # Active plan file (caller-selected by LATEST_PLAN discovery above).
 # Active plan only — never scans the whole plans directory.

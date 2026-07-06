@@ -220,9 +220,11 @@ If `cadence-ops.py` was used in Step 0.5, signal state is already captured in th
 #### Step 2: Extract Lessons (CogPRs)
 Did we establish a new rule or optimize a workflow? If yes, capture it as a `<!-- --agnostic-candidate -->` block using the COGNITIVE band. Route based on truth-state (see write rule below).
 
-**Born-file discipline (tic 439 — support both, mandate proper).** A born may be
-captured inline in MEMORY.md OR as a standalone `audit-logs/governance/borns-tic<N>-<slug>.md`
-file. EITHER way the **proper, mandated form is the `<!-- --agnostic-candidate -->`
+**Born-file discipline (tic 439; MEMORY-DECOUPLED tic 570).** A born is captured as a
+standalone `audit-logs/governance/borns-tic<N>-<slug>.md` file — repo-side, versioned,
+harness-agnostic. **MEMORY.md / auto-memory is NOT a born home** (tic 570, Architect-directed:
+memory is not governance; cpr-extract no longer scans memory surfaces — a memory-authored
+born is dark at birth). The **proper, mandated form is the `<!-- --agnostic-candidate -->`
 block** (`status: pending` + `lesson` + `source`) — that is what `cpr-extract` reads
 and what carries clean Tier-1 schema into the queue (the birth ledger /review picks up).
 Prose-only borns are a **tolerated reader fallback** (cpr-extract best-effort-parses a
@@ -239,11 +241,10 @@ Include birth context when available:
 
 These fields are optional. Omit if posture is not in use.
 
-Write to the nearest governance file based on truth-state:
-1. **Born truth** (new lesson, observation, CogPR candidate) → write to MEMORY.md
-   - Check CWD for MEMORY.md — write there if found
-   - Walk up parent directories toward project root
-   - Fall back to auto-memory (`~/.claude/projects/*/memory/MEMORY.md`)
+Write to the governance surface based on truth-state:
+1. **Born truth** (new lesson, observation, CogPR candidate) → write the standalone
+   `audit-logs/governance/borns-tic<N>-<slug>.md` file (block form, per the discipline
+   above). NEVER MEMORY.md / auto-memory (decoupled tic 570 — dark at birth there).
 2. **In-force truth** (constitutional correction, rule amendment) → write to CLAUDE.md
    - Only when the lesson IS a law change, not when it might become one
 3. **Housekeeping exception** — if the lesson corrects an already-local CLAUDE.md entry

@@ -287,8 +287,14 @@ def detect_candidates(cpr_id, use_nlp=False, scan_globs=None):
     pend = load_pending_cprs()
     lesson = pend.get(cpr_id, {}).get("_fullest_lesson", "")
     if scan_globs is None:
+        # Historical session_lessons remain scannable as EVIDENCE of conformation
+        # (a frozen set — memory was decoupled as a born home at tic 570, memory
+        # is not governance); FORWARD session evidence lives in the repo-side
+        # borns lane, so the default surface follows the borns home.
         mem = os.path.expanduser("~/.claude/projects/-Users-breydentaylor-canonical/memory")
         scan_globs = [f"{mem}/session_lessons_tic_*.md"]
+        if AUDIT is not None:
+            scan_globs.append(str(AUDIT / "governance" / "borns-tic*.md"))
     strong, weak = [], []
     ltok = _tokens(lesson) if (use_nlp and lesson) else set()
     for g in scan_globs:
