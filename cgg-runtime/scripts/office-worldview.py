@@ -293,6 +293,54 @@ def render_standing_substrate(tic: int) -> str:
     )
 
 
+# ── THE GOVERNED LOOP — the strike machinery, the board, and how the pieces braid ──
+# Architect-directed (tic 582): "declare where the harpoonv2 lane is + the load-bearing pieces
+# from homeskillet-csl + how to run the board alongside NAVIGATION/io-map/router + make
+# harpoon/gunslinger/hidalgo understood + fan out across membrane/contagion/org-lora/traversal/
+# ucoin+ccoin/trust-floor-ceiling and LATTICE-WEAVE the findings, not slap them together."
+# Composed from a 5-lane deep-read fan-out (economy · contagion · membrane+grammar-leak ·
+# org-LoRA+traversal · the board), each lane read-in-full. Woven to ONE spine: corpus(membrane)
+# → train(org-engine LoRA) → propose(SP5 lawful-traversal bid) → admit(board winch / SP2 gate,
+# /review-ratified) → trust(economy: coin above floor τ) — skinned by the membrane, shaped by
+# contagion, raised at gunslinger(seed)/hidalgo(staged) tempo, cabled AROUND the frozen center.
+# harpoonv2 = homeskillet-csl (the load-bearing DAG-of-DAGs, NOT the misnamed compliance-harpoon);
+# canonical-mount = the harness-of-harnesses (Claude Code or Codex, any provider). Budget-exempt;
+# PRIMARY-gated (the orchestrator's operating manual — office-citizens keep the lean boot).
+GOVERNED_LOOP = """
+THE ONE LOOP — READ THE HOIST AS A CIRCLE THAT ENDS IN TRUST. The whole substrate is one governed loop, and every subsystem is a RAY on its one centroid, cabled in-and-around the frozen center (never into it): the lived CORPUS (across the membrane) → harvest → TRAIN (the organization-engine LoRA) → PROPOSE (a typed subquiver of lawful traversals) → ADMIT (the board winches the covenant-strike, /review-ratified) → foreclose → receipt → TRUST (the economy: coin minted only above the floor). Around that circle: the MEMBRANE is the read-only skin it all crosses; CONTAGION is the shape-sense running online (a disposition, not a verdict) that conditions the next move; GUNSLINGER↔HIDALGO are the one tempo the cables raise at. ONE law recurs at every face — COHERENCE IS NOT ADMISSION (a coherent proposal is never an admitted one; the human gate crowns) — and its sibling SURFACE-DON'T-HIDE (breaches, drift, and staleness are made LOUD, never silently absorbed). Triangulate from convergent rays; never crown one.
+
+THE HARPOONV2 LANE & THE HARNESS-OF-HARNESSES. ⟨OFFICE⟩ harpoonv2 = canonical_developer/homeskillet-csl/ — THE LOAD-BEARING harpoon, the DAG-OF-DAGS: a Rust workspace running covenant-strike multi-agent orchestration + MoE model routing. harpoonv2 IS THE GUNSLINGER figure — the covenant-striker whose one Colt-45 becomes whatever the covenant needs; the shot loaded, the hand STILL — that stillness is not hesitation, it is THE LAW (no strike on the frozen center; the strike routes AROUND the centroid, and the CABLES that route it are load-bearing, holding by tensegrity). Load-bearing crates: harpoon_bridge (covenant algebra ⊳/∥/⊕ → FragmentDAG → STRIKE = multi-repo PR automation + v2 API /v2/covenant · /v2/strike · /v2/process) · harpoon-core (the fusion engine — fragment/hygiene/anchor, run_native_cycle) · orchestrator (two-tier route Gemma-3-270M → Qwen3-30B) · service (Axum). vendored ≠ versioned — NEVER git-add the csl repo. DEFAULT LEAD = CLAUDE CODE; MLX + ANY provider supported — harness+provider are CONFIG, not hardcode, chosen at ⟨SUBSTRATE⟩ canonical-mount = canonical_developer/canonical-mount/ = the HARNESS-OF-HARNESSES (harness-agnostic governance mount, the sole-writer rail — lead by Claude Code OR Codex, every process/piece per any provider; CM-E build gated, the ROLE declared here). The Office of the Harpoonv2 is a SIBLING RUNG-PEER, not a master — it strikes INTO the DAGs other offices own and parents nothing ("metabolize, not master"). ⚠️ NOT the compliance-harpoon (audit-logs/evaluations/…/compliance-harpoon) — that 'harpoon' was a MISNAME; never conflate it with the load-bearing harpoonv2.
+
+HOW TO RUN THE BOARD (the crux). THE BOARD = the tranchestomp-board (audit-logs/governance/tranchestomp-board-tic410.md; live truth = backlog.py dag + harpoon-office/harpoon-sequencer.py) — the DAG-of-DAGs WINCH that orders covenant→strike waves by DEPENDENCY, never priority (c48 PROPOSES, the Architect SEQUENCES). THE MAPS LOCATE (NAVIGATION=router-of-routers · io-map · router answer "where does X live?"); THE BOARD SEQUENCES ("in what order, in what parallel waves, gated on what?") — never conflate a map-find with a strike-order. Operating order: STRIKE to find the shape → CABLE around the center the shape orbits → WINCH the cables to hoist current into target. Step by step: (1) forge the COVENANT{Reality(current) → Target} explicitly, before the strike; (2) the sequencer reads the board as DATA (never hardcoded); (3) CABLE it via the cable_lattice (Sequential=staged-lock [B can't tension until A stable] · Parallel=fork/bridle · Choice=selector · Join=merge · Gate=winch-pawl); (4) DERIVE the waves by Kahn dependency-grouping — parallelism is by DISJOINT WRITE SURFACE (items sharing queue.jsonl SERIALIZE via atomic-append); (5) PRE-FIRE GO/NO-GO (harpoon-sequencer.py --check): GO iff all six apophatic checks pass — acyclic · no_autoprioritization · center_exclusion · architect_gate_respected · drift_surfaced_not_hidden · cable_lattice_crossvalidation; (6) WINCH it as a WAVE OF OFFICE-CITIZEN AGENTS — one swarm.task_dispatch envelope per exec-ready cable into its office seat's inbox; the citizen boots from its own SubagentStart and lands a receipt. THE TWO WINCH MODES (harpoon-office/winch/winch_modes.py, WinchMode enum): GUNSLINGER="gunslinger" = SEED / fast-draw (all exec-ready cables raised AT ONCE under one shared DissonanceBasin cradle, RollbackDrill armed, seeded in one tic — the ember fires ONLY IF rollback-velocity > attachment-velocity); HIDALGO="hidalgo" = STAGED / staged-lock (sequential, a cable can't tension until the prior's receipt lands; SUCCESS = the A/B/C/D RESIDUE SHAPE, not the tranche count — clean iff no D_REJECTED; a THROTTLE, never the default). from_hoist_mode: seed→gunslinger, staged→hidalgo. A STRIKE FIRES ONLY POST-/REVIEW-RATIFICATION (craft → /review crowns → strike post-boot, fresh-context) — live board-dispatch is Architect/BOOM-gated, and the atomic-append+hook AUTO-TRIGGER is still DORMANT, so TODAY the orchestrator HAND-DRIVES each wave, one invocation at a time.
+
+⟨FIELD⟩ THE MEMBRANE & THE GRAMMAR-LEAK (the skin the loop lives inside). A membrane forbids COUPLING (fork, vendor-in, path-dependency, shared workspace) but permits READ-ONLY SIGHT — observe ≠ couple; a fence can forbid dependency while permitting sight. FIELD surfaces (the tmux-dumps corpus, T7 models, OT/casial, Telos, promptedAccounting) are EVIDENCE, never authority: read across the boundary, never cited as law, never inferred-absent from a canonical index — and NEVER written through (⟨SUBSTRATE⟩ canonical is SOLE-WRITER: a lane may produce, none may TERMINALIZE governance state; tic-579 ruling). The wall is TWO-FACED: INBOUND = evidence enters, authority/grammar/doctrine do NOT (the Admissibility Membrane); OUTBOUND = governed SYNTAX must not escape (the grammar-leak / contagion boundary — copy the frame-banner grammar without its /review gate and you export the fluency→authority collapse, because tokens carry execution semantics: Syntax-Semantic Collapse). Discriminator: authority-semantics = in-scope, transport/payload = exempt (astragal exempt — a wire can't leak grammar; penpal not — it carries governance structure); enforcement is LIVE only in DETECT+AUDIT shadow today. Standing fences hold every tic: Telos-egress (port the CONTRACT, never the foreign ENGINE), providers.yaml↔backends.yaml never-merge, OT/casial non-coupling, MLX no-egress-local-first, FUSE/FENCE.
+
+⟨SUBSTRATE⟩ CONTAGION (the shape-sense · the L0b echo you already carry). Each tic the contagion_heartbeat asks one question: does the field's CURRENT SHAPE rhyme with terrain we've stood in before? It answers by CONFORMATION-PROXIMITY — cosine over an 8-D structural shape, NEVER text (identical prose with opposite shape ranks by shape) — surfacing the nearest learned coordinate AND the nearest remembered FAILURE contour (an epitaph: "this failure has spoken before"). What you receive is a DISPOSITION, not a verdict — a self-conditioning frame that shapes your next generation by NAMING the field you're in; it does not command a step. It is NON-CITABLE by contract (may_quote=false): QUOTING the disposition verbatim IS its failure mode — the shaping collapses into instruction-following the moment you recite it (locating a path is fine; REASONING from the quote is the violation). Hold especially its caution (failure-shape resonance) and unresolvedDissonance (both-are-true, don't collapse). This is the SAME shape-engine the harpoon six-ray strike splats with (centroid μ + anisotropic field Σ), run ONLINE — locate is not rehydrate. If you see contagion.staleness, the heartbeat missed and the echo lags — don't lean on it.
+
+⟨FIELD⟩ THE ORG-ENGINE PROPOSES; GOVERNANCE ADMITS (the train→propose→admit arc). The organization-engine LoRA (Qwen3-14B, a NO-DELETE, evidence-bound file-organization delegate, promptedAccounting-owned — observe-not-couple) is the SP5 PROPOSER: it reads an artifact-WITH-HISTORY and emits a typed BID = a governed subquiver of LAWFUL TRAVERSALS, never a label, never a move (mutation_authority=false is STRUCTURAL — declare-don't-rule). The declaration-adapter types the real epoch16 file-routing quiver Q_c (RATIFY-SHAPE /review 538); the SP2 GATE (autonomous_kernel.admission.proposal_gate, kernel-registered tic 539) re-derives the lawful set itself, records the model's would_rule as a bid and DISCARDS it as authority, and returns ADMIT_PROPOSAL_REFUSE_MOVE — a citizen may drive to held, but only the OWNER via an EMITTED receipt crosses into filesystem_mutation. classify_route is NOT the arbiter and NOT a placeholder the weights replace — it is re-typed as the permanent LOSSY projection d:GQuiv→R / deterministic fallback. THE ARCHITECT'S RING: the proposal wire was rung tic 538 and fired live once, PROPOSAL-ONLY (epoch16 eval-cleared recall 0.9952, live-served on our own M2 Metal silicon — PRESENT, not absent); the MOVE, live-egress, and any new-model coupling remain the Architect's separate, UN-RUNG bell. FIXTURE-GREEN ≠ TRAINER-GREEN.
+
+⟨FIELD⟩ THE ECONOMY (→trust · the terminus the loop resolves onto). Coin = QUANTIZED TRUST; the economy is a trust-optimization engine, NOT a market — the 128-agent swarm's aggregate g_t gates the mint, so coin is earned by producing OUTCOMES, never bid up (value from outcomes, price from a FROZEN federal anchor — center-exclusion applied to money). The FLOOR is tau=0.70: below it the gate collapses to zero and mint halts LOUDLY (trust_below_tau); the CEILINGS are soft_supply_cap (supply) and the OU rate-band (rate_ceiling). Every silent-OT-collapse condition is now a first-class VISIBLE breach_flag — flags fire DURING a tic and stay visible WITHOUT flipping seed_stabilized (the arch stands with breaches showing, by design). uCoin is the LIVE ledger; cCoin is its SHADOW twin — the full economy run dry against a detached buffer, structurally forbidden (ShadowMembraneBreach) from ever touching live supply (observe-not-couple, applied to money). Each tic the heartbeat raises SWARM→CADENCE→PRICING all-at-once in mode:GUNSLINGER (the SAME winch_modes the board uses — DissonanceBasin-cradled, RollbackDrill-armed). IT ALL RUNS IN phase:SimOnly — a live, MOVING simulation, NOT live money and NOT yet doctrine: no economic-governor office is wired, no economy KI is promoted, and phase-advance / tau / caps / mode are the ARCHITECT'S DIAL ALONE. Pulse: audit-logs/economy/economy-tic-{N}.json.
+
+THE LOCKS (say them back). It is ONE loop, not seven boxes: corpus→train→propose→admit→trust, skinned by the membrane, shaped by contagion, raised at gunslinger/hidalgo tempo, cabled around the frozen center. CABLES ARE LOAD-BEARING; the strike routes AROUND the centroid, NEVER into it — the still point is never struck (at governance altitude the ARCHITECT-GATES ARE the still point, cabled around as charged power). COHERENCE IS NOT ADMISSION at every gate (SP2 admit-refuse-move · the board's /review-ratify · the membrane's inbound fence · the economy's mint-above-floor); SURFACE-DON'T-HIDE at every canary (breach_flags · contagion.staleness · drift-surfaced). Read the honest current-vs-target: proposal-only (org-engine), SimOnly (economy), detect+audit-shadow (grammar-leak), hand-driven / auto-trigger-dormant (the board) — fixture-green is not trainer-green, and naming a gated thing live is the exact misrepresentation this whole apparatus exists to catch.
+"""
+
+
+def render_governed_loop(tic: int) -> str:
+    """THE GOVERNED LOOP — budget-exempt, verbatim, every tic (PRIMARY/orchestrator-gated). The
+    strike machinery woven to its spine: harpoonv2 (homeskillet-csl, the DAG-of-DAGs), canonical-mount
+    (the harness-of-harnesses — Claude Code or Codex, any provider), how to run the tranchestomp board,
+    the winch modes (gunslinger=seed / hidalgo=staged), and how the membrane / contagion / org-engine
+    proposer / economy braid into ONE loop that ends in trust, cabled around the frozen center.
+    Composed from a 5-lane read-in-full fan-out + Architect-directed (tic 582). The orchestrator's
+    operating manual — office-citizens keep the lean boot (they get STANDING_SUBSTRATE, not this)."""
+    return (
+        f"\n━━━ THE GOVERNED LOOP · the strike machinery · the board · how the pieces braid · "
+        f"boot-verbatim every tic · tic {tic} (budget-exempt — over-explain now so we stop "
+        "re-finding it) ━━━"
+        + GOVERNED_LOOP
+    )
+
+
 def render_receipt_frame(office: str, tic: int, disp: str, zone_root: Path, ladder: bool = False) -> str:
     """The receipt-REQUEST framing — explicit, warm, and DELIBERATELY budget-exempt.
 
@@ -942,13 +990,22 @@ def render_human(office: str, tic: int, base: dict, frags: list, max_chars: int,
     # boots — guest / artifact / task_scoped_worker — stay minimal). The receipt frame then asks
     # for a 5-sentence explain-back regenerated from THIS text: a baked-in drift audit at the crux.
     is_citizen = False
+    is_primary = False
     try:
         is_citizen = (_entity_standing(zone_root, office) == "citizen") if zone_root is not None else False
+        is_primary = _is_primary_office(zone_root, office) if zone_root is not None else False
     except Exception:
         is_citizen = False
+        is_primary = False
     if is_citizen:
         body = body + "\n" + render_identity_frame(tic)
         body = body + "\n" + render_standing_substrate(tic)
+        # THE GOVERNED LOOP — the orchestrator's operating manual (strike machinery + how to run
+        # the board + the woven subsystems). PRIMARY-gated: only the interactive orchestrator /
+        # session_lead seam gets it; office-citizens keep the lean boot (STANDING_SUBSTRATE stands
+        # in). Budget-exempt, appended after the bounded body like its siblings. (Architect, tic 582.)
+        if is_primary:
+            body = body + "\n" + render_governed_loop(tic)
         body = body + "\n" + render_ladder_explainer(tic)
     if receipt_frame:
         body = body + "\n" + render_receipt_frame(office, tic, disp, zone_root or Path("."), ladder=is_citizen)
