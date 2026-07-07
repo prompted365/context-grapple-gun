@@ -79,7 +79,11 @@ FLAG_DIR="${TMPDIR:-/tmp}/claude_cgg/$PROJECT_KEY"
 TRIGGER_FILE="$FLAG_DIR/pending-trigger.txt"
 HANDOFF_FILE="$FLAG_DIR/pending-handoff-id.txt"
 PROCESSED_IDS="$HOME/.claude/cgg-processed-handoff-ids.txt"
-META_LOG="$HOME/.claude/grapple-meta-log.jsonl"
+# META_LOG relocated canonical-side (tic 583): the legacy global sink
+# $HOME/.claude/grapple-meta-log.jsonl was a zero-reader write-target whose
+# gate-observability rows are redundant with mogul/mandates/history + cycle-reports.
+# Retired as a write-target (its history preserved in place, NOT deleted — Architect
+# directive). Set below, after AUDIT_LOGS_REL resolves, to the zone-root canonical lane.
 TIMESTAMP=$(date -Iseconds)
 
 # Safe JSONL append wrapper.
@@ -108,6 +112,10 @@ try:
     print(tz.get('audit_logs_path', 'audit-logs'))
 except: print('audit-logs')
 " 2>/dev/null || echo "audit-logs")
+
+# Gate-observability sink (relocated canonical-side tic 583 — see META_LOG note above).
+# Zone-root-anchored per this hook's audit-path convention; created on first append.
+META_LOG="$ZONE_ROOT/$AUDIT_LOGS_REL/services/gate-meta.jsonl"
 
 # ============================================================================
 # Script resolution

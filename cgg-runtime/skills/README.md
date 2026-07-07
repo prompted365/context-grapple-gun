@@ -111,7 +111,7 @@ Everything runs inside Claude Code with zero external dependencies:
 - Signal store: `audit-logs/signals/*.jsonl` (plain files, git-tracked)
 - Tick logic: inline in `/siren` skill
 - Proposals: `~/.claude/grapple-proposals/latest.md`
-- Meta-log: `~/.claude/grapple-meta-log.jsonl`
+- Meta-log: `audit-logs/reviews/YYYY-MM-DD.jsonl` (canonical; legacy `~/.claude/grapple-meta-log.jsonl` retired as a write-target tic 583, history preserved in place)
 - No Docker, no APIs, no running services required
 
 ## Safety

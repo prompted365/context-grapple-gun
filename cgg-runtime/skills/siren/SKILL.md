@@ -417,7 +417,7 @@ Everything runs inside Claude Code with zero external dependencies:
 - Signal store: `audit-logs/signals/*.jsonl` (plain files, git-tracked)
 - Volume projection: v2 manifest-prune engine (`scripts/manifest-prune.py`, fires each Mogul mandate; v1 inline tick retired /review 572)
 - Proposals: `~/.claude/grapple-proposals/latest.md` (existing path)
-- Meta-log: `~/.claude/grapple-meta-log.jsonl` (existing path)
+- Meta-log: `audit-logs/reviews/YYYY-MM-DD.jsonl` (canonical verdict lane; legacy `~/.claude/grapple-meta-log.jsonl` retired as a write-target tic 583, history preserved in place)
 - No Docker, no APIs, no running services required
 
 ## Safety Rules
