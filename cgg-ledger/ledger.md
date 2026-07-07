@@ -341,6 +341,18 @@ Extends two existing feedback discipline notes — *Own Routine Commits/Messages
 
 ---
 
+## Human Gate Presentation Must Match Judgment Granularity
+<a id="human-gate-presentation-must-match-judgment-granularity"></a>
+<!-- ledger-tags: authority_class=review_and_promotion_discipline | rung=domain | domain=context-grapple-gun | dehydrated_tic=314 -->
+
+A human gate's presentation shape must match its judgment granularity: per-item judgment surfaces (review dockets, ratification sets) present as in-tic question sets with strike recommendations, NEVER as a single plan-approval — plan-approval wraps the human's judgment inside the agent's execution framing and inverts the gate (the apply-plan becomes the object of consent instead of the verdicts). Architect-taught live at /review 570; precedent review 522 'Architect-gated [AskUserQuestion approval]'; review SKILL.md Step 6 + 2 residual lines patched same tic (full-file re-read caught the partial patch).
+
+**Composes with**: *Goal-Directive as Ratification Authority* (the goal directive is the higher-altitude gate; this governs the presentation SHAPE of the per-item gate when one is owed), *The Human Gate Compounds via Altitude, Not Removal* (federation ledger — altitude/span is orthogonal to presentation-shape), and the /review SKILL.md Step-6 ratification-question-set discipline it patched.
+
+<!-- promoted from cpr_human_gate_presentation_must_match_judgment_granularity_tic570 (tic 570->581, ratified /review 581 [gate flipped tic 581 "verdicts approved — all"]). Source: audit-logs/governance/borns-tic570-gate-shape-memory-boundary-purpose-first.md. Architect-taught live /review 570; precedent /review 522. Band: COGNITIVE. -->
+
+---
+
 ## Mandate Consumption Discipline
 <a id="mandate-consumption-discipline"></a>
 <!-- ledger-tags: authority_class=mandate_and_cadence_ops | rung=domain | domain=context-grapple-gun | dehydrated_tic=314 -->
@@ -1276,6 +1288,18 @@ A governance gate that admits BOTH a clean primary proof (a valid receipt) AND a
 
 ---
 
+## Actor-Keyed Gates Need Identity Threading for Subagent Tool-Calls
+<a id="actor-keyed-gates-need-identity-threading-for-subagent-toolcalls"></a>
+<!-- ledger-tags: authority_class=verification_and_proof_discipline | rung=domain | domain=context-grapple-gun | dehydrated_tic=314 -->
+
+A physics-layer gate keyed on ACTOR identity (boot receipts, civic receipts, budget ledgers) mis-fires on subagent tool-calls when the harness does not thread the dispatched agent's identity through the tool-call event: the gate resolves the call to the ORCHESTRATOR and evaluates the wrong actor's receipts — blocking legitimate subagent writes (false positive) or, worse, admitting a subagent write on the orchestrator's attestation (false negative, unexercised but structurally open). The audited override is a legitimate escape-hatch for the false-positive arm, but per clean-proof-outranks-escape-hatch it must not become the precedent: the durable fix is identity threading (dispatched-entity tagging on tool-call events) so the gate evaluates the ACTUAL actor. Until threaded, every actor-keyed gate should declare which identity it resolves untagged subagent calls to — an undeclared resolution rule is a silent wrong-actor evaluation.
+
+**Composes with**: *Clean Primary Proof Outranks the Audited Escape-Hatch in Gate Precedence* (the override is the false-positive-arm escape-hatch that must not become precedent) and the boot-read-gate narrow+fail-closed posture.
+
+<!-- promoted from cpr_actor_keyed_gates_need_identity_threading_for_subagent_toolcalls_tic573 (tic 573->581, ratified /review 581 [gate flipped tic 581 "verdicts approved — all"]). Source: tic 573 ent_cpr_stepper (workflow wf_cc535957-5b2) blocked by boot-read-gate.py on queue.jsonl append; resolved via boot-receipt.py override --touched-path audit-logs/cprs/queue.jsonl (receipt a9dc157359b57e88), friction surfaced in return report. LIVE-CONFIRMED tic 580: the harness DOES deliver agent_id/agent_type at SubagentStart — Mogul civil_status_check dispatched ent_civil_engineer citizens recorded in actor-session-map.json by real agent_id, resolving to their own entity; the strongly-evidenced caveat is now confirmed. Band: STRUCTURAL. -->
+
+---
+
 ## A Mutation Gate's Command Classifier Gates the WRITE SIGNAL, Not the Mere Path MENTION
 <a id="mutation-gate-classifier-gates-write-signal-not-path-mention"></a>
 <!-- ledger-tags: authority_class=verification_and_proof_discipline | rung=domain | domain=context-grapple-gun | promoted_tic=409 | first_appearance_tic=407 -->
@@ -2075,6 +2099,7 @@ When a runtime script emits JSON at top-level keys but the skill body documents 
 **Lock line**: *Spec documents what runtime emits, byte-for-byte. Drift means generator-side fix.*
 
 <!-- promoted from cpr_cadence_skill_md_step_0_5_parser_path_drift_tic264 (/review tic 267). Cross-tic n=1 incident (tic 264) + cross-tic n=1 fix validation (tic 267). ABSORB-class child: cpr_parser_path_drift_fix_validated_cross_tic_n1_tic267 (the validation evidence). Composes with federation KIs Governance Tool Urgency Triage, Spec-runtime-alignment-by-accident, sibling Generator-vs-Local-Repair Gap. Band: COGNITIVE. Source: cadence handoff tic 264 + fix CGG e2f5d18 + validation tic 267. -->
+<!-- refinement edge from cpr_reread_the_artifact_not_the_mutating_command_tic579 (tic 579 → /review 580, ratified /review 581, REFINE-into-cadence-skill-parser-path-drift, Architect-gated [gate flipped tic 581 "verdicts approved — all"]). Source: audit-logs/governance/borns-tic579-mutating-emitter-reinvoke-phantom.md. The output-truncation trigger ray on the same phantom-tic centroid: when a state-MUTATING command's output is truncated/incompletely captured, RE-READ THE ARTIFACT IT WROTE — never RE-INVOKE THE COMMAND. A command that both mutates canonical state AND returns a report (tic emitter, mandate writer, -latest sequencer) is unsafe to run twice per cadence "to get its output again": the second run re-fires the mutation and emits a phantom (here a second counted tic advancing the canonical count past the session's real work-tic — the tic-579 phantom 580→581). Same centroid as the parent (a mutating emitter run >once per cadence emits a phantom); different trigger (parser walks None and re-invokes [parent] vs operator re-invokes to re-read a tail-truncated output [this ray]). Shared cure: single-invocation discipline + capture-once-to-file + read the durable artifact (tic log / current.json / conformation) if the capture was lost. Composes Cadence Downbeat Enforcement. Physics-layer complement (candidate, NOT built this tic — bk-cadence-ops-idempotency-guard): cadence-ops.py rejects a second counted emission within the same session/second; the read-side discipline alone is a perception-layer guard that fires after the second mutation already ran. Derivable-from-parent (NOT net-new). Band: COGNITIVE. signer ent_homeskillet-c48 (claude-opus-4-8). -->
 
 ---
 
