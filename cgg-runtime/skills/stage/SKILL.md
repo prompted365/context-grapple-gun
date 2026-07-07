@@ -338,6 +338,20 @@ Append completed arena to `audit-logs/arenas/registry.jsonl`:
 }
 ```
 
+**Index-currency gate (scope-time — gate on the call-site).** After the
+`registry.jsonl` append, run `python3 audit-logs/arenas/arena-index-audit.py
+check`. This is the emitter-side pairing for the tic-404 register-in-place index:
+a new registry entry that never lands in `FEDERATION-ARENA-INDEX.md` is exactly
+the staleness the checker enforces (the KI's own "runs at scope-time, not only
+build-time" refinement). A stale result (exit 2) **blocks flipping arena
+`status: live → completed`** until the index row lands — run `arena-index-audit.py
+render` (regenerates the derived spec↔report table between the `<!-- arena-index:
+derived:start/end -->` sentinels, adding the new arena as `UNCLASSIFIED
+(curate)`), curate its `level`, then re-run `check` to exit 0. The checker emits
+`sig_arena_index_stale` on staleness and resolves it on heal (emit/resolve
+symmetry), so an un-indexed arena is a live triage obligation read by
+session-start / /siren, never a silent written-never-read gap.
+
 ## Post-Processing: Arena Report Pipeline
 
 After Step 10 (Report), optionally generate an archivist-envelope HTML report:
@@ -366,7 +380,7 @@ The report pipeline is archivist-envelope-compliant:
 5. **No skipping phases — and no SILENT phase fusion** — the phase sequence (context → defense → rebuttal → synthesis → pressure-extraction; OA-VPL-T's 0a/0b → brackets → paired → wildcard → synthesis → temporal → conformation → pressure) is the contract. For prose-only templates (OA-VPL-T, VPL, CRX — no `tasks.yaml` DAG), **nothing mechanically blocks a LEAD from fusing or skipping phases**, so the discipline is on the LEAD and must be made visible: any compression (phase fusion, rebuttal skip, fewer rounds, wildcard-instead-of-rebuttal) is a **DECLARED exception** — recorded in the spec under a `compression:` block AND in the pressure-report under `compression_applied` (naming which phases were fused/skipped and why). **Silent compression is a breach of this skill's contract.** A skipped rebuttal phase means convergence is **unrebutted** → tag the pressure-report `false_convergence_risk: unrebutted` (per Arena Velocity Guard: convergence faster than evidence accumulation is a hypothesis set, not a decision set).
 6. **Lead stays neutral** — orchestrator, not advocate
 7. **Synthesis waits for all rebuttals** — dependency gating
-8. **Pressure extraction is mandatory AND record-complete — arena incomplete without it** — the arena is not `completed` until the **record set exists ON DISK**: per-phase advocate outputs under `stage/shows/<id>/` (one file per phase per actor), `synthesis.md`, the pressure-report JSON at `pressure_report_path`, and a `registry.jsonl` append. **In-context relay of findings by the LEAD is NOT a substitute for written records** (per Manual-Ceremony-as-Pipeline-Substitute Discipline: a manual ceremony standing in for a pipeline must complete the pipeline's FULL output contract — here, the record trail). The LEAD verifies the files exist before flipping `status: live → completed`; a run with findings-but-no-records is `compressed`, not `completed`.
+8. **Pressure extraction is mandatory AND record-complete — arena incomplete without it** — the arena is not `completed` until the **record set exists ON DISK**: per-phase advocate outputs under `stage/shows/<id>/` (one file per phase per actor), `synthesis.md`, the pressure-report JSON at `pressure_report_path`, and a `registry.jsonl` append. **In-context relay of findings by the LEAD is NOT a substitute for written records** (per Manual-Ceremony-as-Pipeline-Substitute Discipline: a manual ceremony standing in for a pipeline must complete the pipeline's FULL output contract — here, the record trail). The LEAD verifies the files exist before flipping `status: live → completed`; a run with findings-but-no-records is `compressed`, not `completed`. The LEAD also runs `arena-index-audit.py check` after the `registry.jsonl` append — a stale index (exit 2) blocks the `live → completed` flip until the arena's row lands in `FEDERATION-ARENA-INDEX.md` (see Arena Registry § index-currency gate).
 9. **Governance mutation is human-gated** — all routing to `/review`, no auto-update to CLAUDE.md
 10. **Convergent discoveries are high-confidence signal** — independently discovered by opposed agents
 11. **Experimental mode blocks subject lessons** — only process/meta lessons route to governance
