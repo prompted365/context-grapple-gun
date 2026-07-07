@@ -240,9 +240,131 @@ def _born_write_target_tic(tool: str, file_path: str, command: str) -> int | Non
     return None
 
 
+# ── acting-entity resolution (tic 579 · bk-identity-threading-subagent-toolcalls) ──
+# THE FOOTGUN this closes: the pre-tic-579 `_entity` read ONLY `agent_id` and required it to
+# be `ent_`-prefixed, else defaulted to the session lead. But the harness delivers the RAW
+# spawn identity on a subagent-fired PreToolUse (agent_id like "agent_cadence_789",
+# agent_type like "cpr-stepper") — NEVER an `ent_`-prefixed id — so every dispatched CITIZEN's
+# governed mutation resolved to `ent_homeskillet`, forcing an audited override (t578) or a
+# receipt that satisfied the LEAD's key (t579). The fix THREADS the acting entity: resolve the
+# citizen through the SubagentStart-recorded session map FIRST (subagent-citizen-boot.py), then
+# via direct payload resolution (the same registry map continuity-adapter.py already uses), and
+# only fall back to the lead default when nothing resolves. The gate still blocks the same
+# perception-debt mutations — it just checks the CORRECT entity's receipt. Fail-soft throughout:
+# a missing/corrupt map or registry degrades to today's lead-default, never wedges the gate.
+
+_ACTOR_MAP_ENVVAR = "CGG_ACTOR_SESSION_MAP"  # test-isolation override for the map path
+
+
+def _actor_map_path() -> Path:
+    """Resolve audit-logs/hooks/actor-session-map.json across source + installed layouts.
+    An env override (CGG_ACTOR_SESSION_MAP) wins for test isolation."""
+    env = os.environ.get(_ACTOR_MAP_ENVVAR)
+    if env:
+        return Path(env)
+    cands = [
+        _HOOKS.parents[3] / "audit-logs" / "hooks" / "actor-session-map.json",
+        Path("/Users/breydentaylor/canonical/audit-logs/hooks/actor-session-map.json"),
+    ]
+    for c in cands:
+        if c.parent.is_dir():
+            return c
+    return cands[-1]
+
+
+def _valid_entities() -> set:
+    """Registered entity-id set from the actor registry (fail-soft to empty)."""
+    for cand in (
+        _HOOKS.parents[3] / "autonomous_kernel" / "actor-registry.json",
+        Path("/Users/breydentaylor/canonical/autonomous_kernel/actor-registry.json"),
+    ):
+        try:
+            data = json.loads(cand.read_text(encoding="utf-8"))
+        except Exception:
+            continue
+        actors = data.get("actors", data) if isinstance(data, dict) else data
+        out = set()
+        for a in (actors if isinstance(actors, list) else []):
+            if isinstance(a, dict):
+                eid = a.get("entity_id") or a.get("id")
+                if eid:
+                    out.add(eid)
+        if out:
+            return out
+    return set()
+
+
+def _resolve_from_payload(agent_id: str, agent_type: str, registered: set) -> str | None:
+    """Direct payload → registered entity (mirrors subagent-citizen-boot.resolve_entity /
+    continuity-adapter.resolve_entity): agent_id if already a registered ent_*, else
+    ent_<agent_id> / ent_<agent_type> (hyphens→underscores). None if no registry hit."""
+    cands = []
+    if agent_id:
+        cands.append(agent_id)
+        if not agent_id.startswith("ent_"):
+            cands.append("ent_" + agent_id.replace("-", "_"))
+    if agent_type:
+        cands.append("ent_" + agent_type.replace("-", "_"))
+    for c in cands:
+        if c in registered:
+            return c
+    return None
+
+
+def _resolve_from_map(agent_id: str, session_id: str, agent_type: str,
+                      map_path: Path | None = None) -> str | None:
+    """The SubagentStart-recorded acting entity, looked up by the spawn-specific agent_id
+    first, then by the (session_id||agent_type) composite. session_id ALONE is never a key
+    (it is shared across sibling subagents + the lead). Fail-soft to None."""
+    p = Path(map_path) if map_path is not None else _actor_map_path()
+    try:
+        state = json.loads(p.read_text(encoding="utf-8"))
+    except Exception:
+        return None
+    if not isinstance(state, dict):
+        return None
+    if agent_id:
+        e = (state.get("by_agent_id") or {}).get(str(agent_id))
+        if isinstance(e, dict) and e.get("entity"):
+            return e["entity"]
+    if session_id and agent_type:
+        e = (state.get("by_session_type") or {}).get(f"{session_id}||{agent_type}")
+        if isinstance(e, dict) and e.get("entity"):
+            return e["entity"]
+    return None
+
+
 def _entity(evt: dict) -> str:
-    aid = evt.get("agent_id") or ""
-    return aid if aid.startswith("ent_") else "ent_homeskillet"
+    """Resolve the ACTING entity for actor-keyed gating (tic 579). Precedence, per the
+    build authorization: SubagentStart map FIRST, then direct payload resolution, then the
+    lead default — clean-proof-first ordering with the audited override untouched downstream."""
+    agent_id = evt.get("agent_id") or evt.get("agentId") or ""
+    agent_type = (
+        evt.get("agent_type") or evt.get("agentType")
+        or evt.get("subagent_type") or evt.get("subagentType") or ""
+    )
+    session_id = evt.get("session_id") or evt.get("sessionId") or ""
+    # LEAD / orchestrator: NO per-spawn discriminator → the session lead. The session_id is
+    # SHARED across sibling subagents + the lead, so it is never a resolution key on its own;
+    # without agent_id/agent_type there is no subagent to thread. This guard is what keeps the
+    # map-first ordering from ever mis-resolving the lead onto a sibling's mapping.
+    if not agent_id and not agent_type:
+        return "ent_homeskillet"
+    # (1) durable SubagentStart mapping FIRST — the acting entity the boot seam recorded.
+    mapped = _resolve_from_map(str(agent_id), str(session_id), str(agent_type))
+    if mapped:
+        return mapped
+    # (2) direct payload resolution — agrees with the map by construction; the fail-soft net
+    #     for a boot whose map write was lost but whose payload still resolves to a citizen.
+    direct = _resolve_from_payload(str(agent_id), str(agent_type), _valid_entities())
+    if direct:
+        return direct
+    # (2.5) legacy trust — an explicitly ent_*-prefixed agent_id is honored as-is even when
+    #       registry + map are both unavailable (preserves exact pre-tic-579 behavior).
+    if str(agent_id).startswith("ent_"):
+        return str(agent_id)
+    # (3) lead default — task_scoped_worker / unregistered / unresolved: lead-owned outputs.
+    return "ent_homeskillet"
 
 
 def decide(raw: str) -> tuple:
@@ -426,6 +548,54 @@ def _self_test() -> int:
           _born_write_target_tic("Edit", "audit-logs/governance/constitution-ledger/ledger.md", "") is None)
     check("Write a non-born source file → no work-tic re-key",
           _born_write_target_tic("Write", "src/x.rs", "") is None)
+
+    # acting-entity resolution — tic 579 (bk-identity-threading-subagent-toolcalls).
+    # THE FIX: a dispatched citizen's tool call resolves the CITIZEN, not the session lead.
+    import tempfile
+    reg_stub = {"ent_cpr_stepper", "ent_ripple_assessor", "ent_homeskillet"}
+    # direct payload resolution (registry-map, mirrors continuity-adapter/subagent-citizen-boot)
+    check("payload resolve: agent_type 'cpr-stepper' → ent_cpr_stepper",
+          _resolve_from_payload("agent_stepper_1", "cpr-stepper", reg_stub) == "ent_cpr_stepper")
+    check("payload resolve: already-registered ent_* agent_id → itself",
+          _resolve_from_payload("ent_ripple_assessor", "", reg_stub) == "ent_ripple_assessor")
+    check("payload resolve: unregistered worker type 'general-purpose' → None",
+          _resolve_from_payload("agent_x_9", "general-purpose", reg_stub) is None)
+    check("payload resolve: raw spawn id, no agent_type → None (the exact t578/t579 footgun input)",
+          _resolve_from_payload("agent_cadence_789", "", reg_stub) is None)
+    with tempfile.TemporaryDirectory() as td:
+        mp = Path(td) / "actor-session-map.json"
+        mp.write_text(json.dumps({
+            "by_agent_id": {"agent_stepper_1": {"entity": "ent_cpr_stepper"}},
+            "by_session_type": {"sess-XYZ||cpr-stepper": {"entity": "ent_cpr_stepper"}},
+        }), encoding="utf-8")
+        # map lookup by agent_id and by (session||type); miss → None
+        check("map resolve: by agent_id → ent_cpr_stepper",
+              _resolve_from_map("agent_stepper_1", "", "", map_path=mp) == "ent_cpr_stepper")
+        check("map resolve: by (session_id||agent_type) → ent_cpr_stepper",
+              _resolve_from_map("", "sess-XYZ", "cpr-stepper", map_path=mp) == "ent_cpr_stepper")
+        check("map resolve: session_id ALONE is never a key (shared) → None",
+              _resolve_from_map("", "sess-XYZ", "", map_path=mp) is None)
+        check("map resolve: unknown agent_id → None",
+              _resolve_from_map("agent_unknown", "", "", map_path=mp) is None)
+        # _entity end-to-end via the env-pointed map (test-isolation)
+        _prev = os.environ.get(_ACTOR_MAP_ENVVAR)
+        os.environ[_ACTOR_MAP_ENVVAR] = str(mp)
+        try:
+            check("_entity DORMANCY: lead session (empty agent_id/type) → ent_homeskillet (today's behavior)",
+                  _entity({"session_id": "sess-XYZ"}) == "ent_homeskillet")
+            check("_entity ACTIVATION: dispatched citizen via map → ent_cpr_stepper (NOT the lead)",
+                  _entity({"agent_id": "agent_stepper_1", "session_id": "sess-XYZ"}) == "ent_cpr_stepper")
+            check("_entity: citizen via direct payload (agent_type, map miss) → ent_cpr_stepper",
+                  _entity({"agent_id": "agent_new_2", "agent_type": "cpr-stepper",
+                           "session_id": "sess-OTHER"}) == "ent_cpr_stepper")
+            check("_entity: task_scoped_worker (general-purpose, no map) → ent_homeskillet (lead-owned)",
+                  _entity({"agent_id": "agent_w_3", "agent_type": "general-purpose",
+                           "session_id": "sess-W"}) == "ent_homeskillet")
+        finally:
+            if _prev is None:
+                os.environ.pop(_ACTOR_MAP_ENVVAR, None)
+            else:
+                os.environ[_ACTOR_MAP_ENVVAR] = _prev
 
     print()
     if failures:

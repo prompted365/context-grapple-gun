@@ -42,6 +42,7 @@ Federation KI compose:
   - Cognitive budgets must be task-routed — silent-when-empty + dedup-on-unchanged.
 """
 
+import datetime
 import hashlib
 import json
 import os
@@ -297,6 +298,68 @@ def already_seen(zone_root: Path, session_id: str, entity: str, brief: str) -> b
     return False
 
 
+# ── acting-entity threading (tic 579 · bk-identity-threading-subagent-toolcalls) ──
+# SubagentStart is the ONLY per-spawn seam that knows BOTH the harness spawn identifiers
+# (agent_id / agent_type / session_id) AND the RESOLVED registered entity. Record that
+# mapping so an actor-keyed PreToolUse gate (boot-read-gate.py) can resolve the ACTING
+# CITIZEN — instead of silently defaulting a dispatched citizen's governed mutation to the
+# session lead (the t578 override / t579 receipt-under-lead's-key friction this closes).
+#
+# KEYING — session_id ALONE is NEVER a key: it is SHARED across sibling subagents AND the
+# lead (proven in citizen-boot-seen.json — one session_id pairs with multiple entities), so
+# a session-keyed map would mis-resolve the lead. We key by BOTH the spawn-specific agent_id
+# AND a (session_id||agent_type) composite. Only CITIZEN standings are recorded; a
+# task_scoped_worker and the lead correctly resolve to the lead default (their outputs are
+# lead-owned — the gate SHOULD check the lead's receipt for them).
+#
+# WRITE — atomic-replace of a dict (mirrors already_seen in this same file), fail-soft: a
+# lost / corrupt / absent map degrades the gate to today's lead-default behavior, it NEVER
+# breaks a boot. Each bucket is bounded (newest-by-ts) so the map cannot grow without limit.
+_ACTOR_MAP_BUCKET_CAP = 256
+
+
+def record_actor_session_map(
+    zone_root: Path, session_id: str, agent_id: str, agent_type: str, entity: str, tic: int
+) -> None:
+    """Thread the acting citizen through the dispatch surface. CITIZEN-only, fail-soft."""
+    if not entity:
+        return
+    map_path = zone_root / "audit-logs" / "hooks" / "actor-session-map.json"
+    entry = {
+        "entity": entity,
+        "session_id": session_id,
+        "agent_type": agent_type,
+        "agent_id": agent_id,
+        "tic": tic,
+        "ts": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+    }
+    try:
+        state = json.loads(map_path.read_text(encoding="utf-8"))
+        if not isinstance(state, dict):
+            state = {}
+    except (OSError, ValueError):
+        state = {}
+    by_agent = state.setdefault("by_agent_id", {})
+    by_session_type = state.setdefault("by_session_type", {})
+    if agent_id:
+        by_agent[str(agent_id)] = entry
+    if session_id and agent_type:
+        by_session_type[f"{session_id}||{agent_type}"] = entry
+    # Bound each bucket: keep the newest _ACTOR_MAP_BUCKET_CAP by timestamp.
+    for name in ("by_agent_id", "by_session_type"):
+        bucket = state.get(name, {})
+        if len(bucket) > _ACTOR_MAP_BUCKET_CAP:
+            newest = sorted(bucket.items(), key=lambda kv: kv[1].get("ts", ""), reverse=True)
+            state[name] = dict(newest[:_ACTOR_MAP_BUCKET_CAP])
+    try:
+        map_path.parent.mkdir(parents=True, exist_ok=True)
+        tmp = map_path.with_suffix(".json.tmp")
+        tmp.write_text(json.dumps(state, indent=2), encoding="utf-8")
+        os.replace(tmp, map_path)
+    except OSError:
+        pass  # map is best-effort; a lost write degrades to lead-default, never blocks boot
+
+
 def main() -> int:
     if wire_cut_active():
         return 0  # kill-switch armed — boot is cut
@@ -328,6 +391,15 @@ def main() -> int:
         return 0
     registered = valid_entities(zone_root)
     standing, entity = classify_standing(str(agent_id), str(agent_type), registered)
+
+    # Thread the acting citizen through the dispatch surface (tic 579) BEFORE any render
+    # that could fail — so an actor-keyed PreToolUse gate resolves this citizen, not the
+    # lead. Only citizen standings are recorded (workers/lead resolve to the lead default).
+    if standing == "citizen" and entity:
+        record_actor_session_map(
+            zone_root, str(session_id), str(agent_id), str(agent_type),
+            entity, current_tic(zone_root),
+        )
 
     if standing == "unresolved_standing":
         # A citizen-shaped id that did not resolve. Refuse boot — never silently downgrade
