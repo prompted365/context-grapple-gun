@@ -234,6 +234,19 @@ Candidates surfaced by **Mogul cycles** take a different lane: the backend emits
 `candidate_cogprs` in its cycle report and the runner ingests them canonical-side via
 `cogpr-ingest.py` (sole-writer gate) — do not hand-author those as borns.
 
+**Reachability verify — MANDATORY dry-run before the handoff claims anything (n=5 recurrence; /review 584).**
+After authoring the born block, run `cpr-extract --dry-run` and confirm the new `cpr_<id>` appears
+in `blocks_extracted` *before* the handoff (or its `<!-- cgg-evaluate --> pending_cprs_expected`)
+asserts the born extracts. **Form-resemblance is not reachability**: a born can look schema-correct
+and still be dark at birth (lesson/source living as prose outside the block, block-scalar body loss,
+a missing `status`/`lesson` field). "Extracts at boot" said of an un-dry-run emission is an
+*unverified generated-output claim*, not a fact. This is the un-landed cure for one recurring quiver —
+tic-224 (closed-form markers, 6 lost) / 263 (missing status) / 275 (missing lesson) / 484 (block-scalar
+body loss) / 553 (lesson-outside-block) each landed a point-fix or a louder skip diagnostic (detection
+*after* the damage — the perception-layer-guard shape); the `--dry-run` reachability check is already
+shipped in the tool, this step just mandates invoking it.
+<!-- landed-from cpr_born_authoring_requires_dryrun_reachability_verify_tic554 (PROMOTE at /review tic 584, Architect-ratified "approve as recommended"; n=5 cross-tic recurrence; cure already shipped in cpr-extract --dry-run; Case-2 wire-the-rehydration-at-the-locus). Band: COGNITIVE. Domain rung: CGG cadence skill. -->
+
 Include birth context when available:
 - `posture`: current session posture (e.g., "ENG/DIRECT", "OPS/META")
 - `cwd_context`: working directory relative to project root
