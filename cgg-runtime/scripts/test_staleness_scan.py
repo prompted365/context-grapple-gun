@@ -22,6 +22,7 @@ import importlib.util
 import os
 import tempfile
 import unittest
+from unittest import mock
 from pathlib import Path
 
 _HERE = os.path.dirname(os.path.abspath(__file__))
@@ -206,7 +207,11 @@ class TestPersistenceResidue(unittest.TestCase):
 
     def test_dormant_writes_nothing_and_plans(self):
         before = self._signal_files()
-        res = la.persist_staleness_candidates(self.root, self._scan(), opened_tic=509)
+        # M2_STALENESS_PERSISTENCE_RATIFIED flipped True at /review tic-513; this case
+        # proves the DORMANT branch (still a live code path under build-and-gate), so
+        # force the flag False rather than depend on the now-ratified module constant.
+        with mock.patch.object(la, "M2_STALENESS_PERSISTENCE_RATIFIED", False):
+            res = la.persist_staleness_candidates(self.root, self._scan(), opened_tic=509)
         self.assertFalse(res["ratified"])
         self.assertFalse(res["ran"])
         self.assertEqual(self._signal_files(), before)  # build-and-gate dormancy: no write
@@ -280,7 +285,10 @@ class TestCadenceAutoFire(unittest.TestCase):
                          / "m2-staleness-candidates-latest.json")
 
     def test_dormant_no_op_writes_no_artifact(self):
-        res = self.co.run_m2_staleness_cadence_step(self.root, 510)  # 510 % 5 == 0, due
+        # M2_STALENESS_CADENCE_RATIFIED flipped True at /review tic-513; force it False
+        # to prove the DORMANT gate branch (still live under build-and-gate), not the schedule.
+        with mock.patch.object(self.co, "M2_STALENESS_CADENCE_RATIFIED", False):
+            res = self.co.run_m2_staleness_cadence_step(self.root, 510)  # 510 % 5 == 0, due
         self.assertFalse(res["ratified"])
         self.assertFalse(res["ran"])
         self.assertTrue(res["due"])  # due but dormant — proves the gate, not the schedule
