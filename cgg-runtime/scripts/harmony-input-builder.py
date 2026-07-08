@@ -27,12 +27,14 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import importlib.util
 import json
 import math
 import os
 import pathlib
 import subprocess
 import sys
+import tempfile
 import time
 from typing import Any
 
@@ -85,6 +87,25 @@ TOP_SUBSYSTEMS = 12   # match fixture cardinality
 RTCH_PACKET_LIMIT = 12         # cap of fresh packets ingested per build (prevents flood)
 RTCH_STUB_LIMIT = 24           # cap of historical_packet_stub entries surfaced per build
 RTCH_DEFAULT_TTL_TICS = 30     # fallback if packet lacks ttl_tics field
+
+# ── Wisdom-First JOIN (Build-and-Gate, tic 588→589) ──────────────────────────
+# The load-bearing harmony stance can be DERIVED from the current conformation
+# SHAPE (the ContagionMatch shape-NN kernel) fused with the braid wisdom/caution
+# mass + route + trajectory, instead of the legacy 8-entry keyword dict. The
+# WHOLE derivation is gated behind a `ratified` flag carried IN the input
+# envelope (the model). DEFAULT false → no wisdomStance emitted → the engine's
+# `?? stanceFor` fallback fires → byte-identical to today. A future /review
+# flips exactly one bit (`ratified` in the flag file); no further code change
+# (CGG KI Build-and-Gate — Wired-but-Ratification-Gated Consumer, tic 429→430).
+WISDOM_FIRST_FLAG_FILE = (
+    REPO_ROOT / "autonomous_kernel" / "harmony_engine_v0" / "wisdom_first_ratified.json"
+)
+CONTAGION_ENGINE = (
+    REPO_ROOT / "autonomous_kernel" / "contagion_match_v0" / "runtime" / "contagion-engine.mjs"
+)
+CONTAGION_INPUT_BUILDER = (
+    pathlib.Path(__file__).resolve().parent / "contagion-input-builder.py"
+)
 
 
 def read_json(path: pathlib.Path) -> Any:
@@ -555,6 +576,202 @@ def build_chunks_from_braid(braid_packet: dict[str, Any]) -> list[dict[str, Any]
     return chunks
 
 
+# ── Wisdom-First JOIN — the ContagionMatch shape-NN ⊗ braid stance derivation ──
+#
+# This is the net-new of the JOIN (spec: audit-logs/governance/
+# review-packet-wisdom-first-join-tic588.md §2). It fuses the ContagionMatch
+# conformation-proximity `nearest[]` result with the braid wisdom/caution mass +
+# route + trajectory ALREADY on the envelope, and emits a DERIVED stance. The
+# derivation reaches ACROSS no governance boundary: it READS the conformation +
+# learned coordinates + braid, and WRITES only the harmony input envelope (this
+# builder's own surface), exactly as today. The ContagionMatch kernel is invoked
+# via the SAME cross-rung node seam contagion-invoke.sh uses — no fabricated API.
+
+
+def wisdom_first_ratified() -> bool:
+    """Read the Build-and-Gate ratification bit for the wisdom-first JOIN.
+
+    Priority: env override (proof/testing) → flag file → default False.
+    DEFAULT False is the DORMANT state: no wisdomStance is emitted and the
+    harmony engine's `?? stanceFor` fallback fires → byte-identical to today.
+    The future /review flips exactly ONE bit: `ratified` in the flag file.
+    """
+    env = os.environ.get("CGG_WISDOM_FIRST_RATIFIED")
+    if env is not None:
+        return env.strip().lower() in ("1", "true", "yes", "on")
+    try:
+        return bool(read_json(WISDOM_FIRST_FLAG_FILE).get("ratified", False))
+    except Exception:
+        return False
+
+
+def _load_contagion_projection() -> Any:
+    """Load the SIBLING contagion-input-builder.py as a module (importlib) so the
+    JOIN reuses its REAL fence-#2 shape-projection helpers (conformation_shape,
+    load_learned_coordinates, load_epitaph_shapes) — the SAME shared structural
+    dimension schema the ContagionMatch kernel matches against. No API is
+    fabricated; the projection is the sibling builder's own, imported by path.
+    Returns the module, or None (fail-soft) if it cannot be loaded.
+    """
+    try:
+        spec = importlib.util.spec_from_file_location(
+            "contagion_input_builder", CONTAGION_INPUT_BUILDER
+        )
+        mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mod)
+        return mod
+    except Exception as exc:  # fail-soft — the JOIN degrades to legacy stanceFor
+        print(f"⚠ harmony wisdom-first: could not load contagion projection ({exc})",
+              file=sys.stderr)
+        return None
+
+
+def run_contagion_match(conf: dict[str, Any], tic: int, posture: str,
+                        coords: list[dict[str, Any]] | None = None,
+                        epis: list[dict[str, Any]] | None = None) -> dict[str, Any] | None:
+    """Invoke the REAL ContagionMatch kernel (autonomous_kernel.contagion.match)
+    over the current conformation shape, via the SAME cross-rung node seam
+    contagion-invoke.sh uses (`node --input-type=module -e import {runContagionEngine}`).
+
+    Returns the parsed contagion.match.disposition packet (nearest[], meaningState,
+    nearest_epitaph, disposition), or None fail-soft. The contagion input is built
+    IN-MEMORY from the sibling builder's projection helpers and passed through an
+    EPHEMERAL temp file — the harmony JOIN writes ONLY its own input-tic-N.json
+    surface; it never writes the contagion lane's audit surface. `coords`/`epis`
+    overrides exist for hermetic proof fixtures.
+    """
+    cib = _load_contagion_projection()
+    if cib is None:
+        return None
+    if not CONTAGION_ENGINE.exists():
+        print(f"⚠ harmony wisdom-first: contagion engine absent at {CONTAGION_ENGINE}",
+              file=sys.stderr)
+        return None
+    try:
+        cur_vec, provenance = cib.conformation_shape(conf)
+        if coords is None:
+            coords, _ = cib.load_learned_coordinates()
+        if epis is None:
+            epis = cib.load_epitaph_shapes()
+        contagion_input = {
+            "type": "contagion.match.input",
+            "tic": tic,
+            "office": "ent_homeskillet",
+            "posture": posture,
+            "geometry": "conformation",
+            "currentShape": cur_vec,
+            "shapeProvenance": provenance,
+            "learnedCoordinates": coords,
+            "epitaphProfiles": epis,
+            "receiverRegister": {
+                "posture": posture,
+                "toleranceForDissonance": 0.5 if "DIRECT" in (posture or "") else 0.7,
+            },
+            "packetSeed": f"{tic}:harmony-wisdom-first-join",
+        }
+        tmp_in = None
+        try:
+            with tempfile.NamedTemporaryFile("w", suffix=".json", delete=False) as tf:
+                json.dump(contagion_input, tf)
+                tmp_in = tf.name
+            node_src = (
+                f"import {{ runContagionEngine }} from '{CONTAGION_ENGINE}';"
+                "import { readFileSync } from 'node:fs';"
+                f"const input = JSON.parse(readFileSync('{tmp_in}','utf8'));"
+                "process.stdout.write(JSON.stringify(runContagionEngine(input)));"
+            )
+            result = subprocess.run(
+                ["node", "--input-type=module", "-e", node_src],
+                capture_output=True, text=True, timeout=30,
+            )
+            if result.returncode != 0:
+                print(
+                    "⚠ harmony wisdom-first: contagion node invocation failed "
+                    f"rc={result.returncode}: {result.stderr.strip()[:200]}",
+                    file=sys.stderr,
+                )
+                return None
+            return json.loads(result.stdout)
+        finally:
+            if tmp_in:
+                try:
+                    os.unlink(tmp_in)
+                except OSError:
+                    pass
+    except Exception as exc:  # fail-soft — degrade to legacy stanceFor
+        print(f"⚠ harmony wisdom-first: contagion invocation errored ({exc})",
+              file=sys.stderr)
+        return None
+
+
+# The derived wisdom-stance vocabulary is DELIBERATELY disjoint from the legacy
+# 8-entry stanceFor dict (carry-forward-with-light-touch / hold-open-* /
+# repair-before-lock / …) so an ACTIVATED stance is unambiguously shape-derived,
+# not a dict echo. Each cell fuses the ContagionMatch shape-state (nearest[]) with
+# the braid archetype-field regime; two escalations fold in the traversal +
+# trajectory/epitaph legs (§2 names all four fusion signals).
+_WISDOM_STANCE_BASE = {
+    ("anchored", "wisdom"):   "carry-forward-on-known-ground",
+    ("anchored", "caution"):  "proceed-on-known-ground-honor-the-caution",
+    ("resonant", "wisdom"):   "lean-on-the-rhyme-advance-deliberately",
+    ("resonant", "caution"):  "hold-the-familiar-contour-under-strain",
+    ("tensioned", "wisdom"):  "work-the-tension-toward-repair",
+    ("tensioned", "caution"): "name-the-strain-before-the-barrier",
+    ("off-field", "wisdom"):  "chart-new-ground-carry-the-wisdom",
+    ("off-field", "caution"): "hold-open-no-anchor-defer-the-lock",
+}
+
+
+def derive_wisdom_stance(contagion_disp: dict[str, Any] | None,
+                         braid_packet: dict[str, Any] | None) -> str | None:
+    """Fuse the ContagionMatch shape-NN result with the braid archetype-field into
+    a derived, shape-conditioned stance. Returns a stance string, or None
+    (fail-soft — caller omits wisdomStance so the legacy dict fallback fires).
+
+    Deterministic. Fuses the four already-present signals (spec §2):
+      • ContagionMatch meaningState — nearest[0] interval band (the shape-NN)
+      • braid wisdom_mass vs caution_mass — archetype-field regime
+      • braid route_advisory — traversal physics (near_ponr escalation)
+      • braid trajectory + contagion nearest_epitaph — failure/strain escalation
+    Precedence: near_ponr (traversal) > strain (trajectory/epitaph) > base cell.
+    """
+    if not contagion_disp:
+        return None
+    nearest = contagion_disp.get("nearest") or []
+    if not nearest:
+        # Off the learned field entirely — no shape anchor to derive from; the
+        # honest move is to defer to the legacy dict (return None).
+        return None
+    meaning_state = contagion_disp.get("meaningState") or "off-field"
+
+    af = (braid_packet or {}).get("archetype_field") or {}
+    wisdom_mass = float(af.get("wisdom_mass") or 0.0)
+    caution_mass = float(af.get("caution_mass") or 0.0)
+    regime = "wisdom" if wisdom_mass > caution_mass else "caution"
+
+    tp = (braid_packet or {}).get("traversal_physics") or {}
+    route = str(tp.get("route_advisory") or "unknown")
+
+    traj = (braid_packet or {}).get("trajectory") or {}
+    jerk = list(traj.get("jerk_flags") or [])
+    trust_d1 = ((traj.get("tick_scale") or {}).get("trust") or {}).get("d1")
+    trust_falling = isinstance(trust_d1, (int, float)) and trust_d1 < 0
+
+    epitaph = contagion_disp.get("nearest_epitaph") or {}
+    failure_pressure = float(epitaph.get("proximity") or 0.0)
+
+    # traversal-leg escalation: at the point of no return, name the boundary.
+    if route == "near_ponr":
+        return "name-the-boundary-before-the-point-of-no-return"
+    # trajectory/epitaph-leg escalation: a live failure-shape resemblance or
+    # falling trust calls for repair before any lock, whatever the base cell.
+    if failure_pressure > 0.5 or trust_falling or jerk:
+        return "repair-the-breach-before-any-lock"
+    # base cell: contagion shape-state × braid regime.
+    return _WISDOM_STANCE_BASE.get((meaning_state, regime),
+                                   "hold-open-no-anchor-defer-the-lock")
+
+
 def embed_band_kind(band: str, kind: str, weight: int) -> list[float]:
     """8-dim deterministic embedding seeded by band/kind/weight."""
     seed = f"{band}:{kind}:{weight}"
@@ -894,6 +1111,42 @@ def build_envelope(posture: str, mode: str) -> dict[str, Any]:
             print(f"⚠ harmony: braid ingestion failed fail-soft ({exc})", file=sys.stderr)
     else:
         print("⚠ harmony: no braid packet available — legacy envelope (fail-soft)", file=sys.stderr)
+
+    # ── Wisdom-First JOIN (Build-and-Gate, tic 588→589) ──────────────────────
+    # Carry the ratification bit IN the model (envelope). DEFAULT false → no
+    # wisdomStance emitted → the engine's `?? stanceFor` fallback fires → the
+    # disposition is BYTE-IDENTICAL to today (dormancy). At ratified:true, invoke
+    # the ContagionMatch shape-NN kernel over the current conformation and fuse
+    # its nearest[] with the braid to DERIVE the load-bearing stance. FAIL-SOFT:
+    # if the kernel is unreachable or the field is off-terrain, no wisdomStance
+    # is emitted and the lane falls through to the legacy dict (loud stderr).
+    ratified = wisdom_first_ratified()
+    envelope["wisdom_first"] = {"ratified": ratified}
+    if ratified:
+        contagion_disp = run_contagion_match(conf, tic, posture)
+        stance = derive_wisdom_stance(contagion_disp, braid_packet)
+        if stance:
+            envelope["wisdomStance"] = stance
+            envelope["wisdom_first"]["derived_stance"] = stance
+            envelope["wisdom_first"]["source"] = (
+                "contagion.match shape-NN ⊗ braid archetype-field (route+regime+trajectory)"
+            )
+            envelope["wisdom_first"]["contagion_meaning_state"] = (contagion_disp or {}).get("meaningState")
+            envelope["wisdom_first"]["nearest_count"] = len((contagion_disp or {}).get("nearest") or [])
+            print(
+                f"✓ harmony wisdom-first ACTIVE: derived stance='{stance}' "
+                f"(contagion meaningState={(contagion_disp or {}).get('meaningState')}, "
+                f"nearest={len((contagion_disp or {}).get('nearest') or [])}, "
+                f"braid route={((braid_packet or {}).get('traversal_physics') or {}).get('route_advisory')})",
+                file=sys.stderr,
+            )
+        else:
+            print(
+                "⚠ harmony wisdom-first RATIFIED but derivation unavailable "
+                "(no contagion anchor / kernel unreachable) — FAIL-SOFT to legacy "
+                "stanceFor; no wisdomStance emitted",
+                file=sys.stderr,
+            )
     return envelope
 
 
