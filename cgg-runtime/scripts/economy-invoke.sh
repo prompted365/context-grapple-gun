@@ -24,8 +24,8 @@
 
 set -euo pipefail
 
-REPO="/Users/breydentaylor/canonical"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO="${CGG_REPO_ROOT:-$(cd "$SCRIPT_DIR/../../../.." && pwd)}"
 HANDLER="$SCRIPT_DIR/economy-heartbeat.py"
 ECON_DIR="$REPO/audit-logs/economy"
 CONFORMATION_DIR="$REPO/audit-logs/conformations"

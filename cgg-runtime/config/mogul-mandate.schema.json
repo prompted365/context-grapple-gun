@@ -111,7 +111,12 @@
               "prompt_stack_audit",
               "deep_audit",
               "bench_packet_prep",
-              "review_close_check"
+              "review_close_check",
+              "harmony_invoke",
+              "contagion_heartbeat",
+              "economy_heartbeat",
+              "cache_refresh",
+              "civil_status_check"
             ]
           },
           "description": "List of governance cycles to execute in this activation."

@@ -3,7 +3,7 @@
 Four governance surfaces:
 
 ## 1. Authoring surface
-- MEMORY.md
+- repo-side MEMORY.md (auto-memory decoupled tic 570 -- not a governance surface)
 - local CLAUDE.md candidate blocks
 - other local capture surfaces
 

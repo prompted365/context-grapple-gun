@@ -441,6 +441,12 @@ import json, os, sys
 
 tic = $TIC_COUNT
 prev = '$MANDATE_FILE'
+# NOTE (legibility, tic 597): base_cycles schedules ONLY the lightweight always-due
+# cycles (run inline via cgg-gate.sh). The self-waking HEAVY cycles --
+# harmony_invoke / contagion_heartbeat / economy_heartbeat / review_close_check /
+# civil_status_check -- are intentionally NOT scheduled here: they are produced on the
+# /cadence -> mandate loop (cadence-ops.py compute_due_cycles) and dispatched to Mogul
+# via cgg-gate.sh heavy-routing. Their absence here is lane separation, not omission.
 base_cycles = ['queue_refresh', 'signal_scan']  # always due
 
 # ── Primary: reconcile from previous mandate tic_context ──

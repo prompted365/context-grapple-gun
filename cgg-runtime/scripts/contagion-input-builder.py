@@ -28,11 +28,9 @@ import os
 import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-# walk up to canonical root
-ROOT = "/Users/breydentaylor/canonical"
-for _ in range(8):
-    if os.path.isdir(os.path.join(ROOT, "audit-logs", "conformations")):
-        break
+sys.path.insert(0, HERE)
+from zone_root import resolve_zone_root  # noqa: E402
+ROOT = resolve_zone_root()
 
 CONTAGION_DIR = os.path.join(ROOT, "audit-logs", "contagion")
 CONFORMATION_DIR = os.path.join(ROOT, "audit-logs", "conformations")

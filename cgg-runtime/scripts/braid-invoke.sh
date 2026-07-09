@@ -24,9 +24,9 @@
 
 set -uo pipefail   # no -e: every step is individually fail-soft
 
-REPO="/Users/breydentaylor/canonical"
-BRAID_DIR="$REPO/audit-logs/braid"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO="${CGG_REPO_ROOT:-$(cd "$SCRIPT_DIR/../../../.." && pwd)}"
+BRAID_DIR="$REPO/audit-logs/braid"
 INPUT_BUILDER="$SCRIPT_DIR/braid-input-builder.py"
 KERNEL_DIR="$REPO/autonomous_kernel"
 
@@ -49,11 +49,11 @@ PACKET_PATH="$BRAID_DIR/braid-tic-$TIC.json"
 
 # 2. Run the kernel engine via the python3 import seam (harmony's node-seam
 #    analog). Pure transform; the WRITE happens here in the outer ring.
-if ! python3 - "$INPUT_PATH" "$PACKET_PATH" <<'PY'
-import json, sys
-sys.path.insert(0, "/Users/breydentaylor/canonical/autonomous_kernel")
+if ! python3 - "$INPUT_PATH" "$PACKET_PATH" "$REPO" <<'PY'
+import json, os, sys
+input_path, packet_path, repo = sys.argv[1], sys.argv[2], sys.argv[3]
+sys.path.insert(0, os.path.join(repo, "autonomous_kernel"))
 from lattice_braid import braid
-input_path, packet_path = sys.argv[1], sys.argv[2]
 env = json.load(open(input_path))
 packet = braid(env)
 with open(packet_path, "w") as f:
@@ -73,11 +73,11 @@ then
 fi
 
 # 3. Compact current pointer (small JSON, latest wins).
-python3 - "$PACKET_PATH" <<'PY' || echo "WARN braid: pointer write failed (fail-soft)" >&2
+python3 - "$PACKET_PATH" "$REPO" <<'PY' || echo "WARN braid: pointer write failed (fail-soft)" >&2
 import json, pathlib, sys, time
 p = pathlib.Path(sys.argv[1])
 d = json.loads(p.read_text())
-repo = pathlib.Path("/Users/breydentaylor/canonical")
+repo = pathlib.Path(sys.argv[2])
 current = {
     "tic": d.get("tic"),
     "braid_packet_path": str(p.relative_to(repo)),
@@ -99,9 +99,9 @@ print(f"current pointer: {out}", file=sys.stderr)
 PY
 
 # 4. Append the invocations audit line.
-python3 - "$INPUT_PATH" "$PACKET_PATH" <<'PY' || echo "WARN braid: invocations append failed (fail-soft)" >&2
+python3 - "$INPUT_PATH" "$PACKET_PATH" "$REPO" <<'PY' || echo "WARN braid: invocations append failed (fail-soft)" >&2
 import json, pathlib, sys, time
-repo = pathlib.Path("/Users/breydentaylor/canonical")
+repo = pathlib.Path(sys.argv[3])
 inp, pkt = pathlib.Path(sys.argv[1]), pathlib.Path(sys.argv[2])
 d = json.loads(pkt.read_text())
 entry = {

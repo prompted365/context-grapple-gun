@@ -2,6 +2,9 @@
   "$schema_version": "1.0.0",
   "generated_at_tic": 222,
   "generated_at_iso": "2026-05-03T21:30:00.000000+00:00",
+  "created_at_tic": 222,
+  "last_updated_tic": 597,
+  "max_validated_tic": 543,
   "doctrine": "Externalized status manifest for the CGG agent fleet. Per-agent runtime status metadata (status, activity_state, parity_state, routing_state, validation source, decision_required, resolution lineage). Source-of-truth: this manifest. Agent prompt bodies carry only a status_ref pointer to this file.",
   "axes": {
     "status": "spec validity (current | needs_patch | deprecated_candidate)",

@@ -27,6 +27,9 @@ def resolve_zone_root(start_dir=None):
     start = start_dir or os.environ.get("CLAUDE_PROJECT_DIR") or os.getcwd()
     start = os.path.abspath(start)
 
+    if os.path.isfile(start):
+        start = os.path.dirname(start)
+
     # Walk up from start to find .ticzone
     d = start
     while d != os.path.dirname(d):  # stop at filesystem root

@@ -2,7 +2,7 @@
 
 ## Surfaces to scan
 - zone-root MEMORY.md
-- auto-memory MEMORY.md (`~/.claude/projects/*/memory/MEMORY.md`)
+- auto-memory MEMORY.md (`~/.claude/projects/*/memory/MEMORY.md`)  -- (DECOUPLED tic 570: memory is not governance; auto-memory is NOT an extraction surface. Forward evidence lives in repo-side audit-logs/governance/borns-tic<N>-*.md.)
 - local CLAUDE.md chain
 - signal store
 

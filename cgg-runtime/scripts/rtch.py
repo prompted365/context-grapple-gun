@@ -283,6 +283,7 @@ def orient_zone(intake: dict[str, Any]) -> dict[str, Any]:
     start = os.path.abspath(start)
 
     repo_root = _git_toplevel(start)
+    start = start if os.path.isdir(start) else os.path.dirname(start)
     zone_root = resolve_zone_root(start) if resolve_zone_root else _fallback_zone_root(start)
 
     rung_chain = _walk_rung_markers(start, zone_root)

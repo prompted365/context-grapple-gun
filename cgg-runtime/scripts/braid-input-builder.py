@@ -39,7 +39,9 @@ import sys
 import time
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-ROOT = "/Users/breydentaylor/canonical"
+sys.path.insert(0, HERE)
+from zone_root import resolve_zone_root  # noqa: E402
+ROOT = resolve_zone_root()
 
 BRAID_DIR = os.path.join(ROOT, "audit-logs", "braid")
 CONFORMATION_DIR = os.path.join(ROOT, "audit-logs", "conformations")

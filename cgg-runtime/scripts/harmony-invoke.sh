@@ -17,10 +17,10 @@
 
 set -euo pipefail
 
-REPO="/Users/breydentaylor/canonical"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO="${CGG_REPO_ROOT:-$(cd "$SCRIPT_DIR/../../../.." && pwd)}"
 ENGINE="$REPO/autonomous_kernel/harmony_engine_v0/runtime/harmony-engine.mjs"
 HARMONY_DIR="$REPO/audit-logs/harmony"
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 INPUT_BUILDER="$SCRIPT_DIR/harmony-input-builder.py"
 
 POSTURE="${POSTURE:-${CGG_POSTURE:-OPS/DIRECT}}"
