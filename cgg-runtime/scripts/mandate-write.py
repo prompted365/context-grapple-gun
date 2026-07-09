@@ -266,7 +266,14 @@ def validate_mandate_or_die(mandate: dict) -> None:
 
 
 def write_mandate(mandate: dict, zone_root: Path, audit_logs_rel: str = "audit-logs") -> Path:
-    """Write mandate to current.json and append to history."""
+    """Write mandate to current.json and append to history.
+
+    Fail-closed validation fires HERE — the true write boundary — so EVERY caller is
+    covered: the CLI main() path (session-restore.sh) AND direct-import callers
+    (cadence-ops.py builds+writes via the imported functions, bypassing main()). A
+    malformed mandate raises SystemExit(2) before any disk write. (/review 598.)
+    """
+    validate_mandate_or_die(mandate)
     audit_logs = zone_root / audit_logs_rel
     mandate_dir = audit_logs / "mogul" / "mandates"
     history_dir = mandate_dir / "history"
@@ -331,10 +338,8 @@ def main():
         zone_root_path=str(zone_root),
     )
 
-    # Fail-closed schema validation at the write boundary (physics-layer; /review 598).
-    # A malformed mandate raises SystemExit(2) here and never reaches disk.
-    validate_mandate_or_die(mandate)
-
+    # Validation fires inside write_mandate() (the true write boundary — covers this
+    # CLI path AND direct-import callers like cadence-ops.py). /review 598.
     written_path = write_mandate(mandate, zone_root, args.audit_logs_rel)
 
     # Output for caller
