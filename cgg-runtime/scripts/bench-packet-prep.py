@@ -63,6 +63,35 @@ LIFECYCLE_SETTLED_STATES = frozenset({
     "terminal_positive", "terminal_negative", "obligated_waiting", "suspensive",
 })
 
+# Pending-class superset — the AUTHORITATIVE review/enrichment-candidate
+# vocabulary. This MUST mirror the oracle
+# (`audit-logs/cpg/scripts/governance_query.py::PENDING_CLASS_STATUSES`) and its
+# peer reader (`ripple-assessor.py::QUEUE_ACTIVE_STATUSES`), or bench-packet
+# becomes a silent-degrade reader — dropping genuinely-pending ids whose latest
+# non-terminal status the narrower list didn't recognize while the oracle
+# (governance_query.queue.status.pending_total) still counts them.
+#
+# History: get_pending_cprs previously carried a DRIFTED 5-status subset
+# ({pending, enrichment_needed, enrichment_eligible, extracted, review_ready})
+# that omitted `tic_gated`, `enrichment_in_progress`, `promotable`, and
+# `born_truth_captured`. governance_query's own docstring names this file as a
+# taxonomy source it mirrors — so bench-packet drifting narrow silently broke
+# the "Authoritative-set readers must read the manifest" federation invariant
+# (canonical/CLAUDE.md). Restored to the full superset here. Every status below
+# is present in the live queue vocabulary / CPR Lifecycle v1 inscription
+# pipeline — none are invented.
+PENDING_CLASS_STATUSES = frozenset({
+    "pending",
+    "extracted",
+    "tic_gated",
+    "enrichment_needed",
+    "enrichment_in_progress",
+    "enrichment_eligible",
+    "promotable",
+    "review_ready",
+    "born_truth_captured",
+})
+
 
 def invoke_compiler_and_load_effective_state(al_path, current_tic):
     """Invoke queue_state_compile.py and load its outputs.
@@ -395,14 +424,17 @@ def discover_synthesis_refs(audit_logs_path):
 # ---------------------------------------------------------------------------
 
 def get_pending_cprs(queue):
-    """Filter to CPRs eligible for review."""
-    review_statuses = {
-        "pending", "enrichment_needed", "enrichment_eligible",
-        "extracted", "review_ready",
-    }
+    """Filter to CPRs eligible for review.
+
+    Uses the module-level PENDING_CLASS_STATUSES superset (mirrors the
+    governance_query oracle + ripple-assessor peer reader) rather than a
+    private, drift-prone allow-list. `queue` is already the terminal-valve
+    latest-entry-per-id projection from load_queue(), so this is a
+    latest-per-id read by construction.
+    """
     return {
         eid: entry for eid, entry in queue.items()
-        if entry.get("status") in review_statuses
+        if entry.get("status") in PENDING_CLASS_STATUSES
     }
 
 
