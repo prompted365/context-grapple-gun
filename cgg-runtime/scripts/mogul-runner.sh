@@ -134,7 +134,15 @@ CURRENT_TIC=$(echo "$MANDATE_INFO" | cut -d'|' -f3)
 # read the snapshot, not the live (possibly cadence-overwritten) file.
 # ============================================================================
 
-MANDATE_FILE_SNAPSHOT_REF="/tmp/cgg-mandate-snapshot-$$.ref"
+# tic 596 (durable-lane discipline): moved the mtime anchor off /tmp into a canonical
+# gitignored ephemeral lane. It stores NO mandate content — it is a 0-byte `touch -r`
+# mtime source for the `find -newer` verifier clauses below; canonical-fs mtimes behave
+# identically to /tmp (same APFS boot volume). Even a non-state marker in /tmp reads as a
+# leak to a log-grepper. `.run/` is physics-layer gitignored (audit-logs/mogul/.run/) so
+# the per-PID ref can never be swept into a commit.
+MANDATE_SNAPSHOT_DIR="$AUDIT_LOGS/mogul/.run"
+mkdir -p "$MANDATE_SNAPSHOT_DIR"
+MANDATE_FILE_SNAPSHOT_REF="$MANDATE_SNAPSHOT_DIR/mandate-snapshot-$$.ref"
 touch -r "$MANDATE_FILE" "$MANDATE_FILE_SNAPSHOT_REF"
 trap 'rm -f "$MANDATE_FILE_SNAPSHOT_REF"' EXIT
 
