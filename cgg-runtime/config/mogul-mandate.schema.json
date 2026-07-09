@@ -84,6 +84,14 @@
           "type": ["integer", "null"],
           "description": "Next tic at which ladder coherence audit is due."
         },
+        "pattern_mining_due_tic": {
+          "type": ["integer", "null"],
+          "description": "Next tic at which pattern mining cycle is due."
+        },
+        "civil_check_due_tic": {
+          "type": ["integer", "null"],
+          "description": "Next tic at which civil status check cycle is due."
+        },
         "deep_audit_due_tic": {
           "type": ["integer", "null"],
           "description": "Next tic at which deep audit cycle is due."
@@ -158,6 +166,21 @@
         }
       },
       "additionalProperties": false
+    },
+    "rung": {
+      "type": "string",
+      "description": "Birth rung of the mandate (site | domain | estate | federation | global), resolved by zone_root birth_topology at creation."
+    },
+    "topology_chain": {
+      "type": "object",
+      "description": "Rung chain resolved at mandate creation (site/domain/estate/federation paths), from zone_root birth_topology.",
+      "properties": {
+        "site": { "type": ["string", "null"] },
+        "domain": { "type": ["string", "null"] },
+        "estate": { "type": ["string", "null"] },
+        "federation": { "type": ["string", "null"] }
+      },
+      "additionalProperties": { "type": ["string", "null"] }
     },
     "created_at": {
       "type": "string",

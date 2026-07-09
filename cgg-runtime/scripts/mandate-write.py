@@ -161,6 +161,110 @@ def _build_reason(tic: int, trigger_kind: str, cycles: list[str], merged_from: l
     return reason
 
 
+def _schema_path() -> Path:
+    """Path to the mandate contract schema (sibling config/ dir; parity-synced install + canonical)."""
+    return Path(__file__).resolve().parent.parent / "config" / "mogul-mandate.schema.json"
+
+
+def _die_invalid(errors: list[str]) -> None:
+    """Fail-closed exit — the malformed mandate is NOT written."""
+    print("[mandate-write] SCHEMA VALIDATION FAILED (fail-closed, /review 598) — mandate NOT written:", file=sys.stderr)
+    for e in errors:
+        print(f"  - {e}", file=sys.stderr)
+    print("  Fix: reconcile the producer (compute_due_markers / build_mandate) with "
+          "config/mogul-mandate.schema.json, or add the value to the schema enum.", file=sys.stderr)
+    raise SystemExit(2)
+
+
+def validate_mandate_or_die(mandate: dict) -> None:
+    """Fail-closed schema validation at the write boundary — physics-layer enforcement.
+
+    Ratified /review 598 (Architect: fail-closed raise). The schema calls itself
+    "machine-checkable"; this makes that TRUE instead of decorative — born tic-597
+    (slice-only-audit legibility probe): a decorative contract is a legibility gap, and
+    "nothing validates it" is exactly how the producer silently drifted to emit
+    schema-forbidden fields. A malformed mandate must NOT land.
+
+    Prefers `jsonschema` (full validation) when installed; otherwise a hand-rolled
+    fallback that reads the ENUMS + property sets FROM the schema (engine/content
+    separation — the schema stays the single source of truth) and enforces the
+    load-bearing constraints: required keys, enum membership (status / embodiment /
+    trigger.kind / run_now cycles), and additionalProperties:false on the surfaces that
+    have historically drifted (top-level, cycle_request, tic_context). A missing schema
+    FILE degrades to a LOUD skip (a different failure the raise cannot fix); an actual
+    VIOLATION raises (SystemExit 2).
+    """
+    schema_path = _schema_path()
+    if not schema_path.exists():
+        print(f"[mandate-write] WARNING: schema not found at {schema_path} — "
+              "validation SKIPPED (contract file missing).", file=sys.stderr)
+        return
+    schema = json.loads(schema_path.read_text())
+
+    # Preferred: full JSON-Schema validation when the library is installed.
+    try:
+        import jsonschema  # type: ignore
+    except ImportError:
+        jsonschema = None
+    if jsonschema is not None:
+        try:
+            jsonschema.validate(instance=mandate, schema=schema)
+            return
+        except jsonschema.ValidationError as e:
+            loc = "/".join(str(p) for p in e.absolute_path) or "<root>"
+            _die_invalid([f"{loc}: {e.message}"])
+
+    # Hand-rolled fallback — enums + property sets are READ from the schema (content-separated).
+    errors: list[str] = []
+    props = schema.get("properties", {})
+
+    for req in schema.get("required", []):
+        if req not in mandate:
+            errors.append(f"missing required top-level key: {req}")
+    if schema.get("additionalProperties") is False:
+        for k in mandate:
+            if k not in props:
+                errors.append(f"unexpected top-level key (additionalProperties:false): {k}")
+
+    status_enum = props.get("status", {}).get("enum")
+    if status_enum and mandate.get("status") not in status_enum:
+        errors.append(f"status {mandate.get('status')!r} not in {status_enum}")
+
+    actor = mandate.get("actor", {})
+    emb_enum = props.get("actor", {}).get("properties", {}).get("embodiment", {}).get("enum")
+    if emb_enum and actor.get("embodiment") not in emb_enum:
+        errors.append(f"actor.embodiment {actor.get('embodiment')!r} not in {emb_enum}")
+
+    kind_enum = props.get("trigger", {}).get("properties", {}).get("kind", {}).get("enum")
+    if kind_enum and mandate.get("trigger", {}).get("kind") not in kind_enum:
+        errors.append(f"trigger.kind {mandate.get('trigger', {}).get('kind')!r} not in {kind_enum}")
+
+    cr_schema = props.get("cycle_request", {})
+    cr_props = cr_schema.get("properties", {})
+    cr = mandate.get("cycle_request", {})
+    run_now_enum = cr_props.get("run_now", {}).get("items", {}).get("enum", [])
+    for c in cr.get("run_now", []):
+        if run_now_enum and c not in run_now_enum:
+            errors.append(f"cycle_request.run_now cycle {c!r} not in the {len(run_now_enum)}-cycle enum")
+    if cr_schema.get("additionalProperties") is False:
+        for k in cr:
+            if k not in cr_props:
+                errors.append(f"unexpected cycle_request key (additionalProperties:false): {k}")
+
+    tc_schema = props.get("tic_context", {})
+    tc_props = tc_schema.get("properties", {})
+    tc = mandate.get("tic_context", {})
+    if "current_tic" not in tc:
+        errors.append("tic_context missing required current_tic")
+    if tc_schema.get("additionalProperties") is False:
+        for k in tc:
+            if k not in tc_props:
+                errors.append(f"unexpected tic_context key (additionalProperties:false): {k}")
+
+    if errors:
+        _die_invalid(errors)
+
+
 def write_mandate(mandate: dict, zone_root: Path, audit_logs_rel: str = "audit-logs") -> Path:
     """Write mandate to current.json and append to history."""
     audit_logs = zone_root / audit_logs_rel
@@ -226,6 +330,10 @@ def main():
         runtime_verified=args.runtime_verified,
         zone_root_path=str(zone_root),
     )
+
+    # Fail-closed schema validation at the write boundary (physics-layer; /review 598).
+    # A malformed mandate raises SystemExit(2) here and never reaches disk.
+    validate_mandate_or_die(mandate)
 
     written_path = write_mandate(mandate, zone_root, args.audit_logs_rel)
 
