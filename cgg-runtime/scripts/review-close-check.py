@@ -197,6 +197,26 @@ REASON_STALE_RELOCATED = "stale_relocated_pointer"
 # anchor is the landed-proof; the rephrase is why literal-text search fails.
 # (bk-review-close-anchor-presence-check, /review 409 surfaced 2 such false positives.)
 REASON_ANCHOR_PRESENT = "anchor_present_text_rephrased"
+# affirmed_via_receipts — a promotion is FREQUENTLY operationalized as BEHAVIOR (a
+# cable-receipt, an honesty-lock drive_mode note carried inside one, a conformation
+# record) rather than as quotable doctrine prose at the named target. When the
+# doctrine-target content-match misses, the born-id is nonetheless CITED in a bounded
+# behavioral/receipt surface — the promotion landed as behavior, not text. This is
+# the tic-593 widening of the sweep beyond the named doctrine target file.
+# (bk-review-close-check-widen-sweep-tic593; proven case
+# cpr_hoist_s6_close_anchor_must_track_proposal_head_tic590, affirmed across 6
+# tic-591 S-cable receipts + conformation tic-591.)
+REASON_AFFIRMED_VIA_RECEIPTS = "affirmed_via_receipts"
+
+# Behavioral / receipt surface roots swept before a promotion is graded genuinely
+# missing (tic 593). SCOPED — never all of audit-logs — so pipeline-bookkeeping
+# surfaces (queue.jsonl, bench-packets, civil-reports, corpus-harvest, cycle
+# reports) that name EVERY id can NEVER trivially "affirm" a promotion; only a
+# genuine behavioral receipt naming the born counts. Paths are project-dir-relative.
+_RECEIPT_SURFACE_ROOTS = (
+    "audit-logs/governance/harpoon-office/cable-receipts",
+    "audit-logs/conformations",
+)
 
 
 def _strip_scope_hint(s):
@@ -972,6 +992,119 @@ def _find_relocated(target_str, project_dir, cpr_id, snippet=""):
     return None
 
 
+# ---------------------------------------------------------------------------
+# Widened sweep (tic 593, bk-review-close-check-widen-sweep-tic593)
+# Two additive false-positive guards on the genuine-vs-known classifier:
+#   (a) receipt/behavioral surface sweep — a promotion operationalized as behavior
+#       (cable-receipt / honesty-lock drive_mode note / conformation record) is
+#       affirmed even when its lesson prose is absent from the named doctrine target.
+#   (b) Evidence-anchor citation — a doctrine/spec target that CITES the born-id on
+#       an Evidence/provenance line (often with the extractor-appended `_tic<N>`
+#       suffix dropped) has the inscription LANDED; the verbatim-lesson-text match
+#       misses a rephrased-on-promotion refinement. Classified anchor_present_text_rephrased.
+# ---------------------------------------------------------------------------
+
+_TIC_SUFFIX_RE = re.compile(r"_tic\d+$")
+
+
+def _strip_tic_suffix(cpr_id):
+    """Strip a trailing `_tic<N>` suffix from a cpr id.
+
+    Evidence / receipt surfaces frequently cite the BORN name without the
+    extractor-appended tic suffix — the queue id `cpr_x_tic590` appears in a spec's
+    Evidence line as `cpr_x`. A full-id substring search misses that citation, so
+    both forms must be tried.
+    """
+    return _TIC_SUFFIX_RE.sub("", cpr_id)
+
+
+def _born_id_variants(cpr_id):
+    """Return the distinct born-id forms to match: the full queue id first (more
+    specific) then its tic-suffix-stripped born form."""
+    stripped = _strip_tic_suffix(cpr_id)
+    variants = [cpr_id]
+    if stripped and stripped != cpr_id:
+        variants.append(stripped)
+    return variants
+
+
+# An Evidence-anchor citation line: an evidence/provenance marker on the SAME line
+# as the born-id, so a bare co-incidental mention elsewhere in the file does not
+# qualify. `born` + a long unique cpr slug is itself a strong provenance signal.
+_EVIDENCE_MARKER_RE = re.compile(
+    r"(?:\bevidence\b|\bborn\b|\bprovenance\b|<!--)", re.IGNORECASE
+)
+
+
+def _evidence_anchor_cites_born(path, cpr_id):
+    """Return the matching Evidence-anchor line (stripped) if the markdown file at
+    `path` carries an evidence/provenance line citing the born-id (full or
+    tic-stripped), else None.
+
+    The inscription landed as a REFINEMENT whose Evidence line names the born rather
+    than quoting the lesson verbatim — content-match misses it, but the citation IS
+    the landed-proof. Scoped to `.md` doctrine/spec surfaces (the shape that carries
+    Evidence-anchor lines).
+    """
+    if not path.lower().endswith(".md"):
+        return None
+    content = read_file_safe(path)
+    if not content:
+        return None
+    variants = _born_id_variants(cpr_id)
+    for line in content.splitlines():
+        if not _EVIDENCE_MARKER_RE.search(line):
+            continue
+        if any(v in line for v in variants):
+            return line.strip()
+    return None
+
+
+# Memoized per project_dir — the receipt-surface walk runs once per run_check.
+_RECEIPT_INDEX_CACHE = {}
+
+
+def _receipt_surface_ids(project_dir):
+    """Return the set of cpr-id tokens cited anywhere in the bounded behavioral /
+    receipt surfaces (_RECEIPT_SURFACE_ROOTS). Tokens are stored AS FOUND (organic),
+    never synthetically tic-stripped, so a same-slug born at a different tic cannot
+    collide: a match requires either the exact full id or a receipt that organically
+    wrote the born form.
+
+    SCOPE DISCIPLINE: only _RECEIPT_SURFACE_ROOTS are swept — never pipeline
+    bookkeeping (queue.jsonl, bench-packets, civil/cycle reports, corpus-harvest),
+    which name every id and would trivially affirm every promotion.
+    """
+    key = os.path.abspath(project_dir)
+    cached = _RECEIPT_INDEX_CACHE.get(key)
+    if cached is not None:
+        return cached
+    ids = set()
+    for root in _RECEIPT_SURFACE_ROOTS:
+        root_abs = os.path.join(project_dir, root)
+        if not os.path.isdir(root_abs):
+            continue
+        for dirpath, _dirs, files in os.walk(root_abs):
+            for fn in files:
+                content = read_file_safe(os.path.join(dirpath, fn))
+                if not content:
+                    continue
+                for match in _CPR_REF_RE.finditer(content):
+                    ids.add(match.group(1))
+    _RECEIPT_INDEX_CACHE[key] = ids
+    return ids
+
+
+def _affirmed_via_receipts(cpr_id, project_dir):
+    """True if the born-id is cited (full id, or its born form written organically)
+    in a bounded behavioral/receipt surface."""
+    ids = _receipt_surface_ids(project_dir)
+    if cpr_id in ids:
+        return True
+    stripped = _strip_tic_suffix(cpr_id)
+    return stripped != cpr_id and stripped in ids
+
+
 def classify_known_reason(cpr_id, cpr, project_dir, project_basename=None,
                           lesson_fallbacks=None):
     """Classify a promoted_text_missing / orphaned_promotion finding as a KNOWN
@@ -994,8 +1127,16 @@ def classify_known_reason(cpr_id, cpr, project_dir, project_basename=None,
       2. behavioral_text_unverifiable — a target resolves to an existing
          code/behavioral surface (.py/.sh/SKILL.md/...); the inscription is a
          BEHAVIOR not text, strengthened by the git provenance-trace.
-      3. (none) GENUINE — no target resolves to a code surface and none relocate;
-         the inscription is genuinely missing (the hazard).
+      3. anchor_present_text_rephrased — the resolved doctrine/spec target either
+         (i) names a heading anchor that EXISTS (explicit <a id>/<a name> or a
+         matching heading slug), or (ii) CITES the born-id on an Evidence/provenance
+         line (tic suffix often dropped). The inscription landed as a rephrased
+         refinement content-match cannot see. (tic 593 added the evidence-anchor half.)
+      4. affirmed_via_receipts — the born-id is cited in a bounded behavioral/receipt
+         surface (cable-receipt / honesty-lock drive_mode note / conformation record);
+         the promotion is operationalized as behavior, not doctrine prose. (tic 593.)
+      5. (none) GENUINE — no code/behavioral target, no relocation, no present
+         anchor, and no affirming receipt surface; genuinely missing (the hazard).
     """
     targets = _collect_targets(cpr)
     lesson = cpr.get("lesson", "")
@@ -1016,9 +1157,16 @@ def classify_known_reason(cpr_id, cpr, project_dir, project_basename=None,
         elif behavioral is None and _is_codeish_path(existing):
             behavioral = (t, existing)
         elif anchor_present is None:
+            # (b-i) heading-anchor form: promoted_to names a `#anchor` present in the md
             anchor = _extract_path_anchor(t)
             if anchor and _anchor_present_in_markdown(existing, anchor):
-                anchor_present = (t, existing, anchor)
+                anchor_present = (t, existing, anchor, None)
+            else:
+                # (b-ii) evidence-anchor form: the resolved doctrine/spec target CITES
+                # the born-id on an Evidence/provenance line (tic suffix often dropped).
+                ev_line = _evidence_anchor_cites_born(existing, cpr_id)
+                if ev_line:
+                    anchor_present = (t, existing, None, ev_line)
 
     if relocated is not None:
         orig, corrected = relocated
@@ -1045,25 +1193,48 @@ def classify_known_reason(cpr_id, cpr, project_dir, project_basename=None,
         }
 
     if anchor_present is not None:
-        orig, resolved, anchor = anchor_present
+        orig, resolved, heading_anchor, evidence_line = anchor_present
         try:
             resolved_rel = os.path.relpath(resolved, project_dir)
         except ValueError:
             resolved_rel = resolved
-        return REASON_ANCHOR_PRESENT, {
+        evidence = {
             "anchored_target": orig,
             "resolved_path": resolved_rel,
-            "anchor": anchor,
-            "note": "promoted_to names a heading anchor that EXISTS at the resolved "
-                    "doctrine surface (explicit <a id>/<a name> tag or matching "
-                    "heading slug); the inscription landed at the named anchor — the "
-                    "verbatim-lesson-text match misses a rephrased-on-promotion "
-                    "refinement",
+        }
+        if heading_anchor is not None:
+            evidence["anchor"] = heading_anchor
+            evidence["note"] = (
+                "promoted_to names a heading anchor that EXISTS at the resolved "
+                "doctrine surface (explicit <a id>/<a name> tag or matching heading "
+                "slug); the inscription landed at the named anchor — the verbatim-"
+                "lesson-text match misses a rephrased-on-promotion refinement"
+            )
+        else:
+            evidence["evidence_anchor_line"] = evidence_line
+            evidence["note"] = (
+                "resolved doctrine/spec surface carries an Evidence-anchor line that "
+                "CITES the born-id (tic suffix often dropped); the inscription landed "
+                "as a refinement whose provenance line names the born rather than "
+                "quoting the lesson verbatim — the citation is the landed-proof"
+            )
+        return REASON_ANCHOR_PRESENT, evidence
+
+    # (a) behavioral/receipt-surface sweep — last positive axis before GENUINE: the
+    # promotion is operationalized as behavior (cable-receipt / honesty-lock drive_mode
+    # note / conformation record) even though the doctrine-target content-match missed.
+    if _affirmed_via_receipts(cpr_id, project_dir):
+        return REASON_AFFIRMED_VIA_RECEIPTS, {
+            "affirming_surfaces": list(_RECEIPT_SURFACE_ROOTS),
+            "note": "born-id is cited in a bounded behavioral/receipt surface "
+                    "(cable-receipt / honesty-lock drive_mode note / conformation "
+                    "record); the promotion is operationalized as behavior, not as "
+                    "quotable doctrine prose at the named target",
         }
 
     return None, {
-        "note": "no code/behavioral target, no relocation, and no present anchor "
-                "found; inscription appears genuinely missing",
+        "note": "no code/behavioral target, no relocation, no present anchor, and no "
+                "affirming receipt surface found; inscription appears genuinely missing",
     }
 
 
@@ -1098,6 +1269,8 @@ def load_mandate_id(al_path):
 def run_check(project_dir, dry_run=False):
     """Run the full review-close consistency check."""
     project_dir = os.path.abspath(project_dir)
+    # Rebuild the receipt-surface index fresh each run (tic 593 widened sweep).
+    _RECEIPT_INDEX_CACHE.clear()
     tz_config = load_ticzone(project_dir)
     al_path = audit_logs_path(project_dir, tz_config)
 
