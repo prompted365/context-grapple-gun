@@ -75,6 +75,8 @@
   - *Ledger:* [`cgg-ledger/ledger.md#review-close-check-verifier-dehydration-blindspot`](cgg-ledger/ledger.md#review-close-check-verifier-dehydration-blindspot)
 - **Priority Is Calibrated at Cadence, Not Boot** — A relative priority score is meaningful only against the active terminal set, so it is calibrated at cadence, not frozen at boot.
   - *Ledger:* [`cgg-ledger/ledger.md#priority-is-calibrated-at-cadence-not-boot`](cgg-ledger/ledger.md#priority-is-calibrated-at-cadence-not-boot)
+- **A Bare Invocation Is an ACTION, Not a Probe** — a `x sub || x` fallback converts read intent into the tool's default mutation whenever the bare default mutates; a mutating-default CLI needs an explicit arming flag and a real read-only probe verb. *(tic 605→608)*
+  - *Ledger:* [`cgg-ledger/ledger.md#bare-invocation-is-an-action-not-a-probe`](cgg-ledger/ledger.md#bare-invocation-is-an-action-not-a-probe)
 
 ## Arena And Reasoning Geometry
 
@@ -163,6 +165,8 @@
   - *Ledger:* [`cgg-ledger/ledger.md#predicate-retirement-needs-reader-consumer-sweep`](cgg-ledger/ledger.md#predicate-retirement-needs-reader-consumer-sweep)
 - **A Phantom-Tic Void Has a Closed, Enumerable Consumer Set — Sweep EVERY Tic-Count Mirror** — Reconciling only the canonical count leaves the silent-degrade mirrors phantom; a MAX-tic-numbered-file "latest" selector makes a phantom conformation sticky-latest for exactly the broken tic. *(tic 580→603)*
   - *Ledger:* [`cgg-ledger/ledger.md#phantom-tic-void-must-sweep-all-tic-count-mirrors`](cgg-ledger/ledger.md#phantom-tic-void-must-sweep-all-tic-count-mirrors)
+- **A Same-Tic Replay Lawfully Diverges From the Series Row — Consumers Pinning Exact Numerics Must DECLARE Their Source** — both values are lawful and CURRENT (neither is stale state); the cure is source-declaration (series row vs replay record) in the consumer contract, not manifest-pruning. *(tic 605→608)*
+  - *Ledger:* [`cgg-ledger/ledger.md#same-tic-replay-diverges-consumers-declare-source`](cgg-ledger/ledger.md#same-tic-replay-diverges-consumers-declare-source)
 
 ## Review And Promotion Discipline
 
@@ -214,6 +218,8 @@
   - *Ledger:* [`cgg-ledger/ledger.md#zero-divergence-single-lens-baseline-structural`](cgg-ledger/ledger.md#zero-divergence-single-lens-baseline-structural)
 - **A DAG Node Is a Dependency-Gated Covenant, Not Authority-Parking** — Never park a node as 'Architect-gated'; if it needs his ruling it is not a DAG node (fork lane) — once in the DAG it is a dependency-gated covenant ridden by workflows to target, and only authority (/review) or physics/external gate is a real gate (the blocked note must name which). *(tic 571→603)*
   - *Ledger:* [`cgg-ledger/ledger.md#dag-nodes-are-dependency-gated-covenants-not-authority-parking`](cgg-ledger/ledger.md#dag-nodes-are-dependency-gated-covenants-not-authority-parking)
+- **Admission Is Orthogonal to Runtime-Authorization at /review** — admit what is admissible at its true class NOW; the wiring question rides its own gate (build-and-gate's ratified-bit is the mechanized form); conflation produces over-conservative DEFER. Refinement ray on Promotion Scope Discipline. *(tic 500→608)*
+  - *Ledger:* [`cgg-ledger/ledger.md#admission-orthogonal-to-runtime-authorization`](cgg-ledger/ledger.md#admission-orthogonal-to-runtime-authorization)
 
 ## Subagent And Swarm Delegation
 
@@ -334,6 +340,8 @@
   - *Ledger:* [`cgg-ledger/ledger.md#binder-addendum-inscription-preservation`](cgg-ledger/ledger.md#binder-addendum-inscription-preservation)
 - **Memory-MD-Audit Breach Class Distinction** — `memory-md-audit.py` breach detection must distinguish two structurally different breach classes — STRUCTURAL breaches and PENDING-STATE breaches — because their operational response and urgency are opposite.
   - *Ledger:* [`cgg-ledger/ledger.md#memory-md-audit-breach-class-distinction`](cgg-ledger/ledger.md#memory-md-audit-breach-class-distinction)
+- **The Worldview Renderer and the Memory Lane Are DISTINCT Inscription Lanes** — choose by reach × trigger (all-citizens-every-boot → renderer, budget-exempt, both seams; one-namespace-on-relevance → memory), never by nearest surface; a memory write is necessary-but-insufficient for a universal-frame request. *(tic 493→608)*
+  - *Ledger:* [`cgg-ledger/ledger.md#worldview-renderer-distinct-inscription-lane-from-memory`](cgg-ledger/ledger.md#worldview-renderer-distinct-inscription-lane-from-memory)
 
 ## Forensic And Drift Investigation
 
