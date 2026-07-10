@@ -91,8 +91,10 @@ for candidate in \
   [ -n "$candidate" ] && [ -f "$candidate" ] && CADENCE_OPS="$candidate" && break
 done
 
-# Run it (handles tic + conformation + mandate)
-python3 "$CADENCE_OPS" --zone-root "$ZONE_ROOT" --mode downbeat
+# Run it (handles tic + conformation + mandate). --fire is REQUIRED: the clock
+# physics gate (tic 605) makes a bare invocation refuse instead of emitting — a
+# bare invocation is an ACTION, not a probe. Read-only probe: `cadence-ops.py status`.
+python3 "$CADENCE_OPS" --fire --zone-root "$ZONE_ROOT" --mode downbeat
 ```
 
 Parse the JSON output to extract (keys are at the **top level** of the JSON object — there is no `result` wrapper):
@@ -672,7 +674,7 @@ This buys headroom. The next session's SessionStart hook will reset it to 80%.
 **Primary path (MANDATORY when available):** Run `cadence-ops.py --mode syncopate` — same script as downbeat but with syncopate mode. Handles tic + conformation in one deterministic call (mandate is skipped by default for syncopate).
 
 ```bash
-python3 "$CADENCE_OPS" --zone-root "$ZONE_ROOT" --mode syncopate
+python3 "$CADENCE_OPS" --fire --zone-root "$ZONE_ROOT" --mode syncopate
 ```
 
 Use the same `$CADENCE_OPS` resolution from the downbeat Step 0.5 section.

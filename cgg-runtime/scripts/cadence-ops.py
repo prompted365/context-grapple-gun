@@ -10,9 +10,17 @@ Operations (in order):
   3. Write mandate — compute due cycles, write mogul mandate
 
 Usage:
-    python3 cadence-ops.py --zone-root /path --mode downbeat
-    python3 cadence-ops.py --zone-root /path --mode syncopate --skip-conformation --skip-mandate
-    python3 cadence-ops.py --zone-root /path --mode downbeat --count-mode ignored --count-reason "experimental"
+    python3 cadence-ops.py status                          # read-only snapshot (no writes)
+    python3 cadence-ops.py --fire --zone-root /path --mode downbeat
+    python3 cadence-ops.py --fire --zone-root /path --mode syncopate --skip-conformation --skip-mandate
+    python3 cadence-ops.py --fire --zone-root /path --mode downbeat --count-mode ignored --count-reason "experimental"
+
+Clock physics gate (tic 605, /review-605 ratified): firing the cadence pipeline
+REQUIRES the explicit --fire flag. A bare invocation refuses loudly instead of
+emitting a downbeat — mutation-by-default on the governance clock let a shell
+fallback (`cadence-ops.py status || cadence-ops.py`) fire an accidental tic
+605->606 + phantom mandate mid-consumption. A bare invocation is an ACTION,
+not a probe; `status` is the read-only probe surface.
 """
 
 import argparse
@@ -976,10 +984,72 @@ def write_cadence_mandate(zone_root: str, tic: int, trigger_source: str,
 # Main
 # ---------------------------------------------------------------------------
 
+def run_status(zone_root: str) -> dict:
+    """Read-only cadence snapshot — the probe surface the clock gate points at.
+
+    Touches NOTHING: derived counter (pure projection over counted tic rows),
+    last tic event, current mandate id/status, latest conformation path, and
+    the due-cycle preview for the next counted tic. No file writes, no mirror
+    update, no subprocess with side effects.
+    """
+    al = audit_logs_path(zone_root)
+    tic_dir = os.path.join(al, "tics")
+    counter = count_physical_tics(tic_dir) if os.path.isdir(tic_dir) else 0
+
+    last_event = None
+    if os.path.isdir(tic_dir):
+        for f in sorted(glob.glob(os.path.join(tic_dir, "*.jsonl")), reverse=True):
+            for line in reversed(Path(f).read_text(encoding="utf-8").splitlines()):
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    obj = json.loads(line)
+                except json.JSONDecodeError:
+                    continue
+                if obj.get("type") == "tic":
+                    last_event = obj
+                    break
+            if last_event:
+                break
+
+    mandate_path = Path(al) / "mogul" / "mandates" / "current.json"
+    mandate = {"present": False}
+    if mandate_path.exists():
+        try:
+            m = json.loads(mandate_path.read_text(encoding="utf-8"))
+            mandate = {
+                "present": True,
+                "mandate_id": m.get("mandate_id"),
+                "status": m.get("status", "pending"),
+                "cycles": (m.get("cycle_request") or {}).get("run_now"),
+            }
+        except (OSError, json.JSONDecodeError) as err:
+            mandate = {"present": True, "unreadable": str(err)}
+
+    conf_path = Path(al) / "conformations" / f"tic-{counter}.json"
+
+    return {
+        "mode": "status",
+        "read_only": True,
+        "derived_counter": counter,
+        "last_tic_event": last_event,
+        "next_tic_due_cycles": compute_due_cycles(counter + 1),
+        "mandate": mandate,
+        "conformation_current": str(conf_path) if conf_path.exists() else None,
+    }
+
+
 def main():
     parser = argparse.ArgumentParser(
         description="cadence-ops: unified tic + conformation + mandate"
     )
+    parser.add_argument("command", nargs="?", choices=["status"], default=None,
+                        help="Optional read-only subcommand: 'status' (no writes)")
+    parser.add_argument("--fire", action="store_true",
+                        help="REQUIRED to run the cadence pipeline (tic emission + "
+                             "conformation + mandate). Bare invocation refuses — the "
+                             "clock physics gate (tic 605).")
     parser.add_argument("--zone-root", default=None,
                         help="Zone root path (auto-resolved if omitted)")
     parser.add_argument("--mode", choices=["downbeat", "syncopate"], default="downbeat",
@@ -1000,6 +1070,27 @@ def main():
     args = parser.parse_args()
 
     zone_root = args.zone_root or resolve_zone_root()
+
+    # Read-only probe surface — never writes.
+    if args.command == "status":
+        print(json.dumps(run_status(zone_root), indent=2))
+        return 0
+
+    # Clock physics gate (tic 605, /review-605 ratified — enforcement at the
+    # execution boundary, not a perception-layer warning): the pipeline below
+    # mutates the governance clock (tic emission), the conformation lane, and
+    # the live Mogul mandate. It fires ONLY under an explicit --fire.
+    if not args.fire:
+        sys.stderr.write(
+            "REFUSED: cadence-ops.py mutates the governance clock (tic emission + "
+            "conformation + mandate) and requires the explicit --fire flag.\n"
+            "  read-only snapshot:  cadence-ops.py status\n"
+            "  fire the downbeat:   cadence-ops.py --fire --mode downbeat [...]\n"
+            "A bare invocation is an ACTION, not a probe (tic-605 incident: a shell "
+            "fallback fired an accidental downbeat; receipt "
+            "audit-logs/governance/receipts/2026-07-10-tic605-accidental-downbeat-reverted.md).\n"
+        )
+        return 2
 
     # Default count_reason from mode
     count_reason = args.count_reason
