@@ -55,7 +55,11 @@ import json
 import sys
 from pathlib import Path
 
-DEFAULT_MAX_CHARS = 3000
+DEFAULT_MAX_CHARS = 20000  # aperture widened tic 600 (Architect): the orchestrator seam
+# (session-restore.sh) overrides this per-call, but keep the fallback coherent with the live
+# orchestrator aperture. Citizen seams (subagent-citizen-boot.py) stay lean by design (2200/1500)
+# — the orchestrator is the acting lead and gets the full ray set inline; a budget-omitted
+# task-pertinent pointer is what bit tic 600 (harpoonv2 board-fire).
 
 # BOOT READ INVARIANT (Architect, tic 406) — the pseudo_temperature gravity line.
 # Rides as the LEADING SUBSTRATE fragment of every worldview (both boot seams, every

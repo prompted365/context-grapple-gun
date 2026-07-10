@@ -895,7 +895,7 @@ BOOT_INJECTION_MSG=""
 BOOT_INJECTION_SCRIPT=$(resolve_script "boot-injection.py")
 if [ -n "$BOOT_INJECTION_SCRIPT" ] && [ "$TIC_COUNT" -gt 0 ]; then
   BOOT_INJECTION_RAW=$(python3 "$BOOT_INJECTION_SCRIPT" render \
-    --tic "$TIC_COUNT" --audience orchestrator --zone-root "$PROJECT_DIR" --max-chars 1500 2>/dev/null || true)
+    --tic "$TIC_COUNT" --audience orchestrator --zone-root "$PROJECT_DIR" --max-chars 20000 2>/dev/null || true)
   if [ -n "$BOOT_INJECTION_RAW" ]; then
     BOOT_INJECTION_MSG=$(echo "$BOOT_INJECTION_RAW" | tr '\n' ' ' | sed 's/  */ /g')
   fi
@@ -915,7 +915,7 @@ WORLDVIEW_SCRIPT=$(resolve_script "office-worldview.py")
 if [ -n "$WORLDVIEW_SCRIPT" ] && [ "$TIC_COUNT" -gt 0 ]; then
   WORLDVIEW_RAW=$(python3 "$WORLDVIEW_SCRIPT" render \
     --office ent_homeskillet --tic "$TIC_COUNT" --format human \
-    --zone-root "$PROJECT_DIR" --max-chars 2600 2>/dev/null || true)
+    --zone-root "$PROJECT_DIR" --max-chars 20000 2>/dev/null || true)
   if [ -n "$WORLDVIEW_RAW" ]; then
     # JSON-escape preserving newlines as \n (NOT flattened) for safe additionalContext
     # embedding — keeps the badge-per-line worldview readable in the injected context.
