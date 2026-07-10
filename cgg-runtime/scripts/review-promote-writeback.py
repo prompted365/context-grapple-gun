@@ -85,7 +85,13 @@ AUTO_MEMORY_DIR = (
 # Terminal status values — once an inline marker carries one of these it is NOT
 # re-flipped (a PROMOTE-SPEC entry stays promoted_spec; an absorbed entry stays
 # absorbed). Only `pending` is advanced.
-_TERMINAL_STATUSES = {"promoted", "promoted_spec", "absorbed", "skipped", "deferred"}
+# `deferred` REMOVED /review 609 (Fix B door-close): it is the NON-SPEC DEFER
+# representation the readers disagree on (cgg-ledger#status-value-reader-
+# disagreement-sticky-masks-reactivated-item). A DEFER writes the spec status
+# `enrichment_eligible` queue-side and never invokes this writeback; any caller
+# still passing --status deferred now fails LOUD (argparse choice error), and a
+# legacy inline `deferred` block is lawfully re-flippable when its row promotes.
+_TERMINAL_STATUSES = {"promoted", "promoted_spec", "absorbed", "skipped"}
 
 # Provenance-comment recognizer — kept in lock-step with review-close-check.py's
 # _PROVENANCE_VERB_RE so "already stamped" is judged by the same shape the reader

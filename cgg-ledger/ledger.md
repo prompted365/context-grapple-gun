@@ -3178,6 +3178,30 @@ reads right; it is complete when no mirror-consumer can still read the phantom.
 
 <!-- promoted from cpr_phantom_tic_void_must_sweep_all_tic_count_mirrors_tic580 (tic 580→603, /review 603 PROMOTE, Architect-ratified in-tic via AskUserQuestion ratification set). Second refinement-RAY on the federation KI structural-transform-implies-closed-consumer-set-obligation (the tic-count-mirrors surface); composes federation Disagreement-as-evidence (the economy-vs-contagion disagreement names the un-swept mirror). Evidence: tic-580 phantom-void sweep. Band: COGNITIVE. signer ent_review_execute (claude-opus-4-8), boot receipt c2221e9d53427177. -->
 
+**One-way carry-ledger refinement (tic 606→609 — the mirror-set's un-sweepable member + its second cure arm).**
+A phantom-tic void's mirror set includes ONE-WAY carry ledgers — state files (e.g.
+`economy-state.json`) whose embedded tic advances via deterministic transitions and whose
+prior bytes are NOT preserved, and whose tic field is read by an advance guard
+(`carry.tic ≥ target → replay`). These are IN the mirror set but CANNOT be swept by restore
+(there is no prior state to restore to), so the sweep-every-mirror law needs a SECOND CURE
+ARM. Either (a) the state writer preserves prior-state bytes at each advance (backup-at-write),
+or (b) the sweep completes by RECEIPTED DETERMINISTIC-EQUIVALENCE LEGITIMIZATION, valid only
+when three conditions verify: the engine is deterministic per (seed, tic) with no wall-clock;
+the phantom transition's input state was byte-identical to what the legitimate fire would have
+consumed; the governance tic has legitimately reached the phantom's value. Then mint the
+legitimate artifact from the phantom content with a `provenance_correction` block, advance the
+pointer with a correction note, append a TYPED correction row to the audit trail (never faked
+as a fresh fire), preserve the quarantined original untouched, and record the reversal path.
+The centroid: content and provenance are SEPARABLE defects — determinism cures CONTENT; only a
+receipt cures PROVENANCE. This also sharpens the mirror-ENUMERATION discipline above: a
+"tic-count mirror" is ANY surface whose behavior branches on a stored tic, including carry
+ledgers whose tic field is read by an advance guard — not only display/count surfaces.
+**Lock line:** *a one-way carry ledger cannot be restore-swept — it is re-legitimized by
+receipted deterministic-equivalence, because determinism cures content but only a receipt cures
+provenance.*
+
+<!-- promoted from cpr_one_way_carry_ledger_mirror_needs_legitimization_protocol_tic606 (tic 606→609, /review 609 PROMOTE-as-refinement, Architect-ratified in-tic). Refinement edge on this same anchor (the mirror-set's one-way/un-sweepable member + the second cure arm: backup-at-write OR receipted deterministic-equivalence legitimization); ledger_only, no standalone KI, compact root untouched. The born is declared evidence_for its parent cpr_bare_cli_fallback_is_action_not_probe_tic605 (promoted /review 608, anchor bare-invocation-is-an-action-not-a-probe) — the replay-valve stickiness that parent predicted, operationally completed here. Evidence: audit-logs/governance/receipts/2026-07-10-tic606-economy-carry-ledger-mirror-swept.md (the tic-606 economy carry-ledger sweep). Band: COGNITIVE. Confidence_tier: validated_once. signer ent_review_execute (claude-opus-4-8), boot receipt c574ed78a76c65ff. -->
+
 ---
 
 ## SubagentStart Boot-Receipt Prescriptions Must Be Capability-Gated Against the Dispatched Agent's Actual Tool Schema
@@ -3243,6 +3267,7 @@ contract rung, not federation law).
 Intending a read-only cadence status check, the orchestrator ran `cadence-ops.py status 2>/dev/null || cadence-ops.py`. The tool had no `status` subcommand; the silenced first leg failed and the `||` fallback executed the BARE DEFAULT — a full downbeat: tic 605→606, premature conformation, and a phantom tic-606 mandate clobbering the tic-605 mandate mid-consumption. The shell fallback pattern `x sub || x` CONVERTS read intent into the tool's default action whenever the default is a mutation — a bare invocation is an ACTION, not a probe. Compounding face: the mutation did not stay local — the activation fabric AUTO-DISPATCHED a runner for the phantom mandate within seconds, so attachment accumulated faster than the error could be noticed (rollback-velocity pressure). Disciplines: (1) never chain `|| <bare-tool>` when the bare default mutates; (2) a CLI whose bare default is a mutation needs an explicit arming flag and a real read-only probe verb — the physics fix landed same-arc (CGG 47f0f32: cadence-ops.py requires explicit `--fire`; adds a true `status` subcommand), making the lawful move small; (3) probe verbs must EXIST so read intent has a lawful target. This is Syntax-Semantic Collapse on the CLI axis: an invocation that LOOKS like a probe carries execution semantics.
 
 <!-- promoted from cpr_bare_cli_fallback_is_action_not_probe_tic605 (tic 605→608, /review 608 PROMOTE, Architect-ratified in-tic via AskUserQuestion ratification set). Enrichment baseline: engineering/cgg-ledger (deterministic-lite). Evidence: the tic-605 accidental-downbeat incident (receipted revert + legal supersede) + the physics gate landed at CGG 47f0f32 — enforcement precedes this inscription (enforcement-over-documentation honored; this entry is the citable moral). Band: COGNITIVE. Confidence_tier: tentative (n=1 lived, physics-patched). signer ent_homeskillet (claude-fable-5), boot receipt 7a9316aa5895dd25. -->
+<!-- reinforced_by: cpr_one_way_carry_ledger_mirror_needs_legitimization_protocol_tic606 (tic 609, source: up-lane). Independent rediscovery / down-audit reinforce-signal — resilience evidence (the KI re-derived from rung friction, not merely mentioned). Stamped by review-promote-writeback (Stage 5). -->
 
 ---
 

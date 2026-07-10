@@ -41,7 +41,13 @@ HOLDING_STATUSES = {"enrichment_needed", "enrichment_eligible"}
 # evaluable PRE-enrichment — full enrichment + maturity-extension are deferred, optional
 # case-betterment, NOT firing-gates. Baseline runs for extracted AND holding; the heavy
 # evidence-gather pass runs for holding only.
-BASELINE_STATUSES = {"extracted"} | HOLDING_STATUSES
+# `deferred` added /review 609 (Fix A, defensive complement to the Fix B generator
+# patch): the non-spec DEFER status sticky-masked re-activated rows outside every
+# scanner cohort (14/36 uncovered at t608 — cgg-ledger#status-value-reader-
+# disagreement-sticky-masks-reactivated-item). Post-migration the set is empty;
+# this covers any future regression-minted `deferred` row with a baseline so the
+# bench packet never reads it as uncovered-invisible again.
+BASELINE_STATUSES = {"extracted", "deferred"} | HOLDING_STATUSES
 
 
 # ---------------------------------------------------------------------------

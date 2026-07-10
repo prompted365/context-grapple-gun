@@ -246,14 +246,22 @@ This step runs LAST for each PROMOTE verdict. Append or update the CogPR's entry
 
 For each `DEFER` verdict:
 
-Update the CogPR's entry in `audit-logs/cprs/queue.jsonl`:
-- Set `status` to `"deferred"`
+Update the CogPR's entry in `audit-logs/cprs/queue.jsonl` using the **spec representation**
+(SKILL Step-7; `cgg-ledger#status-value-reader-disagreement-sticky-masks-reactivated-item`,
+t522 law — generator patched at /review 609):
+- Set `status` to `"enrichment_eligible"` — **NEVER** the literal `"deferred"` (a status the
+  readers disagree on: terminal to bench-packet-prep/load_queue, active to queue_state_compile —
+  it sticky-masks the row from the enrichment scanner and the docket)
+- Add `pending_class: "<class>"` — `"feedback_required"` default; use a sharper existing class
+  (`blocked_on_dependency`, `architect_decision_required`, …) when the docket names the gate
+- Add `maturity_window_tics: <N or descriptive re-eval condition>`
+- Record the unresolved dependency or contradiction that blocks promotion (`review_reasoning`)
 - Add `review_tic: <tic>`
 - Add `review_verdict: "DEFER"`
 - Add `review_confidence: <confidence>`
-- Add `review_reasoning: "<reasoning from docket>"`
 
-Do not modify MEMORY.md or any CLAUDE.md file for DEFER verdicts.
+Do not modify MEMORY.md or any CLAUDE.md file for DEFER verdicts. Inline-tracked blocks keep
+`status: pending` (Step-7 discipline) — do NOT invoke review-promote-writeback for a DEFER.
 
 ### SKIP
 
