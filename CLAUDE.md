@@ -155,6 +155,14 @@
   - *Ledger:* [`cgg-ledger/ledger.md#new-consumer-over-long-lived-emitter-surface-must-be-scope-bounded-not-retroactive`](cgg-ledger/ledger.md#new-consumer-over-long-lived-emitter-surface-must-be-scope-bounded-not-retroactive)
 - **A Status Value Readers Disagree On (Terminal vs Active) Sticky-Masks a Re-Activated Item — DEFER Must Write the Spec Status, Not the Divergent One** — A /review DEFER verdict has a SPEC-CORRECT representation — `status: enrichment_eligible` + pending_class + maturity_window_tics (SKILL Step-7) — and a NON-SPEC one — `status: deferred`; they are NOT interchangeable, because `deferred` is a status the READERS DISAGREE ON. *(tic 521→522)*
   - *Ledger:* [`cgg-ledger/ledger.md#status-value-reader-disagreement-sticky-masks-reactivated-item`](cgg-ledger/ledger.md#status-value-reader-disagreement-sticky-masks-reactivated-item)
+- **In a Latest-Per-ID Reader, 'Latest' Is Chronological Provenance, Not File-Sort Order** — Derived/secondary projection files (archives, manifests) must be EXCLUDED from primary readers, or a thin terminal copy in a later-sorting file silently overrides a chronologically newer active row and a recurred condition goes dark as it re-fires. *(tic 573→603)*
+  - *Ledger:* [`cgg-ledger/ledger.md#file-sort-is-not-chronology-derived-surfaces-excluded-from-primary-readers`](cgg-ledger/ledger.md#file-sort-is-not-chronology-derived-surfaces-excluded-from-primary-readers)
+- **An Emitter Whose Rows Never Match Any Reader Predicate Is Acoustically Dead While Looking Live** — Emitter liveness = a consumer predicate can MATCH its rows, not that it fires on schedule; validate row shape against the reader predicate at emit time (emit-side complement to can-it-eat). *(tic 571→603)*
+  - *Ledger:* [`cgg-ledger/ledger.md#emitter-rows-must-match-a-reader-predicate`](cgg-ledger/ledger.md#emitter-rows-must-match-a-reader-predicate)
+- **Retiring a Predicate by Shipping a Single-Owner Module Is Half the Transform** — The reader consumer set must be enumerated and migrated, or the retired predicate stays live at the most visible readers; predicate-axis instance of the closed-consumer-set obligation. *(tic 571→603)*
+  - *Ledger:* [`cgg-ledger/ledger.md#predicate-retirement-needs-reader-consumer-sweep`](cgg-ledger/ledger.md#predicate-retirement-needs-reader-consumer-sweep)
+- **A Phantom-Tic Void Has a Closed, Enumerable Consumer Set — Sweep EVERY Tic-Count Mirror** — Reconciling only the canonical count leaves the silent-degrade mirrors phantom; a MAX-tic-numbered-file "latest" selector makes a phantom conformation sticky-latest for exactly the broken tic. *(tic 580→603)*
+  - *Ledger:* [`cgg-ledger/ledger.md#phantom-tic-void-must-sweep-all-tic-count-mirrors`](cgg-ledger/ledger.md#phantom-tic-void-must-sweep-all-tic-count-mirrors)
 
 ## Review And Promotion Discipline
 
@@ -204,6 +212,8 @@
   - *Ledger:* [`cgg-ledger/ledger.md#inscription-verification-reason-coded-dehydration-provenance-aware`](cgg-ledger/ledger.md#inscription-verification-reason-coded-dehydration-provenance-aware)
 - **Zero-Divergence In A Single-Lens Baseline Is Structural, Not Cross-Lens Agreement** — A deterministic-lite consolidated.json reading "agreements_count: N, divergences_count: 0" is NOT evidence of cross-lens convergence — it is a single-classifier baseline where zero-divergence is TRUE BY CONSTRUCTION (one lens cannot disagree with itself; lens_a_path/lens_b_path are empty; the file self-stamps not_a_verdict). *(tic 566→570)*
   - *Ledger:* [`cgg-ledger/ledger.md#zero-divergence-single-lens-baseline-structural`](cgg-ledger/ledger.md#zero-divergence-single-lens-baseline-structural)
+- **A DAG Node Is a Dependency-Gated Covenant, Not Authority-Parking** — Never park a node as 'Architect-gated'; if it needs his ruling it is not a DAG node (fork lane) — once in the DAG it is a dependency-gated covenant ridden by workflows to target, and only authority (/review) or physics/external gate is a real gate (the blocked note must name which). *(tic 571→603)*
+  - *Ledger:* [`cgg-ledger/ledger.md#dag-nodes-are-dependency-gated-covenants-not-authority-parking`](cgg-ledger/ledger.md#dag-nodes-are-dependency-gated-covenants-not-authority-parking)
 
 ## Subagent And Swarm Delegation
 
@@ -225,6 +235,8 @@
   - *Ledger:* [`cgg-ledger/ledger.md#headless-delegate-structured-emission-contract`](cgg-ledger/ledger.md#headless-delegate-structured-emission-contract)
 - **Shadow/Apprentice Requires Full Input Parity and Co-Mutation** — A shadow/apprentice model must get the SAME full input fidelity + output capacity + co-mutation as the process it shadows, or measured dissonance reflects harness limits, not the process.
   - *Ledger:* [`cgg-ledger/ledger.md#shadow-apprentice-requires-full-input-parity-and-co-mutation`](cgg-ledger/ledger.md#shadow-apprentice-requires-full-input-parity-and-co-mutation)
+- **Lattice-Weave Fan-Out Over Concatenation for Boot-Grade Synthesis** — For a load-bearing multi-subsystem declaration on a durable surface, fan out ONE read-in-full lane PER subsystem then weave the returns to a single SPINE (never concatenate/"peasant-slap"); name the one law that recurs at every face, and scope the full operating-manual section to the orchestrator seam. *(tic 582→603)*
+  - *Ledger:* [`cgg-ledger/ledger.md#lattice-weave-fanout-over-concatenation-for-boot-grade-synthesis`](cgg-ledger/ledger.md#lattice-weave-fanout-over-concatenation-for-boot-grade-synthesis)
 
 ## Sync And Install Parity
 
@@ -242,6 +254,10 @@
   - *Ledger:* [`cgg-ledger/ledger.md#boot-seam-duality-primary-sessionstart-citizens-subagentstart`](cgg-ledger/ledger.md#boot-seam-duality-primary-sessionstart-citizens-subagentstart)
 - **Live-Wiring Is a Build, Not a Config Flip** — Live-wiring a render-proven tool into a hook EVENT is a BUILD (full build+sync+parity discipline), not a config flip.
   - *Ledger:* [`cgg-ledger/ledger.md#live-wiring-is-a-build-not-a-config-flip`](cgg-ledger/ledger.md#live-wiring-is-a-build-not-a-config-flip)
+- **A Fail-Closed Gate's Example/Template Must Teach the COMPLETE Pass-State** — When a fail-closed gate's pass-state requires fields X+Y, every example/template that teaches agents to satisfy it MUST include X+Y; a template teaching only X mints compliant-looking submissions that fail at first enforcement — fix at the GENERATOR surface, not per-session recovery. *(tic 602→603)*
+  - *Ledger:* [`cgg-ledger/ledger.md#gate-example-template-must-teach-complete-pass-state`](cgg-ledger/ledger.md#gate-example-template-must-teach-complete-pass-state)
+- **SubagentStart Boot-Receipt Prescriptions Must Be Capability-Gated to the Agent's Tool Schema** — A citizen-boot prescription to emit a receipt via `boot-receipt.py` (Bash) cannot be honored by a no-Bash citizen (ent_ladder_auditor); the emitter row (prescription) must match the reader predicate (agent capability) — grant Bash, give a non-Bash receipt path, or capability-detect and substitute. *(tic 575→603, 5 recurrences)*
+  - *Ledger:* [`cgg-ledger/ledger.md#boot-receipt-prescriptions-must-be-capability-gated-to-agent-tool-schema`](cgg-ledger/ledger.md#boot-receipt-prescriptions-must-be-capability-gated-to-agent-tool-schema)
 
 ## Verification And Proof Discipline
 
@@ -293,6 +309,10 @@
   - *Ledger:* [`cgg-ledger/ledger.md#named-footgun-guard-leaves-sibling-site-unfixed`](cgg-ledger/ledger.md#named-footgun-guard-leaves-sibling-site-unfixed)
 - **Fixture-Green Is Not Trainer-Green** — Fixture-proof and trainer-proof are different evidence classes; a fixture pass cannot flip a trainer-gated wire. *(tic 556→563)*
   - *Ledger:* [`cgg-ledger/ledger.md#fixture-green-is-not-trainer-green`](cgg-ledger/ledger.md#fixture-green-is-not-trainer-green)
+- **A Validator Selftest Whose Only Fixture Takes the Happy Path Leaves Documented Conditional Branches Unexercised** — A structural check can then contradict its own documented conditional and ship green (honest-empty is a first-class arm, not an edge case); every documented conditional — both arms — gets a fixture. *(tic 602→603)*
+  - *Ledger:* [`cgg-ledger/ledger.md#selftest-fixtures-must-exercise-documented-conditional-paths`](cgg-ledger/ledger.md#selftest-fixtures-must-exercise-documented-conditional-paths)
+- **Assess a Mechanic's PURPOSE Before Prescribing a Fix; For a Dormant Mechanic, LOCATE Its Successor Lane Before Scheduling** — Dormancy evidence is identical for never-wired and replaced-but-un-retired, and a pre-purpose fix-shape can institutionalize exactly what the design warns against — an apparent gap can be the mechanic's teeth. *(tic 570/571→603)*
+  - *Ledger:* [`cgg-ledger/ledger.md#assess-mechanic-purpose-before-prescribing-fix`](cgg-ledger/ledger.md#assess-mechanic-purpose-before-prescribing-fix)
 
 ## Memory And Inscription Hygiene
 
@@ -343,6 +363,8 @@
   - *Ledger:* [`cgg-ledger/ledger.md#extractor-output-anomaly-flagging`](cgg-ledger/ledger.md#extractor-output-anomaly-flagging)
 - **Generator-vs-Local-Repair Gap (Handoff Title Format)** — When a convention drift recurs across sessions (cross-tic n≥3 instances) and originates in a TEMPLATE that agents follow (skill body, spec, mandate format), the fix MUST land at the generator surface.
   - *Ledger:* [`cgg-ledger/ledger.md#generator-vs-local-repair-gap-handoff-title-format`](cgg-ledger/ledger.md#generator-vs-local-repair-gap-handoff-title-format)
+- **A Recurrence Miner Whose Detection Axis Equals the Upstream Write-Gate's Dedup Axis Measures ~Zero BY CONSTRUCTION** — The gate eliminates exactly the class the miner detects before it reaches the substrate; a zero-candidates streak is simultaneously TRUE and NOT evidence of no recurrence — detect on a DIFFERENT axis than the gate dedups on (shape vs lexeme), or label the zero axis-relative. *(tic 577→603)*
+  - *Ledger:* [`cgg-ledger/ledger.md#recurrence-miner-axis-must-differ-from-upstream-dedup-axis`](cgg-ledger/ledger.md#recurrence-miner-axis-must-differ-from-upstream-dedup-axis)
 
 ## Pipeline And Integration
 
@@ -432,3 +454,5 @@
   - *Ledger:* [`cgg-ledger/ledger.md#cockpit-intent-invocation-discipline-t2b`](cgg-ledger/ledger.md#cockpit-intent-invocation-discipline-t2b)
 - **Uncommitted-By-Design Content Requires Physics-Layer Gitignore Guard** — "Uncommitted-by-design" is fragile ambient state, not a guard; enforce it with a physics-layer .gitignore so it can't be accidentally committed.
   - *Ledger:* [`cgg-ledger/ledger.md#uncommitted-by-design-content-requires-physics-layer-gitignore-guard`](cgg-ledger/ledger.md#uncommitted-by-design-content-requires-physics-layer-gitignore-guard)
+- **A Wrapper Over a Governance Instrument Must Discriminate Crash vs Verdict vs Informational Exit-Code Semantics Before Labeling a Run Failed** — economy-invoke.sh treats a `seed_stabilized=false` HEALTH verdict exit as a crash and suppresses verification though the artifacts landed; read health from the artifact, or reserve nonzero exits for execution failure — the exit-code contract is a declared surface, not an assumption. *(tic 579→603)*
+  - *Ledger:* [`cgg-ledger/ledger.md#wrapper-must-discriminate-instrument-exit-code-semantics-crash-vs-verdict`](cgg-ledger/ledger.md#wrapper-must-discriminate-instrument-exit-code-semantics-crash-vs-verdict)

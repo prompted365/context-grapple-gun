@@ -354,6 +354,12 @@ def render_receipt_frame(office: str, tic: int, disp: str, zone_root: Path, ladd
     governance. The sink (boot-receipt.py emit) verifies + greets back. The greeting sets
     session tone; the ledger (boot-receipts.jsonl) populates the long-run receipt lane."""
     rp = _boot_receipt_path(zone_root)
+    # BOOT-READ ATTESTATION FLAGS (tic 603): the BOOT READ INVARIANT names seven receipt
+    # fields the mutation gate reads (full_boot_injection_read · boot_read_mode · chunking ·
+    # required_unread_ranges · apophatic_range_bounds · pertinence_rationale ·
+    # clipped_preview_detected) — but this template previously taught NONE of them, so a
+    # template-taught receipt self-DoSed at its first mutation (hit live at tic 602).
+    # Generator-vs-local-repair: the fix lands HERE, at the template every boot renders.
     frame = (
         "\n━━━ BOOT RECEIPT · your first response closes the boot loop "
         "(framing — NOT counted against the worldview budget) ━━━\n"
@@ -363,11 +369,21 @@ def render_receipt_frame(office: str, tic: int, disp: str, zone_root: Path, ladd
         f"  python3 {rp} emit --entity {office} --tic {tic} \\\n"
         '    --understood "…" --constraint "…" --abstention "…" '
         '--first-action "…" --route "cadence/review" \\\n'
-        '    --model "<your model id, e.g. claude-opus-4-8>"'
+        '    --model "<your model id, e.g. claude-opus-4-8>" \\\n'
+        "    --full-boot-read --boot-read-mode full --chunking gapless"
         + ('  \\\n    --ladder-explainback "<EXACTLY five sentences>"' if ladder else "")
+        + "\n  ⚠ boot-read attestation (the mutation gate reads THESE; a receipt without them "
+        "self-DoSes at your first mutation): the flags above assert the honest happy path — "
+        "adjust them to the truth of YOUR read. If the packet arrived clipped/preview-limited "
+        "and you expanded it in full, add --clipped-preview; if the surface-typed discipline "
+        "applied (JSONL/registry slices), use --chunking surface_typed; any REQUIRED range left "
+        "unread must be declared via --required-unread-range (the gate blocks ONLY on this); "
+        "name declared negative space via --apophatic-bound and the rationale via "
+        "--pertinence-rationale. Never attest a full gapless read you did not perform."
         + "\n  owed: understood_scope · accepted_constraints · abstentions · "
         "first_action_or_escalation"
         + (" · ladder_explainback" if ladder else "")
+        + " · boot-read attestation"
         + "\n  (signer = --entity; model = --model — two distinct fields, never a "
         "conflated 'entity-modelcode' signature)"
     )

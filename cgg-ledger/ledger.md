@@ -2711,6 +2711,10 @@ Composes with the federation KI *Artifact language must not exceed its declared 
 
 <!-- promoted from cpr_fix_then_present_self_presentation_honesty_tic377 (tic 377→379, /review 379 PROMOTE), with cpr_kernel_demotion_rollback_overclaim_tic378 MERGED in as the kernel-rung confirming instance (two-graduation-domains disambiguation noted; addressed by the tic-378 TK1 kernel addendum). Confidence_tier upgraded tentative/reinforced → convergent (two doctrine rungs: CGG arsenal + autonomous_kernel). Band: COGNITIVE. -->
 
+**Refinement — the DEFLATION pole (tic 584 born → /review 603 PROMOTE-as-refinement, Architect-ratified in-tic via AskUserQuestion; "growth != breakage").** Reporting DEFLATION is the mirror of Fix-Then-Present's OVERSTATEMENT, and the two are one honesty at opposite poles. Framing a growing system's by-design deferrals — a lane that re-surfaces next tic by its own protocol (cpr-stepper), a scheduled future gate (/review N+1), an item named-in-the-ledger-to-return (SotF doc-drift), a known harness toggle (Agent enable) — as faults/blockers is a misrepresentation-by-DEFLATION, exactly as describing an unwired mechanic as real is a misrepresentation-by-INFLATION. A growing system accumulates deliberate incompleteness the way a tree accumulates rings: the perimeter is wide SO THAT the center can wait. Reporting that frontier as an anxiety-ledger both lies structurally AND under-sells the truth — the same failure as a curated victory-lap, pointed the other way (uncertainty-avoidance dressed as diligence). CURE: before calling something a blocker/fault, CLASSIFY it — breakage (unexpected, off-contract, signal-going-dark, no designed return) vs by-design-deferral (a lane working as designed, a scheduled gate, a named-to-return item). Report breakage AS breakage and deferral as growth/on-track; lead with what grew; reserve "blocker" for motion actually barred with no designed return. Extends Fix-Then-Present (which guards the inflation pole) to the deflation pole.
+
+<!-- promoted from cpr_reporting_deflation_mirrors_overstatement_frontier_not_fault_tic584 (tic 584→603, /review 603 PROMOTE-as-refinement, Architect-ratified in-tic via AskUserQuestion ratification set). EXTENDS this entry (fix-then-present) with the DEFLATION pole — NOT a new entry: reporting-deflation is the mirror of the inflation pole; classify breakage vs by-design-deferral before calling something a blocker. Evidence: tic-584 Architect correction (growth != breakage). Band: COGNITIVE. signer ent_review_execute (claude-opus-4-8), boot receipt c2221e9d53427177. -->
+
 ---
 
 ## Blocker-Type Taxonomy — Classify the Blocker (Gate vs Capability vs Build) Before Reporting; Never Fake a Live Receipt Against a Fake Transport
@@ -3051,5 +3055,183 @@ A /review DEFER verdict has a SPEC-CORRECT representation — `status: enrichmen
 A deterministic-lite consolidated.json reading "agreements_count: N, divergences_count: 0" is NOT evidence of cross-lens convergence — it is a single-classifier baseline where zero-divergence is TRUE BY CONSTRUCTION (one lens cannot disagree with itself; lens_a_path/lens_b_path are empty; the file self-stamps not_a_verdict). A reader (plan, handoff, /review docket) that cites baseline "N/N agreement, 0 divergences" as "enrichment confirmed DONE" reads presence-of-agreement-SHAPE as semantic-fulfillment — the artifact-existence-is-not-semantic-fulfillment guard on the enrichment-tier axis. Discriminator before trusting a consolidation as strong evidence: check tier (deterministic-lite vs heavy Tier-1) AND lens_a_path/lens_b_path non-empty AND the queue row's enrichment_confidence — a deterministic-lite baseline with confidence 0.0 means judge on lesson substance + non-derivability, not on the divergence count. Emission complement (mogul-frame-fidelity, tic 561): do not attach an "agreement/DONE" frame the artifact did not itself carry.
 
 <!-- promoted from cpr_deterministic_lite_zero_divergence_is_structural_not_dual_lens_agreement_tic566 (/review 570, Architect-ratified via question-set). Ray off federation presence-observation-fallacy-guard guard-2 on the enrichment-tier axis; theme-adjacent (NOT duplicate) to cpr_cogpr_baseline_metadata_decoupled_from_full_enrichment_tic427 per cpr-stepper verify-twin at tic 570. Band: COGNITIVE. signer ent_homeskillet-fable5. -->
+
+---
+
+## A Validator Selftest Whose Only Fixture Takes the Happy Path Leaves Documented Conditional Branches (Honest-Empty) Unexercised
+<a id="selftest-fixtures-must-exercise-documented-conditional-paths"></a>
+<!-- ledger-tags: authority_class=verification_and_proof_discipline | rung=domain | domain=context-grapple-gun | born_tic=602 | promoted_tic=603 | relations=sibling:fixture-green-is-not-trainer-green | confidence_tier=tentative -->
+
+A validator selftest whose only valid fixture takes the happy path leaves documented conditional branches (especially honest-empty paths) unexercised — a structural check can then contradict its own documented conditional and the contradiction ships green. Lived instance: the ratified trajectory-episode validator documented 'explicit_no_lock REQUIRED when lock_pressure_pairs is empty' but its structural non-empty pass rejected the empty list unconditionally, making the honest no-lock path unreachable; selftest (1 pass/6 rejects) never caught it because the sole valid example carried a lock pair. First fired by the first REAL episode (single-council activation, honestly no lock pairs). Cure: every documented conditional (both arms) gets a fixture; honest-empty is a first-class arm, not an edge case.
+
+<!-- promoted from cpr_selftest_fixtures_must_exercise_documented_conditional_paths_tic602 (tic 602→603, /review 603 PROMOTE, Architect-ratified in-tic via AskUserQuestion ratification set). Sibling of Fixture-Green Is Not Trainer-Green (both in Verification And Proof Discipline). Evidence: explicit_no_lock validator defect found+fixed tic 602; receipted + re-sealed; first fired by the first real episode (honest no-lock). Band: COGNITIVE. signer ent_review_execute (claude-opus-4-8), boot receipt c2221e9d53427177. -->
+
+---
+
+## A Fail-Closed Gate's Example/Template Must Teach the COMPLETE Pass-State (All Required Fields), or It Self-DoSes Every Consumer at First Enforcement
+<a id="gate-example-template-must-teach-complete-pass-state"></a>
+<!-- ledger-tags: authority_class=sync_and_install_parity | rung=domain | domain=context-grapple-gun | born_tic=602 | promoted_tic=603 | composes=boot-seam-duality-primary-sessionstart-citizens-subagentstart,generator-vs-local-repair-gap-handoff-title-format | confidence_tier=tentative -->
+
+When a fail-closed gate's pass-state requires fields X+Y, every example/template that teaches agents how to satisfy the gate MUST include X+Y — a template that teaches only X produces compliant-looking submissions that fail the gate later, self-DoSing every consumer at first enforcement. Lived instance: the boot receipt-frame template (office-worldview.py render_receipt_frame) teaches the civic fields + ladder explain-back but omits the boot-read attestation flags (--full-boot-read --boot-read-mode --chunking), so a fully template-compliant first response still gets BLOCKED by the boot-read mutation gate at its first governance write (hit live at tic 602 mid-Fork-1-apply; closed with a clean second receipt). Fix belongs at the GENERATOR surface (the template), not per-session recovery — generator-vs-local-repair.
+
+<!-- promoted from cpr_gate_example_template_must_teach_complete_pass_state_tic602 (tic 602→603, /review 603 PROMOTE, Architect-ratified in-tic via AskUserQuestion ratification set). Boot-seam family (a template that teaches the pass-state must teach ALL required fields; fix at the generator). Composes Boot-Seam-Duality + Generator-vs-Local-Repair-Gap. Evidence: runtime half LANDED tic 603 — render_receipt_frame attestation-flag fix + runtime-sync + byte-parity + render-tested at both seams. Band: COGNITIVE. signer ent_review_execute (claude-opus-4-8), boot receipt c2221e9d53427177. -->
+
+---
+
+## A DAG Node Is a Dependency-Gated Covenant, Not Authority-Parking — Never Park a Node as 'Architect-Gated'
+<a id="dag-nodes-are-dependency-gated-covenants-not-authority-parking"></a>
+<!-- ledger-tags: authority_class=review_and_promotion_discipline | rung=domain | domain=context-grapple-gun | born_tic=571 | promoted_tic=603 | relations=sibling:verdict-shape-discriminates-execution-gate-for-compound-review-passes(federation),composes:gate-contracts-not-vibes | confidence_tier=reinforced -->
+
+A DAG node must never be labeled or parked as 'Architect-gated' — if it needs his ruling it is not a DAG node (fork lane); once in the DAG it is a dependency-gated covenant to be ridden by workflows against its failures, winching to target. Only authority (/review, explicit ruling) or physics/external gate, and the blocked note must name which. Architect-taught verbatim tic 571; applied at the generator (backlog.py taxonomy) + 7 items reclassified + 4-strike workflow wave landed same tic.
+
+<!-- promoted from cpr_dag_nodes_are_dependency_gated_covenants_not_authority_parking_tic571 (tic 571→603, /review 603 PROMOTE, Architect-ratified in-tic via AskUserQuestion ratification set). Gate-taxonomy family, sibling of the federation KI verdict-shape-discriminates-execution-gate (both discriminate legitimate gate authority); composes Gate-Contracts-Not-Vibes. Only authority (fork lane) or physics/external gate is a real gate; a DAG node is a dependency-gated covenant ridden by workflows. Evidence: Architect-taught verbatim tic 571; backlog.py taxonomy patched, 7 items reclassified, 4-strike workflow wave landed same tic. Band: COGNITIVE. Confidence_tier: reinforced (Architect-taught + applied). signer ent_review_execute (claude-opus-4-8), boot receipt c2221e9d53427177. -->
+
+---
+
+## In a Latest-Per-ID Reader, 'Latest' Is Chronological Provenance — Derived/Secondary Projection Files Are Excluded From Primary Readers
+<a id="file-sort-is-not-chronology-derived-surfaces-excluded-from-primary-readers"></a>
+<!-- ledger-tags: authority_class=signal_and_queue_manifold | rung=domain | domain=context-grapple-gun | born_tic=573 | promoted_tic=603 | relations=sibling:terminal-state-valve-pattern,composes:disagreement-as-evidence(federation) | confidence_tier=tentative -->
+
+In a latest-per-id reader over a multi-file append-only surface, 'latest' must be defined by chronological provenance, never by file-sort order — and derived/secondary projection files (archives, manifests) must be EXCLUDED from primary readers, because a thin terminal copy in a later-sorting file silently overrides a chronologically newer active row. The failure shape is precise and cruel: a RECURRED condition goes dark at the exact moment it re-fires — the re-detection is swallowed by its own prior resolution's archived echo. The system's own registry already knew the classification (runtime-sync's _derived set names active-manifest + resolved-archive as derived/secondary); the reader just didn't honor it. Diagnostic that found it: disagreement-as-evidence (writer receipts said 36 landed; coverage reader said 19) — the disagreement WAS the map to the wrong-filter reader.
+
+<!-- promoted from cpr_file_sort_is_not_chronology_derived_surfaces_excluded_from_primary_readers_tic573 (tic 573→603, /review 603 PROMOTE, Architect-ratified in-tic via AskUserQuestion ratification set). Signal And Queue Manifold, sibling of Terminal-State Valve Pattern (both govern latest-per-id read truth over append-only surfaces); composes federation Disagreement-as-evidence. Evidence: tic-573 recurred-condition-goes-dark forensics (writer 36 vs coverage-reader 19 disagreement mapped to the file-sort-order reader over derived surfaces). Band: COGNITIVE. signer ent_review_execute (claude-opus-4-8), boot receipt c2221e9d53427177. -->
+
+---
+
+## A Recurrence Miner Whose Detection Axis Equals the Upstream Write-Gate's Dedup Axis Measures ~Zero Recurrence BY CONSTRUCTION
+<a id="recurrence-miner-axis-must-differ-from-upstream-dedup-axis"></a>
+<!-- ledger-tags: authority_class=forensic_and_drift_investigation | rung=domain | domain=context-grapple-gun | born_tic=577 | promoted_tic=603 | composes=can-it-eat-dataflow-liveness-predicate(federation),presence-observation-fallacy-guard(federation) | confidence_tier=tentative -->
+
+**A recurrence miner whose detection axis equals the upstream write-gate's dedup axis
+measures ~zero recurrence BY CONSTRUCTION — the gate eliminates exactly the class the miner
+detects, before it can reach the substrate the miner reads.** pattern_miner.py detects
+queue-side recurrence via lexical Jaccard word-overlap >= 0.3 between CPR lessons
+(gather_recurrence, pattern_miner.py:109-169); the stepper's verify-twin DEDUP eliminates
+near-verbatim/lexically-twinned lessons at the write boundary. What survives the gate is
+shape-level recurrence — same centroid, different lexemes — which a 0.3 Jaccard cannot see
+(the ladder's grep-is-the-degenerate-child failure, in miner form). So the 0-candidates
+streak (t568/t572/t576 cycle reports: "normal operation, not a fault") is simultaneously
+TRUE and NOT EVIDENCE OF NO RECURRENCE: the miner's zero means "nothing survives the gate
+in my detection band," not "no patterns recur." Cure shape: a recurrence miner must detect
+on a DIFFERENT axis than the gate dedups on (conformation/shape-proximity vs lexeme/hash) —
+or its zero-reading must be labeled axis-relative, never presented as pattern absence.
+Scope-honest: the miner is not fully dead — its signal-subsystem lane
+(gather_signal_recurrence, subsystem-equality axis) is live, and the lane last emitted
+2026-06-26; this is starvation of the primary band, not a mounted bear.
+
+<!-- promoted from cpr_recurrence_miner_axis_must_differ_from_upstream_dedup_axis_tic577 (tic 577→603, /review 603 PROMOTE, Architect-ratified in-tic via AskUserQuestion ratification set). Pipeline/forensic: a miner whose detection axis == the upstream gate's dedup axis reads zero-by-construction. Composes federation can-it-eat-dataflow-liveness-predicate (a zero-reading is axis-relative, not pattern absence) + presence-observation-fallacy-guard (observed-absence-does-not-prove-breakage). Evidence: pattern_miner Jaccard axis == stepper verify-twin dedup axis, zero-by-construction. Band: COGNITIVE. signer ent_review_execute (claude-opus-4-8), boot receipt c2221e9d53427177. -->
+
+---
+
+## Assess a Mechanic's PURPOSE Before Prescribing a Fix; For a Dormant Mechanic, LOCATE Its Successor Lane Before Scheduling
+<a id="assess-mechanic-purpose-before-prescribing-fix"></a>
+<!-- ledger-tags: authority_class=verification_and_proof_discipline | rung=domain | domain=context-grapple-gun | born_tic=570 | promoted_tic=603 | merged_from=cpr_dormant_mechanic_locate_successor_lane_before_scheduling_tic571(tic571) | composes=gate-contracts-not-vibes | confidence_tier=reinforced -->
+
+Assess a mechanic's PURPOSE (declared intent, open residues, designed pressure) before prescribing a fix for its apparent gap, and before wiring a scheduler/invoker for a dormant mechanic LOCATE ITS SUCCESSOR LANE — dormancy evidence is identical for never-wired and replaced-but-un-retired, and a pre-purpose fix-shape can institutionalize exactly what the design warns against (lived: D4 held-band --retest near-miss tic 570; v1 signal-tick vs manifest-prune v2 forensics tic 571).
+
+<!-- promoted from cpr_assess_mechanic_purpose_before_prescribing_fix_tic570 (tic 570→603, /review 603 PROMOTE via MERGE_PRIMARY, Architect-ratified in-tic via AskUserQuestion ratification set), with cpr_dormant_mechanic_locate_successor_lane_before_scheduling_tic571 (born tic 571) MERGED-ABSORBED in as the successor-lane half. Verification And Proof / gate-contracts family. Two lived instances: D4 held-band --retest near-miss (tic 570, purpose-first) + v1 signal-tick vs manifest-prune v2 successor forensics (tic 571, successor-first). Confidence_tier: reinforced (two instances, merged). Band: COGNITIVE. signer ent_review_execute (claude-opus-4-8), boot receipt c2221e9d53427177. -->
+
+---
+
+## An Emitter Whose Rows Never Match Any Reader Predicate Is Acoustically Dead While Looking Live
+<a id="emitter-rows-must-match-a-reader-predicate"></a>
+<!-- ledger-tags: authority_class=signal_and_queue_manifold | rung=domain | domain=context-grapple-gun | born_tic=571 | promoted_tic=603 | relations=sibling:machine-emitter-emit-resolve-symmetry-and-chronological-status-truth,composes:can-it-eat-dataflow-liveness-predicate(federation) | confidence_tier=tentative -->
+
+An emitter whose rows never match any reader predicate is acoustically dead while looking live: contam-sentinel emits type:signal rows every 30 min with the kind value in the status field ('status': 'WATCH', no kind key) — dropped by every raw-enum reader, invisible to manifest readers (daily-only). Emitter liveness = a consumer predicate can MATCH its rows, not that it fires on schedule; validate row shape against the reader predicate at emit time. Emit-side complement to the can-it-eat dataflow-liveness predicate.
+
+<!-- promoted from cpr_emitter_rows_must_match_a_reader_predicate_tic571 (tic 571→603, /review 603 PROMOTE, Architect-ratified in-tic via AskUserQuestion ratification set). Signal And Queue Manifold, sibling of Machine-Emitter Emit/Resolve Symmetry; emit-side complement to federation can-it-eat-dataflow-liveness-predicate (emitter liveness = a consumer predicate can MATCH its rows). Evidence: contam-sentinel kind-in-status-field rows matched by zero readers. Followup backlog: contam-sentinel emitter-side field fix. Band: COGNITIVE. signer ent_review_execute (claude-opus-4-8), boot receipt c2221e9d53427177. -->
+
+---
+
+## Retiring a Predicate by Shipping a Single-Owner Module Is Half the Transform — the Reader Consumer Set Must Be Enumerated and Migrated
+<a id="predicate-retirement-needs-reader-consumer-sweep"></a>
+<!-- ledger-tags: authority_class=signal_and_queue_manifold | rung=domain | domain=context-grapple-gun | born_tic=571 | promoted_tic=603 | relations=refinement-ray:structural-transform-implies-closed-consumer-set-obligation(federation) | confidence_tier=tentative -->
+
+Retiring a predicate by shipping a single-owner module (signal_active.is_active_ray) is only half the transform — the reader consumer set must be enumerated and migrated, or the retired predicate stays live at the most visible readers (boot SIREN banner, mogul-runner signal_scan pre-compute still filter by the raw status enum at tic 571). The predicates agree while rays are hot and diverge exactly at heat→0 — the case the retirement targeted. Predicate-axis instance of the closed-consumer-set obligation.
+
+<!-- promoted from cpr_predicate_retirement_needs_reader_consumer_sweep_tic571 (tic 571→603, /review 603 PROMOTE, Architect-ratified in-tic via AskUserQuestion ratification set). Refinement-RAY linked to the federation KI structural-transform-implies-closed-consumer-set-obligation (the PREDICATE-axis instance: retiring a predicate obligates a reader-consumer sweep). Evidence: boot SIREN banner + mogul signal_scan still on raw enum at tic 571; predicates agree while rays hot, diverge at heat→0. Band: COGNITIVE. signer ent_review_execute (claude-opus-4-8), boot receipt c2221e9d53427177. -->
+
+---
+
+## A Phantom-Tic Void Has a Closed, Enumerable Consumer Set — Reconcile EVERY Tic-Count Mirror, Not Just the Canonical Count
+<a id="phantom-tic-void-must-sweep-all-tic-count-mirrors"></a>
+<!-- ledger-tags: authority_class=signal_and_queue_manifold | rung=domain | domain=context-grapple-gun | born_tic=580 | promoted_tic=603 | relations=refinement-ray:structural-transform-implies-closed-consumer-set-obligation(federation),composes:disagreement-as-evidence(federation) | confidence_tier=tentative -->
+
+A phantom-tic void is a structural state-change with a CLOSED, ENUMERABLE consumer set —
+every reader of "the current tic" — and reconciling only the canonical count discharges that
+obligation by-failure, leaving the silent-degrade mirrors phantom. There is not one tic count
+but SEVERAL, read by different lanes: count_mode (logical count, phantom-voided), the raw tic
+log, and tic_count_physical read off "the latest conformation". Crucially, a "latest" selector
+implemented as MAX-tic-numbered-file makes a phantom conformation STICKY-LATEST: it stays
+"latest" for the entire real tic that shares the phantom's predecessor (there is no real higher
+tic to overwrite it until the next cadence), so "next real tic overwrites it" is FALSE for
+exactly the tic that is broken. The economy heartbeat landed correct (it sources the mandate
+tic) while contagion landed wrong (it sources the conformation) — the same disagreement-as-
+evidence tell that names the un-swept mirror.
+
+Cure: when voiding a phantom tic, enumerate and reconcile EVERY tic-count mirror as a closed
+set — (1) count_mode / the canonical tic log, (2) tic_count_physical on the latest
+conformation (archive the phantom conformation so max-tic-selectors don't pick it), (3) each
+lane's current-pointer.json, (4) any mandate conformation_ref, (5) inbox obligations + rebru/
+probe artifacts stamped with the phantom tic. The reconciliation is not complete when the count
+reads right; it is complete when no mirror-consumer can still read the phantom.
+
+<!-- promoted from cpr_phantom_tic_void_must_sweep_all_tic_count_mirrors_tic580 (tic 580→603, /review 603 PROMOTE, Architect-ratified in-tic via AskUserQuestion ratification set). Second refinement-RAY on the federation KI structural-transform-implies-closed-consumer-set-obligation (the tic-count-mirrors surface); composes federation Disagreement-as-evidence (the economy-vs-contagion disagreement names the un-swept mirror). Evidence: tic-580 phantom-void sweep. Band: COGNITIVE. signer ent_review_execute (claude-opus-4-8), boot receipt c2221e9d53427177. -->
+
+---
+
+## SubagentStart Boot-Receipt Prescriptions Must Be Capability-Gated Against the Dispatched Agent's Actual Tool Schema
+<a id="boot-receipt-prescriptions-must-be-capability-gated-to-agent-tool-schema"></a>
+<!-- ledger-tags: authority_class=sync_and_install_parity | rung=domain | domain=context-grapple-gun | born_tic=575 | promoted_tic=603 | composes=boot-seam-duality-primary-sessionstart-citizens-subagentstart,emitter-rows-must-match-a-reader-predicate | confidence_tier=reinforced -->
+
+SubagentStart boot-receipt prescriptions must be capability-gated against the dispatched agent's actual tool schema. The citizen-boot injection prescribes emitting a receipt via `boot-receipt.py emit ...` (a Bash invocation) to every office-citizen, but ent_ladder_auditor's tool set is Read/Grep/Glob/Write/Edit only — no Bash — so the prescription structurally cannot be honored. This has recurred at tics 498, 512, 540, 550, and now 575 (5th recurrence), each time absorbed by the agent disclosing-and-proceeding. The emitter row (boot injection prescription) must match a reader predicate (agent capability): either grant Bash to receipt-owing citizens, provide a non-Bash receipt path (e.g. a Write-tool receipt file the sink ingests), or capability-detect and suppress/substitute the prescription for no-Bash citizens. The gap is currently documented only in the agent's harness-local memory, which per the tic-570 memory-is-not-governance decoupling is not an extraction surface — so the correction has had no /review-visible home despite five recurrences.
+
+<!-- promoted from cpr_mogul_ladder_audit_7aa72c29491e (tic 575→603, /review 603 PROMOTE, Architect-ratified in-tic via AskUserQuestion ratification set). Sync And Install Parity / boot-seam family (capability-gated boot prescriptions); composes Boot-Seam-Duality + the emitter-rows-must-match-a-reader-predicate sibling this pass (a boot prescription is an emitter row; the agent's capability is the reader predicate). Evidence: 5 recurrences (tics 498/512/540/550/575); ladder-auditor has no Bash. Followup backlog: citizen-boot capability-gate runtime patch. Band: STRUCTURAL. Confidence_tier: reinforced (5 recurrences). signer ent_review_execute (claude-opus-4-8), boot receipt c2221e9d53427177. -->
+
+---
+
+## A Wrapper Over a Governance Instrument Must Discriminate Crash vs Verdict vs Informational Exit-Code Semantics Before Labeling a Run Failed
+<a id="wrapper-must-discriminate-instrument-exit-code-semantics-crash-vs-verdict"></a>
+<!-- ledger-tags: authority_class=pipeline_and_integration | rung=domain | domain=context-grapple-gun | born_tic=579 | promoted_tic=603 | refines=conductor-score-runtime-parity-cgg-application | composes=presence-observation-fallacy-guard(federation) | confidence_tier=tentative -->
+
+A wrapper over a governance instrument must discriminate the instrument's exit-code semantics — crash (execution failure) vs verdict (designed non-success health state) vs informational — before labeling the run failed. economy-heartbeat.py encodes a health verdict in its exit code (`return 0 if verdict["seed_stabilized"] else 1`, line 556) while economy-invoke.sh treats ANY nonzero handler exit as 'economy-heartbeat.py failed' and suppresses the summary/pointer verification — even though the tic artifact, current-pointer, and invocations row all landed correctly. The mislabel invites operator reruns that mint replay-series rows. The verdict already lives in the artifact (seed_stabilized, breach_flags); the wrapper should read health from the artifact it just verified, or the handler should reserve nonzero exits for execution failure and carry the verdict only in the artifact. Contrast the deliberate design in memory-md-audit.py, where informational line_count is explicitly kept OUT of the breach exit code — the exit-code contract is a declared surface, not an assumption. Refines Conductor-Score-Runtime Parity and the Presence/Observation Fallacy Guard (an observed nonzero exit does not prove execution failure unless the exit-code contract is declared).
+
+<!-- promoted from cpr_mogul_memory_mining_5e0b1d48dac8 (tic 579→603, /review 603 PROMOTE, Architect-ratified in-tic via AskUserQuestion ratification set). Pipeline And Integration (wrapper exit-code semantics discrimination); refines Conductor-Score-Runtime-Parity-CGG + composes federation Presence/Observation Fallacy Guard (nonzero exit ≠ execution failure absent a declared exit-code contract). Evidence: economy-invoke.sh treats seed_stabilized=false verdict exit as failure. Followup backlog: economy-invoke.sh crash-vs-verdict discrimination fix. Band: STRUCTURAL. signer ent_review_execute (claude-opus-4-8), boot receipt c2221e9d53427177. -->
+
+---
+
+## Lattice-Weave Fan-Out Over Concatenation for Boot-Grade Synthesis — One Read-In-Full Lane Per Subsystem, Woven to a Single Spine
+<a id="lattice-weave-fanout-over-concatenation-for-boot-grade-synthesis"></a>
+<!-- ledger-tags: authority_class=subagent_and_swarm_delegation | rung=domain | domain=context-grapple-gun | born_tic=582 | promoted_tic=603 | composes=spec-first-parallel-swarm,full-read-is-surface-typed-terminal-valve-coverage-is-required-coverage,boot-seam-duality-primary-sessionstart-citizens-subagentstart | confidence_tier=tentative -->
+
+When authoring a load-bearing, multi-subsystem declaration for a DURABLE surface (here:
+the orchestrator boot / office-worldview.py), fan out ONE read-in-full research lane PER
+subsystem, then LATTICE-WEAVE the returns to a single SPINE — never concatenate them
+("peasant-slap"). The discipline has four teeth: (1) each lane reads its load-bearing files
+IN FULL (no excerpts, no curation — subagents abbreviate by default; the prompt must mandate
+full-read + exact-identifiers + a current-vs-target honesty pass, and demand boot-grade
+orientation, not a code review); (2) the synthesis finds the ONE spine the subsystems already
+thread onto — here the hoist DAG read as a loop ending in trust (corpus[membrane] -> train
+[org-engine LoRA] -> propose[lawful-traversal bid] -> admit[board winch / SP2 gate,
+/review-ratified] -> trust[economy above floor tau]) — and enters each subsystem as a RAY on
+that one centroid, showing where it CABLES to its neighbors (the six-ray / fractal grammar
+applied to the synthesis itself); (3) name the ONE law that recurs at every face
+(coherence-is-not-admission) and its sibling (surface-don't-hide) so the weave is
+load-bearing, not decorative — the braid is proven when a single law lights up at every node;
+(4) scope a COMPREHENSIVE operating-manual section to the PRIMARY/orchestrator seam
+(_is_primary_office), so office-citizens keep the lean boot — a full how-to-run-the-board
+section is orchestrator-pertinent, not all-citizen. Anti-pattern: five stacked boxes under one
+header — the subsystems then read as independent when they are one braid, and the reader never
+learns the cables (the exact failure a woven declaration exists to prevent). Working proof: a
+5-lane fan-out (economy / contagion / membrane+grammar-leak / org-LoRA+traversal / the board),
+each read-in-full, woven into ONE budget-exempt GOVERNED_LOOP section, landed + synced +
+dual-seam byte-verified in-tic. Composes Spec-First Parallel Swarm (write the lane spec before
+dispatch) + Full-Read-Is-Surface-Typed + the dehydration quiver (one truth under
+surface-different symptoms) + Boot-Seam-Duality (primary SessionStart vs citizen SubagentStart)
+— so /review should test net-new-vs-SKIP-with-home against those neighbors, and adjudicate the
+target rung (this is a synthesis/authoring discipline, plausibly the /cadence or swarm skill
+contract rung, not federation law).
+
+<!-- promoted from cpr_lattice_weave_fanout_over_concatenation_for_boot_grade_synthesis_tic582 (tic 582→603, /review 603 PROMOTE, Architect-ratified in-tic via AskUserQuestion ratification set). Subagent And Swarm Delegation (adjudicated CGG-rung synthesis/authoring discipline, not federation law, per the born's own scope note). Composes Spec-First Parallel Swarm + Full-Read-Is-Surface-Typed + Boot-Seam-Duality. Evidence: GOVERNED_LOOP authoring tic 582 (5-lane read-in-full fan-out, woven to one spine, dual-seam byte-verified in-tic). Band: COGNITIVE. signer ent_review_execute (claude-opus-4-8), boot receipt c2221e9d53427177. -->
 
 ---
