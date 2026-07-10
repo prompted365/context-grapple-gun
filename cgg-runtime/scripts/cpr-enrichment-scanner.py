@@ -99,6 +99,29 @@ def get_extracted_baseline_cprs(queue_entries):
 # Evidence Gatherers
 # ---------------------------------------------------------------------------
 
+def resolve_source_path(source_file, project_dir):
+    """Resolve a CPR source file across its known homes.
+
+    `source` is frequently stamped as a bare basename (cpr-extract stamps
+    borns that way), while the files live in well-known homes: borns in
+    audit-logs/governance/, memory files under the project's memory dir.
+    A bare basename resolved only against project root produces a FALSE
+    source_missing evidence ray (-0.30) on a candidate whose source is
+    intact — caught live on the tic-607 born at tic 610.
+    Returns the first existing Path, else None.
+    """
+    candidates = [
+        Path(project_dir) / source_file,
+        Path(project_dir) / "audit-logs" / "governance" / source_file,
+        Path.home() / ".claude" / "projects"
+        / project_dir.replace("/", "-") / "memory" / source_file,
+    ]
+    for candidate in candidates:
+        if candidate.exists():
+            return candidate
+    return None
+
+
 def gather_git_evidence(cpr, project_dir, subsystem_config):
     """Find commits since CPR birth that touch related files/subsystem."""
     evidence = []
@@ -110,10 +133,15 @@ def gather_git_evidence(cpr, project_dir, subsystem_config):
         return evidence
 
     paths_to_check = []
-    if ":" in source:
-        source_file = source.split(":")[0]
-        if os.path.exists(os.path.join(project_dir, source_file)):
-            paths_to_check.append(source_file)
+    if source:
+        source_file = source.split(":")[0] if ":" in source else source
+        resolved = resolve_source_path(source_file, project_dir)
+        if resolved is not None:
+            try:
+                # git paths must live inside the repo; memory-dir hits do not.
+                paths_to_check.append(str(resolved.relative_to(project_dir)))
+            except ValueError:
+                pass
 
     subsystem_dirs = subsystem_config.get("subsystems", {}).get(subsystem, [])
     for d in subsystem_dirs:
@@ -244,17 +272,9 @@ def gather_source_stability(cpr, project_dir):
         return evidence
 
     source_file = source.split(":")[0] if ":" in source else source
-    source_path = Path(project_dir) / source_file
+    source_path = resolve_source_path(source_file, project_dir)
 
-    if not source_path.exists():
-        # Memory files live in ~/.claude/projects/<project_key>/memory/
-        project_key = project_dir.replace("/", "-")
-        memory_dir = Path.home() / ".claude" / "projects" / project_key / "memory"
-        memory_candidate = memory_dir / source_file
-        if memory_candidate.exists():
-            source_path = memory_candidate
-
-    if source_path.exists():
+    if source_path is not None:
         try:
             content = source_path.read_text(encoding="utf-8")
             if lesson and lesson[:60] in content:
