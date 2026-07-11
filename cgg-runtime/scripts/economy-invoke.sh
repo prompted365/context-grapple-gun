@@ -68,9 +68,13 @@ esac
 echo "→ economy-heartbeat.py --tic $TIC"
 
 # 2. Invoke the handler — spawn swarm, run one GUNSLINGER economy tic, write artifacts.
-SNAP_PATH=$(python3 "$HANDLER" --tic "$TIC" --print) \
-  || { echo "ERR: economy-heartbeat.py failed (tic=$TIC)" >&2; exit 1; }
-[ -f "$SNAP_PATH" ] || { echo "ERR: snapshot not written at $SNAP_PATH" >&2; exit 1; }
+# Crash-vs-verdict discrimination by ARTIFACT PRESENCE: a nonzero handler exit may be a
+# seed_stabilized=false HEALTH verdict (not a crash) — reserve nonzero ONLY for a missing
+# artifact (ref: ledger#wrapper-must-discriminate-instrument-exit-code-semantics).
+HANDLER_RC=0
+SNAP_PATH="$(python3 "$HANDLER" --tic "$TIC" --print)" || HANDLER_RC=$?
+[ -f "$SNAP_PATH" ] \
+  || { echo "ERR: economy-heartbeat.py wrote no snapshot (tic=$TIC, exit=$HANDLER_RC)" >&2; exit 1; }
 
 # 3. One-line summary read back off the artifacts the handler just wrote.
 python3 - "$SNAP_PATH" "$ECON_DIR/current-pointer.json" <<'PY'
