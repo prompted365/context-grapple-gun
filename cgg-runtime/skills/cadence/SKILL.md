@@ -94,7 +94,12 @@ done
 # Run it (handles tic + conformation + mandate). --fire is REQUIRED: the clock
 # physics gate (tic 605) makes a bare invocation refuse instead of emitting — a
 # bare invocation is an ACTION, not a probe. Read-only probe: `cadence-ops.py status`.
-python3 "$CADENCE_OPS" --fire --zone-root "$ZONE_ROOT" --mode downbeat
+# --posture is REQUIRED IN PRACTICE (baked tic 616, bk-cadence-skill-posture-flag-bake):
+# it feeds the cockpit-intent I-B emission; omitting it fail-softs the emission to
+# "skipped: --posture not provided" — the n=3 skip shape (t613 ×2, t616). Set it to
+# the session's LIVE posture (the POSTURE banner value), e.g. OPS/DIRECT.
+SESSION_POSTURE="OPS/DIRECT"  # ← replace with the session's live posture
+python3 "$CADENCE_OPS" --fire --zone-root "$ZONE_ROOT" --mode downbeat --posture "$SESSION_POSTURE"
 ```
 
 Parse the JSON output to extract (keys are at the **top level** of the JSON object — there is no `result` wrapper):
@@ -674,10 +679,10 @@ This buys headroom. The next session's SessionStart hook will reset it to 80%.
 **Primary path (MANDATORY when available):** Run `cadence-ops.py --mode syncopate` — same script as downbeat but with syncopate mode. Handles tic + conformation in one deterministic call (mandate is skipped by default for syncopate).
 
 ```bash
-python3 "$CADENCE_OPS" --fire --zone-root "$ZONE_ROOT" --mode syncopate
+python3 "$CADENCE_OPS" --fire --zone-root "$ZONE_ROOT" --mode syncopate --posture "$SESSION_POSTURE"
 ```
 
-Use the same `$CADENCE_OPS` resolution from the downbeat Step 0.5 section.
+Use the same `$CADENCE_OPS` resolution (and `$SESSION_POSTURE` — the session's live posture, baked tic 616) from the downbeat Step 0.5 section.
 
 **Fallback:** If `cadence-ops.py` is unavailable, use the inline Python from the downbeat fallback section with `cadence_position: "syncopate"` and `count_reason: "emergency_syncopate"`.
 
