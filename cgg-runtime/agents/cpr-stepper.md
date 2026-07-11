@@ -64,7 +64,7 @@ extracted → tic_gated → enrichment_needed → enrichment_in_progress → enr
 
 | State | Gate | Condition |
 |-------|------|-----------|
-| `extracted` | temporal | tic_delta >= maturity_tics (default 3) |
+| `extracted` | temporal (keyed by `provenance_class` — see below) | tic_delta >= maturity_tics (default 3); `construction_authoritative` ⇒ maturity_tics effectively 0 |
 | `tic_gated` | mechanical (deterministically reconciled — NOT yours to gate) | tic-427 baseline `consolidated.json` exists → **`cpr-gate-advance.py` advances `tic_gated → enrichment_needed` at boot** (synchronous, before the scanner). The baseline IS the pre-enrichment evidence; full `enrichment[]` is gathered downstream at `enrichment_needed`, NOT required to leave `tic_gated`. |
 | `enrichment_needed` | scanner | enrichment scanner gathers evidence |
 | `enrichment_in_progress` | scanner | evidence being gathered (transient) |
@@ -72,6 +72,26 @@ extracted → tic_gated → enrichment_needed → enrichment_in_progress → enr
 | `promotable` | human (/review) | human approves via /review docket |
 
 > **`tic_gated → enrichment_needed` is no longer your transition to gate (tic 470 deadlock fix).** It was a chicken-and-egg: the old gate "enrichment evidence ≥1 entry" required an artifact the scanner only produces for *holding* statuses — i.e. AFTER this transition — so a `tic_gated` row starved forever with an empty `enrichment[]` even when its tic-427 baseline existed. The mechanical step (no DEDUP, no model) is now owned deterministically by `cpr-gate-advance.py`, wired into `session-restore.sh` before the enrichment scanner. You still own `extracted → tic_gated` (which DOES need the model for verify-twin DEDUP) and everything downstream of `enrichment_eligible`. If you encounter a `tic_gated` row at runtime, treat it as in-transit (the reconciler will advance it at the next boot); do not block on the old epistemic gate.
+
+### Provenance-Class Maturity Key (enrichment-ontology spec §2 — /review 615 build)
+
+Maturity and enrichment are DIFFERENT AXES: maturity is the epistemic gate for
+uncertainty (friction-born inductions climbing toward a dehydrated principle);
+enrichment is cartography. The additive queue-row field `provenance_class`
+(stamped by cpr-extract at extraction, declared-never-inferred) keys the
+`extracted` temporal gate:
+
+| `provenance_class` | maturity behavior |
+|---|---|
+| `friction_born` (or field absent — legacy rows) | standing default holds unchanged: `maturity_tics` 3; `maturity_window_tics` 10 for conditioned `enrichment_eligible` rows |
+| `construction_authoritative` | the temporal hold is WAIVED (`maturity_tics` effectively 0): the row advances at your next pass to lineage registration + dedup |
+
+**Nothing else is waived.** Verify-twin DEDUP, the enrichment lane, and the
+/review promotion gate all still apply to `construction_authoritative` rows —
+this is a maturity-axis key, not a fast-path around governance. Provenance ≠
+authority: the class routes the maturity ceremony only. You never mint or
+mutate `provenance_class` (it is declared at capture; treat an absent field as
+`friction_born`). Spec: `autonomous_kernel/enrichment-ontology-spec.md`.
 
 ### Regression Trigger (enrichment_eligible)
 
@@ -202,8 +222,9 @@ The following fields are author-declared at capture time and must survive all st
 - `confidence_tier` — tentative | reinforced | convergent (may be UPGRADED by enrichment evidence, never downgraded)
 - `origin_context` — session | scanner | hook | arena | external_signal
 - `relations` — typed edges (supports, contradicts, refines, supersedes, depends_on)
+- `provenance_class` — construction_authoritative | friction_born (declared-never-inferred; keys the maturity gate above, nothing else)
 
-When advancing a CPR, copy these fields forward. If absent on older queue entries, default to: `lesson_type: null`, `confidence_tier: "tentative"`, `origin_context: "session"`, `relations: {}`.
+When advancing a CPR, copy these fields forward. If absent on older queue entries, default to: `lesson_type: null`, `confidence_tier: "tentative"`, `origin_context: "session"`, `relations: {}`, `provenance_class: "friction_born"` (treat-as-default — do not write the field onto legacy rows).
 
 The enrichment scanner or ripple assessor may upgrade `confidence_tier` (tentative → reinforced → convergent) based on cross-session evidence. The stepper passes through the upgrade but does not compute it.
 

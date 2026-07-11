@@ -581,6 +581,60 @@ def _origin_context_for(gov_file):
     return "session"
 
 
+# Provenance classes (enrichment-ontology spec, /review 613 PROMOTE-SPEC →
+# /review 615 implementation gate; autonomous_kernel/enrichment-ontology-spec.md
+# §2). PROVENANCE determines the lane; enrichment improves terrain resolution
+# WITHIN it. The class is an additive queue-row coordinate keying the stepper's
+# maturity gate: `friction_born` (the universal default) holds the standing
+# temporal ceremony; `construction_authoritative` waives ONLY the temporal hold
+# (verify-twin dedup, the enrichment lane, and the /review promotion gate all
+# still apply — a maturity-axis key, not a fast-path around governance).
+PROVENANCE_CLASSES = frozenset({"construction_authoritative", "friction_born"})
+PROVENANCE_DEFAULT = "friction_born"
+
+
+def _resolve_provenance_class(block, block_locator):
+    """DECLARED, NEVER INFERRED (spec §2 constraint 1).
+
+    `construction_authoritative` may only enter via an explicit in-block
+    `provenance_class:` field, and the block's `evidence` must be present to
+    carry the in-tic Architect-ratification reference that makes it true (the
+    tool checks presence structurally; /review judges the reference itself).
+    This function performs NO inference from lexical shape, source path, or
+    author — absent or invalid declaration ⇒ friction_born, loudly when a
+    declaration was attempted (self-granting the class would be
+    fluency-becoming-authority at the intake seam).
+    """
+    declared = str(block.get("provenance_class", "")).strip()
+    if not declared:
+        return PROVENANCE_DEFAULT
+    if declared not in PROVENANCE_CLASSES:
+        print(
+            f"cpr-extract provenance_class [{block_locator}]: unknown value "
+            f"{declared!r} — falling back to {PROVENANCE_DEFAULT!r} "
+            f"(valid: {sorted(PROVENANCE_CLASSES)}).",
+            file=sys.stderr,
+        )
+        return PROVENANCE_DEFAULT
+    if declared == "construction_authoritative":
+        evidence_val = block.get("evidence", "")
+        has_evidence = (
+            len(evidence_val) > 0 if isinstance(evidence_val, list)
+            else bool(evidence_val)
+        )
+        if not has_evidence:
+            print(
+                f"cpr-extract provenance_class [{block_locator}]: "
+                f"construction_authoritative declared WITHOUT an evidence field "
+                f"— the class requires the in-tic Architect-ratification "
+                f"reference in `evidence:` (spec §2 constraint 1). Downgraded "
+                f"to {PROVENANCE_DEFAULT!r}.",
+                file=sys.stderr,
+            )
+            return PROVENANCE_DEFAULT
+    return declared
+
+
 def extract_cprs(project_dir, dry_run=False, plan_file=None, anomaly_threshold=0.5,
                  session_lessons_window=SESSION_LESSONS_RECENCY_WINDOW,
                  borns_window=BORNS_RECENCY_WINDOW):
@@ -832,6 +886,11 @@ def extract_cprs(project_dir, dry_run=False, plan_file=None, anomaly_threshold=0
 
             origin_context = block.get("origin_context", "") or _origin_context_for(gov_file)
 
+            # Provenance coordinate (enrichment-ontology spec §2) — sibling of
+            # the origin_context birth-topology stamp; extends it, replaces
+            # neither. Declared-never-inferred; absent ⇒ friction_born.
+            provenance_class = _resolve_provenance_class(block, block_locator)
+
             entry = {
                 "type": "cpr",
                 "id": entry_id,
@@ -856,6 +915,7 @@ def extract_cprs(project_dir, dry_run=False, plan_file=None, anomaly_threshold=0
                 "source_block_line": block_line,
                 "birth_rung": topo["birth_rung"],
                 "birth_scope_path": topo["birth_scope_path"],
+                "provenance_class": provenance_class,
             }
 
             # Tier 2 carries title + evidence into queue metadata
@@ -963,6 +1023,9 @@ def extract_cprs(project_dir, dry_run=False, plan_file=None, anomaly_threshold=0
                     "source_block_line": _cand_line,
                     "birth_rung": topo["birth_rung"],
                     "birth_scope_path": topo["birth_scope_path"],
+                    # Prose form carries no structured fields, so no declaration
+                    # is possible — always the default (declared-never-inferred).
+                    "provenance_class": PROVENANCE_DEFAULT,
                     "authoring_form": "prose_fallback",
                 }
                 _oc = _origin_context_for(gov_file)

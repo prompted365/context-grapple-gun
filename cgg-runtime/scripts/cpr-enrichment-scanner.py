@@ -562,6 +562,72 @@ def _classify_proof_type(all_evidence, is_shell):
     return "+".join(types), types, "medium", f"derived from gathered evidence: {', '.join(types)}"
 
 
+DEFAULT_MATURITY_WINDOW_TICS = 10
+
+
+def derive_enrichment_outcome(cpr, current_tic):
+    """Named terminal outcome `enrichment_unnecessary_proven` (build (b),
+    enrichment-ontology spec §3 — /review 615 implementation gate).
+
+    Formalizes the honest-zero as a NAMED terminal outcome of the enrichment
+    lane, so "no evidence needed, and that is proven" stops being ambiguous
+    with "scanner found nothing." Emitted when either condition holds:
+
+      (i)  the row is `construction_authoritative` (declared at extraction,
+           never inferred) with lineage registered — a non-empty typed
+           `relations` edge or a `refines` declaration; the proof names the
+           row's ratification-bearing `evidence` field, or
+      (ii) the honest-zero `no_evidence_reason` has HELD across a full
+           maturity window (current_tic - birth_tic >= maturity_window_tics,
+           row's own value or default 10) with the row's claims disk-verified
+           at least once (a prior scan pass ran against disk —
+           `enrichment_scanned_at` present).
+
+    The marker is a RECEIPT OF PROVEN SUFFICIENCY, not a skip flag: it must
+    name what proved sufficiency (ratification ref or verification ref).
+    Returns (outcome_str_or_None, proof_dict_or_None). Never a verdict —
+    promotion stays /review-gated; more-enrichment ≠ more-authority.
+    """
+    # Condition (i): construction_authoritative with lineage registered.
+    if cpr.get("provenance_class") == "construction_authoritative":
+        relations = cpr.get("relations") or {}
+        lineage_edges = [
+            f"{kind}:{v}" for kind, vals in relations.items()
+            if isinstance(vals, list) for v in vals
+        ]
+        if cpr.get("refines"):
+            lineage_edges.append(f"refines:{cpr.get('refines')}")
+        if lineage_edges:
+            evidence_ref = cpr.get("evidence") or ""
+            if isinstance(evidence_ref, list):
+                evidence_ref = "; ".join(str(e) for e in evidence_ref)
+            return "enrichment_unnecessary_proven", {
+                "basis": "construction_authoritative_lineage_registered",
+                "lineage": lineage_edges[:5],
+                "ratification_ref": str(evidence_ref)[:400],
+            }
+        return None, None  # class declared but lineage not yet registered — honest hold
+
+    # Condition (ii): honest-zero held across a full maturity window,
+    # disk-verified at least once.
+    reason = cpr.get("no_evidence_reason")
+    scanned_at = cpr.get("enrichment_scanned_at")
+    birth_tic = cpr.get("birth_tic")
+    if reason and scanned_at and isinstance(birth_tic, int) and current_tic >= 0:
+        window = cpr.get("maturity_window_tics") or DEFAULT_MATURITY_WINDOW_TICS
+        if (current_tic - birth_tic) >= window:
+            return "enrichment_unnecessary_proven", {
+                "basis": "honest_zero_window_held",
+                "verification_ref": (
+                    f"no_evidence_reason ({reason!r}) held since first scan "
+                    f"{scanned_at} (scan_count="
+                    f"{cpr.get('enrichment_scan_count', 0)}); window "
+                    f"{birth_tic}->{current_tic} >= {window} tics"
+                ),
+            }
+    return None, None
+
+
 def derive_baseline_classification(cpr, all_evidence, tic):
     """Build the deterministic-lite consolidated.json dict for one holding CPR.
 
@@ -592,7 +658,7 @@ def derive_baseline_classification(cpr, all_evidence, tic):
         {"axis": "proof_type", "value": proof_value, "proof_types": proof_set,
          "confidence": pf_conf, "rationale": pf_rat},
     ]
-    return {
+    consolidated = {
         "record_id": cpr.get("id"),
         "tier": "deterministic-lite",
         "consolidated_by": "cpr-enrichment-scanner",
@@ -608,6 +674,16 @@ def derive_baseline_classification(cpr, all_evidence, tic):
         "lens_b_path": "",
         "agreements": agreements,
     }
+
+    # Consolidated-output terminal marker (build (b), spec §3). Additive —
+    # absent when neither condition holds; bench-packet-prep surfaces it as a
+    # distinct intake state (not `uncovered`, not `no_evidence`).
+    outcome, proof = derive_enrichment_outcome(cpr, tic)
+    if outcome:
+        consolidated["enrichment_outcome"] = outcome
+        consolidated["enrichment_outcome_proof"] = proof
+
+    return consolidated
 
 
 def write_deterministic_lite_consolidated(cpr_id, consolidated, enrichment_dir, dry_run=False):

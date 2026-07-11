@@ -366,6 +366,13 @@ def load_enrichment_artifacts(audit_logs_path):
             "lens_a_path": data.get("lens_a_path", ""),
             "lens_b_path": data.get("lens_b_path", ""),
             "key_agreements": key_agreements,
+            # Named terminal outcome of the enrichment lane (enrichment-ontology
+            # spec §3, /review 615 build (b)): `enrichment_unnecessary_proven` is
+            # a receipt of proven sufficiency (with the proof naming what proved
+            # it), surfaced downstream as its own intake state — never collapsed
+            # into `uncovered` or read as scanner silence.
+            "enrichment_outcome": data.get("enrichment_outcome"),
+            "enrichment_outcome_proof": data.get("enrichment_outcome_proof"),
         }
     return artifacts
 
@@ -487,6 +494,42 @@ def find_related_signals(cpr, signals):
             })
 
     return related[:5]
+
+
+def cluster_pending_cogprs(pending_cogprs):
+    """Cluster pending dossiers into review-cluster buckets.
+
+    Routing order (first match wins):
+      1. no enrichment_evidence            → `uncovered` (no eyes on it)
+      2. enrichment_outcome ==
+         `enrichment_unnecessary_proven`   → its own DISTINCT intake state
+         (enrichment-ontology spec §3, /review 615 build (b)): "enrichment-
+         unnecessary, PROVEN" is an honest lane — not `uncovered` (no eyes),
+         not `no_evidence` (scanner silence). The proof rides the dossier's
+         enrichment_evidence.enrichment_outcome_proof.
+      3. lesson_class from key_agreements  → named bucket, else `other`.
+    """
+    clusters = {
+        "doctrinal": [],
+        "engineering": [],
+        "capacity_demonstration": [],
+        "paradigm_locked": [],
+        "enrichment_unnecessary_proven": [],
+        "uncovered": [],
+        "other": [],
+    }
+    for c in pending_cogprs:
+        ev = c.get("enrichment_evidence")
+        if not ev:
+            clusters["uncovered"].append(c["id"])
+            continue
+        if ev.get("enrichment_outcome") == "enrichment_unnecessary_proven":
+            clusters["enrichment_unnecessary_proven"].append(c["id"])
+            continue
+        lesson_class = ev.get("key_agreements", {}).get("lesson_class")
+        bucket = lesson_class if lesson_class in clusters else "other"
+        clusters[bucket].append(c["id"])
+    return clusters
 
 
 def reconcile_surfaced_ids(load_queue_pending_ids, effective_state):
@@ -704,6 +747,14 @@ def build_bench_packet(project_dir, dry_run=False):
             "lesson_type": cpr.get("lesson_type"),
             "confidence_tier": cpr.get("confidence_tier"),
             "origin_context": cpr.get("origin_context"),
+            # Provenance coordinate (build (a)) + named enrichment terminal
+            # outcome (build (b)) — enrichment-ontology spec, /review 615 gate.
+            # Absent field reads as friction_born; provenance ≠ authority.
+            "provenance_class": cpr.get("provenance_class"),
+            "enrichment_outcome": (
+                enrichment_evidence.get("enrichment_outcome")
+                if enrichment_evidence else None
+            ),
             "relations": {
                 "sibling_cprs": related,
                 "active_signals": related_signals,
@@ -753,22 +804,7 @@ def build_bench_packet(project_dir, dry_run=False):
     # the reviewer recommended cluster geometries for batch processing. CPRs
     # without enrichment evidence land in the "uncovered" bucket — these need
     # foreground judgment without swarm decision support.
-    clusters = {
-        "doctrinal": [],
-        "engineering": [],
-        "capacity_demonstration": [],
-        "paradigm_locked": [],
-        "uncovered": [],
-        "other": [],
-    }
-    for c in pending_cogprs:
-        ev = c.get("enrichment_evidence")
-        if not ev:
-            clusters["uncovered"].append(c["id"])
-            continue
-        lesson_class = ev.get("key_agreements", {}).get("lesson_class")
-        bucket = lesson_class if lesson_class in clusters else "other"
-        clusters[bucket].append(c["id"])
+    clusters = cluster_pending_cogprs(pending_cogprs)
 
     # Enrichment coverage stats
     pending_with_enrichment = sum(1 for c in pending_cogprs if c.get("enrichment_evidence"))
@@ -846,6 +882,7 @@ def build_bench_packet(project_dir, dry_run=False):
             "engineering": clusters["engineering"],
             "capacity_demonstration": clusters["capacity_demonstration"],
             "paradigm_locked": clusters["paradigm_locked"],
+            "enrichment_unnecessary_proven": clusters["enrichment_unnecessary_proven"],
             "uncovered": clusters["uncovered"],
             "other": clusters["other"],
         },
