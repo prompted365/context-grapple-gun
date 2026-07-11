@@ -940,6 +940,8 @@ Atomic-commit (multi-file mutations bound into single commit unit with pre-commi
 
 MEMORY.md inline entries with `status: pending` are operationally treated as location-locked until /review processes them. Functions as second pin axis (REVIEW_PINNED, Disposition 0b orthogonal to constitutional-pin Disposition 0). Memory-trim cycles must respect this lock.
 
+*[Surface-class qualifier, tic-611 hot repair (receipt ratified /review 611): "MEMORY.md inline" in this entry means REPO-SIDE MEMORY.md surfaces — the ones cpr-extract rglob-scans. Auto-memory (`~/.claude/projects/.../memory/`) was decoupled at tic 570: not an extraction/inscription surface; historical auto-memory blocks are rescuable only via explicit `--plan-file` under /review.]*
+
 <!-- promoted from cpr_review_pinned_location_lock_tic179 (tic 179 → 179). Source: arena:2026-04-26_memory-trim-oavplt. Band: COGNITIVE. -->
 
 ---
@@ -1703,6 +1705,8 @@ MEMORY.md trims under the staged-execution pattern need not require the full 4-t
 
 Trim sweep yield against MEMORY.md after /review depends on the EXTRACTION SOURCE of the CPRs that /review terminalized, not just the count of verdicts applied. Tic 183 /review terminalized 12 CPRs but only 2 MEMORY.md inline blocks unlocked for trim because most processed CPRs were extracted from cadence handoffs (~/.claude/plans/), inbox envelopes, or arena reports — not from MEMORY.md inline candidates. The cadence is iterative and source-aware: trim sweep yield ≈ count(MEMORY-sourced CPRs terminalized this /review × ~9 lines/block). Plan trim cadence by checking the source field on pending CPRs before estimating sweep yield. To unlock MEMORY.md inline blocks specifically, /review needs a bench packet biased toward MEMORY.md-sourced extractions. Refines Memory-Trim Staged Execution Pattern with extraction-source-awareness as a yield-estimation discipline.
 
+*[Surface-class qualifier, tic-611 hot repair (receipt ratified /review 611): "MEMORY.md inline" in this entry means REPO-SIDE MEMORY.md surfaces — the ones cpr-extract rglob-scans. Auto-memory (`~/.claude/projects/.../memory/`) was decoupled at tic 570: not an extraction/inscription surface; historical auto-memory blocks are rescuable only via explicit `--plan-file` under /review.]*
+
 <!-- promoted from cpr_32d815d6fe39536e (tic 183→188). Source: tic 183 /review trim sweep — projected yield assumed /review would process the 47 REVIEW_PINNED inline blocks; actual yield was 2 because those CPRs weren't in the bench packet's recommended order. Companion to cpr_07199ad8276b1221 (lighter-cadence trim variant) — both born tic 183, refine the trim doctrine together. Band: COGNITIVE. Confidence: 0.78. -->
 
 ---
@@ -1849,6 +1853,8 @@ The pattern: when SSOT is established via configuration manifest, downstream doc
 
 CogPR candidate inline inscriptions in MEMORY.md MUST use single-comment marker form `<!-- --agnostic-candidate` (no closing `-->` on the marker line; YAML body inside the comment; `-->` terminates the block). Closed-form marker `<!-- --agnostic-candidate -->` (with closing arrow on opener) silently fails extraction — cpr-extract scans for blocks delimited by single open/single close, and a closed-on-opener marker creates an empty comment with the YAML body OUTSIDE any HTML comment boundary. Edit tool succeeds (the bytes write fine; markdown renders fine), so the authoring writer gets no signal. cpr-extract emits zero-block scans (visible in the anomaly counters as written_to_queue=0 for affected blocks but not as a parser error). Validated tic 223→224 cadence: 6 federation/CGG-rung CogPR candidates (3 from Phase 7 routing decision + 3 from three-layer terrain ship proposal) inscribed with the broken closed-form marker passed authoring without error but extracted zero blocks; only re-running with single-replace (closed-form → open-form) caused them to extract correctly (written_to_queue: 6 in subsequent run). Mitigation candidate: cpr-extract should warn-on-detect when MEMORY.md contains the closed-form marker pattern, since this pattern is guaranteed to be an authoring error (no legitimate use case exists for closed-on-opener `<!-- --agnostic-candidate -->`). The authoring discipline is the lesson; the extractor warning is the mechanism that catches the discipline failure. Refines: federation KI 'Bounded delegation surfaces default to masking bugs rather than surfacing them' — this is the same shape at the parser-input boundary: a parser that silently skips malformed input instead of warning surfaces the issue at the consumer, after the inscription window has closed. Refines: CogPR-77 (Schema Failure Self-Reporting) which mandates extractors warn on zero-output anomalies — currently fires at the aggregate level (blocks_extracted < blocks_found) but does not fire per-block on this specific authoring error class.
 
+*[Surface-class qualifier, tic-611 hot repair (receipt ratified /review 611): the marker discipline binds on SCANNER-VISIBLE surfaces — repo-side MEMORY.md/CLAUDE.md and `borns-tic*.md` homes. Auto-memory (`~/.claude/projects/.../memory/`) was decoupled at tic 570 and is not an authoring surface for candidates at all; do not inscribe candidates there in the first place.]*
+
 <!-- promoted from cpr_cogpr_marker_syntax_silent_extraction_failure_tic224 (tic 224→226). Source: ~/.claude/projects/-Users-breydentaylor-canonical/memory/MEMORY.md:tic-224-cadence-fix. Band: COGNITIVE. -->
 
 ---
@@ -1987,6 +1993,8 @@ Correct DEFER discipline for inline-tracked CogPRs: KEEP `status: pending` and a
 Distinguish from queue-resident CogPRs: when a DEFER'd CogPR is already extracted into queue.jsonl, the skill's enrichment_eligible flow IS correct (append the enrichment_eligible entry; latest-entry-per-id wins). The inline-vs-queue-resident branch is the discrimination Step 7 currently omits.
 
 Composes with: CGG KI *Inline CogPR status:pending Field Required*; federation KI *Disagreement-as-evidence* (this PREVENTS a spurious dual-counter disagreement). Implementation of the Step 7 branch in the installed /review SKILL.md is a follow-on per *Verdict-Shape Discriminates Execution Gate*.
+
+*[Surface-class qualifier, tic-611 hot repair (receipt ratified /review 611): "inline-tracked ... block in MEMORY.md" means REPO-SIDE MEMORY.md surfaces — the ones cpr-extract rglob-scans and the banner's inline tracker counts. Auto-memory (`~/.claude/projects/.../memory/`) was decoupled at tic 570: not an extraction surface, so no inline-tracked CogPR can lawfully live there; historical auto-memory blocks are rescuable only via explicit `--plan-file` under /review.]*
 
 <!-- promoted from cpr_inline_tracked_cogpr_defer_keeps_status_pending_avoids_dual_counter_disagreement_tic299 (tic 299→301, /review tic 301). Doctrine PROMOTED CGG-rung; SKILL.md Step 7 branch edit is the follow-on implementation. Self-exemplified at tic 301 (CogPR-2 DEFER used the queue-resident enrichment_eligible flow). Band: COGNITIVE. -->
 
