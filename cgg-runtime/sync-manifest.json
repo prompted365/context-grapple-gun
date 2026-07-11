@@ -25,10 +25,19 @@
       "pattern": "*.py *.sh",
       "type": "SCRIPT_CODE",
       "subdirectories": ["lib", "media-router"]
+    },
+    "config": {
+      "canonical_subdir": "config",
+      "installed_subdir": ".claude/cgg-runtime/config",
+      "pattern": "*.schema.json",
+      "type": "DATA_SCHEMA",
+      "_doc": "Schema/data files read by INSTALLED runtime scripts (mogul-mandate.schema.json → mandate-write.py fail-closed teeth, /review 598). Scoped to *.schema.json; non-schema config (runtime manifests, examples) stays canonical-only via sync_exclude until a consumer needs it installed. bk-cgg-mandate-schema-install-sync, tic 619."
     }
   },
   "sync_exclude": [
-    "hooks/README.md"
+    "hooks/README.md",
+    "config/agent-status.manifest.json",
+    "config/subsystems.example.json"
   ],
   "install_path_overrides": {
     "hooks/wire-cutter.sh": ".claude/wire-cutter.sh"

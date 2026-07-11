@@ -281,6 +281,33 @@ def discover_surfaces(plugin_root, zone_root):
                         "type": spec["type"],
                         "category": category,
                     })
+        elif category == "config":
+            # Config: schema/data files consumed by INSTALLED runtime scripts
+            # (e.g. mogul-mandate.schema.json, read by mandate-write.py via
+            # parent.parent/config/ — the fail-closed mandate-validation teeth,
+            # /review 598). Scoped to *.schema.json: the schemas are the
+            # load-bearing surface; non-schema config (runtime manifests,
+            # examples) stays canonical-only via sync_exclude until a consumer
+            # needs it installed. (bk-cgg-mandate-schema-install-sync, tic 619)
+            for entry in sorted(os.listdir(canonical_dir)):
+                if entry.endswith(".schema.json"):
+                    if _excluded(entry):
+                        continue
+                    canonical_path = os.path.join(canonical_dir, entry)
+                    rel_key = f"{spec['canonical_subdir']}/{entry}"
+                    if rel_key in SYNC_EXCLUDE:
+                        continue
+                    installed = os.path.join(
+                        home_dir, spec["installed_subdir"], entry
+                    )
+                    name = entry.replace(".json", "")
+                    surfaces.append({
+                        "name": f"config:{name}",
+                        "canonical": canonical_path,
+                        "installed": installed,
+                        "type": spec["type"],
+                        "category": category,
+                    })
 
     return surfaces
 
