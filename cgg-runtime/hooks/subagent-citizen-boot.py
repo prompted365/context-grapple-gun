@@ -122,24 +122,30 @@ def resolve_office_worldview() -> Path | None:
     return None
 
 
-def render_worldview(tic: int, entity: str, zone_root: Path) -> str:
+def render_worldview(tic: int, entity: str, zone_root: Path, receipt_frame: bool = True) -> str:
     """Compile this citizen's pertinence worldview (office-worldview.py). Read-only,
     mints no signals, fail-soft to empty. The compiled fragments give the booting
     citizen its typed pertinence map (YOURS/FIELD/SUBSTRATE/...) WITH authority badges,
     plus the budget-exempt boot-receipt request frame. Primary office gets the direct
     lens; every other recognized citizen gets it projected (compiler-side). This is the
     Phase-A boot-boundary widening authorized by the Architect at the tic-332 gate
-    (PROMOTE-SPEC /review 332 + explicit confirming look)."""
+    (PROMOTE-SPEC /review 332 + explicit confirming look).
+
+    receipt_frame=False passes --no-receipt-frame so office-worldview OMITS its Bash
+    boot-receipt.py emit prescription — used for a no-Bash citizen, whose Write-path
+    receipt frame the hook appends instead (capability gate, tic 620). Only the receipt
+    frame is suppressed; the worldview body and THE LADDER block are unaffected (office-
+    worldview gates the ladder on standing, the receipt frame separately)."""
     script = resolve_office_worldview()
     if script is None:
         return ""
+    cmd = [sys.executable, str(script), "render", "--office", entity,
+           "--tic", str(tic), "--format", "human", "--zone-root", str(zone_root),
+           "--max-chars", "2200"]
+    if not receipt_frame:
+        cmd.append("--no-receipt-frame")
     try:
-        proc = subprocess.run(
-            [sys.executable, str(script), "render", "--office", entity,
-             "--tic", str(tic), "--format", "human", "--zone-root", str(zone_root),
-             "--max-chars", "2200"],
-            capture_output=True, text=True, timeout=10,
-        )
+        proc = subprocess.run(cmd, capture_output=True, text=True, timeout=10)
         return (proc.stdout or "").strip()
     except (subprocess.SubprocessError, OSError):
         return ""
@@ -162,6 +168,143 @@ def render_boot_injection(tic: int, entity: str, zone_root: Path) -> str:
         return (proc.stdout or "").strip()
     except (subprocess.SubprocessError, OSError):
         return ""
+
+
+# ── CAPABILITY GATE: the receipt prescription must match the agent's tool schema ──
+# bk-citizen-boot-capability-gate (tic 620); doctrine cgg-ledger#boot-receipt-prescriptions-
+# must-be-capability-gated-to-agent-tool-schema (/review 603, recurrence n=6 by tic 610).
+#
+# THE FAILURE THIS CLOSES: office-worldview.py renders a receipt frame prescribing
+#   `python3 boot-receipt.py emit …` — a BASH command. A citizen booted WITHOUT the Bash tool
+# (ent_ladder_auditor / ent_ripple_assessor / the pattern-curators — tools: Read,Grep,Glob)
+# cannot honor it: the EMITTER ROW (the prescription) does not match the READER PREDICATE (the
+# agent's capability). The gate resolves the dispatched agent's declared tool schema and either
+# KEEPS the Bash prescription (Bash-capable) or SUBSTITUTES a Write-path receipt-drop (no-Bash).
+#
+# The tool schema is discoverable at hook time from the SAME surface the harness reads to grant
+# tools: cgg-runtime/agents/<agent_type>.md YAML frontmatter `tools:`. FAIL-OPEN — an
+# unresolvable schema keeps the Bash prescription (current behavior); never block a boot.
+RECEIPT_DROP_SUBPATH = "audit-logs/boot-injections/receipt-drops"
+
+
+def resolve_agents_dir() -> "Path | None":
+    """Find cgg-runtime/agents/ (source sibling of hooks/, then the installed copy)."""
+    for cand in (
+        HOOK_DIR.parent / "agents",                              # canonical source
+        Path.home() / ".claude" / "cgg-runtime" / "agents",      # installed
+    ):
+        if cand.is_dir():
+            return cand
+    return None
+
+
+def resolve_agent_tools(agent_type: str) -> "set[str] | None":
+    """The dispatched agent's declared tool set, read from agents/<agent_type>.md frontmatter
+    `tools:` — the schema the harness itself reads to grant tools. Returns a set of tool names,
+    `{"*"}` for all-tools, or None when the schema cannot be resolved (missing file / no `tools:`
+    line / unreadable). None is the FAIL-OPEN signal (caller keeps the Bash prescription)."""
+    if not agent_type:
+        return None
+    agents_dir = resolve_agents_dir()
+    if agents_dir is None:
+        return None
+    md = agents_dir / f"{agent_type}.md"
+    if not md.is_file():
+        return None
+    try:
+        text = md.read_text(encoding="utf-8")
+    except OSError:
+        return None
+    # `tools:` lives in the leading YAML frontmatter (first `---` … `---` fence). Parse without a
+    # YAML dep: scan inside the first fence for the first `tools:` line.
+    fences = 0
+    for line in text.splitlines():
+        if line.strip() == "---":
+            fences += 1
+            if fences >= 2:
+                break
+            continue
+        if fences == 1 and line.lstrip().lower().startswith("tools:"):
+            val = line.split(":", 1)[1].strip()
+            if not val:
+                return None
+            if "*" in val:                       # `tools: *` (all tools, e.g. general-purpose/claude)
+                return {"*"}
+            toks = {t.strip() for t in val.strip("[]").split(",") if t.strip()}
+            return toks or None
+    return None
+
+
+def agent_has_bash(tools: "set[str] | None") -> bool:
+    """True iff the resolved schema grants Bash (`*` all-tools counts). None is NOT decided here
+    — fail-open lives in boot_receipt_lane."""
+    return bool(tools) and ("Bash" in tools or "*" in tools)
+
+
+def boot_receipt_lane(agent_type: str) -> str:
+    """CAPABILITY GATE decision. Returns:
+      "bash"  — schema includes Bash → keep the boot-receipt.py emit prescription (unchanged)
+      "write" — schema resolves and EXCLUDES Bash → substitute the Write-path receipt-drop
+    FAIL-OPEN: an unresolvable schema (None) → "bash" (current behavior; never block a boot)."""
+    tools = resolve_agent_tools(agent_type)
+    if tools is None:
+        return "bash"
+    return "bash" if agent_has_bash(tools) else "write"
+
+
+def render_write_path_receipt_frame(entity: str, tic: int) -> str:
+    """The no-Bash substitute for the boot-receipt.py emit prescription. A no-Bash citizen honors
+    the SAME boot-receipt obligation by WRITING a single JSON file to the receipt-drop lane,
+    carrying the same owed fields; a canonical-side sweeper ingests the drops into the boot-receipt
+    lane. Budget-exempt (appended after the worldview body, like the Bash frame it replaces).
+    The ladder_explainback field is asked conditionally — office-worldview renders THE LADDER
+    block only for `standing == citizen`, so the drop owes the explain-back iff that block is
+    present in this boot (keeps the two lanes consistent without re-deriving standing here)."""
+    drop_path = f"{RECEIPT_DROP_SUBPATH}/{entity}-tic{tic}-<8hex>.json"
+    return (
+        "\n━━━ BOOT RECEIPT · Write-path lane (capability-gated — you have NO Bash tool) "
+        "(framing — NOT counted against the worldview budget) ━━━\n"
+        f"You booted as {entity} WITHOUT the Bash tool, so you CANNOT run `boot-receipt.py emit`. "
+        "Honor the SAME boot-receipt obligation via the lawful non-Bash lane: use your Write tool "
+        "to create ONE JSON file (do not append, do not edit an existing file) at\n"
+        f"  {drop_path}\n"
+        "  (replace <8hex> with the first 8 hex of sha256(understood_scope) — deterministic, so a "
+        "re-boot of the same tic with the same understanding dedups to one drop). Contents:\n"
+        "  {\n"
+        f'    "entity_id": "{entity}",\n'
+        f'    "tic": {tic},\n'
+        '    "understood_scope": "…",\n'
+        '    "accepted_constraints": ["…"],\n'
+        '    "abstentions": ["…"],\n'
+        '    "first_action_or_escalation": "…",\n'
+        '    "model_of_record": "<your model id, e.g. claude-opus-4-8>",\n'
+        '    "full_boot_injection_read": true,\n'
+        '    "boot_read_mode": "full",\n'
+        '    "chunking": "gapless",\n'
+        '    "required_unread_ranges": [],\n'
+        '    "apophatic_range_bounds": [],\n'
+        '    "pertinence_rationale": "",\n'
+        '    "clipped_preview_detected": false,\n'
+        '    "route": "cadence/review",\n'
+        '    "ladder_explainback": "<EXACTLY five sentences — REQUIRED iff THE LADDER '
+        'dehydration↔rehydration block appears in your boot above; else omit this key>"\n'
+        "  }\n"
+        "  ⚠ boot-read attestation: the flags above assert the honest happy path — adjust them to "
+        "the truth of YOUR read. If the packet arrived clipped/preview-limited and you expanded it, "
+        'set "clipped_preview_detected": true; if the surface-typed discipline applied '
+        '(JSONL/registry slices), set "chunking": "surface_typed"; any REQUIRED range left unread '
+        'goes in "required_unread_ranges" (THIS is the gate-blocking field); name declared negative '
+        'space in "apophatic_range_bounds" with a "pertinence_rationale". Never attest a full '
+        "gapless read you did not perform.\n"
+        "  owed: understood_scope · accepted_constraints · abstentions · first_action_or_escalation "
+        "· model_of_record · boot-read attestation (+ ladder_explainback iff the ladder block "
+        "appears above)\n"
+        "  CONSUMER: the drop dir is the lawful non-Bash receipt lane — a canonical-side sweeper "
+        f"ingests {RECEIPT_DROP_SUBPATH}/*.json into audit-logs/boot-injections/boot-receipts.jsonl "
+        "(the same lane boot-receipt.py emit writes). Writing the JSON drop IS your receipt.\n"
+        "  (signer = entity_id; model = model_of_record — two distinct fields, never a conflated "
+        "'entity-modelcode' signature)"
+    )
 
 
 def valid_entities(zone_root: Path) -> set[str]:
@@ -453,6 +596,12 @@ def main() -> int:
         return 0
 
     tic = current_tic(zone_root)
+
+    # CAPABILITY GATE (tic 620): decide the boot-receipt lane from the agent's tool schema BEFORE
+    # rendering the worldview, so office-worldview's Bash boot-receipt.py prescription is suppressed
+    # for a no-Bash citizen and a Write-path receipt-drop is substituted. Fail-open → "bash".
+    receipt_lane = boot_receipt_lane(str(agent_type))
+
     try:
         proc = subprocess.run(
             [
@@ -477,19 +626,27 @@ def main() -> int:
 
     # Compiled pertinence worldview (office-worldview.py): the citizen's typed civic
     # orientation WITH authority badges + the budget-exempt boot-receipt request frame.
-    # Phase-A boot-boundary widening authorized at the tic-332 gate.
-    world = render_worldview(tic, entity, zone_root)
+    # Phase-A boot-boundary widening authorized at the tic-332 gate. The Bash receipt frame
+    # is suppressed for a no-Bash citizen (receipt_lane == "write"); the hook appends a
+    # Write-path receipt frame below instead (capability gate, tic 620).
+    world = render_worldview(tic, entity, zone_root, receipt_frame=(receipt_lane == "bash"))
 
     # Shared boot-injection lane (same registry session-restore.sh reads): tic-gated
     # broadcast pointers (e.g. GLOSSARY doctrine-surface navigation). Reaches the citizen
     # even when the inbox is empty.
     inject = render_boot_injection(tic, entity, zone_root)
 
-    if not brief and not inject and not world:
+    # Write-path receipt substitute for a no-Bash citizen — the mandatory-for-all-standings
+    # boot receipt, honored via the Write tool instead of boot-receipt.py (Bash). A citizen is
+    # never silent purely because inbox/worldview/pointers are empty; the receipt frame stands
+    # in either lane.
+    write_frame = render_write_path_receipt_frame(entity, tic) if receipt_lane == "write" else ""
+
+    if not brief and not inject and not world and not write_frame:
         return 0  # nothing to deliver — stay silent
 
     # Dedup-on-unchanged over the COMBINED payload: same content, same session/entity -> quiet.
-    combined_key = (world + "\n" + brief + "\n" + inject).strip()
+    combined_key = (world + "\n" + brief + "\n" + inject + "\n" + write_frame).strip()
     if already_seen(zone_root, str(session_id), entity, combined_key):
         return 0
 
@@ -503,6 +660,8 @@ def main() -> int:
         )
     if inject:
         parts.append(inject)
+    if write_frame:
+        parts.append(write_frame)
     context = (
         f"[CITIZEN-BOOT: {entity}] You are booting as a recognized federation entity "
         f"(tic {tic}). Your STANDING and its boundary are stamped in the worldview below — "
@@ -520,5 +679,49 @@ def main() -> int:
     return 0
 
 
+def _selftest() -> int:
+    """Exercise the capability gate — BOTH documented arms plus the fail-open arm (selftest
+    doctrine: every documented conditional gets a fixture, honest-empty/fail-open included).
+    Pure: reads agents/*.md read-only, no sandbox, no spawn, no state mutation. The end-to-end
+    stdout proof (injected-context prescription per arm) lives in the fire-receipt; this is the
+    durable in-hook coverage guard. Run: subagent-citizen-boot.py --selftest."""
+    checks: list[tuple[str, bool]] = []
+
+    def ck(name: str, cond: bool) -> None:
+        checks.append((name, bool(cond)))
+        print(("PASS" if cond else "FAIL"), name)
+
+    # Arm A — Bash-capable citizen KEEPS the boot-receipt.py (bash) lane.
+    ck("civil-engineer (tools include Bash) -> lane 'bash'", boot_receipt_lane("civil-engineer") == "bash")
+    ck("cpr-stepper (tools include Bash) -> lane 'bash'", boot_receipt_lane("cpr-stepper") == "bash")
+    # Arm B — no-Bash citizen SUBSTITUTES the Write-path drop lane.
+    ck("ladder-auditor (Read,Grep,Glob — no Bash) -> lane 'write'", boot_receipt_lane("ladder-auditor") == "write")
+    ck("ripple-assessor (Read,Grep,Glob,Write — no Bash) -> lane 'write'", boot_receipt_lane("ripple-assessor") == "write")
+    ck("pattern-curator-meta (no Bash) -> lane 'write'", boot_receipt_lane("pattern-curator-meta") == "write")
+    # Arm C — unresolvable schema FAILS OPEN to the bash lane (never block a boot).
+    ck("nonexistent agent type -> resolve_agent_tools None", resolve_agent_tools("does-not-exist-xyz") is None)
+    ck("nonexistent agent type -> lane 'bash' (fail-open)", boot_receipt_lane("does-not-exist-xyz") == "bash")
+    ck("empty agent type -> lane 'bash' (fail-open)", boot_receipt_lane("") == "bash")
+    # Write-path frame shape: drop path + every owed field + the sweeper consumer + the no-Bash reason.
+    wf = render_write_path_receipt_frame("ent_ladder_auditor", 620)
+    ck("write frame carries the receipt-drop path", f"{RECEIPT_DROP_SUBPATH}/ent_ladder_auditor-tic620-" in wf)
+    for fld in ("understood_scope", "accepted_constraints", "abstentions", "first_action_or_escalation",
+                "full_boot_injection_read", "boot_read_mode", "chunking", "required_unread_ranges",
+                "model_of_record", "entity_id", "tic"):
+        ck(f"write frame carries owed field '{fld}'", f'"{fld}"' in wf)
+    ck("write frame names the sweeper consumer", "sweeper" in wf.lower())
+    ck("write frame states the no-Bash reason", "WITHOUT the Bash tool" in wf)
+
+    failed = [n for n, ok in checks if not ok]
+    print()
+    if failed:
+        print(f"{len(failed)} FAILED:", ", ".join(failed))
+        return 1
+    print(f"all {len(checks)} capability-gate selftest assertions PASS")
+    return 0
+
+
 if __name__ == "__main__":
+    if "--selftest" in sys.argv[1:]:
+        raise SystemExit(_selftest())
     raise SystemExit(main())
