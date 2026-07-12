@@ -685,6 +685,50 @@ def run_m2_staleness_cadence_step(zone_root, tic, force_ratified=False):
         return {"ran": False, "ratified": True, "due": True, "error": str(err)}
 
 
+# --- Boot-receipt drop-lane sweep (tic 620, bk-receipt-drop-sweeper) ---
+# A no-Bash citizen (tools: Read/Grep/Glob) cannot run boot-receipt.py (Bash), so its
+# boot receipt is WRITTEN as ONE JSON drop at audit-logs/boot-injections/receipt-drops/
+# (contract in that dir's README). This step is the per-tic INVOKER that ingests those
+# drops into boot-receipts.jsonl — the same lane boot-receipt.py emit writes — dedup-at-
+# write on the canonical receipt_id boot-receipt.py mints. It closes what would otherwise
+# be a written-never-read lane (can-it-eat / dataflow-liveness) and honors
+# cgg-ledger#absorber-needs-per-tic-invoker-or-no-dark-guarantee-lapses. The sweeper is
+# itself idempotent + atomic-append + fail-soft; this wrapper is the SAME fail-soft
+# observability-subprocess pattern as the memory-md-audit / rollup steps in main() — a
+# sweep crash can NEVER block or fail the tic emit (dispatch-and-continue). Read-only on
+# governance state (the sweeper writes only to the boot-receipt lane it owns).
+def run_receipt_drop_sweep_step(zone_root, tic):
+    """Fail-soft per-tic ingest of no-Bash-citizen boot-receipt drops. Never raises,
+    never blocks cadence. Returns a result dict (ran / exit_code / ok / summary / error)."""
+    script = (Path(zone_root) / "audit-logs" / "boot-injections"
+              / "receipt-drops-sweep.py")
+    if not script.exists():
+        return {"ran": False, "reason": f"receipt-drops-sweep.py not found at {script}"}
+    try:
+        proc = subprocess.run(
+            ["python3", str(script), "--zone-root", str(zone_root)],
+            capture_output=True, text=True, timeout=20,
+        )
+        summary = None
+        try:
+            data = json.loads((proc.stdout or "").strip().splitlines()[-1])
+            summary = (f"receipt-drops sweep (tic {tic}): "
+                       f"{len(data.get('ingested_new', []))} ingested, "
+                       f"{len(data.get('deduped', []))} deduped, "
+                       f"{len(data.get('rejected', []))} rejected "
+                       f"(scanned {data.get('scanned', 0)})")
+        except Exception:  # noqa: BLE001 — summary parse best-effort
+            pass
+        return {
+            "ran": True,
+            "exit_code": proc.returncode,
+            "ok": proc.returncode == 0,
+            "summary": summary,
+        }
+    except Exception as err:  # noqa: BLE001 — fail-soft
+        return {"ran": False, "error": str(err)}
+
+
 def wait_for_runner_quiescence(mandate_path: Path, timeout_s: float = 30.0,
                                 poll_interval_s: float = 2.0) -> dict:
     """Wait for mogul-runner to leave 'running' state before mandate write.
@@ -1252,6 +1296,14 @@ def main():
     # no arena, no doctrine mutation). Same fail-soft pattern; never blocks cadence. /review
     # flips M2_STALENESS_CADENCE_RATIFIED.
     result["m2_staleness_cadence"] = run_m2_staleness_cadence_step(zone_root, tic_count)
+
+    # 5e. Boot-receipt drop-lane sweep (tic 620, bk-receipt-drop-sweeper) — the per-tic
+    # INVOKER that ingests no-Bash-citizen boot-receipt drops (receipt-drops/*.json) into
+    # boot-receipts.jsonl, dedup-at-write on the canonical receipt_id. Closes the written-
+    # never-read lane (can-it-eat) per cgg-ledger#absorber-needs-per-tic-invoker-or-no-dark-
+    # guarantee-lapses. Same fail-soft observability-subprocess pattern as 5/5b; the sweep is
+    # idempotent + atomic-append and can NEVER block or fail the tic emit (dispatch-and-continue).
+    result["receipt_drop_sweep"] = run_receipt_drop_sweep_step(zone_root, tic_count)
 
     # 6. Claude agents snapshot (tic 270) — read-only observability sensor.
     # Born tic 270 under Architect Path C adoption. Captures native Claude
