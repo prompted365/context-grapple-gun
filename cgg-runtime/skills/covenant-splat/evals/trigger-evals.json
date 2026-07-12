@@ -1,0 +1,14 @@
+[
+  {"query": "map this approved route into dependency-aware agent lanes", "should_trigger": true, "reason": "admitted covenant → decomposition intent, no skill named"},
+  {"query": "the board lost the cables for this covenant after the migration", "should_trigger": true, "reason": "covenant_projection_lost drain case"},
+  {"query": "rehydrate the current reality for this route without changing the target", "should_trigger": true, "reason": "re-splat under unchanged target — the core covenant/splat distinction"},
+  {"query": "derive a safe fragment DAG from this ratified covenant", "should_trigger": true, "reason": "CovenantExpr → FragmentDAG lowering intent"},
+  {"query": "drain one of the unmaterialized routes on the live board", "should_trigger": true, "reason": "the §14 resolver walk is this skill's primary ray"},
+  {"query": "why is this route not executable when the work was already approved?", "should_trigger": true, "reason": "approved-but-unprojected is the exact mislabel class this skill diagnoses"},
+  {"query": "find where the trigger router config lives", "should_trigger": false, "reason": "generic discovery — /tactical-hydration or NAVIGATION"},
+  {"query": "review this new doctrine candidate for promotion", "should_trigger": false, "reason": "admission judgment — /review; coherence is not admission"},
+  {"query": "run cadence and write the handoff", "should_trigger": false, "reason": "/cadence — session clock, not covenant interpretation"},
+  {"query": "summarize the backlog for me", "should_trigger": false, "reason": "read/report — no covenant interpretation act"},
+  {"query": "admit this new covenant into the board", "should_trigger": false, "reason": "admission on the covenant OBJECT — /review gate, upstream of this skill"},
+  {"query": "compile the live board and give me GO/NO-GO", "should_trigger": false, "reason": "board-wide compile — harpoon-sequencer.py --mode live, not per-route interpretation"}
+]

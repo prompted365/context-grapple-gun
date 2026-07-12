@@ -2,12 +2,14 @@
 
 Crates (canonical_developer/homeskillet-csl — vendored ≠ versioned, NEVER git-add near harpoonables): `harpoon_bridge` (CovenantBuilder, covenant algebra) · `covenant_composition` · `fragment_dag` · `fulfill`. **The crates ARE the infra — do not rebuild a parallel prose-overlay empire; drive them.**
 
-## Lowering semantics (deterministic — mirrored by `scripts/propose-fragment-dag.py`)
+## Lowering semantics (deterministic — mirrored exactly by `scripts/lower-covenant-expr.py`)
 
-- **Sequential ⊳** creates dependency edges between operands (all terminal fragments of A → all initial fragments of B).
+- **Fragment ids are occurrence-namespaced** (`covenant_composition.rs` ~:80): `{id}#{occ}::obj-{i}` per objective, `{id}#{occ}::covenant` for an objective-less leaf; `occ` = pre-order leaf counter — the SAME covenant may appear twice with no collision. **This id scheme is the acceptance-point-10 parity hazard**: any Rust↔Python executable-set hash equality must hash these identities.
+- **Sequential ⊳** creates dependency edges: EVERY left-sink × EVERY right-source.
 - **Parallel ∥** creates NO cross-edges.
-- **Choice ⊕** stays honest branch metadata until selected — never falsely flattened into dependency edges.
-- Waves derive by Kahn dependency-grouping; parallelism is by DISJOINT WRITE SURFACE (items sharing a write surface serialize).
+- **Choice ⊕** allocates group `g{n}` OUTER-FIRST; every fragment carries its FULL choice ancestry as `ChoiceTag{group, branch∈L|R}` (`fragment_dag.rs:47`); n-ary choice is left-associative (`A⊕B⊕C = Choice(Choice(A,B),C)`: outer=g0, inner=g1). Resolution (`resolve_choices`): a fragment survives iff on the chosen branch of EVERY resolved group it carries; unresolved groups keep; an edge survives iff both endpoints survive.
+- Waves derive by Kahn dependency-grouping, sorted within a wave; parallelism at dispatch is by DISJOINT WRITE SURFACE (items sharing a write surface serialize).
+- `scripts/propose-fragment-dag.py` is a deprecated forwarding alias (it lowers, it never proposed — the morphism proposal is the interpreter's act).
 
 ## The thin-covenant caveat (root cause of the 35-cohort)
 

@@ -11,7 +11,7 @@ Doctrine body: `autonomous_kernel/covenant-splat-fqoq-runtime-spec.md` §14. One
 7. **Runtime capable**? → no adapter: `execution_adapter_missing`; no runtime mapping: `runtime_mapping_missing`
 8. All pass → `exec_ready`.
 
-`evidence_insufficient` / `true_evidence_gap`: RESERVED for a genuinely unsupported factual assertion **after applicable surfaces were actually searched** (record which). Absence-from-one-lens ≠ absence-in-reality.
+`evidence_insufficient`: RESERVED for a genuinely unsupported factual assertion **after applicable surfaces were actually searched** (record which). Absence-from-one-lens ≠ absence-in-reality. Token binding (spec §14): diagnosis token = `evidence_insufficient`; axis value = `genuinely_insufficient`; `true_evidence_gap` = carrier alias, mint no new uses.
 
 ## Five-status axes (every board node carries them — `covenant_projection` block)
 
@@ -21,7 +21,7 @@ Doctrine body: `autonomous_kernel/covenant-splat-fqoq-runtime-spec.md` §14. One
 - `execution_status`: ready | blocked_by_dependency | blocked_by_runtime | blocked_by_physics | parked
 - `evidence_status`: not_required_for_approved_mechanic | inherited_from_admission | supported_by_scars | requires_current_probe | genuinely_insufficient
 
-The compiler emits **null** for axes it cannot adjudicate (covenant_status, evidence_status pre-drain). A null is never converted into an invented claim — claiming `admitted` needs the admission receipt; claiming `absent` needs an actual search. **Readiness** = admitted covenant AND complete projection AND current conformation AND deps satisfied AND runtime available AND no explicit active gate — never "six prose strings exist."
+**Axis fail-closed law (spec §14 — nulls apply to ALL five axes):** the compiler emits **null** for every axis it cannot adjudicate. `covenant_status`/`evidence_status` need drain receipts. `conformation_status` defaults **`unknown`** pre-drain — slice-generation freshness is an ENVELOPE fact, never per-route currency (*a stale thing can be freshly rendered*; the upgrade path is contagion conformation-proximity + the current-pointer staleness canary); `contradicted` is derivable now. `execution_status` asserts observed facts only (`blocked_by_dependency`/`blocked_by_physics`/`parked`); **`ready` needs the runtime-capable conjunct actually probed** — board-lens exec_ready does not discharge it. A null is never converted into an invented claim. **Readiness** = admitted covenant AND complete projection AND current conformation AND deps satisfied AND runtime available AND no explicit active gate — never "six prose strings exist."
 
 ## Judgment boundary at the drain
 

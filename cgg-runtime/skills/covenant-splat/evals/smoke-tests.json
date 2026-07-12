@@ -1,0 +1,29 @@
+{
+  "_comment": "covenant-splat mechanical smoke/contract checks — run from the federation root. Behavioral agent evals: evals.json; routing evals: trigger-evals.json.",
+  "evals": [
+    {
+      "id": "lowering-selftest",
+      "cmd": "python3 canonical_developer/context-grapple-gun/cgg-runtime/skills/covenant-splat/scripts/lower-covenant-expr.py --selftest",
+      "expect_exit": 0,
+      "asserts": "csl-parity lowering 13/13: occurrence-namespaced ids, seq sinks-x-sources edges, choice ancestry L/R outer-first, left-assoc n-ary, resolution semantics, duplicate leaves lawful, cycles/unknown-ops refused"
+    },
+    {
+      "id": "projection-contract-live",
+      "cmd": "python3 canonical_developer/context-grapple-gun/cgg-runtime/skills/covenant-splat/scripts/validate-covenant-projection.py",
+      "expect_exit": 0,
+      "asserts": "PROJECTION SHAPE HELD on live board-state.json: retired label absent; five axes fail-closed (conformation unknown/contradicted, execution observed-only); hashes recomputed 3/3 + inputs + compiler; route-metadata derivation typed (§17.4); unimplemented assertions disclosed"
+    },
+    {
+      "id": "slice-scaffold-hydrates",
+      "cmd": "python3 canonical_developer/context-grapple-gun/cgg-runtime/skills/covenant-splat/scripts/hydrate-covenant-slice.py bk-board-live-backlog-compiler",
+      "expect_exit": 0,
+      "asserts": "scaffold emits with typed-null covenant_ref/facets, input hashes, and the derived-cache lens declaration — no invented covenant content"
+    },
+    {
+      "id": "compiler-selftest-v3",
+      "cmd": "python3 audit-logs/governance/harpoon-office/harpoon-sequencer.py --selftest",
+      "expect_exit": 0,
+      "asserts": "17/17 incl. 13 materialized-projection gate, 15 axis fail-closed nulls (execution None + conformation unknown on exec-ready), 16 contradiction-on-conformation-axis, 17 observed-execution-facts-only"
+    }
+  ]
+}

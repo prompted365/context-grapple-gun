@@ -1,25 +1,40 @@
 #!/usr/bin/env python3
-"""validate-covenant-projection.py — board-projection contract check (covenant-splat skill).
+"""validate-covenant-projection.py — board-projection contract check (covenant-splat skill, v2 tic 622).
 
-Enforces the kernel contract's acceptance assertions (covenant-splat-fqoq-runtime-spec.md §17)
-against the LIVE board-state.json. Read-only; exit 0 = contract held, 1 = violation(s).
+Enforces the IMPLEMENTED subset of the kernel contract's acceptance assertions
+(autonomous_kernel/covenant-splat-fqoq-runtime-spec.md §17) against the LIVE
+board-state.json + route-metadata.json. Read-only; exit 0 = shape held, 1 = violation(s).
 
-Checks:
-  1. the retired pre-v3 label never appears in any node classification field
-  2. every node carries the five-status covenant_projection block (all five keys)
-  3. nulls-never-invented: covenant_status / evidence_status are null unless the node
-     carries a drain receipt (drain_receipt field) — the compiler must not claim admission
-  4. exec_ready ⇒ projection_status == complete AND execution_status == ready
-  5. covenant_decomposition_unmaterialized ⇒ NOT exec_ready AND projection_status == partial
-  6. contradiction present ⇒ conformation_status == contradicted AND not exec_ready
-  7. executable_identity_set == the set of nodes with exec_ready true
-  8. conformation envelope carries mode=live + the three identity/edge/executable hashes
+IMPLEMENTED (checked here):
+  §17.1-adjacent  retired pre-v3 label absent from every classification field
+  §17.4           every route-metadata entry carries a typed `derivation` object
+                  (source pointers+hashes, or a declared human_override_seed with
+                  disclosure) — prose-string derivations are violations
+  §17.5           both classification axes present on every node (identity_class,
+                  readiness_class) + five-axis covenant_projection block
+  §17.6 (partial) exec_ready ⇒ projection_status == complete; the axis fail-closed
+                  law holds: covenant/evidence axes null without drain receipt,
+                  conformation ∈ {unknown, contradicted} without currency receipt,
+                  execution ∈ {null, blocked_by_dependency, blocked_by_physics, parked}
+                  without a runtime probe ('ready'/'current' are never invented)
+  §17.5/§14       contradiction ⇒ conformation_status == contradicted AND not exec_ready
+  set integrity   executable_identity_set == exec_ready nodes; identity/edge/executable
+                  hashes RECOMPUTED and compared to the envelope; declared input hashes
+                  + compiler hash recomputed (a mismatch = the slice's own invalidation
+                  condition has fired — stale slice, regenerate)
+
+NOT YET IMPLEMENTED (disclosed, never claimed): §17.2 (re-route-never-re-author —
+behavioral), §17.3 (COVENANT_INSUFFICIENT — behavioral), §17.6 full readiness
+conjunction (needs drain receipts + a runtime capability probe), §17.8 search-record
+on evidence claims (needs drain receipts). The success line says SHAPE HELD, not
+CONTRACT HELD, until these close.
 
 Usage: validate-covenant-projection.py [--board FILE] [--zone-root DIR]
 """
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import sys
 from pathlib import Path
@@ -27,6 +42,12 @@ from pathlib import Path
 RETIRED = "blocked_by_evidence"
 AXES = ("covenant_status", "projection_status", "conformation_status",
         "execution_status", "evidence_status")
+CONFORMATION_PRE_DRAIN = {None, "unknown", "contradicted"}
+EXECUTION_OBSERVED = {None, "blocked_by_dependency", "blocked_by_physics", "parked"}
+UNIMPLEMENTED = ("§17.2 re-route-never-re-author (behavioral)",
+                 "§17.3 COVENANT_INSUFFICIENT (behavioral)",
+                 "§17.6 full readiness conjunction (needs drain receipts + runtime probe)",
+                 "§17.8 evidence search-record (needs drain receipts)")
 
 
 def find_root(start: Path) -> Path:
@@ -35,7 +56,15 @@ def find_root(start: Path) -> Path:
         if (p / "audit-logs" / "governance" / "harpoon-office").exists():
             return p
         p = p.parent
-    raise SystemExit("federation root not found")
+    raise SystemExit(
+        "COVENANT_SPLAT_ZONE_UNAVAILABLE:\n"
+        "  expected audit-logs/governance/harpoon-office above cwd\n"
+        f"  searched from: {start.resolve()}\n"
+        "  this skill is project-coupled; no validation was attempted")
+
+
+def sha_ids(ids) -> str:
+    return hashlib.sha256("\n".join(sorted(ids)).encode()).hexdigest()
 
 
 def main() -> int:
@@ -43,32 +72,40 @@ def main() -> int:
     ap.add_argument("--board")
     ap.add_argument("--zone-root")
     args = ap.parse_args()
-    if args.board:
-        board_p = Path(args.board)
-    else:
-        root = find_root(Path(args.zone_root) if args.zone_root else Path.cwd())
-        board_p = root / "audit-logs" / "governance" / "harpoon-office" / "board-state.json"
+    root = find_root(Path(args.zone_root) if args.zone_root else Path.cwd())
+    office = root / "audit-logs" / "governance" / "harpoon-office"
+    board_p = Path(args.board) if args.board else office / "board-state.json"
     board = json.loads(board_p.read_text(encoding="utf-8"))
     items = board.get("items") or {}
     violations: list[str] = []
 
+    # ── per-node checks ──
     for bid, n in items.items():
         cls_fields = json.dumps({k: n.get(k) for k in
                                  ("readiness_class", "effective_classification", "identity_class")})
         if RETIRED in cls_fields:
             violations.append(f"{bid}: retired label in classification fields")
+        if not n.get("identity_class") or not n.get("readiness_class"):
+            violations.append(f"{bid}: a classification axis is missing (§17.5)")
         cp = n.get("covenant_projection")
         if not isinstance(cp, dict) or any(k not in cp for k in AXES):
             violations.append(f"{bid}: covenant_projection block missing/incomplete")
             continue
-        if n.get("drain_receipt") is None:
+        has_receipt = n.get("drain_receipt") is not None
+        if not has_receipt:
             if cp["covenant_status"] is not None:
                 violations.append(f"{bid}: covenant_status invented without drain receipt")
             if cp["evidence_status"] is not None:
                 violations.append(f"{bid}: evidence_status invented without drain receipt")
-        if n.get("exec_ready"):
-            if cp["projection_status"] != "complete" or cp["execution_status"] != "ready":
-                violations.append(f"{bid}: exec_ready without complete projection / ready execution axis")
+            if cp["conformation_status"] not in CONFORMATION_PRE_DRAIN:
+                violations.append(f"{bid}: conformation_status {cp['conformation_status']!r} "
+                                  "invented without currency receipt (a stale thing can be "
+                                  "freshly rendered)")
+            if cp["execution_status"] not in EXECUTION_OBSERVED:
+                violations.append(f"{bid}: execution_status {cp['execution_status']!r} invented "
+                                  "without runtime probe")
+        if n.get("exec_ready") and cp["projection_status"] != "complete":
+            violations.append(f"{bid}: exec_ready without complete projection")
         if n.get("readiness_class") == "covenant_decomposition_unmaterialized":
             if n.get("exec_ready") or cp["projection_status"] != "partial":
                 violations.append(f"{bid}: unmaterialized decomposition axis inconsistency")
@@ -76,29 +113,75 @@ def main() -> int:
             if cp["conformation_status"] != "contradicted" or n.get("exec_ready"):
                 violations.append(f"{bid}: contradiction not carried on conformation axis / executable")
 
+    # ── set integrity + hash recomputation ──
     declared = set(board.get("executable_identity_set") or [])
     actual = {bid for bid, n in items.items() if n.get("exec_ready")}
     if declared != actual:
         violations.append(f"executable_identity_set mismatch: declared {sorted(declared)} "
                           f"vs actual {sorted(actual)}")
-
     env = board.get("conformation_envelope") or {}
     if (env.get("source") or {}).get("mode") != "live":
         violations.append("envelope source.mode != live")
-    for h in ("identity_set_hash", "edge_set_hash", "executable_identity_set_hash"):
+    recomputed = {
+        "identity_set_hash": sha_ids(items.keys()),
+        "edge_set_hash": sha_ids(f"{d}->{bid}" for bid, n in items.items()
+                                 for d in (n.get("unmet_deps") or [])),
+        "executable_identity_set_hash": sha_ids(declared),
+    }
+    for h, val in recomputed.items():
         if not env.get(h):
             violations.append(f"envelope missing {h}")
+        elif env[h] != val:
+            violations.append(f"{h} RECOMPUTATION MISMATCH: envelope {env[h][:16]}… vs "
+                              f"recomputed {val[:16]}…")
+    # declared input hashes + compiler hash — a mismatch means the slice's own
+    # invalidation condition fired (stale slice), which is a failure to act on
+    for rel, declared_sha in (env.get("inputs") or {}).items():
+        f = root / rel
+        if not f.exists():
+            violations.append(f"declared input vanished: {rel}")
+        elif hashlib.sha256(f.read_bytes()).hexdigest() != declared_sha:
+            violations.append(f"slice invalidated: input hash changed since generation: {rel}")
+    comp = env.get("compiler") or {}
+    if comp.get("path") and comp.get("sha256"):
+        cf = root / comp["path"]
+        if cf.exists() and hashlib.sha256(cf.read_bytes()).hexdigest() != comp["sha256"]:
+            violations.append("slice invalidated: compiler hash changed since generation")
+
+    # ── §17.4: route-metadata provenance ──
+    rm_p = office / "route-metadata.json"
+    if rm_p.exists():
+        try:
+            rm = json.loads(rm_p.read_text(encoding="utf-8"))
+        except Exception as e:
+            violations.append(f"route-metadata.json malformed: {e}")
+            rm = {}
+        for bid, entry in rm.items():
+            if bid.startswith("_") or not isinstance(entry, dict):
+                continue
+            der = entry.get("derivation")
+            if der is None or isinstance(der, str):
+                violations.append(f"route-metadata[{bid}]: derivation missing or prose-string "
+                                  "(§17.4 — needs typed object w/ source pointers or declared "
+                                  "human_override_seed)")
+            elif isinstance(der, dict):
+                seed = der.get("kind") == "human_override_seed"
+                if not seed and not der.get("source_pointers_sha16"):
+                    violations.append(f"route-metadata[{bid}]: derived entry lacks "
+                                      "source_pointers_sha16 (§17.4)")
 
     n_unmat = sum(1 for n in items.values()
                   if n.get("readiness_class") == "covenant_decomposition_unmaterialized")
-    print(f"validate-covenant-projection: {len(items)} nodes · "
-          f"{len(actual)} exec_ready · {n_unmat} covenant_decomposition_unmaterialized")
+    print(f"validate-covenant-projection v2: {len(items)} nodes · "
+          f"{len(actual)} exec_ready · {n_unmat} covenant_decomposition_unmaterialized · "
+          f"hashes recomputed 3/3 + {len(env.get('inputs') or {})} inputs + compiler")
     if violations:
         for v in violations:
             print(f"  [VIOLATION] {v}")
-        print(f"CONTRACT BROKEN — {len(violations)} violation(s)")
+        print(f"PROJECTION SHAPE BROKEN — {len(violations)} violation(s)")
         return 1
-    print("CONTRACT HELD — all §17 assertions pass on this projection")
+    print("PROJECTION SHAPE HELD — implemented §17 projection assertions pass")
+    print("  unimplemented (disclosed, not claimed): " + " · ".join(UNIMPLEMENTED))
     return 0
 
 
