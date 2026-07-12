@@ -5,17 +5,54 @@
 # validates status, binds Mogul office identity, invokes claude -p, and
 # records lifecycle transitions.
 #
-# Usage: scripts/mogul-runner.sh [--dry-run]
+# Usage:
+#   scripts/mogul-runner.sh            Consume the pending mandate (default action — MUTATES governance state)
+#   scripts/mogul-runner.sh --status   Read-only probe: print current mandate state, exit 0, mutate nothing
+#   scripts/mogul-runner.sh --dry-run  Validate the pending mandate without executing (exit 2 = would execute)
+#   scripts/mogul-runner.sh --help     Print usage
+#
+# A bare invocation is an ACTION, not a probe (cgg-ledger#bare-invocation-is-an-action-not-a-probe,
+# /review 605→608): the mutating default (mandate consumption) requires NO flag, so this runner
+# supplies a real read-only probe verb (--status) AND fails CLOSED on any unrecognized flag
+# (usage + non-zero, runs nothing) rather than silently ignoring the flag and falling through to
+# consumption. Live-hit at tic 619: `--status` was silently ignored and the runner consumed the
+# pending mandate.
 #
 # Exit codes:
-#   0 — mandate consumed successfully
+#   0 — mandate consumed successfully, OR --status probe printed state, OR --help
 #   1 — error (no mandate, already consumed, runner failure)
 #   2 — dry-run (mandate valid, would execute)
+#  64 — usage error (unrecognized argument; NOTHING executed)
 
 set -euo pipefail
 
+print_usage() {
+  cat <<'USAGE'
+Usage:
+  mogul-runner.sh            Consume the pending mandate (default — MUTATES governance state)
+  mogul-runner.sh --status   Read-only probe: print current mandate state and exit 0 (no execution, no writes)
+  mogul-runner.sh --dry-run  Validate the pending mandate without executing (exit 2 = would execute)
+  mogul-runner.sh --help     Print this usage
+USAGE
+}
+
+# ── Argument parse (fail-closed) ─────────────────────────────────────────────
+# Only the bare invocation runs the mutating default. --dry-run and --status are
+# explicit verbs; every other token is a usage error that executes NOTHING (it must
+# never silently fall through to consumption). Only $1 is inspected — no call site
+# passes positional args beyond a single leading flag (closed-consumer-set verified
+# tic 620: cgg-gate.sh invokes bare; the smoke test invokes --dry-run).
 DRY_RUN=false
-[ "${1:-}" = "--dry-run" ] && DRY_RUN=true
+STATUS_PROBE=false
+case "${1:-}" in
+  "")          : ;;                        # bare — legitimate consumption path (cgg-gate.sh spawn)
+  --dry-run)   DRY_RUN=true ;;             # unchanged (smoke test relies on rc=2 / rc=1)
+  --status)    STATUS_PROBE=true ;;        # read-only probe (added tic 620)
+  -h|--help)   print_usage; exit 0 ;;
+  *)           echo "ERROR: unrecognized argument '$1' — refusing to run. A bare invocation CONSUMES the pending mandate; use --status to probe read-only." >&2
+               print_usage >&2
+               exit 64 ;;
+esac
 
 # Load atomic append library for JSONL-safe writes.
 # SCRIPT_DIR is reliable for sibling-file lookups (lib/, etc.) since
@@ -51,6 +88,50 @@ resolve_zone_root() {
 }
 
 ZONE_ROOT=$(resolve_zone_root)
+
+# ============================================================================
+# --status: read-only probe. Print the current mandate's identity + lifecycle
+# timestamps (+ report path if present) and exit 0 WITHOUT invoking the mogul
+# agent, running any cycle, or writing any file. This is the real read-only verb
+# the bare-invocation-is-an-action doctrine requires. It short-circuits HERE —
+# before the rung resolver runs, before the snapshot-dir mkdir/touch, and before
+# the pending-status gate — so no side effect (subprocess spawn, file write, dir
+# creation) can occur on the probe path. Reading current.json with python3 is a
+# pure read, identical to how the consumption path reads status below.
+# ============================================================================
+if [ "$STATUS_PROBE" = true ]; then
+  MF="$ZONE_ROOT/audit-logs/mogul/mandates/current.json" python3 - <<'PYEOF'
+import json, os, sys
+mf = os.environ['MF']
+if not os.path.isfile(mf):
+    print(f"mandate_file:  {mf}")
+    print("status:        (no mandate file present)")
+    sys.exit(0)
+try:
+    with open(mf) as f:
+        m = json.load(f)
+except Exception as e:
+    print(f"mandate_file:  {mf}")
+    print(f"status:        (unreadable: {e})")
+    sys.exit(0)
+def g(k):
+    v = m.get(k)
+    return v if (v is not None and v != '') else '—'
+print(f"mandate_file:  {mf}")
+print(f"mandate_id:    {g('mandate_id')}")
+print(f"status:        {g('status')}")
+print(f"created_at:    {g('created_at')}")
+print(f"started_at:    {g('started_at')}")
+print(f"completed_at:  {g('completed_at')}")
+sr = m.get('structured_report')
+if sr:
+    print(f"report:        {sr}")
+err = m.get('error')
+if err:
+    print(f"error:         {err}")
+PYEOF
+  exit 0
+fi
 
 # Resolve the CGG runtime scripts root (generator-surface fix, tic 552 — the
 # mandate prompt previously hardcoded a vendor/ layout that does not exist in
