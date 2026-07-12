@@ -207,6 +207,21 @@ REASON_ANCHOR_PRESENT = "anchor_present_text_rephrased"
 # cpr_hoist_s6_close_anchor_must_track_proposal_head_tic590, affirmed across 6
 # tic-591 S-cable receipts + conformation tic-591.)
 REASON_AFFIRMED_VIA_RECEIPTS = "affirmed_via_receipts"
+# prose_spec_suffix_normalized_present — a born is promoted INTO a prose/doctrine spec
+# (hoist-wave-engine-spec, outbound-syntax-contagion-boundary-spec, …) rather than an
+# auto-memory file or a ledger anchor. The spec references the born by its id with the
+# extractor-appended `_tic<N>` suffix STRIPPED, and — until the emit-side breadcrumb
+# stamping (review-promote-writeback.py) reaches prose-spec targets — carries no
+# `<!-- promoted from … -->` breadcrumb. So the full-id content match in check_promoted
+# misses (queue id `cpr_x_tic590` vs spec citation `cpr_x`) and the finding false-fires.
+# This axis strips the suffix and matches the born-id (full OR `_tic<N>`-stripped) against
+# the resolved prose-spec's breadcrumbs/body; a hit is VERIFIED-present (the born-id is a
+# long unique slug — same positive-signal reasoning as the evidence-anchor axis), so the
+# finding is KNOWN(reason), never blanket-suppressed. Distinct from anchor_present_text_
+# rephrased, which requires a heading anchor OR a same-line Evidence marker; this axis is
+# the broader fallback when the citation sits on a plain line.
+# (bk-review-close-check-prose-spec-breadcrumb, tic 620.)
+REASON_PROSE_SPEC_SUFFIX_NORMALIZED = "prose_spec_suffix_normalized_present"
 
 # Behavioral / receipt surface roots swept before a promotion is graded genuinely
 # missing (tic 593). SCOPED — never all of audit-logs — so pipeline-bookkeeping
@@ -1060,6 +1075,43 @@ def _evidence_anchor_cites_born(path, cpr_id):
     return None
 
 
+def _prose_spec_suffix_normalized_hit(path, cpr_id):
+    """Return match evidence if a resolved prose/doctrine spec `.md` cites the born-id in
+    suffix-normalized form (full OR `_tic<N>`-stripped), else None.
+
+    Two loci, breadcrumb-first (the stronger provenance signal):
+      1. a `<!-- promoted from … -->` / provenance-verb comment carrying the born-id;
+      2. the born-id appearing on any body line.
+
+    The born-id is a long unique slug, so its presence — even suffix-stripped — is strong
+    positive evidence the inscription landed at this prose spec (identical reasoning to the
+    evidence-anchor axis, which already trusts a born-slug citation). This axis is the
+    fallback the evidence-anchor axis does NOT cover: a citation on a PLAIN line (no
+    Evidence/born/provenance marker) that a full-id content match still misses because the
+    spec dropped the `_tic<N>` suffix. Scoped to `.md`; the caller has already excluded
+    code/behavioral targets and tried the heading/evidence-anchor forms.
+    """
+    if not path.lower().endswith(".md"):
+        return None
+    content = read_file_safe(path)
+    if not content:
+        return None
+    variants = _born_id_variants(cpr_id)
+    # 1. provenance-comment / breadcrumb locus (strongest — an intentional stamp)
+    for m in _PROVENANCE_VERB_RE.finditer(content):
+        seg = m.group(0)
+        for v in variants:
+            if v in seg:
+                return {"locus": "breadcrumb", "matched_form": v,
+                        "line": " ".join(seg.split())[:200]}
+    # 2. body-line locus (the born-slug cited in prose without a marker)
+    for line in content.splitlines():
+        for v in variants:
+            if v in line:
+                return {"locus": "body", "matched_form": v, "line": line.strip()[:200]}
+    return None
+
+
 # Memoized per project_dir — the receipt-surface walk runs once per run_check.
 _RECEIPT_INDEX_CACHE = {}
 
@@ -1132,11 +1184,17 @@ def classify_known_reason(cpr_id, cpr, project_dir, project_basename=None,
          matching heading slug), or (ii) CITES the born-id on an Evidence/provenance
          line (tic suffix often dropped). The inscription landed as a rephrased
          refinement content-match cannot see. (tic 593 added the evidence-anchor half.)
-      4. affirmed_via_receipts — the born-id is cited in a bounded behavioral/receipt
+      4. prose_spec_suffix_normalized_present — a born promoted INTO a prose/doctrine
+         spec (not auto-memory, not a ledger anchor) that cites the born-id with the
+         `_tic<N>` suffix STRIPPED, in a breadcrumb or on a plain body line the
+         evidence-anchor axis (3-ii) does not cover. Verified present under suffix
+         normalization. The read-side complement to the emit-side prose-spec breadcrumb
+         stamp (review-promote-writeback). (bk-review-close-check-prose-spec-breadcrumb, tic 620.)
+      5. affirmed_via_receipts — the born-id is cited in a bounded behavioral/receipt
          surface (cable-receipt / honesty-lock drive_mode note / conformation record);
          the promotion is operationalized as behavior, not doctrine prose. (tic 593.)
-      5. (none) GENUINE — no code/behavioral target, no relocation, no present
-         anchor, and no affirming receipt surface; genuinely missing (the hazard).
+      6. (none) GENUINE — no code/behavioral target, no relocation, no present anchor,
+         no prose-spec citation, and no affirming receipt surface; genuinely missing.
     """
     targets = _collect_targets(cpr)
     lesson = cpr.get("lesson", "")
@@ -1147,6 +1205,7 @@ def classify_known_reason(cpr_id, cpr, project_dir, project_basename=None,
     relocated = None
     behavioral = None
     anchor_present = None
+    prose_spec = None
     for t in targets:
         existing = _resolve_target_path(t, project_dir, project_basename)
         if existing is None:
@@ -1167,6 +1226,15 @@ def classify_known_reason(cpr_id, cpr, project_dir, project_basename=None,
                 ev_line = _evidence_anchor_cites_born(existing, cpr_id)
                 if ev_line:
                     anchor_present = (t, existing, None, ev_line)
+                elif prose_spec is None:
+                    # (c) prose-spec suffix-normalized form: the born-id (full OR
+                    # `_tic<N>`-stripped) is present in a resolved prose/doctrine spec .md —
+                    # in a `<!-- promoted from … -->` breadcrumb or on a plain body line —
+                    # WITHOUT a same-line Evidence marker. The inscription landed in a prose
+                    # spec that references the born rather than quoting the rephrased lesson.
+                    ps_hit = _prose_spec_suffix_normalized_hit(existing, cpr_id)
+                    if ps_hit:
+                        prose_spec = (t, existing, ps_hit)
 
     if relocated is not None:
         orig, corrected = relocated
@@ -1219,6 +1287,26 @@ def classify_known_reason(cpr_id, cpr, project_dir, project_basename=None,
                 "quoting the lesson verbatim — the citation is the landed-proof"
             )
         return REASON_ANCHOR_PRESENT, evidence
+
+    if prose_spec is not None:
+        orig, resolved, ps_hit = prose_spec
+        try:
+            resolved_rel = os.path.relpath(resolved, project_dir)
+        except ValueError:
+            resolved_rel = resolved
+        return REASON_PROSE_SPEC_SUFFIX_NORMALIZED, {
+            "prose_spec_target": orig,
+            "resolved_path": resolved_rel,
+            "match_locus": ps_hit["locus"],
+            "matched_born_form": ps_hit["matched_form"],
+            "matched_line": ps_hit["line"],
+            "note": "born is promoted INTO a prose/doctrine spec (not auto-memory / not a "
+                    "ledger anchor); the spec cites the born-id with the extractor `_tic<N>` "
+                    "suffix dropped, so the full-id content match misses. Verified present "
+                    "under suffix normalization (born-id is a long unique slug) — KNOWN, not "
+                    "blanket-suppressed. The emit-side fix (review-promote-writeback prose-spec "
+                    "breadcrumb) makes FUTURE promotions resolve by direct content match.",
+        }
 
     # (a) behavioral/receipt-surface sweep — last positive axis before GENUINE: the
     # promotion is operationalized as behavior (cable-receipt / honesty-lock drive_mode

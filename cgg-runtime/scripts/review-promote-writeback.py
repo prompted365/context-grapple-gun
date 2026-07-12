@@ -191,6 +191,104 @@ def resolve_auto_memory_target(target_str, am_dir=None):
     return candidate if candidate.is_file() else None
 
 
+# ---------------------------------------------------------------------------
+# Prose-spec breadcrumb scope (bk-review-close-check-prose-spec-breadcrumb, tic 620).
+# A born promoted INTO a prose/doctrine spec (hoist-wave-engine-spec, outbound-syntax-
+# contagion-boundary-spec, …) lands WITHOUT a `<!-- promoted from … -->` breadcrumb today:
+# stamp_breadcrumb only resolved AUTO-MEMORY targets, and the ledger/CLAUDE.md body write
+# owns compact-root/ledger provenance. The un-stamped spec + the extractor dropping the
+# `_tic<N>` suffix (queue id `cpr_x_tic590` vs spec citation `cpr_x`) mints exactly the
+# read-side false-positive review-close-check now classifies (prose_spec_suffix_normalized_
+# present). This is the EMIT-side cure: stamp the breadcrumb (full cpr_id) on the prose-spec
+# target so FUTURE promotions resolve by DIRECT content match — the same structural cure
+# (Atomic Dual-Surface Invariant Mechanization) already applied to auto-memory targets.
+# ---------------------------------------------------------------------------
+
+# Basenames whose provenance is OWNED by the review-execute Step-2 body write, never by a
+# tail breadcrumb: a dehydrated compact root (CLAUDE.md) must not be re-inflated; a ledger.md
+# gets the full entry + provenance inline; MEMORY.md is the auto-memory inline host (handled
+# by resolve_auto_memory_target). Any OTHER `.md` under the federation root is a prose /
+# doctrine spec eligible for a breadcrumb stamp.
+# `ledger.md` covers BOTH the federation constitution-ledger/ledger.md and the CGG
+# cgg-ledger/ledger.md (same basename); CLAUDE.md / MEMORY.md cover the compact roots
+# and the auto-memory inline host.
+_LEDGER_OR_ROOT_BASENAMES = {"CLAUDE.md", "MEMORY.md", "ledger.md"}
+
+
+def _resolve_zone_root_for_specs(project_dir=None):
+    """Resolve a zone/federation root for relative prose-spec target resolution.
+
+    Priority: explicit project_dir → the queue's federation root (the queue lives at
+    `<root>/audit-logs/cprs/queue.jsonl`, so `<queue>.parents[2]` is the root) →
+    `resolve_zone_root()`. Returns a Path or None (fail-soft — an absolute/tilde target
+    never needs a root, so None only disables RELATIVE prose-spec resolution)."""
+    if project_dir:
+        p = Path(project_dir)
+        if p.is_dir():
+            return p
+    q = _default_queue()
+    if q is not None:
+        try:
+            return q.parents[2]
+        except IndexError:
+            pass
+    if resolve_zone_root is not None:
+        try:
+            return Path(resolve_zone_root())
+        except Exception:
+            pass
+    return None
+
+
+def resolve_prose_spec_target(target_str, project_dir=None):
+    """Resolve a promoted_to target to an existing PROSE-SPEC `.md` eligible for a
+    breadcrumb stamp, or None.
+
+    Eligible = a `.md` doctrine/spec surface that is NOT a ledger.md / CLAUDE.md / MEMORY.md
+    (provenance owned by the review-execute Step-2 body write) and NOT inside the auto-memory
+    dir (handled by resolve_auto_memory_target). Resolves absolute / tilde / project-relative
+    / federation-prefix-stripped paths against the zone root. Mirrors review-close-check's
+    target normalization so the emit side writes exactly where the read side looks."""
+    bare = _bare_path(target_str).rstrip("/")
+    if not bare or not bare.lower().endswith(".md"):
+        return None
+    if os.path.basename(bare) in _LEDGER_OR_ROOT_BASENAMES:
+        return None
+
+    candidate = None
+    if bare.startswith("~"):
+        candidate = Path(os.path.expanduser(bare))
+    elif os.path.isabs(bare):
+        candidate = Path(bare)
+    else:
+        root = _resolve_zone_root_for_specs(project_dir)
+        if root is None:
+            return None
+        p = root / bare
+        if p.is_file():
+            candidate = p
+        else:
+            # federation-prefix strip: "canonical/foo/bar.md" when root basename=="canonical"
+            parts = bare.replace("\\", "/").split("/")
+            if parts and parts[0] == root.name:
+                p2 = root / "/".join(parts[1:])
+                if p2.is_file():
+                    candidate = p2
+    if candidate is None or not candidate.is_file():
+        return None
+    try:
+        resolved = candidate.resolve()
+    except OSError:
+        return None
+    # Auto-memory files are owned by resolve_auto_memory_target, not this path.
+    try:
+        resolved.relative_to(AUTO_MEMORY_DIR.resolve())
+        return None
+    except ValueError:
+        pass
+    return resolved
+
+
 def _parse_birth_tic(cpr_id, explicit):
     if explicit is not None:
         return explicit
@@ -520,46 +618,62 @@ def flip_inline_status(cpr_id, new_status, review_tic, promoted_to,
 
 
 def stamp_breadcrumb(cpr_id, promoted_to, birth_tic, review_tic, source,
-                     dry_run=False, am_dir=None):
+                     dry_run=False, am_dir=None, project_dir=None):
     """Stamp `<!-- promoted from <cpr_id> (tic B->R). Source: <src>. -->` on the
-    auto-memory TARGET file. Idempotent (skips if cpr_id already in a promoted-from
-    comment). No-op for non-auto-memory targets (ledger / CLAUDE.md own their
-    provenance via the agent's ledger-inscription step).
+    promotion TARGET file. Idempotent (skips if cpr_id already in a promoted-from
+    comment).
 
-    Returns an action dict.
+    Two eligible target classes (auto-memory first, prose-spec fallback):
+      - AUTO-MEMORY files (feedback_*.md / topic files) — resolves the read side via the
+        provenance index.
+      - PROSE / DOCTRINE SPEC `.md` files (hoist-wave-engine-spec, outbound-syntax-
+        contagion-boundary-spec, …) — the born landed in the spec without a breadcrumb;
+        stamping one (full cpr_id) lets FUTURE review-close-checks resolve by DIRECT
+        content match. (bk-review-close-check-prose-spec-breadcrumb, tic 620.)
+
+    No-op for LEDGER / CLAUDE.md / MEMORY.md targets — their provenance is owned by the
+    review-execute Step-2 body write (a dehydrated compact root must not be re-inflated).
+
+    Returns an action dict carrying `surface` ∈ {auto_memory, prose_spec}.
     """
     target = resolve_auto_memory_target(promoted_to, am_dir=am_dir)
+    surface = "auto_memory"
+    if target is None:
+        target = resolve_prose_spec_target(promoted_to, project_dir=project_dir)
+        surface = "prose_spec"
     if target is None:
         return {
             "cpr_id": cpr_id, "promoted_to": promoted_to,
             "action": "skip",
-            "reason": "non-auto-memory target (ledger/CLAUDE.md provenance owned by "
-                      "the ledger-inscription step)",
+            "reason": "non-auto-memory / non-prose-spec target (ledger/CLAUDE.md/MEMORY.md "
+                      "provenance owned by the review-execute Step-2 body write)",
         }
     try:
         content = target.read_text(encoding="utf-8")
     except (OSError, UnicodeDecodeError) as exc:
-        return {"cpr_id": cpr_id, "target": str(target),
+        return {"cpr_id": cpr_id, "target": str(target), "surface": surface,
                 "action": "error", "reason": str(exc)}
 
     # Idempotency: this cpr_id already carries a promoted-from comment here.
     for m in _PROVENANCE_VERB_RE.finditer(content):
         if cpr_id in m.group(0):
-            return {"cpr_id": cpr_id, "target": str(target),
+            return {"cpr_id": cpr_id, "target": str(target), "surface": surface,
                     "action": "noop", "reason": "breadcrumb already present"}
 
     tic_span = (f"tic {birth_tic}->{review_tic}"
                 if birth_tic is not None else f"/review {review_tic}")
     src = source or "MEMORY.md"
+    resolves_via = ("the provenance index" if surface == "auto_memory"
+                    else "direct content match")
     breadcrumb = (
         f"<!-- promoted from {cpr_id} ({tic_span}). Source: {src}. "
         f"Stamped by review-promote-writeback at promotion time so review-close-check "
-        f"resolves it via the provenance index. -->\n"
+        f"resolves it via {resolves_via}. -->\n"
     )
     if not dry_run:
         sep = "" if content.endswith("\n") else "\n"
         target.write_text(content + sep + breadcrumb, encoding="utf-8")
-    return {"cpr_id": cpr_id, "target": str(target),
+    return {"cpr_id": cpr_id, "target": str(target), "surface": surface,
             "action": "stamp", "breadcrumb": breadcrumb.strip()}
 
 
@@ -698,7 +812,8 @@ def stamp_reinforced_by(ledger_path, target_anchor, reinforced_by, source, tic,
 
 def writeback(cpr_id, promoted_to, review_tic, status="promoted",
               birth_tic=None, source=None, dry_run=False, search_dir=None,
-              queue_path=None, resolve_aliases=None, scan_borns=None, borns_dir=None):
+              queue_path=None, resolve_aliases=None, scan_borns=None, borns_dir=None,
+              project_dir=None):
     """Run both writeback halves for one promoted CogPR. Returns a report dict.
 
     Resolves a tolerant id-set + content-identity hash from the queue before the inline
@@ -718,7 +833,8 @@ def writeback(cpr_id, promoted_to, review_tic, status="promoted",
                                 id_set=id_set, dedup_hash=dedup_hash,
                                 scan_borns=scan_borns, borns_dir=borns_dir)
     breadcrumb = stamp_breadcrumb(cpr_id, promoted_to, birth_tic, review_tic,
-                                  source, dry_run=dry_run, am_dir=search_dir)
+                                  source, dry_run=dry_run, am_dir=search_dir,
+                                  project_dir=project_dir)
 
     flipped = sum(1 for a in inline if a.get("action") == "flip")
     # Born-home legibility: which surface a match landed on, and the effective gate state.
@@ -790,7 +906,9 @@ def main():
     parser.add_argument("--source", default=None,
                         help="Source surface for the breadcrumb (default: MEMORY.md)")
     parser.add_argument("--project-dir", default=None,
-                        help="Zone root (unused for resolution; accepted for parity)")
+                        help="Zone root — used to resolve a RELATIVE prose-spec "
+                             "promoted_to target for breadcrumb stamping. When omitted, "
+                             "the federation root is discovered via the queue walk-up.")
     parser.add_argument("--search-dir", default=None,
                         help="Override auto-memory search dir (test hook)")
     parser.add_argument("--queue-path", default=None, dest="queue_path",
@@ -844,6 +962,7 @@ def main():
         dry_run=args.dry_run, search_dir=args.search_dir,
         queue_path=args.queue_path,
         scan_borns=args.scan_borns, borns_dir=args.borns_dir,
+        project_dir=args.project_dir,
     )
 
     s = report["summary"]
