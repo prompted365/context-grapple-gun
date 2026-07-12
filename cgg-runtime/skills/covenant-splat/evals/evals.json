@@ -1,0 +1,29 @@
+{
+  "_comment": "covenant-splat skill evals — each entry is a runnable check; run from the federation root. Deterministic scripts carry their own selftests; the live checks validate against the current board projection.",
+  "evals": [
+    {
+      "id": "lowering-selftest",
+      "cmd": "python3 canonical_developer/context-grapple-gun/cgg-runtime/skills/covenant-splat/scripts/propose-fragment-dag.py --selftest",
+      "expect_exit": 0,
+      "asserts": "seq creates edges/ordered waves; parallel no edges; choice stays metadata; cycles + unknown ops refused"
+    },
+    {
+      "id": "projection-contract-live",
+      "cmd": "python3 canonical_developer/context-grapple-gun/cgg-runtime/skills/covenant-splat/scripts/validate-covenant-projection.py",
+      "expect_exit": 0,
+      "asserts": "kernel spec §17 assertions hold on the current live board-state.json (retired label absent; five axes present; nulls never invented; exec_ready ⇒ complete projection)"
+    },
+    {
+      "id": "slice-scaffold-hydrates",
+      "cmd": "python3 canonical_developer/context-grapple-gun/cgg-runtime/skills/covenant-splat/scripts/hydrate-covenant-slice.py bk-board-live-backlog-compiler",
+      "expect_exit": 0,
+      "asserts": "scaffold emits with typed-null covenant_ref/facets, input hashes, and the derived-cache lens declaration — no invented covenant content"
+    },
+    {
+      "id": "compiler-selftest-v3",
+      "cmd": "python3 audit-logs/governance/harpoon-office/harpoon-sequencer.py --selftest",
+      "expect_exit": 0,
+      "asserts": "16/16 incl. 13 (materialized-projection gate), 15 (five-axis fail-closed nulls), 16 (contradiction on conformation axis)"
+    }
+  ]
+}
