@@ -21,6 +21,14 @@ emitting a downbeat — mutation-by-default on the governance clock let a shell
 fallback (`cadence-ops.py status || cadence-ops.py`) fire an accidental tic
 605->606 + phantom mandate mid-consumption. A bare invocation is an ACTION,
 not a probe; `status` is the read-only probe surface.
+
+Counted-emission idempotency guard (tic 629, bk-cadence-ops-idempotency-guard,
+admitted /review 628): a SECOND counted emission within the same session, or
+within the rapid-reemission window across sessions, is REFUSED at the execution
+boundary before any side effect (typed structured return + stderr line, exit 3)
+— the phantom-tic class (tics 266/579/580/588) can no longer mint a duplicate
+counted tic. A deliberate second boundary (mid-session epoch) requires the
+explicit --allow-second-emission "<reason>" arming flag.
 """
 
 import argparse
@@ -87,10 +95,117 @@ def count_physical_tics(tic_dir: str) -> int:
     return total
 
 
-def emit_tic(zone_root: str, mode: str, count_mode: str, count_reason: str) -> dict:
+# --- Counted-emission idempotency guard (tic 629, bk-cadence-ops-idempotency-guard,
+# admitted /review 628) ---
+# Physics-layer enforcement at the execution boundary: a SECOND counted emission
+# within the same session (or within the rapid-reemission window across sessions)
+# is REFUSED before any tic-event/conformation side effect lands — typed + visible,
+# never a silent no-op. The phantom-tic recurrence class (tics 266/579/580/588)
+# minted duplicate counted tics exactly this way: the emitter re-invoked in the
+# same session to "see its output" (+10s at t588), violating
+# cpr_reread_the_artifact_not_the_mutating_command_tic579. A perception-layer
+# warning fires AFTER the footgun (footgun-guard-at-perception-layer); this gate
+# fires BEFORE it. Guard state is an ADDITIVE sidecar (.emission-guard.json,
+# written only after a counted emission lands) so every pre-existing artifact —
+# tic event row, counter mirror, conformation, mandate — stays byte-for-byte
+# unchanged on the single-emission happy path (guard adds a gate, not a rewrite).
+# A deliberate second boundary in one session (mid-session epoch, /cadence skill
+# WHEN clause) requires the explicit --allow-second-emission "<reason>" arming
+# flag — the same explicit-arming physics as the tic-605 --fire gate.
+EMISSION_GUARD_FILENAME = ".emission-guard.json"
+RAPID_REEMISSION_WINDOW_S = 120
+
+
+def check_counted_emission_guard(tic_dir: str, count_mode: str,
+                                 allow_second_emission: str = None) -> dict:
+    """Evaluate the counted-emission idempotency guard. Pure read — no writes.
+
+    Returns a verdict dict:
+      {"refused": True, "refusal_class": ..., "detail": ..., "last_emission": {...}}
+        — the attempt must be refused before any side effect;
+      {"refused": False, "overridden": {...}}
+        — a refusal condition was met but the explicit arming flag authorized it;
+      {"refused": False, "note": ...} / {"refused": False}
+        — pass (no guard state, non-counted mode, or unreadable state disclosed).
+
+    Fail-open on unreadable guard state (the governance clock is load-bearing;
+    a corrupt sidecar must not brick it) — but the fail-open is DISCLOSED via
+    "note", never silent.
+    """
+    if count_mode != "counted":
+        return {"refused": False, "note": "guard scopes to counted emissions only"}
+    guard_path = os.path.join(tic_dir, EMISSION_GUARD_FILENAME)
+    if not os.path.isfile(guard_path):
+        return {"refused": False}
+    try:
+        guard = json.loads(Path(guard_path).read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as err:
+        return {"refused": False,
+                "note": f"guard state unreadable ({err}) — fail-open, disclosed"}
+
+    session_now = os.environ.get("CLAUDE_CODE_SESSION_ID") or None
+    session_last = guard.get("session_id")
+    last_epoch = guard.get("emitted_at_epoch")
+    last_emission = {
+        "session_id": session_last,
+        "emitted_at": guard.get("emitted_at"),
+        "counter_after": guard.get("counter_after"),
+    }
+
+    refusal = None
+    if session_now and session_last and session_now == session_last:
+        refusal = {
+            "refusal_class": "same_session_counted_emission",
+            "detail": (
+                "a counted emission already landed from THIS session "
+                f"(counter_after {guard.get('counter_after')} at "
+                f"{guard.get('emitted_at')}). Re-read the ARTIFACT "
+                "(audit-logs/tics/*.jsonl), never re-invoke the emitter "
+                "(cpr_reread_the_artifact_not_the_mutating_command_tic579; "
+                "phantom-tic class 266/579/580/588)."
+            ),
+        }
+    elif isinstance(last_epoch, (int, float)) and 0 <= time.time() - last_epoch < RAPID_REEMISSION_WINDOW_S:
+        refusal = {
+            "refusal_class": "rapid_reemission_window",
+            "detail": (
+                f"a counted emission landed {round(time.time() - last_epoch, 1)}s ago "
+                f"(< {RAPID_REEMISSION_WINDOW_S}s window; counter_after "
+                f"{guard.get('counter_after')} at {guard.get('emitted_at')}). "
+                "The t588 phantom fired +10s after the legitimate close."
+            ),
+        }
+
+    if refusal is None:
+        return {"refused": False}
+    if allow_second_emission:
+        return {"refused": False,
+                "overridden": {**refusal, "override_reason": allow_second_emission,
+                               "last_emission": last_emission}}
+    return {"refused": True, **refusal, "last_emission": last_emission}
+
+
+def emit_tic(zone_root: str, mode: str, count_mode: str, count_reason: str,
+             allow_second_emission: str = None) -> dict:
     """Emit a tic event. Returns tic result dict."""
     al = audit_logs_path(zone_root)
     tic_dir = os.path.join(al, "tics")
+
+    # Counted-emission idempotency guard — evaluated at the execution boundary,
+    # BEFORE any side effect (no makedirs, no append, no mirror update on refusal).
+    guard_verdict = check_counted_emission_guard(tic_dir, count_mode, allow_second_emission)
+    if guard_verdict.get("refused"):
+        return {
+            "emitted": False,
+            "refused": True,
+            "refusal_class": guard_verdict.get("refusal_class"),
+            "detail": guard_verdict.get("detail"),
+            "last_emission": guard_verdict.get("last_emission"),
+            "count_mode": count_mode,
+            "override_hint": ("a deliberate second boundary requires "
+                              "--allow-second-emission \"<reason>\""),
+        }
+
     os.makedirs(tic_dir, exist_ok=True)
 
     tz_config = load_ticzone(zone_root)
@@ -133,7 +248,24 @@ def emit_tic(zone_root: str, mode: str, count_mode: str, count_reason: str) -> d
     tmp.write_text(json.dumps({"count": after, "previous_count": before, "last_tic": now_iso}) + "\n", encoding="utf-8")
     tmp.replace(counter_path)
 
-    return {
+    # Record guard state AFTER the counted emission lands (additive sidecar —
+    # the idempotency guard's memory; never written on refusal, never written
+    # for count_mode=ignored). Atomic tmp+replace like the counter mirror.
+    if count_mode == "counted":
+        guard_state = {
+            "session_id": os.environ.get("CLAUDE_CODE_SESSION_ID") or None,
+            "emitted_at": now_iso,
+            "emitted_at_epoch": time.time(),
+            "counter_after": after,
+        }
+        if guard_verdict.get("overridden"):
+            guard_state["override"] = guard_verdict["overridden"]
+        gpath = Path(tic_dir) / EMISSION_GUARD_FILENAME
+        gtmp = gpath.with_suffix(".tmp")
+        gtmp.write_text(json.dumps(guard_state) + "\n", encoding="utf-8")
+        gtmp.replace(gpath)
+
+    result = {
         "emitted": True,
         "timestamp": now_iso,
         "cadence_position": cadence_position,
@@ -143,6 +275,13 @@ def emit_tic(zone_root: str, mode: str, count_mode: str, count_reason: str) -> d
         "counter_after": after,
         "tic_file": tic_file,
     }
+    # Surface non-plain guard outcomes (override / disclosed fail-open) —
+    # surface-don't-hide; the plain happy path stays byte-identical.
+    if guard_verdict.get("overridden"):
+        result["emission_guard"] = {"overridden": guard_verdict["overridden"]}
+    elif guard_verdict.get("note") and "unreadable" in guard_verdict["note"]:
+        result["emission_guard"] = {"note": guard_verdict["note"]}
+    return result
 
 
 # ---------------------------------------------------------------------------
@@ -1110,6 +1249,13 @@ def main():
                         help="Skip conformation snapshot (syncopate default)")
     parser.add_argument("--skip-mandate", action="store_true",
                         help="Skip mandate write")
+    parser.add_argument("--allow-second-emission", default=None, metavar="REASON",
+                        help="Explicitly arm a deliberate SECOND counted emission "
+                             "(mid-session epoch boundary). Without it, the "
+                             "counted-emission idempotency guard refuses a second "
+                             "counted emission within the same session or within "
+                             f"{RAPID_REEMISSION_WINDOW_S}s of the last one "
+                             "(phantom-tic class 266/579/580/588).")
 
     args = parser.parse_args()
 
@@ -1144,8 +1290,25 @@ def main():
     result = {"mode": args.mode}
 
     # 1. Emit tic
-    tic_result = emit_tic(zone_root, args.mode, args.count_mode, count_reason)
+    tic_result = emit_tic(zone_root, args.mode, args.count_mode, count_reason,
+                          args.allow_second_emission)
     result["tic"] = tic_result
+
+    # Counted-emission idempotency guard refusal (tic 629): typed + visible —
+    # structured return on stdout + log line on stderr + distinct exit code —
+    # and NOTHING downstream runs (no conformation, no mandate, no cockpit
+    # intent, no audit sweeps). The refusal happened at the execution boundary
+    # BEFORE any side effect; this early return keeps it that way.
+    if tic_result.get("refused"):
+        sys.stderr.write(
+            f"REFUSED: counted-emission idempotency guard — "
+            f"{tic_result.get('refusal_class')}: {tic_result.get('detail')}\n"
+            "No tic event, conformation, or mandate was written. "
+            "A deliberate second boundary requires "
+            "--allow-second-emission \"<reason>\".\n"
+        )
+        print(json.dumps(result, indent=2))
+        return 3
 
     tic_count = tic_result["counter_after"]
     tic_timestamp = tic_result["timestamp"]
