@@ -32,6 +32,7 @@ explicit --allow-second-emission "<reason>" arming flag.
 """
 
 import argparse
+import fcntl
 import glob
 import json
 import os
@@ -39,6 +40,7 @@ import re
 import subprocess
 import sys
 import time
+import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -115,6 +117,31 @@ def count_physical_tics(tic_dir: str) -> int:
 EMISSION_GUARD_FILENAME = ".emission-guard.json"
 RAPID_REEMISSION_WINDOW_S = 120
 
+# --- Emission hardening (tic 633, Architect-directed cadence-lifecycle repair) ---
+# Per-boundary emission_id: every counted emission mints a unique boundary id
+# recorded in the tic event row, the guard sidecar, the interstitial marker, the
+# conformation, and the mandate — so downstream writes are idempotent PER BOUNDARY
+# (keyed on emission_id), replay is well-defined (same emission_id returns the
+# existing tic + repairs missing downstream artifacts), and a different-active-
+# boundary attempt is a TYPED refusal, never a silent duplicate.
+# ONE lock (.emission.lock, flock-exclusive) spans guard-check → count → append →
+# mirror → guard-state → marker, so two concurrent /cadence invocations serialize:
+# the second sees the first's guard state and refuses typed (regression gate 7).
+# The interstitial marker (.interstitial-marker.json) replaces the statusline's
+# 90-second wall-clock heuristic: state=interstitial persists from emission until
+# the next session's SessionStart reconcile flips it to active — the arrow renders
+# from STATE, not from elapsed time.
+EMISSION_LOCK_FILENAME = ".emission.lock"
+INTERSTITIAL_MARKER_FILENAME = ".interstitial-marker.json"
+
+
+def write_interstitial_marker(tic_dir: str, marker: dict) -> None:
+    """Atomic tmp+replace write of the interstitial marker."""
+    mpath = Path(tic_dir) / INTERSTITIAL_MARKER_FILENAME
+    mtmp = mpath.with_suffix(".tmp")
+    mtmp.write_text(json.dumps(marker, indent=2) + "\n", encoding="utf-8")
+    mtmp.replace(mpath)
+
 
 def check_counted_emission_guard(tic_dir: str, count_mode: str,
                                  allow_second_emission: str = None) -> dict:
@@ -185,14 +212,99 @@ def check_counted_emission_guard(tic_dir: str, count_mode: str,
     return {"refused": True, **refusal, "last_emission": last_emission}
 
 
+def _read_guard_state(tic_dir: str) -> dict:
+    """Best-effort read of the emission-guard sidecar. Empty dict on any failure."""
+    guard_path = os.path.join(tic_dir, EMISSION_GUARD_FILENAME)
+    if not os.path.isfile(guard_path):
+        return {}
+    try:
+        return json.loads(Path(guard_path).read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return {}
+
+
 def emit_tic(zone_root: str, mode: str, count_mode: str, count_reason: str,
-             allow_second_emission: str = None) -> dict:
-    """Emit a tic event. Returns tic result dict."""
+             allow_second_emission: str = None,
+             replay_emission_id: str = None) -> dict:
+    """Emit a tic event. Returns tic result dict.
+
+    Emission hardening (tic 633): the whole guard-check → count → append →
+    mirror → guard-state → interstitial-marker sequence runs under ONE
+    flock-exclusive lock, every counted emission mints a per-boundary
+    emission_id, and --replay-emission-id gives crash-recovery replay
+    semantics: same emission_id as the active boundary returns the existing
+    tic (so main() can repair missing downstream artifacts) instead of
+    minting a duplicate; a DIFFERENT emission_id against an active boundary
+    is a typed refusal (different_active_boundary) unless explicitly
+    overridden via --allow-second-emission.
+    """
     al = audit_logs_path(zone_root)
     tic_dir = os.path.join(al, "tics")
+    os.makedirs(tic_dir, exist_ok=True)
+
+    # ONE lock around the whole emission sequence. Two concurrent invocations
+    # serialize here; the loser re-reads guard state and refuses typed.
+    lock_path = os.path.join(tic_dir, EMISSION_LOCK_FILENAME)
+    with open(lock_path, "w") as lock_fd:
+        fcntl.flock(lock_fd.fileno(), fcntl.LOCK_EX)
+        try:
+            return _emit_tic_locked(zone_root, tic_dir, mode, count_mode,
+                                    count_reason, allow_second_emission,
+                                    replay_emission_id)
+        finally:
+            fcntl.flock(lock_fd.fileno(), fcntl.LOCK_UN)
+
+
+def _emit_tic_locked(zone_root: str, tic_dir: str, mode: str, count_mode: str,
+                     count_reason: str, allow_second_emission: str,
+                     replay_emission_id: str) -> dict:
+    """Body of emit_tic — runs entirely under the emission lock."""
+
+    # Replay semantics (crash-and-resume, regression gate 6): a replay request
+    # is resolved against the ACTIVE boundary's guard state BEFORE the normal
+    # guard verdict, because a matching replay must return the existing tic
+    # (not refuse it), and a mismatched replay is its own typed refusal.
+    if replay_emission_id:
+        guard = _read_guard_state(tic_dir)
+        active_emission_id = guard.get("emission_id")
+        if active_emission_id and active_emission_id == replay_emission_id:
+            return {
+                "emitted": False,
+                "replayed": True,
+                "emission_id": active_emission_id,
+                "timestamp": guard.get("emitted_at"),
+                "cadence_position": guard.get("cadence_position", mode),
+                "count_mode": "counted",
+                "count_reason": count_reason,
+                "counter_before": (guard.get("counter_after") or 1) - 1,
+                "counter_after": guard.get("counter_after"),
+                "note": ("replay: boundary already emitted — returning existing "
+                         "tic; downstream artifacts repaired idempotently"),
+            }
+        if not allow_second_emission:
+            return {
+                "emitted": False,
+                "refused": True,
+                "refusal_class": ("different_active_boundary" if active_emission_id
+                                  else "replay_target_not_found"),
+                "detail": (
+                    f"replay requested for emission_id {replay_emission_id!r} but the "
+                    f"active boundary is {active_emission_id!r}. A replay may only "
+                    "resume the ACTIVE boundary; recovering across a different "
+                    "boundary requires the explicit --allow-second-emission "
+                    "\"<reason>\" recovery override."
+                ),
+                "last_emission": {
+                    "emission_id": active_emission_id,
+                    "emitted_at": guard.get("emitted_at"),
+                    "counter_after": guard.get("counter_after"),
+                },
+                "count_mode": count_mode,
+            }
+        # explicit recovery override: fall through to a fresh emission
 
     # Counted-emission idempotency guard — evaluated at the execution boundary,
-    # BEFORE any side effect (no makedirs, no append, no mirror update on refusal).
+    # BEFORE any side effect (no append, no mirror update on refusal).
     guard_verdict = check_counted_emission_guard(tic_dir, count_mode, allow_second_emission)
     if guard_verdict.get("refused"):
         return {
@@ -203,10 +315,10 @@ def emit_tic(zone_root: str, mode: str, count_mode: str, count_reason: str,
             "last_emission": guard_verdict.get("last_emission"),
             "count_mode": count_mode,
             "override_hint": ("a deliberate second boundary requires "
-                              "--allow-second-emission \"<reason>\""),
+                              "--allow-second-emission \"<reason>\"; a crash "
+                              "recovery of THIS boundary uses "
+                              "--replay-emission-id <id>"),
         }
-
-    os.makedirs(tic_dir, exist_ok=True)
 
     tz_config = load_ticzone(zone_root)
     zone_name = tz_config.get("name", "canonical")
@@ -220,6 +332,10 @@ def emit_tic(zone_root: str, mode: str, count_mode: str, count_reason: str,
 
     cadence_position = "syncopate" if mode == "syncopate" else "downbeat"
 
+    # Per-boundary emission id (tic 633). Recorded in the event row, the guard
+    # sidecar, the interstitial marker, and (via main) conformation + mandate.
+    emission_id = f"em-{after}-{uuid.uuid4().hex[:10]}"
+
     event = {
         "type": "tic",
         "tic": now_iso,
@@ -227,6 +343,7 @@ def emit_tic(zone_root: str, mode: str, count_mode: str, count_reason: str,
         "cadence_position": cadence_position,
         "count_mode": count_mode,
         "count_reason": count_reason,
+        "emission_id": emission_id,
         "domain_counter_before": before,
         "domain_counter_after": after,
         "global_counter_before": before,
@@ -245,7 +362,9 @@ def emit_tic(zone_root: str, mode: str, count_mode: str, count_reason: str,
     counter_path = Path.home() / ".claude" / "cgg-tic-counter.json"
     counter_path.parent.mkdir(parents=True, exist_ok=True)
     tmp = counter_path.with_suffix(".tmp")
-    tmp.write_text(json.dumps({"count": after, "previous_count": before, "last_tic": now_iso}) + "\n", encoding="utf-8")
+    tmp.write_text(json.dumps({"count": after, "previous_count": before,
+                               "last_tic": now_iso,
+                               "emission_id": emission_id}) + "\n", encoding="utf-8")
     tmp.replace(counter_path)
 
     # Record guard state AFTER the counted emission lands (additive sidecar —
@@ -257,6 +376,8 @@ def emit_tic(zone_root: str, mode: str, count_mode: str, count_reason: str,
             "emitted_at": now_iso,
             "emitted_at_epoch": time.time(),
             "counter_after": after,
+            "emission_id": emission_id,
+            "cadence_position": cadence_position,
         }
         if guard_verdict.get("overridden"):
             guard_state["override"] = guard_verdict["overridden"]
@@ -265,12 +386,28 @@ def emit_tic(zone_root: str, mode: str, count_mode: str, count_reason: str,
         gtmp.write_text(json.dumps(guard_state) + "\n", encoding="utf-8")
         gtmp.replace(gpath)
 
+        # Interstitial marker (tic 633): the emitted boundary is INTERSTITIAL
+        # until the next session's SessionStart reconcile flips it to active.
+        # The statusline arrow renders from this STATE, not from a 90-second
+        # wall-clock heuristic (regression gate 2: arrow persists until
+        # activation). Tic N is CLOSED once this lands — "Continue working" in
+        # the plan UI means remain-in-interstitial-to-revise or explicitly
+        # activate N+1, never silently resume under N.
+        write_interstitial_marker(tic_dir, {
+            "state": "interstitial",
+            "emission_id": emission_id,
+            "work_tic": before,
+            "entry_tic": after,
+            "emitted_at": now_iso,
+        })
+
     result = {
         "emitted": True,
         "timestamp": now_iso,
         "cadence_position": cadence_position,
         "count_mode": count_mode,
         "count_reason": count_reason,
+        "emission_id": emission_id,
         "counter_before": before,
         "counter_after": after,
         "tic_file": tic_file,
@@ -466,9 +603,34 @@ def extract_governance_enrichment(gq_responses: list) -> dict:
 
 
 def write_conformation(zone_root: str, tic_count: int, tic_timestamp: str,
-                       posture: str = None) -> dict:
-    """Write a conformation snapshot at the current tic boundary."""
+                       posture: str = None, emission_id: str = None) -> dict:
+    """Write a conformation snapshot at the current tic boundary.
+
+    Idempotent per boundary (tic 633): if the conformation for this tic already
+    exists AND carries the same emission_id, the write is skipped and the
+    existing artifact is returned — so a replayed emission repairs a MISSING
+    conformation without clobbering a present one.
+    """
     al = audit_logs_path(zone_root)
+
+    # Idempotency check BEFORE the (expensive) snapshot assembly.
+    if emission_id:
+        existing_path = Path(al) / "conformations" / f"tic-{tic_count}.json"
+        if existing_path.is_file():
+            try:
+                existing = json.loads(existing_path.read_text(encoding="utf-8"))
+            except (OSError, json.JSONDecodeError):
+                existing = {}
+            if existing.get("emission_id") == emission_id:
+                return {
+                    "written": False,
+                    "replayed": True,
+                    "path": str(existing_path),
+                    "tic_count": tic_count,
+                    "summary": existing.get("counts", {}),
+                    "note": "conformation already present for this emission_id — idempotent skip",
+                }
+
     tz_config = load_ticzone(zone_root)
     zone_name = tz_config.get("name", "canonical")
 
@@ -558,6 +720,7 @@ def write_conformation(zone_root: str, tic_count: int, tic_timestamp: str,
         "tic_count_physical": tic_count,
         "tic": tic_timestamp,
         "tic_zone": zone_name,
+        "emission_id": emission_id,
         "snapshot_at": now.isoformat(),
         "active_signals": active_signals,
         "active_warrants": active_warrants,
@@ -1036,10 +1199,16 @@ def _sweep_reminders_and_drops(zone_root: str, current_tic: int,
 
 
 def write_cadence_mandate(zone_root: str, tic: int, trigger_source: str,
-                          conformation_ref: str = None) -> dict:
+                          conformation_ref: str = None,
+                          emission_id: str = None) -> dict:
     """Write a Mogul mandate for the next tic's due cycles.
 
     Delegates to mandate-write.py's functions for merge-before-write semantics.
+
+    Idempotent per boundary (tic 633): if the current mandate already carries
+    this emission_id, the write (and its obligation routing side effects) is
+    skipped — a replayed emission repairs a MISSING mandate without minting a
+    duplicate obligation envelope.
     """
     # tic is already the newly-emitted tic (counter_after from the tic event).
     # The mandate targets THIS tic's session, not tic+1.
@@ -1049,6 +1218,23 @@ def write_cadence_mandate(zone_root: str, tic: int, trigger_source: str,
     # Read existing mandate for merge-before-write
     al = audit_logs_path(zone_root)
     mandate_path = Path(al) / "mogul" / "mandates" / "current.json"
+
+    # Idempotency check (replay repair): same emission_id => already written.
+    if emission_id and mandate_path.is_file():
+        try:
+            current = json.loads(mandate_path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            current = {}
+        if current.get("emission_id") == emission_id:
+            return {
+                "written": False,
+                "replayed": True,
+                "mandate_id": current.get("mandate_id"),
+                "cycles": current.get("cycle_request", {}).get("run_now", []),
+                "path": str(mandate_path),
+                "due_markers": due_markers,
+                "note": "mandate already present for this emission_id — idempotent skip",
+            }
 
     # CogPR-3 fix-family (tic 280): before writing current.json, wait briefly
     # if mogul-runner is mid-execution. Pairs with mogul-runner.sh
@@ -1073,6 +1259,9 @@ def write_cadence_mandate(zone_root: str, tic: int, trigger_source: str,
         runtime_verified=False,
         zone_root_path=zone_root,
     )
+    # Stamp the boundary id (tic 633) — the key the idempotency check above reads.
+    if emission_id:
+        mandate["emission_id"] = emission_id
 
     # Write
     written_path = write_mandate(mandate, Path(zone_root))
@@ -1255,7 +1444,16 @@ def main():
                              "counted-emission idempotency guard refuses a second "
                              "counted emission within the same session or within "
                              f"{RAPID_REEMISSION_WINDOW_S}s of the last one "
-                             "(phantom-tic class 266/579/580/588).")
+                             "(phantom-tic class 266/579/580/588). Also serves as "
+                             "the recovery override for a mismatched "
+                             "--replay-emission-id (different_active_boundary).")
+    parser.add_argument("--replay-emission-id", default=None, metavar="EMISSION_ID",
+                        help="Crash-recovery replay (tic 633): if EMISSION_ID matches "
+                             "the ACTIVE boundary's emission_id, return the existing "
+                             "tic and repair missing downstream artifacts "
+                             "(conformation/mandate) idempotently instead of minting "
+                             "a duplicate. A mismatch is a typed refusal "
+                             "(different_active_boundary).")
 
     args = parser.parse_args()
 
@@ -1291,7 +1489,8 @@ def main():
 
     # 1. Emit tic
     tic_result = emit_tic(zone_root, args.mode, args.count_mode, count_reason,
-                          args.allow_second_emission)
+                          args.allow_second_emission,
+                          replay_emission_id=args.replay_emission_id)
     result["tic"] = tic_result
 
     # Counted-emission idempotency guard refusal (tic 629): typed + visible —
@@ -1305,13 +1504,21 @@ def main():
             f"{tic_result.get('refusal_class')}: {tic_result.get('detail')}\n"
             "No tic event, conformation, or mandate was written. "
             "A deliberate second boundary requires "
-            "--allow-second-emission \"<reason>\".\n"
+            "--allow-second-emission \"<reason>\"; crash recovery of the "
+            "active boundary uses --replay-emission-id <id>.\n"
         )
         print(json.dumps(result, indent=2))
         return 3
 
     tic_count = tic_result["counter_after"]
     tic_timestamp = tic_result["timestamp"]
+    emission_id = tic_result.get("emission_id")
+    if tic_result.get("replayed"):
+        sys.stderr.write(
+            f"REPLAY: boundary {emission_id} already emitted "
+            f"(counter_after {tic_count}) — repairing missing downstream "
+            "artifacts idempotently; no duplicate tic minted.\n"
+        )
 
     # 2. Conformation — always generated for both downbeat and syncopate.
     # CogPR-43: the tic-conformation invariant requires every counted tic
@@ -1323,7 +1530,8 @@ def main():
         skip_conf = args.skip_conformation  # syncopate: only if explicitly requested
 
     if not skip_conf:
-        conf_result = write_conformation(zone_root, tic_count, tic_timestamp, args.posture)
+        conf_result = write_conformation(zone_root, tic_count, tic_timestamp, args.posture,
+                                         emission_id=emission_id)
         result["conformation"] = conf_result
     else:
         result["conformation"] = {"written": False, "reason": "skipped"}
@@ -1335,7 +1543,8 @@ def main():
 
     if not skip_mand:
         conf_ref = result.get("conformation", {}).get("path")
-        mandate_result = write_cadence_mandate(zone_root, tic_count, args.trigger_source, conf_ref)
+        mandate_result = write_cadence_mandate(zone_root, tic_count, args.trigger_source, conf_ref,
+                                               emission_id=emission_id)
         result["mandate"] = mandate_result
     else:
         result["mandate"] = {"written": False, "reason": "skipped"}

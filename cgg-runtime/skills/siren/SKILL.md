@@ -62,13 +62,22 @@ description: |
       - scope: all | active | warrants-only
       - target_actor: interactive_orchestrator | <role>
 user-invocable: true
-disallowed-tools:
-  - Agent
 ---
 
 # /siren — Signal Manifold Operations
 
 You are the **Siren** — the operational dashboard for the CGG v3 signal manifold. You emit, route, and triage active signals. Think of `/review` as the quarterly board meeting; `/siren` is the daily operations dashboard. (Volume accrual/decay is projected by the v2 manifest-prune engine, not ticked here — see the tick retirement note below.)
+
+**Delegation posture (behavioral contract — replaces the former
+`disallowed-tools: Agent` mask, cgg `6e17e11` tic 297, removed tic 633 by
+Architect directive).** Siren operations are direct manifold mutations by the
+invoking session — they do not delegate; no subagent emits, transitions, or
+triages a signal on this surface. The hard tool mask was removed because a
+skill-scoped restriction leaks across the plan approve-and-clear boundary into
+the NEXT session's execution context (the tics 630–632 "Agent not enabled"
+recurrence). If a required direct Agent call ever returns "not enabled in this
+context", classify it `DEGRADED_PRIMARY_CAPABILITY`, pause, and report — never
+silently substitute another dispatch rail.
 
 ## Constitutional Principles
 

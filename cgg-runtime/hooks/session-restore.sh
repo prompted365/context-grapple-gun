@@ -89,6 +89,80 @@ PROJECT_DIR="$ZONE_ROOT"
 PROJECT_KEY=$(echo "$PROJECT_DIR" | sed 's|/|-|g')
 
 # ============================================================================
+# Handoff-seal reconcile + interstitial activation (tic 633 plan-lifecycle
+# split — Architect-directed). SessionStart is the RECONCILER: it consumes the
+# sealed handoff EXACTLY ONCE (guard: consumed_at null), flips the interstitial
+# marker to active (the statusline arrow renders from this STATE — it persists
+# from emission until THIS flip, replacing the 90s wall-clock heuristic), and
+# arms the pause-after-boot gate when activation.mode == pause_after_boot
+# (cgg-gate.sh honors it: hydrate-only, no mandate/assessor/workflow dispatch,
+# until a real explicit `continue` opens the gate). Fail-soft: never blocks boot.
+# ============================================================================
+
+SEAL_RECONCILE_MSG=$(python3 - "$AUDIT_LOGS" "$AGENT_ID" <<'SEAL_PY' 2>/dev/null || true
+import json, os, sys
+from datetime import datetime, timezone
+from pathlib import Path
+
+audit_logs = Path(sys.argv[1])
+agent_id = sys.argv[2] if len(sys.argv) > 2 else ""
+hooks_dir = audit_logs / "hooks"
+seal_path = hooks_dir / "handoff-seal-current.json"
+marker_path = audit_logs / "tics" / ".interstitial-marker.json"
+pause_path = hooks_dir / "pause-after-boot-active.json"
+now = datetime.now(timezone.utc).isoformat()
+
+def atomic_write(path, data):
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp = path.with_suffix(path.suffix + ".tmp")
+    tmp.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
+    os.replace(tmp, path)
+
+msg = ""
+seal = None
+if seal_path.is_file():
+    try:
+        seal = json.loads(seal_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        seal = None
+
+# Consume the seal exactly once.
+if isinstance(seal, dict) and seal.get("consumed_at") is None:
+    seal["consumed_at"] = now
+    seal["consumed_by"] = agent_id or "orchestrator_session_start"
+    atomic_write(seal_path, seal)
+    activation = seal.get("activation") or {}
+    if activation.get("mode") == "pause_after_boot":
+        atomic_write(pause_path, {
+            "armed_at": now,
+            "emission_id": activation.get("emission_id"),
+            "entry_tic": activation.get("entry_tic"),
+            "source_seal_approved_at": seal.get("approved_at"),
+        })
+        msg = ("[ACTIVATION: pause_after_boot] The sealed handoff opted into a "
+               "paused boot (one-boundary override). Hydration proceeds; the "
+               "activation fabric will NOT consume the mandate, start the "
+               "assessor, launch workflows, or delegate until a real explicit "
+               "'continue' opens the gate. Report: hydrated and paused.")
+
+# Flip the interstitial marker to ACTIVE regardless of seal presence — this
+# boot IS the activation. Idempotent: an already-active marker is untouched.
+if marker_path.is_file():
+    try:
+        marker = json.loads(marker_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        marker = None
+    if isinstance(marker, dict) and marker.get("state") == "interstitial":
+        marker["state"] = "active"
+        marker["activated_at"] = now
+        marker["activated_by"] = agent_id or "orchestrator_session_start"
+        atomic_write(marker_path, marker)
+
+print(msg)
+SEAL_PY
+)
+
+# ============================================================================
 # Plan discovery + trigger extraction
 # ============================================================================
 
@@ -950,6 +1024,7 @@ if [ -n "$MOGUL_MANDATE_MSG" ]; then
 fi
 [ -n "$PARALLEL_MSG" ] && FULL_MSG="${FULL_MSG:+$FULL_MSG }$PARALLEL_MSG"
 [ -n "$CRISIS_MSG" ] && FULL_MSG="${FULL_MSG:+$FULL_MSG }$CRISIS_MSG"
+[ -n "$SEAL_RECONCILE_MSG" ] && FULL_MSG="${FULL_MSG:+$FULL_MSG }$SEAL_RECONCILE_MSG"
 [ "$TIC_COUNT" -gt 0 ] && FULL_MSG="${FULL_MSG:+$FULL_MSG }[TIC: #$TIC_COUNT]"
 
 # ── Handoff consumption protocol hint (versioned, structural) ──

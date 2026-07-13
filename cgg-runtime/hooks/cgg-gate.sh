@@ -118,6 +118,42 @@ except: print('audit-logs')
 META_LOG="$ZONE_ROOT/$AUDIT_LOGS_REL/services/gate-meta.jsonl"
 
 # ============================================================================
+# Pause-after-boot gate (tic 633 — activation modes, Architect-directed).
+# When the sealed handoff opted into pause_after_boot (one-boundary override,
+# armed via /cadence pause-next and reconciled by SessionStart into
+# audit-logs/hooks/pause-after-boot-active.json), this gate holds the
+# activation fabric CLOSED: no mandate consumption, no assessor spawn, no
+# workflow launch, no delegation. Hydration already happened at SessionStart;
+# the session reports "hydrated and paused". A REAL explicit `continue` prompt
+# atomically consumes the pause file (mv = atomic rename) and opens the gate —
+# the same prompt then flows through the normal branches below.
+# ============================================================================
+
+PAUSE_FILE="$ZONE_ROOT/$AUDIT_LOGS_REL/hooks/pause-after-boot-active.json"
+if [ -f "$PAUSE_FILE" ]; then
+  PROMPT_TEXT=$(echo "$INPUT" | python3 -c "
+import sys, json
+try:
+    print(json.load(sys.stdin).get('prompt') or '')
+except Exception:
+    print('')
+" 2>/dev/null)
+  # A real explicit continue: the prompt's first word is 'continue'
+  # (case-insensitive; trailing punctuation tolerated). Anything else —
+  # including the auto-injected implement_plan — keeps the gate closed.
+  PROMPT_HEAD=$(echo "$PROMPT_TEXT" | head -1 | tr '[:upper:]' '[:lower:]' | sed 's/^[[:space:]]*//' | cut -c1-9)
+  if [ "${PROMPT_HEAD%%[ .!,]*}" = "continue" ]; then
+    mv "$PAUSE_FILE" "${PAUSE_FILE%.json}-consumed.json" 2>/dev/null
+    log_meta "{\"timestamp\":\"$TIMESTAMP\",\"action\":\"pause_after_boot_gate_opened\",\"by\":\"explicit_continue\"}"
+    # fall through — normal branches run for this same prompt
+  else
+    log_meta "{\"timestamp\":\"$TIMESTAMP\",\"action\":\"pause_after_boot_gate_held\",\"prompt_head\":\"$(echo "$PROMPT_HEAD" | sed 's/\"//g')\"}"
+    echo "{\"hookSpecificOutput\":{\"hookEventName\":\"UserPromptSubmit\",\"additionalContext\":\"[ACTIVATION GATE: hydrated and paused] The sealed handoff opted into pause_after_boot (one-boundary override). The activation fabric is HELD: do NOT consume the mandate, start the assessor, launch workflows, or delegate. Respond to the Architect, report 'hydrated and paused', and wait — a real explicit 'continue' message atomically opens the gate.\"}}"
+    exit 0
+  fi
+fi
+
+# ============================================================================
 # Script resolution
 # ============================================================================
 

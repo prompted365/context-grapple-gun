@@ -43,12 +43,11 @@ description: |
     core_dispatch_rays:
       - ""           → downbeat (full session hygiene)
       - "double-time" → syncopate (≤5% context emergency variant)
+      - "pause-next"  → arm the ONE-BOUNDARY pause_after_boot activation override (no tic emitted)
     secondary_modulation_axes:
       - detail: normal | high
       - emphasis: governance | production | projection
 user-invocable: true
-disallowed-tools:
-  - Agent
 ---
 
 # /cadence
@@ -57,8 +56,74 @@ Unified session boundary command. Dispatches based on arguments:
 
 - **`/cadence`** (no args) — full downbeat. Same as the former `/cadence-downbeat`.
 - **`/cadence double-time`** — emergency syncopate. Minimal tic + handoff in <=5% context window. Same as the former `/cadence-syncopate`.
+- **`/cadence pause-next`** — arm the one-boundary `pause_after_boot` activation override (see *Activation Modes* below). Emits NO tic; writes only the override marker.
 
 Parse the user's arguments after `/cadence` to determine the mode. Default (no args) = downbeat.
+
+---
+
+## Delegation Posture During Cadence (behavioral contract)
+
+This contract REPLACES the former `disallowed-tools: Agent` frontmatter mask
+(introduced cgg `6e17e11`, tic 297; removed tic 633 by Architect directive).
+The hard mask was a lifecycle hazard, not a discipline: Claude Code clears a
+skill's tool restriction only on the next REAL user message, and plan
+approve-and-clear injects `implement_plan` first — so the mask leaked across
+the plan-approve boundary into the fresh tic ("Agent exists but is not enabled
+in this context", tics 630–632). The discipline is behavioral, and it binds
+the AGENT, not the tool schema:
+
+1. **Ordinary shutdown does not delegate.** The downbeat sequence is direct
+   mutation of canonical state by the session lead — no subagent performs any
+   step of it.
+2. **No Mogul / maintenance spawn during shutdown.** /cadence writes the
+   mandate; the NEXT session's activation fabric consumes it (see the Mandate
+   Cascade section — unchanged).
+3. **Cross-Cadence Rails is the explicit delegation exception.** When the
+   optional rails-manufacturing step is invoked, its 3–6 parallel
+   /tactical-hydration subagents are the sanctioned delegation surface — the
+   old mask contradicted this section's own requirement.
+4. **A fresh entry retains primary capabilities.** Nothing in this skill may
+   restrict the tool surface of the session that follows it. If a required
+   direct Agent call ever returns "not enabled in this context" post-repair,
+   classify it **`DEGRADED_PRIMARY_CAPABILITY`**, pause, and report to the
+   Architect — NEVER silently substitute the Workflow rail (the substitution
+   is what normalized the mask leak for three tics instead of tracing it).
+
+---
+
+## Activation Modes (tic 633 — the sealed handoff's activation field)
+
+Every boundary-bound handoff seal carries `activation: {emission_id,
+entry_tic, mode}` (written by `cadence-handoff-seal.py` at ExitPlanMode):
+
+- **`continuous`** — DEFAULT. Exactly today's behavior: the next session's
+  SessionStart hydrates, the activation fabric consumes the mandate, the
+  assessor spawns, work proceeds. Nothing changed on this path.
+- **`pause_after_boot`** — STRICTLY OPT-IN, one boundary only, armed via
+  `/cadence pause-next` BEFORE the closing downbeat. No saved or global
+  preference exists — the override is consumed at seal time and can never
+  leak to a later boundary. Semantics at the next boot: SessionStart hydrates
+  worldview/nav/handoff and the tic becomes active, but cgg-gate does NOT
+  consume the mandate, start the assessor, launch workflows, or delegate; the
+  session reports "hydrated and paused". A real, explicit `continue` from the
+  Architect atomically opens the gate.
+
+**Arming (pause-next dispatch ray):** write
+`audit-logs/hooks/cadence-pause-next.json` with `{"requested": true,
+"requested_at": "<ISO-8601 now>", "requested_at_tic": <current tic>}` and
+report "pause-next armed for the next boundary". Do NOT emit a tic, write a
+conformation, or touch the mandate on this ray.
+
+**Plan-UI "Continue working" — redefined.** Tic N is CLOSED the moment the
+Step 0.5 emission lands (the interstitial marker at
+`audit-logs/tics/.interstitial-marker.json` says so explicitly). Choosing
+"Continue working" in the plan UI therefore means one of two things — never a
+silent resumption of tic N:
+- **remain in the interstitial to revise** — edit/extend the handoff before
+  approving; no new work is booked to tic N; or
+- **explicitly activate N+1 in-session** — a deliberate mid-session epoch
+  entry (the same session steps into the new tic; announce it).
 
 ---
 
@@ -609,7 +674,7 @@ The user sees this plan in Claude Code's native plan UI with approve/edit/reject
 The session does NOT end until the human acts on the plan. The human may:
 - **Approve + clear context** — plan persists, next session picks it up via `implement_plan`
 - **Edit** — modify the handoff before approving
-- **Continue working** — exit plan mode and keep going
+- **Continue working** — remain in the interstitial to revise, OR explicitly activate tic N+1 in-session (see *Activation Modes* above — tic N is CLOSED after emission; never silently resume under it)
 
 The ripple-assessor runs HEADLESS on next session start (background, non-blocking via cgg-gate.sh hook). It writes proposals to `~/.claude/grapple-proposals/latest.md` — keeping its ~10k tokens OUT of the runtime context window. The completion notification is informational only ('proposals ready for /review when ready') — it does NOT demand immediate attention. Proposals are consumed when the user invokes `/review`, not before.
 
@@ -734,7 +799,7 @@ The user sees this plan in Claude Code's native plan UI with approve/edit/reject
 The session does NOT end until the human acts on the plan. The human may:
 - **Approve + clear context** — plan persists, next session picks it up via `implement_plan`
 - **Edit** — modify the handoff before approving
-- **Continue working** — exit plan mode and keep going
+- **Continue working** — remain in the interstitial to revise, OR explicitly activate tic N+1 in-session (tic N is CLOSED after emission; never silently resume under it)
 
 This is the constitutional gate — no context clear without human sign-off via the native plan UI.
 
