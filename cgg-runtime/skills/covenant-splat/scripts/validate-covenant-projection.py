@@ -67,6 +67,16 @@ def sha_ids(ids) -> str:
     return hashlib.sha256("\n".join(sorted(ids)).encode()).hexdigest()
 
 
+# K1 (tic 624, ADDENDUM 6 pin 1): the point-10 comparison hash is domain-separated —
+# ONE formula both sides; byte-identical mirrors in harpoon-sequencer.py and
+# homeskillet-csl strict_boundary.rs. identity/edge hashes remain legacy.
+ROUTE_SET_HASH_DOMAIN = "harpoon.route-set.v1"
+
+
+def domain_hash(domain: str, ids) -> str:
+    return hashlib.sha256((domain + "\n" + "\n".join(sorted(ids))).encode()).hexdigest()
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--board")
@@ -92,9 +102,14 @@ def main() -> int:
             violations.append(f"{bid}: covenant_projection block missing/incomplete")
             continue
         has_receipt = n.get("drain_receipt") is not None
+        # K1 single-writer law (tic 623 ruling, landed tic 624): covenant_status lifts
+        # via the RESOLVED admission_resolution block — never via drain receipt alone,
+        # never invented. The remaining drain-lifted axes still require the receipt.
+        adm = n.get("admission_resolution") or {}
+        if cp["covenant_status"] is not None and not adm.get("resolved"):
+            violations.append(f"{bid}: covenant_status lifted without a RESOLVED "
+                              "admission_resolution (single-writer breach)")
         if not has_receipt:
-            if cp["covenant_status"] is not None:
-                violations.append(f"{bid}: covenant_status invented without drain receipt")
             if cp["evidence_status"] is not None:
                 violations.append(f"{bid}: evidence_status invented without drain receipt")
             if cp["conformation_status"] not in CONFORMATION_PRE_DRAIN:
@@ -126,8 +141,14 @@ def main() -> int:
         "identity_set_hash": sha_ids(items.keys()),
         "edge_set_hash": sha_ids(f"{d}->{bid}" for bid, n in items.items()
                                  for d in (n.get("unmet_deps") or [])),
-        "executable_identity_set_hash": sha_ids(declared),
+        # domain-separated since tic 624 (hash-domain MIGRATION, not identity drift);
+        # the envelope declares its formula — refuse an undeclared/legacy formula
+        "executable_identity_set_hash": domain_hash(ROUTE_SET_HASH_DOMAIN, declared),
     }
+    if (env.get("hash_formulas") or {}).get("executable_identity_set_hash") != ROUTE_SET_HASH_DOMAIN:
+        violations.append("envelope hash_formulas does not declare "
+                          f"executable_identity_set_hash under {ROUTE_SET_HASH_DOMAIN} "
+                          "(legacy/undeclared formula — regenerate the slice)")
     for h, val in recomputed.items():
         if not env.get(h):
             violations.append(f"envelope missing {h}")
