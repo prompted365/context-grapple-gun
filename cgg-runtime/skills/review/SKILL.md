@@ -292,6 +292,16 @@ For each ESCALATE:
 2. Re-emit the warrant with updated scope to today's JSONL
 3. If already at `global` scope, flag for user attention — cannot escalate further
 
+**Baseline-Ratification Intake Sweep (the ratify-time volatile-sweep tooth — built t631, `bk-ratify-intake-volatile-sweep`):**
+
+When a verdict RATIFIES a **data surface** as an authoritative baseline (orientation files, boot terrain, office-lanes-class surfaces — the "authoritative live boot terrain" class), run the intake sweep BEFORE inscribing the ratification:
+
+```bash
+python3 scripts/ratify-intake-sweep.py sweep <surface>
+```
+
+Exit 3 is a fail-closed refusal (`volatile_stowaways_undispositioned`): the surface carries embedded volatile values — computed-per-tic gate lines, due markers, counts — that would age silently under the ratification's authority (the lived cohort: a baked "/review 427 due tic 427" active_arcs entry carried ~180 tics stale). The ratification must NOT proceed until every finding is dispositioned: `strip` (a computed producer owns the value — single-owner discipline), `stamp` (last-verified/TTL per the Volatility-Handling law), or `accept --reason` (receipted false-positive valve — the detector is lexical; accept is visible, never silent). Receipts: `audit-logs/governance/ratify-intake-sweeps/receipts.jsonl`. Doctrine: `cgg-ledger/ledger.md#ratification-freezes-embedded-volatile-state-ratify-time-volatile-sweep` (/review 611).
+
 ### 8. Review-Close Consistency Check
 
 After applying all approved actions, verify constitutional changes landed coherently. This is mandatory — do not skip.
