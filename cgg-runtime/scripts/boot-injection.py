@@ -11,10 +11,13 @@ target tic. This is the ambient-injection complement to the citizen-boot REMINDE
 (autonomous_kernel/citizen-boot-reminders-spec.md §3): that lane is per-actor scheduled
 obligations; this lane is a broadcast pointer with a tic window.
 
-LOOP-SAFETY (spec §5 — non-negotiable): this renderer is READ-ONLY. It mints NO signals
+LOOP-SAFETY (spec §5 — non-negotiable): the RENDER path is READ-ONLY. It mints NO signals
 and writes NO governance state — it only reads a registry and prints text. The 200+ signal
 runaway class cannot recur through it. Per-boot context bloat is prevented by the calling
 hooks' existing dedup-on-unchanged (same rendered text → injected once per session/entity).
+The REFRESH verb (below) is a governed WRITE verb — never invoked by either boot seam; it
+appends to the registry under the refresh claim-gate and is fail-CLOSED (a silent-0 on a
+failed refresh would be the exact vacuous-green shape the gate exists to prevent).
 
 REGISTRY: audit-logs/boot-injections/active.jsonl  (append-only, latest-entry-per-id wins —
 terminal-valve discipline). Record schema:
@@ -33,10 +36,32 @@ CLI:
   boot-injection.py render --tic N --audience <orchestrator|citizens|ent_xxx>
       -> prints the concatenated active injection text for that audience at tic N
          (empty output + exit 0 when nothing is due — SILENT-WHEN-EMPTY)
+
+  boot-injection.py refresh --injection-id ID --tic N --refresh-reason "..."
+      (--inject-text "..." | --inject-text-file PATH)
+      [--claim '{"token": "x.py", "source": "<zone-relative path>", "evidence": "<substr>"}']...
+      [--waive-claim '{"token": "x.py", "reason": "..."}']...
+      -> appends a refreshed row (latest-per-id wins) carrying the existing WHY receipt
+         (refreshed_at_tic + refresh_reason) PLUS a WHAT-verification receipt, under the
+         REFRESH CLAIM-GATE (constitution-ledger#refresh-is-inscription-event-vacuous-green-conceals):
+         a refresh is itself an inscription event; when it changes what a TOOL is claimed
+         to DO, the new claim is verified against the tool's source AT REFRESH TIME —
+         the same claim-gate the handoff already has (verify against the real artifact
+         before the claim lands). Tool claims = text fragments mentioning *.py / *.sh
+         tokens; a token whose fragment-set changed (or is new) owes exactly one --claim
+         (evidence substring located in the resolved source at refresh time, source sha256
+         computed-at-write) or one --waive-claim (explicit, reasoned, VISIBLE in the
+         receipt — surface-don't-hide). A token REMOVED from the text makes no new claim
+         and owes nothing. Exit codes: 0 refreshed · 2 usage/target/typo errors
+         (registry/id missing, non-active target, claim naming an unchanged token) ·
+         3 claim-gate refusal (claim_missing | source_unresolved | evidence_not_in_source)
+         — refusal lands BEFORE any side effect; the registry is untouched.
 """
 
 import argparse
+import hashlib
 import json
+import re
 import sys
 from pathlib import Path
 
@@ -183,6 +208,181 @@ def _seal_manifest(sealed_ids: list) -> str:
     )
 
 
+# ---------------------------------------------------------------------------
+# REFRESH CLAIM-GATE (bk-boot-injection-refresh-claim-gate, admitted /review 624,
+# lowered t626, built t630). Doctrine home:
+# constitution-ledger#refresh-is-inscription-event-vacuous-green-conceals.
+# ---------------------------------------------------------------------------
+
+# A "tool" for claim purposes is an executable script token (*.py / *.sh) —
+# the class whose claimed behavior the t621 refresh drifted against source.
+_TOOL_TOKEN_RE = re.compile(r"[A-Za-z0-9_./-]*[A-Za-z0-9_-]\.(?:py|sh)\b")
+
+
+def _claim_contexts(text: str) -> dict:
+    """tool-token -> set of normalized text fragments (sentence-ish) mentioning it.
+
+    The fragment set IS the claim about the tool: if it differs between the old
+    and new inject_text, the refresh changed what that tool is claimed to DO."""
+    ctx = {}
+    for frag in re.split(r"(?<=[.;!?])\s+|\n+", text or ""):
+        norm = " ".join(frag.split())
+        if not norm:
+            continue
+        for m in _TOOL_TOKEN_RE.finditer(norm):
+            ctx.setdefault(m.group(0), set()).add(norm)
+    return ctx
+
+
+def _changed_tool_claims(old_text: str, new_text: str) -> list:
+    """Tokens in the NEW text whose claim fragments are new or changed vs OLD.
+
+    A token present only in the OLD text (removed by the refresh) makes no new
+    claim and owes no verification — there is no new assertion to check against
+    source. A token with an IDENTICAL fragment set owes nothing either: the
+    refresh did not change what that tool is claimed to do."""
+    old_ctx = _claim_contexts(old_text)
+    new_ctx = _claim_contexts(new_text)
+    return sorted(tok for tok, frags in new_ctx.items() if old_ctx.get(tok) != frags)
+
+
+def _typed(status: str, payload: dict, stream=None) -> None:
+    """Structured stdout line (typed + visible)."""
+    (stream or sys.stdout).write(json.dumps({"status": status, **payload}) + "\n")
+
+
+def _refresh(args) -> int:
+    zone_root = _zone_root(Path(__file__).resolve().parent, args.zone_root)
+    if zone_root is None:
+        _typed("refused", {"reason": "zone_unresolved"})
+        sys.stderr.write("[boot-injection refresh] REFUSED: zone_unresolved\n")
+        return 2
+    reg = zone_root / "audit-logs" / "boot-injections" / "active.jsonl"
+    if not reg.is_file():
+        _typed("refused", {"reason": "registry_missing", "registry": str(reg)})
+        sys.stderr.write("[boot-injection refresh] REFUSED: registry_missing\n")
+        return 2
+
+    # Exactly one text source (both arms documented: both-given / neither-given refuse).
+    if bool(args.inject_text) == bool(args.inject_text_file):
+        _typed("refused", {"reason": "inject_text_source_not_exactly_one"})
+        sys.stderr.write("[boot-injection refresh] REFUSED: pass exactly one of "
+                         "--inject-text / --inject-text-file\n")
+        return 2
+    new_text = (args.inject_text if args.inject_text
+                else Path(args.inject_text_file).read_text(encoding="utf-8")).strip()
+    if not new_text:
+        _typed("refused", {"reason": "inject_text_empty"})
+        sys.stderr.write("[boot-injection refresh] REFUSED: inject_text_empty\n")
+        return 2
+
+    byid = {r.get("injection_id"): r for r in _load_registry(zone_root)}
+    target = byid.get(args.injection_id)
+    if target is None:
+        _typed("refused", {"reason": "refresh_target_missing",
+                           "injection_id": args.injection_id})
+        sys.stderr.write("[boot-injection refresh] REFUSED: refresh_target_missing\n")
+        return 2
+    if target.get("status", "active") != "active":
+        _typed("refused", {"reason": "refresh_target_not_active",
+                           "injection_id": args.injection_id,
+                           "target_status": target.get("status")})
+        sys.stderr.write("[boot-injection refresh] REFUSED: refresh_target_not_active\n")
+        return 2
+
+    old_text = (target.get("inject_text") or "").strip()
+    changed = _changed_tool_claims(old_text, new_text)
+
+    # Parse claim / waiver flags (JSON each — typed parse errors, exit 2).
+    claims, waives = {}, {}
+    for raw in (args.claim or []):
+        try:
+            c = json.loads(raw)
+            tok, src, ev = c["token"], c["source"], c["evidence"]
+        except (ValueError, KeyError, TypeError):
+            _typed("refused", {"reason": "claim_malformed", "claim": raw})
+            sys.stderr.write("[boot-injection refresh] REFUSED: claim_malformed "
+                             "(JSON with token/source/evidence required)\n")
+            return 2
+        claims[tok] = {"source": src, "evidence": ev}
+    for raw in (args.waive_claim or []):
+        try:
+            w = json.loads(raw)
+            tok, reason = w["token"], w["reason"]
+        except (ValueError, KeyError, TypeError):
+            _typed("refused", {"reason": "waive_claim_malformed", "waive_claim": raw})
+            sys.stderr.write("[boot-injection refresh] REFUSED: waive_claim_malformed "
+                             "(JSON with token/reason required)\n")
+            return 2
+        waives[tok] = reason
+
+    # Typo guard: a claim/waiver naming a token whose claim did NOT change is a
+    # caller error (tells the caller exactly which tokens changed), exit 2.
+    unknown = sorted((set(claims) | set(waives)) - set(changed))
+    if unknown:
+        _typed("refused", {"reason": "claim_token_not_changed", "tokens": unknown,
+                           "changed_tool_claims": changed})
+        sys.stderr.write(f"[boot-injection refresh] REFUSED: claim_token_not_changed "
+                         f"{unknown} (changed: {changed})\n")
+        return 2
+
+    # THE GATE — fires BEFORE any side effect; refusal leaves the registry untouched.
+    refusals, verified, waived = [], [], []
+    for tok in changed:
+        if tok in waives:
+            waived.append({"token": tok, "reason": waives[tok]})
+            continue
+        if tok not in claims:
+            refusals.append({"token": tok, "reason": "claim_missing"})
+            continue
+        src = Path(claims[tok]["source"])
+        if not src.is_absolute():
+            src = zone_root / src
+        if not src.is_file():
+            refusals.append({"token": tok, "reason": "source_unresolved",
+                             "source": claims[tok]["source"]})
+            continue
+        source_bytes = src.read_bytes()
+        evidence = claims[tok]["evidence"]
+        if not evidence or evidence not in source_bytes.decode("utf-8", errors="replace"):
+            refusals.append({"token": tok, "reason": "evidence_not_in_source",
+                             "source": claims[tok]["source"]})
+            continue
+        verified.append({
+            "token": tok,
+            "source": claims[tok]["source"],
+            "evidence": evidence,
+            # computed-at-write, never transcribed (t628 born law)
+            "source_sha256": hashlib.sha256(source_bytes).hexdigest(),
+        })
+    if refusals:
+        _typed("refused", {"reason": "claim_gate_refused", "refusals": refusals,
+                           "changed_tool_claims": changed})
+        sys.stderr.write(f"[boot-injection refresh] CLAIM-GATE REFUSED: {refusals}\n")
+        return 3
+
+    receipt = {
+        "gate": "refresh-claim-gate-v1",
+        "verified_at_tic": args.tic,
+        "changed_tool_claims": changed,
+        "verified": verified,
+        "waived": waived,
+    }
+    row = dict(target)
+    row["inject_text"] = new_text
+    row["refreshed_at_tic"] = args.tic          # existing WHY receipt, unchanged shape
+    row["refresh_reason"] = args.refresh_reason  # existing WHY receipt, unchanged shape
+    row["claim_verification"] = receipt          # the new WHAT receipt, bound alongside
+
+    sys.path.insert(0, str(Path(__file__).resolve().parent / "lib"))
+    from atomic_append import atomic_append_jsonl  # lazy: render path never imports this
+    atomic_append_jsonl(str(reg), row)
+
+    _typed("refreshed", {"injection_id": args.injection_id, "tic": args.tic,
+                         "claim_verification": receipt})
+    return 0
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     sub = ap.add_subparsers(dest="cmd", required=True)
@@ -195,7 +395,25 @@ def main() -> int:
     r.add_argument("--max-chars", type=int, default=0,
                    help="budget the joined output; 0 = unbounded (default, back-compat). "
                         "Lowest-priority pointers seal first with a SEALED marker.")
+    f = sub.add_parser("refresh")
+    f.add_argument("--injection-id", required=True)
+    f.add_argument("--tic", type=int, required=True)
+    f.add_argument("--refresh-reason", required=True,
+                   help="the existing WHY receipt — why the injection text changed")
+    f.add_argument("--inject-text", default=None)
+    f.add_argument("--inject-text-file", default=None)
+    f.add_argument("--claim", action="append", default=[],
+                   help='JSON {"token","source","evidence"} — evidence substring is '
+                        "verified against the resolved source AT REFRESH TIME")
+    f.add_argument("--waive-claim", action="append", default=[],
+                   help='JSON {"token","reason"} — explicit, receipted waiver '
+                        "(visible in claim_verification.waived; surface-don't-hide)")
+    f.add_argument("--zone-root", default=None)
     args = ap.parse_args()
+
+    if args.cmd == "refresh":
+        # Governance WRITE verb: fail-CLOSED, never wrapped in render's fail-soft.
+        return _refresh(args)
 
     zone_root = _zone_root(Path(__file__).resolve().parent, args.zone_root)
     if zone_root is None:
