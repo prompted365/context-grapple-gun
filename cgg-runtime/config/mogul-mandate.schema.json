@@ -4,7 +4,16 @@
   "title": "Mogul Activation Mandate",
   "description": "Machine-checkable schema for Mogul activation mandates. Written by triggers (SessionStart, /cadence, /review, explicit), read by Mogul to determine execution scope. Non-lossy: unconsumed mandates are merged, never overwritten.",
   "type": "object",
-  "required": ["mandate_id", "status", "actor", "trigger", "tic_context", "cycle_request", "mode", "created_at"],
+  "required": [
+    "mandate_id",
+    "status",
+    "actor",
+    "trigger",
+    "tic_context",
+    "cycle_request",
+    "mode",
+    "created_at"
+  ],
   "properties": {
     "mandate_id": {
       "type": "string",
@@ -12,25 +21,38 @@
     },
     "status": {
       "type": "string",
-      "enum": ["pending", "running", "consumed", "failed", "superseded"],
+      "enum": [
+        "pending",
+        "running",
+        "consumed",
+        "failed",
+        "superseded"
+      ],
       "description": "Lifecycle state. pending: awaiting consumption. running: execution in progress. consumed: successfully completed. failed: execution error. superseded: replaced by merge."
     },
     "supersedes": {
       "type": "array",
-      "items": { "type": "string" },
+      "items": {
+        "type": "string"
+      },
       "default": [],
       "description": "mandate_ids this mandate replaces (prior mandate was terminal)."
     },
     "merged_from": {
       "type": "array",
-      "items": { "type": "string" },
+      "items": {
+        "type": "string"
+      },
       "default": [],
       "description": "mandate_ids whose cycles were absorbed into this mandate (prior was pending/running)."
     },
     "actor": {
       "type": "object",
       "description": "The governance office being activated and its runtime embodiment.",
-      "required": ["office", "embodiment"],
+      "required": [
+        "office",
+        "embodiment"
+      ],
       "properties": {
         "office": {
           "type": "string",
@@ -39,7 +61,10 @@
         },
         "embodiment": {
           "type": "string",
-          "enum": ["cgg_runtime", "estate_runtime"],
+          "enum": [
+            "cgg_runtime",
+            "estate_runtime"
+          ],
           "description": "The runtime embodiment executing this mandate. cgg_runtime = Claude Code agent process. estate_runtime = external supervised process."
         }
       },
@@ -48,11 +73,22 @@
     "trigger": {
       "type": "object",
       "description": "What caused this mandate to be written.",
-      "required": ["kind", "source_ref"],
+      "required": [
+        "kind",
+        "source_ref"
+      ],
       "properties": {
         "kind": {
           "type": "string",
-          "enum": ["session_start", "first_prompt", "cadence", "review", "siren", "init_governance", "explicit"],
+          "enum": [
+            "session_start",
+            "first_prompt",
+            "cadence",
+            "review",
+            "siren",
+            "init_governance",
+            "explicit"
+          ],
           "description": "The trigger type that generated this mandate."
         },
         "source_ref": {
@@ -65,7 +101,9 @@
     "tic_context": {
       "type": "object",
       "description": "Tic-derived scheduling context at mandate creation time.",
-      "required": ["current_tic"],
+      "required": [
+        "current_tic"
+      ],
       "properties": {
         "current_tic": {
           "type": "integer",
@@ -73,27 +111,45 @@
           "description": "Physical tic count at mandate creation."
         },
         "review_due_tic": {
-          "type": ["integer", "null"],
+          "type": [
+            "integer",
+            "null"
+          ],
           "description": "Next tic at which queue + signal scan is due."
         },
         "memory_mining_due_tic": {
-          "type": ["integer", "null"],
+          "type": [
+            "integer",
+            "null"
+          ],
           "description": "Next tic at which memory mining cycle is due."
         },
         "ladder_audit_due_tic": {
-          "type": ["integer", "null"],
+          "type": [
+            "integer",
+            "null"
+          ],
           "description": "Next tic at which ladder coherence audit is due."
         },
         "pattern_mining_due_tic": {
-          "type": ["integer", "null"],
+          "type": [
+            "integer",
+            "null"
+          ],
           "description": "Next tic at which pattern mining cycle is due."
         },
         "civil_check_due_tic": {
-          "type": ["integer", "null"],
+          "type": [
+            "integer",
+            "null"
+          ],
           "description": "Next tic at which civil status check cycle is due."
         },
         "deep_audit_due_tic": {
-          "type": ["integer", "null"],
+          "type": [
+            "integer",
+            "null"
+          ],
           "description": "Next tic at which deep audit cycle is due."
         }
       },
@@ -102,7 +158,10 @@
     "cycle_request": {
       "type": "object",
       "description": "Which governance cycles Mogul should execute.",
-      "required": ["run_now", "reason"],
+      "required": [
+        "run_now",
+        "reason"
+      ],
       "properties": {
         "run_now": {
           "type": "array",
@@ -137,13 +196,19 @@
       "additionalProperties": false
     },
     "conformation_ref": {
-      "type": ["string", "null"],
+      "type": [
+        "string",
+        "null"
+      ],
       "description": "Path to the most recent conformation snapshot, or null if unavailable."
     },
     "mode": {
       "type": "object",
       "description": "Execution mode constraints.",
-      "required": ["blocking_to_orchestrator", "allow_subdelegation"],
+      "required": [
+        "blocking_to_orchestrator",
+        "allow_subdelegation"
+      ],
       "properties": {
         "blocking_to_orchestrator": {
           "type": "boolean",
@@ -175,12 +240,37 @@
       "type": "object",
       "description": "Rung chain resolved at mandate creation (site/domain/estate/federation paths), from zone_root birth_topology.",
       "properties": {
-        "site": { "type": ["string", "null"] },
-        "domain": { "type": ["string", "null"] },
-        "estate": { "type": ["string", "null"] },
-        "federation": { "type": ["string", "null"] }
+        "site": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "domain": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "estate": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "federation": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
       },
-      "additionalProperties": { "type": ["string", "null"] }
+      "additionalProperties": {
+        "type": [
+          "string",
+          "null"
+        ]
+      }
     },
     "created_at": {
       "type": "string",
@@ -188,18 +278,34 @@
       "description": "ISO-8601 timestamp when this mandate was created."
     },
     "started_at": {
-      "type": ["string", "null"],
+      "type": [
+        "string",
+        "null"
+      ],
       "format": "date-time",
       "description": "Set when status transitions to running."
     },
     "completed_at": {
-      "type": ["string", "null"],
+      "type": [
+        "string",
+        "null"
+      ],
       "format": "date-time",
       "description": "Set when status transitions to consumed or failed."
     },
     "error": {
-      "type": ["string", "null"],
+      "type": [
+        "string",
+        "null"
+      ],
       "description": "Error message if status is failed."
+    },
+    "emission_id": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "description": "Per-boundary emission id (tic 633 emission hardening) \u2014 stamps which cadence boundary wrote this mandate; the key for idempotent replay-repair writes (cadence-ops write_cadence_mandate skips the rewrite when current.json already carries the boundary emission_id). Optional and nullable: mandates from non-cadence producers (review-close, manual) carry no boundary."
     }
   },
   "additionalProperties": false
