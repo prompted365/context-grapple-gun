@@ -222,6 +222,37 @@ REASON_AFFIRMED_VIA_RECEIPTS = "affirmed_via_receipts"
 # the broader fallback when the citation sits on a plain line.
 # (bk-review-close-check-prose-spec-breadcrumb, tic 620.)
 REASON_PROSE_SPEC_SUFFIX_NORMALIZED = "prose_spec_suffix_normalized_present"
+# pipeline_advanced_never_reviewed — enrichment_eligible is reachable by TWO lifecycle
+# paths: a /review DEFER writeback (carries review-writeback fields) and ordinary
+# pipeline advancement (enrichment scanner / gate / stepper — carries enrichment-lineage
+# fields and is legitimately provenance-free: it is AWAITING its first review). The
+# checker must discriminate by in-row path evidence BEFORE demanding path-specific
+# provenance — enrichment-lineage fields present + review-writeback fields absent means
+# awaiting-first-review, a KNOWN non-hazard, never a provenance inconsistency.
+# (Verifier-Split Chapter 3, cgg-ledger#reason-coded-genuine-vs-known-verifier-split;
+# bk-review-close-check-reason-coverage-path-discrimination, admitted /review 621,
+# built tic 628.)
+REASON_PIPELINE_ADVANCED = "pipeline_advanced_never_reviewed"
+
+# In-row path-evidence vocabularies for the enrichment_eligible discrimination.
+# REVIEW-WRITEBACK fields: any of these present means a /review pass touched the row —
+# path-specific provenance (review_tic/reviewed_tic) is then legitimately demanded.
+_REVIEW_WRITEBACK_FIELDS = frozenset({
+    "review_tic", "reviewed_tic", "review_pass", "review_verdict", "reviewed_at",
+    "reviewed_by", "verdict_class", "defer_reason", "deferred_at", "deferred_by",
+    "defer_until_tic", "docket", "reeval_tic", "review_confidence", "review_reasoning",
+})
+# ENRICHMENT-LINEAGE fields: written by the advancement path (scanner writeback, gate
+# advance, stepper). Deliberately EXCLUDES the pure scanner stamps
+# (enrichment_scan_count / enrichment_scanned_at) — the scanner stamps every row it
+# scans, including review-deferred ones, so those two discriminate nothing.
+_ENRICHMENT_LINEAGE_FIELDS = frozenset({
+    "enriched_at_tic", "enriched_by", "enriched_at", "enriched_tic",
+    "enrichment_artifact", "enrichment", "writeback_reason",
+    "advanced_tic", "advanced_by", "advance_reason",
+    "gate_advanced_at_tic", "gate_advanced_by", "gate_advance_reason",
+    "stepper_advancement",
+})
 
 # Behavioral / receipt surface roots swept before a promotion is graded genuinely
 # missing (tic 593). SCOPED — never all of audit-logs — so pipeline-bookkeeping
@@ -698,17 +729,51 @@ def check_deferred(cpr_id, cpr):
     (hand-authored /review writebacks, e.g. tic500-pass1) — both carry the
     same review provenance (schema key signature drift, conductor-score-runtime
     parity mechanism class 3).
+
+    Path discrimination (tic 628, Verifier-Split Chapter 3): enrichment_eligible
+    is reachable by TWO lifecycle paths. Before demanding review provenance, the
+    row's own fields are read as path evidence — enrichment-lineage fields present
+    + review-writeback fields absent means the row was advanced by the pipeline
+    and is AWAITING its first review (legitimately provenance-free). Such a
+    finding is emitted (surface-don't-hide) but classified KNOWN with reason
+    pipeline_advanced_never_reviewed, severity info — never a hazard. A row with
+    review-writeback fields present but review_tic/reviewed_tic missing is a
+    GENUINE provenance inconsistency (a review touched it and left no tic).
     """
     findings = []
 
     review_tic = cpr.get("review_tic", cpr.get("reviewed_tic"))
     if review_tic is None:
-        findings.append({
+        review_fields = sorted(set(cpr) & _REVIEW_WRITEBACK_FIELDS)
+        lineage_fields = sorted(set(cpr) & _ENRICHMENT_LINEAGE_FIELDS)
+        finding = {
             "type": "deferred_no_review_tic",
             "severity": "warning",
             "cpr_id": cpr_id,
             "message": f"{cpr_id} deferred but review_tic/reviewed_tic not set",
-        })
+        }
+        if lineage_fields and not review_fields:
+            finding["finding_class"] = "known"
+            finding["reason"] = REASON_PIPELINE_ADVANCED
+            finding["severity"] = "info"
+            finding["evidence"] = {
+                "enrichment_lineage_fields": lineage_fields,
+                "review_writeback_fields": [],
+                "note": "row reached enrichment_eligible via ordinary pipeline "
+                        "advancement (in-row path evidence: enrichment-lineage "
+                        "fields present, review-writeback fields absent) — "
+                        "awaiting-first-review, legitimately provenance-free",
+            }
+        else:
+            finding["finding_class"] = "genuine"
+            finding["evidence"] = {
+                "enrichment_lineage_fields": lineage_fields,
+                "review_writeback_fields": review_fields,
+                "note": "review-writeback fields present without review_tic/"
+                        "reviewed_tic (a review touched the row and left no tic), "
+                        "or no path evidence at all — genuine provenance gap",
+            }
+        findings.append(finding)
 
     return findings
 
@@ -1407,26 +1472,46 @@ def run_check(project_dir, dry_run=False):
     # KNOWN findings are downgraded to severity=info — they are expected noise, not
     # inconsistencies — so by_severity.error reflects ONLY genuine hazards. Done before
     # the severity aggregation below so the downgrade is reflected in the counts.
+    #
+    # tic 628 (Verifier-Split Chapter 3): the classification pass covers EVERY emitted
+    # finding type — no type floats unclassified while consistent:false. The two
+    # promoted classes go through classify_known_reason (unchanged); check_deferred
+    # classifies in-row (it holds the path evidence); anything else that arrives
+    # unclassified is stamped genuine explicitly. genuine + known therefore equals the
+    # full finding universe, so the human-facing all-known sentence and the artifact
+    # can no longer disagree.
     project_basename = os.path.basename(project_dir)
     genuine_count = 0
     known_count = 0
     known_by_reason = {}
     for f in all_findings:
-        if f.get("type") not in ("promoted_text_missing", "orphaned_promotion"):
-            continue
-        cpr = queue.get(f.get("cpr_id"), {})
-        reason, evidence = classify_known_reason(
-            f["cpr_id"], cpr, project_dir, project_basename, lesson_fallbacks
-        )
-        f["evidence"] = evidence
-        if reason is None:
+        if f.get("type") in ("promoted_text_missing", "orphaned_promotion"):
+            cpr = queue.get(f.get("cpr_id"), {})
+            reason, evidence = classify_known_reason(
+                f["cpr_id"], cpr, project_dir, project_basename, lesson_fallbacks
+            )
+            f["evidence"] = evidence
+            if reason is None:
+                f["finding_class"] = "genuine"
+            else:
+                f["finding_class"] = "known"
+                f["reason"] = reason
+                f["severity"] = "info"  # known false-positive — not a hazard
+        elif "finding_class" not in f:
+            # A finding type with no dedicated classifier (promoted_no_target,
+            # skip_status_mismatch, …) is a real data-quality gap until a
+            # discriminating axis exists — classified genuine, never left floating.
             f["finding_class"] = "genuine"
+            f.setdefault("evidence", {
+                "note": "no dedicated known-false-positive axis for this finding "
+                        "type; classified genuine (unclassified-floating is the "
+                        "defect this pass closes)",
+            })
+        if f["finding_class"] == "genuine":
             genuine_count += 1
         else:
-            f["finding_class"] = "known"
-            f["reason"] = reason
-            f["severity"] = "info"  # known false-positive — not a hazard
             known_count += 1
+            reason = f.get("reason", "unspecified")
             known_by_reason[reason] = known_by_reason.get(reason, 0) + 1
 
     # Build report
@@ -1474,6 +1559,11 @@ def run_check(project_dir, dry_run=False):
             "known_count": known_count,
             "known_by_reason": known_by_reason,
             "genuine_consistent": genuine_count == 0,
+            # tic 628 (Verifier-Split Chapter 3): the classification pass covers the
+            # FULL finding universe, so genuine + known == total by construction.
+            # This field makes the summary↔universe agreement machine-checkable —
+            # False here means a finding type regressed to floating-unclassified.
+            "universe_classified": (genuine_count + known_count) == len(all_findings),
         },
     }
 
@@ -1626,7 +1716,12 @@ def main():
             if s["genuine_count"]:
                 print(f"  GENUINE (hazard): {s['genuine_count']}")
             else:
-                print(f"  genuine=0 — no hazard (all {s['known_count']} findings are known false-positives)")
+                # tic 628: with the classification pass covering every emitted
+                # finding type, known_count == total_findings whenever genuine == 0
+                # — the all-known sentence now states the full finding universe.
+                print(f"  genuine=0 — no hazard (all {s['known_count']} of {s['total_findings']} findings are known false-positives)")
+            if not s.get("universe_classified", True):
+                print("  WARNING: finding universe not fully classified — a finding type regressed to floating-unclassified")
 
     return 0
 
