@@ -194,7 +194,11 @@ def push(args) -> dict:
     ie = Path(_HERE) / "inbox-envelope.py"
     bodyfile = zone_root / "audit-logs" / "jobs-tmp-ladder-feedback-body.md"
     try:
-        bodyfile.write_text(body, encoding="utf-8")
+        # inbox-envelope.py write --body-file json.loads()es the file (hard contract,
+        # no prose fallback — unlike --body). Serialize the markdown body as a JSON
+        # string so the envelope carries it verbatim. (First production push at tic 632
+        # crashed here on a raw-markdown body; fixture/dry-run proofs never reach this leg.)
+        bodyfile.write_text(json.dumps(body), encoding="utf-8")
         cmd = [
             sys.executable, str(ie), "write",
             "--sender", "ent_homeskillet", "--recipient", office,
@@ -213,6 +217,13 @@ def push(args) -> dict:
             res = json.loads(out)
         except Exception:
             res = {"raw": out, "stderr": p.stderr[:200]}
+        # Exit-code semantics are a declared surface: a nonzero child exit is a FAILED
+        # delivery, never reported as "pushed" (the tic-632 first production push
+        # returned status:pushed over a crashed write — the false-success this closes).
+        if p.returncode != 0:
+            return {"status": "push_failed", "ratified": True, "recipient": office,
+                    "resolved_by": resolved_by, "idempotency_key": idem,
+                    "child_exit": p.returncode, "write_result": res}
         return {"status": "pushed", "ratified": True, "recipient": office, "resolved_by": resolved_by,
                 "idempotency_key": idem, "write_result": res}
     finally:
