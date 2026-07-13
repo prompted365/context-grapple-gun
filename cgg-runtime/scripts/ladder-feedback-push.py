@@ -46,7 +46,9 @@ from pathlib import Path
 # ── BUILD-AND-GATE FLAG ──────────────────────────────────────────────────────
 # Default DORMANT. /review flips this to True to ratify the live down-lane return leg.
 # Ratification IS this flag-flip; no other code changes. (build-and-gate, tic 430)
-RATIFIED = False
+# RATIFIED /review 628 — Architect in-tic ratification question set (the down-lane
+# return leg is LIVE: verdicts push home via inbox-envelope; loop-safe first_wins).
+RATIFIED = True
 # ─────────────────────────────────────────────────────────────────────────────
 
 _HERE = os.path.dirname(os.path.abspath(__file__))
