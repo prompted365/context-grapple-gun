@@ -497,44 +497,85 @@ def handle_reconcile_at_start(agent_id: str) -> int:
             else:
                 plan_text = evidence["text"]
                 recovered_hash = _sha16(plan_text)
-                sealed = dict(staged)
-                sealed["stage"] = "approved"
-                sealed["approved_at"] = None
-                sealed["promoted_by"] = "sessionstart_recovery"
-                sealed["promoted_at"] = now
-                sealed["approval_evidence"] = {
-                    "source": "plan_file_cgg_handoff_block",
-                    "plan_file": str(evidence["path"]),
-                    "handoff_id": evidence["block"].get("handoff_id"),
-                    "entry_tic": st_entry,
-                    "plan_hash_computed_at_recovery": recovered_hash,
-                    "staged_plan_hash": staged.get("plan_hash"),
-                    "hash_matches_staged": staged.get("plan_hash") == recovered_hash,
-                }
-                sealed["plan_captured"] = True
-                sealed["plan_hash"] = recovered_hash
-                sealed["plan_chars"] = len(plan_text)
-                sealed["plan_file_path"] = str(evidence["path"])
-                sealed["plan_identity"] = {
-                    "status": "verified_at_recovery",
-                    "entry_tic": st_entry,
-                    "work_tic": evidence["block"].get("work_tic"),
-                    "handoff_id": evidence["block"].get("handoff_id"),
-                }
-                sealed["consumed_at"] = now
-                sealed["consumed_by"] = consumer
-                _atomic_write_json(CURRENT_FILE, sealed)
-                _atomic_append_jsonl(SEALS_LOG, {"journal_event": "recovery_promoted", **sealed})
-                try:
-                    STAGED_FILE.unlink()
-                except OSError:
-                    pass
-                consumed_seal = sealed
-                msg_parts.append(
-                    f"[SEAL RECOVERED] The staged handoff seal for {st_em} was promoted+consumed "
-                    f"at SessionStart (PostToolUse:ExitPlanMode did not fire); approval evidence: "
-                    f"{evidence['path'].name} (cgg-handoff entry_tic {st_entry})."
+                staged_hash = staged.get("plan_hash")
+                # Recovery acceptance evidence (four-case truth table, tic 635):
+                #   absent   (staged hash None)  + exact-boundary plan verified -> ACCEPT
+                #   match    (staged hash == recovered)                         -> ACCEPT
+                #   mismatch (staged hash present, != recovered)                -> REJECT (the staged
+                #     approval hash and recovered boundary-plan hash differ; cause — drift / tamper /
+                #     stale capture / other — remains UNADJUDICATED)
+                #   no approval evidence (no plan file)                         -> REJECT (handled above)
+                # ABSENCE IS NOT CONTRADICTION: an absent staged hash is the
+                # independent-verification accept path; only a PRESENT-and-different
+                # hash is a mismatch refusal.
+                staged_hash_state = (
+                    "absent" if staged_hash is None
+                    else "match" if staged_hash == recovered_hash
+                    else "mismatch"
                 )
+                if staged_hash_state == "mismatch":
+                    _atomic_append_jsonl(SEALS_LOG, {
+                        "journal_event": "recovery_refused",
+                        "reason": "plan_hash_mismatch",
+                        "staged_hash_state": "mismatch",
+                        "staged_emission_id": st_em,
+                        "staged_entry_tic": st_entry,
+                        "staged_plan_hash": staged_hash,
+                        "recovered_plan_hash": recovered_hash,
+                        "plan_file": str(evidence["path"]),
+                        "at": now,
+                    })
+                    msg_parts.append(
+                        f"[SEAL RECOVERY REFUSED] The staged handoff seal for {st_em} was NOT promoted: "
+                        f"the staged approval hash and recovered boundary-plan hash differ "
+                        f"(plan_hash_mismatch — staged {staged_hash} != recovered {recovered_hash}, "
+                        f"{evidence['path'].name}); the cause (drift / tamper / stale capture / other) "
+                        f"is UNADJUDICATED. The boundary REMAINS INTERSTITIAL and the pause was NOT armed; "
+                        f"re-approve the plan to re-stage this boundary."
+                    )
+                else:
+                    sealed = dict(staged)
+                    sealed["stage"] = "approved"
+                    sealed["approved_at"] = None
+                    sealed["promoted_by"] = "sessionstart_recovery"
+                    sealed["promoted_at"] = now
+                    sealed["approval_evidence"] = {
+                        "source": "plan_file_cgg_handoff_block",
+                        "plan_file": str(evidence["path"]),
+                        "handoff_id": evidence["block"].get("handoff_id"),
+                        "entry_tic": st_entry,
+                        "plan_hash_computed_at_recovery": recovered_hash,
+                        "staged_plan_hash": staged_hash,
+                        # absent -> null (NOT false — absence is not contradiction);
+                        # match  -> true
+                        "hash_matches_staged": True if staged_hash_state == "match" else None,
+                        "staged_hash_state": staged_hash_state,
+                    }
+                    sealed["plan_captured"] = True
+                    sealed["plan_hash"] = recovered_hash
+                    sealed["plan_chars"] = len(plan_text)
+                    sealed["plan_file_path"] = str(evidence["path"])
+                    sealed["plan_identity"] = {
+                        "status": "verified_at_recovery",
+                        "entry_tic": st_entry,
+                        "work_tic": evidence["block"].get("work_tic"),
+                        "handoff_id": evidence["block"].get("handoff_id"),
+                    }
+                    sealed["consumed_at"] = now
+                    sealed["consumed_by"] = consumer
+                    _atomic_write_json(CURRENT_FILE, sealed)
+                    _atomic_append_jsonl(SEALS_LOG, {"journal_event": "recovery_promoted", **sealed})
+                    try:
+                        STAGED_FILE.unlink()
+                    except OSError:
+                        pass
+                    consumed_seal = sealed
+                    msg_parts.append(
+                        f"[SEAL RECOVERED] The staged handoff seal for {st_em} was promoted+consumed "
+                        f"at SessionStart (PostToolUse:ExitPlanMode not observed this boundary; "
+                        f"staged_hash_state={staged_hash_state}); approval evidence: "
+                        f"{evidence['path'].name} (cgg-handoff entry_tic {st_entry})."
+                    )
 
     # 3) Pause arming + marker flip — driven ONLY by a seal consumed for the
     #    matching boundary. A generic resume/background SessionStart with no
