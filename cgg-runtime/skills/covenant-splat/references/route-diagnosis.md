@@ -3,6 +3,7 @@
 Doctrine body: `autonomous_kernel/covenant-splat-fqoq-runtime-spec.md` §14. One diagnosis per route, resolved IN ORDER:
 
 1. Does an **admitted covenant** exist for this identity? → no: `covenant_absent`
+   - `covenant_absent` carries a `sub_shape` (§14 sub-shape discipline, /review 634): `prose_pointer_absent` (no admission-capable receipt resolves at all — unheld path routes toward /review admission or per-member routing) | `wrong_object_class` (a real /review PROMOTE admitted a §5 object-1 while the route claims an object-2 build covenant — unheld path routes toward retire/reclassify BEFORE admission). Opposite unheld paths; a receipt may carry both when both hold.
 2. Is its **Reality→Target** statement intact? → underdefined (target/constraints): `covenant_incomplete`
 3. Conformation **rehydrated** against NAVIGATION / io-map / router / repo+runtime / receipts+scars? → stale: `covenant_conformation_stale`; conflicting surfaces: `covenant_contradicted`
 4. Did the splat **preserve** exclusions, held-open hypotheses, authority, constraints, purpose, currentness?
