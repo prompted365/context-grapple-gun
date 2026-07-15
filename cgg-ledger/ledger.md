@@ -415,6 +415,10 @@ Doctrine class taxonomy:
 
 <!-- promoted from CogPR-58 (tic 75→80). Source: operator-correction. Reinforced tier. Band: COGNITIVE. -->
 
+**Refinement — a born's "refines/relates-to X (surface S)" note is a RELATION, not a promotion DESTINATION; destination is rung-determined (tic 421 born → /review 635 PROMOTE-as-refinement).** A born CogPR's "refines / relates-to X (surface S)" annotation is a RELATION (lineage / prior-art pointer), NOT a promotion DESTINATION. The destination is RUNG-DETERMINED: a federation-level CogPR promotes to the federation constitution-ledger (audit-logs/governance/constitution-ledger/ledger.md — the surface canonical/CLAUDE.md points to); a CGG-rung CogPR to cgg-ledger; etc. review-execute already carries this rung-aware destination logic ("promotes to the rung's doctrine surface — the dehydrated ledger.md, federation constitution-ledger / CGG cgg-ledger"); the orchestrator must DRIVE promotion from the rung and never override it by reading the born's lineage note as a target. FAILURE MODE (validated live tic 421): #3 constrain-vs-cultivate said "refines the motivation-compliance KI (CLAUDE.md global §5)"; I read "global §5" as the destination and routed #3/#4 into the GLOBAL ~/.claude/CLAUDE.md — the user's CROSS-PROJECT config, NOT a federation doctrine surface. review-close-check correctly flagged "promoted but text not found in any GOVERNANCE FILE"; I then RATIONALIZED that as a "verifier blindspot" (defending my inscription) instead of measuring my own correction — the corrector-inherits-the-verification-obligation principle (#8, just ratified) firing on me. Fix: reverted global, re-inscribed #3/#4 to the federation ledger; review-close genuine 2->0. Discriminator: rung-scope ≠ related-surface — a federation KI may RELATE TO / reference a global §5 without DUPLICATING into it; cross-project user config is not a federation governance surface. Refines Promotion-Scope-Discipline (promotion is two decisions: content-valid + which-rung/destination) + composes the-corrector-inherits-the-verification-obligation. Evidence: tic-421 #3/#4 misplacement + correction (canonical 8141e751 / CGG 9378e88).
+
+<!-- promoted from cpr_lineage_note_is_a_relation_not_a_promotion_destination_tic421 at /review 635 -->
+
 ---
 
 ## Cadence Downbeat Enforcement
@@ -2969,6 +2973,8 @@ A promoted footgun-guard applied to ONE function silently leaves a SIBLING funct
 
 <!-- promoted from cpr_dispatch_instruction_text_is_harness_perimeter_tic552 (tic 552→555, /review 555 PROMOTE-as-refinement, handoff-charged pass [deferred-from-554 hold receipt tic-554-seq-1]). Source: tic 552 Architect-directed sweep — 8 emitter surfaces + the mogul-runner generator carried "Agent tool" as load-bearing protocol text; patched to entity-dispatch language, synced 5/5 + 1/1 byte-verified, CGG 5b5fdb5 + 991bb96. Cure observed live: the tic-554/555 boot injections carry the role-shaped phrasing and the cpr-stepper lane served clean through the Workflow dispatch surface both tics. Refines this KI (perimeter: schema couplings → instruction text); composes generator-vs-local-repair-gap (the generator was the fix-site) + blocker-type-taxonomy; federation sibling: refusal-receipting refinement under presence-observation-fallacy-guard (actor-side half of the same tic-552 incident). Band: COGNITIVE. Confidence_tier: reinforced (n=8 surfaces patched + 2-tic live conformation). signer ent_homeskillet-fable5. -->
 
+**SKIP-with-home — mount-eval lane (tic 501 born → /review 635 SKIP≠DISCARD; doctrine status SKIP/derivable, loading home preserved here per SKIP≠DISCARD).** A fix-entry's mount-impact is a config-SHAPE exposure probe (neither auto-relevant nor auto-irrelevant); probe the config, don't infer from the release note. Recurrence trigger: the next harness bump fires it. Source: cpr_changelog_fix_entry_impact_is_a_config_shape_probe_not_a_read_tic501; receipt audit-logs/governance/receipts/2026-06-25-tic501-harness-mount-eval-2.1.191.md. <!-- home-pointer from cpr_changelog_fix_entry_impact_is_a_config_shape_probe_not_a_read_tic501 at /review 635 (SKIP-with-home; loading home, not a new doctrine body) -->
+
 ---
 
 ## Stage Prose Template Compression Must Be Declared
@@ -3333,5 +3339,69 @@ When a data surface is ratified as an authoritative baseline (the 19-office civi
 An append-only latest-per-id queue whose write boundary dedups BY ID (defense-in-depth against re-extraction and same-run duplicates) structurally CANNOT carry a body refinement of a pending entry: re-extracting a refined born yields deduped_at_write, and no other lawful writer refreshes the lesson snapshot until the next state transition. Consequence: between a receipted refinement and the next lawful write, the queue row's body is a STALE SNAPSHOT while the born file is the body authority — and every reader that consumes the row body (bench-packet-prep, docket walkers, enrichment scanners) silently reads the pre-refinement text. Two teeth: (1) READER DISCIPLINE — an adjudicator walking a refined-pending entry must read source_file for the body, never trust the row snapshot: the row rules for STATUS, the source file rules for BODY when a receipted refinement post-dates the row. (2) MECHANISM CANDIDATE — the refresh gap wants a lawful narrow write path (a stepper that re-reads the born body at each state advance, or an explicit extractor --refresh-body mode appending a same-id same-status row with refreshed lesson under a refinement receipt), gated at /review since it touches the queue's write-boundary defense; the stepper-side body-re-read is the direction already proven in practice (the tic-614 stepper read the born body as authority when stamping dedup). Not derivable-by-composition: the held laws (queue-is-authoritative-latest-per-id; in-file-status-flags-are-stale-mirrors) point the AUTHORITY arrows in exactly the opposite direction for status vs body, and nothing held names the refinement window where they diverge.
 
 <!-- promoted from cpr_pre_maturity_refinement_queue_refresh_gap_source_file_is_body_authority_tic611 (tic 611→614, /review 614 PROMOTE, Architect-ratified in-tic via AskUserQuestion ratification set; EXPLICIT Architect override of enrichment_needed intake state recorded — same shape as /review 613 verdict ④). Evidence: lived at tic 611 (receipts/2026-07-10-tic611-hot-repair-receipt.md leg B); independent same-tic stepper corroboration (dedup-hash input divergence); discipline exercised 3 consecutive tics (613 walk, 614 stepper, 614 walk). Band: COGNITIVE. Confidence_tier: tentative (n=1 lived + corroboration). signer ent_homeskillet (claude-fable-5), boot receipt 6d60687d07c754d5. -->
+
+---
+
+## Two-Axis Status Encoding — status_class × invocation_policy Are Structurally Orthogonal (Falsifier-Manifest Schema Refinement)
+<a id="falsifier-manifest-two-axis"></a>
+<!-- ledger-tags: authority_class=pipeline_and_integration | rung=domain | domain=context-grapple-gun | born_tic=293 | promoted_tic=635 | refines=manifest-driven-inversion-harness-primitive-promote-spec-tic-294 | composes=presence-observation-fallacy-guard(federation),conductor-score-runtime-parity-cgg-application | confidence_tier=reinforced -->
+
+Two-Axis Status Encoding for federation mechanism declarations —
+status_class (scheduler-relationship state) and invocation_policy
+(who/what can invoke) are STRUCTURALLY ORTHOGONAL axes that single-field
+encoding silently conflates. Schema v0.1 encoded bench_packet_prep as
+status_class=dropped which lost the truth that the script remains on
+disk + the mandate schema still permits manual invocation. Schema v0.2
+splits: status_class=scheduler_dropped (scheduler no longer fires) +
+invocation_policy=manual_only (mandate.cycle_request.run_now still valid).
+
+status_class values: active | dormant_by_design | not_yet_initialized |
+scheduler_dropped
+invocation_policy values: scheduler_only | manual_only |
+scheduler_and_manual | event_driven_only | none
+
+Together they license falsifier interpretation of observed runtime_state
+(computed: healthy / broken / broken_content / fire_pending / etc.).
+Either axis alone produces ambiguous classification; both axes declared
+together produce typed discrimination.
+
+Concrete distribution across 13 manifest mechanisms (v0.2):
+status_class: active=10, scheduler_dropped=1, not_yet_initialized=1,
+dormant_by_design=1
+invocation_policy: scheduler_and_manual=10, manual_only=1, none=1,
+event_driven_only=1
+(scheduler_only unexercised; expected for hook-only T2+ cohorts)
+
+<!-- promoted from cpr_two_axis_status_encoding_status_class_x_invocation_policy_tic293 at /review 635 -->
+
+---
+
+## A Duplicate ID Within One Emission Batch Is a Loss-Canary — Render the Harmless-via-Dedup Verdict at the Write Boundary, Not the Emission Surface
+<a id="signal-id-determinism-write-boundary-observation"></a>
+<!-- ledger-tags: authority_class=signal_and_queue_manifold | rung=domain | domain=context-grapple-gun | born_tic=630 | promoted_tic=635 | refines=signal-id-determinism | composes=presence-observation-fallacy-guard(federation),dedup-at-write-using-canonical-identity | confidence_tier=reinforced -->
+
+Dedup-at-write converts an under-discriminated signal id into SILENT SIGNAL LOSS, and the only visible symptom is a benign-looking duplicate upstream of the dedup boundary. Instance: biome-engine.py emit_signal() (lines ~387-395) omits the `monitor` field from its deterministic signal id, so two DISTINCT monitor violations in one cycle collapse to one id — dedup_signal_append writes the first and silently drops the second distinct health signal from the manifold. Three consecutive audits (t624/t627/t630) classified the visible duplicate as 'harmless via dedup-at-write' because they judged at the emission surface where only duplication shows, while the harm (the drop) occurs at the write boundary where nothing was observing. Durable rule, two teeth: (1) an observed duplicate id within one emission batch is an id-collision LOSS CANARY, never cosmetic noise — a condition-stable id must include every field that distinguishes co-occurring conditions (condition-stable is not condition-collapsing); (2) a 'harmless' verdict about dedup behavior must be rendered at the write boundary where the drop happens, never at the emission surface where the duplication shows.
+
+<!-- promoted from cpr_mogul_civil_status_check_fd0e9526f1de at /review 635 -->
+
+---
+
+## A Dry-Run Activation Arm Cannot Prove the Consumer's Write Leg — Drive a Real Write Once or Disclose write-leg-unexercised
+<a id="build-and-gate-dry-run-write-leg"></a>
+<!-- ledger-tags: authority_class=review_and_promotion_discipline | rung=domain | domain=context-grapple-gun | born_tic=633 | promoted_tic=635 | refines=build-and-gate-ratified-flag-gated-consumer | composes=wrapper-must-discriminate-instrument-exit-code-semantics-crash-vs-verdict,multi-stage-governance-pipeline-stages-must-be-coupled-with-proof-artifacts | confidence_tier=tentative -->
+
+A build-and-gate dual proof whose activation arm is a DRY-RUN structurally cannot prove the consumer's write leg — dry-run returns before the write path, so producer→consumer payload contracts (body encoding, schema shape) stay unexercised until the first production fire. Two coupled halves: (1) the activation proof for a consumer that WRITES must drive the real write against a real (or fixture-zone-real) consumer surface at least once, or the ratification receipt must disclose write-leg-unexercised; (2) a wrapper shelling to a delivery child must discriminate the child's exit code (nonzero = failed delivery, never 'pushed'), and the pusher's caller verifies arrival at the CONSUMER surface (the mailbox, the registry), never from the producer's status field alone.
+
+<!-- promoted from cpr_dry_run_proof_cannot_prove_the_write_leg_verify_delivery_at_consumer_tic632 at /review 635 -->
+
+---
+
+## A Skill's Tool Mask Is Lifecycle-Bound and Leaks Across Auto-Crossed Boundaries — Audit Every Auto-Crossed Exit; Never Deny a Tool the Body Requires
+<a id="skill-tool-mask-leak-mechanism"></a>
+<!-- ledger-tags: authority_class=external_schema_volatility | rung=domain | domain=context-grapple-gun | born_tic=633 | promoted_tic=635 | composes=disagreement-as-evidence(federation),presence-observation-fallacy-guard(federation),blocker-type-classification-gate-vs-capability-vs-build | meta_half=refinement-ray_to_disagreement-as-evidence/presence-observation-fallacy | confidence_tier=tentative -->
+
+Two coupled halves. (1) MECHANISM: a skill-scoped tool restriction (frontmatter disallowed-tools) is lifecycle-bound to 'next real user message', and any harness boundary that auto-crosses without one (plan approve-and-clear injecting implement_plan) carries the mask into the new context — so a skill that restricts tools must be audited for every auto-crossed boundary its session can exit through, and a skill must never deny a tool its own body requires. (2) META: a capability-absence with a STABLE signature, honestly receipted N consecutive times, converts at low N (≤3) from weather into a trace obligation — walk the denial back to its configuration source before dispatching the workaround again; a working fallback is precisely what makes the miss invisible, because each clean fallback receipt lowers the felt urgency of tracing. Post-repair discipline: a required primary capability probing absent is DEGRADED_PRIMARY_CAPABILITY — pause and report; never silently substitute the fallback rail.
+
+<!-- promoted from cpr_skill_tool_mask_leaks_across_plan_approve_boundary_trace_recurrence_dont_normalize_tic633 at /review 635 -->
 
 ---

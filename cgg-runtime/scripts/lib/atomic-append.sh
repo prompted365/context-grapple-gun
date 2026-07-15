@@ -52,10 +52,64 @@ PY
   return 0
 }
 
+# ── body-preservation physics gate (Repair Covenant B, /review 635) ─────────────
+# A Repair-B compat-snapshot typed event (`"compat_snapshot":true`) carries the current
+# formulation forward so BOTH the naive latest-per-id reader and the shadow materializer
+# stay non-lossy. If such a row reaches the boundary with a BLANK body, it would re-open
+# the exact erasure Defect A. Refuse it BEFORE the write (physics layer — the perception
+# layer warns too late; footgun-guard-at-perception-layer). Scoped to */cprs/queue.jsonl +
+# compat_snapshot rows ONLY: legacy writers and future pure-Option-B events are untouched.
+# Returns 3 to signal "refuse the append".
+_cgg_guard_body_preservation() {
+  local row="$1"
+  # Forward-contract discriminator: only Repair-B typed events carry `schema_version`.
+  # Legacy-compatible bodyless extractions (no schema_version) remain temporarily permitted
+  # and pass UNTOUCHED — the global producer/consumer migration (STRIKE_READY_UNEXECUTED) is
+  # what makes Defects A/B fleet-wide impossible; this gate enforces only the typed path.
+  case "$row" in *'"schema_version"'*|*'"compat_snapshot"'*) : ;; *) return 0 ;; esac
+  python3 - "$row" <<'PY'
+import json, sys
+try:
+    d = json.loads(sys.argv[1])
+except Exception:
+    sys.exit(0)
+et = d.get("event_type")
+# (a) forward-contract typed BIRTH must carry formulation + hashed source provenance,
+#     else it is PREP_NOT_READY (Defect-B guard on the typed path) — reject/quarantine.
+if et == "birth":
+    body = (d.get("origin_formulation") or d.get("current_formulation") or d.get("lesson") or "").strip()
+    prov = d.get("origin_source_hash") or d.get("origin_source_pointer")
+    if not body or not prov:
+        sys.stderr.write("[atomic-append] REFUSED PREP_NOT_READY: forward-contract typed birth lacking "
+                         f"formulation+hashed provenance (id={d.get('id')!r})\n")
+        sys.exit(4)
+# (b) compat_snapshot events must carry a nonblank body, else they re-open Defect A.
+if d.get("compat_snapshot") is True:
+    body = (d.get("lesson") or d.get("current_formulation") or "").strip()
+    if not body:
+        sys.stderr.write("[atomic-append] REFUSED: Repair-B compat_snapshot row with BLANK body "
+                         f"(id={d.get('id')!r}, event_type={et!r}) — would re-open Defect A\n")
+        sys.exit(3)
+sys.exit(0)
+PY
+}
+
 atomic_append() {
   local target="$1"
   local content="$2"
   local lockfile="${target}.lock"
+
+  # body-preservation physics gate — refuse a blank-body compat row (rc=3) or a
+  # provenance-less forward-contract birth (rc=4) BEFORE writing.
+  case "$target" in
+    */cprs/queue.jsonl)
+      _cgg_guard_body_preservation "$content"; local _grc=$?
+      if [ "$_grc" -ne 0 ]; then
+        echo "[atomic-append] append ABORTED by body-preservation gate (rc=$_grc) for $target" >&2
+        return "$_grc"
+      fi
+      ;;
+  esac
 
   # Ensure parent directory exists
   mkdir -p "$(dirname "$target")" 2>/dev/null

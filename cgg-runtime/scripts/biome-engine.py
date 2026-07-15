@@ -391,7 +391,11 @@ def emit_signal(band, signal_type, payload):
     manifest_file = os.path.join(SIGNAL_DIR, "active-manifest.jsonl")
 
     # Deterministic signal ID from condition content
-    id_source = f"{signal_type}_{payload.get('act_id', '')}_{payload.get('biome_cycle', '')}"
+    # [20b] /review 635: `monitor` participates in the deterministic id — two distinct
+    # monitor violations in one cycle must NOT collapse to one id (dedup-at-write would drop
+    # the second distinct health signal). condition-stable is not condition-collapsing.
+    id_source = (f"{signal_type}_{payload.get('act_id', '')}_"
+                 f"{payload.get('biome_cycle', '')}_{payload.get('monitor', '')}")
     sig_id = f"biome.{signal_type}_{content_hash(id_source)}"
 
     signal = {
