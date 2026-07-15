@@ -394,8 +394,13 @@ def emit_signal(band, signal_type, payload):
     # [20b] /review 635: `monitor` participates in the deterministic id — two distinct
     # monitor violations in one cycle must NOT collapse to one id (dedup-at-write would drop
     # the second distinct health signal). condition-stable is not condition-collapsing.
-    id_source = (f"{signal_type}_{payload.get('act_id', '')}_"
-                 f"{payload.get('biome_cycle', '')}_{payload.get('monitor', '')}")
+    # LEGACY-COMPATIBILITY: when `monitor` is absent/blank the id_source is BYTE-IDENTICAL to
+    # the pre-change form (no trailing separator) so existing signal ids are unchanged; the
+    # discriminator is appended ONLY when a monitor value is present.
+    id_source = f"{signal_type}_{payload.get('act_id', '')}_{payload.get('biome_cycle', '')}"
+    monitor = payload.get('monitor', '')
+    if monitor:
+        id_source = f"{id_source}_{monitor}"
     sig_id = f"biome.{signal_type}_{content_hash(id_source)}"
 
     signal = {
