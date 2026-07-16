@@ -1,0 +1,123 @@
+from pathlib import Path
+
+
+adapter = Path("cgg-runtime/crates/cgg-temporal-adapter/src/adapter.rs")
+text = adapter.read_text()
+
+text = text.replace(
+    "    validate_facets(&result.proposal.facets)?;",
+    "    validate_facets(&result.proposal.facets, request.authority_ceiling)?;",
+    1,
+)
+text = text.replace(
+    "fn validate_facets(facets: &SixFacetRecordV1) -> Result<(), AdapterError> {",
+    "fn validate_facets(\n    facets: &SixFacetRecordV1,\n    authority_ceiling: OutputAuthorityV1,\n) -> Result<(), AdapterError> {",
+    1,
+)
+
+old_authority = '''            if !assertion.authority.allows(OutputAuthorityV1::Evidence)
+                && assertion.authority != OutputAuthorityV1::Evidence
+            {
+                return Err(AdapterError::Authority(format!(
+                    "{expected:?} assertion has invalid authority"
+                )));
+            }
+'''
+new_authority = '''            if !authority_ceiling.allows(assertion.authority) {
+                return Err(AdapterError::Authority(format!(
+                    "{expected:?} assertion authority {:?} exceeds request ceiling {authority_ceiling:?}",
+                    assertion.authority
+                )));
+            }
+'''
+if old_authority in text:
+    text = text.replace(old_authority, new_authority, 1)
+elif new_authority not in text:
+    raise SystemExit("assertion authority block not found")
+
+actual_guard = '''    if request.world_kind != WorldKindV1::Actual {
+        return Err(AdapterError::Currentness(
+            "interpreter request must enter on the actual world".to_string(),
+        ));
+    }
+'''
+admission_guard = '''    if request.covenant_slice.status_axes.covenant_status
+        != Some(CovenantStatusV1::Admitted)
+    {
+        return Err(AdapterError::Authority(
+            "request slice covenant axis is not admitted".to_string(),
+        ));
+    }
+'''
+if admission_guard not in text:
+    if actual_guard not in text:
+        raise SystemExit("actual-world guard anchor not found")
+    text = text.replace(actual_guard, actual_guard + admission_guard, 1)
+
+interpretation_call = "    validate_interpretation(request, &result)?;\n"
+authority_match = '''    if result.proposal.output_authority != mount.output_authority {
+        return Err(AdapterError::Authority(format!(
+            "canonical-mount authority {:?} disagrees with embedded proposal authority {:?}",
+            mount.output_authority, result.proposal.output_authority
+        )));
+    }
+'''
+if authority_match not in text:
+    if interpretation_call not in text:
+        raise SystemExit("interpretation validation anchor not found")
+    text = text.replace(
+        interpretation_call,
+        interpretation_call + authority_match,
+        1,
+    )
+
+adapter.write_text(text)
+
+tests = Path("cgg-runtime/crates/cgg-temporal-adapter/tests/cable.rs")
+test_text = tests.read_text()
+additions = r'''
+
+#[test]
+fn normalize_rechecks_the_admitted_covenant_axis() {
+    let mut request = prepared();
+    request.covenant_slice.status_axes.covenant_status =
+        Some(CovenantStatusV1::Superseded);
+    request.slice_hash = slice_hash(&request.covenant_slice).unwrap();
+    assert!(matches!(
+        normalize_proposal(&request, mount(&request)),
+        Err(AdapterError::Authority(_))
+    ));
+}
+
+#[test]
+fn mount_and_embedded_proposal_authority_must_agree() {
+    let mut request = prepared();
+    request.authority_ceiling = OutputAuthorityV1::Reasoning;
+    let mut envelope = mount(&request);
+    envelope.output_authority = OutputAuthorityV1::Advisory;
+    envelope.civic_receipt.output_authority = OutputAuthorityV1::Advisory;
+    let mut result = interpretation(&request);
+    result.proposal.output_authority = OutputAuthorityV1::Proposal;
+    envelope.report.text = serde_json::to_string(&result).unwrap();
+    assert!(matches!(
+        normalize_proposal(&request, envelope),
+        Err(AdapterError::Authority(_))
+    ));
+}
+
+#[test]
+fn facet_assertions_cannot_widen_authority_inside_a_valid_proposal() {
+    let request = prepared();
+    let mut result = interpretation(&request);
+    result.proposal.facets.KAT.assertions[0].authority =
+        OutputAuthorityV1::AdmittedMutation;
+    let mut envelope = mount(&request);
+    envelope.report.text = serde_json::to_string(&result).unwrap();
+    assert!(matches!(
+        normalize_proposal(&request, envelope),
+        Err(AdapterError::Authority(_))
+    ));
+}
+'''
+if "normalize_rechecks_the_admitted_covenant_axis" not in test_text:
+    tests.write_text(test_text + additions)
