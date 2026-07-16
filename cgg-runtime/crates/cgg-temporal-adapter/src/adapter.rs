@@ -245,6 +245,11 @@ pub fn validate_request(request: &SplatInterpretationRequestV1) -> Result<(), Ad
             "request slice covenant axis is not admitted".to_string(),
         ));
     }
+    if request.covenant_slice.status_axes.covenant_status != Some(CovenantStatusV1::Admitted) {
+        return Err(AdapterError::Authority(
+            "request slice covenant axis is not admitted".to_string(),
+        ));
+    }
     if request.coordinate.global_tic != request.covenant_slice.operative_tic.unwrap_or(u64::MAX) {
         return Err(AdapterError::Currentness(
             "request coordinate and slice tic disagree".to_string(),
