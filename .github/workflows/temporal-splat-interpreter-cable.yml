@@ -28,7 +28,6 @@ env:
   MANIFEST: cgg-runtime/crates/cgg-temporal-adapter/Cargo.toml
 
 jobs:
-  # BEGIN TEMPORAL_SPLAT_ONE_SHOT_MATERIALIZER
   materialize:
     runs-on: ubuntu-latest
     timeout-minutes: 15
@@ -44,27 +43,20 @@ jobs:
         run: |
           cargo fmt --manifest-path "$MANIFEST"
           cargo generate-lockfile --manifest-path "$MANIFEST"
-      - name: Remove one-shot machinery and commit exact outputs
+      - name: Commit exact code outputs
         shell: bash
         run: |
-          python - <<'PY'
-          from pathlib import Path
-          path = Path(".github/workflows/temporal-splat-interpreter-cable.yml")
-          text = path.read_text()
-          start = text.index("  # BEGIN TEMPORAL_SPLAT_ONE_SHOT_MATERIALIZER")
-          end_marker = "  # END TEMPORAL_SPLAT_ONE_SHOT_MATERIALIZER\n"
-          end = text.index(end_marker, start) + len(end_marker)
-          path.write_text(text[:start] + text[end:])
-          PY
+          set -euo pipefail
           git config user.name "homeskillet-oa55"
           git config user.email "noreply@prompted.community"
-          git rm .github/scripts/materialize_temporal_interpreter.py
-          git rm .github/workflows/temporal-splat-interpreter-materialize.yml
-          git rm .github/workflows/temporal-splat-review-materialize.yml 2>/dev/null || true
-          git add cgg-runtime/crates/cgg-temporal-adapter .github/workflows/temporal-splat-interpreter-cable.yml
+          git add cgg-runtime/crates/cgg-temporal-adapter
+          if git diff --cached --quiet; then
+            echo "No materialized code changes"
+            exit 0
+          fi
           git commit -m "Materialize and harden the CGG temporal interpreter cable"
+          git pull --rebase origin build/temporal-splat-interpreter-cable-v0.1
           git push origin HEAD:build/temporal-splat-interpreter-cable-v0.1
-  # END TEMPORAL_SPLAT_ONE_SHOT_MATERIALIZER
 
   rust:
     runs-on: ubuntu-latest
