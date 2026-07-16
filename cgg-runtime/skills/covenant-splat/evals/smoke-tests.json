@@ -2,10 +2,16 @@
   "_comment": "covenant-splat mechanical smoke/contract checks — run from the federation root. Behavioral agent evals: evals.json; routing evals: trigger-evals.json.",
   "evals": [
     {
+      "id": "temporal-interpreter-cable-rust",
+      "cmd": "cargo test --manifest-path canonical_developer/context-grapple-gun/cgg-runtime/crates/cgg-temporal-adapter/Cargo.toml",
+      "expect_exit": 0,
+      "asserts": "CGG-owned request/proposal cable binds hydrated slice to exact covenant/admission/tic/source hashes, refuses authority widening and terminalization, and emits homeskillet-compatible request hashes"
+    },
+    {
       "id": "lowering-selftest",
       "cmd": "python3 canonical_developer/context-grapple-gun/cgg-runtime/skills/covenant-splat/scripts/lower-covenant-expr.py --selftest",
       "expect_exit": 0,
-      "asserts": "csl-parity lowering 13/13: occurrence-namespaced ids, seq sinks-x-sources edges, choice ancestry L/R outer-first, left-assoc n-ary, resolution semantics, duplicate leaves lawful, cycles/unknown-ops refused"
+      "asserts": "Python parity oracle 13/13: occurrence-namespaced ids, seq sinks-x-sources edges, choice ancestry L/R outer-first, left-assoc n-ary, resolution semantics, duplicate leaves lawful, cycles/unknown-ops refused"
     },
     {
       "id": "projection-contract-live",
