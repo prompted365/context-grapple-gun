@@ -154,7 +154,10 @@ fn hydrated_slice_is_bound_to_admission_and_tic() {
     let request = prepared();
     validate_request(&request).unwrap();
     assert_eq!(request.world_kind, WorldKindV1::Actual);
-    assert_eq!(request.covenant_slice.covenant_ref.as_deref(), Some("cov-a"));
+    assert_eq!(
+        request.covenant_slice.covenant_ref.as_deref(),
+        Some("cov-a")
+    );
     assert!(!request.terminalized);
 }
 
@@ -193,6 +196,46 @@ fn authority_widening_is_rejected() {
     let request = prepared();
     let mut result = interpretation(&request);
     result.proposal.output_authority = OutputAuthorityV1::AdmittedMutation;
+    let mut envelope = mount(&request);
+    envelope.report.text = serde_json::to_string(&result).unwrap();
+    assert!(matches!(
+        normalize_proposal(&request, envelope),
+        Err(AdapterError::Authority(_))
+    ));
+}
+
+#[test]
+fn normalize_rechecks_the_admitted_covenant_axis() {
+    let mut request = prepared();
+    request.covenant_slice.status_axes.covenant_status = Some(CovenantStatusV1::Superseded);
+    request.slice_hash = slice_hash(&request.covenant_slice).unwrap();
+    assert!(matches!(
+        normalize_proposal(&request, mount(&request)),
+        Err(AdapterError::Authority(_))
+    ));
+}
+
+#[test]
+fn mount_and_embedded_proposal_authority_must_agree() {
+    let mut request = prepared();
+    request.authority_ceiling = OutputAuthorityV1::Reasoning;
+    let mut envelope = mount(&request);
+    envelope.output_authority = OutputAuthorityV1::Advisory;
+    envelope.civic_receipt.output_authority = OutputAuthorityV1::Advisory;
+    let mut result = interpretation(&request);
+    result.proposal.output_authority = OutputAuthorityV1::Proposal;
+    envelope.report.text = serde_json::to_string(&result).unwrap();
+    assert!(matches!(
+        normalize_proposal(&request, envelope),
+        Err(AdapterError::Authority(_))
+    ));
+}
+
+#[test]
+fn facet_assertions_cannot_widen_authority_inside_a_valid_proposal() {
+    let request = prepared();
+    let mut result = interpretation(&request);
+    result.proposal.facets.KAT.assertions[0].authority = OutputAuthorityV1::AdmittedMutation;
     let mut envelope = mount(&request);
     envelope.report.text = serde_json::to_string(&result).unwrap();
     assert!(matches!(

@@ -302,9 +302,15 @@ pub enum ExecutionExprV1 {
         objectives: Vec<String>,
     },
     #[serde(rename = "seq")]
-    Sequential { operands: Vec<ExecutionExprV1> },
-    Parallel { operands: Vec<ExecutionExprV1> },
-    Choice { operands: Vec<ExecutionExprV1> },
+    Sequential {
+        operands: Vec<ExecutionExprV1>,
+    },
+    Parallel {
+        operands: Vec<ExecutionExprV1>,
+    },
+    Choice {
+        operands: Vec<ExecutionExprV1>,
+    },
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -364,7 +370,10 @@ pub struct SplatProposalEnvelopeV1 {
     pub terminalized: bool,
 }
 
-pub fn hash_serializable<T: Serialize>(domain: &str, value: &T) -> Result<String, serde_json::Error> {
+pub fn hash_serializable<T: Serialize>(
+    domain: &str,
+    value: &T,
+) -> Result<String, serde_json::Error> {
     let bytes = serde_json::to_vec(value)?;
     let mut hasher = Sha256::new();
     hasher.update(domain.as_bytes());

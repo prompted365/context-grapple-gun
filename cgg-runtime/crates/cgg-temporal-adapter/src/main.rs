@@ -17,9 +17,7 @@ fn run() -> Result<()> {
     let args: Vec<String> = std::env::args().skip(1).collect();
     match args.as_slice() {
         [command, input] if command == "prepare-request" => prepare(input),
-        [command, request, mount] if command == "normalize-proposal" => {
-            normalize(request, mount)
-        }
+        [command, request, mount] if command == "normalize-proposal" => normalize(request, mount),
         [command] if matches!(command.as_str(), "help" | "--help" | "-h") => {
             print_help();
             Ok(())

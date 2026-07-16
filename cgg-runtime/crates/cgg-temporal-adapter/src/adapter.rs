@@ -178,9 +178,19 @@ pub fn normalize_proposal(
     validate_request(request)?;
     validate_mount(request, &mount)?;
 
-    let result: InterpretationResultV1 = serde_json::from_str(mount.report.text.trim())
-        .map_err(|error| AdapterError::Proposal(format!("report.text is not InterpretationResultV1: {error}")))?;
+    let result: InterpretationResultV1 =
+        serde_json::from_str(mount.report.text.trim()).map_err(|error| {
+            AdapterError::Proposal(format!(
+                "report.text is not InterpretationResultV1: {error}"
+            ))
+        })?;
     validate_interpretation(request, &result)?;
+    if result.proposal.output_authority != mount.output_authority {
+        return Err(AdapterError::Authority(format!(
+            "canonical-mount authority {:?} disagrees with embedded proposal authority {:?}",
+            mount.output_authority, result.proposal.output_authority
+        )));
+    }
 
     let provider_hash = hash_serializable("splat.canonical-mount-report.v1", &mount)?;
     let provider_receipt = ReceiptRefV1 {
@@ -228,6 +238,11 @@ pub fn validate_request(request: &SplatInterpretationRequestV1) -> Result<(), Ad
     if request.world_kind != WorldKindV1::Actual {
         return Err(AdapterError::Currentness(
             "interpreter request must enter on the actual world".to_string(),
+        ));
+    }
+    if request.covenant_slice.status_axes.covenant_status != Some(CovenantStatusV1::Admitted) {
+        return Err(AdapterError::Authority(
+            "request slice covenant axis is not admitted".to_string(),
         ));
     }
     if request.coordinate.global_tic != request.covenant_slice.operative_tic.unwrap_or(u64::MAX) {
@@ -345,11 +360,14 @@ fn validate_interpretation(
             "proposal uncertainty is outside [0,1]".to_string(),
         ));
     }
-    validate_facets(&result.proposal.facets)?;
+    validate_facets(&result.proposal.facets, request.authority_ceiling)?;
     Ok(())
 }
 
-fn validate_facets(facets: &SixFacetRecordV1) -> Result<(), AdapterError> {
+fn validate_facets(
+    facets: &SixFacetRecordV1,
+    authority_ceiling: OutputAuthorityV1,
+) -> Result<(), AdapterError> {
     for (read, expected) in [
         (&facets.KAT, FacetNameV1::Kat),
         (&facets.APO, FacetNameV1::Apo),
@@ -365,9 +383,7 @@ fn validate_facets(facets: &SixFacetRecordV1) -> Result<(), AdapterError> {
             )));
         }
         if read.assertions.is_empty() {
-            return Err(AdapterError::Proposal(format!(
-                "{expected:?} is empty"
-            )));
+            return Err(AdapterError::Proposal(format!("{expected:?} is empty")));
         }
         for assertion in &read.assertions {
             if assertion.statement.trim().is_empty() {
@@ -375,16 +391,13 @@ fn validate_facets(facets: &SixFacetRecordV1) -> Result<(), AdapterError> {
                     "{expected:?} contains an empty assertion"
                 )));
             }
-            if !assertion.authority.allows(OutputAuthorityV1::Evidence)
-                && assertion.authority != OutputAuthorityV1::Evidence
-            {
+            if !authority_ceiling.allows(assertion.authority) {
                 return Err(AdapterError::Authority(format!(
-                    "{expected:?} assertion has invalid authority"
+                    "{expected:?} assertion authority {:?} exceeds request ceiling {authority_ceiling:?}",
+                    assertion.authority
                 )));
             }
-            if !assertion.confidence.is_finite()
-                || !(0.0..=1.0).contains(&assertion.confidence)
-            {
+            if !assertion.confidence.is_finite() || !(0.0..=1.0).contains(&assertion.confidence) {
                 return Err(AdapterError::Proposal(format!(
                     "{expected:?} assertion confidence is outside [0,1]"
                 )));
@@ -416,7 +429,9 @@ fn parse_source_tense(value: &str) -> Result<SourceTenseV1, AdapterError> {
     }
 }
 
-fn parse_source_status(value: Option<&Value>) -> Result<BTreeMap<String, SourceStatusV1>, AdapterError> {
+fn parse_source_status(
+    value: Option<&Value>,
+) -> Result<BTreeMap<String, SourceStatusV1>, AdapterError> {
     let mut output = BTreeMap::new();
     let Some(object) = value.and_then(Value::as_object) else {
         return Err(AdapterError::Slice(
@@ -461,7 +476,9 @@ fn parse_source_status(value: Option<&Value>) -> Result<BTreeMap<String, SourceS
     Ok(output)
 }
 
-fn parse_input_hashes(value: Option<&Value>) -> Result<BTreeMap<String, Option<String>>, AdapterError> {
+fn parse_input_hashes(
+    value: Option<&Value>,
+) -> Result<BTreeMap<String, Option<String>>, AdapterError> {
     let Some(object) = value.and_then(Value::as_object) else {
         return Err(AdapterError::Slice(
             "input_hashes must be an object".to_string(),
