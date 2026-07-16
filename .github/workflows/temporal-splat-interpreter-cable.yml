@@ -1,0 +1,58 @@
+name: temporal-splat-interpreter-cable
+
+on:
+  push:
+    branches:
+      - build/temporal-splat-interpreter-cable-v0.1
+    paths:
+      - cgg-runtime/crates/cgg-temporal-adapter/**
+      - cgg-runtime/contracts/temporal-splat-interpreter-cable-v1.schema.json
+      - cgg-runtime/skills/covenant-splat/**
+      - .github/workflows/temporal-splat-interpreter-cable.yml
+  pull_request:
+    paths:
+      - cgg-runtime/crates/cgg-temporal-adapter/**
+      - cgg-runtime/contracts/temporal-splat-interpreter-cable-v1.schema.json
+      - cgg-runtime/skills/covenant-splat/**
+      - .github/workflows/temporal-splat-interpreter-cable.yml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: temporal-splat-interpreter-cable-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+  MANIFEST: cgg-runtime/crates/cgg-temporal-adapter/Cargo.toml
+
+jobs:
+  rust:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - run: rustup component add rustfmt clippy
+      - name: Formatting
+        run: cargo fmt --manifest-path "$MANIFEST" -- --check
+      - name: Tests
+        run: cargo test --manifest-path "$MANIFEST"
+      - name: Clippy
+        run: cargo clippy --manifest-path "$MANIFEST" --all-targets -- -D warnings
+
+  python-oracle:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run deterministic lowering oracle
+        run: python3 cgg-runtime/skills/covenant-splat/scripts/lower-covenant-expr.py --selftest
+
+  schema:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Parse adapter schema
+        run: python3 -m json.tool cgg-runtime/contracts/temporal-splat-interpreter-cable-v1.schema.json >/dev/null
