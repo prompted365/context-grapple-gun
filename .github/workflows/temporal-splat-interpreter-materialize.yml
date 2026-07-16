@@ -1,5 +1,7 @@
 name: temporal-splat-interpreter-materialize
 
+# One-shot branch materializer. This second commit triggers the workflow after the
+# workflow definition itself is already present on the branch.
 on:
   push:
     branches:
