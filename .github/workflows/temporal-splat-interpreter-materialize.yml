@@ -1,0 +1,72 @@
+name: temporal-splat-interpreter-materialize
+
+on:
+  push:
+    branches:
+      - build/temporal-splat-interpreter-cable-v0.1
+    paths:
+      - .github/workflows/temporal-splat-interpreter-materialize.yml
+
+permissions:
+  contents: write
+
+jobs:
+  materialize:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: build/temporal-splat-interpreter-cable-v0.1
+          fetch-depth: 0
+
+      - name: Harden assertion authority and materialize Rust outputs
+        shell: python
+        run: |
+          from pathlib import Path
+
+          path = Path("cgg-runtime/crates/cgg-temporal-adapter/src/adapter.rs")
+          text = path.read_text()
+
+          text = text.replace(
+              "    validate_facets(&result.proposal.facets)?;",
+              "    validate_facets(&result.proposal.facets, request.authority_ceiling)?;",
+              1,
+          )
+          text = text.replace(
+              "fn validate_facets(facets: &SixFacetRecordV1) -> Result<(), AdapterError> {",
+              "fn validate_facets(\n    facets: &SixFacetRecordV1,\n    authority_ceiling: OutputAuthorityV1,\n) -> Result<(), AdapterError> {",
+              1,
+          )
+          old = """            if !assertion.authority.allows(OutputAuthorityV1::Evidence)
+                && assertion.authority != OutputAuthorityV1::Evidence
+            {
+                return Err(AdapterError::Authority(format!(
+                    \"{expected:?} assertion has invalid authority\"
+                )));
+            }
+"""
+          new = """            if !authority_ceiling.allows(assertion.authority) {
+                return Err(AdapterError::Authority(format!(
+                    \"{expected:?} assertion authority {:?} exceeds request ceiling {authority_ceiling:?}\",
+                    assertion.authority
+                )));
+            }
+"""
+          if old not in text:
+              raise SystemExit("assertion authority block not found")
+          path.write_text(text.replace(old, new, 1))
+
+      - name: Format and generate standalone lockfile
+        run: |
+          cargo fmt --manifest-path cgg-runtime/crates/cgg-temporal-adapter/Cargo.toml
+          cargo generate-lockfile --manifest-path cgg-runtime/crates/cgg-temporal-adapter/Cargo.toml
+
+      - name: Commit exact materialized outputs and remove one-shot rail
+        run: |
+          git config user.name "homeskillet-oa55"
+          git config user.email "noreply@prompted.community"
+          git rm .github/workflows/temporal-splat-interpreter-materialize.yml
+          git add cgg-runtime/crates/cgg-temporal-adapter
+          git commit -m "Materialize and harden the CGG temporal interpreter cable"
+          git push origin HEAD:build/temporal-splat-interpreter-cable-v0.1
