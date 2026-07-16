@@ -17,7 +17,7 @@ on:
       - .github/workflows/temporal-splat-interpreter-cable.yml
 
 permissions:
-  contents: write
+  contents: read
 
 concurrency:
   group: temporal-splat-interpreter-cable-${{ github.ref }}
@@ -28,36 +28,6 @@ env:
   MANIFEST: cgg-runtime/crates/cgg-temporal-adapter/Cargo.toml
 
 jobs:
-  materialize:
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          ref: build/temporal-splat-interpreter-cable-v0.1
-          fetch-depth: 0
-          persist-credentials: true
-      - name: Apply review corrections
-        run: python .github/scripts/materialize_temporal_interpreter.py
-      - name: Materialize Rust formatting and lockfile
-        run: |
-          cargo fmt --manifest-path "$MANIFEST"
-          cargo generate-lockfile --manifest-path "$MANIFEST"
-      - name: Commit exact code outputs
-        shell: bash
-        run: |
-          set -euo pipefail
-          git config user.name "homeskillet-oa55"
-          git config user.email "noreply@prompted.community"
-          git add cgg-runtime/crates/cgg-temporal-adapter
-          if git diff --cached --quiet; then
-            echo "No materialized code changes"
-            exit 0
-          fi
-          git commit -m "Materialize and harden the CGG temporal interpreter cable"
-          git pull --rebase origin build/temporal-splat-interpreter-cable-v0.1
-          git push origin HEAD:build/temporal-splat-interpreter-cable-v0.1
-
   rust:
     runs-on: ubuntu-latest
     timeout-minutes: 20
