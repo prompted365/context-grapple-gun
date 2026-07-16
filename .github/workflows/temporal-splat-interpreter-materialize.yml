@@ -7,6 +7,11 @@ on:
       - build/temporal-splat-interpreter-cable-v0.1
     paths:
       - .github/workflows/temporal-splat-interpreter-materialize.yml
+  pull_request:
+    branches:
+      - main
+    paths:
+      - .github/workflows/temporal-splat-interpreter-materialize.yml
 
 permissions:
   contents: write
