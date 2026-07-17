@@ -424,7 +424,10 @@ fn adapter_kills_a_mount_that_exceeds_its_deadline() {
         "unexpected stderr: {}",
         String::from_utf8_lossy(&output.stderr)
     );
-    assert!(elapsed < Duration::from_secs(4), "deadline was not enforced");
+    assert!(
+        elapsed < Duration::from_secs(4),
+        "deadline was not enforced"
+    );
 }
 
 #[test]
