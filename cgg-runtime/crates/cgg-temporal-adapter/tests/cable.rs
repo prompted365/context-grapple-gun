@@ -88,8 +88,22 @@ fn read(facet: FacetNameV1) -> FacetReadV1 {
     }
 }
 
+fn request_binding(request: &SplatInterpretationRequestV1) -> OriginatorRequestBindingV1 {
+    OriginatorRequestBindingV1 {
+        request_id: request.request_id.clone(),
+        request_hash: request_hash(request).unwrap(),
+        covenant_id: request.covenant_id.clone(),
+        covenant_hash: request.covenant_hash.clone(),
+        slice_hash: request.slice_hash.clone(),
+        admission_receipt: request.admission_receipt.clone(),
+        coordinate: request.coordinate.clone(),
+        authority_ceiling: request.authority_ceiling,
+    }
+}
+
 fn interpretation(request: &SplatInterpretationRequestV1) -> InterpretationResultV1 {
     InterpretationResultV1 {
+        request_binding: request_binding(request),
         proposal: MorphismProposalV1 {
             proposal_id: "proposal-a".to_string(),
             model_id: "model-a".to_string(),
@@ -122,7 +136,12 @@ fn interpretation(request: &SplatInterpretationRequestV1) -> InterpretationResul
     }
 }
 
-fn mount(request: &SplatInterpretationRequestV1) -> CanonicalMountEnvelope {
+fn payload(request: &SplatInterpretationRequestV1) -> String {
+    build_invocation_payload(request).unwrap()
+}
+
+fn mount(request: &SplatInterpretationRequestV1, payload: &str) -> CanonicalMountEnvelope {
+    let text = serde_json::to_string(&interpretation(request)).unwrap();
     CanonicalMountEnvelope {
         command: "invoke".to_string(),
         office: "ent_homeskillet".to_string(),
@@ -132,7 +151,7 @@ fn mount(request: &SplatInterpretationRequestV1) -> CanonicalMountEnvelope {
         backend: "frontier".to_string(),
         output_authority: OutputAuthorityV1::Proposal,
         report: CanonicalMountReport {
-            text: serde_json::to_string(&interpretation(request)).unwrap(),
+            text: text.clone(),
             artifacts: Vec::new(),
             commands: Vec::new(),
             exits: vec![0],
@@ -143,10 +162,33 @@ fn mount(request: &SplatInterpretationRequestV1) -> CanonicalMountEnvelope {
             output_authority: OutputAuthorityV1::Proposal,
             terminalized: false,
         },
+        invocation_binding: CanonicalMountInvocationBinding {
+            contract: "canonical-mount.invocation-binding.v1".to_string(),
+            payload_sha256: hash_bytes(payload.as_bytes()),
+            report_text_sha256: hash_bytes(text.as_bytes()),
+            request_hash: Some(request_hash(request).unwrap()),
+            tic: request.coordinate.global_tic as i64,
+            executable: CanonicalMountExecutableIdentity {
+                name: "canonical-mount".to_string(),
+                version: "0.0.1".to_string(),
+                source_commit: "e".repeat(40),
+            },
+        },
         provider_error: None,
         exit_status: 0,
         terminalized: false,
     }
+}
+
+fn replace_result(
+    request: &SplatInterpretationRequestV1,
+    payload: &str,
+    result: InterpretationResultV1,
+) -> CanonicalMountEnvelope {
+    let mut envelope = mount(request, payload);
+    envelope.report.text = serde_json::to_string(&result).unwrap();
+    envelope.invocation_binding.report_text_sha256 = hash_bytes(envelope.report.text.as_bytes());
+    envelope
 }
 
 #[test]
@@ -164,8 +206,14 @@ fn hydrated_slice_is_bound_to_admission_and_tic() {
 #[test]
 fn canonical_mount_output_normalizes_to_exact_request_hash() {
     let request = prepared();
-    let proposal = normalize_proposal(&request, mount(&request)).unwrap();
+    let payload = payload(&request);
+    let proposal = normalize_proposal(&request, &payload, mount(&request, &payload)).unwrap();
     assert_eq!(proposal.request_hash, request_hash(&request).unwrap());
+    assert_eq!(proposal.originator_echo, request_binding(&request));
+    assert_eq!(
+        proposal.originator_binding.invocation_payload_sha256,
+        hash_bytes(payload.as_bytes())
+    );
     assert_eq!(proposal.interpreter.model, "model-a");
     assert!(!proposal.terminalized);
 }
@@ -183,10 +231,11 @@ fn changed_tic_refuses_before_model_invocation() {
 #[test]
 fn terminalization_claim_is_rejected() {
     let request = prepared();
-    let mut envelope = mount(&request);
+    let payload = payload(&request);
+    let mut envelope = mount(&request, &payload);
     envelope.civic_receipt.terminalized = true;
     assert!(matches!(
-        normalize_proposal(&request, envelope),
+        normalize_proposal(&request, &payload, envelope),
         Err(AdapterError::Mount(_))
     ));
 }
@@ -194,12 +243,12 @@ fn terminalization_claim_is_rejected() {
 #[test]
 fn authority_widening_is_rejected() {
     let request = prepared();
+    let payload = payload(&request);
     let mut result = interpretation(&request);
     result.proposal.output_authority = OutputAuthorityV1::AdmittedMutation;
-    let mut envelope = mount(&request);
-    envelope.report.text = serde_json::to_string(&result).unwrap();
+    let envelope = replace_result(&request, &payload, result);
     assert!(matches!(
-        normalize_proposal(&request, envelope),
+        normalize_proposal(&request, &payload, envelope),
         Err(AdapterError::Authority(_))
     ));
 }
@@ -209,8 +258,9 @@ fn normalize_rechecks_the_admitted_covenant_axis() {
     let mut request = prepared();
     request.covenant_slice.status_axes.covenant_status = Some(CovenantStatusV1::Superseded);
     request.slice_hash = slice_hash(&request.covenant_slice).unwrap();
+    let payload = payload(&request);
     assert!(matches!(
-        normalize_proposal(&request, mount(&request)),
+        normalize_proposal(&request, &payload, mount(&request, &payload)),
         Err(AdapterError::Authority(_))
     ));
 }
@@ -219,14 +269,14 @@ fn normalize_rechecks_the_admitted_covenant_axis() {
 fn mount_and_embedded_proposal_authority_must_agree() {
     let mut request = prepared();
     request.authority_ceiling = OutputAuthorityV1::Reasoning;
-    let mut envelope = mount(&request);
-    envelope.output_authority = OutputAuthorityV1::Advisory;
-    envelope.civic_receipt.output_authority = OutputAuthorityV1::Advisory;
+    let payload = payload(&request);
     let mut result = interpretation(&request);
     result.proposal.output_authority = OutputAuthorityV1::Proposal;
-    envelope.report.text = serde_json::to_string(&result).unwrap();
+    let mut envelope = replace_result(&request, &payload, result);
+    envelope.output_authority = OutputAuthorityV1::Advisory;
+    envelope.civic_receipt.output_authority = OutputAuthorityV1::Advisory;
     assert!(matches!(
-        normalize_proposal(&request, envelope),
+        normalize_proposal(&request, &payload, envelope),
         Err(AdapterError::Authority(_))
     ));
 }
@@ -234,12 +284,59 @@ fn mount_and_embedded_proposal_authority_must_agree() {
 #[test]
 fn facet_assertions_cannot_widen_authority_inside_a_valid_proposal() {
     let request = prepared();
+    let payload = payload(&request);
     let mut result = interpretation(&request);
     result.proposal.facets.KAT.assertions[0].authority = OutputAuthorityV1::AdmittedMutation;
-    let mut envelope = mount(&request);
-    envelope.report.text = serde_json::to_string(&result).unwrap();
+    let envelope = replace_result(&request, &payload, result);
     assert!(matches!(
-        normalize_proposal(&request, envelope),
+        normalize_proposal(&request, &payload, envelope),
         Err(AdapterError::Authority(_))
+    ));
+}
+
+#[test]
+fn originator_output_from_another_request_cannot_be_rebound() {
+    let request_a = prepared();
+    let payload_a = payload(&request_a);
+    let mut request_b = prepared();
+    request_b.request_id = "request-b".to_string();
+    let payload_b = payload(&request_b);
+    let mut envelope = mount(&request_a, &payload_a);
+    envelope.invocation_binding.payload_sha256 = hash_bytes(payload_b.as_bytes());
+    envelope.invocation_binding.request_hash = Some(request_hash(&request_b).unwrap());
+    assert!(matches!(
+        normalize_proposal(&request_b, &payload_b, envelope),
+        Err(AdapterError::Proposal(_))
+    ));
+}
+
+#[test]
+fn exact_payload_and_report_bytes_are_recomputed() {
+    let request = prepared();
+    let payload = payload(&request);
+    let mut bad_payload = mount(&request, &payload);
+    bad_payload.invocation_binding.payload_sha256 = "f".repeat(64);
+    assert!(matches!(
+        normalize_proposal(&request, &payload, bad_payload),
+        Err(AdapterError::Mount(_))
+    ));
+
+    let mut bad_report = mount(&request, &payload);
+    bad_report.report.text.push(' ');
+    assert!(matches!(
+        normalize_proposal(&request, &payload, bad_report),
+        Err(AdapterError::Mount(_))
+    ));
+}
+
+#[test]
+fn mount_executable_must_carry_an_exact_source_commit() {
+    let request = prepared();
+    let payload = payload(&request);
+    let mut envelope = mount(&request, &payload);
+    envelope.invocation_binding.executable.source_commit = "unknown".to_string();
+    assert!(matches!(
+        normalize_proposal(&request, &payload, envelope),
+        Err(AdapterError::Sha256 { .. })
     ));
 }
