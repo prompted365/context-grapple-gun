@@ -395,3 +395,26 @@ fn exact_canonical_mount_binary_closes_binding() {
     );
     assert!(!proposal.terminalized);
 }
+
+#[test]
+fn emit_cross_repository_protocol_fixture_when_requested() {
+    let Ok(directory) = std::env::var("CGG_CROSS_FIXTURE_DIR") else {
+        return;
+    };
+    let request = prepared();
+    let exact_payload = payload(&request);
+    let proposal =
+        normalize_proposal(&request, &exact_payload, mount(&request, &exact_payload)).unwrap();
+    let directory = std::path::PathBuf::from(directory);
+    std::fs::create_dir_all(&directory).unwrap();
+    std::fs::write(
+        directory.join("request.json"),
+        serde_json::to_vec_pretty(&request).unwrap(),
+    )
+    .unwrap();
+    std::fs::write(
+        directory.join("proposal.json"),
+        serde_json::to_vec_pretty(&proposal).unwrap(),
+    )
+    .unwrap();
+}
