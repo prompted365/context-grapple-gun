@@ -2,31 +2,55 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://prompted.community/contracts/temporal-splat-interpreter-cable-v1.schema.json",
   "title": "CGG Temporal Splat Interpreter Cable v1",
-  "description": "CGG-owned binding inputs around temporal-splat-protocol-v1. The emitted request/proposal envelopes are validated downstream against protocol schema sha256 817abcdd53e572ce97f77c27149cf42ec26df98915bdb70cd2ebc879bdde951b.",
+  "description": "CGG-owned exact-request and mount-byte binding around temporal-splat protocol v1. The originator must echo request_binding; canonical-mount independently binds payload bytes, report bytes, tic, and executable source commit.",
   "oneOf": [
-    { "$ref": "#/$defs/PrepareRequestInput" },
-    { "$ref": "#/$defs/InterpretationResultV1" }
+    {
+      "$ref": "#/$defs/PrepareRequestInput"
+    },
+    {
+      "$ref": "#/$defs/InterpretationResultV1"
+    }
   ],
   "$defs": {
-    "Sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "Sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
     "ReceiptRef": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["id", "sha256"],
+      "required": [
+        "id",
+        "sha256"
+      ],
       "properties": {
-        "id": { "type": "string", "minLength": 1 },
-        "sha256": { "$ref": "#/$defs/Sha256" }
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "sha256": {
+          "$ref": "#/$defs/Sha256"
+        }
       }
     },
     "TemporalCoordinate": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["global_tic", "causal_frontier"],
+      "required": [
+        "global_tic",
+        "causal_frontier"
+      ],
       "properties": {
-        "global_tic": { "type": "integer", "minimum": 0 },
+        "global_tic": {
+          "type": "integer",
+          "minimum": 0
+        },
         "causal_frontier": {
           "type": "object",
-          "additionalProperties": { "type": "integer", "minimum": 0 }
+          "additionalProperties": {
+            "type": "integer",
+            "minimum": 0
+          }
         }
       }
     },
@@ -41,11 +65,33 @@
         "evidence_status"
       ],
       "properties": {
-        "covenant_status": { "const": "admitted" },
-        "projection_status": { "type": ["string", "null"] },
-        "conformation_status": { "type": ["string", "null"] },
-        "execution_status": { "type": ["string", "null"] },
-        "evidence_status": { "type": ["string", "null"] }
+        "covenant_status": {
+          "const": "admitted"
+        },
+        "projection_status": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "conformation_status": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "execution_status": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "evidence_status": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
       }
     },
     "PrepareRequestInput": {
@@ -65,12 +111,27 @@
         "center_exclusion_declaration"
       ],
       "properties": {
-        "request_id": { "type": "string", "minLength": 1 },
-        "coordinate": { "$ref": "#/$defs/TemporalCoordinate" },
-        "branch_id": { "type": "string", "minLength": 1 },
-        "covenant_id": { "type": "string", "minLength": 1 },
-        "covenant_hash": { "$ref": "#/$defs/Sha256" },
-        "admission_receipt": { "$ref": "#/$defs/ReceiptRef" },
+        "request_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "coordinate": {
+          "$ref": "#/$defs/TemporalCoordinate"
+        },
+        "branch_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "covenant_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "covenant_hash": {
+          "$ref": "#/$defs/Sha256"
+        },
+        "admission_receipt": {
+          "$ref": "#/$defs/ReceiptRef"
+        },
         "hydrated_slice": {
           "type": "object",
           "required": [
@@ -84,20 +145,37 @@
             "operative_tic"
           ]
         },
-        "status_axes": { "$ref": "#/$defs/StatusAxes" },
+        "status_axes": {
+          "$ref": "#/$defs/StatusAxes"
+        },
         "authority_ceiling": {
-          "enum": ["evidence", "advisory", "proposal", "proposing", "reasoning"]
+          "enum": [
+            "evidence",
+            "advisory",
+            "proposal",
+            "proposing",
+            "reasoning"
+          ]
         },
         "requested_operation": {
-          "enum": ["splat", "simulate", "verify", "propose_morphism"]
+          "enum": [
+            "splat",
+            "simulate",
+            "verify",
+            "propose_morphism"
+          ]
         },
-        "center_exclusion_declaration": { "type": "string", "minLength": 1 }
+        "center_exclusion_declaration": {
+          "type": "string",
+          "minLength": 1
+        }
       }
     },
     "InterpretationResultV1": {
       "type": "object",
       "additionalProperties": false,
       "required": [
+        "request_binding",
         "proposal",
         "dispositions",
         "renarrow_triggers",
@@ -124,19 +202,99 @@
           "properties": {
             "facets": {
               "type": "object",
-              "required": ["KAT", "APO", "PAR", "PLE", "ENA", "TEL"]
+              "required": [
+                "KAT",
+                "APO",
+                "PAR",
+                "PLE",
+                "ENA",
+                "TEL"
+              ]
             },
-            "terminalized": { "const": false }
+            "terminalized": {
+              "const": false
+            }
           }
         },
-        "dispositions": { "type": "array" },
-        "renarrow_triggers": { "type": "array", "items": { "type": "string" } },
+        "dispositions": {
+          "type": "array"
+        },
+        "renarrow_triggers": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
         "selected_choices": {
           "type": "object",
-          "additionalProperties": { "enum": ["L", "R"] }
+          "additionalProperties": {
+            "enum": [
+              "L",
+              "R"
+            ]
+          }
         },
-        "write_surfaces": { "type": "array", "items": { "type": "string" } },
-        "rollback_contract": { "type": "string", "minLength": 1 }
+        "write_surfaces": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "rollback_contract": {
+          "type": "string",
+          "minLength": 1
+        },
+        "request_binding": {
+          "$ref": "#/$defs/OriginatorRequestBinding"
+        }
+      }
+    },
+    "OriginatorRequestBinding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "request_id",
+        "request_hash",
+        "covenant_id",
+        "covenant_hash",
+        "slice_hash",
+        "admission_receipt",
+        "coordinate",
+        "authority_ceiling"
+      ],
+      "properties": {
+        "request_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "request_hash": {
+          "$ref": "#/$defs/Sha256"
+        },
+        "covenant_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "covenant_hash": {
+          "$ref": "#/$defs/Sha256"
+        },
+        "slice_hash": {
+          "$ref": "#/$defs/Sha256"
+        },
+        "admission_receipt": {
+          "$ref": "#/$defs/ReceiptRef"
+        },
+        "coordinate": {
+          "$ref": "#/$defs/TemporalCoordinate"
+        },
+        "authority_ceiling": {
+          "enum": [
+            "evidence",
+            "advisory",
+            "proposal",
+            "proposing",
+            "reasoning"
+          ]
+        }
       }
     }
   }
