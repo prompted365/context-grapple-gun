@@ -336,7 +336,9 @@ fn validate_mount(
 ) -> Result<(), AdapterError> {
     let expected_request_hash = request_hash(request)?;
     if mount.invocation_binding.contract != "canonical-mount.invocation-binding.v1" {
-        return Err(AdapterError::Mount("invocation binding contract is unsupported".to_string()));
+        return Err(AdapterError::Mount(
+            "invocation binding contract is unsupported".to_string(),
+        ));
     }
     if mount.invocation_binding.payload_sha256 != hash_bytes(invocation_payload.as_bytes()) {
         return Err(AdapterError::Mount(
@@ -354,10 +356,14 @@ fn validate_mount(
         ));
     }
     if mount.invocation_binding.tic != request.coordinate.global_tic as i64 {
-        return Err(AdapterError::Mount("mount tic differs from request coordinate".to_string()));
+        return Err(AdapterError::Mount(
+            "mount tic differs from request coordinate".to_string(),
+        ));
     }
     if mount.invocation_binding.executable.name != "canonical-mount" {
-        return Err(AdapterError::Mount("unexpected executable identity".to_string()));
+        return Err(AdapterError::Mount(
+            "unexpected executable identity".to_string(),
+        ));
     }
     nonempty(
         "mount.executable.version",
@@ -367,11 +373,13 @@ fn validate_mount(
         "mount.executable.source_commit",
         &mount.invocation_binding.executable.source_commit,
     )?;
-    let payload: Value = serde_json::from_str(invocation_payload)
-        .map_err(|error| AdapterError::Mount(format!("invocation payload is invalid JSON: {error}")))?;
+    let payload: Value = serde_json::from_str(invocation_payload).map_err(|error| {
+        AdapterError::Mount(format!("invocation payload is invalid JSON: {error}"))
+    })?;
     if payload.get("request_hash").and_then(Value::as_str) != Some(expected_request_hash.as_str())
         || payload.get("request_id").and_then(Value::as_str) != Some(request.request_id.as_str())
-        || payload.get("covenant_hash").and_then(Value::as_str) != Some(request.covenant_hash.as_str())
+        || payload.get("covenant_hash").and_then(Value::as_str)
+            != Some(request.covenant_hash.as_str())
         || payload.get("slice_hash").and_then(Value::as_str) != Some(request.slice_hash.as_str())
     {
         return Err(AdapterError::Mount(
