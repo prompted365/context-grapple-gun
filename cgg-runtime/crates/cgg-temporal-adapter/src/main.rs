@@ -172,9 +172,7 @@ fn mount_timeout() -> Result<Duration> {
         .parse::<u64>()
         .with_context(|| format!("CGG_TEMPORAL_MOUNT_TIMEOUT_SECS is not an integer: {raw:?}"))?;
     if !(1..=MAX_MOUNT_TIMEOUT_SECS).contains(&seconds) {
-        bail!(
-            "CGG_TEMPORAL_MOUNT_TIMEOUT_SECS must be between 1 and {MAX_MOUNT_TIMEOUT_SECS}"
-        );
+        bail!("CGG_TEMPORAL_MOUNT_TIMEOUT_SECS must be between 1 and {MAX_MOUNT_TIMEOUT_SECS}");
     }
     Ok(Duration::from_secs(seconds))
 }
@@ -217,10 +215,10 @@ fn run_with_timeout(command: &mut Command, timeout: Duration) -> Result<MountOut
         thread::sleep(Duration::from_millis(25));
     };
 
-    let stdout = fs::read(stdout_file.path())
-        .context("failed to read canonical-mount stdout artifact")?;
-    let stderr = fs::read(stderr_file.path())
-        .context("failed to read canonical-mount stderr artifact")?;
+    let stdout =
+        fs::read(stdout_file.path()).context("failed to read canonical-mount stdout artifact")?;
+    let stderr =
+        fs::read(stderr_file.path()).context("failed to read canonical-mount stderr artifact")?;
     Ok(MountOutput {
         status,
         stdout,
