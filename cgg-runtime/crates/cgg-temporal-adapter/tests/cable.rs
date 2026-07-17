@@ -390,7 +390,7 @@ fn exact_canonical_mount_binary_closes_binding() {
         .expect("exact live binary binding must normalize");
     assert_eq!(proposal.request_hash, request_hash(&request).unwrap());
     assert_eq!(
-        proposal.originator_binding.canonical_mount_source_commit,
+        proposal.originator_binding.executable_source_commit,
         expected_commit
     );
     assert!(!proposal.terminalized);
