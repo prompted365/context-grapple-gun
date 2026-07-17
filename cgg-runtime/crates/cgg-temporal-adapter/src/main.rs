@@ -118,20 +118,19 @@ impl TempArtifact {
                 "cgg-temporal-{label}-{}-{stamp}-{sequence}",
                 std::process::id()
             ));
-            match OpenOptions::new().write(true).create_new(true).open(&path) {
+            let mut options = OpenOptions::new();
+            options.write(true).create_new(true);
+            #[cfg(unix)]
+            {
+                use std::os::unix::fs::OpenOptionsExt;
+                options.mode(0o600);
+            }
+            match options.open(&path) {
                 Ok(mut file) => {
                     file.write_all(bytes)
                         .with_context(|| format!("failed to write {}", path.display()))?;
                     file.flush()
                         .with_context(|| format!("failed to flush {}", path.display()))?;
-                    #[cfg(unix)]
-                    {
-                        use std::os::unix::fs::PermissionsExt;
-                        fs::set_permissions(&path, fs::Permissions::from_mode(0o600))
-                            .with_context(|| {
-                                format!("failed to protect {}", path.display())
-                            })?;
-                    }
                     return Ok(Self { path });
                 }
                 Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => continue,
