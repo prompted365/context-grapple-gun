@@ -3,7 +3,7 @@ use sha2::{Digest, Sha256};
 use std::collections::BTreeMap;
 
 pub const PROTOCOL_SCHEMA_SHA256: &str =
-    "817abcdd53e572ce97f77c27149cf42ec26df98915bdb70cd2ebc879bdde951b";
+    "42e4f35f9b7a8c0f6ec82529ea71948c1ab33f51174adb93fa07b21316fa2e75";
 pub const REQUEST_CONTRACT: &str = "splat.interpretation-request.v1";
 pub const PROPOSAL_CONTRACT: &str = "splat.proposal-envelope.v1";
 
