@@ -342,6 +342,27 @@ pub struct InterpreterIdentityV1 {
     pub provider_receipts: Vec<ReceiptRefV1>,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct OriginatorRequestBindingV1 {
+    pub request_id: String,
+    pub request_hash: String,
+    pub covenant_id: String,
+    pub covenant_hash: String,
+    pub slice_hash: String,
+    pub admission_receipt: ReceiptRefV1,
+    pub coordinate: TemporalCoordinateV1,
+    pub authority_ceiling: OutputAuthorityV1,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct OriginatorInvocationBindingV1 {
+    pub invocation_payload_sha256: String,
+    pub result_text_sha256: String,
+    pub executable_name: String,
+    pub executable_version: String,
+    pub executable_source_commit: String,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 pub enum ChoiceBranchV1 {
     L,
@@ -357,6 +378,8 @@ pub struct SplatProposalEnvelopeV1 {
     pub admission_receipt: ReceiptRefV1,
     pub authority: OutputAuthorityV1,
     pub interpreter: InterpreterIdentityV1,
+    pub originator_echo: OriginatorRequestBindingV1,
+    pub originator_binding: OriginatorInvocationBindingV1,
     pub proposal: MorphismProposalV1,
     #[serde(default)]
     pub dispositions: Vec<DispositionV1>,
@@ -368,6 +391,16 @@ pub struct SplatProposalEnvelopeV1 {
     pub write_surfaces: Vec<String>,
     pub rollback_contract: String,
     pub terminalized: bool,
+}
+
+pub fn hash_bytes(bytes: &[u8]) -> String {
+    let mut hasher = Sha256::new();
+    hasher.update(bytes);
+    hasher
+        .finalize()
+        .iter()
+        .map(|byte| format!("{byte:02x}"))
+        .collect()
 }
 
 pub fn hash_serializable<T: Serialize>(
