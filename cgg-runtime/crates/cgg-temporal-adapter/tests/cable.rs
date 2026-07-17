@@ -1,6 +1,7 @@
 use cgg_temporal_adapter::*;
 use serde_json::json;
 use std::collections::BTreeMap;
+use std::process::Command;
 
 fn receipt(id: &str) -> ReceiptRefV1 {
     ReceiptRefV1 {
@@ -339,4 +340,58 @@ fn mount_executable_must_carry_an_exact_source_commit() {
         normalize_proposal(&request, &payload, envelope),
         Err(AdapterError::GitCommit { .. })
     ));
+}
+
+#[test]
+fn exact_canonical_mount_binary_closes_binding() {
+    let Ok(mount_bin) = std::env::var("CANONICAL_MOUNT_BIN") else {
+        eprintln!("explicit cross-repository canary not configured; unit lane only");
+        return;
+    };
+    let expected_commit = std::env::var("CANONICAL_MOUNT_EXPECTED_COMMIT")
+        .expect("cross-repository canary must pin the mount commit");
+    let request = prepared();
+    let exact_payload = payload(&request);
+    let exact_report = serde_json::to_string(&interpretation(&request)).unwrap();
+    let output = Command::new(mount_bin)
+        .args([
+            "invoke",
+            "--office",
+            "ent_homeskillet",
+            "--lane",
+            "temporal-splat",
+            "--work-class",
+            "reasoning",
+            "--output-authority",
+            "proposal",
+            "--originator",
+            "mock",
+            "--tic",
+            "635",
+            "--payload",
+            &exact_payload,
+        ])
+        .env("ALLOW_MOCK_ENGINE", "1")
+        .env("CANONICAL_MOUNT_MOCK_REPORT_TEXT", &exact_report)
+        .output()
+        .expect("spawn exact canonical-mount binary");
+    assert!(
+        output.status.success(),
+        "canonical-mount failed: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let mount: CanonicalMountEnvelope =
+        serde_json::from_slice(&output.stdout).expect("typed canonical-mount output");
+    assert_eq!(
+        mount.invocation_binding.executable.source_commit,
+        expected_commit
+    );
+    let proposal = normalize_proposal(&request, &exact_payload, mount)
+        .expect("exact live binary binding must normalize");
+    assert_eq!(proposal.request_hash, request_hash(&request).unwrap());
+    assert_eq!(
+        proposal.originator_binding.canonical_mount_source_commit,
+        expected_commit
+    );
+    assert!(!proposal.terminalized);
 }
