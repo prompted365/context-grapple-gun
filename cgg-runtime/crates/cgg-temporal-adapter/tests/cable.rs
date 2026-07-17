@@ -1,7 +1,20 @@
 use cgg_temporal_adapter::*;
 use serde_json::json;
 use std::collections::BTreeMap;
+use std::path::PathBuf;
 use std::process::Command;
+use std::time::{SystemTime, UNIX_EPOCH};
+
+fn temp_path(label: &str) -> PathBuf {
+    let stamp = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap()
+        .as_nanos();
+    std::env::temp_dir().join(format!(
+        "cgg-temporal-test-{label}-{}-{stamp}",
+        std::process::id()
+    ))
+}
 
 fn receipt(id: &str) -> ReceiptRefV1 {
     ReceiptRefV1 {
@@ -351,49 +364,67 @@ fn exact_canonical_mount_binary_closes_binding() {
     let expected_commit = std::env::var("CANONICAL_MOUNT_EXPECTED_COMMIT")
         .expect("cross-repository canary must pin the mount commit");
     let request = prepared();
-    let exact_payload = payload(&request);
+    let request_path = temp_path("request.json");
+    std::fs::write(&request_path, serde_json::to_vec_pretty(&request).unwrap()).unwrap();
     let exact_report = serde_json::to_string(&interpretation(&request)).unwrap();
-    let output = Command::new(mount_bin)
-        .args([
-            "invoke",
-            "--office",
-            "ent_homeskillet",
-            "--lane",
-            "temporal-splat",
-            "--work-class",
-            "reasoning",
-            "--output-authority",
-            "proposal",
-            "--originator",
-            "mock",
-            "--tic",
-            "635",
-            "--payload",
-            &exact_payload,
-        ])
+    let output = Command::new(env!("CARGO_BIN_EXE_cgg-temporal-adapter"))
+        .args(["invoke", request_path.to_str().unwrap(), &mount_bin])
         .env("ALLOW_MOCK_ENGINE", "1")
         .env("CANONICAL_MOUNT_MOCK_REPORT_TEXT", &exact_report)
+        .env("CANONICAL_MOUNT_ORIGINATOR", "mock")
+        .env("CGG_TEMPORAL_MOUNT_TIMEOUT_SECS", "10")
         .output()
-        .expect("spawn exact canonical-mount binary");
+        .expect("spawn exact CGG adapter");
+    let _ = std::fs::remove_file(&request_path);
     assert!(
         output.status.success(),
-        "canonical-mount failed: {}",
+        "CGG adapter failed: {}",
         String::from_utf8_lossy(&output.stderr)
     );
-    let mount: CanonicalMountEnvelope =
-        serde_json::from_slice(&output.stdout).expect("typed canonical-mount output");
-    assert_eq!(
-        mount.invocation_binding.executable.source_commit,
-        expected_commit
-    );
-    let proposal = normalize_proposal(&request, &exact_payload, mount)
-        .expect("exact live binary binding must normalize");
+    let proposal: SplatProposalEnvelopeV1 =
+        serde_json::from_slice(&output.stdout).expect("typed proposal output");
     assert_eq!(proposal.request_hash, request_hash(&request).unwrap());
     assert_eq!(
         proposal.originator_binding.executable_source_commit,
         expected_commit
     );
     assert!(!proposal.terminalized);
+}
+
+#[cfg(unix)]
+#[test]
+fn adapter_kills_a_mount_that_exceeds_its_deadline() {
+    use std::os::unix::fs::PermissionsExt;
+    use std::time::{Duration, Instant};
+
+    let request = prepared();
+    let request_path = temp_path("timeout-request.json");
+    let mount_path = temp_path("sleeping-mount.sh");
+    std::fs::write(&request_path, serde_json::to_vec_pretty(&request).unwrap()).unwrap();
+    std::fs::write(&mount_path, b"#!/bin/sh\nexec sleep 5\n").unwrap();
+    std::fs::set_permissions(&mount_path, std::fs::Permissions::from_mode(0o700)).unwrap();
+
+    let started = Instant::now();
+    let output = Command::new(env!("CARGO_BIN_EXE_cgg-temporal-adapter"))
+        .args([
+            "invoke",
+            request_path.to_str().unwrap(),
+            mount_path.to_str().unwrap(),
+        ])
+        .env("CGG_TEMPORAL_MOUNT_TIMEOUT_SECS", "1")
+        .output()
+        .expect("spawn bounded CGG adapter");
+    let elapsed = started.elapsed();
+    let _ = std::fs::remove_file(&request_path);
+    let _ = std::fs::remove_file(&mount_path);
+
+    assert!(!output.status.success());
+    assert!(
+        String::from_utf8_lossy(&output.stderr).contains("timed out after 1 seconds"),
+        "unexpected stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(elapsed < Duration::from_secs(4), "deadline was not enforced");
 }
 
 #[test]
