@@ -401,10 +401,15 @@ fn emit_cross_repository_protocol_fixture_when_requested() {
     let Ok(directory) = std::env::var("CGG_CROSS_FIXTURE_DIR") else {
         return;
     };
-    let request = prepared();
+    let mut request = prepared();
+    request.authority_ceiling = OutputAuthorityV1::DelegatedExecution;
     let exact_payload = payload(&request);
-    let proposal =
-        normalize_proposal(&request, &exact_payload, mount(&request, &exact_payload)).unwrap();
+    let mut result = interpretation(&request);
+    result.proposal.output_authority = OutputAuthorityV1::DelegatedExecution;
+    let mut mount = replace_result(&request, &exact_payload, result);
+    mount.output_authority = OutputAuthorityV1::DelegatedExecution;
+    mount.civic_receipt.output_authority = OutputAuthorityV1::DelegatedExecution;
+    let proposal = normalize_proposal(&request, &exact_payload, mount).unwrap();
     let directory = std::path::PathBuf::from(directory);
     std::fs::create_dir_all(&directory).unwrap();
     std::fs::write(
