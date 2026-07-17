@@ -13,6 +13,8 @@ pub enum AdapterError {
     Missing(&'static str),
     #[error("field {field} must be a lowercase SHA-256 digest, got {value:?}")]
     Sha256 { field: &'static str, value: String },
+    #[error("source commit {field} must be a lowercase 40-character Git SHA-1, got {value:?}")]
+    GitCommit { field: &'static str, value: String },
     #[error("hydrated CovenantSlice is malformed: {0}")]
     Slice(String),
     #[error("currentness refusal: {0}")]
@@ -295,11 +297,6 @@ pub fn validate_request(request: &SplatInterpretationRequestV1) -> Result<(), Ad
             "request slice covenant axis is not admitted".to_string(),
         ));
     }
-    if request.covenant_slice.status_axes.covenant_status != Some(CovenantStatusV1::Admitted) {
-        return Err(AdapterError::Authority(
-            "request slice covenant axis is not admitted".to_string(),
-        ));
-    }
     if request.coordinate.global_tic != request.covenant_slice.operative_tic.unwrap_or(u64::MAX) {
         return Err(AdapterError::Currentness(
             "request coordinate and slice tic disagree".to_string(),
@@ -366,7 +363,7 @@ fn validate_mount(
         "mount.executable.version",
         &mount.invocation_binding.executable.version,
     )?;
-    valid_sha(
+    valid_git_commit(
         "mount.executable.source_commit",
         &mount.invocation_binding.executable.source_commit,
     )?;
@@ -661,6 +658,21 @@ fn valid_sha(field: &'static str, value: &str) -> Result<(), AdapterError> {
         Ok(())
     } else {
         Err(AdapterError::Sha256 {
+            field,
+            value: value.to_string(),
+        })
+    }
+}
+
+fn valid_git_commit(field: &'static str, value: &str) -> Result<(), AdapterError> {
+    if value.len() == 40
+        && value
+            .bytes()
+            .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte))
+    {
+        Ok(())
+    } else {
+        Err(AdapterError::GitCommit {
             field,
             value: value.to_string(),
         })
