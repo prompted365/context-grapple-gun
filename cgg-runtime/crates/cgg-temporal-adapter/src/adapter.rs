@@ -1,6 +1,6 @@
 use crate::protocol::*;
 use serde::{Deserialize, Serialize};
-use serde_json::Value;
+use serde_json::{json, Value};
 use std::collections::BTreeMap;
 use thiserror::Error;
 
@@ -62,6 +62,23 @@ pub struct CivicReceipt {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CanonicalMountExecutableIdentity {
+    pub name: String,
+    pub version: String,
+    pub source_commit: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CanonicalMountInvocationBinding {
+    pub contract: String,
+    pub payload_sha256: String,
+    pub report_text_sha256: String,
+    pub request_hash: Option<String>,
+    pub tic: i64,
+    pub executable: CanonicalMountExecutableIdentity,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CanonicalMountEnvelope {
     pub command: String,
     pub office: String,
@@ -72,6 +89,7 @@ pub struct CanonicalMountEnvelope {
     pub output_authority: OutputAuthorityV1,
     pub report: CanonicalMountReport,
     pub civic_receipt: CivicReceipt,
+    pub invocation_binding: CanonicalMountInvocationBinding,
     pub provider_error: Option<String>,
     pub exit_status: i64,
     pub terminalized: bool,
@@ -79,6 +97,7 @@ pub struct CanonicalMountEnvelope {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct InterpretationResultV1 {
+    pub request_binding: OriginatorRequestBindingV1,
     pub proposal: MorphismProposalV1,
     #[serde(default)]
     pub dispositions: Vec<DispositionV1>,
@@ -171,12 +190,35 @@ pub fn prepare_request(
     })
 }
 
+pub fn build_invocation_payload(
+    request: &SplatInterpretationRequestV1,
+) -> Result<String, AdapterError> {
+    validate_request(request)?;
+    let expected = expected_originator_binding(request)?;
+    let request_json = serde_json::to_string(request)?;
+    let binding_json = serde_json::to_string(&expected)?;
+    let prompt = format!(
+        "Return exactly one JSON object matching InterpretationResultV1.          The request_binding field MUST byte-for-byte represent this binding: {binding_json}.          Do not change request identity, authority, coordinate, covenant, slice, or admission.          Preserve all six facets KAT/APO/PAR/PLE/ENA/TEL, explicit dispositions, uncertainty,          unresolved items, selected choices, write surfaces, rollback contract, and terminalized=false.          The exact admitted request is: {request_json}"
+    );
+    Ok(serde_json::to_string(&json!({
+        "prompt": prompt,
+        "request_id": request.request_id,
+        "request_hash": expected.request_hash,
+        "covenant_id": request.covenant_id,
+        "covenant_hash": request.covenant_hash,
+        "slice_hash": request.slice_hash,
+        "admission_receipt": request.admission_receipt,
+        "terminalize": false
+    }))?)
+}
+
 pub fn normalize_proposal(
     request: &SplatInterpretationRequestV1,
+    invocation_payload: &str,
     mount: CanonicalMountEnvelope,
 ) -> Result<SplatProposalEnvelopeV1, AdapterError> {
     validate_request(request)?;
-    validate_mount(request, &mount)?;
+    validate_mount(request, invocation_payload, &mount)?;
 
     let result: InterpretationResultV1 =
         serde_json::from_str(mount.report.text.trim()).map_err(|error| {
@@ -212,6 +254,14 @@ pub fn normalize_proposal(
             originator: mount.originator,
             model: result.proposal.model_id.clone(),
             provider_receipts: vec![provider_receipt],
+        },
+        originator_echo: result.request_binding,
+        originator_binding: OriginatorInvocationBindingV1 {
+            invocation_payload_sha256: mount.invocation_binding.payload_sha256,
+            result_text_sha256: mount.invocation_binding.report_text_sha256,
+            executable_name: mount.invocation_binding.executable.name,
+            executable_version: mount.invocation_binding.executable.version,
+            executable_source_commit: mount.invocation_binding.executable.source_commit,
         },
         proposal: result.proposal,
         dispositions: result.dispositions,
@@ -284,8 +334,53 @@ pub fn validate_request(request: &SplatInterpretationRequestV1) -> Result<(), Ad
 
 fn validate_mount(
     request: &SplatInterpretationRequestV1,
+    invocation_payload: &str,
     mount: &CanonicalMountEnvelope,
 ) -> Result<(), AdapterError> {
+    let expected_request_hash = request_hash(request)?;
+    if mount.invocation_binding.contract != "canonical-mount.invocation-binding.v1" {
+        return Err(AdapterError::Mount("invocation binding contract is unsupported".to_string()));
+    }
+    if mount.invocation_binding.payload_sha256 != hash_bytes(invocation_payload.as_bytes()) {
+        return Err(AdapterError::Mount(
+            "invocation payload digest does not match exact supplied bytes".to_string(),
+        ));
+    }
+    if mount.invocation_binding.report_text_sha256 != hash_bytes(mount.report.text.as_bytes()) {
+        return Err(AdapterError::Mount(
+            "report text digest does not match exact returned bytes".to_string(),
+        ));
+    }
+    if mount.invocation_binding.request_hash.as_deref() != Some(expected_request_hash.as_str()) {
+        return Err(AdapterError::Mount(
+            "mount request hash does not bind the exact interpretation request".to_string(),
+        ));
+    }
+    if mount.invocation_binding.tic != request.coordinate.global_tic as i64 {
+        return Err(AdapterError::Mount("mount tic differs from request coordinate".to_string()));
+    }
+    if mount.invocation_binding.executable.name != "canonical-mount" {
+        return Err(AdapterError::Mount("unexpected executable identity".to_string()));
+    }
+    nonempty(
+        "mount.executable.version",
+        &mount.invocation_binding.executable.version,
+    )?;
+    valid_sha(
+        "mount.executable.source_commit",
+        &mount.invocation_binding.executable.source_commit,
+    )?;
+    let payload: Value = serde_json::from_str(invocation_payload)
+        .map_err(|error| AdapterError::Mount(format!("invocation payload is invalid JSON: {error}")))?;
+    if payload.get("request_hash").and_then(Value::as_str) != Some(expected_request_hash.as_str())
+        || payload.get("request_id").and_then(Value::as_str) != Some(request.request_id.as_str())
+        || payload.get("covenant_hash").and_then(Value::as_str) != Some(request.covenant_hash.as_str())
+        || payload.get("slice_hash").and_then(Value::as_str) != Some(request.slice_hash.as_str())
+    {
+        return Err(AdapterError::Mount(
+            "invocation payload identity fields do not bind the request".to_string(),
+        ));
+    }
     if mount.command != "invoke" {
         return Err(AdapterError::Mount(format!(
             "unexpected command {:?}",
@@ -330,10 +425,31 @@ fn validate_mount(
     Ok(())
 }
 
+fn expected_originator_binding(
+    request: &SplatInterpretationRequestV1,
+) -> Result<OriginatorRequestBindingV1, AdapterError> {
+    Ok(OriginatorRequestBindingV1 {
+        request_id: request.request_id.clone(),
+        request_hash: request_hash(request)?,
+        covenant_id: request.covenant_id.clone(),
+        covenant_hash: request.covenant_hash.clone(),
+        slice_hash: request.slice_hash.clone(),
+        admission_receipt: request.admission_receipt.clone(),
+        coordinate: request.coordinate.clone(),
+        authority_ceiling: request.authority_ceiling,
+    })
+}
+
 fn validate_interpretation(
     request: &SplatInterpretationRequestV1,
     result: &InterpretationResultV1,
 ) -> Result<(), AdapterError> {
+    let expected = expected_originator_binding(request)?;
+    if result.request_binding != expected {
+        return Err(AdapterError::Proposal(
+            "originator request_binding does not equal the exact request".to_string(),
+        ));
+    }
     if result.proposal.terminalized {
         return Err(AdapterError::Proposal(
             "model proposal claims terminalization".to_string(),
