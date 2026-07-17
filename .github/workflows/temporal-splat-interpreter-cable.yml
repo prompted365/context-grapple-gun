@@ -62,3 +62,30 @@ jobs:
           persist-credentials: false
       - name: Parse adapter schema
         run: python3 -m json.tool cgg-runtime/contracts/temporal-splat-interpreter-cable-v1.schema.json >/dev/null
+
+  exact-mount-roundtrip:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout CGG review head
+        uses: actions/checkout@v4
+        with:
+          path: cgg
+          persist-credentials: false
+      - name: Checkout exact canonical-mount review head
+        uses: actions/checkout@v4
+        with:
+          repository: prompted365/canonical-mount
+          ref: dc39e5ece674cb4500848ff343674643c2795d05
+          path: canonical-mount
+          persist-credentials: false
+      - name: Build exact canonical-mount binary
+        run: cargo build --manifest-path canonical-mount/Cargo.toml -p canonical-mount-core
+      - name: Exercise request → mount bytes → verified proposal
+        env:
+          CANONICAL_MOUNT_BIN: ${{ github.workspace }}/canonical-mount/target/debug/canonical-mount
+          CANONICAL_MOUNT_EXPECTED_COMMIT: dc39e5ece674cb4500848ff343674643c2795d05
+        run: |
+          cargo test \
+            --manifest-path cgg/cgg-runtime/crates/cgg-temporal-adapter/Cargo.toml \
+            --test cable exact_canonical_mount_binary_closes_binding -- --exact
