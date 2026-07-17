@@ -256,9 +256,9 @@ fn authority_widening_is_rejected() {
 #[test]
 fn normalize_rechecks_the_admitted_covenant_axis() {
     let mut request = prepared();
+    let payload = payload(&request);
     request.covenant_slice.status_axes.covenant_status = Some(CovenantStatusV1::Superseded);
     request.slice_hash = slice_hash(&request.covenant_slice).unwrap();
-    let payload = payload(&request);
     assert!(matches!(
         normalize_proposal(&request, &payload, mount(&request, &payload)),
         Err(AdapterError::Authority(_))
@@ -337,6 +337,6 @@ fn mount_executable_must_carry_an_exact_source_commit() {
     envelope.invocation_binding.executable.source_commit = "unknown".to_string();
     assert!(matches!(
         normalize_proposal(&request, &payload, envelope),
-        Err(AdapterError::Sha256 { .. })
+        Err(AdapterError::GitCommit { .. })
     ));
 }
