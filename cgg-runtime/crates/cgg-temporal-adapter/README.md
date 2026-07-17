@@ -23,6 +23,13 @@ cargo run --manifest-path Cargo.toml -- invoke request.json /path/to/canonical-m
 cargo test --manifest-path Cargo.toml
 ```
 
+The live `invoke` path writes exact payload bytes to a private, create-new
+temporary file and passes `--payload-file`; hydrated payloads never cross argv.
+stdout and stderr also use bounded temporary artifacts so large output cannot
+deadlock a pipe. `CGG_TEMPORAL_MOUNT_TIMEOUT_SECS` sets a fail-closed 1..=3600
+second deadline (default 120); expiry kills and reaps the mount process. All
+temporary artifacts are removed on every return path.
+
 Wire protocol pin:
 
 ```text
