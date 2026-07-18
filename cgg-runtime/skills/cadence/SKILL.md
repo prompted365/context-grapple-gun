@@ -477,7 +477,7 @@ The plan is a **context grapple gun projection** — it carries two structurally
 The structural separation is load-bearing. Without it, governance chores (queue_refresh, signal_scan) and production goals (test the pipeline, build the adapter) render as a flat list — and governance chores win attention because they auto-trigger via hooks while production goals silently decay.
 
 The plan must include:
-- `<!-- cgg-handoff -->` block with handoff_id, project_dir, trigger_version, generated_at
+- `<!-- cgg-handoff -->` block with handoff_id, project_dir, trigger_version, generated_at, entry_tic, work_tic
 - User Intent, Agent Interpretation, Interpretation Concerns
 - Working State (citation-laden, file:line references)
 - **Session Projection** (see below)

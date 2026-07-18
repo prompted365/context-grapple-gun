@@ -242,6 +242,17 @@ def parse_handoff_block(text: str) -> dict:
         km = re.search(rf"{key}:\s*(\d+)", body)
         if km:
             out[key] = int(km.group(1))
+    # Fallback: derive tic numbers from the handoff_id when the explicit block
+    # fields are absent. The SKILL handoff template historically named only
+    # handoff_id/project_dir/trigger_version/generated_at, so an author could
+    # omit entry_tic and the seal would refuse to bind — leaving the interstitial
+    # marker stuck (tic-636 stuck-marker incident). handoff_id encodes both tics:
+    # "...-tic{work}-close-for-tic{entry}-entry".
+    if out.get("handoff_id") and ("entry_tic" not in out or "work_tic" not in out):
+        hm = re.search(r"tic(\d+)-close-for-tic(\d+)-entry", out["handoff_id"])
+        if hm:
+            out.setdefault("work_tic", int(hm.group(1)))
+            out.setdefault("entry_tic", int(hm.group(2)))
     return out
 
 
