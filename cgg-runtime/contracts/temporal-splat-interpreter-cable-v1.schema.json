@@ -1,0 +1,301 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://prompted.community/contracts/temporal-splat-interpreter-cable-v1.schema.json",
+  "title": "CGG Temporal Splat Interpreter Cable v1",
+  "description": "CGG-owned exact-request and mount-byte binding around temporal-splat protocol v1. The originator must echo request_binding; canonical-mount independently binds payload bytes, report bytes, tic, and executable source commit.",
+  "oneOf": [
+    {
+      "$ref": "#/$defs/PrepareRequestInput"
+    },
+    {
+      "$ref": "#/$defs/InterpretationResultV1"
+    }
+  ],
+  "$defs": {
+    "Sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "ReceiptRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "sha256"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "sha256": {
+          "$ref": "#/$defs/Sha256"
+        }
+      }
+    },
+    "TemporalCoordinate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "global_tic",
+        "causal_frontier"
+      ],
+      "properties": {
+        "global_tic": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "causal_frontier": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "integer",
+            "minimum": 0
+          }
+        }
+      }
+    },
+    "StatusAxes": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "covenant_status",
+        "projection_status",
+        "conformation_status",
+        "execution_status",
+        "evidence_status"
+      ],
+      "properties": {
+        "covenant_status": {
+          "const": "admitted"
+        },
+        "projection_status": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "conformation_status": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "execution_status": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "evidence_status": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    },
+    "PrepareRequestInput": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "request_id",
+        "coordinate",
+        "branch_id",
+        "covenant_id",
+        "covenant_hash",
+        "admission_receipt",
+        "hydrated_slice",
+        "status_axes",
+        "authority_ceiling",
+        "requested_operation",
+        "center_exclusion_declaration"
+      ],
+      "properties": {
+        "request_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "coordinate": {
+          "$ref": "#/$defs/TemporalCoordinate"
+        },
+        "branch_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "covenant_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "covenant_hash": {
+          "$ref": "#/$defs/Sha256"
+        },
+        "admission_receipt": {
+          "$ref": "#/$defs/ReceiptRef"
+        },
+        "hydrated_slice": {
+          "type": "object",
+          "required": [
+            "slice_type",
+            "identity",
+            "reality_state",
+            "target_state",
+            "source_status",
+            "source_tense",
+            "input_hashes",
+            "operative_tic"
+          ]
+        },
+        "status_axes": {
+          "$ref": "#/$defs/StatusAxes"
+        },
+        "authority_ceiling": {
+          "enum": [
+            "evidence",
+            "advisory",
+            "proposal",
+            "proposing",
+            "reasoning"
+          ]
+        },
+        "requested_operation": {
+          "enum": [
+            "splat",
+            "simulate",
+            "verify",
+            "propose_morphism"
+          ]
+        },
+        "center_exclusion_declaration": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "InterpretationResultV1": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "request_binding",
+        "proposal",
+        "dispositions",
+        "renarrow_triggers",
+        "selected_choices",
+        "write_surfaces",
+        "rollback_contract"
+      ],
+      "properties": {
+        "proposal": {
+          "type": "object",
+          "required": [
+            "proposal_id",
+            "model_id",
+            "generated_at",
+            "facets",
+            "execution",
+            "assumptions",
+            "refusals",
+            "unresolved",
+            "uncertainty",
+            "output_authority",
+            "terminalized"
+          ],
+          "properties": {
+            "facets": {
+              "type": "object",
+              "required": [
+                "KAT",
+                "APO",
+                "PAR",
+                "PLE",
+                "ENA",
+                "TEL"
+              ]
+            },
+            "terminalized": {
+              "const": false
+            }
+          }
+        },
+        "dispositions": {
+          "type": "array"
+        },
+        "renarrow_triggers": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "selected_choices": {
+          "type": "object",
+          "additionalProperties": {
+            "enum": [
+              "L",
+              "R"
+            ]
+          }
+        },
+        "write_surfaces": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "rollback_contract": {
+          "type": "string",
+          "minLength": 1
+        },
+        "request_binding": {
+          "$ref": "#/$defs/OriginatorRequestBinding"
+        }
+      }
+    },
+    "OriginatorRequestBinding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "request_id",
+        "request_hash",
+        "covenant_id",
+        "covenant_hash",
+        "slice_hash",
+        "admission_receipt",
+        "coordinate",
+        "authority_ceiling"
+      ],
+      "properties": {
+        "request_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "request_hash": {
+          "$ref": "#/$defs/Sha256"
+        },
+        "covenant_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "covenant_hash": {
+          "$ref": "#/$defs/Sha256"
+        },
+        "slice_hash": {
+          "$ref": "#/$defs/Sha256"
+        },
+        "admission_receipt": {
+          "$ref": "#/$defs/ReceiptRef"
+        },
+        "coordinate": {
+          "$ref": "#/$defs/TemporalCoordinate"
+        },
+        "authority_ceiling": {
+          "enum": [
+            "evidence",
+            "advisory",
+            "proposal",
+            "proposing",
+            "reasoning"
+          ]
+        }
+      }
+    }
+  }
+}
