@@ -19,3 +19,4 @@ stage/consolidations/
 
 # Example/demo specs (not shipped — arena primitives in templates/ are canonical)
 stage/specs/franchise-triangulation-demo.yaml
+**/target/
