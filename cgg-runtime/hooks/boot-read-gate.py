@@ -132,7 +132,11 @@ def _writes_to_governed(cmd: str) -> bool:
         if surf not in cmd:
             continue
         s = re.escape(surf)
-        if re.search(r">>?\s*[^|&;<>]*" + s, cmd):            # > / >> redirect into surface
+        # A redirect target is the FIRST unbroken word after the operator — the class
+        # excludes whitespace (incl. newlines), else a '->' / '>=' token elsewhere in the
+        # command plus a governed path used as a READ arg false-matches (tic-638 stepper
+        # false-positive: the sibling of the tic-518 arg-position footgun).
+        if re.search(r">>?\s*[^|&;<>\s]*" + s, cmd):          # > / >> redirect into surface
             return True
         if re.search(r"\btee\b[^|&;]*" + s, cmd):             # tee writes the surface
             return True
@@ -197,7 +201,7 @@ _BORN_TIC_RE = re.compile(r"borns-tic(\d+)-")
 # (redirect / tee / sed -i / dd of=) — NOT as a mere argument, read, or git-versioning
 # reference. Mirrors _writes_to_governed's write-signal discipline, scoped to born targets.
 _BASH_BORN_WRITE_RE = (
-    re.compile(r">>?\s*[^|&;<>]*borns-tic(\d+)-"),            # > / >> redirect into a born
+    re.compile(r">>?\s*[^|&;<>\s]*borns-tic(\d+)-"),          # > / >> redirect into a born (target = first word after the operator; whitespace excluded — tic-638 fix)
     re.compile(r"\btee\b[^|&;]*borns-tic(\d+)-"),             # tee writes the born
     re.compile(r"\bsed\b[^|&;]*-i\b[^|&;]*borns-tic(\d+)-"),  # sed -i in-place edit of a born
     re.compile(r"\bdd\b[^|&;]*of=\S*borns-tic(\d+)-"),        # dd of= the born
@@ -516,6 +520,12 @@ def _self_test() -> int:
           _is_doctrine_mutation("Bash", "", "python3 review-promote-writeback.py --apply"))
     check("Bash git commit with NO governed path is NOT gated",
           not _is_doctrine_mutation("Bash", "", "git commit -m 'tic407 backlog'"))
+    # tic-638 false-positive fix: a '->' / '>=' token + a governed path as a READ arg is NOT
+    # a redirect write (the target must be the first unbroken word after the operator)
+    check("Bash '->' in python arg + queue.jsonl read arg is NOT gated (tic-638 fix)",
+          not _is_doctrine_mutation("Bash", "", "python3 -c \"print('a->b')\" && grep foo audit-logs/cprs/queue.jsonl"))
+    check("Bash '>=' comparison + ledger read arg is NOT gated (tic-638 fix)",
+          not _is_doctrine_mutation("Bash", "", "python3 -c \"x = 1 >= 0\" && cat cgg-ledger/ledger.md"))
     # fail-soft envelopes → allow
     check("empty stdin → allow", decide("") == (False, ""))
     check("malformed JSON → allow", decide("{not json") == (False, ""))
@@ -543,6 +553,8 @@ def _self_test() -> int:
           _born_write_target_tic("Bash", "", "git add audit-logs/governance/borns-tic503-x.md") is None)
     check("Bash cat/read of a born → NO re-key",
           _born_write_target_tic("Bash", "", "cat audit-logs/governance/borns-tic503-x.md") is None)
+    check("Bash '->' in python arg + born READ path → NO re-key (tic-638 stepper repro)",
+          _born_write_target_tic("Bash", "", "python3 -c \"print('a->b')\" && ls audit-logs/governance/borns-tic635-x.md") is None)
     # a non-born Edit/Write keeps current_tic (no re-key)
     check("Edit a ledger (non-born) → no work-tic re-key (keeps current_tic)",
           _born_write_target_tic("Edit", "audit-logs/governance/constitution-ledger/ledger.md", "") is None)
