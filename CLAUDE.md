@@ -323,6 +323,8 @@
   - *Ledger:* [`cgg-ledger/ledger.md#selftest-fixtures-must-exercise-documented-conditional-paths`](cgg-ledger/ledger.md#selftest-fixtures-must-exercise-documented-conditional-paths)
 - **Assess a Mechanic's PURPOSE Before Prescribing a Fix; For a Dormant Mechanic, LOCATE Its Successor Lane Before Scheduling** — Dormancy evidence is identical for never-wired and replaced-but-un-retired, and a pre-purpose fix-shape can institutionalize exactly what the design warns against — an apparent gap can be the mechanic's teeth. *(tic 570/571→603)*
   - *Ledger:* [`cgg-ledger/ledger.md#assess-mechanic-purpose-before-prescribing-fix`](cgg-ledger/ledger.md#assess-mechanic-purpose-before-prescribing-fix)
+- **A Build Script Embedding VCS Identity Must Register VCS State Files as Rerun-Trigger Inputs** — A build script embedding VCS identity (source commit) must register Git HEAD, the symbolic-ref target file, and packed-refs as rebuild-trigger inputs, or incremental builds silently ship stale identity while looking current. *(tic 636→639)*
+  - *Ledger:* [`cgg-ledger/ledger.md#build-script-vcs-identity-requires-rerun-keys`](cgg-ledger/ledger.md#build-script-vcs-identity-requires-rerun-keys)
 
 ## Memory And Inscription Hygiene
 
