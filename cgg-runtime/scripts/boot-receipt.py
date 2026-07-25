@@ -17,9 +17,11 @@ CONCURRENCY (the "many firing the same nanosecond" requirement):
   - Append-only JSONL; POSIX O_APPEND writes under PIPE_BUF are atomic across procs.
   - flock(LOCK_EX) serializes the read-existing-IDs + append within/across processes.
   - DETERMINISTIC ID = sha256(entity:tic:content_fingerprint)[:16]. Same office booting
-    the same tic with the same understanding => identical id => dedups to ONE line.
-    This is the same loop-guard as the boot-injection lane + the 200+ signal-loop class
-    (deterministic-ID + dedup-at-write). Idempotent by construction.
+    the same tic with the same understanding AND the same boot-read attestation =>
+    identical id => dedups to ONE line. This is the same loop-guard as the boot-injection
+    lane + the 200+ signal-loop class (deterministic-ID + dedup-at-write). Idempotent by
+    construction — but idempotent on the WHOLE semantic record, not on a civic-only slice
+    of it (see content_fingerprint below; tic 643 covenant).
 
 USAGE:
   boot-receipt.py emit --entity ent_homeskillet --tic 329 --payload receipt.json
@@ -28,6 +30,10 @@ USAGE:
       --abstention "x" --first-action "..." --route "cadence/review"
   boot-receipt.py list --tic 329
   boot-receipt.py compact          # collapse same-id duplicates (dedup-at-read pass)
+
+  # every subcommand takes --sink <path> to point the lane at a TEST/ISOLATION file
+  # (flag-only, never an env var — see sink_path() for why the gate must not inherit it)
+  boot-receipt.py emit --sink /tmp/fixture.jsonl --entity ent_x --tic 1 ...
 """
 import argparse
 import datetime
@@ -53,7 +59,20 @@ def zone_root() -> Path:
     raise SystemExit("boot-receipt: could not locate zone root (audit-logs/boot-injections)")
 
 
-def sink_path(root: Path) -> Path:
+def sink_path(root: Path, override: str = None) -> Path:
+    """The receipt lane. `override` (the CLI `--sink` flag ONLY — deliberately NOT an
+    environment variable) points the lane at a TEST/ISOLATION file so a fixture can prove
+    emit / dedup / gate behaviour end-to-end without writing the real ledger.
+
+    WHY FLAG-ONLY, NEVER ENV (this is load-bearing, not style): boot-read-gate.py invokes
+    `boot-receipt.py gate-check` via subprocess.run, which INHERITS os.environ. An env-var
+    sink override would therefore be inheritable by the fail-closed mutation gate — i.e. a
+    silent gate bypass (point the env at a hand-written sink, every mutation allows). A CLI
+    flag cannot reach the gate's fixed argv, so the hook always reads the real lane. This is
+    Self-Locating Artifact Test Isolation (cgg-ledger#self-locating-artifact-test-isolation)
+    applied to an ENFORCEMENT engine: pin the fixture root EXPLICITLY, never ambiently."""
+    if override:
+        return Path(override).expanduser().resolve()
     return root / "audit-logs" / "boot-injections" / "boot-receipts.jsonl"
 
 
@@ -61,14 +80,72 @@ def now_iso() -> str:
     return datetime.datetime.now(datetime.timezone.utc).isoformat()
 
 
+# The BOOT-READ ATTESTATION fields that participate in the dedup fingerprint (tic 643;
+# covenant `boot_receipt_fingerprint_includes_boot_read_fields_tic635`, ADMITTED /review 635;
+# source cpr_boot_receipt_fingerprint_excludes_boot_read_fields_tic422).
+#
+# THE DEFECT THIS CLOSES: the fingerprint keyed on the FOUR CIVIC fields ONLY. So a SECOND
+# emit for the same (entity, tic) carrying identical civic fields but a DIFFERENT boot-read
+# attestation — precisely the fields the mutation gate READS (boot_read_passes) — minted an
+# IDENTICAL receipt_id, deduped, and was silently DROPPED. The honest agent who closed its
+# civic boot loop first and then tried to append its full-read proof could not: its proof
+# vanished into the dedup, the gate found no passing receipt, and the honest attestation
+# self-DoS'd the very gate it was satisfying.
+#
+# THE FIX SHAPE — ADDITIVE, never replacing: the attestation sub-dict enters the fingerprint
+# ONLY when at least one of these fields is PRESENT on the record. Consequences:
+#   * a civic-only receipt hashes EXACTLY as it did pre-fix — every historical receipt_id in
+#     boot-receipts.jsonl stays valid, and a civic-only re-emit still dedups to ONE line;
+#   * a civic+attestation receipt mints a DISTINCT id and LANDS beside the civic-only row;
+#   * two attestations that differ in ANY gate-read field are distinguishable, so a corrected
+#     or widened attestation can always be appended.
+# Coverage: every field boot_read_passes() reads, PLUS the observability attestation fields
+# (clipped_preview_detected, the producer-seal observations) — the admission's target_state
+# says "every semantically distinguishing boot-read field", not "every gate-blocking one".
+# `omitted_ranges` is kept in the set because pre-tic-422 receipts carry it as the ONLY form.
+_FINGERPRINT_ATTESTATION_FIELDS = (
+    "full_boot_injection_read", "boot_read_mode", "chunking",
+    "required_unread_ranges", "omitted_ranges", "apophatic_range_bounds",
+    "pertinence_rationale", "clipped_preview_detected", "coverage_proof_alternate",
+    "producer_bounded", "producer_bound_kind", "producer_follow_surface",
+    "sealed_ids_observed",
+)
+
+
+def _fp_norm(v):
+    """Order-insensitive normalization for list-valued attestation fields — mirrors the
+    civic fields' sorted() treatment, so re-declaring the SAME set of ranges in a different
+    order still dedups to one line. Non-list values pass through unchanged; a heterogeneous
+    list that cannot be key-sorted is left as-is rather than raising (the fingerprint must
+    never be the thing that crashes a boot receipt)."""
+    if isinstance(v, list):
+        try:
+            return sorted(v, key=lambda x: json.dumps(x, sort_keys=True, ensure_ascii=False))
+        except (TypeError, ValueError):
+            return v
+    return v
+
+
 def content_fingerprint(rec: dict) -> str:
-    """Stable fingerprint over the SEMANTIC fields only (not timestamps/model)."""
+    """Stable fingerprint over the SEMANTIC fields only (not timestamps/model/provenance).
+
+    TWO layers, and the second is ADDITIVE (see _FINGERPRINT_ATTESTATION_FIELDS above):
+      1. the four CIVIC fields — the boot-LOOP close. Always present.
+      2. the BOOT-READ ATTESTATION fields — the mutation-GATE surface. Included under the
+         `boot_read_attestation` key ONLY when the record carries at least one of them, so a
+         civic-only record's digest is byte-identical to the pre-tic-643 algorithm.
+    """
     sem = {
         "understood_scope": rec.get("understood_scope", ""),
         "accepted_constraints": sorted(rec.get("accepted_constraints", [])),
         "abstentions": sorted(rec.get("abstentions", [])),
         "first_action_or_escalation": rec.get("first_action_or_escalation", ""),
     }
+    # presence-keyed, NOT value-keyed: `required_unread_ranges: null` (the three-state N/A)
+    # is semantically distinct from the field being absent, and must stay distinguishable.
+    attest = {k: _fp_norm(rec[k]) for k in _FINGERPRINT_ATTESTATION_FIELDS if k in rec}
+    if attest:
+        sem["boot_read_attestation"] = attest
     blob = json.dumps(sem, sort_keys=True, ensure_ascii=False)
     return hashlib.sha256(blob.encode("utf-8")).hexdigest()
 
@@ -102,6 +179,9 @@ _OWED_FIELDS = ("understood_scope", "accepted_constraints", "abstentions",
 # producer_follow_surface · sealed_ids_observed) record what the booting agent saw a producer
 # SEAL (budget truncation, worldview/boot-injection); they are observability, never a gate input —
 # a producer seal is declared negative space (cgg-ledger#producer-seal-is-a-typed-field-aperture).
+# FINGERPRINT PARTICIPATION (tic 643): these fields — and the rest of the emitted boot-read
+# block — now participate in content_fingerprint via _FINGERPRINT_ATTESTATION_FIELDS, so a
+# second emit that ADDS or CORRECTS the attestation is no longer dedup-dropped.
 _BOOT_READ_FIELDS = ("full_boot_injection_read", "boot_read_mode", "chunking",
                      "required_unread_ranges", "apophatic_range_bounds",
                      "pertinence_rationale", "clipped_preview_detected")
@@ -216,7 +296,7 @@ def _read_records(path: Path) -> list:
     return out
 
 
-def gate_decision(root: Path, entity: str, tic: int, path: str = None) -> dict:
+def gate_decision(root: Path, entity: str, tic: int, path: str = None, sink: str = None) -> dict:
     """The boot-read mutation gate's CORE decision (one source; the hook is a thin shell).
 
     NARROW + FAIL-CLOSED: allow a governed mutation iff EITHER
@@ -232,7 +312,7 @@ def gate_decision(root: Path, entity: str, tic: int, path: str = None) -> dict:
     Else BLOCK. (This function only DECIDES; it never blocks the caller — the hook maps
     a non-allow decision to PreToolUse exit 2. Note: 'no receipt at all' => BLOCK, by
     design — missing perception proof is perception debt.)"""
-    recs = [r for r in _read_records(sink_path(root)) if r.get("tic") == tic]
+    recs = [r for r in _read_records(sink_path(root, sink)) if r.get("tic") == tic]
     # (1) valid boot-read receipt — checked FIRST so a clean proof outranks any override
     for r in recs:
         if entity not in (r.get("entity_id"), r.get("actor")):
@@ -311,9 +391,19 @@ def existing_ids(path: Path) -> set:
     return ids
 
 
+def _sink_for(args, root: Path) -> Path:
+    """Resolve the lane for this invocation, warning LOUDLY (never silently) when a
+    non-default sink is in play — an isolation sink must never be mistaken for the real lane."""
+    override = getattr(args, "sink", None)
+    path = sink_path(root, override)
+    if override:
+        sys.stderr.write(f"⚠️  NON-DEFAULT SINK (test/isolation mode): {path}\n")
+    return path
+
+
 def emit(args) -> int:
     root = zone_root()
-    path = sink_path(root)
+    path = _sink_for(args, root)
     path.parent.mkdir(parents=True, exist_ok=True)
 
     if args.payload:
@@ -407,7 +497,9 @@ def emit(args) -> int:
                 print(json.dumps({"status": "deduped", "receipt_id": rid,
                                   "entity": args.entity, "tic": args.tic,
                                   "missing_fields": missing, "ack": ack,
-                                  "note": "identical boot receipt already recorded for this (entity,tic)"}))
+                                  "sink_override": bool(getattr(args, "sink", None)),
+                                  "note": "identical boot receipt already recorded for this (entity,tic) "
+                                          "— identical INCLUDING its boot-read attestation (tic 643)"}))
                 return 0
             line = json.dumps(rec, ensure_ascii=False, sort_keys=True)
             with os.fdopen(os.open(path, os.O_WRONLY | os.O_CREAT | os.O_APPEND, 0o644), "a", encoding="utf-8") as fh:
@@ -423,8 +515,13 @@ def emit(args) -> int:
     else:
         ack += " 🪜 NOTE: no --ladder-explainback this tic — the crux drift-audit wants your 5 sentences every tic."
     sys.stderr.write(ack + "\n")
+    try:
+        sink_disp = str(path.relative_to(root))
+    except ValueError:
+        sink_disp = str(path)  # an isolation sink outside the zone
     print(json.dumps({"status": "recorded", "receipt_id": rid, "entity": args.entity,
-                      "tic": args.tic, "sink": str(path.relative_to(root)),
+                      "tic": args.tic, "sink": sink_disp,
+                      "sink_override": bool(getattr(args, "sink", None)),
                       "missing_fields": missing, "ack": ack,
                       "ladder_explainback_recorded": bool(lb)}))
     return 0
@@ -432,7 +529,7 @@ def emit(args) -> int:
 
 def list_receipts(args) -> int:
     root = zone_root()
-    path = sink_path(root)
+    path = _sink_for(args, root)
     if not path.exists():
         print("(no boot receipts yet)")
         return 0
@@ -457,9 +554,14 @@ def list_receipts(args) -> int:
 
 
 def compact(args) -> int:
-    """Collapse same-id duplicates (latest-per-id), rewrite the sink atomically."""
+    """Collapse same-id duplicates (latest-per-id), rewrite the sink atomically.
+
+    NOTE (tic 643): 'same-id' means the STORED receipt_id — compact never recomputes a
+    fingerprint, so widening content_fingerprint cannot retroactively collapse or split
+    historical rows. Two rows for one (entity,tic) that differ in boot-read attestation are
+    DISTINCT receipts, not duplicates, and compact correctly preserves both."""
     root = zone_root()
-    path = sink_path(root)
+    path = _sink_for(args, root)
     if not path.exists():
         print("(nothing to compact)")
         return 0
@@ -499,7 +601,7 @@ def emit_override(args) -> int:
     timestamp/override_scope. The gate honors it; the audit trail records WHY a clipped
     or receipt-less boot was permitted to mutate. Never a silent bypass."""
     root = zone_root()
-    path = sink_path(root)
+    path = _sink_for(args, root)
     path.parent.mkdir(parents=True, exist_ok=True)
     rec = {
         "override": True,
@@ -535,7 +637,11 @@ def gate_check(args) -> int:
     Exit 0 = ALLOW, exit 3 = BLOCK (distinct from argparse's 2 so callers can tell a
     block from a usage error)."""
     root = zone_root()
-    d = gate_decision(root, args.entity, args.tic, args.path)
+    if getattr(args, "sink", None):
+        sys.stderr.write(f"⚠️  NON-DEFAULT SINK (test/isolation mode): "
+                         f"{sink_path(root, args.sink)}\n")
+    d = gate_decision(root, args.entity, args.tic, args.path, getattr(args, "sink", None))
+    d["sink_override"] = bool(getattr(args, "sink", None))
     print(json.dumps(d))
     return 0 if d.get("allow") else 3
 
@@ -543,6 +649,15 @@ def gate_check(args) -> int:
 def main():
     ap = argparse.ArgumentParser(description="Citizen-Boot receipt sink (concurrency-safe, tic-mapped).")
     sub = ap.add_subparsers(dest="cmd", required=True)
+
+    def _add_sink(p):
+        """--sink: point the lane at a TEST/ISOLATION file. FLAG-ONLY by design — an env
+        var would be inherited by boot-read-gate.py's subprocess gate-check (a bypass).
+        See sink_path()."""
+        p.add_argument("--sink", default=None,
+                       help="TEST/ISOLATION override for the receipts lane path "
+                            "(default: <zone>/audit-logs/boot-injections/boot-receipts.jsonl). "
+                            "Flag-only — never an env var; the mutation gate must not inherit it.")
 
     e = sub.add_parser("emit", help="record a boot receipt (idempotent per entity+tic+content)")
     e.add_argument("--entity", required=True)
@@ -593,6 +708,7 @@ def main():
                    help="a semantic id the producer sealed (repeatable) — the pertinence handle, NOT a priority")
     e.add_argument("--clipped-preview", dest="clipped_preview", action="store_true",
                    help="record clipped_preview_detected=true (informational; does not block)")
+    _add_sink(e)
     e.set_defaults(func=emit)
 
     o = sub.add_parser("override", help="emit an audited, non-silent boot-read gate override")
@@ -603,19 +719,23 @@ def main():
     o.add_argument("--override-scope", dest="override_scope", default="tic",
                    help="'tic' (any path this tic) | a path substring | 'all'")
     o.add_argument("--model")
+    _add_sink(o)
     o.set_defaults(func=emit_override)
 
     g = sub.add_parser("gate-check", help="boot-read mutation-gate decision (exit 0 allow / 3 block)")
     g.add_argument("--entity", required=True)
     g.add_argument("--tic", type=int, required=True)
     g.add_argument("--path", help="the surface being mutated (for path-scoped overrides)")
+    _add_sink(g)
     g.set_defaults(func=gate_check)
 
     l = sub.add_parser("list", help="list receipts (optionally for a tic)")
     l.add_argument("--tic", type=int)
+    _add_sink(l)
     l.set_defaults(func=list_receipts)
 
     c = sub.add_parser("compact", help="collapse same-id duplicates")
+    _add_sink(c)
     c.set_defaults(func=compact)
 
     args = ap.parse_args()
