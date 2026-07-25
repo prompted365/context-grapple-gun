@@ -325,6 +325,8 @@
   - *Ledger:* [`cgg-ledger/ledger.md#assess-mechanic-purpose-before-prescribing-fix`](cgg-ledger/ledger.md#assess-mechanic-purpose-before-prescribing-fix)
 - **A Build Script Embedding VCS Identity Must Register VCS State Files as Rerun-Trigger Inputs** — A build script embedding VCS identity (source commit) must register Git HEAD, the symbolic-ref target file, and packed-refs as rebuild-trigger inputs, or incremental builds silently ship stale identity while looking current. *(tic 636→639)*
   - *Ledger:* [`cgg-ledger/ledger.md#build-script-vcs-identity-requires-rerun-keys`](cgg-ledger/ledger.md#build-script-vcs-identity-requires-rerun-keys)
+- **A Handoff That Projects a /review Docket Must DERIVE Adjudicability From the Queue's Maturity Law** — Decision-readiness comes from the queue's maturity law (birth_tic + maturity_tics vs entry tic, per-entry), never from born existence or counts; a handoff that books immature borns books work the queue physics will refuse, and the honest entry-review is a hold-pass, not breakage. *(tic 637→640)*
+  - *Ledger:* [`cgg-ledger/ledger.md#handoff-docket-projection-must-derive-from-maturity-law`](cgg-ledger/ledger.md#handoff-docket-projection-must-derive-from-maturity-law)
 
 ## Memory And Inscription Hygiene
 
