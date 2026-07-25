@@ -268,6 +268,17 @@ TERMINAL_STATUSES = frozenset({
     "deferred", "dismissed", "resolved", "skipped",
 })
 
+# Suspensive subset + settled-lifecycle guard (M1, tic 645) — mirrors
+# bench-packet-prep.py exactly (the docstring below declares the mirror
+# contract; the two surfaces must classify a re-activated defer identically).
+# `deferred` parks without settling: canonical only while it is the id's
+# latest row; a later row re-activates the id unless the deferred row is
+# settled by lifecycle_state or a hard-terminal entry exists.
+SUSPENSIVE_STATUSES = frozenset({"deferred"})
+LIFECYCLE_SETTLED_STATES = frozenset({
+    "terminal_positive", "terminal_negative", "obligated_waiting", "suspensive",
+})
+
 
 def load_queue(queue_path):
     """Load CPR queue with terminal-state preference.
@@ -306,8 +317,25 @@ def load_queue(queue_path):
             if e.get("status", "") in TERMINAL_STATUSES
         ]
         if terminal_entries:
-            # Latest terminal entry is the canonical disposition
-            canonical[eid] = terminal_entries[-1]
+            latest_terminal = terminal_entries[-1]
+            latest_overall = entries_list[-1]
+            if (latest_terminal is not latest_overall
+                    and latest_terminal.get("status", "") in SUSPENSIVE_STATUSES
+                    and latest_terminal.get("lifecycle_state", "")
+                    not in LIFECYCLE_SETTLED_STATES):
+                # Suspensive park followed by later rows = re-activated id.
+                # A hard-terminal entry (if any) still outranks; otherwise the
+                # latest row overall is the live disposition (M1, tic 645).
+                hard_terminals = [
+                    e for e in terminal_entries
+                    if e.get("status", "") not in SUSPENSIVE_STATUSES
+                    or e.get("lifecycle_state", "") in LIFECYCLE_SETTLED_STATES
+                ]
+                canonical[eid] = (hard_terminals[-1] if hard_terminals
+                                  else latest_overall)
+            else:
+                # Latest terminal entry is the canonical disposition
+                canonical[eid] = latest_terminal
         else:
             # No terminal yet — fall back to latest overall
             canonical[eid] = entries_list[-1]

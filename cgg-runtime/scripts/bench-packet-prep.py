@@ -49,6 +49,16 @@ TERMINAL_STATUSES = frozenset({
     "deferred", "dismissed", "resolved", "skipped",
 })
 
+# Suspensive subset of the HELD terminal enum (M1, tic 645). `deferred` parks a
+# row without settling it — readers disagree on it by history (ledger:
+# cgg-ledger/ledger.md#status-value-reader-disagreement-sticky-masks-reactivated-item).
+# The enum membership is HELD (6+ readers share it); what is corrected here is
+# the VALVE: a deferred row is the canonical disposition ONLY while it is the
+# id's latest row. Any chronologically later row re-activates the id, and the
+# stale deferred row must not mask it (the payload-selection half of the
+# tic-523 C-3 cure, which fixed only which ids surface).
+SUSPENSIVE_STATUSES = frozenset({"deferred"})
+
 # Additive lifecycle-state valve (terminal-taxonomy APPLICATION tranche, verdict
 # tic 555 PROMOTE-SPEC). The DEGRADED-fallback load_queue below classified only
 # by the (HELD) status enum, so the 5 orphan statuses would surface as live
@@ -196,8 +206,25 @@ def load_queue(queue_path):
             or e.get("lifecycle_state", "") in LIFECYCLE_SETTLED_STATES
         ]
         if terminal_entries:
-            # Latest terminal entry is the canonical disposition
-            canonical[eid] = terminal_entries[-1]
+            latest_terminal = terminal_entries[-1]
+            latest_overall = entries_list[-1]
+            if (latest_terminal is not latest_overall
+                    and latest_terminal.get("status", "") in SUSPENSIVE_STATUSES
+                    and latest_terminal.get("lifecycle_state", "")
+                    not in LIFECYCLE_SETTLED_STATES):
+                # Suspensive park followed by later rows = re-activated id.
+                # A hard-terminal entry (if any) still outranks; otherwise the
+                # latest row overall is the live disposition (M1, tic 645).
+                hard_terminals = [
+                    e for e in terminal_entries
+                    if e.get("status", "") not in SUSPENSIVE_STATUSES
+                    or e.get("lifecycle_state", "") in LIFECYCLE_SETTLED_STATES
+                ]
+                canonical[eid] = (hard_terminals[-1] if hard_terminals
+                                  else latest_overall)
+            else:
+                # Latest terminal entry is the canonical disposition
+                canonical[eid] = latest_terminal
         else:
             # No terminal yet — fall back to latest overall
             canonical[eid] = entries_list[-1]
