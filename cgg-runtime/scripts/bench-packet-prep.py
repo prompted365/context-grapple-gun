@@ -714,7 +714,13 @@ def build_bench_packet(project_dir, dry_run=False):
         surfaced_rows.append((cpr_id, cpr))
 
     pending_cogprs = []
-    for cpr_id, cpr in sorted(surfaced_rows, key=lambda x: x[1].get("birth_tic", 0)):
+    # birth_tic reads coalesce explicit null → 0 (the absent-sentinel): a
+    # dict.get default only covers ABSENT keys, and live rows carry
+    # birth_tic: null (surfaced since the M1 valve cure exposed them to
+    # this sort — tic 646).
+    for cpr_id, cpr in sorted(
+        surfaced_rows, key=lambda x: x[1].get("birth_tic") or 0
+    ):
         related = find_related_cprs(cpr, queue)
         related_signals = find_related_signals(cpr, signals)
 
@@ -750,7 +756,7 @@ def build_bench_packet(project_dir, dry_run=False):
         dossier = {
             "id": cpr_id,
             "lesson": cpr.get("lesson", ""),
-            "birth_tic": cpr.get("birth_tic", 0),
+            "birth_tic": cpr.get("birth_tic") or 0,
             "status": cpr.get("status", ""),
             "state_source": state_source,
             "reactivated_from_deferred": reactivated_from_deferred,
@@ -811,7 +817,9 @@ def build_bench_packet(project_dir, dry_run=False):
         {
             "id": eid,
             "lesson": entry.get("lesson", "")[:100],
-            "promoted_at_tic": entry.get("review_tic", entry.get("birth_tic", 0)),
+            "promoted_at_tic": (
+                entry.get("review_tic") or entry.get("birth_tic") or 0
+            ),
         }
         for eid, entry in recently_promoted.items()
     ]
@@ -823,7 +831,7 @@ def build_bench_packet(project_dir, dry_run=False):
     def review_sort_key(c):
         conf = -(c.get("enrichment_confidence") or 0)
         has_swarm = 0 if c.get("enrichment_evidence") else 1  # 0 sorts first
-        return (conf, has_swarm, c.get("birth_tic", 0))
+        return (conf, has_swarm, c.get("birth_tic") or 0)
 
     review_order = sorted(pending_cogprs, key=review_sort_key)
 

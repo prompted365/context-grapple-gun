@@ -362,7 +362,7 @@ def queue_to_cprs(queue_entries):
             "recommended": entry.get("recommended_scopes", []),
             "queue_id": eid,
             "queue_status": status,
-            "birth_tic": entry.get("birth_tic", 0),
+            "birth_tic": entry.get("birth_tic") or 0,
             "band": entry.get("band", "COGNITIVE"),
             "subsystem": entry.get("subsystem", ""),
             # Enrichment evidence written by cpr-enrichment-scanner.py
@@ -409,8 +409,13 @@ def classify_cpr_readiness(cpr, current_tic_count):
     Returns (state, reason) where state is one of:
       tic_gated, enrichment_needed, enrichment_eligible, promotable
     """
-    birth_tic = cpr.get("birth_tic", 0)
-    maturity_tics = cpr.get("maturity_tics", DEFAULT_MATURITY_TICS)
+    # Explicit null coalesces to the absent-sentinel: dict.get defaults only
+    # cover ABSENT keys, and live rows carry birth_tic: null (mirror of the
+    # bench-packet sort fix, tic 646). maturity_tics keeps an is-None check
+    # because 0 would be a meaningful value there.
+    birth_tic = cpr.get("birth_tic") or 0
+    _mt = cpr.get("maturity_tics")
+    maturity_tics = DEFAULT_MATURITY_TICS if _mt is None else _mt
 
     # --- Gate 1: Temporal maturity ---
     if birth_tic > 0 and (current_tic_count - birth_tic) < maturity_tics:
@@ -575,7 +580,7 @@ def compile_proposals(evaluate_data, classified, triads, tic_counter,
         L.append("")
         for cpr in gated:
             lesson = cpr.get("lesson", "unknown")
-            birth = cpr.get("birth_tic", 0)
+            birth = cpr.get("birth_tic") or 0
             L.append(f"- **{lesson}**")
             L.append(f"  - Source: {cpr.get('source', 'unknown')}")
             L.append(f"  - Birth tic: {birth} | Current tic: {current_tic} | Required delta: {cpr.get('maturity_tics', DEFAULT_MATURITY_TICS)}")
