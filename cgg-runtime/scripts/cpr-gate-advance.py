@@ -77,11 +77,21 @@ def load_queue(queue_path):
 
 
 def resolve_current_tic(al_path):
-    """Count counted tic events to resolve current tic (mirrors cadence-ops/scanner)."""
+    """Current canonical tic = `domain_counter_after` on the LATEST tic event
+    (Temporal Scope Discipline; mirrors cpr-extract.get_tic_count, the cured
+    sibling). NOT a count of raw `type=tic` rows — raw aggregation over-counts
+    the authority whenever duplicate/uncounted historical emissions exist
+    (659 raw vs canonical 652 observed at tic 652, +7 and widening), which
+    would stamp `gate_advanced_at_tic` in the future and prematurely open
+    every downstream temporal gate (bk-cpr-extract-tic-count-drift recurrence
+    at the sibling site; cpr-stepper tic-652 anomaly A2 — the hazard went
+    live-adjacent at 653 when the first rows reached tic_gated). Raw-count is
+    retained ONLY as fallback for tic logs predating domain_counter_after."""
     tic_dir = Path(al_path) / "tics"
     if not tic_dir.is_dir():
         return -1
     total = 0
+    latest_counter = None
     for f in sorted(tic_dir.glob("*.jsonl")):
         try:
             for line in f.read_text(encoding="utf-8").splitlines():
@@ -92,11 +102,15 @@ def resolve_current_tic(al_path):
                     o = json.loads(line)
                 except json.JSONDecodeError:
                     continue
-                if o.get("type") == "tic" and o.get("count_mode", "counted") == "counted":
-                    total += 1
+                if o.get("type") == "tic":
+                    if o.get("count_mode", "counted") == "counted":
+                        total += 1
+                    val = o.get("domain_counter_after")
+                    if isinstance(val, int):
+                        latest_counter = val
         except OSError:
             return -1
-    return total
+    return latest_counter if latest_counter is not None else total
 
 
 def find_advanceable(queue_entries, enrichment_dir):
