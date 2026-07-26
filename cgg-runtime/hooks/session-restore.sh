@@ -381,22 +381,9 @@ fi
 # dedup-at-write). Kept OFF compute_due_cycles deliberately: the stepper is robust
 # and slower than the sync cycles, so it belongs in the decoupled lane, not the
 # blocking inline scheduler.
-STEPPABLE_CPRS=0
-if [ -f "$QUEUE_FILE" ]; then
-  STEPPABLE_CPRS=$(python3 -c "
-import json
-entries = {}
-for line in open('$QUEUE_FILE'):
-    try:
-        d = json.loads(line.strip())
-        eid = d.get('id','')
-        if eid: entries[eid] = d
-    except: pass
-steppable = [e for e in entries.values()
-             if e.get('status','') in ('extracted','tic_gated')]
-print(len(steppable))
-" 2>/dev/null || echo "0")
-fi
+# STEPPABLE_CPRS is computed BELOW, after the physical tic count — the honest
+# per-id maturity predicate needs the tic authority, which does not exist yet
+# at this point in the boot (covenant cpr_step_lane_marker_per_id_maturity_tic655).
 
 # ============================================================================
 # Physical tic count (zone-root-anchored)
@@ -421,6 +408,67 @@ for f in sorted(glob.glob('$TIC_DIR/*.jsonl')):
                 max_counter = ca
         except: pass
 print(max_counter)
+" 2>/dev/null || echo "0")
+fi
+
+# ----------------------------------------------------------------------------
+# CPR-STEP steppable count — PER-ID TIC-MATURITY (covenant
+# cpr_step_lane_marker_per_id_maturity_tic655, admitted /review 655).
+# A row is counted steppable only when its OWN maturity gate passes at
+# marker-write time: extracted → tic_delta >= maturity_tics (default 3;
+# construction_authoritative waived); tic_gated → in-transit (maturity was
+# enforced at the prior gate). The t620 scar: the old aggregate said 2
+# steppable when the honest per-id set was 1 (one row matured only at 621),
+# and the boot injection eats this count to shape stepper dispatch.
+# Single-owner predicate: cgg-runtime/scripts/lib/cpr_steppable.py — import
+# when path-reachable, else run the faithful embedded replica (keep it in
+# lockstep; same pattern as signal_active.py). Fail-visible arms: extracted
+# rows without a derivable birth_tic count as steppable; a clock fault
+# (TIC_COUNT unresolved) falls back to the legacy aggregate rather than
+# silently starving the lane.
+# ----------------------------------------------------------------------------
+STEPPABLE_CPRS=0
+if [ -f "$QUEUE_FILE" ]; then
+  STEPPABLE_CPRS=$(python3 -c "
+import json, os, sys
+entries = {}
+for line in open('$QUEUE_FILE'):
+    try:
+        d = json.loads(line.strip())
+        eid = d.get('id','')
+        if eid: entries[eid] = d
+    except: pass
+count_steppable = None
+for _libdir in ['$CGG_SCRIPTS_DIR/lib', os.path.expanduser('~/.claude/cgg-runtime/scripts/lib')]:
+    if _libdir and os.path.isdir(_libdir):
+        sys.path.insert(0, _libdir)
+        try:
+            from cpr_steppable import count_steppable
+            break
+        except Exception:
+            sys.path.pop(0)
+if count_steppable is None:
+    _DEFAULT_MATURITY = 3
+    _STEPPABLE = ('extracted','tic_gated')
+    def _is_steppable(e, tic):
+        s = e.get('status','')
+        if s == 'tic_gated': return True
+        if s != 'extracted': return False
+        if e.get('provenance_class') == 'construction_authoritative': return True
+        b = e.get('birth_tic')
+        if not isinstance(b, int): return True
+        try: m = int(e.get('maturity_tics', _DEFAULT_MATURITY))
+        except (TypeError, ValueError): m = _DEFAULT_MATURITY
+        return (tic - b) >= m
+    def count_steppable(entries, tic):
+        if not isinstance(tic, int) or tic <= 0:
+            return sum(1 for e in entries.values() if e.get('status','') in _STEPPABLE)
+        return sum(1 for e in entries.values() if _is_steppable(e, tic))
+try:
+    _tic = int('${TIC_COUNT:-0}')
+except ValueError:
+    _tic = 0
+print(count_steppable(entries, _tic))
 " 2>/dev/null || echo "0")
 fi
 
@@ -766,7 +814,7 @@ if [ "$STEPPABLE_CPRS" -gt 0 ]; then
   if [ "$CPR_STEP_LAST_TIC" != "$TIC_COUNT" ]; then
     CGG_MSG="$CGG_MSG [CPR STEP: $STEPPABLE_CPRS CogPR(s) in extracted/tic_gated awaiting intelligent state advancement + DEDUP. Async-decoupled lane (NOT a cadence cycle). Dispatch the cpr-stepper office steward in background — an entity at the appropriate state, via the lead harness's active dispatch surface (subagent / workflow / agent-team; stewards of each office are installed to that end) — NON-BLOCKING, proceed with user work. The stepper advances each entry one step, runs verify-twin DEDUP, writes state changes to queue.jsonl; promotion stays gated at /review. Results visible in next /review.] [CPR STEP PROTOCOL v1: (1) Dispatch cpr-stepper in background via the active harness dispatch surface. (2) NON-BLOCKING — do not wait. (3) Stepper mutates queue.jsonl state only (extracted->...->absorbed/promotable); it never promotes. (4) Re-surfaces next tic if entries remain (one step per session per entry).]"
     mkdir -p "$(dirname "$CPR_STEP_SEEN")" 2>/dev/null
-    printf '{"tic": %s, "steppable": %s}\n' "${TIC_COUNT:-0}" "$STEPPABLE_CPRS" > "$CPR_STEP_SEEN" 2>/dev/null || true
+    printf '{"tic": %s, "steppable": %s, "predicate": "per_id_maturity_v1"}\n' "${TIC_COUNT:-0}" "$STEPPABLE_CPRS" > "$CPR_STEP_SEEN" 2>/dev/null || true
   fi
 fi
 
