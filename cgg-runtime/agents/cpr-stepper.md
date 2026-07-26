@@ -175,7 +175,7 @@ The human decides whether to proceed or absorb.
 
 ## DEDUP Hash
 
-`SHA256(source + lesson)[:16]` — same lesson from same source → same hash → skip (idempotent).
+`SHA256(f"{source}:{lesson}")[:16]` — colon-separated, matching the authoritative form in `cpr-extract.py` (its stamp sites) — same lesson from same source → same hash → skip (idempotent). The no-separator form `SHA256(source + lesson)` is WRONG: stamped hashes reproduce only under the colon form (empirically settled tic 652; doctrine-drift cured tic 653, stepper anomaly A4-653).
 
 ## Queue Format
 
