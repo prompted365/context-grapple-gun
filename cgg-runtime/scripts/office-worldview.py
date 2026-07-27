@@ -922,12 +922,18 @@ def _render_bound_marker(omitted_frags: list, office: str, tic: int) -> str:
     shown = ids[:TOP]
     more = n - len(shown)
     id_str = ", ".join(shown) + (f" +{more} more" if more > 0 else "")
+    # A6-659: the follow-surface command must be RESOLVABLE by the reader — a bare
+    # `office-worldview.py` cannot be executed from an arbitrary cwd, so consumers
+    # guess a path (the tic-659 stepper guessed scripts/offices/ → ENOENT). Embed the
+    # absolute path of the copy that actually rendered this marker (emitter row must
+    # match the reader predicate; same pattern as the receipt frame's boot-receipt.py).
+    self_path = Path(__file__).resolve()
     return (
         f"  ⟨RENDER-BOUND·shape-only⟩ worldview render bounded at budget — {n} ray(s) omitted by "
         f"RENDER, not reclassified (each RETAINS its class): {id_str} [classes: {', '.join(classes)}]. "
         f"Budget-omitted content keeps its own pertinence — EXPAND if pertinent (do not infer their "
         f"contents; do not treat them as SEALED-foreclosed). follow-surface: re-render "
-        f"`office-worldview.py render --office {office} --tic {tic} --max-chars 0` (read_discipline: "
+        f"`python3 {self_path} render --office {office} --tic {tic} --max-chars 0` (read_discipline: "
         f"unbounded re-render, or --format json for the typed fragments)."
     )
 
