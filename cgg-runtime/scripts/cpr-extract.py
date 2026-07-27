@@ -932,6 +932,11 @@ def extract_cprs(project_dir, dry_run=False, plan_file=None, anomaly_threshold=0
                 entry["confidence_tier"] = confidence_tier
             if origin_context:
                 entry["origin_context"] = origin_context
+            # lesson_type passthrough (stepper-660 escalation: dropped at capture for the
+            # third independent born in two tics). Presence-keyed, declared-never-inferred —
+            # an authored `lesson_type:` reaches the queue row; absence stays absent.
+            if block.get("lesson_type"):
+                entry["lesson_type"] = block["lesson_type"]
 
             # Parse birth_tic as int if it came from block as string
             try:
