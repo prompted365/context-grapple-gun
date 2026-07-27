@@ -146,6 +146,12 @@ def content_fingerprint(rec: dict) -> str:
     attest = {k: _fp_norm(rec[k]) for k in _FINGERPRINT_ATTESTATION_FIELDS if k in rec}
     if attest:
         sem["boot_read_attestation"] = attest
+    # A7-644 (bk-a7-explainback-fingerprint): the ladder explain-back is a SEMANTIC field —
+    # the drift-audit lane keys on its per-tic regeneration — so a corrected re-emit that
+    # differs ONLY in explainback must mint a distinct id, not dedup away. Presence-keyed
+    # and additive like the attestation layer: records without it hash exactly as before.
+    if "ladder_explainback" in rec:
+        sem["ladder_explainback"] = rec["ladder_explainback"]
     blob = json.dumps(sem, sort_keys=True, ensure_ascii=False)
     return hashlib.sha256(blob.encode("utf-8")).hexdigest()
 

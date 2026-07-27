@@ -134,10 +134,14 @@ class BackwardParity(unittest.TestCase):
 
     def test_non_attestation_noise_fields_do_not_enter_the_fingerprint(self):
         """created_at / model_of_record / receipt_route / source_drop are provenance, not
-        semantics — including them would break dedup on every re-emit."""
+        semantics — including them would break dedup on every re-emit.
+
+        NOTE (A7-644, bk-a7-explainback-fingerprint): ladder_explainback was originally
+        classified here as noise — that classification WAS the A7 defect (a corrected
+        re-emit differing only in explainback deduped away silently). It is semantic and
+        now lives in the discrimination suite below."""
         noisy = dict(CIVIC, created_at="2026-07-25T00:00:00Z", model_of_record="opus",
-                     receipt_route="cadence/review", source_drop="x.json",
-                     ladder_explainback="a. b. c. d. e.")
+                     receipt_route="cadence/review", source_drop="x.json")
         self.assertEqual(br.content_fingerprint(noisy), br.content_fingerprint(CIVIC))
 
 
@@ -147,6 +151,37 @@ class FingerprintDiscrimination(unittest.TestCase):
     def test_attestation_presence_changes_the_digest(self):
         self.assertNotEqual(br.content_fingerprint(dict(CIVIC, **ATTEST_FULL)),
                             br.content_fingerprint(CIVIC))
+
+    def test_ladder_explainback_presence_changes_the_digest(self):
+        """A7-644: explainback is the drift-audit lane's semantic payload — a receipt
+        carrying one must be distinguishable from the same receipt without it."""
+        self.assertNotEqual(br.content_fingerprint(dict(CIVIC, ladder_explainback="a. b. c. d. e.")),
+                            br.content_fingerprint(CIVIC))
+
+    def test_differing_ladder_explainbacks_are_distinguishable(self):
+        """A7-644 core scenario: a CORRECTED re-emit differing only in explainback must
+        mint a distinct receipt_id, not dedup away silently."""
+        a = br.content_fingerprint(dict(CIVIC, ladder_explainback="a. b. c. d. e."))
+        b = br.content_fingerprint(dict(CIVIC, ladder_explainback="v. w. x. y. z."))
+        self.assertNotEqual(a, b)
+
+    def test_explainback_free_record_still_hashes_pre_A7(self):
+        """Additive discipline: the widening must not move any explainback-free identity.
+        Reference = the tic-643 algorithm (civic + attestation layer, NO explainback layer)
+        — NOT legacy_content_fingerprint, which is the older pre-643 civic-only form."""
+        rec = dict(CIVIC, **ATTEST_FULL)
+        sem = {
+            "understood_scope": rec.get("understood_scope", ""),
+            "accepted_constraints": sorted(rec.get("accepted_constraints", [])),
+            "abstentions": sorted(rec.get("abstentions", [])),
+            "first_action_or_escalation": rec.get("first_action_or_escalation", ""),
+        }
+        attest = {k: br._fp_norm(rec[k]) for k in br._FINGERPRINT_ATTESTATION_FIELDS if k in rec}
+        if attest:
+            sem["boot_read_attestation"] = attest
+        tic643_ref = hashlib.sha256(
+            json.dumps(sem, sort_keys=True, ensure_ascii=False).encode("utf-8")).hexdigest()
+        self.assertEqual(br.content_fingerprint(rec), tic643_ref)
 
     def test_pre_fix_algorithm_collides_the_two_shapes(self):
         """Direct regression witness: under the OLD algorithm the two shapes were the SAME
