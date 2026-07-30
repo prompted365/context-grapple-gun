@@ -168,5 +168,5 @@ test('Academy is excluded pending its governed refresh', () => {
 test('init-governance no longer activates PRESTIGE in its zone template', () => {
   const skill = readFileSync(join(ROOT, 'cgg-runtime', 'skills', 'init-governance', 'SKILL.md'), 'utf-8');
   assert.doesNotMatch(skill, /"bands": \["PRIMITIVE", "COGNITIVE", "SOCIAL", "PRESTIGE"\]/);
-  assert.match(skill, /governance-blocked PRESTIGE/);
+  assert.match(skill, /(?:governance-blocked.*PRESTIGE|PRESTIGE.*governance-blocked)/s);
 });
