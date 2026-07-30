@@ -114,3 +114,52 @@ def is_active_ray(rec: dict) -> bool:
 def active_rays(records) -> list:
     """Filter an iterable of signal records to the active set."""
     return [r for r in records if is_active_ray(r)]
+
+
+# ---------------------------------------------------------------------------
+# Escalation-attention readers (tic 674, bk-age-unknown-escalation-reader —
+# the MOUTH for the t671 anti-silencing canary).
+#
+# manifest-prune (the producer half of the anti-silencing law above) re-heats
+# an unowned silent carried/dimmed ray and stamps `re_escalation_reminder` —
+# "a reminder marker the docket can key on" — and renders unknown age as the
+# explicit `age_unknown` marker (null is UNKNOWN, never fresh). Until tic 674
+# NO reader keyed on either: the re-heat entered the active set via volume/
+# heat, but the marker itself was written-never-read. These predicates are the
+# reader half; cadence-ops write_conformation is the standing per-downbeat
+# consumer (sparse per-signal markers + escalation_attention count).
+# ---------------------------------------------------------------------------
+
+def is_reescalated_ray(rec: dict) -> bool:
+    """True iff the ray carries the LIVE re-escalation reminder — re-heated by
+    the anti-silencing pass this projection cycle because it was silent with no
+    owner. Such a ray needs a DECISION (resolve/dismiss, or an owned carry),
+    not another decay cycle. Past-cycle provenance (re_escalated_at_tic without
+    the reminder) does not count — the docket keys on the live marker."""
+    return bool(rec.get("re_escalation_reminder"))
+
+
+def is_age_unknown_ray(rec: dict) -> bool:
+    """True iff the ray's reinforcement age is UNKNOWN. Prefer the projected
+    marker (_v2_projection_inputs.age_unknown); for an un-projected record,
+    derive it the same way the producer does — no volume_history tic, no
+    added_to_manifest_tic, no source_tic. The t671 law this reads for:
+    absence of age evidence is never freshness, and on an unowned silent
+    carried/dimmed ray an unmeasurable quiet window is escalation-ELIGIBLE."""
+    inputs = rec.get("_v2_projection_inputs")
+    if isinstance(inputs, dict) and "age_unknown" in inputs:
+        return bool(inputs["age_unknown"])
+    history = rec.get("volume_history") or []
+    if isinstance(history, list) and history:
+        latest = history[-1]
+        if isinstance(latest, dict) and isinstance(latest.get("tic"), int):
+            return False
+    return not any(isinstance(rec.get(k), int)
+                   for k in ("added_to_manifest_tic", "source_tic"))
+
+
+def escalation_attention_rays(records) -> list:
+    """The re-escalation docket: ACTIVE rays carrying the live reminder marker.
+    A subset of the active set, never a parallel state machine — a terminal or
+    cooled ray with a stale marker is excluded by the single-owner predicate."""
+    return [r for r in records if is_active_ray(r) and is_reescalated_ray(r)]

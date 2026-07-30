@@ -68,7 +68,7 @@ except ImportError:
 # `status in {active,acknowledged,working}` enum for SIGNALS in favor of the
 # v2 heat projection (a cooled/silenced acknowledged ray no longer counts as
 # active). Warrants keep the status-set predicate below (no heat projection).
-from lib.signal_active import is_active_ray
+from lib.signal_active import is_active_ray, is_reescalated_ray, is_age_unknown_ray
 
 
 # ---------------------------------------------------------------------------
@@ -668,8 +668,17 @@ def write_conformation(zone_root: str, tic_count: int, tic_timestamp: str,
             continue
         latest_by_signal_id[sid] = s
 
-    active_signals = [
-        {
+    # Escalation-attention reader (tic 674, bk-age-unknown-escalation-reader):
+    # the conformation is the standing per-downbeat CONSUMER of the producer's
+    # re_escalation_reminder + age_unknown markers (manifest-prune anti-
+    # silencing pass) — until this landed the markers were written-never-read.
+    # Sparse fields: only stamped when true, so the plain happy path stays
+    # byte-shaped as before.
+    active_signals = []
+    for s in latest_by_signal_id.values():
+        if not is_active_ray(s):
+            continue
+        entry = {
             "id": s.get("signal_id", s.get("id", "")),
             "kind": s.get("kind", ""),
             "band": s.get("band", ""),
@@ -677,9 +686,13 @@ def write_conformation(zone_root: str, tic_count: int, tic_timestamp: str,
             "status": s.get("status", ""),
             "subsystem": s.get("subsystem", ""),
         }
-        for s in latest_by_signal_id.values()
-        if is_active_ray(s)
-    ]
+        if is_reescalated_ray(s):
+            entry["re_escalation_reminder"] = True
+        if is_age_unknown_ray(s):
+            entry["age_unknown"] = True
+        active_signals.append(entry)
+    escalation_attention = [e["id"] for e in active_signals
+                            if e.get("re_escalation_reminder")]
 
     # Warrants: still scan daily logs (no manifest yet for warrants)
     all_warrants = load_latest_per_id(signal_dir, type_filter="warrant")
@@ -731,8 +744,13 @@ def write_conformation(zone_root: str, tic_count: int, tic_timestamp: str,
             "active_signals": len(active_signals),
             "active_warrants": len(active_warrants),
             "pending_cogprs": len(pending_cogprs),
+            # NAMES not a bare count (typed aperture): the rays the anti-
+            # silencing pass re-heated this cycle — each needs a DECISION.
+            "escalation_attention": len(escalation_attention),
         },
     }
+    if escalation_attention:
+        conformation["escalation_attention_ids"] = escalation_attention
     if posture:
         conformation["posture"] = posture
 
@@ -1676,6 +1694,47 @@ def main():
     # guarantee-lapses. Same fail-soft observability-subprocess pattern as 5/5b; the sweep is
     # idempotent + atomic-append and can NEVER block or fail the tic emit (dispatch-and-continue).
     result["receipt_drop_sweep"] = run_receipt_drop_sweep_step(zone_root, tic_count)
+
+    # 5f. Map-lane freshness canary (tic 674, bk-maps-clock-and-canary) — the cadence
+    # IS the clock. Invokes maps-freshness-audit.py check: derives per-lane freshness
+    # from artifact tic stamps (io-map-3d / board-state / cockpit), consumes the
+    # ts_router status exit code as receipt evidence, emits/resolves the durable
+    # dedup-at-write signal `sig_maps_stale` (emit/resolve symmetry — no write-only
+    # TENSION debt), and appends a receipt row EVERY run (the residue the
+    # nav-freshness advisory never left; 29-tic freeze t644→673 is the scar).
+    # Exit 0 = fresh, exit 2 = stale VERDICT (not a crash) — both valid execution
+    # outcomes from cadence's perspective; we surface the status, never block on it.
+    # Same fail-soft observability-subprocess pattern as steps 5/5b-5e.
+    maps_script = Path(zone_root) / "audit-logs" / "governance" / "maps-freshness-audit.py"
+    if maps_script.exists():
+        try:
+            maps_proc = subprocess.run(
+                ["python3", str(maps_script), "check", "--tic", str(tic_count),
+                 "--invoked-from", "cadence-ops"],
+                capture_output=True, text=True, timeout=90,
+            )
+            stale_lanes = None
+            signal_action = None
+            try:
+                data = json.loads(maps_proc.stdout or "{}")
+                stale_lanes = sorted(data.get("stale_lanes") or {})
+                signal_action = (data.get("signal") or {}).get("action")
+            except Exception:  # noqa: BLE001 — report-parse best-effort
+                pass
+            result["maps_freshness"] = {
+                "ran": True,
+                "exit_code": maps_proc.returncode,
+                "fresh": maps_proc.returncode == 0,
+                "stale_lanes": stale_lanes,
+                "signal_action": signal_action,
+            }
+        except Exception as err:  # noqa: BLE001 — fail-soft
+            result["maps_freshness"] = {"ran": False, "error": str(err)}
+    else:
+        result["maps_freshness"] = {
+            "ran": False,
+            "reason": "maps-freshness-audit.py not found at expected path",
+        }
 
     # 6. Claude agents snapshot (tic 270) — read-only observability sensor.
     # Born tic 270 under Architect Path C adoption. Captures native Claude

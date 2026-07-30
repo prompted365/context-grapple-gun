@@ -534,6 +534,22 @@ def compute_finding_signal_id(rung, ki_id, verdict):
     return f"sig_ladder_down_audit_finding_{h}"
 
 
+def _carry_manifest_observability(entry, sig):
+    """Observability-FIELD parity on manifest rows (ratified ray /review 668 —
+    cgg-ledger#machine-emitter-emit-resolve-symmetry section 3): every
+    reaffirm/resolve/heal manifest row must carry kind/band/volume/max_volume
+    forward FROM THE ORIGINAL SIGNAL. A thin row becomes the latest-per-id
+    manifest truth on the next collapse and silently drops the fields every
+    manifest reader keys on (band counts, volume projection, /siren loudest) —
+    the re-affirmed WATCH finding goes acoustically dark at the exact moment it
+    is re-affirmed as standing. Carries only what the original actually has:
+    absent stays absent, never invented."""
+    for field in ("kind", "band", "volume", "max_volume"):
+        if field not in entry and sig.get(field) is not None:
+            entry[field] = sig[field]
+    return entry
+
+
 def emit_downaudit_finding(zone_root, rung, ki_id, verdict, opened_tic, *,
                            reinforce_signal=False, summary=None, artifact=None,
                            source="ladder-audit.py", dry_run=False):
@@ -615,6 +631,9 @@ def emit_downaudit_finding(zone_root, rung, ki_id, verdict, opened_tic, *,
             "source_file": f"signals/{date_str}.jsonl",
             "summary": summary_text,
         }
+        # Field parity with the daily-row emit shape (the reference the
+        # reaffirm/resolve rows carry forward from): max_volume included.
+        _carry_manifest_observability(manifest_entry, signal)
         dedup_signal_append(manifest_path, manifest_entry)
 
     return {"ok": True, "dry_run": False, "written": written,
@@ -2963,6 +2982,10 @@ def resolve_downaudit_finding(zone_root, signal_id, review_tic, resolved_to,
         "summary": (f"down-audit finding resolved → {resolved_to} "
                     f"(/review {review_tic}): {justification[:80]}"),
     }
+    # Observability-FIELD parity: the terminal row still carries the original
+    # kind/band/volume/max_volume so the archive consumer can audit closure
+    # inputs (the projection zeroes visible_volume for resolved regardless).
+    _carry_manifest_observability(manifest_entry, sig)
 
     if dry_run:
         return {"ok": True, "dry_run": True, "signal_id": signal_id,
@@ -3071,6 +3094,10 @@ def reaffirm_downaudit_finding(zone_root, signal_id, justification, *,
         "retest_count": retest_count,
         "summary": summary_text,
     }
+    # Observability-FIELD parity: without the carry, this thin row becomes the
+    # latest-per-id manifest truth and the re-affirmed finding goes band-less /
+    # volume-less (acoustically dark) at the exact moment it is re-affirmed.
+    _carry_manifest_observability(manifest_entry, sig)
 
     if dry_run:
         return {"ok": True, "dry_run": True, "signal_id": signal_id,
@@ -3881,12 +3908,12 @@ def persist_staleness_candidates(zone_root, scan_result, opened_tic=None, *,
         }
         written = dedup_signal_append(signal_file, signal, manifest_path=manifest_path)
         if written:
-            dedup_signal_append(manifest_path, {
+            dedup_signal_append(manifest_path, _carry_manifest_observability({
                 "signal_id": sig_id, "signal_type": STALENESS_CANDIDATE_SIGNAL_TYPE,
                 "kind": "WATCH", "band": "COGNITIVE", "status": "active",
                 "volume": STALENESS_CANDIDATE_VOLUME,
                 "source_file": f"signals/{date_str}.jsonl", "summary": summary_text,
-            })
+            }, signal))
             emitted.append(sig_id)
         else:
             deduped.append(sig_id)
@@ -3911,11 +3938,14 @@ def persist_staleness_candidates(zone_root, scan_result, opened_tic=None, *,
         # Terminal transition = append same signal_id (latest-per-id wins); NOT dedup
         # (which would refuse the duplicate id) — mirrors resolve_downaudit_finding.
         atomic_append_jsonl(signal_file, healed)
-        atomic_append_jsonl(manifest_path, {
+        # Sibling site of the reaffirm/resolve thin-row defect (named-footgun-
+        # sibling discipline): the heal row carries the rollup's observability
+        # fields forward too.
+        atomic_append_jsonl(manifest_path, _carry_manifest_observability({
             "signal_id": r["signal_id"], "signal_type": STALENESS_CANDIDATE_SIGNAL_TYPE,
             "status": "resolved", "structural_status": "resolved",
             "summary": f"staleness rollup [{r['staleness_signal']}] healed (0 candidates)",
-        })
+        }, sig))
         resolved.append(r["signal_id"])
 
     return {
