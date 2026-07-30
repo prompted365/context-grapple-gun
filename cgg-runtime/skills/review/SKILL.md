@@ -264,10 +264,10 @@ For each MERGE:
 3. Promote the merged lesson; mark originals as `absorbed` with `absorbed_reason: "merged into <merged_id>"`
 4. Upgrade confidence tier to at least `reinforced` (multiple sources = evidence)
 
-For each DEFER:
-1. Update CogPR status to `enrichment_eligible` with `pending_class: "feedback_required"`
-2. Record the unresolved dependency or contradiction that blocks promotion
-3. Set `maturity_window_tics` for re-evaluation
+For each DEFER (generator contract amended per rider R3+A1-663, /review 663 — the window without its anchor was the M3 generator gap: the tic-639 backfill repaired the population, not the generator, and the shape re-minted at review_tic 640):
+1. Update CogPR status to `enrichment_eligible` with the honest `pending_class` (`feedback_required` | `stability_window` | `evidence_insufficient` — not interchangeable)
+2. Record the blocker as a MACHINE-TYPED `re_eval_condition` field — `{"kind": "<dependency|contradiction|evidence_gate|drill>", "ref": "<artifact/queue-id/backlog-id>", "unmet_predicate": "<what must become true>"}`. Prose rationale may accompany the typed field, never substitute for it.
+3. Set `maturity_window_tics` AND stamp the window's ANCHOR: `advanced_tic` = the DEFER tic. The window is measured from that anchor (the `advanced_tic → deferred_tic → birth_tic` chain in `queue_state_compile._resolve_target_tic`, bounded both directions — never-earlier t649, never-later R3+A1-663); a window stamped without its anchor is the exact non-conformant shape this contract amendment exists to stop minting.
 
 For each SUPERSEDE:
 1. Promote the newer artifact
@@ -400,8 +400,16 @@ Telos
 
 - Log each decision to `audit-logs/reviews/YYYY-MM-DD.jsonl` (the canonical live verdict lane — same dated lane cpr-stepper/review-execute already write; the legacy `~/.claude/grapple-meta-log.jsonl` global sink was retired as a write-target tic 583, its history preserved in place):
   ```json
-  {"timestamp":"...","action":"promote|skip|modify|acknowledge|dismiss|escalate","source":"...","target":"...","lesson":"...","confidence":0.85,"signal_id":"...","warrant_id":"..."}
+  {"timestamp":"...","action":"promote|skip|modify|merge|defer|supersede|acknowledge|dismiss|escalate","source":"...","target":"...","lesson":"...","confidence":0.85,"signal_id":"...","warrant_id":"...",
+   "consumed_fields":{
+     "clock":"<which clock basis the verdict consumed: birth_tic maturity | advanced_tic re-eval window — the two are distinct bases (audit t645 §3)>",
+     "predicate_inputs":{"birth_tic":0,"current_tic":0,"maturity_tics":"...","maturity_window_tics":"...","pending_class":"...","status_before":"..."},
+     "re_eval_condition":"<the typed condition set, cleared, or evaluated — or n/a with why>",
+     "gate1_staleness":{"source_kind":"...","source_file":"...","source_file_exists":true,"source_stable":true,"evidence":"...","condition_resolved":false},
+     "regression_trigger":"<evaluated | not_applicable — with the measurement if evaluated>",
+     "rationale":"<deliberate-non-disposition rationale, when a field was read but deliberately not acted on>"}}
   ```
+  **Terminal-verdict receipts (PROMOTE / SKIP / MODIFY / MERGE / DEFER / SUPERSEDE) MUST carry the `consumed_fields` slot** — the predicate inputs the verdict actually consumed. The shape is the cpr-stepper's self-authored record, adopted as the template by rider R4 (/review 663): it was present at the mechanical office and absent at the authority-bearing one. A clean-negative measurement is RECORDED, not discarded to memory (O1-664: a Gate-1 probe run and then dropped leaves the next reader unable to tell staleness was ever checked). This slot is how the three maturity loci name their warrant — VP1 (R6) closes as a consequence of R2–R4, not silently.
 - If proposals file was consumed, delete `~/.claude/grapple-proposals/latest.md`
 
 ## Protected Files

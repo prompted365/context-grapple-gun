@@ -263,16 +263,35 @@ def gather_signal_evidence(cpr, signal_dir):
 
 
 def gather_source_stability(cpr, project_dir):
-    """Check if the source file still exists and CPR content is present."""
+    """Check if the source file still exists and CPR content is present.
+
+    A1-665 (filed by the cpr-stepper tic 665, repaired in-lane same tic): the
+    extractor stamps the real path in `source_file`; `source` is free prose
+    ("what was learned where" — often a sentence, not a path). Resolving the
+    prose as a path minted FALSE `source_missing` rays (35 of 50 at the
+    tic-665 census, 13/13 of the live enrichment_needed cohort, weight -0.30
+    each) — producer stamps the right field, consumer read the wrong one,
+    inverting Gate-1 exactly where it feeds docket readiness. Resolution
+    order: the stamped `source_file` field FIRST; the legacy colon-heuristic
+    over `source` as fallback; `source_missing` only when BOTH fail.
+    """
     evidence = []
     source = cpr.get("source", "")
     lesson = cpr.get("lesson", "")
+    stamped = cpr.get("source_file", "")
 
-    if not source:
+    if not source and not stamped:
         return evidence
 
-    source_file = source.split(":")[0] if ":" in source else source
-    source_path = resolve_source_path(source_file, project_dir)
+    source_path = None
+    tried = []
+    if stamped:
+        tried.append(stamped)
+        source_path = resolve_source_path(stamped, project_dir)
+    if source_path is None and source:
+        legacy = source.split(":")[0] if ":" in source else source
+        tried.append(legacy)
+        source_path = resolve_source_path(legacy, project_dir)
 
     if source_path is not None:
         try:
@@ -292,7 +311,7 @@ def gather_source_stability(cpr, project_dir):
     else:
         evidence.append({
             "evidence_type": "source_missing",
-            "value": f"Source file {source_file} not found",
+            "value": f"Source file not found (tried: {', '.join(tried)})",
         })
 
     return evidence
@@ -578,10 +597,25 @@ def derive_enrichment_outcome(cpr, current_tic):
            `relations` edge or a `refines` declaration; the proof names the
            row's ratification-bearing `evidence` field, or
       (ii) the honest-zero `no_evidence_reason` has HELD across a full
-           maturity window (current_tic - birth_tic >= maturity_window_tics,
-           row's own value or default 10) with the row's claims disk-verified
-           at least once (a prior scan pass ran against disk —
-           `enrichment_scanned_at` present).
+           maturity window with the row's claims disk-verified at least once
+           (a prior scan pass ran against disk — `enrichment_scanned_at`
+           present). Two teeth added by rider R2, /review 663 (landed via
+           bk-review-663-amendment-tranche, tic 665):
+
+           DISCRIMINATION — the marker certifies honest-zero-BY-SUFFICIENCY,
+           so the row must actually carry scannable claims (`source` or
+           `lesson` non-empty). A content-less shell's zero is
+           zero-by-MISSING-INPUT (the A3 field-strip artifact) and can never
+           prove sufficiency — the one granted marker (t244) was exactly this
+           defect and was withdrawn as hygiene.
+
+           CLOCK — the hold window anchors at the row's enrichment-lane
+           re-anchoring clock (`advanced_tic`, the same clock the cpr-stepper
+           regression trigger and queue_state_compile use), never the
+           birth-span (current_tic - birth_tic), which is vacuously elapsed
+           on any old row regardless of when the honest-zero was observed.
+           A row with no `advanced_tic` fails closed (honest hold — the hold
+           cannot be proven without its anchor).
 
     The marker is a RECEIPT OF PROVEN SUFFICIENCY, not a skip flag: it must
     name what proved sufficiency (ratification ref or verification ref).
@@ -609,20 +643,35 @@ def derive_enrichment_outcome(cpr, current_tic):
         return None, None  # class declared but lineage not yet registered — honest hold
 
     # Condition (ii): honest-zero held across a full maturity window,
-    # disk-verified at least once.
+    # disk-verified at least once. R2 (/review 663) teeth: a zero whose CAUSE
+    # is missing input is never proven sufficiency; the hold clock is the
+    # advanced_tic window, never the birth-span (vacuously true on old rows).
+    #
+    # The discriminator reads the zero's cause at the axis the scanner itself
+    # knows it: the scan loop mints "no gatherer produced evidence
+    # (missing: <fields>)" exactly when required gatherer inputs are absent —
+    # that suffix IS the zero_by_missing_input class (t244's grant carried it;
+    # so did the C3 grant this tooth caught in live fire at tic 665). Only the
+    # bare reason — inputs present, gatherers genuinely found nothing — can
+    # prove sufficiency. The row-level claims check is the second belt: a
+    # stripped shell (A3 artifact) lacks source AND lesson entirely.
     reason = cpr.get("no_evidence_reason")
+    zero_by_missing_input = "(missing:" in (reason or "")
     scanned_at = cpr.get("enrichment_scanned_at")
-    birth_tic = cpr.get("birth_tic")
-    if reason and scanned_at and isinstance(birth_tic, int) and current_tic >= 0:
+    has_claims = bool(cpr.get("source") or cpr.get("lesson"))
+    anchor_tic = cpr.get("advanced_tic")
+    if (reason and not zero_by_missing_input and scanned_at and has_claims
+            and isinstance(anchor_tic, int) and current_tic >= 0):
         window = cpr.get("maturity_window_tics") or DEFAULT_MATURITY_WINDOW_TICS
-        if (current_tic - birth_tic) >= window:
+        if (current_tic - anchor_tic) >= window:
             return "enrichment_unnecessary_proven", {
                 "basis": "honest_zero_window_held",
                 "verification_ref": (
                     f"no_evidence_reason ({reason!r}) held since first scan "
                     f"{scanned_at} (scan_count="
                     f"{cpr.get('enrichment_scan_count', 0)}); window "
-                    f"{birth_tic}->{current_tic} >= {window} tics"
+                    f"{anchor_tic}->{current_tic} >= {window} tics "
+                    f"(advanced_tic clock, R2 /review 663)"
                 ),
             }
     return None, None
@@ -878,10 +927,29 @@ def scan_and_enrich(project_dir, dry_run=False, quiet=False):
             if e["evidence_type"] not in existing_types
         ]
 
-        if not new_evidence:
+        # A1-665 completion: evidence types that are mutually exclusive
+        # observations of the SAME surface (source_stable / source_diverged /
+        # source_missing) supersede each other — a fresh observation must not
+        # coexist with a contradicted stale one. The type-accretion merge left
+        # the defect's false source_missing rays standing beside the repaired
+        # gather's source_stable rays (same file both present and absent,
+        # confidence still dragged -0.30). Supersession is a row change even
+        # when the fresh type already exists on the row.
+        fresh_types = {e["evidence_type"] for e in all_evidence}
+        superseded_types = set()
+        for group in ({"source_stable", "source_diverged", "source_missing"},):
+            hit = group & fresh_types
+            if hit:
+                superseded_types |= (group - hit) & existing_types
+
+        if not new_evidence and not superseded_types:
             continue
 
-        merged_enrichment = existing_enrichment + [
+        kept_existing = [
+            e for e in existing_enrichment
+            if e.get("evidence_type") not in superseded_types
+        ]
+        merged_enrichment = kept_existing + [
             {**e, "gathered_at": now, "gathered_by": "cpr-enrichment-scanner"}
             for e in new_evidence
         ]

@@ -158,9 +158,13 @@ class TestEnrichmentOutcome(unittest.TestCase):
         self.assertIsNone(proof)
 
     def test_honest_zero_window_held_emits(self):
+        # R2 (/review 663): claims present + advanced_tic anchor — the earned shape.
         cpr = {
             "id": "cpr_y",
-            "birth_tic": 600,
+            "birth_tic": 590,
+            "advanced_tic": 600,
+            "lesson": "a real claim",
+            "source": "a real source",
             "no_evidence_reason": "no gatherer produced evidence",
             "enrichment_scanned_at": "2026-07-01T00:00:00+00:00",
             "enrichment_scan_count": 2,
@@ -169,11 +173,15 @@ class TestEnrichmentOutcome(unittest.TestCase):
         self.assertEqual(outcome, "enrichment_unnecessary_proven")
         self.assertEqual(proof["basis"], "honest_zero_window_held")
         self.assertIn("600->616 >= 10", proof["verification_ref"])
+        self.assertIn("advanced_tic clock", proof["verification_ref"])
 
     def test_honest_zero_window_not_yet_held(self):
         cpr = {
             "id": "cpr_y",
-            "birth_tic": 610,
+            "birth_tic": 600,
+            "advanced_tic": 610,
+            "lesson": "a real claim",
+            "source": "a real source",
             "no_evidence_reason": "no gatherer produced evidence",
             "enrichment_scanned_at": "2026-07-10T00:00:00+00:00",
         }
@@ -183,7 +191,10 @@ class TestEnrichmentOutcome(unittest.TestCase):
     def test_honest_zero_never_disk_verified_holds(self):
         cpr = {
             "id": "cpr_y",
-            "birth_tic": 600,
+            "birth_tic": 590,
+            "advanced_tic": 600,
+            "lesson": "a real claim",
+            "source": "a real source",
             "no_evidence_reason": "no gatherer produced evidence",
             # no enrichment_scanned_at — never disk-verified
         }
@@ -193,12 +204,70 @@ class TestEnrichmentOutcome(unittest.TestCase):
     def test_honest_zero_respects_row_window(self):
         cpr = {
             "id": "cpr_y",
-            "birth_tic": 600,
+            "birth_tic": 590,
+            "advanced_tic": 600,
+            "lesson": "a real claim",
+            "source": "a real source",
             "maturity_window_tics": 20,
             "no_evidence_reason": "no gatherer produced evidence",
             "enrichment_scanned_at": "2026-07-01T00:00:00+00:00",
         }
         outcome, _ = scanner.derive_enrichment_outcome(cpr, 616)  # 16 < 20
+        self.assertIsNone(outcome)
+
+    def test_honest_zero_shell_refused_zero_by_missing_input(self):
+        # R2 discrimination tooth (/review 663): a content-less shell's zero is
+        # zero-by-missing-input (A3 field-strip artifact) — the t244 grant shape.
+        # Elapsed window + scan on record, but NO source/lesson -> refused.
+        cpr = {
+            "id": "cpr_shell",
+            "birth_tic": 590,
+            "advanced_tic": 600,
+            "no_evidence_reason": (
+                "no gatherer produced evidence (missing: source, source_date, "
+                "subsystem, recommended_scopes)"
+            ),
+            "enrichment_scanned_at": "2026-07-01T00:00:00+00:00",
+        }
+        outcome, proof = scanner.derive_enrichment_outcome(cpr, 616)  # 16 >= 10
+        self.assertIsNone(outcome)
+        self.assertIsNone(proof)
+
+    def test_honest_zero_missing_input_reason_refused_despite_claims(self):
+        # R2 discrimination, live-fire regression (C3 grant caught at tic 665):
+        # a row can carry a lesson body while the GATHERERS lacked their inputs
+        # — the scanner's own "(missing: ...)" reason suffix marks the zero as
+        # zero_by_missing_input, and no row-level claims can convert that into
+        # proven sufficiency.
+        cpr = {
+            "id": "cpr_c3_shape",
+            "birth_tic": 327,
+            "advanced_tic": 635,
+            "lesson": "a substantial lesson body is present",
+            "no_evidence_reason": (
+                "no gatherer produced evidence (missing: source, source_date, "
+                "subsystem, recommended_scopes)"
+            ),
+            "enrichment_scanned_at": "2026-07-30T08:00:00+00:00",
+        }
+        outcome, proof = scanner.derive_enrichment_outcome(cpr, 665)  # 30 >= 10
+        self.assertIsNone(outcome)
+        self.assertIsNone(proof)
+
+    def test_honest_zero_birth_span_alone_refused(self):
+        # R2 clock tooth (/review 663): the birth-span is vacuously elapsed on
+        # any old row; without the advanced_tic anchor the hold is unprovable
+        # and the predicate fails closed.
+        cpr = {
+            "id": "cpr_old",
+            "birth_tic": 244,
+            "lesson": "a real claim",
+            "source": "a real source",
+            "no_evidence_reason": "no gatherer produced evidence",
+            "enrichment_scanned_at": "2026-07-15T03:53:18+00:00",
+            # no advanced_tic — birth-span 244->616 elapsed, but no anchor
+        }
+        outcome, _ = scanner.derive_enrichment_outcome(cpr, 616)
         self.assertIsNone(outcome)
 
     def test_plain_friction_born_row_emits_nothing(self):
