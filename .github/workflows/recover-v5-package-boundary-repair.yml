@@ -1,0 +1,77 @@
+name: Recover v5 package and zone-boundary repair
+
+on:
+  push:
+    branches:
+      - fix/distribution-currentness-v5
+    paths:
+      - '.github/workflows/recover-v5-package-boundary-repair.yml'
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: cgg-v5-package-boundary-repair
+  cancel-in-progress: false
+
+jobs:
+  recover:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/distribution-currentness-v5
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - name: Repair the one-time patcher anchor
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          path = Path('scripts/apply-v5-package-boundary-repair.py')
+          text = path.read_text(encoding='utf-8')
+          old_a = '''"""  for (const relative of AUDIT_DIRECTORIES) {
+              const path = join(zone, relative);
+          """'''
+          new_a = '''"""    const path = join(zone, relative);
+          """'''
+          old_b = '''"""  for (const auditRelative of AUDIT_DIRECTORIES) {
+              const path = join(zone, auditRelative);
+          """'''
+          new_b = '''"""    const path = join(zone, auditRelative);
+          """'''
+          if old_a not in text or old_b not in text:
+              raise SystemExit('package-boundary patcher recovery anchors not found')
+          path.write_text(text.replace(old_a, new_a, 1).replace(old_b, new_b, 1), encoding='utf-8')
+          PY
+      - name: Apply package, scan-boundary, and currentness migration
+        run: python3 scripts/apply-v5-package-boundary-repair.py
+      - name: Validate migrated branch
+        run: |
+          npm ci
+          npm run test:distribution
+          npm pack --dry-run
+          npm install --global @anthropic-ai/claude-code@latest
+          claude plugin validate . --strict
+      - name: Self-delete recovery surface, commit, and push
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -f .github/workflows/recover-v5-package-boundary-repair.yml
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A
+          git diff --cached --quiet && exit 0
+          git commit -m 'distribution: ship documentation graph and exclude managed runtime from scans'
+          git push origin HEAD:fix/distribution-currentness-v5
+      - name: Record repair receipt on PR
+        shell: bash
+        run: |
+          gh pr comment 15 --repo prompted365/context-grapple-gun --body $'Package/zone-boundary repair recovered and committed after its first patcher attempt correctly failed before push. Validation passed before commit: npm static contract, contract tests, npm pack dry-run, and current Claude strict plugin validation.'
