@@ -1,0 +1,62 @@
+name: Force final v5 package and scan-boundary repair
+
+on:
+  push:
+    branches:
+      - fix/distribution-currentness-v5
+    paths:
+      - '.github/workflows/force-v5-package-boundary-repair.yml'
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: cgg-v5-package-boundary-repair
+  cancel-in-progress: false
+
+jobs:
+  apply:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/distribution-currentness-v5
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - name: Apply pending receipt/tree migration when present
+        shell: bash
+        run: |
+          set -euo pipefail
+          if test -f scripts/apply-v5-sync-repair.py; then
+            python3 scripts/apply-v5-sync-repair.py
+          fi
+      - name: Apply idempotent package, docs, and scan-boundary migration
+        run: python3 scripts/force-v5-package-boundary-repair.py
+      - name: Validate final branch before commit
+        run: |
+          npm ci
+          npm run test:distribution
+          npm pack --dry-run
+          npm install --global @anthropic-ai/claude-code@latest
+          claude plugin validate . --strict
+      - name: Commit and push only admitted source
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A
+          git diff --cached --quiet && exit 0
+          git commit -m 'distribution: finalize package graph and governed scan boundary'
+          git push origin HEAD:fix/distribution-currentness-v5
+      - name: Record final boundary receipt
+        shell: bash
+        run: |
+          gh pr comment 15 --repo prompted365/context-grapple-gun --body $'Final package/scan-boundary migration committed after validation. The npm payload now contains its linked local docs/assets, project-scope runtime paths are additively excluded from `.ticignore`, historical Plan Mode and auto-memory text is currentness-fenced, and every temporary migration workflow/script was removed from the resulting branch. Static contract, contract tests, npm pack dry-run, and current Claude strict validation passed before push.'
