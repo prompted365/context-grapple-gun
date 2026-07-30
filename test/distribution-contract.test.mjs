@@ -34,8 +34,13 @@ test('source plugin manifest is the single complete component authority', () => 
 
   assert.equal(sourcePlugin.version, pkg.version);
   assert.deepEqual([...sourcePlugin.skills].sort(), [...skillPathsForMode(contract, 'full')].sort());
-  assert.deepEqual([...sourcePlugin.agents].sort(), [...contract.agents.full].sort());
-  assert.equal(sourcePlugin.hooks, contract.hooks.full);
+  // Claude Code >= 2.1.220 loads hooks and agents from the standard
+  // plugin-root locations only: a manifest reference to the auto-loaded
+  // hooks/hooks.json is a fatal duplicate at load time, and the manifest
+  // "agents" field validates but loads nothing (the installer materializes
+  // contract agents into the plugin-root agents/ directory instead).
+  assert.equal(sourcePlugin.agents, undefined);
+  assert.equal(sourcePlugin.hooks, undefined);
   const entry = marketplace.plugins.find((plugin) => plugin.name === sourcePlugin.name);
   assert.ok(entry);
   assert.equal(entry.source, './');
@@ -68,8 +73,11 @@ test('mode manifests have distinct, truthful component surfaces', () => {
   const contract = loadComponentContract(ROOT);
 
   assert.ok(full.skills.length > skills.skills.length);
-  assert.deepEqual(full.agents, contract.agents.full);
-  assert.ok(full.hooks);
+  // Neither mode declares manifest.agents or manifest.hooks — both load
+  // from standard plugin-root locations on >= 2.1.220 (agents/ materialized
+  // by the installer per contract; hooks/hooks.json auto-loads).
+  assert.equal(full.agents, undefined);
+  assert.equal(full.hooks, undefined);
   assert.equal(skills.agents, undefined);
   assert.equal(skills.hooks, undefined);
   assert.ok(skills.skills.some((path) => path.includes('/cadence/')));
