@@ -23,7 +23,7 @@ permissions:
 
 jobs:
   installer-smoke:
-    name: Packed tarball × scopes × modes × update × uninstall
+    name: Packed tarball × scopes × modes × update × sync × uninstall
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -74,6 +74,14 @@ jobs:
             test -f "$project/CLAUDE.md"
           }
 
+          expect_sync_failure() {
+            local target="$1"
+            if "$CGG_BIN" sync check --target "$target"; then
+              echo "expected sync check to fail for a damaged runtime" >&2
+              exit 1
+            fi
+          }
+
           exercise_full_scope() {
             local scope="$1"
             local suffix="$2"
@@ -87,8 +95,10 @@ jobs:
               cd "$project"
               "$CGG_BIN" install --mode full --scope "$scope" --target "$target"
               "$CGG_BIN" doctor --target "$target"
+              "$CGG_BIN" sync check --target "$target"
               "$CGG_BIN" install --mode full --scope "$scope" --target "$target"
               "$CGG_BIN" doctor --target "$target"
+              "$CGG_BIN" sync check --target "$target"
               "$CGG_BIN" uninstall --scope "$scope" --target "$target" --keep-data
             )
             test ! -e "$target"
@@ -99,8 +109,8 @@ jobs:
           exercise_full_scope user user
           exercise_full_scope project project
 
-          # Local scope also proves the full -> skills contraction removes the
-          # plugin-root agents/ and hooks/ surfaces and loads exactly 6/0/0.
+          # Local scope also proves materialized-agent drift, governed repair,
+          # full -> skills contraction, mode-aware sync, and zero-hook isolation.
           HOME_LOCAL="$RUNNER_TEMP/cgg-home-local"
           PROJECT_LOCAL="$RUNNER_TEMP/cgg-project-local"
           TARGET_LOCAL="$RUNNER_TEMP/cgg-target-local"
@@ -111,10 +121,27 @@ jobs:
             cd "$PROJECT_LOCAL"
             "$CGG_BIN" install --mode full --scope local --target "$TARGET_LOCAL"
             "$CGG_BIN" doctor --target "$TARGET_LOCAL"
+            "$CGG_BIN" sync check --target "$TARGET_LOCAL"
+
+            printf '\n# deliberate sync drift\n' >> "$TARGET_LOCAL/agents/mogul.md"
+            expect_sync_failure "$TARGET_LOCAL"
+
+            "$CGG_BIN" sync sync --target "$TARGET_LOCAL"
+            "$CGG_BIN" doctor --target "$TARGET_LOCAL"
+            "$CGG_BIN" sync check --target "$TARGET_LOCAL"
+
             "$CGG_BIN" install --mode skills --scope local --target "$TARGET_LOCAL"
             test ! -e "$TARGET_LOCAL/agents"
             test ! -e "$TARGET_LOCAL/hooks"
             "$CGG_BIN" doctor --target "$TARGET_LOCAL"
+            "$CGG_BIN" sync check --target "$TARGET_LOCAL"
+
+            mkdir -p "$TARGET_LOCAL/hooks"
+            printf '#!/usr/bin/env sh\n' > "$TARGET_LOCAL/hooks/rogue.sh"
+            expect_sync_failure "$TARGET_LOCAL"
+            rm -rf "$TARGET_LOCAL/hooks"
+            "$CGG_BIN" sync check --target "$TARGET_LOCAL"
+
             "$CGG_BIN" uninstall --scope local --target "$TARGET_LOCAL" --keep-data
           )
           test ! -e "$TARGET_LOCAL"
