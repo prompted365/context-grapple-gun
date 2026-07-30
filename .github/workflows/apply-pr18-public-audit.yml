@@ -1,0 +1,43 @@
+name: Apply PR18 public audit fixes
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/apply-pr18-public-audit.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/distribution-release-lane
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Apply deterministic audit repairs
+        run: python3 scripts/apply-public-audit-fixes.py
+      - name: Verify Node contract
+        run: |
+          npm test
+          find bin lib test -type f -name '*.mjs' -print0 | xargs -0 -n1 node --check
+          npm pack --dry-run
+      - name: Verify current Claude plugin schema
+        run: |
+          npm install --global @anthropic-ai/claude-code@latest
+          claude --version
+          claude plugin validate . --strict
+      - name: Commit repaired branch
+        run: |
+          set -euo pipefail
+          git config user.name "CGG Release Steward"
+          git config user.email "breyden@prompted.community"
+          git add -A
+          git diff --cached --quiet && exit 0
+          git commit -m "fix(distribution): close public audit gaps across modes, receipts, and packed release proof"
+          git push origin HEAD:fix/distribution-release-lane
