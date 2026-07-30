@@ -1,0 +1,61 @@
+name: Apply CGG v5 runtime-truth release hold
+
+on:
+  push:
+    branches:
+      - fix/distribution-currentness-v5
+    paths:
+      - '.github/workflows/apply-v5-release-hold.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/distribution-currentness-v5
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - name: Bind npm release authority to P0 issue 16
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          path = Path('.github/workflows/release-npm.yml')
+          text = path.read_text(encoding='utf-8')
+          if 'P0 runtime truth-integrity hold (#16)' not in text:
+              text = text.replace(
+                  'permissions:\n  contents: read\n  id-token: write\n',
+                  'permissions:\n  contents: read\n  issues: read\n  id-token: write\n',
+                  1,
+              )
+              anchor = '''      - run: npm ci\n'''
+              gate = '''      - name: Enforce P0 runtime truth-integrity hold (#16)\n        env:\n          GH_TOKEN: ${{ github.token }}\n        shell: bash\n        run: |\n          STATE="$(gh api repos/prompted365/context-grapple-gun/issues/16 --jq .state)"\n          test "$STATE" = "closed" || {\n            echo "npm release held: issue #16 (third-surface correction reconciliation) is $STATE" >&2\n            exit 1\n          }\n\n'''
+              if anchor not in text:
+                  raise SystemExit('release workflow npm-ci anchor missing')
+              text = text.replace(anchor, gate + anchor, 1)
+              path.write_text(text, encoding='utf-8')
+          PY
+      - name: Validate release workflow and package contract
+        run: |
+          npm ci
+          npm run test:distribution
+          npm pack --dry-run
+      - name: Self-delete, commit, and push
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -f .github/workflows/apply-v5-release-hold.yml
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A
+          git diff --cached --quiet && exit 0
+          git commit -m 'release: enforce third-surface correction P0 before npm publish'
+          git push origin HEAD:fix/distribution-currentness-v5
