@@ -1,0 +1,188 @@
+name: Finalize CGG v5 distribution admission
+
+on:
+  push:
+    branches:
+      - fix/distribution-currentness-v5
+    paths:
+      - '.github/workflows/v5-admission-finalize.yml'
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: cgg-v5-admission-finalize
+  cancel-in-progress: false
+
+jobs:
+  admit:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/distribution-currentness-v5
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Apply pending self-deleting sync migration when present
+        shell: bash
+        run: |
+          set -euo pipefail
+          if test -f scripts/apply-v5-sync-repair.py; then
+            python3 scripts/apply-v5-sync-repair.py
+          fi
+
+      - name: Verify the final source/package/install/sync contract exists
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -q 'export function hashTree' lib/utils.mjs
+          grep -q 'runtime_tree_sha256' lib/installer.mjs
+          grep -q 'forceRuntimeOverwrite' lib/installer.mjs
+          grep -q 'runtime tree integrity' lib/doctor.mjs
+          grep -q 'inspectSyncState' lib/sync.mjs
+          grep -q 'diffTrees' lib/sync.mjs
+          grep -q -- '--force-runtime-overwrite' bin/cgg.mjs
+          grep -q 'cgg sync check' .github/workflows/distribution-contract.yml
+          test ! -e scripts/apply-v5-sync-repair.py
+          test ! -e .github/workflows/apply-v5-sync-repair.yml
+
+      - name: Static distribution and package verification
+        run: |
+          npm ci
+          npm run test:distribution
+          npm pack --dry-run
+
+      - name: Install current Claude Code CLI and validate plugin strictly
+        run: |
+          npm install --global @anthropic-ai/claude-code@latest
+          claude plugin validate . --strict
+
+      - name: Full project-scope clean-room lifecycle
+        shell: bash
+        run: |
+          set -euo pipefail
+          export HOME="$(mktemp -d)"
+          PROJECT="$(mktemp -d)"
+          TARGET="$PROJECT/.claude/cgg"
+          git -C "$PROJECT" init -q
+
+          node "$GITHUB_WORKSPACE/bin/cgg.mjs" install \
+            --mode full \
+            --scope project \
+            --project-dir "$PROJECT" \
+            --target "$TARGET"
+
+          node "$GITHUB_WORKSPACE/bin/cgg.mjs" doctor \
+            --scope project \
+            --project-dir "$PROJECT" \
+            --target "$TARGET" \
+            --json > "$PROJECT/doctor.json"
+
+          node -e "const r=require(process.argv[1]); if(!r.ok) process.exit(1); if(r.receipt.mode!=='full') process.exit(2); if(!r.receipt.hashes.runtime_tree_sha256) process.exit(3);" "$PROJECT/doctor.json"
+          node "$GITHUB_WORKSPACE/bin/cgg.mjs" sync check \
+            --scope project \
+            --project-dir "$PROJECT" \
+            --target "$TARGET"
+
+          test -f "$PROJECT/.ticzone"
+          test -f "$PROJECT/.ticignore"
+          test -d "$PROJECT/audit-logs"
+          test -f "$TARGET/.cgg-install.json"
+
+          node "$GITHUB_WORKSPACE/bin/cgg.mjs" uninstall \
+            --scope project \
+            --project-dir "$PROJECT" \
+            --target "$TARGET"
+
+          test ! -e "$TARGET"
+          test -f "$PROJECT/.ticzone"
+          test -d "$PROJECT/audit-logs"
+
+      - name: Skills user-scope clean-room lifecycle
+        shell: bash
+        run: |
+          set -euo pipefail
+          export HOME="$(mktemp -d)"
+          PROJECT="$(mktemp -d)"
+          TARGET="$HOME/.cgg/context-grapple-gun"
+          git -C "$PROJECT" init -q
+
+          node "$GITHUB_WORKSPACE/bin/cgg.mjs" install \
+            --mode skills \
+            --scope user \
+            --project-dir "$PROJECT"
+
+          node -e "const m=require(process.argv[1]); if(m.hooks||m.agents) process.exit(1); if(!Array.isArray(m.skills)||m.skills.length<3) process.exit(2);" "$TARGET/.claude-plugin/plugin.json"
+
+          node "$GITHUB_WORKSPACE/bin/cgg.mjs" doctor \
+            --scope user \
+            --project-dir "$PROJECT" \
+            --json > "$PROJECT/doctor.json"
+
+          node -e "const r=require(process.argv[1]); if(!r.ok) process.exit(1); if(r.receipt.mode!=='skills') process.exit(2);" "$PROJECT/doctor.json"
+          node "$GITHUB_WORKSPACE/bin/cgg.mjs" sync check \
+            --scope user \
+            --project-dir "$PROJECT"
+
+          node "$GITHUB_WORKSPACE/bin/cgg.mjs" uninstall \
+            --scope user \
+            --project-dir "$PROJECT"
+
+          test ! -e "$TARGET"
+          test -f "$PROJECT/.ticzone"
+          test -d "$PROJECT/audit-logs"
+
+      - name: Convention-only marker-bounded lifecycle
+        shell: bash
+        run: |
+          set -euo pipefail
+          export HOME="$(mktemp -d)"
+          PROJECT="$(mktemp -d)"
+          git -C "$PROJECT" init -q
+          printf '# Existing\n\nKeep me.\n' > "$PROJECT/CLAUDE.md"
+
+          node "$GITHUB_WORKSPACE/bin/cgg.mjs" install \
+            --mode convention \
+            --project-dir "$PROJECT"
+          node "$GITHUB_WORKSPACE/bin/cgg.mjs" install \
+            --mode convention \
+            --project-dir "$PROJECT"
+
+          test "$(grep -c 'CGG:SESSION-LEARNING-PROTOCOL:START' "$PROJECT/CLAUDE.md")" -eq 1
+          grep -q 'Keep me.' "$PROJECT/CLAUDE.md"
+
+          node "$GITHUB_WORKSPACE/bin/cgg.mjs" uninstall \
+            --project-dir "$PROJECT" \
+            --remove-convention
+
+          grep -q 'Keep me.' "$PROJECT/CLAUDE.md"
+          ! grep -q 'CGG:SESSION-LEARNING-PROTOCOL:START' "$PROJECT/CLAUDE.md"
+
+      - name: Commit migrated source and delete this finalizer
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -f .github/workflows/v5-admission-finalize.yml
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A
+          if ! git diff --cached --quiet; then
+            git commit -m 'distribution: finalize v5 receipt and sync admission'
+            git push origin HEAD:fix/distribution-currentness-v5
+          fi
+
+      - name: Mark PR ready and attach admission receipt
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh pr ready 15 --repo prompted365/context-grapple-gun
+          gh pr comment 15 --repo prompted365/context-grapple-gun --body $'CGG v5 distribution admission completed on the repair branch.\n\nVerified before readiness:\n- static cross-layer distribution contract and npm pack\n- current Claude Code strict plugin validation\n- full project-scope install → doctor → receipt/tree sync → uninstall\n- skills user-scope install → doctor → receipt/tree sync → uninstall\n- convention-only idempotent insert/remove with user content preserved\n- staged atomic runtime activation and rollback tests\n- source checkout and governance-history preservation\n- self-deleting migration/finalizer surfaces absent from the resulting branch\n\nPublication remains held: this PR does not create the v5.0.0 GitHub release or publish npm.'
