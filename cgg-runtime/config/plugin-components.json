@@ -1,0 +1,53 @@
+{
+  "schema_version": 1,
+  "authority": "Public Claude Code plugin component admission. Edit this file and .claude-plugin/plugin.json together; CI enforces parity.",
+  "skill_sets": {
+    "core": [
+      "cadence",
+      "review",
+      "siren"
+    ],
+    "compatibility": [
+      "cadence-downbeat",
+      "cadence-syncopate",
+      "grapple"
+    ],
+    "full": [
+      "init-governance",
+      "statusline",
+      "sl-legend",
+      "governance-check",
+      "governance-mandate-cycle",
+      "inbox",
+      "complement",
+      "tactical-hydration",
+      "swarm",
+      "stage",
+      "videographer"
+    ]
+  },
+  "excluded_skills": [
+    {
+      "name": "homeskillet-academy",
+      "reason": "Held from public plugin admission pending the v5 curriculum refresh tracked in GitHub issue #17."
+    },
+    {
+      "name": "init-gun",
+      "reason": "Deprecated; absorbed by init-governance and the npm installer."
+    },
+    {
+      "name": "init-cogpr",
+      "reason": "Deprecated; absorbed by the current bootstrap and review lifecycle."
+    },
+    {
+      "name": "deprec_podcast_pipeline",
+      "reason": "Deprecated nested skill corpus; retained as source history, never public plugin surface."
+    }
+  ],
+  "agents": {
+    "full": "./cgg-runtime/agents/"
+  },
+  "hooks": {
+    "full": "./hooks/hooks.json"
+  }
+}
