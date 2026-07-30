@@ -10,13 +10,23 @@ On drift detection: emits TENSION signal (warrant-eligible) to signal store.
 Invariant: loaded runtime wins — this tool reports drift, does not silently
 pretend canonical is active.
 
-Exit codes: 0=success, 1=validation error, 2=IO error, 3=data error.
+Invariant: parity is defined against the SOLE-WRITER LANE (main), not the
+resident tree. Install-parity syncs mirror the resident branch's working tree
+and the drift check compares installed bytes against that SAME tree, so a
+checkout to any non-main branch would silently regress installed runtime
+semantics while drift reads 0 (reader and writer share one reference).
+cmd_sync / cmd_auto_sync therefore REFUSE on non-main residence unless
+--allow-non-main is armed; refusals and overrides both leave sync-log residue.
+(borns-tic673-branch-residence-regresses-installed-runtime)
+
+Exit codes: 0=success, 1=validation error / branch-residence refusal (sync),
+2=IO error, 3=data error.
 
 Usage:
     python3 runtime-sync.py check      [--project-dir PATH] [--json]
     python3 runtime-sync.py diff       [--project-dir PATH] [--json]
-    python3 runtime-sync.py sync       [--project-dir PATH]
-    python3 runtime-sync.py auto-sync  [--project-dir PATH] [--commit SHA]
+    python3 runtime-sync.py sync       [--project-dir PATH] [--allow-non-main]
+    python3 runtime-sync.py auto-sync  [--project-dir PATH] [--commit SHA] [--allow-non-main]
     python3 runtime-sync.py discover   [--project-dir PATH] [--json]
 """
 
@@ -494,11 +504,93 @@ def get_current_commit(repo_dir):
 
 
 # ---------------------------------------------------------------------------
+# Branch-residence guard — parity reference must be the sole-writer lane
+# ---------------------------------------------------------------------------
+
+def get_current_branch(repo_dir):
+    """Resident branch of repo_dir. 'HEAD' when detached; None when repo_dir
+    is not a git repo (or git is unavailable) — a tree with no checkout has no
+    branch-residence hazard."""
+    try:
+        result = subprocess.run(
+            ["git", "rev-parse", "--abbrev-ref", "HEAD"],
+            capture_output=True, text=True, timeout=5,
+            cwd=repo_dir,
+        )
+        if result.returncode != 0:
+            return None
+        return result.stdout.strip() or None
+    except (subprocess.TimeoutExpired, FileNotFoundError, OSError):
+        return None
+
+
+def branch_residence_guard(plugin_root, allow_non_main=False):
+    """Decide whether an install-parity sync may fire from this residence.
+
+    The sync's reference must be the sole-writer lane (main): syncing from a
+    non-main residence mirrors the branch's tree into the installed runtime
+    while the drift check — sharing the same reference — reads 0. Detached
+    HEAD is refused for the same reason. A non-git plugin root carries no
+    checkout hazard and is allowed, named as such.
+    """
+    sole_writer = _MANIFEST.get("sole_writer_branch", "main")
+    branch = get_current_branch(plugin_root)
+    base = {"branch": branch, "sole_writer_branch": sole_writer,
+            "override": False}
+    if branch is None:
+        return {**base, "allowed": True, "reason": "no_git_reference"}
+    if branch == sole_writer:
+        return {**base, "allowed": True, "reason": "sole_writer_lane"}
+    if allow_non_main:
+        return {**base, "allowed": True, "override": True,
+                "reason": "non_main_override"}
+    return {**base, "allowed": False, "reason": "non_main_residence"}
+
+
+def write_sync_refusal_log(zone_root, guard, commit_sha=None):
+    """Append a refusal row to the sync log — the durable residue that makes
+    a refused sync auditable instead of silent."""
+    tz_config = load_ticzone(zone_root)
+    al_path = audit_logs_path(zone_root, tz_config)
+    log_dir = os.path.join(al_path, "services")
+    os.makedirs(log_dir, exist_ok=True)
+    log_file = os.path.join(log_dir, "cgg-sync-log.jsonl")
+
+    entry = {
+        "event": "sync_refused_branch_residence",
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "branch": guard["branch"],
+        "sole_writer_branch": guard["sole_writer_branch"],
+        "commit_sha": commit_sha[:12] if commit_sha else None,
+        "source": "runtime-sync.py",
+        "note": ("install-parity sync refused: resident branch is not the "
+                 "sole-writer lane; pass --allow-non-main to override with "
+                 "lineage (borns-tic673-branch-residence-regresses-"
+                 "installed-runtime)"),
+    }
+    try:
+        from lib.atomic_append import atomic_append_jsonl
+        atomic_append_jsonl(str(log_file), entry)
+    except ImportError:
+        import fcntl
+        lockfile = str(log_file) + ".lock"
+        with open(lockfile, "w") as lf:
+            fcntl.flock(lf.fileno(), fcntl.LOCK_EX)
+            try:
+                with open(log_file, "a", encoding="utf-8") as f:
+                    f.write(json.dumps(entry, separators=(",", ":")) + "\n")
+            finally:
+                fcntl.flock(lf.fileno(), fcntl.LOCK_UN)
+    return log_file
+
+
+# ---------------------------------------------------------------------------
 # Sync log
 # ---------------------------------------------------------------------------
 
 def write_sync_log(zone_root, plugin_root, synced_surfaces, commit_sha, commit_msg,
-                   agent_id="", agent_type=""):
+                   agent_id="", agent_type="",
+                   reference_branch=None, non_main_override=False):
     """Append a sync event to the sync log with commit pointer.
 
     agent_id / agent_type stamped from the upstream hook payload (Claude Code
@@ -532,6 +624,8 @@ def write_sync_log(zone_root, plugin_root, synced_surfaces, commit_sha, commit_m
         "source": "runtime-sync.py",
         "agent_id": agent_id or "",
         "agent_type": agent_type or "",
+        "reference_branch": reference_branch,
+        "non_main_override": non_main_override,
     }
 
     try:
@@ -680,7 +774,16 @@ def emit_drift_signal(zone_root, drifted_surfaces, severity="detected_drift",
 # ---------------------------------------------------------------------------
 
 def cmd_check(surfaces, zone_root, plugin_root, output_json=False, enrich=False):
-    """Report sync status for all surfaces. Emits drift hazard on detection."""
+    """Report sync status for all surfaces. Emits drift hazard on detection.
+
+    Check stays runnable from any residence (read-only), but its parity claim
+    is only as good as its reference: on a non-main residence the canonical
+    side of every comparison is the BRANCH tree, so "synced" does not mean
+    "matches the sole-writer lane" — the qualifier is printed loudly.
+    """
+    guard = branch_residence_guard(plugin_root, allow_non_main=True)
+    off_reference = guard["branch"] is not None and guard["reason"] != "sole_writer_lane"
+
     results = [compare_surface(s) for s in surfaces]
     drifted = [r for r in results if r["status"] == "drifted"]
     missing = [r for r in results if r["status"] == "missing_installed"]
@@ -754,6 +857,11 @@ def cmd_check(surfaces, zone_root, plugin_root, output_json=False, enrich=False)
             } if last_sync else None,
             "signal_emitted": signal_id,
             "resolved_stale_drift": resolved_ids,
+            "parity_reference": {
+                "branch": guard["branch"],
+                "sole_writer_branch": guard["sole_writer_branch"],
+                "is_sole_writer": not off_reference,
+            },
         }
         print(json.dumps(result, indent=2))
         return results
@@ -781,6 +889,11 @@ def cmd_check(surfaces, zone_root, plugin_root, output_json=False, enrich=False)
 
     print()
     print(f"  Synced: {len(synced)}  |  Drifted: {len(drifted)}  |  New: {len(new_canonical)}  |  Total: {len(results)}")
+
+    if off_reference:
+        print(f"  ⚠ PARITY REFERENCE IS '{guard['branch']}', NOT THE SOLE-WRITER "
+              f"LANE ('{guard['sole_writer_branch']}') — 'synced' here means "
+              f"matches-the-branch-tree, not matches-main")
 
     if last_sync:
         print(f"  Last sync: {last_sync['timestamp'][:19]}  commit: {last_sync.get('commit_sha', 'unknown')}")
@@ -846,8 +959,21 @@ def cmd_diff(surfaces, plugin_root, output_json=False):
 
 
 def cmd_sync(surfaces, zone_root, plugin_root, commit_sha=None, commit_msg=None,
-             agent_id="", agent_type=""):
+             agent_id="", agent_type="", allow_non_main=False):
     """Copy canonical to installed for drifted/missing surfaces, verify, log."""
+    guard = branch_residence_guard(plugin_root, allow_non_main)
+    if not guard["allowed"]:
+        print("=" * 60)
+        print("RUNTIME SYNC — REFUSED (branch residence)")
+        print("=" * 60)
+        print(f"  Resident branch: {guard['branch']}")
+        print(f"  Sole-writer lane: {guard['sole_writer_branch']}")
+        print("  Syncing from a non-main residence mirrors the branch tree")
+        print("  into the installed runtime while drift reads 0. Checkout")
+        print(f"  {guard['sole_writer_branch']} first, or pass --allow-non-main to override with lineage.")
+        write_sync_refusal_log(zone_root, guard, commit_sha)
+        return "refused_branch_residence"
+
     results = [compare_surface(s) for s in surfaces]
     needs_sync = [r for r in results if r["status"] in ("drifted", "missing_installed")]
 
@@ -898,7 +1024,9 @@ def cmd_sync(surfaces, zone_root, plugin_root, commit_sha=None, commit_msg=None,
     if synced_items:
         log_file = write_sync_log(zone_root, plugin_root, synced_items,
                                   commit_sha, commit_msg,
-                                  agent_id=agent_id, agent_type=agent_type)
+                                  agent_id=agent_id, agent_type=agent_type,
+                                  reference_branch=guard["branch"],
+                                  non_main_override=guard["override"])
         print(f"  Sync log: {log_file}")
 
     # Re-check for any remaining drift — escalated severity
@@ -1053,10 +1181,13 @@ def resolve_drift_signals_on_sync(zone_root, synced_surface_names, commit_sha=No
 
 
 def cmd_auto_sync(surfaces, zone_root, plugin_root, commit_sha=None,
-                  agent_id="", agent_type=""):
+                  agent_id="", agent_type="", allow_non_main=False):
     """Post-commit auto-sync: discover, compare, selectively sync, log.
 
     This is the hook-triggered entry point. It:
+    0. Refuses on non-main branch residence (guard fires BEFORE any copy or
+       signal-resolution side effect — a branch-tree parity claim is the
+       shared-reference lie the t673 born names)
     1. Discovers all surfaces from the file tree
     2. Compares canonical vs installed
     3. Syncs only changed/new surfaces
@@ -1064,6 +1195,15 @@ def cmd_auto_sync(surfaces, zone_root, plugin_root, commit_sha=None,
     5. Closes active drift signals whose surfaces are now in parity
     6. Prints a compact summary for hook output
     """
+    guard = branch_residence_guard(plugin_root, allow_non_main)
+    if not guard["allowed"]:
+        print(f"[CGG-SYNC] REFUSED: resident branch '{guard['branch']}' is not "
+              f"the sole-writer lane ('{guard['sole_writer_branch']}'); installed "
+              f"runtime stays pinned to the last main sync (--allow-non-main to "
+              f"override with lineage)")
+        write_sync_refusal_log(zone_root, guard, commit_sha)
+        return "refused_branch_residence"
+
     if not commit_sha and plugin_root:
         commit_sha, commit_msg = get_current_commit(plugin_root)
     else:
@@ -1097,7 +1237,9 @@ def cmd_auto_sync(surfaces, zone_root, plugin_root, commit_sha=None,
     # Log (agent identity threaded from upstream hook payload)
     if synced_items:
         write_sync_log(zone_root, plugin_root, synced_items, commit_sha, commit_msg,
-                       agent_id=agent_id, agent_type=agent_type)
+                       agent_id=agent_id, agent_type=agent_type,
+                       reference_branch=guard["branch"],
+                       non_main_override=guard["override"])
 
     # Close drift signals whose surfaces just reached parity
     parity_surface_names = (
@@ -1196,6 +1338,10 @@ def main():
                         help="Hook payload agent_type (Claude Code 2.1.69+); empty when orchestrator-fired")
     parser.add_argument("--enrich", action="store_true",
                         help="Enrich drift detection with commit history context (check)")
+    parser.add_argument("--allow-non-main", action="store_true", dest="allow_non_main",
+                        help="Override the branch-residence guard: sync from a "
+                             "non-main residence anyway, with lineage stamped "
+                             "into the sync log (sync / auto-sync)")
     args = parser.parse_args()
 
     try:
@@ -1229,10 +1375,16 @@ def main():
     elif args.command == "diff":
         cmd_diff(surfaces, plugin_root, output_json=args.output_json)
     elif args.command == "sync":
-        cmd_sync(surfaces, zone_root, plugin_root)
+        res = cmd_sync(surfaces, zone_root, plugin_root,
+                       allow_non_main=args.allow_non_main)
+        if res == "refused_branch_residence":
+            sys.exit(1)
     elif args.command == "auto-sync":
+        # Refusal exits 0 here: the guard refusing IS the correct hook outcome
+        # on a branch, not a hook failure.
         cmd_auto_sync(surfaces, zone_root, plugin_root, commit_sha=args.commit_sha,
-                      agent_id=args.agent_id, agent_type=args.agent_type)
+                      agent_id=args.agent_id, agent_type=args.agent_type,
+                      allow_non_main=args.allow_non_main)
     elif args.command == "discover":
         cmd_discover(surfaces, plugin_root, zone_root, output_json=args.output_json)
 

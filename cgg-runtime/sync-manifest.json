@@ -1,5 +1,6 @@
 {
-  "_doc": "Single source of truth for canonical→installed surface mapping. Consumed by runtime-sync.py AND posttool-sync-weigh.sh. Edit HERE, not in consumers.",
+  "_doc": "Single source of truth for canonical\u2192installed surface mapping. Consumed by runtime-sync.py AND posttool-sync-weigh.sh. Edit HERE, not in consumers.",
+  "sole_writer_branch": "main",
   "install_targets": {
     "skills": {
       "canonical_subdir": "skills",
@@ -24,14 +25,17 @@
       "installed_subdir": ".claude/cgg-runtime/scripts",
       "pattern": "*.py *.sh",
       "type": "SCRIPT_CODE",
-      "subdirectories": ["lib", "media-router"]
+      "subdirectories": [
+        "lib",
+        "media-router"
+      ]
     },
     "config": {
       "canonical_subdir": "config",
       "installed_subdir": ".claude/cgg-runtime/config",
       "pattern": "*.schema.json",
       "type": "DATA_SCHEMA",
-      "_doc": "Schema/data files read by INSTALLED runtime scripts (mogul-mandate.schema.json → mandate-write.py fail-closed teeth, /review 598). Scoped to *.schema.json; non-schema config (runtime manifests, examples) stays canonical-only via sync_exclude until a consumer needs it installed. bk-cgg-mandate-schema-install-sync, tic 619."
+      "_doc": "Schema/data files read by INSTALLED runtime scripts (mogul-mandate.schema.json \u2192 mandate-write.py fail-closed teeth, /review 598). Scoped to *.schema.json; non-schema config (runtime manifests, examples) stays canonical-only via sync_exclude until a consumer needs it installed. bk-cgg-mandate-schema-install-sync, tic 619."
     }
   },
   "sync_exclude": [
@@ -61,7 +65,7 @@
       ],
       "writes": "audit-logs/cprs/queue-index.json",
       "install_target": null,
-      "install_reason": "project-local; uses Path(__file__).parent to resolve queue.jsonl as sibling — relocation breaks path lock",
+      "install_reason": "project-local; uses Path(__file__).parent to resolve queue.jsonl as sibling \u2014 relocation breaks path lock",
       "schema_coverage_limit": "TERMINAL_STATUSES is narrower than federation terminal set; widening is a doctrine question (CogPR-159), not silent expansion"
     },
     {
@@ -74,7 +78,7 @@
       "writes": "audit-logs/cprs/effective-state/{effective_state.json,effective_state.md,strike_stack_candidates.json,anomaly_report.md,maturity_index.json}",
       "install_target": null,
       "install_reason": "project-local; co-located with queue.jsonl per build_queue_index convention; uses path resolution from script location",
-      "promotion_lineage": "tic 222 compile-lane upgrade — ONE_SHOT_ONLY → PARTIAL → PRODUCTIZED. Composes with queue/state/stack distinction (Architect-named tic 222) and Terminal-State Valve Pattern (CGG-rung doctrine)."
+      "promotion_lineage": "tic 222 compile-lane upgrade \u2014 ONE_SHOT_ONLY \u2192 PARTIAL \u2192 PRODUCTIZED. Composes with queue/state/stack distinction (Architect-named tic 222) and Terminal-State Valve Pattern (CGG-rung doctrine)."
     },
     {
       "path": "canonical_developer/context-grapple-gun/cgg-runtime/scripts/queue-drift-audit.py",
