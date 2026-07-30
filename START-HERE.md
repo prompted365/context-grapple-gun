@@ -11,35 +11,51 @@ CGG keeps Claude Code from paying the same reconstruction cost every session. It
 | Command | Use it when | What it actually owns |
 |---|---|---|
 | `/cadence` | A real work epoch is complete or context is degrading | Canonical tic, epoch close, handoff seal, and resumable next state |
-| `/review` | The proposal docket is ready | Human constitutional judgment over durable promotion |
+| `/review` | The proposal docket is ready | In-tic human constitutional judgment over durable promotion |
 | `/siren` | You need recurring-friction visibility | Signal inspection, triage, warrants, and signal operations |
 
 Everything else is machinery behind those seams. The commands are intentionally narrow:
 
 - `/cadence` does not become the memory writer, signal emitter, CogPR extractor, assessor, or review gate.
-- `/review` does not outsource authority to an agent or generic plan approval.
+- `/review` does not outsource authority to an agent, generic plan approval, `EnterPlanMode`, or `ExitPlanMode`.
 - `/siren` does not turn visibility or volume into promotion authority.
 
-## Install
+## Check release standing first
+
+Read [`release-status.json`](release-status.json).
+
+When its `status` is `published` for version `5.0.0`, install with:
 
 ```bash
 npx context-grapple-gun@5 install
 ```
 
-The installer now uses the package you invoked as the runtime source. It creates a durable plugin source under `vendor/context-grapple-gun`, generates the selected mode manifest, bootstraps the project governance zone, validates the plugin strictly, installs it at user scope by default, inspects the loaded component inventory, and writes a receipt.
+When its status is `release-candidate`, the repository candidate may be evaluated, but npm registry availability is not asserted. Do not treat a source branch or package manifest as a publication receipt.
 
-A successful install means those checks passed. It is no longer a success message printed after cloning a moving branch.
+A verified npm-managed install means:
 
-Useful variants:
+```text
+exact package payload
++ generated mode manifest
++ installed/enabled plugin record
++ exact loaded inventory
++ project governance zone
++ verified receipt
+```
+
+Useful variants after publication:
 
 ```bash
-# Core skills only; no hooks or agents
+# Full: Skills(17), Agents(11), Hooks(8)
+npx context-grapple-gun@5 install --mode full
+
+# Skills only: Skills(6), Agents(0), Hooks(0)
 npx context-grapple-gun@5 install --mode skills
 
 # Project-local plugin registration
 npx context-grapple-gun@5 install --scope project
 
-# Repository-local registration
+# Repository-local and operator-private registration
 npx context-grapple-gun@5 install --scope local
 
 # Append the governed learning convention only
@@ -55,7 +71,7 @@ Verify later:
 npx context-grapple-gun@5 doctor
 ```
 
-See [INSTALL.md](INSTALL.md) for direct GitHub installation, target control, reconciliation, and safe uninstall.
+See [INSTALL.md](INSTALL.md) for target control, reconciliation, safe uninstall, and the direct-Git source-evaluation boundary.
 
 ## A normal session
 
@@ -63,7 +79,7 @@ See [INSTALL.md](INSTALL.md) for direct GitHub installation, target control, rec
 2. **Work.** Durable discoveries may be captured as CogPR candidates on born-truth surfaces. Recurring friction may enter the signal manifold.
 3. **Close.** Run `/cadence`. It closes the epoch, emits the canonical tic, seals the handoff, and leaves a clear resume path.
 4. **Resume.** The next session hydrates from authoritative files and the sealed handoff. The loaded runtime remains behavioral truth for that session.
-5. **Review.** When the docket is ready, run `/review`. You decide what promotes, what remains local, what needs evidence, and what is rejected.
+5. **Review.** When the docket is ready, run `/review`. The docket is presented as an in-tic ratification question set. You decide what promotes, what remains local, what needs evidence, and what is rejected.
 6. **Inspect pressure.** Run `/siren` when repeated friction, signal thresholds, or warrants need attention.
 
 ## Where lessons live
@@ -112,8 +128,8 @@ The governance zone remains project-local either way:
 
 CGG can carry both:
 
-- **Subject lessons:** truths about the system, such as an endpoint behavior or a build constraint.
-- **Coordination lessons:** truths about how work succeeds, such as a required handoff field or a safer delegation boundary.
+- **Subject lessons:** truths about the system, such as an endpoint behavior or build constraint.
+- **Coordination lessons:** truths about how work succeeds, such as a required handoff field or safer delegation boundary.
 
 Neither class promotes merely because it was captured. Both require evidence appropriate to their consequence and the human gate appropriate to their scope.
 
@@ -123,6 +139,12 @@ Signals track persistent conditions across time. They accrue evidence and pressu
 
 A warrant is not a self-executing law change. It is an escalation artifact. Use `/siren` to inspect and resolve it through the appropriate lane.
 
+## Direct Git source path
+
+The raw GitHub marketplace path is for source evaluation. It is not equivalent to the npm-managed full install because it does not receive mode-specific payload contraction, exact agent materialization, or the npm install receipt.
+
+Use the npm-managed path for an admitted installation. Use GitHub to inspect source, history, and architecture.
+
 ## Current Academy status
 
 The legacy Homeskillet Academy is not part of the public v5 plugin. Its teaching sequence predates the current runtime and is being re-derived under [issue #17](https://github.com/prompted365/context-grapple-gun/issues/17). Use this guide, [INSTALL.md](INSTALL.md), and the live runtime contracts until that work is admitted.
@@ -130,7 +152,7 @@ The legacy Homeskillet Academy is not part of the public v5 plugin. Its teaching
 ## FAQ
 
 **Does CGG send project data to a hosted service?**  
-No CGG service is required. The lifecycle is file-based and local. Claude Code itself is still the execution environment you chose.
+No CGG service is required. The lifecycle is file-based and local. Claude Code itself remains the execution environment you chose.
 
 **Can an agent promote rules without me?**  
 No. Agents can detect, derive, compare, prepare, and recommend. Durable promotion remains human-gated.
@@ -141,13 +163,11 @@ Born-truth material may still exist, but you lose the clean epoch receipt and ha
 **What is `/cadence double-time`?**  
 A bounded emergency exit when context is degraded. It preserves the minimum lawful handoff; it does not retroactively make an incomplete epoch rich.
 
-**Does direct GitHub installation differ from npm?**  
-Yes. Git installation uses the source manifest and Git commit as version authority. npm installation uses the exact npm package, creates a durable source target, generates a mode-specific versioned manifest, and writes an install receipt.
-
 ## Reading path
 
 - Install and remove: [INSTALL.md](INSTALL.md)
 - Product and source map: [README.md](README.md)
+- Public release gate: [release-status.json](release-status.json)
 - Pipeline mechanics: [DEV-README.md](DEV-README.md)
 - Deeper architecture: [ARCHITECTURE.md](ARCHITECTURE.md)
 - Runtime topology: [CGG_RUNTIME_TOPOLOGY_AND_LIFECYCLE.md](CGG_RUNTIME_TOPOLOGY_AND_LIFECYCLE.md)
