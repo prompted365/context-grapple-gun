@@ -1,13 +1,29 @@
 # Installing Context Grapple Gun v5
 
-CGG has two supported distribution paths:
+CGG has one admitted installation path and one bounded source-evaluation path:
 
-1. **npm package install** — deterministic, mode-selectable, receipt-bearing.
-2. **direct GitHub marketplace install** — source plugin at a Git commit.
+1. **npm-managed install** — deterministic, mode-selectable, exact-inventory-checked, and receipt-bearing.
+2. **direct GitHub marketplace source** — useful for source inspection and schema evaluation; not equivalent to the npm-managed full install.
 
-They converge on the same plugin component contract but carry different version authority.
+The distinction is deliberate. A Git checkout proves source availability. An npm-managed install proves a package, selected mode, loaded inventory, governance zone, and receipt agree.
 
-## Prerequisites
+## 1. Check the public release gate
+
+Read [`release-status.json`](release-status.json).
+
+```json
+{
+  "version": "5.0.0",
+  "status": "release-candidate"
+}
+```
+
+- `release-candidate` — source and CI candidate exist; registry publication is not asserted.
+- `published` — the npm registry returned the stated version and the publication workflow recorded its exact source commit.
+
+Do not infer npm availability from `package.json`, a branch, a tag, or a passing source build. Use the install command only when the status file says `published` for the requested version.
+
+## 2. Prerequisites
 
 For `full` and `skills` modes:
 
@@ -17,7 +33,9 @@ For `full` and `skills` modes:
 
 Convention-only mode requires only Node.js because it appends the governed protocol and does not register a plugin.
 
-## npm install
+## 3. npm-managed installation
+
+After the release gate says `published`:
 
 ```bash
 npx context-grapple-gun@5 install
@@ -32,6 +50,7 @@ mode:        full
 scope:       user
 target:      vendor/context-grapple-gun
 zone root:   nearest .ticzone, otherwise git root, otherwise cwd
+inventory:   Skills(17) Agents(11) Hooks(8)
 ```
 
 The installer:
@@ -39,18 +58,22 @@ The installer:
 1. validates arguments and package completeness;
 2. refuses to overwrite a non-managed target;
 3. copies the exact npm payload to the durable target;
-4. generates a mode-specific plugin manifest stamped with the npm version;
-5. writes a `prepared` install receipt;
-6. non-destructively bootstraps the project zone;
-7. strictly validates the plugin;
-8. adds or updates the `cgg` marketplace only when its source agrees;
-9. installs or updates the plugin at the requested scope;
-10. inspects Claude's installed record and component inventory;
-11. writes a `verified` install receipt.
+4. contracts that payload to the selected mode;
+5. materializes only the admitted full-mode agents into plugin-root `agents/`;
+6. copies plugin-root `hooks/` only in full mode;
+7. generates a mode-specific plugin manifest stamped with the npm version;
+8. writes a `prepared` install receipt containing release version and source commit when available;
+9. non-destructively bootstraps the project zone;
+10. strictly validates the plugin;
+11. adds or updates the `cgg` marketplace only when its source agrees;
+12. installs or updates the plugin at the requested scope;
+13. verifies the installed record has no load errors;
+14. requires exact loaded component counts for the selected mode;
+15. writes a `verified` receipt containing expected IDs and expected/loaded counts.
 
-If any late step fails, the receipt remains `prepared`. The installer does not convert partial work into a success claim.
+If any late step fails, the receipt remains `prepared`. Partial work does not become a success claim.
 
-### Install modes
+## 4. Install modes
 
 ```bash
 npx context-grapple-gun@5 install --mode full
@@ -60,15 +83,17 @@ npx context-grapple-gun@5 install --mode convention
 
 | Mode | Skills | Agents | Hooks | Zone bootstrap |
 |---|---:|---:|---:|---:|
-| `full` | Core, compatibility, and admitted operational skills | Yes | Full lifecycle | Yes |
-| `skills` | Core and compatibility skills | No | No | Yes |
-| `convention` | No plugin skills | No | No | No; appends protocol only |
+| `full` | 17 | 11 | 8 lifecycle events | Yes |
+| `skills` | 6 | 0 | 0 | Yes |
+| `convention` | 0 plugin skills | 0 | 0 | No; appends protocol only |
 
-The admitted component list is `cgg-runtime/config/plugin-components.json`.
+`skills` is a true no-agent, no-hook mode. A transition from `full` to `skills` removes the previously managed plugin-root `agents/` and `hooks/` surfaces before reinstalling and re-verifying the narrower inventory.
+
+The admitted IDs are governed by [`cgg-runtime/config/plugin-components.json`](cgg-runtime/config/plugin-components.json).
 
 The legacy Homeskillet Academy is excluded pending the current-runtime refresh tracked in [issue #17](https://github.com/prompted365/context-grapple-gun/issues/17).
 
-### Claude plugin scopes
+## 5. Claude plugin scopes
 
 ```bash
 npx context-grapple-gun@5 install --scope user
@@ -82,7 +107,9 @@ npx context-grapple-gun@5 install --scope local
 
 Plugin scope does not relocate the project governance zone. `.ticzone`, `.ticignore`, `audit-logs/`, `CLAUDE.md`, and `MEMORY.md` remain at the resolved zone root.
 
-### Target control
+CI executes the packed npm artifact across all three scopes.
+
+## 6. Target control
 
 ```bash
 npx context-grapple-gun@5 install --target ./vendor/context-grapple-gun
@@ -98,17 +125,19 @@ The installer replaces only a target with a valid npm-management receipt. It ref
 - targets that contain the currently running package source;
 - an existing `cgg` marketplace bound to another source.
 
-Marketplace rebinding is deliberately not automatic because removing a marketplace may uninstall plugins or affect data in another scope.
+Marketplace rebinding is deliberately not automatic because removal can uninstall plugins or affect data in another scope.
 
-### Dry run
+## 7. Dry run
 
 ```bash
 npx context-grapple-gun@5 install --dry-run
 ```
 
-Dry-run mode resolves the target and zone, checks constitutional conflicts, and reports intended work without writing or requiring Claude Code.
+Dry-run mode resolves the target and zone, checks constitutional conflicts, and reports the selected mode's payload without writing or requiring Claude Code.
 
-## Project zone bootstrap
+For `skills`, the plan explicitly states zero agents and zero hooks.
+
+## 8. Project-zone bootstrap
 
 For full and skills modes, installation creates missing surfaces only:
 
@@ -135,35 +164,46 @@ A newly created `.ticzone` activates:
 Existing constitutional files are not rewritten. Installation stops for human repair when:
 
 - an existing `.ticzone` activates `PRESTIGE`;
-- an unversioned legacy Session Learning Protocol would conflict with the v5 protocol;
+- an unversioned legacy Session Learning Protocol conflicts with the v5 protocol;
 - an existing target is not npm-managed.
 
-The canonical protocol source is `cgg-runtime/config/session-learning-protocol.md`.
+The canonical protocol source is [`cgg-runtime/config/session-learning-protocol.md`](cgg-runtime/config/session-learning-protocol.md).
 
-## Direct GitHub installation
+## 9. Exact identity and provenance
 
-Direct source installation uses `.claude-plugin/plugin.json` as the complete component authority and the Git commit as version authority.
+CGG keeps two identities distinct:
+
+```text
+release_version
+= semantic compatibility and public distribution identity
+
+source_commit
+= exact source provenance and reconstruction identity
+```
+
+The publication workflow writes `release-manifest.json` into the packed artifact. The installer carries both fields into its receipt. A missing source commit is represented as `null`; it is never invented from a branch name or current working tree.
+
+## 10. Direct GitHub source evaluation
+
+The raw GitHub marketplace path is a **source-evaluation path**. It is **not equivalent to the npm-managed full install**.
 
 ```bash
 claude plugin marketplace add prompted365/context-grapple-gun
 claude plugin install context-grapple-gun@cgg --scope user
 ```
 
-Then bootstrap the project zone from a Claude Code session:
+This path can be used to inspect source and exercise Claude's source-plugin parser. It does not receive:
 
-```text
-/context-grapple-gun:init-governance
-```
+- the npm publication receipt;
+- mode-specific payload contraction;
+- the npm install receipt;
+- exact admitted-agent materialization;
+- packed-artifact execution proof;
+- the same doctor contract as an npm-managed target.
 
-The source marketplace does not declare a second component map and does not pin a stale semantic version. A checkout or marketplace update to a new Git commit is a new source version.
+Do not represent raw Git installation as the public production, turnkey, or inventory-equivalent path. The exact source commit remains useful provenance, but provenance alone does not establish runtime conformance.
 
-Validate source before installing or after modifying plugin surfaces:
-
-```bash
-claude plugin validate . --strict
-```
-
-## Doctor
+## 11. Doctor
 
 ```bash
 npx context-grapple-gun@5 doctor
@@ -171,11 +211,17 @@ npx context-grapple-gun@5 doctor
 
 Doctor verifies:
 
-- install receipt ownership and `verified` state;
-- receipt, target package, and generated manifest version agreement;
+- install receipt ownership, schema, and `verified` state;
+- release version, package version, and generated manifest agreement;
 - strict plugin validation;
-- installed and enabled plugin record;
-- non-empty admitted skills and, in full mode, agents and hooks;
+- installed and enabled plugin record with no load errors;
+- exact manifest skill count;
+- exact materialized agent count;
+- presence or absence of plugin-root hooks according to mode;
+- exact loaded inventory:
+  - `full`: Skills(17), Agents(11), Hooks(8)
+  - `skills`: Skills(6), Agents(0), Hooks(0)
+- receipt expected IDs and expected/loaded counts against the live inventory;
 - required zone surfaces;
 - valid `.ticzone` bands with `PRESTIGE` excluded;
 - current Session Learning Protocol marker;
@@ -189,19 +235,23 @@ npx context-grapple-gun@5 doctor --topology-only
 
 Topology-only success does not imply package or plugin installation success.
 
-## Package reconciliation
+## 12. Package reconciliation
 
-The public v5 plugin loads from the durable package target; it no longer raw-copies a second runtime into `~/.claude`. The compatibility `sync` command now compares the running npm package with that durable target and routes repair back through the governed installer:
+The public v5 plugin loads from the durable package target; it does not raw-copy a second runtime into `~/.claude`.
 
 ```bash
-npx context-grapple-gun@5 sync check   # version and byte-parity check
-npx context-grapple-gun@5 sync diff    # list missing, extra, or drifted owned files
-npx context-grapple-gun@5 sync sync    # verified reinstall using the prior mode/scope receipt
+npx context-grapple-gun@5 sync check
+npx context-grapple-gun@5 sync diff
+npx context-grapple-gun@5 sync sync
 ```
 
-Internal and legacy standalone-copy tooling remains in source history for existing federation deployments, but the npm CLI does not silently create duplicate standalone skills, agents, or hooks. Loaded runtime remains behavioral truth until reconciliation and verification complete.
+- `check` compares the running npm package with the durable target.
+- `diff` lists missing, extra, or drifted owned files.
+- `sync` routes repair through the governed installer using the prior mode and scope receipt.
 
-## Uninstall
+Loaded runtime remains behavioral truth until reconciliation and verification complete.
+
+## 13. Uninstall
 
 ```bash
 npx context-grapple-gun@5 uninstall
@@ -227,60 +277,37 @@ npx context-grapple-gun@5 uninstall --keep-data
 npx context-grapple-gun@5 uninstall --remove-marketplace
 ```
 
-Marketplace removal is explicit because Claude may uninstall marketplace plugins and remove related state.
+## 14. Update
 
-## Update
-
-Use the intended package version explicitly:
+Use the intended published package version explicitly:
 
 ```bash
 npx context-grapple-gun@5 install
 ```
 
-The installer reads the previous receipt. A package version, mode, or scope change causes a controlled reinstall with plugin data preserved where supported. An unchanged package/mode/scope uses the plugin update path and then re-verifies the inventory.
+The installer reads the previous receipt. A package version, mode, or scope change causes a controlled reinstall. An unchanged package/mode/scope uses the plugin update path and re-verifies exact inventory.
 
-For direct GitHub installs:
+## 15. Release verification
 
-```bash
-claude plugin marketplace update cgg
-claude plugin update context-grapple-gun@cgg --scope user
-```
+The distribution contract workflow checks:
 
-## Release verification
-
-The distribution contract workflow runs on changes to plugin manifests, runtime components, CLI code, package metadata, tests, and public installation docs.
-
-It checks:
-
-- Node tests;
+- shared package, lockfile, plugin, and release-status version;
+- version advance when public runtime surfaces change;
+- Node 18 and Node 24 tests;
 - JavaScript syntax;
-- npm payload receipt with `npm pack --dry-run`;
-- installation of the current Claude Code CLI;
-- strict plugin validation against that current CLI.
+- npm payload inspection;
+- current Claude Code strict plugin validation.
 
-The source manifest and package-mode manifests are also tested against `cgg-runtime/config/plugin-components.json`.
+The clean installer workflow:
 
-## First run
+1. runs `npm pack --json`;
+2. installs the resulting `.tgz` into an isolated prefix;
+3. invokes the packaged `cgg` binary;
+4. exercises full mode at user, project, and local scopes;
+5. exercises same-version update;
+6. contracts full to true skills-only mode and proves 6/0/0;
+7. exercises convention mode;
+8. runs doctor after each applicable transition;
+9. uninstalls managed runtime while proving governance history survived.
 
-After verified installation:
-
-1. work normally;
-2. end a real epoch with `/context-grapple-gun:cadence`;
-3. start a fresh session and inspect the restored handoff;
-4. run `/context-grapple-gun:review` when the docket is ready;
-5. use `/context-grapple-gun:siren` for recurring-friction inspection.
-
-Do not use the old Academy as current install authority until issue #17 closes.
-
-## Maintainer release lane
-
-The repository includes a manually dispatched `Publish npm package` workflow. Publication is never coupled to a merge automatically.
-
-1. Merge an admitted distribution change.
-2. Dispatch the workflow with the exact `package.json` version and `dry_run: true`.
-3. Review Node tests, npm payload receipt, current Claude Code version, and strict plugin validation.
-4. Ensure the protected `npm-publish` environment and `NPM_TOKEN` secret are configured.
-5. Dispatch again with `dry_run: false` and the intended npm distribution tag.
-6. Verify the published package through a clean `npx context-grapple-gun@<version> install --dry-run` and a clean-machine installation before declaring release complete.
-
-The workflow requests GitHub OIDC permission and publishes with npm provenance. A successful GitHub job is publication evidence; it is not proof that a downstream installation loaded correctly, so the clean-install receipt remains required.
+The manual publication workflow requires an exact version and exact source commit, publishes with provenance, verifies the registry response, and then records the published status.
