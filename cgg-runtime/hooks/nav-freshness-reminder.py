@@ -61,6 +61,18 @@ def _targets(env: dict) -> list[str]:
 
 def _watches(env: dict) -> bool:
     tool = env.get("tool_name") or ""
+    # Bash reads (cat/grep/jq over the map surfaces) bypassed the file-path
+    # tools entirely (t673 finding, bk-maps-clock-and-canary leg c). Scan the
+    # command string for the same watch substrings — safe for an ADVISORY that
+    # never blocks and fires once per tic: a mere mention over-matching costs
+    # one advisory line, not a blocked action (contrast: a mutation GATE must
+    # classify the write signal, not the path mention — this is not a gate).
+    if tool == "Bash":
+        cmd = (env.get("tool_input") or {}).get("command")
+        if isinstance(cmd, str):
+            cl = cmd.lower()
+            return any(w in cl for w in _WATCH)
+        return False
     if tool not in ("Read", "Grep", "Glob"):
         return False
     for t in _targets(env):
@@ -185,6 +197,15 @@ if __name__ == "__main__":
         # second access same tic → silent (seen)
         out2 = handle(json.dumps({"tool_name": "Grep", "tool_input": {"path": "audit-logs/governance/io-map"}}))
         ck("second access same tic is silent (once-per-tic)", out2 is None)
+        # Bash-read arm (t674 widen) — both arms per selftest-fixture discipline:
+        # a matching Bash command watches; a non-matching one stays silent.
+        ck("Bash command mentioning a map surface watches",
+           _watches({"tool_name": "Bash",
+                     "tool_input": {"command": "cat audit-logs/governance/router/ROUTER.md"}}))
+        ck("Bash command with no map surface is silent",
+           not _watches({"tool_name": "Bash", "tool_input": {"command": "git status"}}))
+        ck("Bash with non-string command is silent",
+           not _watches({"tool_name": "Bash", "tool_input": {}}))
         ck("never blocks (exit 0)", main.__doc__ is None or True)
         sys.exit(0)
     sys.exit(main())

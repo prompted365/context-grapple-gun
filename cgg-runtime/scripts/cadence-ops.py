@@ -1677,6 +1677,47 @@ def main():
     # idempotent + atomic-append and can NEVER block or fail the tic emit (dispatch-and-continue).
     result["receipt_drop_sweep"] = run_receipt_drop_sweep_step(zone_root, tic_count)
 
+    # 5f. Map-lane freshness canary (tic 674, bk-maps-clock-and-canary) — the cadence
+    # IS the clock. Invokes maps-freshness-audit.py check: derives per-lane freshness
+    # from artifact tic stamps (io-map-3d / board-state / cockpit), consumes the
+    # ts_router status exit code as receipt evidence, emits/resolves the durable
+    # dedup-at-write signal `sig_maps_stale` (emit/resolve symmetry — no write-only
+    # TENSION debt), and appends a receipt row EVERY run (the residue the
+    # nav-freshness advisory never left; 29-tic freeze t644→673 is the scar).
+    # Exit 0 = fresh, exit 2 = stale VERDICT (not a crash) — both valid execution
+    # outcomes from cadence's perspective; we surface the status, never block on it.
+    # Same fail-soft observability-subprocess pattern as steps 5/5b-5e.
+    maps_script = Path(zone_root) / "audit-logs" / "governance" / "maps-freshness-audit.py"
+    if maps_script.exists():
+        try:
+            maps_proc = subprocess.run(
+                ["python3", str(maps_script), "check", "--tic", str(tic_count),
+                 "--invoked-from", "cadence-ops"],
+                capture_output=True, text=True, timeout=90,
+            )
+            stale_lanes = None
+            signal_action = None
+            try:
+                data = json.loads(maps_proc.stdout or "{}")
+                stale_lanes = sorted(data.get("stale_lanes") or {})
+                signal_action = (data.get("signal") or {}).get("action")
+            except Exception:  # noqa: BLE001 — report-parse best-effort
+                pass
+            result["maps_freshness"] = {
+                "ran": True,
+                "exit_code": maps_proc.returncode,
+                "fresh": maps_proc.returncode == 0,
+                "stale_lanes": stale_lanes,
+                "signal_action": signal_action,
+            }
+        except Exception as err:  # noqa: BLE001 — fail-soft
+            result["maps_freshness"] = {"ran": False, "error": str(err)}
+    else:
+        result["maps_freshness"] = {
+            "ran": False,
+            "reason": "maps-freshness-audit.py not found at expected path",
+        }
+
     # 6. Claude agents snapshot (tic 270) — read-only observability sensor.
     # Born tic 270 under Architect Path C adoption. Captures native Claude
     # Code `claude agents --json` output as sensor data ONLY — never used
