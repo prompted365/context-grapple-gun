@@ -102,7 +102,7 @@ Claude Code plugin enablement is project-scoped.
 cgg install --target /absolute/or/relative/path
 ```
 
-CGG refuses to overwrite a populated directory unless it contains a CGG install receipt or is an existing git checkout. The target is not removed later unless the receipt proves CGG ownership.
+CGG refuses to overwrite a populated directory unless it contains a CGG install receipt or is an existing git checkout. A package-copy target is removable only when its receipt explicitly authorizes recursive removal. A git source checkout is classified separately and is never deleted by `cgg uninstall`.
 
 ## What the installer mutates
 
@@ -144,7 +144,7 @@ During install CGG:
 3. refreshes the dedicated `cgg` marketplace registration;
 4. installs `context-grapple-gun@cgg` at the selected scope;
 5. verifies `claude plugin list --json` and `claude plugin details`;
-6. writes `.cgg-install.json` with manifest hashes.
+6. writes `.cgg-install.json` with manifest hashes and target-removal authority.
 
 A seed/enterprise-managed `cgg` marketplace cannot be replaced. CGG stops and reports that authority boundary instead of bypassing it.
 
@@ -176,8 +176,8 @@ Default uninstall:
 
 - removes `context-grapple-gun@cgg` registration;
 - removes the dedicated `cgg` marketplace;
-- removes the managed runtime only when `.cgg-install.json` proves ownership;
-- preserves governance history and project source.
+- removes only a receipt-owned `package_copy` target with `removal_authorized: true`;
+- preserves git source checkouts, governance history, and project source.
 
 Options:
 
@@ -200,7 +200,7 @@ npm test
 node bin/cgg.mjs install --project-dir /path/to/project
 ```
 
-The repository manifest is the full-mode canonical source. A skills-only install is generated into a separate managed target so the source checkout is not rewritten.
+The repository manifest is the full-mode canonical source. A skills-only install is generated into a separate managed target so the source checkout is not rewritten. Source-checkout receipts explicitly deny recursive removal.
 
 ## Npm and release authority
 
