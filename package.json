@@ -21,6 +21,8 @@
     "INSTALL.md",
     "LICENSE",
     "README.md",
+    "release-status.json",
+    "release-manifest.json",
     "START-HERE.md"
   ],
   "scripts": {
