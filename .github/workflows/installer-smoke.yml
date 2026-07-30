@@ -1,0 +1,87 @@
+name: Clean installer lifecycle
+
+on:
+  pull_request:
+    paths:
+      - '.claude-plugin/**'
+      - '.github/workflows/installer-smoke.yml'
+      - 'bin/**'
+      - 'cgg-runtime/agents/**'
+      - 'cgg-runtime/config/plugin-components.json'
+      - 'cgg-runtime/config/session-learning-protocol.md'
+      - 'cgg-runtime/hooks/**'
+      - 'cgg-runtime/skills/**'
+      - 'hooks/**'
+      - 'lib/**'
+      - 'package.json'
+      - 'package-lock.json'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  installer-smoke:
+    name: Full install, update, skills transition, doctor, uninstall
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Install current Claude Code CLI
+        run: npm install --global @anthropic-ai/claude-code@latest
+      - name: Show toolchain versions
+        run: |
+          node --version
+          npm --version
+          claude --version
+      - name: Exercise the clean local lifecycle
+        env:
+          CGG_WORKSPACE: ${{ github.workspace }}
+          CGG_HOME: ${{ runner.temp }}/cgg-home
+          CGG_PROJECT: ${{ runner.temp }}/cgg-project
+          CGG_TARGET: ${{ runner.temp }}/cgg-target
+        run: |
+          set -euo pipefail
+          mkdir -p "$CGG_HOME" "$CGG_PROJECT"
+          export HOME="$CGG_HOME"
+
+          git -C "$CGG_PROJECT" init
+          git -C "$CGG_PROJECT" config user.email "ci@prompted.local"
+          git -C "$CGG_PROJECT" config user.name "CGG CI"
+          cd "$CGG_PROJECT"
+
+          # Fresh full-mode install.
+          node "$CGG_WORKSPACE/bin/cgg.mjs" install \
+            --mode full \
+            --scope local \
+            --target "$CGG_TARGET"
+          node "$CGG_WORKSPACE/bin/cgg.mjs" doctor --target "$CGG_TARGET"
+
+          # Same mode/scope exercises the update path.
+          node "$CGG_WORKSPACE/bin/cgg.mjs" install \
+            --mode full \
+            --scope local \
+            --target "$CGG_TARGET"
+          node "$CGG_WORKSPACE/bin/cgg.mjs" doctor --target "$CGG_TARGET"
+
+          # Full -> skills exercises controlled uninstall/reinstall and a
+          # genuinely narrower generated manifest.
+          node "$CGG_WORKSPACE/bin/cgg.mjs" install \
+            --mode skills \
+            --scope local \
+            --target "$CGG_TARGET"
+          node "$CGG_WORKSPACE/bin/cgg.mjs" doctor --target "$CGG_TARGET"
+
+          # Remove plugin registration and npm-owned runtime only.
+          node "$CGG_WORKSPACE/bin/cgg.mjs" uninstall \
+            --scope local \
+            --target "$CGG_TARGET" \
+            --keep-data
+
+          test ! -e "$CGG_TARGET"
+          test -f "$CGG_PROJECT/.ticzone"
+          test -f "$CGG_PROJECT/.ticignore"
+          test -d "$CGG_PROJECT/audit-logs"
+          test -f "$CGG_PROJECT/CLAUDE.md"
