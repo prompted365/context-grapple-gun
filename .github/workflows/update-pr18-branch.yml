@@ -1,0 +1,27 @@
+name: Update PR18 branch from main
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/update-pr18-branch.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/distribution-release-lane
+          fetch-depth: 0
+      - name: Merge current main into release candidate
+        run: |
+          set -euo pipefail
+          git config user.name "CGG Release Steward"
+          git config user.email "breyden@prompted.community"
+          git fetch origin main
+          git merge --no-edit origin/main
+          git push origin HEAD:fix/distribution-release-lane
