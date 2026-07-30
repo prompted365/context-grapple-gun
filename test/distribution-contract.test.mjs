@@ -30,7 +30,9 @@ test('source plugin manifest is the single complete component authority', () => 
   const sourcePlugin = read('.claude-plugin/plugin.json');
   const marketplace = read('.claude-plugin/marketplace.json');
   const contract = loadComponentContract(ROOT);
+  const pkg = read('package.json');
 
+  assert.equal(sourcePlugin.version, pkg.version);
   assert.deepEqual([...sourcePlugin.skills].sort(), [...skillPathsForMode(contract, 'full')].sort());
   assert.deepEqual([...sourcePlugin.agents].sort(), [...contract.agents.full].sort());
   assert.equal(sourcePlugin.hooks, contract.hooks.full);
