@@ -13,7 +13,7 @@ import {
   install,
   resolveInstallTarget,
 } from '../../lib/installer.mjs';
-import { removeConventionBlock } from '../../lib/uninstaller.mjs';
+import { authorizeManagedTargetRemoval, removeConventionBlock } from '../../lib/uninstaller.mjs';
 
 const baseManifest = {
   name: 'context-grapple-gun',
@@ -76,6 +76,40 @@ test('default managed targets follow runtime scope', () => {
   assert.ok(resolveInstallTarget({ scope: 'user', zoneRoot: zone }).endsWith(join('.cgg', 'context-grapple-gun')));
 });
 
+test('uninstall removal authority preserves source checkouts and old receipts', () => {
+  const packageCopy = mkdtempSync(join(tmpdir(), 'cgg-owned-'));
+  const sourceCheckout = mkdtempSync(join(tmpdir(), 'cgg-checkout-'));
+  mkdirSync(join(sourceCheckout, '.git'));
+
+  assert.deepEqual(
+    authorizeManagedTargetRemoval(packageCopy, {
+      package: 'context-grapple-gun',
+      managed_target: packageCopy,
+      managed_target_kind: 'package_copy',
+      removal_authorized: true,
+    }),
+    { authorized: true, reason: 'receipt-owned package copy' },
+  );
+
+  assert.equal(
+    authorizeManagedTargetRemoval(sourceCheckout, {
+      package: 'context-grapple-gun',
+      managed_target: sourceCheckout,
+      managed_target_kind: 'package_copy',
+      removal_authorized: true,
+    }).authorized,
+    false,
+  );
+
+  assert.equal(
+    authorizeManagedTargetRemoval(packageCopy, {
+      package: 'context-grapple-gun',
+      managed_target: packageCopy,
+    }).authorized,
+    false,
+  );
+});
+
 test('full install copies a versioned payload, bootstraps the zone, and verifies loaded state', { skip: process.platform === 'win32' }, () => {
   const source = mkdtempSync(join(tmpdir(), 'cgg-package-'));
   const zone = mkdtempSync(join(tmpdir(), 'cgg-project-'));
@@ -127,6 +161,8 @@ test('full install copies a versioned payload, bootstraps the zone, and verifies
     assert.equal(receipt.version, '5.0.0');
     assert.equal(receipt.mode, 'full');
     assert.equal(receipt.managed_target, target);
+    assert.equal(receipt.managed_target_kind, 'package_copy');
+    assert.equal(receipt.removal_authorized, true);
     assert.deepEqual(JSON.parse(readFileSync(join(zone, '.ticzone'), 'utf-8')).bands, ['PRIMITIVE', 'COGNITIVE', 'SOCIAL']);
     assert.equal(JSON.parse(readFileSync(join(target, '.claude-plugin', 'marketplace.json'), 'utf-8')).plugins[0].strict, true);
     const commands = readFileSync(logPath, 'utf-8');
