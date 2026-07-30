@@ -1,13 +1,44 @@
 {
+  "$schema": "https://json.schemastore.org/claude-code-plugin-manifest.json",
   "name": "context-grapple-gun",
-  "version": "4.0.1",
-  "description": "Session learning system for Claude Code. Captures lessons as CogPRs, tracks signals via acoustic routing, promotes knowledge across scopes with human-gated review.",
+  "version": "5.0.0",
+  "description": "Portable governance lifecycle for Claude Code: bounded lesson capture, human-gated promotion, receipted continuity, and scoped runtime hydration.",
   "author": {
     "name": "Prompted365"
   },
   "repository": "https://github.com/prompted365/context-grapple-gun",
   "homepage": "https://github.com/prompted365/context-grapple-gun#readme",
   "license": "MIT",
-  "keywords": ["governance", "learning", "autonomy", "cogpr", "signals"],
-  "dependencies": []
+  "keywords": [
+    "governance",
+    "continuity",
+    "autonomy",
+    "cogpr",
+    "signals"
+  ],
+  "skills": [
+    "./cgg-runtime/skills/cadence/",
+    "./cgg-runtime/skills/review/",
+    "./cgg-runtime/skills/siren/",
+    "./cgg-runtime/skills/statusline/",
+    "./cgg-runtime/skills/governance-check/",
+    "./cgg-runtime/skills/governance-mandate-cycle/",
+    "./cgg-runtime/skills/cadence-downbeat/",
+    "./cgg-runtime/skills/cadence-syncopate/",
+    "./cgg-runtime/skills/grapple/"
+  ],
+  "agents": [
+    "./cgg-runtime/agents/mogul.md",
+    "./cgg-runtime/agents/ripple-assessor.md",
+    "./cgg-runtime/agents/ladder-auditor.md",
+    "./cgg-runtime/agents/pattern-curator.md",
+    "./cgg-runtime/agents/pattern-curator-meta.md",
+    "./cgg-runtime/agents/pattern-curator-direct.md",
+    "./cgg-runtime/agents/cpr-stepper.md",
+    "./cgg-runtime/agents/review-execute.md",
+    "./cgg-runtime/agents/civil-engineer.md",
+    "./cgg-runtime/agents/videographer.md",
+    "./cgg-runtime/agents/cbux-steward.md"
+  ],
+  "hooks": "./hooks/hooks.json"
 }
