@@ -184,7 +184,7 @@ The human decides whether to proceed or absorb.
   "id": "cpr-HASH",
   "status": "extracted",
   "lesson": "one-line summary",
-  "lesson_type": "subject|process|meta",
+  "lesson_type": "subject|process|meta|pattern|invariant_refinement|classification_correction|doctrine_gap",
   "confidence_tier": "tentative|reinforced|convergent",
   "origin_context": "session|scanner|hook|arena|external_signal",
   "relations": {
@@ -218,7 +218,7 @@ The human decides whether to proceed or absorb.
 ## Envelope Fields (Passthrough)
 
 The following fields are author-declared at capture time and must survive all state transitions unchanged (never dropped, never modified by the stepper):
-- `lesson_type` — subject | process | meta
+- `lesson_type` — subject | process | meta | pattern | invariant_refinement | classification_correction | doctrine_gap (widened at /review 663 rider R5-M5+O1-663 to admit the live queue vocabulary; values outside the enum on legacy rows pass through unchanged — passthrough never rewrites an authored value)
 - `confidence_tier` — tentative | reinforced | convergent (may be UPGRADED by enrichment evidence, never downgraded)
 - `origin_context` — session | scanner | hook | arena | external_signal
 - `relations` — typed edges (supports, contradicts, refines, supersedes, depends_on)
