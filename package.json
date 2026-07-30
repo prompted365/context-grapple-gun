@@ -15,7 +15,6 @@
     "hooks/",
     "lib/",
     "ARCHITECTURE.md",
-    "AUTHORING_CONVENTION.md",
     "CHANGELOG.md",
     "CGG_RUNTIME_TOPOLOGY_AND_LIFECYCLE.md",
     "DEV-README.md",
@@ -27,7 +26,8 @@
   "scripts": {
     "test": "node --test test/*.test.mjs",
     "test:distribution": "node --test test/distribution-contract.test.mjs",
-    "pack:check": "npm pack --dry-run"
+    "pack:check": "npm pack --dry-run",
+    "prepublishOnly": "npm test"
   },
   "keywords": [
     "claude-code",
@@ -49,5 +49,9 @@
   },
   "engines": {
     "node": ">=18.0.0"
+  },
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
   }
 }
