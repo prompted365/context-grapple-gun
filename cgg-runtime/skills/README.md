@@ -1,125 +1,43 @@
-# CGG Runtime v3 — Signal Manifold Trigger Pipeline
+# CGG Runtime Skills — v5 Surface
 
-Automated between-session lesson evaluation and signal management for Claude Code.
+This directory contains canonical skill source. Repository presence does not automatically grant public plugin admission.
 
-> Runtime pipeline reference. For the convention layer, see [cogpr/](../../cogpr/README.md). For daily usage, see [START-HERE.md](../../START-HERE.md).
+The v5 public plugin manifest exposes a curated set from `.claude-plugin/plugin.json`:
 
-## Install scope
+## Primary
 
-CGG install has two layers:
+| Skill | Authority |
+|---|---|
+| `cadence` | Epoch boundary, canonical tic, handoff seal |
+| `review` | Human constitutional judgment over proposed learning and warrants |
+| `siren` | Signal manifold visibility and operations |
+| `statusline` | Bounded statusline installation |
+| `governance-check` | Governance state inspection |
+| `governance-mandate-cycle` | Mandate-cycle control surface |
 
-### Runtime surfaces
-Default target:
-- `~/.claude/...`
+## Compatibility wrappers
 
-Optional target:
-- `$ZONE_ROOT/.claude/...`
+- `cadence-downbeat`
+- `cadence-syncopate`
+- `grapple`
 
-### Zone-local governance surfaces
-Always project-local:
-- `.ticzone`
-- `.ticignore`
-- `audit-logs/`
-- project governance files
+These remain public for continuity while the primary command ownership above stays canonical.
 
-This means a user/global install can govern a project-local zone without moving the zone into `~/.claude`.
+## Present but not publicly admitted
 
-Runtime scope and governance scope are different things.
-Default runtime scope is user/global.
-Default governance scope remains project-local unless promoted through the ladder.
+Experimental, internal, deprecated, and curriculum surfaces may remain in the repository for source history, evaluation, or future work. They are not exposed merely because they have a `SKILL.md`.
 
-## Runtime pipeline (Mermaid)
+Homeskillet Academy is currentness-held under issue #13. The legacy `/init-governance` skill is separately held under issue #14 because its direct-copy/settings-patch contract predates the v5 installer. Both remain intentionally excluded from the public manifest until reconciled.
 
-```mermaid
-flowchart TB
-    Cadence[/`/cadence` end of session/] --> Plan[Plan written with trigger]
-    Plan --> SessionStart[SessionStart hook<br/>restore + signal scan]
-    SessionStart --> Assessor[Background ripple-assessor]
-    Assessor --> Proposals[Proposals file<br/>~/.claude/grapple-proposals]
-    Proposals --> Review[/`/review` docket/]
+Deprecated trees use `deprec_*` naming or carry explicit deprecation notes. The distribution validator rejects their accidental admission.
 
-    Review -->|CogPR approved| Promotion[Write CLAUDE.md updates]
-    Review -->|Warrant triage| Actions[ACK / DISMISS / ESCALATE]
-    Review -->|Needs edits| Iterate[Send back to buffer]
+## Source / installed / loaded distinction
 
-    Promotion --> NextSession[Next session start state]
-    Actions --> Siren[/`/siren` dashboard/]
-    Siren --> Tick[/`/siren tick` volume accrual/]
-    Tick --> Review
-    NextSession --> Cadence
+```text
+this directory (canonical source)
+  → npm payload or source checkout
+  → mode-specific managed target
+  → Claude Code plugin cache / loaded inventory
 ```
 
-## What's New in v3
-
-- **`/siren` skill**: Signal emission, tick advancement, warrant minting, triage dashboard
-- **Signal store**: `audit-logs/signals/*.jsonl` — append-only JSONL for signals and warrants
-- **Harmonic triad detection**: PRIMITIVE BEACON + COGNITIVE LESSON + TENSION = auto-warrant
-- **Unified docket**: `/review` reviews both CogPR promotions AND warrant triage
-- **Signal scanning hook**: SessionStart scans signal store, reports active signals in context
-- **v3 ripple-assessor**: Evaluates CogPRs + scans signals + detects triads
-
-## Components
-
-| File | Purpose |
-|------|---------|
-| `hooks/cgg-gate.sh` | UserPromptSubmit one-shot gate (tries deterministic assessor first, falls back to LLM agent) |
-| `hooks/session-restore-patch.sh` | SessionStart plan discovery + signal scanning (single-pass Python dedup) |
-| `agents/ripple-assessor.md` | Fresh CogPR + signal evaluator (sonnet, read-only) — used when no deterministic assessor exists |
-| `skills/cadence/SKILL.md` | Unified epoch boundary — downbeat (default) or double-time (emergency syncopate) |
-| `skills/review/SKILL.md` | Unified CogPR + Warrant docket reviewer |
-| `skills/siren/SKILL.md` | Signal emission + triage dashboard |
-| `skills/governance-mandate-cycle/SKILL.md` | Mogul mandate execution — spawns team for pattern mining + ladder audit + drift check |
-| `skills/governance-check/SKILL.md` | Compact governance status dashboard — `/loop` target for continuous monitoring |
-| `skills/cadence-downbeat/SKILL.md` | [LEGACY] Redirects to `/cadence` |
-| `skills/cadence-syncopate/SKILL.md` | [LEGACY] Redirects to `/cadence double-time` |
-| `skills/grapple/SKILL.md` | [LEGACY] Redirects to `/review` |
-| `skills/init-gun/SKILL.md` | [DEPRECATED] Absorbed into bootstrap install flow |
-| `skills/init-cogpr/SKILL.md` | [DEPRECATED] Absorbed into bootstrap install flow |
-
-## Requires
-
-- Claude Code CLI with hooks support
-- `cogpr` package (or at minimum the `/review` skill to consume proposals)
-
-## How It Works
-
-1. Session ends -> `/cadence` writes handoff plan with `cgg-evaluate` trigger block
-2. Next session starts -> SessionStart hook discovers plan + scans `audit-logs/signals/` for active signals
-3. First prompt -> UserPromptSubmit gate fires once, spawns ripple-assessor in background
-4. Assessor reads plan, evaluates CogPRs + signals, writes proposals to `~/.claude/grapple-proposals/latest.md`
-5. User runs `/review` -> reviews unified docket (Warrants + CogPRs), approves/rejects
-6. User runs `/siren` -> operational dashboard for signal management between `/review` reviews
-
-For emergency exits, `/cadence double-time` writes a compact handoff (tic + plan, no signal tick or conformation) — the pipeline still fires on next session start.
-
-**Zone scan rule**: SessionStart hook scans for pending CogPRs using the zone scan rule: `**/CLAUDE.md` + `**/MEMORY.md` only, `.ticignore` exclusions applied. See [DEV-README](../../DEV-README.md) for the full rule.
-
-## Signal Lifecycle
-
-```
-Emit signal (/siren emit)
-  -> volume accrues per tick (/siren tick)
-  -> effective_volume computed per hearing target (distance model)
-  -> volume crosses warrant_threshold -> warrant minted automatically
-  -> /review presents warrant in triage docket
-  -> human ACKNOWLEDGEs / DISMISSes / ESCALATEs
-```
-
-## Standalone Guarantee
-
-Everything runs inside Claude Code with zero external dependencies:
-- Signal store: `audit-logs/signals/*.jsonl` (plain files, git-tracked)
-- Tick logic: inline in `/siren` skill
-- Proposals: `~/.claude/grapple-proposals/latest.md`
-- Meta-log: `audit-logs/reviews/YYYY-MM-DD.jsonl` (canonical; legacy `~/.claude/grapple-meta-log.jsonl` retired as a write-target tic 583, history preserved in place)
-- No Docker, no APIs, no running services required
-
-## Safety
-
-- One-shot: trigger fires exactly once per handoff_id
-- Idempotent: restart won't re-evaluate (handoff_id tracked)
-- Project-scoped: plan file `project_dir` must match current project
-- Read-only assessor: ripple-assessor can only write to proposals file
-- Human gate: all promotions and warrant verdicts require explicit approval via `/review`
-- PRESTIGE band blocked: governance filter prevents emission
-- Append-only JSONL: signal history is never overwritten
+Behavioral truth is the loaded runtime. Canonical source remains intent until install, validation, and inventory verification complete.
