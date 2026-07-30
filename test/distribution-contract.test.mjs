@@ -7,7 +7,9 @@ import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
   buildPluginManifest,
+  expectedInventoryForMode,
   loadComponentContract,
+  payloadPathsForMode,
   skillPathsForMode,
 } from '../lib/distribution-contract.mjs';
 import {
@@ -34,11 +36,6 @@ test('source plugin manifest is the single complete component authority', () => 
 
   assert.equal(sourcePlugin.version, pkg.version);
   assert.deepEqual([...sourcePlugin.skills].sort(), [...skillPathsForMode(contract, 'full')].sort());
-  // Claude Code >= 2.1.220 loads hooks and agents from the standard
-  // plugin-root locations only: a manifest reference to the auto-loaded
-  // hooks/hooks.json is a fatal duplicate at load time, and the manifest
-  // "agents" field validates but loads nothing (the installer materializes
-  // contract agents into the plugin-root agents/ directory instead).
   assert.equal(sourcePlugin.agents, undefined);
   assert.equal(sourcePlugin.hooks, undefined);
   const entry = marketplace.plugins.find((plugin) => plugin.name === sourcePlugin.name);
@@ -67,15 +64,11 @@ test('component contract references real source components', () => {
   assert.ok(existsSync(join(ROOT, contract.hooks.full.replace(/^\.\//, ''))));
 });
 
-test('mode manifests have distinct, truthful component surfaces', () => {
+test('mode manifests have distinct, truthful skill surfaces', () => {
   const full = buildPluginManifest({ packageRoot: ROOT, mode: 'full', version: '5.0.0' });
   const skills = buildPluginManifest({ packageRoot: ROOT, mode: 'skills', version: '5.0.0' });
-  const contract = loadComponentContract(ROOT);
 
   assert.ok(full.skills.length > skills.skills.length);
-  // Neither mode declares manifest.agents or manifest.hooks — both load
-  // from standard plugin-root locations on >= 2.1.220 (agents/ materialized
-  // by the installer per contract; hooks/hooks.json auto-loads).
   assert.equal(full.agents, undefined);
   assert.equal(full.hooks, undefined);
   assert.equal(skills.agents, undefined);
@@ -85,14 +78,43 @@ test('mode manifests have distinct, truthful component surfaces', () => {
   assert.ok(skills.skills.some((path) => path.includes('/siren/')));
 });
 
+test('mode payloads make skills a true zero-agent zero-hook install', () => {
+  const full = payloadPathsForMode('full');
+  const skills = payloadPathsForMode('skills');
+  assert.ok(full.includes('hooks'));
+  assert.equal(skills.includes('hooks'), false);
+});
+
+test('public inventory contract is exact for full and skills modes', () => {
+  const full = expectedInventoryForMode(ROOT, 'full');
+  const skills = expectedInventoryForMode(ROOT, 'skills');
+
+  assert.deepEqual(
+    [full.skills.expected_count, full.agents.expected_count, full.hooks.expected_count],
+    [17, 11, 8],
+  );
+  assert.deepEqual(
+    [skills.skills.expected_count, skills.agents.expected_count, skills.hooks.expected_count],
+    [6, 0, 0],
+  );
+  assert.equal(full.skills.expected_ids.length, 17);
+  assert.equal(full.agents.expected_ids.length, 11);
+  assert.equal(full.hooks.expected_ids.length, 8);
+});
+
 test('npm package contains the deterministic runtime payload and one release identity', () => {
   const pkg = read('package.json');
   const lock = read('package-lock.json');
+  const plugin = read('.claude-plugin/plugin.json');
+  const release = read('release-status.json');
 
   assert.equal(pkg.version, '5.0.0');
   assert.equal(lock.version, pkg.version);
   assert.equal(lock.packages[''].version, pkg.version);
-  for (const required of ['.claude-plugin/', 'cgg-runtime/', 'hooks/', 'lib/', 'docs/']) {
+  assert.equal(plugin.version, pkg.version);
+  assert.equal(release.version, pkg.version);
+  assert.ok(['release-candidate', 'published'].includes(release.status));
+  for (const required of ['.claude-plugin/', 'cgg-runtime/', 'hooks/', 'lib/', 'docs/', 'release-status.json']) {
     assert.ok(pkg.files.includes(required), required);
   }
   assert.equal(pkg.publishConfig.access, 'public');
@@ -156,6 +178,12 @@ test('public Markdown routes resolve locally', () => {
   }
 });
 
+test('direct Git is explicitly classified as non-equivalent to npm-managed full mode', () => {
+  const install = readFileSync(join(ROOT, 'INSTALL.md'), 'utf-8');
+  assert.match(install, /source-evaluation path/i);
+  assert.match(install, /not equivalent to the npm-managed full install/i);
+});
+
 test('public sync lane never calls the legacy standalone runtime copier', () => {
   const syncSource = readFileSync(join(ROOT, 'lib', 'sync.mjs'), 'utf-8');
   assert.doesNotMatch(syncSource, /runtime-sync\.py/);
@@ -168,6 +196,23 @@ test('full hook authority includes the whole declared lifecycle', () => {
   for (const event of ['SessionStart', 'SubagentStart', 'PreCompact', 'PostCompact', 'Stop', 'SessionEnd', 'UserPromptSubmit', 'PostToolUse']) {
     assert.ok(Array.isArray(hooks[event]) && hooks[event].length > 0, event);
   }
+});
+
+test('installer smoke executes the packed artifact and all plugin scopes', () => {
+  const workflow = readFileSync(join(ROOT, '.github', 'workflows', 'installer-smoke.yml'), 'utf-8');
+  assert.match(workflow, /npm pack --json/);
+  for (const scope of ['user', 'project', 'local']) {
+    assert.match(workflow, new RegExp(`--scope ${scope}`));
+  }
+  assert.match(workflow, /--mode skills/);
+  assert.match(workflow, /--mode convention/);
+});
+
+test('distribution CI gates runtime changes on a version advance', () => {
+  const workflow = readFileSync(join(ROOT, '.github', 'workflows', 'distribution-contract.yml'), 'utf-8');
+  assert.match(workflow, /Verify public runtime version advance/);
+  assert.match(workflow, /BASE_VERSION/);
+  assert.match(workflow, /CURRENT_VERSION/);
 });
 
 test('Academy is excluded pending its governed refresh', () => {
