@@ -7,6 +7,7 @@ import { join } from 'node:path';
 import {
   FULL_SKILLS,
   SKILLS_ONLY,
+  activatePreparedRuntime,
   appendConventionBlock,
   buildPluginManifest,
   ensureZoneSurfaces,
@@ -110,7 +111,22 @@ test('uninstall removal authority preserves source checkouts and old receipts', 
   );
 });
 
-test('full install copies a versioned payload, bootstraps the zone, and verifies loaded state', { skip: process.platform === 'win32' }, () => {
+test('atomic activation can restore the previous managed runtime', () => {
+  const root = mkdtempSync(join(tmpdir(), 'cgg-atomic-'));
+  const target = join(root, 'runtime');
+  const candidate = join(root, 'candidate');
+  mkdirSync(target, { recursive: true });
+  mkdirSync(candidate, { recursive: true });
+  writeFileSync(join(target, 'marker.txt'), 'old\n', 'utf-8');
+  writeFileSync(join(candidate, 'marker.txt'), 'new\n', 'utf-8');
+
+  const activation = activatePreparedRuntime({ target, candidate, inPlace: false });
+  assert.equal(readFileSync(join(target, 'marker.txt'), 'utf-8'), 'new\n');
+  activation.rollback();
+  assert.equal(readFileSync(join(target, 'marker.txt'), 'utf-8'), 'old\n');
+});
+
+test('full install copies a versioned payload, bootstraps the zone, and verifies installed inventory', { skip: process.platform === 'win32' }, () => {
   const source = mkdtempSync(join(tmpdir(), 'cgg-package-'));
   const zone = mkdtempSync(join(tmpdir(), 'cgg-project-'));
   const target = join(zone, '.claude', 'cgg');
@@ -149,13 +165,15 @@ test('full install copies a versioned payload, bootstraps the zone, and verifies
   writeFileSync(join(source, 'package.json'), '{"name":"context-grapple-gun","version":"5.0.0"}\n');
 
   const fakeClaude = join(fakeBin, 'claude');
-  writeFileSync(fakeClaude, `#!/bin/sh\necho "$@" >> "$FAKE_CLAUDE_LOG"\ncase "$*" in\n  "--version") echo "2.1.63" ;;\n  "plugin marketplace list --json") echo "[]" ;;\n  "plugin list --json") echo '[{"name":"context-grapple-gun"}]' ;;\n  "plugin details context-grapple-gun@cgg") echo "context-grapple-gun" ;;\n  *) exit 0 ;;\nesac\n`);
+  writeFileSync(fakeClaude, `#!/bin/sh\necho "$(pwd)|$@" >> "$FAKE_CLAUDE_LOG"\ncase "$*" in\n  "--version") echo "2.1.63" ;;\n  "plugin marketplace list --json") echo "[]" ;;\n  "plugin list --json") echo '[{"name":"context-grapple-gun"}]' ;;\n  "plugin details context-grapple-gun@cgg") echo "context-grapple-gun" ;;\n  "plugin update context-grapple-gun@cgg --scope project") exit 1 ;;\n  *) exit 0 ;;\nesac\n`);
   chmodSync(fakeClaude, 0o755);
 
   const oldPath = process.env.PATH;
   const oldLog = process.env.FAKE_CLAUDE_LOG;
+  const oldHome = process.env.HOME;
   process.env.PATH = `${fakeBin}:${oldPath}`;
   process.env.FAKE_CLAUDE_LOG = logPath;
+  process.env.HOME = mkdtempSync(join(tmpdir(), 'cgg-home-'));
   try {
     const receipt = install({ mode: 'full', scope: 'project', projectDir: zone, target, sourceRoot: source });
     assert.equal(receipt.version, '5.0.0');
@@ -163,6 +181,8 @@ test('full install copies a versioned payload, bootstraps the zone, and verifies
     assert.equal(receipt.managed_target, target);
     assert.equal(receipt.managed_target_kind, 'package_copy');
     assert.equal(receipt.removal_authorized, true);
+    assert.equal(receipt.installed_inventory_verified, true);
+    assert.equal(receipt.session_load_state, 'reload_or_next_session_required');
     assert.deepEqual(JSON.parse(readFileSync(join(zone, '.ticzone'), 'utf-8')).bands, ['PRIMITIVE', 'COGNITIVE', 'SOCIAL']);
     assert.equal(JSON.parse(readFileSync(join(target, '.claude-plugin', 'marketplace.json'), 'utf-8')).plugins[0].strict, true);
     const commands = readFileSync(logPath, 'utf-8');
@@ -170,9 +190,12 @@ test('full install copies a versioned payload, bootstraps the zone, and verifies
     assert.match(commands, /plugin marketplace add/);
     assert.match(commands, /plugin install/);
     assert.match(commands, /plugin details/);
+    for (const line of commands.trim().split('\n')) assert.ok(line.startsWith(`${zone}|`));
   } finally {
     process.env.PATH = oldPath;
     if (oldLog === undefined) delete process.env.FAKE_CLAUDE_LOG;
     else process.env.FAKE_CLAUDE_LOG = oldLog;
+    if (oldHome === undefined) delete process.env.HOME;
+    else process.env.HOME = oldHome;
   }
 });
