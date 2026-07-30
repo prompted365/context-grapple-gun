@@ -61,7 +61,7 @@ jobs:
       - run: npm pack --dry-run
 
   claude-plugin-contract:
-    name: Current Claude Code strict validation
+    name: Current Claude Code install contract
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -72,3 +72,66 @@ jobs:
         run: npm install --global @anthropic-ai/claude-code@latest
       - name: Validate marketplace and plugin
         run: claude plugin validate . --strict
+      - name: Smoke full project-scope install, doctor, and uninstall
+        shell: bash
+        run: |
+          set -euo pipefail
+          export HOME="$(mktemp -d)"
+          PROJECT="$(mktemp -d)"
+          TARGET="$PROJECT/.claude/cgg"
+          git -C "$PROJECT" init -q
+
+          node "$GITHUB_WORKSPACE/bin/cgg.mjs" install \
+            --mode full \
+            --scope project \
+            --project-dir "$PROJECT" \
+            --target "$TARGET"
+
+          node "$GITHUB_WORKSPACE/bin/cgg.mjs" doctor \
+            --scope project \
+            --project-dir "$PROJECT" \
+            --target "$TARGET" \
+            --json > "$PROJECT/doctor.json"
+
+          node -e "const r=require(process.argv[1]); if(!r.ok) process.exit(1); if(r.receipt.mode!=='full') process.exit(2);" "$PROJECT/doctor.json"
+          test -f "$PROJECT/.ticzone"
+          test -f "$PROJECT/.ticignore"
+          test -f "$TARGET/.cgg-install.json"
+
+          node "$GITHUB_WORKSPACE/bin/cgg.mjs" uninstall \
+            --scope project \
+            --project-dir "$PROJECT" \
+            --target "$TARGET"
+
+          test ! -e "$TARGET"
+          test -f "$PROJECT/.ticzone"
+          test -d "$PROJECT/audit-logs"
+      - name: Smoke skills user-scope install boundary
+        shell: bash
+        run: |
+          set -euo pipefail
+          export HOME="$(mktemp -d)"
+          PROJECT="$(mktemp -d)"
+          TARGET="$HOME/.cgg/context-grapple-gun"
+          git -C "$PROJECT" init -q
+
+          node "$GITHUB_WORKSPACE/bin/cgg.mjs" install \
+            --mode skills \
+            --scope user \
+            --project-dir "$PROJECT"
+
+          node -e "const m=require(process.argv[1]); if(m.hooks||m.agents) process.exit(1); if(!Array.isArray(m.skills)||m.skills.length<3) process.exit(2);" "$TARGET/.claude-plugin/plugin.json"
+
+          node "$GITHUB_WORKSPACE/bin/cgg.mjs" doctor \
+            --scope user \
+            --project-dir "$PROJECT" \
+            --json > "$PROJECT/doctor.json"
+
+          node -e "const r=require(process.argv[1]); if(!r.ok) process.exit(1); if(r.receipt.mode!=='skills') process.exit(2);" "$PROJECT/doctor.json"
+
+          node "$GITHUB_WORKSPACE/bin/cgg.mjs" uninstall \
+            --scope user \
+            --project-dir "$PROJECT"
+
+          test ! -e "$TARGET"
+          test -f "$PROJECT/.ticzone"
