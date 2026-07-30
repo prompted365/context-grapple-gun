@@ -6,163 +6,127 @@
 
 Context Grapple Gun is a portable governance lifecycle for Claude Code and a developer-facing entry point into Prompted LLC's Ubiquity substrate.
 
-Prompted LLC builds Ubiquity so AI systems can know when to act, when to ask, and how to turn human judgment into safer autonomy over time.
+CGG turns session-local human-agent learning into scoped, reviewable, receipted operating structure. It preserves the distinction between canonical source, installed plugin, loaded runtime, human judgment, and future hydration instead of calling all of them “memory.”
 
-CGG applies that thesis locally: it captures lessons from real work, routes them through human review, promotes them through scoped gates, and hydrates approved guidance back into future sessions without confusing rendered context with constitutional source of truth.
+Three commands are the public operating surface:
 
-CGG is complete without Ubiquity. When flat-file governance is no longer enough, Ubiquity extends the same primitives into deeper substrate infrastructure: semantic recall, graph topology, conformation-aware retrieval, expression gating, and compiled execution-boundary enforcement.
+| Command | Governing job |
+|---|---|
+| `/cadence` | Close the epoch, emit the canonical tic, seal the handoff, and leave a resumable next state. |
+| `/review` | Let the named human authority approve, modify, defer, merge, supersede, or reject durable promotion. |
+| `/siren` | Inspect the recurring-friction signal manifold without turning visibility into promotion authority. |
 
-Context Grapple Gun, also published as the open-source `context-grapple-gun` repository (`prompted365/context-grapple-gun`), is the developer-facing implementation of this portable lifecycle.
+## Release status
 
-Three commands. Auditable files. No service required.
+[`release-status.json`](release-status.json) is the machine-readable public release gate.
 
----
+- `release-candidate` means the source and CI candidate are available, but registry publication is not yet asserted.
+- `published` means the npm registry receipt has been verified for the stated version and source commit.
 
-**You only need four things to start:**
-- Three commands: `/cadence`, `/review`, `/siren`
-- Run `/cadence` to end every session cleanly; run `/review` every few sessions to approve lessons
-- Scope ladder: Site > Domain > Estate > Federation > Global -- you decide what promotes
-- Install: `npx context-grapple-gun install` -- or see [INSTALL.md](INSTALL.md) for details
+Use the npm command only when that file says `published` for the requested version:
 
----
+```bash
+npx context-grapple-gun@5 install
+```
 
-## Read this first (by intent)
+Until then, do not infer registry availability from `package.json`, a branch name, a tag, or a successful source checkout.
 
-| You want to... | Start here |
-|----------------|------------|
-| **Install now** | `npx context-grapple-gun install` -- zero-thought entry, handles everything |
-| **Use it now** | [START-HERE.md](START-HERE.md) -- the three commands, a normal day, what to expect |
-| **Understand the pipeline** | [DEV-README.md](DEV-README.md) -- session flow, hook lifecycle, extraction pipeline |
-| **Evaluate the architecture** | [ARCHITECTURE.md](ARCHITECTURE.md) -- signal manifold, acoustic model, governance layers |
-| **Audit recent changes** | [docs/COMMIT-HISTORY-CHEATSHEET.md](docs/COMMIT-HISTORY-CHEATSHEET.md) |
-| **Learn through story** | [academy/README.md](academy/README.md) -- five chapters, real simulations, one very persistent goat |
-| **All install options** | [INSTALL.md](INSTALL.md) -- npm, plugin, bootstrap, manual, academy |
+## Public distribution invariant
 
----
+```text
+npm release + exact source receipt
+  -> package-pinned marketplace source
+  -> mode-specific plugin manifest
+  -> installed plugin
+  -> exact loaded component inventory
+  -> project governance zone
+  -> human-gated promotion
+  -> future hydration
+```
 
-## 90-second mental model
+> No success claim until the release, plugin declaration, loaded inventory, and project zone agree.
 
-**The problem:** AI agents discover truths during work -- bug patterns, API quirks, coordination techniques that work. When the session ends, that knowledge vanishes. Next session: same agent, same repo, zero memory of what it learned.
+The npm package contains the runtime it installs. It does not clone a moving branch. The source plugin, npm package, lockfile, and release status share one semantic release version. The publication workflow adds the exact source commit to `release-manifest.json`; install receipts carry both identities rather than collapsing semver and provenance into one field.
 
-**The CGG answer:** Lessons get captured as they happen, reviewed between sessions, and promoted to broader scopes with human approval at every gate. The project's operating rules grow from real work, not from someone writing documentation.
+## Install modes
 
-**Three commands run the lifecycle:**
+| Mode | Skills | Agents | Hooks | Zone bootstrap |
+|---|---:|---:|---:|---:|
+| `full` | 17 admitted skills | 11 admitted agents | 8 lifecycle events | Yes |
+| `skills` | 6 core and compatibility skills | 0 | 0 | Yes |
+| `convention` | 0 plugin skills | 0 | 0 | No; appends the governed protocol only |
 
-| Command | What it does |
-|---------|--------------|
-| `/cadence` | End of session. Saves lessons, emits a tic (sequenced timestamp), writes a handoff for the next session. |
-| `/review` | Review proposed lessons. Approve, reject, or modify before promotion. |
-| `/siren` | Check on recurring friction. See what signals are building, what warrants have minted. |
+The public component set is governed by [`cgg-runtime/config/plugin-components.json`](cgg-runtime/config/plugin-components.json). Deprecated surfaces and unrefreshed teaching artifacts do not enter the plugin merely because they exist in the repository.
 
-**Why this compounds instead of just accumulating:**
+The installer and `cgg doctor` require exact inventory equality. “At least one component loaded” is not admission.
 
-| Mechanism | What it does |
-|-----------|--------------|
-| Scoped gates | Every promotion requires explicit approval. The agent proposes; you decide what scope it reaches. |
-| Abstraction ladder | Scope hierarchy: site > domain > estate > federation > global. Lessons climb through review, not drift. |
-| Hydration boundary | Rendered working context is never confused with constitutional source of truth. Lessons hydrate back into sessions from their authoritative files. |
-| Cognitive pull requests | Proposed lessons are captured as CogPRs — structured, reviewable units that strip contextual noise before promotion. |
-| Signal manifold | Recurring friction accrues volume, crosses thresholds, mints warrants. You see what keeps coming up. |
+## npm-managed installation
 
-**One scale boundary:**
+After `release-status.json` says `published`:
 
-CGG is the governance lifecycle. It uses flat files, git-tracked, auditable by default. When flat files aren't enough -- when you need semantic recall, graph topology, or conformation-aware retrieval -- the substrate layer (Ubiquity) picks up where CGG leaves off. Same governance primitives, deeper infrastructure. CGG is complete without Ubiquity. Ubiquity composes on top when scale demands it.
+```bash
+# Default: full mode, user scope
+npx context-grapple-gun@5 install
 
----
+# True skills-only mode: zero agents, zero hooks
+npx context-grapple-gun@5 install --mode skills
 
-## What CGG is not
+# Convention only
+npx context-grapple-gun@5 install --mode convention
 
-- **Not a fictional grappling hook.** Not Batman, not Palworld, not a video-game gadget.
-- **Not the npm `grappling-hook` package** or the KeystoneJS `grappling-hook` library — unrelated namespaces.
-- **Not a vector database.** No embeddings, no semantic search. Flat files and grep.
-- **Not a magical memory layer.** Lessons require human review to promote. Nothing persists without approval.
-- **Not a full substrate.** CGG handles governance lifecycle. Substrate capabilities (expression gating, graph topology, compiled constraints) require infrastructure CGG deliberately avoids.
-- **Not a hosted platform.** Everything runs locally. No APIs, no services, no cloud dependencies.
-- **Not a generic context manager** or PR-productivity dashboard.
+# Inspect without writing
+npx context-grapple-gun@5 install --dry-run
+```
 
----
+See [START-HERE.md](START-HERE.md) for the operating rhythm and [INSTALL.md](INSTALL.md) for scopes, target control, diagnostics, reconciliation, and uninstall.
 
-## Core terms (with neutral aliases)
+## Direct Git source path
 
-On first encounter, CGG terminology maps to familiar systems concepts:
-- **CogPR** -- behavior pull request: a proposed lesson flagged for review and promotion
-- **Hydration boundary** -- source-of-truth separation: constitutional files (CLAUDE.md, MEMORY.md) are authoritative; rendered working context is downstream
-- **Abstraction ladder** -- scope hierarchy: Site > Domain > Estate > Federation > Global; lessons climb through `/review`
-- **Scoped gates** -- human approval at every scope transition; nothing promotes without explicit review
-- **tic** -- sequenced timestamp: ISO-8601 + monotonic counter for total ordering
-- **siren > warrant** -- recurring friction signal that mints an escalation when it crosses threshold
+The raw GitHub marketplace path is a **source-evaluation path**, not an equivalent substitute for the npm-managed full install.
 
-Full glossary: [docs/TERMINOLOGY.md](docs/TERMINOLOGY.md).
+It does not receive the npm install receipt, mode-specific payload contraction, exact agent materialization, or packed-artifact proof. Use it to inspect and validate source. Do not represent it as the production or turnkey installation path unless a separate direct-Git lifecycle receipt proves equivalent inventory.
 
----
+## Authority boundaries
 
-## Skeptic's evaluation path
+- `/cadence` owns epoch close and handoff sealing. It is not the memory writer, signal emitter, assessor, extractor, or review authority.
+- `/review` owns constitutional judgment. It uses an in-tic human ratification question set; it is not generic Plan Mode approval or interception.
+- `/siren` owns signal operations. Signal volume does not grant sovereignty.
+- The Claude plugin manager owns plugin registration and loaded component state.
+- `/init-governance` owns project-zone bootstrap and repair after installation. It does not copy plugin components or rewrite Claude settings.
+- Loaded runtime is behavioral truth. Canonical source remains intent until installation and verification complete.
 
-**~20 minutes to informed judgment.**
+## Flat-file boundary
 
-1. **Read:** This section + [START-HERE.md](START-HERE.md) (~5 min)
-2. **Install:** `npx context-grapple-gun install` -- 10 seconds
-3. **Run:** Start a session, do some work, run `/cadence` at the end
-4. **Inspect:** Look at `audit-logs/` -- see the tic records, signal files, CogPR blocks
-5. **Review:** Next session, run `/review` -- see the docket, the verdicts, the scope assignments
+CGG is complete as a local, auditable governance lifecycle. It deliberately avoids pretending that flat files are a semantic substrate.
 
-What to look for: Does the captured lesson match what you learned? Did the handoff preserve context? Is the review gate actually human-controlled?
+When lexical lookup, file topology, and human review are no longer sufficient, Ubiquity extends the same primitives into semantic recall, graph topology, conformation-aware retrieval, expression gating, and compiled execution-boundary enforcement.
 
----
+## Source map
 
-## Why CGG exists
+| Need | Authority |
+|---|---|
+| Use CGG | [START-HERE.md](START-HERE.md) |
+| Install and remove it | [INSTALL.md](INSTALL.md) |
+| Check public release standing | [release-status.json](release-status.json) |
+| Inspect admitted components | [cgg-runtime/config/plugin-components.json](cgg-runtime/config/plugin-components.json) |
+| Understand the operating pipeline | [DEV-README.md](DEV-README.md) |
+| Evaluate the theory and scale boundary | [ARCHITECTURE.md](ARCHITECTURE.md) |
+| Inspect runtime topology | [CGG_RUNTIME_TOPOLOGY_AND_LIFECYCLE.md](CGG_RUNTIME_TOPOLOGY_AND_LIFECYCLE.md) |
+| Resolve current terms | [docs/TERMINOLOGY.md](docs/TERMINOLOGY.md) |
+| See release deltas | [CHANGELOG.md](CHANGELOG.md) |
 
-Organizations running persistent AI systems hit a specific set of problems that better models don't solve:
+## Academy standing
 
-- **Behavioral drift over time.** Agents gradually contradict their own constraints as context windows fill and rotate.
-- **No rule evolution pathway.** When an agent discovers a better way to operate, the insight dies with the session. Manually updating system prompts doesn't scale.
-- **Invisible blast radius.** When an agent's behavior changes, there's no audit trail showing what changed, when, why, or who approved it.
-- **Cross-system incoherence.** Multiple agents in the same domain have no way to share validated lessons or coordinate on discovered constraints.
-- **Jurisdictional ambiguity.** In regulated or multi-team environments, you can't define which agents can hear which signals, or which rules apply in which scope.
-
-CGG addresses these through five structural mechanisms: the abstraction ladder (scoped rule tiers), the epoch boundary (context rotation discipline), the human constitutional gate (approval-gated promotion), the signal manifold (runtime condition monitoring), and the tic/tic-zone system (canonical ordering and jurisdictional scoping).
-
----
-
-## Where CGG fits
-
-CGG is a compact, portable governance lifecycle. `npx context-grapple-gun install` and get value from session 1. Three commands. Zero runtime dependencies.
-
-CGG guarantees:
-- File-based governance lifecycle (capture, evaluate, promote, audit)
-- Human-gated rule promotion at every scope boundary
-- Auditable signal/tic trails with total ordering
-- Claude Code automation via hooks (when installed)
-- Jurisdictional scoping via zones and exclusion filters
-
-CGG does NOT provide (and deliberately avoids):
-- Conformation-aware retrieval engines
-- Expression gating across timescales
-- Graph topology for relational memory
-- Endogenous economics
-- Compiled execution-boundary enforcement
-
-These are classes of capability that require infrastructure CGG deliberately avoids. When you hit the ceiling, you'll know -- the symptoms are described in [ARCHITECTURE.md](ARCHITECTURE.md#6-scaling-ceiling).
-
----
-
-## Measuring impact
-
-Three numbers that tell you whether CGG is compounding or just accumulating:
-
-1. **Repeat-mistake rate** -- declining = lessons are landing
-2. **Time-to-resume** -- shrinking = handoffs are working
-3. **Promotion ROI** -- promoted rules that prevent future incidents = compounding
-
----
+The prior Homeskillet Academy is intentionally excluded from the public v5 plugin while it is re-derived against the current runtime. The refresh is tracked in [GitHub issue #17](https://github.com/prompted365/context-grapple-gun/issues/17). Until that gate closes, use the current guides and live runtime contracts rather than the legacy course as installation or architecture authority.
 
 ## Safety
 
-All promotions require human approval through `/review`. Protected files like `~/.claude/CLAUDE.md` require extra confirmation. Trigger blocks are structured data with whitelisted keys, not executable instructions. Each handoff is processed at most once.
-
-Zone-local governance scoping prevents cross-project bleed. Global runtime installation does not make project governance global. Rules still route through the project's zone boundary and ladder.
-
----
+- Durable promotion requires the human `/review` gate.
+- Existing `.ticzone`, `.ticignore`, `CLAUDE.md`, `MEMORY.md`, and audit history are not overwritten by installation.
+- `PRESTIGE` is governance-blocked and never appears in a newly created active band list.
+- An existing constitutional conflict is held for human repair rather than silently rewritten.
+- Uninstall preserves project governance history by default.
+- Marketplace removal is explicit because it can affect more than one plugin scope.
 
 ## License
 
@@ -170,8 +134,6 @@ MIT
 
 ## Maintainers
 
-**[Prompted LLC](https://promptedllc.com)** -- creators of the Ubiquity governance substrate.
+**[Prompted LLC](https://promptedllc.com)** — creators of the Ubiquity governance substrate.
 
-Breyden Taylor, Founder & Architect -- [LinkedIn](https://www.linkedin.com/in/breyden-taylor/) | breyden@prompted.community
-
-Contributions welcome.
+Breyden Taylor, Founder & Architect — [LinkedIn](https://www.linkedin.com/in/breyden-taylor/) | breyden@prompted.community

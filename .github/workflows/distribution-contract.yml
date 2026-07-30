@@ -1,0 +1,146 @@
+name: Distribution contract
+
+on:
+  pull_request:
+    paths:
+      - '.claude-plugin/**'
+      - '.github/workflows/distribution-contract.yml'
+      - '.github/workflows/npm-release.yml'
+      - 'bin/**'
+      - 'cgg-runtime/agents/**'
+      - 'cgg-runtime/config/plugin-components.json'
+      - 'cgg-runtime/config/session-learning-protocol.md'
+      - 'cgg-runtime/hooks/**'
+      - 'cgg-runtime/skills/**'
+      - 'hooks/**'
+      - 'lib/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'release-status.json'
+      - 'test/**'
+      - 'README.md'
+      - 'START-HERE.md'
+      - 'INSTALL.md'
+      - 'docs/TERMINOLOGY.md'
+      - 'CHANGELOG.md'
+  push:
+    branches: [main]
+    paths:
+      - '.claude-plugin/**'
+      - '.github/workflows/distribution-contract.yml'
+      - '.github/workflows/npm-release.yml'
+      - 'bin/**'
+      - 'cgg-runtime/agents/**'
+      - 'cgg-runtime/config/plugin-components.json'
+      - 'cgg-runtime/config/session-learning-protocol.md'
+      - 'cgg-runtime/hooks/**'
+      - 'cgg-runtime/skills/**'
+      - 'hooks/**'
+      - 'lib/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'release-status.json'
+      - 'test/**'
+      - 'README.md'
+      - 'START-HERE.md'
+      - 'INSTALL.md'
+      - 'docs/TERMINOLOGY.md'
+      - 'CHANGELOG.md'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  version-gate:
+    name: Public runtime version gate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Verify shared release identity
+        run: |
+          node <<'NODE'
+          const fs = require('node:fs');
+          const pkg = JSON.parse(fs.readFileSync('package.json'));
+          const lock = JSON.parse(fs.readFileSync('package-lock.json'));
+          const plugin = JSON.parse(fs.readFileSync('.claude-plugin/plugin.json'));
+          const status = JSON.parse(fs.readFileSync('release-status.json'));
+          const values = [pkg.version, lock.version, lock.packages[''].version, plugin.version, status.version];
+          if (new Set(values).size !== 1) {
+            console.error('Release identity mismatch:', values);
+            process.exit(1);
+          }
+          console.log('Shared release identity:', pkg.version, 'status=', status.status);
+          NODE
+      - name: Verify public runtime version advance
+        if: github.event_name == 'pull_request'
+        env:
+          BASE_REF: ${{ github.base_ref }}
+        run: |
+          set -euo pipefail
+          git fetch origin "$BASE_REF" --depth=1
+          BASE_VERSION="$(git show "origin/$BASE_REF:package.json" | node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>process.stdout.write(JSON.parse(s).version))")"
+          CURRENT_VERSION="$(node -p "require('./package.json').version")"
+          CHANGED="$(git diff --name-only "origin/$BASE_REF...HEAD" -- \
+            .claude-plugin \
+            bin \
+            cgg-runtime/agents \
+            cgg-runtime/config/plugin-components.json \
+            cgg-runtime/config/session-learning-protocol.md \
+            cgg-runtime/hooks \
+            cgg-runtime/skills \
+            hooks \
+            lib \
+            package.json || true)"
+          if [ -n "$CHANGED" ] && [ "$BASE_VERSION" = "$CURRENT_VERSION" ]; then
+            echo "Public runtime changed without a version advance." >&2
+            echo "Base version: $BASE_VERSION" >&2
+            echo "Current version: $CURRENT_VERSION" >&2
+            echo "$CHANGED" >&2
+            exit 1
+          fi
+          echo "Version gate passed: $BASE_VERSION -> $CURRENT_VERSION"
+
+  node-contract:
+    name: Node ${{ matrix.node }} and npm package contract
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        node: ['18', '24']
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+      - name: Versions
+        run: |
+          node --version
+          npm --version
+      - name: Node tests
+        run: npm test
+      - name: Syntax check
+        run: |
+          find bin lib test -type f -name '*.mjs' -print0 | xargs -0 -n1 node --check
+      - name: npm payload receipt
+        run: npm pack --dry-run
+
+  plugin-contract:
+    name: Current Claude Code plugin contract
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Install current Claude Code CLI
+        run: npm install --global @anthropic-ai/claude-code@latest
+      - name: Claude Code version
+        run: claude --version
+      - name: Strict plugin validation
+        run: claude plugin validate . --strict

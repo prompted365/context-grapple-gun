@@ -122,7 +122,9 @@ except: print('?')
     # Latest conformation for signal/CPR/mandate counts
     LATEST_CONF=""
     if [ -d "$ZONE_ROOT/audit-logs/conformations" ]; then
-        LATEST_CONF=$(ls -1 "$ZONE_ROOT/audit-logs/conformations/"tic-*.json 2>/dev/null | sort -V | tail -1)
+        # A fresh zone has no conformations yet; under set -e + pipefail the
+        # non-matching glob's ls exit would kill the whole diagnostic.
+        LATEST_CONF=$(ls -1 "$ZONE_ROOT/audit-logs/conformations/"tic-*.json 2>/dev/null | sort -V | tail -1 || true)
     fi
 
     if [ -n "$LATEST_CONF" ] && [ -f "$LATEST_CONF" ]; then

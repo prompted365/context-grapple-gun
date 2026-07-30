@@ -1,13 +1,40 @@
 {
+  "$schema": "https://json.schemastore.org/claude-code-plugin-manifest.json",
   "name": "context-grapple-gun",
-  "version": "4.0.1",
-  "description": "Session learning system for Claude Code. Captures lessons as CogPRs, tracks signals via acoustic routing, promotes knowledge across scopes with human-gated review.",
+  "displayName": "Context Grapple Gun",
+  "version": "5.0.0",
+  "description": "Portable governance lifecycle for Claude Code. Captures lessons as CogPRs, preserves session continuity, routes proposals through human-gated review, and tracks recurring friction through the signal manifold.",
   "author": {
-    "name": "Prompted365"
+    "name": "Prompted LLC",
+    "email": "breyden@prompted.community"
   },
   "repository": "https://github.com/prompted365/context-grapple-gun",
   "homepage": "https://github.com/prompted365/context-grapple-gun#readme",
   "license": "MIT",
-  "keywords": ["governance", "learning", "autonomy", "cogpr", "signals"],
-  "dependencies": []
+  "keywords": [
+    "governance",
+    "learning",
+    "autonomy",
+    "cogpr",
+    "signals"
+  ],
+  "skills": [
+    "./cgg-runtime/skills/cadence/",
+    "./cgg-runtime/skills/review/",
+    "./cgg-runtime/skills/siren/",
+    "./cgg-runtime/skills/cadence-downbeat/",
+    "./cgg-runtime/skills/cadence-syncopate/",
+    "./cgg-runtime/skills/grapple/",
+    "./cgg-runtime/skills/init-governance/",
+    "./cgg-runtime/skills/statusline/",
+    "./cgg-runtime/skills/sl-legend/",
+    "./cgg-runtime/skills/governance-check/",
+    "./cgg-runtime/skills/governance-mandate-cycle/",
+    "./cgg-runtime/skills/inbox/",
+    "./cgg-runtime/skills/complement/",
+    "./cgg-runtime/skills/tactical-hydration/",
+    "./cgg-runtime/skills/swarm/",
+    "./cgg-runtime/skills/stage/",
+    "./cgg-runtime/skills/videographer/"
+  ]
 }

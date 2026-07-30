@@ -1,67 +1,47 @@
 #!/usr/bin/env node
 
-import { getVersion, error, info } from '../lib/utils.mjs';
+import { parseArgs } from '../lib/cli-args.mjs';
+import { error, getVersion, info } from '../lib/utils.mjs';
 
 const HELP = `
-Context Grapple Gun — file-based governance lifecycle for persistent AI sessions
+Context Grapple Gun — receipt-bearing governance continuity for Claude Code
 
 Usage:
-  cgg install [options]    Clone CGG and register as Claude Code plugin
-  cgg doctor [options]     Run diagnostic checks on CGG installation
-  cgg sync [subcommand]    Runtime sync (check | diff | sync)
-  cgg uninstall            Clean removal of CGG
-  cgg --version            Print version
-  cgg --help               Show this help
+  cgg install [options]       Install or reconcile the package-pinned CGG runtime
+  cgg doctor [options]        Verify package, plugin inventory, zone, and topology
+  cgg sync [subcommand]       Compare/reconcile npm package and durable target
+  cgg uninstall [options]     Remove plugin registration and npm-owned runtime files
+  cgg --version               Print CLI package version
+  cgg --help                  Show this help
 
 Install options:
-  --mode <mode>            Install mode: full | skills | convention (default: full)
-  --target <path>          Target directory (default: vendor/context-grapple-gun)
-  --scope <scope>          Plugin scope: user | project (default: project)
+  --mode <mode>               full | skills | convention (default: full)
+  --target <path>             Durable plugin source (default: vendor/context-grapple-gun)
+  --scope <scope>             user | project | local (default: user)
+  --dry-run                   Show the install plan without writing
+
+Doctor options:
+  --target <path>             Explicit npm-managed runtime target
+  --topology-only             Run only the read-only topology diagnostic
 
 Sync subcommands:
-  check                    Check sync status (default)
-  diff                     Show differences
-  sync                     Synchronize runtime
+  check                       Compare running package to durable target (default)
+  diff                        List missing, extra, or drifted npm-owned files
+  sync                        Reconcile through the governed installer (never raw-copy to ~/.claude)
+
+Uninstall options:
+  --target <path>             Explicit npm-managed runtime target
+  --scope <scope>             user | project | local (default: receipt, then user)
+  --keep-files                Keep the durable npm runtime target
+  --keep-data                 Preserve Claude plugin data when unregistering
+  --remove-marketplace        Also remove marketplace cgg (explicit; may affect other scopes)
 
 Examples:
-  npx context-grapple-gun install
-  cgg install --scope user --target ~/.cgg
-  cgg doctor
+  npx context-grapple-gun@5 install
+  npx context-grapple-gun@5 install --mode skills --scope local
+  npx context-grapple-gun@5 doctor
   cgg sync diff
 `;
-
-// --- Argument parsing (zero deps) ---
-
-function parseArgs(argv) {
-  const args = argv.slice(2);
-  const command = args[0] && !args[0].startsWith('-') ? args[0] : null;
-  const positional = [];
-  const flags = {};
-
-  for (let i = command ? 1 : 0; i < args.length; i++) {
-    const arg = args[i];
-    if (arg === '--help' || arg === '-h') {
-      flags.help = true;
-    } else if (arg === '--version' || arg === '-v') {
-      flags.version = true;
-    } else if (arg.startsWith('--')) {
-      const key = arg.slice(2);
-      const next = args[i + 1];
-      if (next && !next.startsWith('-')) {
-        flags[key] = next;
-        i++;
-      } else {
-        flags[key] = true;
-      }
-    } else {
-      positional.push(arg);
-    }
-  }
-
-  return { command, positional, flags };
-}
-
-// --- Main dispatch ---
 
 async function main() {
   const { command, positional, flags } = parseArgs(process.argv);
@@ -82,27 +62,36 @@ async function main() {
       install({
         mode: flags.mode || 'full',
         target: flags.target,
-        scope: flags.scope || 'project',
+        scope: flags.scope || 'user',
+        dryRun: Boolean(flags['dry-run']),
       });
       break;
     }
 
     case 'doctor': {
       const { doctor } = await import('../lib/doctor.mjs');
-      doctor({ target: flags.target });
+      doctor({
+        target: flags.target,
+        topologyOnly: Boolean(flags['topology-only']),
+      });
       break;
     }
 
     case 'sync': {
       const { sync } = await import('../lib/sync.mjs');
-      sync(positional[0], { target: flags.target });
+      await sync(positional[0] || 'check', { target: flags.target });
       break;
     }
 
     case 'uninstall': {
-      error('Uninstall not yet wired. Run cgg-uninstall.py manually:');
-      info('  python3 <cgg-root>/cgg-runtime/scripts/cgg-uninstall.py');
-      process.exit(1);
+      const { uninstall } = await import('../lib/uninstaller.mjs');
+      uninstall({
+        target: flags.target,
+        scope: flags.scope,
+        keepFiles: Boolean(flags['keep-files']),
+        keepData: Boolean(flags['keep-data']),
+        removeMarketplace: Boolean(flags['remove-marketplace']),
+      });
       break;
     }
 

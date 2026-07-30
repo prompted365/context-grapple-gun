@@ -1,0 +1,159 @@
+name: Publish npm package
+
+on:
+  workflow_dispatch:
+    inputs:
+      expected_version:
+        description: Exact shared release version approved for publication
+        required: true
+        type: string
+      expected_commit:
+        description: Exact source commit approved for publication
+        required: true
+        type: string
+      dist_tag:
+        description: npm distribution tag; use latest only after downstream smoke
+        required: true
+        default: next
+        type: string
+      dry_run:
+        description: Build and verify without publishing
+        required: true
+        default: true
+        type: boolean
+
+permissions:
+  contents: write
+  id-token: write
+
+jobs:
+  publish:
+    environment: npm-publish
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          registry-url: 'https://registry.npmjs.org'
+      - name: Verify approved source and shared version
+        env:
+          EXPECTED_VERSION: ${{ inputs.expected_version }}
+          EXPECTED_COMMIT: ${{ inputs.expected_commit }}
+        run: |
+          set -euo pipefail
+          ACTUAL_COMMIT="$(git rev-parse HEAD)"
+          test "$ACTUAL_COMMIT" = "$EXPECTED_COMMIT" || {
+            echo "HEAD=$ACTUAL_COMMIT expected=$EXPECTED_COMMIT" >&2
+            exit 1
+          }
+          node <<'NODE'
+          const fs = require('node:fs');
+          const expected = process.env.EXPECTED_VERSION;
+          const pkg = JSON.parse(fs.readFileSync('package.json'));
+          const lock = JSON.parse(fs.readFileSync('package-lock.json'));
+          const plugin = JSON.parse(fs.readFileSync('.claude-plugin/plugin.json'));
+          const status = JSON.parse(fs.readFileSync('release-status.json'));
+          const values = [pkg.version, lock.version, lock.packages[''].version, plugin.version, status.version];
+          if (values.some((value) => value !== expected)) {
+            console.error('Shared version mismatch:', { expected, values });
+            process.exit(1);
+          }
+          if (!['release-candidate', 'published'].includes(status.status)) {
+            console.error('Invalid release status:', status.status);
+            process.exit(1);
+          }
+          NODE
+      - name: Write exact source receipt into the package workspace
+        env:
+          EXPECTED_VERSION: ${{ inputs.expected_version }}
+          EXPECTED_COMMIT: ${{ inputs.expected_commit }}
+          DRY_RUN: ${{ inputs.dry_run }}
+          DIST_TAG: ${{ inputs.dist_tag }}
+        run: |
+          node <<'NODE'
+          const fs = require('node:fs');
+          const now = new Date().toISOString();
+          const manifest = {
+            schema_version: 1,
+            package: 'context-grapple-gun',
+            release_version: process.env.EXPECTED_VERSION,
+            source_commit: process.env.EXPECTED_COMMIT,
+            dist_tag: process.env.DIST_TAG,
+            generated_at: now,
+          };
+          fs.writeFileSync('release-manifest.json', JSON.stringify(manifest, null, 2) + '\n');
+          if (process.env.DRY_RUN !== 'true') {
+            const status = JSON.parse(fs.readFileSync('release-status.json'));
+            status.status = 'published';
+            status.registry = 'https://registry.npmjs.org';
+            status.dist_tag = process.env.DIST_TAG;
+            status.source_commit = process.env.EXPECTED_COMMIT;
+            status.published_at = now;
+            fs.writeFileSync('release-status.json', JSON.stringify(status, null, 2) + '\n');
+          }
+          NODE
+      - name: Test distribution contract
+        run: npm test
+      - name: Install current Claude Code CLI
+        run: npm install --global @anthropic-ai/claude-code@latest
+      - name: Validate Claude plugin
+        run: |
+          claude --version
+          claude plugin validate . --strict
+      - name: Pack exact artifact
+        id: pack
+        run: |
+          set -euo pipefail
+          npm pack --json > "$RUNNER_TEMP/cgg-pack.json"
+          TARBALL="$(node -e "const x=require(process.argv[1]); process.stdout.write(x[0].filename)" "$RUNNER_TEMP/cgg-pack.json")"
+          test -f "$TARBALL"
+          echo "tarball=$TARBALL" >> "$GITHUB_OUTPUT"
+          node -e "const fs=require('fs');const x=require(process.argv[1]);console.log(JSON.stringify(x,null,2))" "$RUNNER_TEMP/cgg-pack.json"
+      - name: Refuse duplicate public version
+        if: ${{ !inputs.dry_run }}
+        env:
+          EXPECTED_VERSION: ${{ inputs.expected_version }}
+        run: |
+          if npm view "context-grapple-gun@$EXPECTED_VERSION" version >/dev/null 2>&1; then
+            echo "context-grapple-gun@$EXPECTED_VERSION already exists in the registry" >&2
+            exit 1
+          fi
+      - name: Publish with provenance
+        if: ${{ !inputs.dry_run }}
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: npm publish "${{ steps.pack.outputs.tarball }}" --tag "${{ inputs.dist_tag }}" --access public --provenance
+      - name: Verify registry receipt
+        if: ${{ !inputs.dry_run }}
+        env:
+          EXPECTED_VERSION: ${{ inputs.expected_version }}
+        run: |
+          set -euo pipefail
+          for attempt in 1 2 3 4 5; do
+            ACTUAL="$(npm view "context-grapple-gun@$EXPECTED_VERSION" version 2>/dev/null || true)"
+            if [ "$ACTUAL" = "$EXPECTED_VERSION" ]; then
+              echo "Registry confirms context-grapple-gun@$ACTUAL"
+              exit 0
+            fi
+            sleep 6
+          done
+          echo "Registry did not confirm $EXPECTED_VERSION" >&2
+          exit 1
+      - name: Commit published status receipt
+        if: ${{ !inputs.dry_run }}
+        env:
+          EXPECTED_VERSION: ${{ inputs.expected_version }}
+        run: |
+          set -euo pipefail
+          git config user.name "Prompted Release Bot"
+          git config user.email "release-bot@prompted.local"
+          git add release-status.json release-manifest.json
+          if git diff --cached --quiet; then
+            echo "Release status already current"
+            exit 0
+          fi
+          git commit -m "chore(release): record npm publication $EXPECTED_VERSION [skip ci]"
+          git push origin HEAD:${GITHUB_REF_NAME}

@@ -1,0 +1,12 @@
+{
+  "schema_version": 1,
+  "package": "context-grapple-gun",
+  "version": "5.0.0",
+  "status": "release-candidate",
+  "registry": "https://registry.npmjs.org",
+  "dist_tag": null,
+  "source_commit": null,
+  "published_at": null,
+  "install_gate": "Use npx context-grapple-gun@5 only when status is published for version 5.0.0.",
+  "source_evaluation": "The raw GitHub marketplace path is not equivalent to the npm-managed full install."
+}
