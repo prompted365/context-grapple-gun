@@ -32,7 +32,7 @@ test('source plugin manifest is the single complete component authority', () => 
   const contract = loadComponentContract(ROOT);
 
   assert.deepEqual([...sourcePlugin.skills].sort(), [...skillPathsForMode(contract, 'full')].sort());
-  assert.equal(sourcePlugin.agents, contract.agents.full);
+  assert.deepEqual([...sourcePlugin.agents].sort(), [...contract.agents.full].sort());
   assert.equal(sourcePlugin.hooks, contract.hooks.full);
   const entry = marketplace.plugins.find((plugin) => plugin.name === sourcePlugin.name);
   assert.ok(entry);
@@ -54,16 +54,19 @@ test('component contract references real source components', () => {
   for (const name of allSkills) {
     assert.ok(existsSync(join(ROOT, 'cgg-runtime', 'skills', name, 'SKILL.md')), name);
   }
-  assert.ok(existsSync(join(ROOT, contract.agents.full.replace(/^\.\//, ''))));
+  for (const relative of contract.agents.full) {
+    assert.ok(existsSync(join(ROOT, relative.replace(/^\.\//, ''))), relative);
+  }
   assert.ok(existsSync(join(ROOT, contract.hooks.full.replace(/^\.\//, ''))));
 });
 
 test('mode manifests have distinct, truthful component surfaces', () => {
   const full = buildPluginManifest({ packageRoot: ROOT, mode: 'full', version: '5.0.0' });
   const skills = buildPluginManifest({ packageRoot: ROOT, mode: 'skills', version: '5.0.0' });
+  const contract = loadComponentContract(ROOT);
 
   assert.ok(full.skills.length > skills.skills.length);
-  assert.ok(full.agents);
+  assert.deepEqual(full.agents, contract.agents.full);
   assert.ok(full.hooks);
   assert.equal(skills.agents, undefined);
   assert.equal(skills.hooks, undefined);
