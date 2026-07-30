@@ -1,21 +1,44 @@
 {
   "name": "context-grapple-gun",
-  "version": "4.0.1",
-  "description": "Portable governance lifecycle for Claude Code: cognitive PRs, scoped promotion, and cross-session lesson compounding.",
+  "version": "5.0.0",
+  "description": "Authority-preserving continuity for Claude Code: cognitive pull requests, scoped promotion, receipts, and deterministic runtime installation.",
   "type": "module",
   "bin": {
     "cgg": "bin/cgg.mjs"
   },
   "files": [
     "bin/",
-    "lib/"
+    "lib/",
+    ".claude-plugin/",
+    "hooks/",
+    "cgg-runtime/",
+    "SESSION_LEARNING_PROTOCOL.md",
+    "README.md",
+    "START-HERE.md",
+    "INSTALL.md",
+    "LICENSE"
   ],
-  "keywords": ["claude-code", "governance", "autonomy", "agents", "cli"],
+  "scripts": {
+    "test": "node --test tests/npm/*.test.mjs",
+    "test:distribution": "node scripts/validate-distribution.mjs && node --test tests/npm/*.test.mjs",
+    "prepack": "node scripts/validate-distribution.mjs"
+  },
+  "keywords": [
+    "claude-code",
+    "governance",
+    "continuity",
+    "autonomy",
+    "agents",
+    "cogpr"
+  ],
   "author": "prompted365",
   "license": "MIT",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/prompted365/context-grapple-gun.git"
+  },
+  "publishConfig": {
+    "access": "public"
   },
   "engines": {
     "node": ">=18.0.0"
