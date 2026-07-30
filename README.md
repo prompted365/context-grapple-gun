@@ -16,59 +16,82 @@ Three commands are the public operating surface:
 | `/review` | Let the named human authority approve, modify, defer, merge, supersede, or reject durable promotion. |
 | `/siren` | Inspect the recurring-friction signal manifold without turning visibility into promotion authority. |
 
-## Install
+## Release status
+
+[`release-status.json`](release-status.json) is the machine-readable public release gate.
+
+- `release-candidate` means the source and CI candidate are available, but registry publication is not yet asserted.
+- `published` means the npm registry receipt has been verified for the stated version and source commit.
+
+Use the npm command only when that file says `published` for the requested version:
 
 ```bash
 npx context-grapple-gun@5 install
 ```
 
-The v5 npm package contains the exact plugin/runtime payload it installs. It no longer clones a moving `main` branch and calls the result a versioned install.
+Until then, do not infer registry availability from `package.json`, a branch name, a tag, or a successful source checkout.
 
-Default behavior:
-
-- mode: `full`
-- Claude plugin scope: `user`
-- durable package source: `vendor/context-grapple-gun`
-- governance zone: current project root
-- completion: strict plugin validation, installed record, component inventory, zone checks, and an install receipt
-
-See [START-HERE.md](START-HERE.md) for the operating rhythm and [INSTALL.md](INSTALL.md) for modes, scopes, direct GitHub installation, diagnostics, reconciliation, and uninstall.
-
-## What v5 governs
+## Public distribution invariant
 
 ```text
-npm package or Git release
-  -> marketplace source
-  -> plugin manifest
+npm release + exact source receipt
+  -> package-pinned marketplace source
+  -> mode-specific plugin manifest
   -> installed plugin
-  -> loaded component inventory
+  -> exact loaded component inventory
   -> project governance zone
   -> human-gated promotion
   -> future hydration
 ```
 
-The public distribution invariant is:
+> No success claim until the release, plugin declaration, loaded inventory, and project zone agree.
 
-> No success claim until the package, plugin declaration, loaded inventory, and project zone agree.
-
-The source plugin manifest is the component authority. The marketplace identifies the source; it does not carry a second partial component map. Git installs use the source plugin's guarded semantic release version. npm installs generate a mode-specific manifest stamped with the same package version and preserve that state in `cgg-install-receipt.json`. Distribution CI requires public runtime changes to advance that shared version.
+The npm package contains the runtime it installs. It does not clone a moving branch. The source plugin, npm package, lockfile, and release status share one semantic release version. The publication workflow adds the exact source commit to `release-manifest.json`; install receipts carry both identities rather than collapsing semver and provenance into one field.
 
 ## Install modes
 
-| Mode | Public components | Hooks | Agents | Zone bootstrap |
-|---|---|---:|---:|---:|
-| `full` | Core commands, compatibility surfaces, and admitted operational skills | Yes | Yes | Yes |
-| `skills` | `/cadence`, `/review`, `/siren` and supported compatibility wrappers | No | No | Yes |
-| `convention` | Current Session Learning Protocol appended to project `CLAUDE.md` | No | No | No |
+| Mode | Skills | Agents | Hooks | Zone bootstrap |
+|---|---:|---:|---:|---:|
+| `full` | 17 admitted skills | 11 admitted agents | 8 lifecycle events | Yes |
+| `skills` | 6 core and compatibility skills | 0 | 0 | Yes |
+| `convention` | 0 plugin skills | 0 | 0 | No; appends the governed protocol only |
 
-The public component set is governed by `cgg-runtime/config/plugin-components.json`. Deprecated surfaces and unrefreshed teaching artifacts do not enter the plugin merely because they exist in the repository.
+The public component set is governed by [`cgg-runtime/config/plugin-components.json`](cgg-runtime/config/plugin-components.json). Deprecated surfaces and unrefreshed teaching artifacts do not enter the plugin merely because they exist in the repository.
+
+The installer and `cgg doctor` require exact inventory equality. “At least one component loaded” is not admission.
+
+## npm-managed installation
+
+After `release-status.json` says `published`:
+
+```bash
+# Default: full mode, user scope
+npx context-grapple-gun@5 install
+
+# True skills-only mode: zero agents, zero hooks
+npx context-grapple-gun@5 install --mode skills
+
+# Convention only
+npx context-grapple-gun@5 install --mode convention
+
+# Inspect without writing
+npx context-grapple-gun@5 install --dry-run
+```
+
+See [START-HERE.md](START-HERE.md) for the operating rhythm and [INSTALL.md](INSTALL.md) for scopes, target control, diagnostics, reconciliation, and uninstall.
+
+## Direct Git source path
+
+The raw GitHub marketplace path is a **source-evaluation path**, not an equivalent substitute for the npm-managed full install.
+
+It does not receive the npm install receipt, mode-specific payload contraction, exact agent materialization, or packed-artifact proof. Use it to inspect and validate source. Do not represent it as the production or turnkey installation path unless a separate direct-Git lifecycle receipt proves equivalent inventory.
 
 ## Authority boundaries
 
 - `/cadence` owns epoch close and handoff sealing. It is not the memory writer, signal emitter, assessor, extractor, or review authority.
-- `/review` owns constitutional judgment. Agents may prepare evidence and mechanical mutations; they do not self-ratify promotion.
+- `/review` owns constitutional judgment. It uses an in-tic human ratification question set; it is not generic Plan Mode approval or interception.
 - `/siren` owns signal operations. Signal volume does not grant sovereignty.
-- The Claude plugin manager owns plugin installation and loaded component state.
+- The Claude plugin manager owns plugin registration and loaded component state.
 - `/init-governance` owns project-zone bootstrap and repair after installation. It does not copy plugin components or rewrite Claude settings.
 - Loaded runtime is behavioral truth. Canonical source remains intent until installation and verification complete.
 
@@ -84,6 +107,8 @@ When lexical lookup, file topology, and human review are no longer sufficient, U
 |---|---|
 | Use CGG | [START-HERE.md](START-HERE.md) |
 | Install and remove it | [INSTALL.md](INSTALL.md) |
+| Check public release standing | [release-status.json](release-status.json) |
+| Inspect admitted components | [cgg-runtime/config/plugin-components.json](cgg-runtime/config/plugin-components.json) |
 | Understand the operating pipeline | [DEV-README.md](DEV-README.md) |
 | Evaluate the theory and scale boundary | [ARCHITECTURE.md](ARCHITECTURE.md) |
 | Inspect runtime topology | [CGG_RUNTIME_TOPOLOGY_AND_LIFECYCLE.md](CGG_RUNTIME_TOPOLOGY_AND_LIFECYCLE.md) |
@@ -92,7 +117,7 @@ When lexical lookup, file topology, and human review are no longer sufficient, U
 
 ## Academy standing
 
-The prior Homeskillet Academy is intentionally excluded from the public v5 plugin while it is re-derived against the current runtime. The refresh is tracked in [GitHub issue #17](https://github.com/prompted365/context-grapple-gun/issues/17). Until that gate closes, use the current guides above rather than the legacy course as installation or architecture authority.
+The prior Homeskillet Academy is intentionally excluded from the public v5 plugin while it is re-derived against the current runtime. The refresh is tracked in [GitHub issue #17](https://github.com/prompted365/context-grapple-gun/issues/17). Until that gate closes, use the current guides and live runtime contracts rather than the legacy course as installation or architecture authority.
 
 ## Safety
 
