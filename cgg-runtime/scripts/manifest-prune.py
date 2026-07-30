@@ -92,12 +92,18 @@ def count_physical_tics(audit_logs_path: Path) -> int:
     return max_counter
 
 
-def _infer_last_reinforced_tic(rec: dict, fallback: int = 0) -> int:
+def _infer_last_reinforced_tic(rec: dict) -> int | None:
     """Derive the most recent reinforcement tic from the record.
 
     Priority: latest volume_history entry tic > added_to_manifest_tic >
-    source_tic > fallback. volume_history is the strongest signal because it
-    records actual reinforcement events; later fields decay in confidence.
+    source_tic. volume_history is the strongest signal because it records
+    actual reinforcement events; later fields decay in confidence.
+
+    Returns None when NO source is derivable — never a fallback to
+    current_tic, which manufactures raw_age_tics=0 (fake freshness on the
+    audit metadata AND a permanently-zero anti-silencing quiet clock: the
+    unowned silent ray could never re-escalate because its age re-stamped to
+    "just reinforced" on every projection).
     """
     history = rec.get("volume_history") or []
     if isinstance(history, list) and history:
@@ -108,7 +114,7 @@ def _infer_last_reinforced_tic(rec: dict, fallback: int = 0) -> int:
         v = rec.get(key)
         if isinstance(v, int):
             return v
-    return fallback
+    return None
 
 
 def project_signal(rec: dict, current_tic: int) -> dict:
@@ -125,8 +131,10 @@ def project_signal(rec: dict, current_tic: int) -> dict:
     except (TypeError, ValueError):
         raw_volume = 0.0
 
-    last_reinforced_tic = _infer_last_reinforced_tic(rec, fallback=current_tic)
-    raw_age_tics = max(0, current_tic - last_reinforced_tic)
+    last_reinforced_tic = _infer_last_reinforced_tic(rec)
+    age_unknown = last_reinforced_tic is None
+    raw_age_tics = (None if age_unknown
+                    else max(0, current_tic - last_reinforced_tic))
 
     # Heuristic blocking-dependency proxy: explicit resolution_action /
     # scheduled_drill_tic / blocking_dependency_kind imply an open dependency
@@ -168,7 +176,15 @@ def project_signal(rec: dict, current_tic: int) -> dict:
         visible_volume = 0.0
     else:
         # Decay floor 0.5 protects against full-collapse from raw age alone.
-        decay_factor = max(0.5, 1.0 - 0.05 * min(raw_age_tics, 10))
+        # Unknown age claims NO decay (factor 1.0): decay is a measured-quiet
+        # claim, and absence of age evidence is not evidence of quiet — over-
+        # surface, never silently dim. (Numerically identical to what the old
+        # current_tic fallback produced, so the fix changes metadata honesty,
+        # not visible volume.)
+        if age_unknown:
+            decay_factor = 1.0
+        else:
+            decay_factor = max(0.5, 1.0 - 0.05 * min(raw_age_tics, 10))
         boost_factor = 1.5 if has_resolution_action else 1.0
         # Recurrence resistance: each prior reinforcement event adds 5%
         # resistance, capped at 25% extra (5 reinforcements).
@@ -222,9 +238,23 @@ def project_signal(rec: dict, current_tic: int) -> dict:
             t for t in (re_escalated_at_tic, rec.get("acknowledged_tic"))
             if isinstance(t, int)
         ]
-        quiet_anchor = max(anchors) if anchors else last_reinforced_tic
-        quiet_tics = max(0, current_tic - int(quiet_anchor or current_tic))
-        if quiet_tics >= REESC_QUIET_TICS:
+        if anchors:
+            quiet_tics = max(0, current_tic - max(anchors))
+            escalation_eligible = quiet_tics >= REESC_QUIET_TICS
+        elif not age_unknown:
+            quiet_tics = max(0, current_tic - last_reinforced_tic)
+            escalation_eligible = quiet_tics >= REESC_QUIET_TICS
+        else:
+            # ESCALATION-READER SEMANTICS FOR UNKNOWN AGE: no decision anchor
+            # and no derivable reinforcement tic → the quiet window is
+            # UNMEASURABLE. Anti-silencing wins: on an unowned, silent
+            # carried/dimmed ray, unmeasurable quiet is escalation-ELIGIBLE —
+            # absence of age evidence must never keep a ray dark. (The old
+            # current_tic fallback did the opposite: it zeroed the clock every
+            # projection, silencing the ray forever.)
+            quiet_tics = None
+            escalation_eligible = True
+        if escalation_eligible:
             # Reactivate volume mechanics: re-heat above the floor so the ray is
             # active again (is_active_ray -> True), and stamp the re-escalation so
             # the next quiet window measures from NOW (sawtooth, not a one-shot).
@@ -248,8 +278,11 @@ def project_signal(rec: dict, current_tic: int) -> dict:
         "_v2_projection_inputs": {
             "raw_status": raw_status,
             "raw_volume": raw_volume,
+            # null when underivable — a reader must treat null as UNKNOWN age,
+            # never as fresh (age_unknown is the explicit marker).
             "last_reinforced_tic": last_reinforced_tic,
             "raw_age_tics": raw_age_tics,
+            "age_unknown": age_unknown,
             "has_resolution_action": has_resolution_action,
             "recurrence_count": recurrence_proxy,
             "defaulted": [
