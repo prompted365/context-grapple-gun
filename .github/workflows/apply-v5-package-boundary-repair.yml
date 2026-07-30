@@ -1,0 +1,56 @@
+name: Apply v5 package and zone-boundary repair
+
+on:
+  push:
+    branches:
+      - fix/distribution-currentness-v5
+    paths:
+      - 'scripts/apply-v5-package-boundary-repair.py'
+      - '.github/workflows/apply-v5-package-boundary-repair.yml'
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: cgg-v5-package-boundary-repair
+  cancel-in-progress: false
+
+jobs:
+  apply:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/distribution-currentness-v5
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - name: Apply package, scan-boundary, and currentness migration
+        run: python3 scripts/apply-v5-package-boundary-repair.py
+      - name: Validate migrated branch
+        run: |
+          npm ci
+          npm run test:distribution
+          npm pack --dry-run
+          npm install --global @anthropic-ai/claude-code@latest
+          claude plugin validate . --strict
+      - name: Commit and push the self-deleting migration
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A
+          git diff --cached --quiet && exit 0
+          git commit -m 'distribution: ship the documentation graph and exclude managed runtime from scans'
+          git push origin HEAD:fix/distribution-currentness-v5
+      - name: Record repair tranche on the PR
+        shell: bash
+        run: |
+          gh pr comment 15 --repo prompted365/context-grapple-gun --body $'Additional v5 boundary repair applied and validated:\n- npm now ships the local documentation/assets graph referenced by README\n- project-scope managed runtime is additively excluded from `.ticignore`\n- existing zone/user content remains preserved\n- ARCHITECTURE and DEV-README carry explicit v5 currentness/source-set boundaries\n- static distribution, npm pack, and current Claude strict validation passed before commit'
