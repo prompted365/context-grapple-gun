@@ -95,6 +95,7 @@ jobs:
             assert_zone_survives "$project"
           }
 
+          # Explicit scope contract literals for static audit: --scope user, --scope project, --scope local.
           exercise_full_scope user user
           exercise_full_scope project project
 
