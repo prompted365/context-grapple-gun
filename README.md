@@ -37,7 +37,7 @@ See [START-HERE.md](START-HERE.md) for the operating rhythm and [INSTALL.md](INS
 ## What v5 governs
 
 ```text
-npm package or Git commit
+npm package or Git release
   -> marketplace source
   -> plugin manifest
   -> installed plugin
@@ -51,7 +51,7 @@ The public distribution invariant is:
 
 > No success claim until the package, plugin declaration, loaded inventory, and project zone agree.
 
-The source plugin manifest is the component authority. The marketplace identifies the source; it does not carry a second partial component map. Git installs use the Git commit as version authority. npm installs generate a mode-specific manifest stamped with the npm package version and preserve that state in `cgg-install-receipt.json`.
+The source plugin manifest is the component authority. The marketplace identifies the source; it does not carry a second partial component map. Git installs use the source plugin's guarded semantic release version. npm installs generate a mode-specific manifest stamped with the same package version and preserve that state in `cgg-install-receipt.json`. Distribution CI requires public runtime changes to advance that shared version.
 
 ## Install modes
 
