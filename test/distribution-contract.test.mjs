@@ -72,14 +72,19 @@ test('mode manifests have distinct, truthful component surfaces', () => {
   assert.ok(skills.skills.some((path) => path.includes('/siren/')));
 });
 
-test('npm package contains the deterministic runtime payload', () => {
+test('npm package contains the deterministic runtime payload and one release identity', () => {
   const pkg = read('package.json');
+  const lock = read('package-lock.json');
+
   assert.equal(pkg.version, '5.0.0');
+  assert.equal(lock.version, pkg.version);
+  assert.equal(lock.packages[''].version, pkg.version);
   for (const required of ['.claude-plugin/', 'cgg-runtime/', 'hooks/', 'lib/', 'docs/']) {
     assert.ok(pkg.files.includes(required), required);
   }
   assert.equal(pkg.publishConfig.access, 'public');
   assert.equal(pkg.publishConfig.provenance, true);
+  assert.ok(existsSync(join(ROOT, '.github', 'workflows', 'npm-release.yml')));
 });
 
 test('zone bootstrap is idempotent and never activates PRESTIGE', () => {
@@ -94,7 +99,6 @@ test('zone bootstrap is idempotent and never activates PRESTIGE', () => {
   assert.equal(zone.bands.includes('PRESTIGE'), false);
   assert.equal((claude.match(/cgg-session-learning-protocol:v5/g) || []).length, 2);
 });
-
 
 test('zone bootstrap refuses PRESTIGE and competing legacy convention', () => {
   const prestigeRoot = mkdtempSync(join(tmpdir(), 'cgg-prestige-'));
@@ -138,7 +142,6 @@ test('public Markdown routes resolve locally', () => {
     }
   }
 });
-
 
 test('public sync lane never calls the legacy standalone runtime copier', () => {
   const syncSource = readFileSync(join(ROOT, 'lib', 'sync.mjs'), 'utf-8');
