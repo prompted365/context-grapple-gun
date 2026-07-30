@@ -1,99 +1,62 @@
 # Homeskillet Academy
 
-**Learn CGG through stories.** Five chapters. Three worlds. One very persistent goat.
+> **CURRENT STATUS: HELD — historical curriculum, not current CGG v5 authority.**
+>
+> This five-chapter teaching corpus predates the current command ownership, Claude Code plugin topology, review contract, installation model, source/install/loaded-runtime distinction, and exact mode inventories. It is intentionally excluded from the public v5 plugin. Do not use `/homeskillet-academy`, the chapter mechanics, or the Academy install guide as current installation or architecture instructions.
+>
+> The governed refresh is tracked in [issue #17](https://github.com/prompted365/context-grapple-gun/issues/17). Until that issue closes with clean-install exercise receipts, use [START-HERE.md](../START-HERE.md), [INSTALL.md](../INSTALL.md), and [release-status.json](../release-status.json).
 
----
+## What remains useful
 
-## Why stories?
+The stories remain historical teaching material for several durable intuitions:
 
-Governance concepts are abstract. Abstract concepts taught abstractly produce surface understanding — you can recite the definition but not apply it under pressure.
+- append-only evidence and correction lineage;
+- duplicate versus recurrence;
+- recurring-friction signals;
+- scoped human authority;
+- the difference between observing a lesson and promoting it into durable guidance.
 
-The Academy teaches through *narrative simulations*: real scenarios with real data, real conflicts, and real resolutions. When you understand why the Taylor family calendar can't just delete events, you understand append-only truth stores. When you feel the frustration of the bridge inspector's growing pile, you understand why human-gated review needs feedback loops.
+Those intuitions should not be read as a claim that the old exercises reproduce the current runtime.
 
-Stories produce intuition. Intuition survives context pressure.
+## What is not admitted
 
-## Why the goat?
+The Academy is not currently admitted as:
 
-Mabel is not decoration. She's the thread that connects all five chapters.
+- a v5 plugin skill;
+- an installation path;
+- a current hook or agent topology reference;
+- a current `/cadence`, `/review`, `/siren`, or `/init-governance` contract;
+- evidence that raw Git installation equals the npm-managed runtime;
+- authority for active bands, mode inventories, or release standing.
 
-In Chapter 1, she appears as an unexplained anomaly. By Chapter 5, you'll understand how signals route, why warrants mint, and what it means to resolve escalated friction. Mabel is the worked example of the entire governance lifecycle — from first appearance to final resolution.
+The current public runtime contract is:
 
-If you can trace Mabel, you understand CGG.
+| Mode | Skills | Agents | Hooks |
+|---|---:|---:|---:|
+| `full` | 17 | 11 | 8 |
+| `skills` | 6 | 0 | 0 |
+| `convention` | 0 | 0 | 0 |
 
-## What you will understand
+`/review` is an in-tic human ratification question set. It is not generic Plan Mode approval or interception. Public npm availability is governed by `release-status.json`, not by a version string elsewhere in the repository.
 
-By the end of the Academy:
+## Historical curriculum
 
-- **The governance loop**: capture → evaluate → review → promote
-- **The abstraction ladder**: site → domain → estate → federation → global scope
-- **The signal manifold**: how friction accrues, routes, and escalates
-- **The human gate**: why approval matters and where it goes
-- **The dual-lesson model**: subject-matter AND collaboration patterns are governance artifacts
+The following pages are retained for source history and curriculum re-derivation:
 
-These are the same primitives the CGG runtime uses. The Academy teaches them through narrative; the runtime applies them through automation.
+| # | Chapter | Historical teaching focus |
+|---|---|---|
+| 1 | [The Taylor Family Calendar](chapters/01-append-only-truth/README.md) | Append-only truth stores; duplicate versus recurrence |
+| 2 | [The Adjunct's Semester Project](chapters/02-dedup-and-identity/README.md) | Collaboration patterns and identity |
+| 3 | [Zookeeper Radio](chapters/03-signals-and-decay/README.md) | Signals, bands, routing, and decay |
+| 4 | [Bridge Inspector](chapters/04-human-gated-review/README.md) | Human-gated review and feedback |
+| 5 | [Graduation](chapters/05-completion/README.md) | Historical full-pipeline integration |
 
----
+The goat remains. The authority does not.
 
-## How it works
+## Current sources
 
-Claude walks you through each chapter — telling the story, running live simulations, and checking that the concepts land. No coding required. If something isn't clicking, Claude re-explains. If a chapter doesn't grab you, Claude shows the key insight and moves on.
-
-| # | Chapter | The story | What it teaches |
-|---|---------|-----------|-----------------|
-| 1 | [The Taylor Family Calendar](chapters/01-append-only-truth/README.md) | A family of five, one shared calendar, and the rule that changes everything | Append-only truth stores, duplicate vs recurrence |
-| 2 | [The Adjunct's Semester Project](chapters/02-dedup-and-identity/README.md) | A college professor, three student groups, and what makes teams succeed | Collaboration governance — promotable coordination patterns |
-| 3 | [Zookeeper Radio](chapters/03-signals-and-decay/README.md) | A zoo PA system, four frequency bands, and lions who overhear lunch plans | Signals, bands, acoustic routing |
-| 4 | [Bridge Inspector](chapters/04-human-gated-review/README.md) | Seventeen bridges, one inspector, and a pile that won't stop growing | Human-gated review, feedback loops |
-| 5 | [Graduation](chapters/05-completion/README.md) | Wire it all together and trace the goat | Full pipeline integration |
-
-## What the course teaches
-
-CGG captures two classes of governance artifacts:
-
-- **Subject-matter lessons** — truths about the system being built (bug patterns, API quirks, architecture constraints)
-- **Collaboration lessons** — truths about effective human-agent coordination (prompting patterns, debugging rhythms, escalation protocols)
-
-Both are valid CogPR candidates. Both can climb the abstraction ladder. Both are reviewed through the same constitutional gate. The academy teaches this through interactive narratives, not prose.
-
-## Learning path overview (Mermaid)
-
-```mermaid
-flowchart TB
-    Ch1["Ch1 Append-only truth"] --> Ch2["Ch2 Dedup & identity"]
-    Ch2 --> Ch3["Ch3 Signals & decay"]
-    Ch3 --> Ch4["Ch4 Human-gated review"]
-    Ch4 --> Ch5["Ch5 Full rotation"]
-
-    Ch1 -. foundation .-> Loop[Governance loop]
-    Ch2 -. fingerprints .-> Loop
-    Ch3 -. pressure .-> Loop
-    Ch4 -. judgment .-> Loop
-    Ch5 -. integrates .-> Loop
-
-    Loop --> Practice[Apply in real project]
-    Practice --> Ch1
-```
-
-## About that goat
-
-You'll notice something odd in Chapter 1's data. An entry that doesn't fit. Don't worry about it.
-
-Yet.
-
-## After the course
-
-Three guides for what comes next:
-
-- [Posture guide](chapters/guides/posture.md) — the four working quadrants in depth
-- [Ticignore scoping](chapters/guides/ticignore-scoping.md) — zone scanning and monorepo patterns
-- [Installing CGG](chapters/guides/installing-cgg.md) — put CGG in a real project
-
-## Getting started
-
-Use the `/homeskillet-academy` skill to scaffold a workspace and begin:
-
-```
-/homeskillet-academy
-```
-
-Claude sets up the workspace, installs the simulations, and starts teaching Chapter 1. You follow the story.
+- [Start Here](../START-HERE.md) — current operating rhythm and authority boundaries
+- [Install](../INSTALL.md) — current distribution, modes, scopes, diagnostics, and uninstall
+- [Release status](../release-status.json) — machine-readable publication gate
+- [Public component admission](../cgg-runtime/config/plugin-components.json) — exact admitted skills and agents
+- [Academy refresh issue #17](https://github.com/prompted365/context-grapple-gun/issues/17) — re-derivation scope and completion gate
