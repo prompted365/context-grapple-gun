@@ -184,9 +184,12 @@ test('direct Git is explicitly classified as non-equivalent to npm-managed full 
   assert.match(install, /not equivalent to the npm-managed full install/i);
 });
 
-test('public sync lane never calls the legacy standalone runtime copier', () => {
+test('public sync lane is mode-aware, tracks materialized agents, and fails on drift', () => {
   const syncSource = readFileSync(join(ROOT, 'lib', 'sync.mjs'), 'utf-8');
   assert.doesNotMatch(syncSource, /runtime-sync\.py/);
+  assert.match(syncSource, /payloadPathsForMode\(mode\)/);
+  assert.match(syncSource, /agentPathsForMode\(contract, mode\)/);
+  assert.match(syncSource, /if \(changed\.length\) process\.exitCode = 1;/);
   assert.match(syncSource, /governed reinstall/);
   assert.match(syncSource, /Refusing to downgrade/);
 });
@@ -206,6 +209,8 @@ test('installer smoke executes the packed artifact and all plugin scopes', () =>
   }
   assert.match(workflow, /--mode skills/);
   assert.match(workflow, /--mode convention/);
+  assert.match(workflow, /sync check/);
+  assert.match(workflow, /expected sync check to fail/);
 });
 
 test('distribution CI gates runtime changes on a version advance', () => {
