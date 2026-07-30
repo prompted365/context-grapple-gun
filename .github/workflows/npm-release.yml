@@ -1,0 +1,58 @@
+name: Publish npm package
+
+on:
+  workflow_dispatch:
+    inputs:
+      expected_version:
+        description: Exact package.json version approved for publication
+        required: true
+        type: string
+      dist_tag:
+        description: npm distribution tag
+        required: true
+        default: latest
+        type: string
+      dry_run:
+        description: Build and verify without publishing
+        required: true
+        default: true
+        type: boolean
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  publish:
+    environment: npm-publish
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          registry-url: 'https://registry.npmjs.org'
+      - name: Verify approved version
+        env:
+          EXPECTED_VERSION: ${{ inputs.expected_version }}
+        run: |
+          ACTUAL_VERSION="$(node -p "require('./package.json').version")"
+          test "$ACTUAL_VERSION" = "$EXPECTED_VERSION" || {
+            echo "package.json=$ACTUAL_VERSION expected=$EXPECTED_VERSION" >&2
+            exit 1
+          }
+      - name: Test distribution contract
+        run: npm test
+      - name: Pack receipt
+        run: npm pack --dry-run
+      - name: Install current Claude Code CLI
+        run: npm install --global @anthropic-ai/claude-code@latest
+      - name: Validate Claude plugin
+        run: |
+          claude --version
+          claude plugin validate . --strict
+      - name: Publish with provenance
+        if: ${{ !inputs.dry_run }}
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: npm publish --tag "${{ inputs.dist_tag }}" --access public --provenance
