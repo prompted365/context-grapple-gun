@@ -1,0 +1,51 @@
+name: Release npm package
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: Validate and pack without publishing
+        type: boolean
+        default: true
+        required: true
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout release source
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.release.tag_name || github.ref }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          registry-url: https://registry.npmjs.org
+          cache: npm
+
+      - run: npm ci
+      - run: npm run test:distribution
+      - run: npm install --global @anthropic-ai/claude-code@latest
+      - run: claude plugin validate . --strict
+      - run: npm pack --dry-run
+
+      - name: Verify release tag matches package version
+        if: github.event_name == 'release'
+        shell: bash
+        run: |
+          EXPECTED="v$(node -p "require('./package.json').version")"
+          test "${{ github.event.release.tag_name }}" = "$EXPECTED" || {
+            echo "release tag ${{ github.event.release.tag_name }} does not match $EXPECTED" >&2
+            exit 1
+          }
+
+      - name: Publish with npm provenance
+        if: github.event_name == 'release' || inputs.dry_run == false
+        run: npm publish --access public --provenance
