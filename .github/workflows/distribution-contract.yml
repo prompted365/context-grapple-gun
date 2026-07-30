@@ -1,0 +1,82 @@
+name: Distribution contract
+
+on:
+  pull_request:
+    paths:
+      - '.claude-plugin/**'
+      - '.github/workflows/distribution-contract.yml'
+      - 'bin/**'
+      - 'cgg-runtime/agents/**'
+      - 'cgg-runtime/config/plugin-components.json'
+      - 'cgg-runtime/config/session-learning-protocol.md'
+      - 'cgg-runtime/hooks/**'
+      - 'cgg-runtime/skills/**'
+      - 'hooks/**'
+      - 'lib/**'
+      - 'package.json'
+      - 'test/**'
+      - 'README.md'
+      - 'START-HERE.md'
+      - 'INSTALL.md'
+      - 'docs/TERMINOLOGY.md'
+      - 'CHANGELOG.md'
+  push:
+    branches: [main]
+    paths:
+      - '.claude-plugin/**'
+      - '.github/workflows/distribution-contract.yml'
+      - 'bin/**'
+      - 'cgg-runtime/agents/**'
+      - 'cgg-runtime/config/plugin-components.json'
+      - 'cgg-runtime/config/session-learning-protocol.md'
+      - 'cgg-runtime/hooks/**'
+      - 'cgg-runtime/skills/**'
+      - 'hooks/**'
+      - 'lib/**'
+      - 'package.json'
+      - 'test/**'
+      - 'README.md'
+      - 'START-HERE.md'
+      - 'INSTALL.md'
+      - 'docs/TERMINOLOGY.md'
+      - 'CHANGELOG.md'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  node-contract:
+    name: Node and npm package contract
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Versions
+        run: |
+          node --version
+          npm --version
+      - name: Node tests
+        run: npm test
+      - name: Syntax check
+        run: |
+          find bin lib test -type f -name '*.mjs' -print0 | xargs -0 -n1 node --check
+      - name: npm payload receipt
+        run: npm pack --dry-run
+
+  plugin-contract:
+    name: Claude Code plugin contract
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Install current Claude Code CLI
+        run: npm install --global @anthropic-ai/claude-code@latest
+      - name: Claude Code version
+        run: claude --version
+      - name: Strict plugin validation
+        run: claude plugin validate . --strict
