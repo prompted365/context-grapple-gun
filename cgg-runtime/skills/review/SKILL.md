@@ -100,8 +100,7 @@ Run the shared effective-record gate before reading any queue, review, or
 hydration projection as current truth:
 
 ```bash
-python3 "${CLAUDE_PLUGIN_ROOT}/cgg-runtime/scripts/effective-record.py" \
-  --zone-root "$PWD" review-gate
+python3 "${CLAUDE_PLUGIN_ROOT}/cgg-runtime/scripts/effective-record.py" --zone-root "$PWD" review-gate
 ```
 
 If the plugin-root variable is unavailable, resolve the same packaged script

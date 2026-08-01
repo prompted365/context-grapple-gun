@@ -86,7 +86,8 @@
     "lifecycle_state": "ratified",
     "receipt_path": "cgg-runtime/migrations/record-correction-tic658.json",
     "canonical_append_repository": "prompted365/canonical_federation",
-    "canonical_append_commit": "9c8c386091f281b494621a4b52276096aeefea8d"
+    "canonical_append_commit": "9c8c386091f281b494621a4b52276096aeefea8d",
+    "canonical_append_surface": "audit-logs/reviews/2026-07-26.jsonl"
   },
   "migration_receipt": {
     "method": "snapshot-preserving canonicalization",

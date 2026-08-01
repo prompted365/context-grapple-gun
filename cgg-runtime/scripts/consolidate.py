@@ -136,6 +136,15 @@ def effective_record_export_holds(base_dir: str, files: list[tuple[str, str]]) -
             value for value in (issue.get("target_surface"), issue.get("surface"))
             if isinstance(value, str) and value
         }
+        surfaces.update(
+            location["surface"]
+            for location in issue.get("source_locations", [])
+            if (
+                isinstance(location, dict)
+                and isinstance(location.get("surface"), str)
+                and location["surface"]
+            )
+        )
         issue_record_id = issue.get("target_record_id")
         issue_correction_id = issue.get("correction_id")
         for record in records:
@@ -661,7 +670,7 @@ def main():
     if export_holds:
         blocking = [
             hold for hold in export_holds
-            if hold["reason"] == "unresolved_correction_chain"
+            if hold.get("target_path") is None
         ]
         print(json.dumps({
             "status": "effective_record_export_hold",

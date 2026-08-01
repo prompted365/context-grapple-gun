@@ -5,6 +5,9 @@ at `.github/workflows/npm-release.yml`. The workflow is bound to one exact
 source commit and uses npm Trusted Publishing (OIDC); it does not carry a
 long-lived npm write token. The workflow pins npm CLI `11.5.1`, the first
 admitted OIDC-capable toolchain version for this release lane.
+GitHub Actions Trusted Publishing generates npm provenance automatically; the
+workflow verifies the resulting registry attestation instead of relying on a
+local `--provenance` assertion.
 
 ## npm Trusted Publisher settings
 
@@ -52,19 +55,26 @@ dry_run          = false
 
 The workflow refuses a different branch, an open issue #16, an untrusted,
 split, missing, or mismatched admission receipt, a non-candidate source, or a
-shared-version mismatch. It packs and tests the artifact, publishes through
-OIDC, and requires the registry to return all of:
+shared-version mismatch. Before publishing, only an explicit registry `E404`
+is treated as an absent version; network, authentication, and other registry
+query failures stop the workflow. It packs and tests the artifact, publishes
+through OIDC, and requires the registry to return all of:
 
 - version `5.0.0`;
 - the requested `latest` dist-tag;
 - the exact integrity hash of the locally tested tarball;
+- a registry-linked SLSA v1 provenance attestation for that exact version;
+- successful cryptographic verification by `npm audit signatures` after a
+  clean registry install;
 - a successful registry-origin `cgg --version` execution.
 
 Only after those checks pass does the workflow transition
-`release-status.json` to `published` and commit the registry receipt. Once the
-base status is `published`, CI forbids any runtime change at the same semantic
-version. That closes the drift window: a candidate may be completed before
-admission, but an admitted artifact is immutable.
+`release-status.json` to `published`, bind the registry integrity and
+attestation metadata into `release-manifest.json`, validate the two receipt
+surfaces against each other, and commit them together. Once the base status is
+`published`, CI forbids any runtime change at the same semantic version. That
+closes the drift window: a candidate may be completed before admission, but an
+admitted artifact is immutable.
 
 If npm accepted the immutable artifact but `main` advanced before the source
 receipt push, a rerun checks that the registry integrity exactly matches a

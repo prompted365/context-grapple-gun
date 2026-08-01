@@ -44,7 +44,8 @@ TARGET = "audit-logs/cprs/queue.jsonl"
 class EffectiveRecordFixture(unittest.TestCase):
     def setUp(self):
         self.tmp = Path(tempfile.mkdtemp(prefix="effective-record-"))
-        self.trusted_migrations = self.tmp / "managed-runtime" / "migrations"
+        self.managed_tmp = Path(tempfile.mkdtemp(prefix="effective-record-runtime-"))
+        self.trusted_migrations = self.managed_tmp / "migrations"
         shutil.copytree(
             REPO_ROOT / "cgg-runtime" / "migrations",
             self.trusted_migrations,
@@ -59,10 +60,36 @@ class EffectiveRecordFixture(unittest.TestCase):
             json.dumps({"audit_logs_path": "audit-logs"}) + "\n",
             encoding="utf-8",
         )
+        self.git("init", "-q")
+        self.git("config", "user.name", "CGG effective-record test")
+        self.git("config", "user.email", "effective-record@example.invalid")
+        self.git(
+            "remote",
+            "add",
+            "origin",
+            "https://github.com/prompted365/canonical_federation.git",
+        )
+        self.commit_zone("Initialize governed zone")
 
     def tearDown(self):
         self.trusted_migrations_patch.stop()
         shutil.rmtree(self.tmp, ignore_errors=True)
+        shutil.rmtree(self.managed_tmp, ignore_errors=True)
+
+    def git(self, *arguments: str, check: bool = True) -> subprocess.CompletedProcess[str]:
+        return subprocess.run(
+            ["git", "-C", str(self.tmp), *arguments],
+            capture_output=True,
+            text=True,
+            check=check,
+            timeout=10,
+        )
+
+    def commit_zone(self, message="Record correction fixture") -> str:
+        self.git("add", "-A")
+        if self.git("diff", "--cached", "--quiet", check=False).returncode != 0:
+            self.git("commit", "-q", "-m", message)
+        return self.git("rev-parse", "HEAD").stdout.strip()
 
     def append(self, relative: str, row: dict) -> None:
         path = self.tmp / relative
@@ -76,22 +103,33 @@ class EffectiveRecordFixture(unittest.TestCase):
         self.append(TARGET, row)
         return row
 
-    def trust_correction_for_fixture(self, row: dict) -> None:
+    def receipt_relative_for(self, row: dict) -> str:
         correction_id = row["correction_id"]
         safe_id = "".join(
             character if character.isalnum() or character in "-_" else "-"
             for character in correction_id
         )
-        receipt_relative = f"cgg-runtime/migrations/test-{safe_id}.json"
-        row["receipt_path"] = receipt_relative
+        return f"cgg-runtime/migrations/test-{safe_id}.json"
+
+    def trust_correction_for_fixture(
+        self,
+        row: dict,
+        append_commit: str,
+        append_surface: str | None = None,
+    ) -> None:
+        correction_id = row["correction_id"]
+        receipt_relative = row["receipt_path"]
+        receipt_name = Path(receipt_relative).name
         correction_digest = digest_value(row)
         source = row["source"]
+        surface = append_surface or source["surface"]
         migration = {
             "provenance": {
                 "repository": source["repository"],
-                "canonical_append_commit": source["commit"],
+                "surface": surface,
+                "canonical_append_commit": append_commit,
             },
-            "canonical_correction": row,
+            "canonical_correction": copy.deepcopy(row),
             "canonical_authorization_receipt": {
                 "schema_version": 1,
                 "type": "record_correction_authorization_receipt",
@@ -101,12 +139,64 @@ class EffectiveRecordFixture(unittest.TestCase):
                 "lifecycle_state": row["lifecycle_state"],
                 "receipt_path": receipt_relative,
                 "canonical_append_repository": source["repository"],
-                "canonical_append_commit": source["commit"],
+                "canonical_append_commit": append_commit,
+                "canonical_append_surface": surface,
             },
         }
-        (self.trusted_migrations / f"test-{safe_id}.json").write_text(
+        (self.trusted_migrations / receipt_name).write_text(
             json.dumps(migration, sort_keys=True) + "\n",
             encoding="utf-8",
+        )
+
+    def trust_real_migration_for_fixture(self, migration: dict, append_commit: str) -> None:
+        trusted = copy.deepcopy(migration)
+        surface = trusted["provenance"]["surface"]
+        trusted["provenance"]["canonical_append_commit"] = append_commit
+        receipt = trusted["canonical_authorization_receipt"]
+        receipt["canonical_append_commit"] = append_commit
+        receipt["canonical_append_surface"] = surface
+        trusted["migration_receipt"]["canonical_append_commit"] = append_commit
+        (self.trusted_migrations / "record-correction-tic658.json").write_text(
+            json.dumps(trusted, sort_keys=True) + "\n",
+            encoding="utf-8",
+        )
+
+    def append_trusted_correction(self, located_surface: str, row: dict) -> str:
+        row["receipt_path"] = self.receipt_relative_for(row)
+        self.append(located_surface, row)
+        append_commit = self.commit_zone()
+        self.trust_correction_for_fixture(row, append_commit)
+        return append_commit
+
+    def run_consolidate(self, *targets: str) -> subprocess.CompletedProcess[str]:
+        wrapper = """
+import runpy
+import sys
+from pathlib import Path
+
+scripts_dir, migrations_dir, *arguments = sys.argv[1:]
+sys.path.insert(0, scripts_dir)
+from lib import effective_record
+effective_record.TRUSTED_MIGRATIONS_DIR = Path(migrations_dir)
+sys.argv = [str(Path(scripts_dir) / "consolidate.py"), *arguments]
+runpy.run_path(sys.argv[0], run_name="__main__")
+"""
+        return subprocess.run(
+            [
+                sys.executable,
+                "-c",
+                wrapper,
+                str(HERE),
+                str(self.trusted_migrations),
+                "--base-dir",
+                str(self.tmp),
+                "--targets",
+                *targets,
+                "--scan",
+            ],
+            capture_output=True,
+            text=True,
+            timeout=15,
         )
 
     def correction(
@@ -146,8 +236,10 @@ class EffectiveRecordFixture(unittest.TestCase):
         }
         row.update(overrides)
         if trusted and row.get("lifecycle_state") in {"authorized", "ratified"}:
-            self.trust_correction_for_fixture(row)
-        self.append(located_surface, row)
+            self.append_trusted_correction(located_surface, row)
+        else:
+            self.append(located_surface, row)
+            self.commit_zone()
         return row
 
     def one_record(self):
@@ -288,6 +380,46 @@ class TestIssue16RegressionArms(EffectiveRecordFixture):
         self.assertEqual(record["effective_record"], record["base_record"])
         self.assertEqual(record["lineage"][0]["disposition"], "discarded_invalid")
 
+    def test_trusted_correction_copied_into_an_unrelated_repository_never_applies(self):
+        self.base()
+        self.correction()
+        self.git(
+            "remote",
+            "set-url",
+            "origin",
+            "https://github.com/prompted365/unrelated-zone.git",
+        )
+
+        index, record = self.one_record()
+        issue = next(
+            issue
+            for issue in index["unresolved"]
+            if issue["code"] == "unverified_repository_binding"
+        )
+        self.assertEqual(issue["failure"], "origin_repository_mismatch")
+        self.assertEqual(record["effective_record"], record["base_record"])
+        self.assertEqual(record["lineage"][0]["disposition"], "discarded_invalid")
+        self.assertFalse(record["lineage"][0]["authority_receipt_verified"])
+
+    def test_github_origin_normalization_is_narrow_and_format_independent(self):
+        normalize = effective_record_lib._normalize_github_repository
+        expected = "prompted365/canonical_federation"
+        self.assertEqual(normalize(expected), expected)
+        self.assertEqual(
+            normalize("https://github.com/prompted365/canonical_federation.git"),
+            expected,
+        )
+        self.assertEqual(
+            normalize("git@github.com:prompted365/canonical_federation.git"),
+            expected,
+        )
+        self.assertEqual(
+            normalize("ssh://git@github.com/prompted365/canonical_federation.git"),
+            expected,
+        )
+        self.assertIsNone(normalize("https://example.com/prompted365/canonical_federation"))
+        self.assertIsNone(normalize("https://github.com/prompted365/canonical_federation/tree/main"))
+
     def test_hydration_never_emits_disproven_claim_as_current_truth(self):
         wrong = "Architect not resident"
         self.base(claim=wrong)
@@ -354,6 +486,8 @@ class TestRealMigration(EffectiveRecordFixture):
         self.append(surface, migration["base_record_snapshot"])
         self.append(surface, migration["legacy_correction_snapshot"])
         self.append(surface, migration["canonical_correction"])
+        append_commit = self.commit_zone("Append canonical tic 658 correction")
+        self.trust_real_migration_for_fixture(migration, append_commit)
 
         index, record = self.one_record()
         self.assertEqual(index["counts"]["unresolved"], 0)
@@ -403,6 +537,8 @@ class TestRealMigration(EffectiveRecordFixture):
         self.append(surface, migration["base_record_snapshot"])
         self.append(surface, migration["legacy_correction_snapshot"])
         self.append(surface, migration["canonical_correction"])
+        append_commit = self.commit_zone("Append canonical tic 658 correction")
+        self.trust_real_migration_for_fixture(migration, append_commit)
         later = copy.deepcopy(migration["canonical_correction"])
         later.update({
             "correction_id": "rc_review_657_later_clarification_tic659",
@@ -413,8 +549,7 @@ class TestRealMigration(EffectiveRecordFixture):
             "effective_at": "2026-07-27T00:00:00Z",
             "receipt_path": "audit-logs/reviews/later-correction-receipt.json",
         })
-        self.trust_correction_for_fixture(later)
-        self.append(surface, later)
+        self.append_trusted_correction(surface, later)
 
         index, record = self.one_record()
         self.assertEqual(index["counts"]["unresolved"], 0)
@@ -484,6 +619,39 @@ class TestHydrationAndExportConsumers(EffectiveRecordFixture):
         self.assertIn("correct current claim", rendered)
         self.assertEqual(chunks[0]["confidence_class"], "effective_record_view")
 
+    def test_rtch_keeps_projection_hold_when_the_source_reread_fails(self):
+        self.base(claim="disproven current claim")
+        self.correction(patch={"claim": "correct current claim"})
+        projection = hydration_view(build_effective_index(self.tmp))
+
+        spec = importlib.util.spec_from_file_location("rtch_effective_read_hold_test", HERE / "rtch.py")
+        rtch = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(rtch)
+        target = str((self.tmp / TARGET).resolve())
+        chunks = [{
+            "path": target,
+            "line_range": "L1-L1",
+            "start_line": 1,
+            "end_line": 1,
+            "target_line": 1,
+            "body_preview": "disproven current claim",
+            "body_full_chars": 23,
+            "confidence_class": "source_bearing_hit",
+            "limitation": "",
+        }]
+
+        with patch.object(rtch.Path, "open", side_effect=OSError("fixture read failure")):
+            rtch.apply_effective_record_projection(
+                [], chunks, {"zone_root": str(self.tmp)}, projection
+            )
+
+        self.assertEqual(chunks[0]["confidence_class"], "effective_record_projection_hold")
+        self.assertEqual(
+            chunks[0]["body_preview"],
+            "[effective-record projection unavailable; raw bounded chunk withheld]",
+        )
+        self.assertNotIn("disproven current claim", chunks[0]["body_preview"])
+
     def test_rtch_preserves_unrelated_hits_on_a_corrected_jsonl_surface(self):
         self.base(claim="disproven current claim")
         self.append(TARGET, {"id": "unrelated", "claim": "independent evidence"})
@@ -536,20 +704,7 @@ class TestHydrationAndExportConsumers(EffectiveRecordFixture):
     def test_consolidate_blocks_raw_corrected_surface_export(self):
         self.base(claim="disproven current claim")
         self.correction(patch={"claim": "correct current claim"})
-        result = subprocess.run(
-            [
-                sys.executable,
-                str(HERE / "consolidate.py"),
-                "--base-dir",
-                str(self.tmp),
-                "--targets",
-                str(self.tmp / TARGET),
-                "--scan",
-            ],
-            capture_output=True,
-            text=True,
-            timeout=15,
-        )
+        result = self.run_consolidate(str(self.tmp / TARGET))
         self.assertEqual(result.returncode, 3)
         self.assertIn("effective_record_export_hold", result.stderr)
         self.assertNotIn("disproven current claim", result.stdout)
@@ -563,23 +718,43 @@ class TestHydrationAndExportConsumers(EffectiveRecordFixture):
         surface = migration["canonical_correction"]["target_surface"]
         self.append(surface, migration["base_record_snapshot"])
         self.append(surface, migration["legacy_correction_snapshot"])
-        result = subprocess.run(
-            [
-                sys.executable,
-                str(HERE / "consolidate.py"),
-                "--base-dir",
-                str(self.tmp),
-                "--targets",
-                str(self.tmp / surface),
-                "--scan",
-            ],
-            capture_output=True,
-            text=True,
-            timeout=15,
-        )
+        result = self.run_consolidate(str(self.tmp / surface))
         self.assertEqual(result.returncode, 3)
         self.assertIn("legacy_correction_unmigrated", result.stderr)
         self.assertNotIn("Architect not resident", result.stdout)
+
+    def test_consolidate_blocks_duplicate_corrections_on_their_source_surface(self):
+        self.base()
+        correction = self.correction("rc-source-duplicate")
+        source_surface = correction["source"]["surface"]
+        self.append(source_surface, correction)
+        self.commit_zone("Duplicate a correction row")
+
+        index = build_effective_index(self.tmp)
+        duplicate = next(
+            issue
+            for issue in index["unresolved"]
+            if issue["code"] == "duplicate_correction_id"
+        )
+        self.assertEqual(
+            duplicate["source_locations"],
+            [
+                {"surface": source_surface, "line": 1},
+                {"surface": source_surface, "line": 2},
+            ],
+        )
+
+        result = self.run_consolidate(str(self.tmp / source_surface))
+        self.assertEqual(result.returncode, 3)
+        self.assertIn("duplicate_correction_id", result.stderr)
+        self.assertEqual(result.stdout, "")
+
+        unrelated = self.tmp / "notes.md"
+        unrelated.write_text("independent export\n", encoding="utf-8")
+        mixed = self.run_consolidate(str(self.tmp / source_surface), str(unrelated))
+        self.assertEqual(mixed.returncode, 0)
+        self.assertEqual(json.loads(mixed.stdout)["file_list"], ["notes.md"])
+        self.assertIn("Raw corrected surfaces were excluded", mixed.stderr)
 
     def test_consolidate_excludes_corrected_surface_but_keeps_unrelated_export(self):
         migration = json.loads(
@@ -591,23 +766,11 @@ class TestHydrationAndExportConsumers(EffectiveRecordFixture):
         self.append(surface, migration["base_record_snapshot"])
         self.append(surface, migration["legacy_correction_snapshot"])
         self.append(surface, migration["canonical_correction"])
+        append_commit = self.commit_zone("Append canonical tic 658 correction")
+        self.trust_real_migration_for_fixture(migration, append_commit)
         unrelated = self.tmp / "notes.md"
         unrelated.write_text("independent export\n", encoding="utf-8")
-        result = subprocess.run(
-            [
-                sys.executable,
-                str(HERE / "consolidate.py"),
-                "--base-dir",
-                str(self.tmp),
-                "--targets",
-                str(self.tmp / surface),
-                str(unrelated),
-                "--scan",
-            ],
-            capture_output=True,
-            text=True,
-            timeout=15,
-        )
+        result = self.run_consolidate(str(self.tmp / surface), str(unrelated))
         self.assertEqual(result.returncode, 0)
         receipt = json.loads(result.stdout)
         self.assertEqual(receipt["file_list"], ["notes.md"])

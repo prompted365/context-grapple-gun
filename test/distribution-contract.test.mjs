@@ -41,6 +41,29 @@ function markdownLinks(path) {
   return [...text.matchAll(/\[[^\]]+\]\(([^)]+)\)/g)].map((match) => match[1]);
 }
 
+function assertCheckoutCredentialsDisabled(workflow) {
+  const lines = workflow.split('\n');
+  const checkoutSteps = lines
+    .map((line, index) => ({ line, index }))
+    .filter(({ line }) => /^\s*- uses: actions\/checkout@/.test(line));
+  assert.ok(checkoutSteps.length > 0);
+  for (const { line, index } of checkoutSteps) {
+    const indentation = line.indexOf('-');
+    let end = lines.length;
+    for (let candidate = index + 1; candidate < lines.length; candidate += 1) {
+      if (lines[candidate].startsWith(`${' '.repeat(indentation)}- `)) {
+        end = candidate;
+        break;
+      }
+    }
+    assert.match(
+      lines.slice(index, end).join('\n'),
+      /persist-credentials: false/,
+      `checkout at line ${index + 1} must disable persisted credentials`,
+    );
+  }
+}
+
 test('source plugin manifest is the single complete component authority', () => {
   const sourcePlugin = read('.claude-plugin/plugin.json');
   const marketplace = read('.claude-plugin/marketplace.json');
@@ -220,7 +243,7 @@ test('full hook authority includes the whole declared lifecycle', () => {
 test('installer smoke executes the packed artifact and all plugin scopes', () => {
   const workflow = readFileSync(join(ROOT, '.github', 'workflows', 'installer-smoke.yml'), 'utf-8');
   assert.match(workflow, /'cgg-runtime\/\*\*'/);
-  assert.equal((workflow.match(/persist-credentials: false/g) || []).length, 1);
+  assertCheckoutCredentialsDisabled(workflow);
   assert.match(workflow, /npm pack --json/);
   for (const scope of ['user', 'project', 'local']) {
     assert.match(workflow, new RegExp(`--scope ${scope}`));
@@ -243,7 +266,7 @@ test('distribution CI freezes published runtime while allowing candidate complet
   assert.match(workflow, /BASE_STATUS/);
   assert.match(workflow, /CURRENT_VERSION/);
   assert.match(workflow, /BASE_STATUS.*published/s);
-  assert.equal((workflow.match(/persist-credentials: false/g) || []).length, 3);
+  assertCheckoutCredentialsDisabled(workflow);
 });
 
 test('third-surface correction contract is packaged and wired to review plus hydration', () => {
@@ -260,10 +283,23 @@ test('third-surface correction contract is packaged and wired to review plus hyd
     assert.ok(packaged.has(relative), `packed artifact missing ${relative}`);
   }
   assert.equal([...packaged].some((path) => /__pycache__|\.py[co]$|\.pytest_cache/.test(path)), false);
+  const authorizationSchema = JSON.parse(readFileSync(
+    join(ROOT, 'cgg-runtime/contracts/record-correction-authorization-v1.schema.json'),
+    'utf-8',
+  ));
+  const migration = JSON.parse(readFileSync(
+    join(ROOT, 'cgg-runtime/migrations/record-correction-tic658.json'),
+    'utf-8',
+  ));
+  assert.ok(authorizationSchema.required.includes('canonical_append_surface'));
+  assert.equal(
+    migration.canonical_authorization_receipt.canonical_append_surface,
+    migration.provenance.surface,
+  );
   const review = readFileSync(join(ROOT, 'cgg-runtime/skills/review/SKILL.md'), 'utf-8');
   const session = readFileSync(join(ROOT, 'cgg-runtime/hooks/session-restore.sh'), 'utf-8');
   const hydration = readFileSync(join(ROOT, 'cgg-runtime/skills/tactical-hydration/SKILL.md'), 'utf-8');
-  assert.match(review, /effective-record\.py.*review-gate/s);
+  assert.match(review, /^python3 [^\n]*effective-record\.py[^\n]*review-gate$/m);
   assert.match(review, /check-index/);
   assert.match(session, /hydration-gate --format hook/);
   assert.match(session, /EFFECTIVE_RECORD_HYDRATION_BLOCKED/);
@@ -271,7 +307,7 @@ test('third-surface correction contract is packaged and wired to review plus hyd
   assert.match(session, /HANDOFF_MSG=""[\s\S]*CGG_MSG="\$\{CGG_MSG:\+\$CGG_MSG \}\$HANDOFF_MSG"/);
   assert.match(session, /command -v python3/);
   assert.doesNotMatch(hydration, /There is no `rtch\.py` runner yet/);
-  assert.match(hydration, /rtch\.py.*operational/s);
+  assert.match(hydration, /^\s*runner_script: [^\n]*rtch\.py[^\n]*operational[^\n]*$/m);
 });
 
 test('npm publication is tokenless OIDC and transitions status only after registry proof', () => {
@@ -288,17 +324,27 @@ test('npm publication is tokenless OIDC and transitions status only after regist
   assert.match(workflow, /single trusted issue comment/);
   assert.match(workflow, /Registry already carries the exact artifact; entering receipt-only recovery/);
   assert.match(workflow, /publication_needed=false/);
+  assert.match(workflow, /E404/);
+  assert.match(workflow, /refusing to classify the version as absent/);
+  assert.doesNotMatch(workflow, /npm view[^\n]*\|\| true/);
   assert.match(workflow, /git rebase origin\/main/);
+  assert.match(workflow, /git rebase --abort/);
   assert.match(workflow, /main advanced during receipt write; retrying/);
   assert.match(workflow, /Transient Python cache entered tarball/);
+  assert.match(workflow, /npm audit signatures --json/);
+  assert.match(workflow, /https:\/\/slsa\.dev\/provenance\/v1/);
+  assert.match(workflow, /registry_attestations/);
+  assert.match(workflow, /Release receipt surfaces disagree/);
+  assert.match(workflow, /PACKED_PATHS/);
   assert.match(workflow, /ref: \$\{\{ inputs\.expected_commit \}\}/);
   assert.doesNotMatch(workflow, /npm publish[^\n]*inputs\.dist_tag/);
   assert.match(workflow, /DIST_TAG: \$\{\{ inputs\.dist_tag \}\}[\s\S]*npm publish "\$TARBALL" --tag "\$DIST_TAG"/);
   assert.doesNotMatch(workflow, /NPM_TOKEN/);
-  const deterministicManifest = workflow.slice(
-    workflow.indexOf('Write exact source receipt into the package workspace'),
-    workflow.indexOf('Test distribution contract'),
-  );
+  const manifestStart = workflow.indexOf('Write exact source receipt into the package workspace');
+  const manifestEnd = workflow.indexOf('Test distribution contract');
+  assert.ok(manifestStart >= 0, 'candidate manifest step must exist');
+  assert.ok(manifestEnd > manifestStart, 'distribution test must follow candidate manifest creation');
+  const deterministicManifest = workflow.slice(manifestStart, manifestEnd);
   assert.doesNotMatch(deterministicManifest, /new Date/);
   assert.doesNotMatch(deterministicManifest, /workflow_run/);
   const publishAt = workflow.indexOf('npm publish');

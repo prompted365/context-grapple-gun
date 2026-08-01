@@ -1030,6 +1030,7 @@ def apply_effective_record_projection(
         }
         if not affected:
             continue
+        projection_succeeded = True
         try:
             rendered_lines: list[str] = []
             with Path(path).open(encoding="utf-8", errors="ignore") as handle:
@@ -1048,6 +1049,7 @@ def apply_effective_record_projection(
                         rendered_lines.append(raw)
             rendered = "".join(rendered_lines)
         except OSError:
+            projection_succeeded = False
             rendered = "[effective-record projection unavailable; raw bounded chunk withheld]"
             chunk["confidence_class"] = "effective_record_projection_hold"
 
@@ -1061,7 +1063,7 @@ def apply_effective_record_projection(
         chunk["body_full_chars"] = len(rendered)
         chunk["effective_record_ids"] = ids
         target_line = chunk.get("target_line")
-        if isinstance(target_line, int) and target_line in affected:
+        if projection_succeeded and isinstance(target_line, int) and target_line in affected:
             chunk["confidence_class"] = "effective_record_view"
         existing_limitation = chunk.get("limitation", "")
         projection_note = "Corrected rows use resolver views; unrelated bounded rows are preserved."

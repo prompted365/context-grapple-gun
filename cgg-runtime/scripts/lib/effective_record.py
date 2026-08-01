@@ -19,10 +19,12 @@ import copy
 import hashlib
 import json
 import os
+import subprocess
 import tempfile
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Iterable
+from urllib.parse import urlparse
 
 
 SCHEMA_VERSION = 1
@@ -111,15 +113,68 @@ def _legacy_migration_bindings() -> dict[tuple[str, str], set[str]]:
     return bindings
 
 
-def _trusted_correction_digests() -> set[str]:
-    """Return corrections bound to packaged, repository-controlled receipts.
+def _normalize_github_repository(value: Any) -> str | None:
+    """Normalize an admitted GitHub repository reference to ``owner/repo``.
+
+    Repository identity is intentionally narrow: the resolver accepts the
+    ordinary HTTPS and SSH GitHub origin forms plus an already-normalized
+    slug.  Other hosts and path-like lookalikes are rejected.
+    """
+    if not isinstance(value, str) or not value.strip():
+        return None
+    candidate = value.strip()
+    if "://" not in candidate and candidate.casefold().startswith("git@github.com:"):
+        candidate = "ssh://git@github.com/" + candidate.split(":", 1)[1]
+
+    if "://" in candidate:
+        parsed = urlparse(candidate)
+        if (
+            parsed.scheme.casefold() not in {"git", "https", "ssh"}
+            or parsed.hostname is None
+            or parsed.hostname.casefold() != "github.com"
+        ):
+            return None
+        candidate = parsed.path
+
+    candidate = candidate.strip("/")
+    if candidate.endswith(".git"):
+        candidate = candidate[:-4]
+    parts = candidate.split("/")
+    admitted_characters = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_."
+    if len(parts) != 2 or any(
+        part in {"", ".", ".."}
+        or any(character not in admitted_characters for character in part)
+        for part in parts
+    ):
+        return None
+    return "/".join(parts).casefold()
+
+
+def _safe_git_surface(value: Any) -> str | None:
+    if (
+        not isinstance(value, str)
+        or not value
+        or "\\" in value
+        or any(ord(character) < 32 or ord(character) == 127 for character in value)
+    ):
+        return None
+    parts = value.split("/")
+    if value.startswith("/") or any(part in {"", ".", ".."} for part in parts):
+        return None
+    return value
+
+
+def _trusted_correction_receipts() -> dict[str, dict[str, str]]:
+    """Return digest-bound, packaged authorization receipt metadata.
 
     A correction row's self-asserted lifecycle and authority strings are not
     evidence of admission.  The resolver applies an active correction only
     when an immutable copy and its digest-bound authorization receipt coexist
-    in the managed runtime migration inventory.
+    in the managed runtime migration inventory.  Repository proof is evaluated
+    separately against the zone's local Git history.
     """
-    trusted: set[str] = set()
+    trusted: dict[str, dict[str, str]] = {}
+    conflicts: set[str] = set()
     if not TRUSTED_MIGRATIONS_DIR.is_dir():
         return trusted
 
@@ -137,6 +192,11 @@ def _trusted_correction_digests() -> set[str]:
         correction_digest = digest_value(correction)
         expected_receipt_path = f"cgg-runtime/migrations/{path.name}"
         append_commit = receipt.get("canonical_append_commit")
+        repository = _normalize_github_repository(receipt.get("canonical_append_repository"))
+        provenance_repository = _normalize_github_repository(provenance.get("repository"))
+        append_surface = _safe_git_surface(receipt.get("canonical_append_surface"))
+        provenance_surface = _safe_git_surface(provenance.get("surface"))
+        source = correction.get("source")
         valid_commit = (
             isinstance(append_commit, str)
             and len(append_commit) == 40
@@ -152,13 +212,100 @@ def _trusted_correction_digests() -> set[str]:
             receipt.get("lifecycle_state") in ACTIVE_STATES,
             receipt.get("receipt_path") == expected_receipt_path,
             correction.get("receipt_path") == expected_receipt_path,
-            receipt.get("canonical_append_repository") == provenance.get("repository"),
+            repository is not None,
+            repository == provenance_repository,
+            append_surface is not None,
+            append_surface == provenance_surface,
             append_commit == provenance.get("canonical_append_commit"),
+            isinstance(source, dict),
+            _normalize_github_repository(
+                source.get("repository") if isinstance(source, dict) else None
+            ) == repository,
+            _safe_git_surface(
+                source.get("surface") if isinstance(source, dict) else None
+            ) == append_surface,
             valid_commit,
         )):
             continue
-        trusted.add(correction_digest)
+        metadata = {
+            "repository": repository,
+            "append_commit": append_commit,
+            "append_surface": append_surface,
+        }
+        if correction_digest in trusted and trusted[correction_digest] != metadata:
+            conflicts.add(correction_digest)
+            continue
+        trusted[correction_digest] = metadata
+    for digest in conflicts:
+        trusted.pop(digest, None)
     return trusted
+
+
+def _run_git(zone_root: Path, *arguments: str) -> subprocess.CompletedProcess[str] | None:
+    try:
+        return subprocess.run(
+            ["git", "-C", str(zone_root), *arguments],
+            capture_output=True,
+            text=True,
+            timeout=10,
+            check=False,
+        )
+    except (OSError, UnicodeError, subprocess.SubprocessError):
+        return None
+
+
+def _verify_repository_binding(
+    zone_root: Path,
+    correction_digest: str,
+    receipt: dict[str, str],
+) -> str | None:
+    """Prove a packaged receipt against the zone's exact local Git history."""
+    root = zone_root.resolve()
+    top_level = _run_git(root, "rev-parse", "--show-toplevel")
+    if top_level is None or top_level.returncode != 0:
+        return "git_toplevel_unavailable"
+    try:
+        if Path(top_level.stdout.strip()).resolve() != root:
+            return "zone_is_not_git_toplevel"
+    except (OSError, RuntimeError, ValueError):
+        return "git_toplevel_invalid"
+
+    origin = _run_git(root, "remote", "get-url", "origin")
+    origin_repository = (
+        _normalize_github_repository(origin.stdout.strip())
+        if origin is not None and origin.returncode == 0
+        else None
+    )
+    if origin_repository != receipt["repository"]:
+        return "origin_repository_mismatch"
+
+    ancestor = _run_git(
+        root,
+        "merge-base",
+        "--is-ancestor",
+        receipt["append_commit"],
+        "HEAD",
+    )
+    if ancestor is None or ancestor.returncode != 0:
+        return "append_commit_not_in_head_history"
+
+    append_blob = _run_git(
+        root,
+        "show",
+        f"{receipt['append_commit']}:{receipt['append_surface']}",
+    )
+    if append_blob is None or append_blob.returncode != 0:
+        return "append_surface_unavailable_at_commit"
+    for raw in append_blob.stdout.splitlines():
+        if not raw.strip():
+            continue
+        try:
+            row = json.loads(raw)
+        except json.JSONDecodeError:
+            continue
+        if isinstance(row, dict) and digest_value(row) == correction_digest:
+            return None
+    return "correction_absent_from_append_commit"
 
 
 def resolve_audit_root(zone_root: str | Path) -> Path:
@@ -439,14 +586,17 @@ def scan(zone_root: str | Path) -> dict[str, Any]:
 
 def build_effective_index(zone_root: str | Path) -> dict[str, Any]:
     scanned = scan(zone_root)
+    zone_root_path = scanned["zone_root"]
     corrections = scanned["corrections"]
     legacy_corrections = scanned["legacy_corrections"]
     bases = scanned["bases"]
     unresolved: list[dict[str, Any]] = list(scanned["parse_issues"])
-    trusted_correction_digests = _trusted_correction_digests()
+    trusted_correction_receipts = _trusted_correction_receipts()
+    verified_correction_digests: set[str] = set()
+    repository_binding_results: dict[str, str | None] = {}
     by_id: dict[str, LocatedRow] = {}
-    duplicate_ids: set[str] = set()
-    validation: dict[str, list[dict[str, Any]]] = {}
+    locations_by_id: dict[str, list[LocatedRow]] = {}
+    validation: dict[tuple[str, int], list[dict[str, Any]]] = {}
 
     for located in corrections:
         row = located.value
@@ -462,30 +612,57 @@ def build_effective_index(zone_root: str | Path) -> dict[str, Any]:
                 declared_surface=source_surface,
                 actual_surface=located.surface,
             ))
-        if (
-            row.get("lifecycle_state") in ACTIVE_STATES
-            and digest_value(row) not in trusted_correction_digests
-        ):
-            issues.append(_issue(
-                "unverified_authorization_receipt",
-                "active correction is not bound to a repository-controlled authorization receipt",
-                receipt_path=row.get("receipt_path"),
-            ))
-        validation[key] = issues
+        correction_digest = digest_value(row)
+        if row.get("lifecycle_state") in ACTIVE_STATES:
+            trusted_receipt = trusted_correction_receipts.get(correction_digest)
+            if trusted_receipt is None:
+                issues.append(_issue(
+                    "unverified_authorization_receipt",
+                    "active correction is not bound to a repository-controlled authorization receipt",
+                    receipt_path=row.get("receipt_path"),
+                ))
+            else:
+                if correction_digest not in repository_binding_results:
+                    repository_binding_results[correction_digest] = _verify_repository_binding(
+                        zone_root_path,
+                        correction_digest,
+                        trusted_receipt,
+                    )
+                binding_failure = repository_binding_results[correction_digest]
+                if binding_failure is None:
+                    verified_correction_digests.add(correction_digest)
+                else:
+                    issues.append(_issue(
+                        "unverified_repository_binding",
+                        "active correction receipt is not proven by the current repository history",
+                        repository=trusted_receipt["repository"],
+                        canonical_append_commit=trusted_receipt["append_commit"],
+                        canonical_append_surface=trusted_receipt["append_surface"],
+                        failure=binding_failure,
+                    ))
+        validation[(located.surface, located.line)] = issues
         if issues:
             unresolved.extend({**issue, "correction_id": key, "surface": located.surface, "line": located.line}
                               for issue in issues)
         if isinstance(correction_id, str) and correction_id:
-            if correction_id in by_id:
-                duplicate_ids.add(correction_id)
-            else:
-                by_id[correction_id] = located
+            locations_by_id.setdefault(correction_id, []).append(located)
+            by_id.setdefault(correction_id, located)
+
+    duplicate_ids = {
+        correction_id
+        for correction_id, locations in locations_by_id.items()
+        if len(locations) > 1
+    }
 
     for correction_id in sorted(duplicate_ids):
         unresolved.append(_issue(
             "duplicate_correction_id",
             "correction_id appears more than once",
             correction_id=correction_id,
+            source_locations=[
+                {"surface": located.surface, "line": located.line}
+                for located in locations_by_id[correction_id]
+            ],
         ))
 
     legacy_migrations: list[dict[str, Any]] = []
@@ -565,7 +742,7 @@ def build_effective_index(zone_root: str | Path) -> dict[str, Any]:
                    else f"@{item.surface}:{item.line}")
             local_unresolved.extend(
                 {**issue, "correction_id": key, "surface": item.surface, "line": item.line}
-                for issue in validation.get(key, [])
+                for issue in validation.get((item.surface, item.line), [])
             )
         if not target_bases:
             issue = _issue(
@@ -620,9 +797,13 @@ def build_effective_index(zone_root: str | Path) -> dict[str, Any]:
         for item in target_corrections:
             row = item.value
             cid = row.get("correction_id")
-            if not isinstance(cid, str) or validation.get(cid) or cid in duplicate_ids:
+            if (
+                not isinstance(cid, str)
+                or validation.get((item.surface, item.line))
+                or cid in duplicate_ids
+            ):
                 continue
-            if correction_is_authorized(row, trusted_correction_digests):
+            if correction_is_authorized(row, verified_correction_digests):
                 superseded_ids.update(value for value in row.get("supersedes", []) if value in target_ids)
 
         effective = copy.deepcopy(base)
@@ -634,7 +815,7 @@ def build_effective_index(zone_root: str | Path) -> dict[str, Any]:
             cid = row.get("correction_id")
             cid = cid if isinstance(cid, str) and cid else f"@{item.surface}:{item.line}"
             state = row.get("lifecycle_state")
-            issues = validation.get(cid, [])
+            issues = validation.get((item.surface, item.line), [])
             disposition = "discarded_invalid"
             if issues or cid in duplicate_ids:
                 disposition = "discarded_invalid"
@@ -646,7 +827,7 @@ def build_effective_index(zone_root: str | Path) -> dict[str, Any]:
                 disposition = "proposed_not_applied"
                 needs_review = True
             elif (
-                correction_is_authorized(row, trusted_correction_digests)
+                correction_is_authorized(row, verified_correction_digests)
                 and effective is not None
                 and not local_unresolved
             ):
@@ -668,7 +849,7 @@ def build_effective_index(zone_root: str | Path) -> dict[str, Any]:
                 "disposition": disposition,
                 "literal_correction": row.get("literal_correction"),
                 "receipt_path": row.get("receipt_path"),
-                "authority_receipt_verified": digest_value(row) in trusted_correction_digests,
+                "authority_receipt_verified": digest_value(row) in verified_correction_digests,
             })
 
         records.append({

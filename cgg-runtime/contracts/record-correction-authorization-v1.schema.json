@@ -14,7 +14,8 @@
     "lifecycle_state",
     "receipt_path",
     "canonical_append_repository",
-    "canonical_append_commit"
+    "canonical_append_commit",
+    "canonical_append_surface"
   ],
   "properties": {
     "schema_version": {
@@ -68,6 +69,11 @@
     "canonical_append_commit": {
       "type": "string",
       "pattern": "^[0-9a-f]{40}$"
+    },
+    "canonical_append_surface": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.(?:/|$))[^\\\\\\u0000-\\u001f\\u007f]+$"
     }
   }
 }
