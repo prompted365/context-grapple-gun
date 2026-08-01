@@ -10,6 +10,7 @@ from __future__ import annotations
 
 from contextlib import redirect_stderr, redirect_stdout
 import copy
+import hashlib
 import importlib.util
 import io
 import json
@@ -966,6 +967,10 @@ print(json.dumps({
         self.assertEqual(blocked.returncode, 3)
         self.assertEqual(blocked.stdout, "")
         self.assertIn("legacy_correction_unmigrated", blocked.stderr)
+        clone_dir = Path(tempfile.gettempdir()) / (
+            "consolidate-" + hashlib.sha256(str(self.tmp).encode()).hexdigest()[:12]
+        )
+        self.assertFalse(clone_dir.exists(), "held git export must remove its temporary clone")
 
         result = self.run_consolidate_arguments(
             "--base-dir",
@@ -982,6 +987,7 @@ print(json.dumps({
         self.assertEqual(receipt["file_list"], ["notes.md"])
         self.assertIn("legacy_correction_unmigrated", result.stderr)
         self.assertIn("Raw corrected surfaces were excluded", result.stderr)
+        self.assertFalse(clone_dir.exists(), "successful git scan must remove its temporary clone")
 
     def test_consolidate_clone_retains_history_for_valid_receipt_binding(self):
         self.base(claim="disproven current claim")

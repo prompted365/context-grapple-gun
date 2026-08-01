@@ -401,17 +401,27 @@ def collect_from_git_repo(url: str) -> tuple:
     # Repository-bound correction receipts may point to any ancestor of HEAD.
     # Keep the full default-branch commit graph while avoiding historical blob
     # transfer until a receipt's exact append surface is inspected.
-    subprocess.run([
-        "git", "clone", "--filter=blob:none", "--single-branch", "--no-tags",
-        url, tmpdir,
-    ],
-                   capture_output=True, check=True, timeout=120)
+    try:
+        subprocess.run([
+            "git", "clone", "--filter=blob:none", "--single-branch", "--no-tags",
+            "--", url, tmpdir,
+        ],
+                       capture_output=True, check=True, timeout=120)
+    except Exception:
+        shutil.rmtree(tmpdir, ignore_errors=True)
+        raise
     # Get commit hash
     result = subprocess.run(["git", "-C", tmpdir, "rev-parse", "HEAD"],
                             capture_output=True, text=True)
     commit = result.stdout.strip()[:12] if result.returncode == 0 else "unknown"
     files = collect_from_directory(tmpdir, tmpdir)
     return files, tmpdir, commit
+
+
+def cleanup_git_clone(tmpdir: str | None) -> None:
+    """Remove a temporary repository collected for one invocation."""
+    if tmpdir and os.path.exists(tmpdir):
+        shutil.rmtree(tmpdir)
 
 
 def collect_from_git_diff(diff_range: str, repo_dir: str = None) -> list:
@@ -724,6 +734,7 @@ def main():
 
     if not all_files:
         print("No files found to consolidate.", file=sys.stderr)
+        cleanup_git_clone(tmpdir)
         sys.exit(2)
 
     try:
@@ -735,8 +746,7 @@ def main():
             "capability": "effective_record_resolution",
             "exit_code": 4,
         }, indent=2), file=sys.stderr)
-        if tmpdir and os.path.exists(tmpdir):
-            shutil.rmtree(tmpdir)
+        cleanup_git_clone(tmpdir)
         sys.exit(4)
     if export_holds:
         blocking = [
@@ -753,6 +763,7 @@ def main():
             "records": export_holds,
         }, indent=2), file=sys.stderr)
         if blocking:
+            cleanup_git_clone(tmpdir)
             sys.exit(3)
         held_paths = {hold["target_path"] for hold in export_holds}
         all_files = [
@@ -760,6 +771,7 @@ def main():
             if str(Path(full).resolve()) not in held_paths
         ]
         if not all_files:
+            cleanup_git_clone(tmpdir)
             sys.exit(3)
 
     # Scan mode — dry run
@@ -769,6 +781,7 @@ def main():
             "file_list": [r for r, _ in all_files],
             "categories": dict(Counter(classify_file(r) for r, _ in all_files)),
         }, indent=2))
+        cleanup_git_clone(tmpdir)
         sys.exit(0)
 
     # Determine output path
@@ -805,8 +818,7 @@ def main():
     }, indent=2))
 
     # Cleanup temp dir
-    if tmpdir and os.path.exists(tmpdir):
-        shutil.rmtree(tmpdir)
+    cleanup_git_clone(tmpdir)
 
 
 if __name__ == "__main__":

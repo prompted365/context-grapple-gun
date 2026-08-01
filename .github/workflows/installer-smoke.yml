@@ -58,9 +58,12 @@ jobs:
           PREFIX="$RUNNER_TEMP/cgg-prefix"
           npm install --prefix "$PREFIX" "$GITHUB_WORKSPACE/$TARBALL"
           test -x "$PREFIX/node_modules/.bin/cgg"
+          PKG_NAME="$(node -e "const x=require(process.argv[1]); process.stdout.write(x[0].name)" "$RUNNER_TEMP/cgg-pack.json")"
+          PACKAGE_ROOT="$PREFIX/node_modules/$PKG_NAME"
+          test -d "$PACKAGE_ROOT"
           echo "tarball=$GITHUB_WORKSPACE/$TARBALL" >> "$GITHUB_OUTPUT"
           echo "cgg_bin=$PREFIX/node_modules/.bin/cgg" >> "$GITHUB_OUTPUT"
-          echo "package_root=$PREFIX/node_modules/context-grapple-gun" >> "$GITHUB_OUTPUT"
+          echo "package_root=$PACKAGE_ROOT" >> "$GITHUB_OUTPUT"
       - name: Verify packed RTCH correction resolver
         env:
           PACKAGE_ROOT: ${{ steps.pack.outputs.package_root }}
@@ -76,10 +79,12 @@ jobs:
           spec.loader.exec_module(module)
           if module.build_effective_index is None or module.hydration_view is None:
               raise SystemExit('packed RTCH effective-record capability is unavailable')
-          resolver = Path(sys.modules[module.build_effective_index.__module__].__file__).resolve()
+          resolver_module = module.build_effective_index.__module__
+          resolver_file = getattr(sys.modules.get(resolver_module), '__file__', None)
+          resolver = Path(resolver_file).resolve() if resolver_file else None
           expected = scripts_dir / 'lib' / 'effective_record.py'
-          if module.build_effective_index.__module__ != 'lib.effective_record' or resolver != expected:
-              raise SystemExit(f'packed RTCH resolver mismatch: module={module.build_effective_index.__module__} file={resolver}')
+          if resolver_module != 'lib.effective_record' or resolver != expected:
+              raise SystemExit(f'packed RTCH resolver mismatch: module={resolver_module} file={resolver}')
           print(f'Packed RTCH resolver: {resolver}')
           PY
       - name: Exercise packed lifecycle

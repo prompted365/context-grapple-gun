@@ -245,8 +245,11 @@ test('installer smoke executes the packed artifact and all plugin scopes', () =>
   assert.match(workflow, /'cgg-runtime\/\*\*'/);
   assertCheckoutCredentialsDisabled(workflow);
   assert.match(workflow, /npm pack --json/);
+  assert.match(workflow, /PKG_NAME=.*cgg-pack\.json/);
+  assert.match(workflow, /test -d "\$PACKAGE_ROOT"/);
   assert.match(workflow, /Verify packed RTCH correction resolver/);
-  assert.match(workflow, /module\.build_effective_index\.__module__ != 'lib\.effective_record'/);
+  assert.match(workflow, /resolver_module != 'lib\.effective_record'/);
+  assert.match(workflow, /sys\.modules\.get\(resolver_module\)/);
   for (const scope of ['user', 'project', 'local']) {
     assert.match(workflow, new RegExp(`--scope ${scope}`));
   }
@@ -337,6 +340,9 @@ test('third-surface correction contract is packaged and wired to review plus hyd
   assert.doesNotMatch(hydration, /There is no `rtch\.py` runner yet/);
   assert.match(hydration, /^\s*runner_script: [^\n]*rtch\.py[^\n]*operational[^\n]*$/m);
   const rtch = readFileSync(join(ROOT, 'cgg-runtime', 'scripts', 'rtch.py'), 'utf-8');
+  const consolidate = readFileSync(join(ROOT, 'cgg-runtime', 'scripts', 'consolidate.py'), 'utf-8');
+  assert.match(consolidate, /"--", url, tmpdir/);
+  assert.match(consolidate, /cleanup_git_clone\(tmpdir\)[\s\S]*sys\.exit\(3\)/);
   assert.match(rtch, /from lib\.effective_record import build_effective_index, hydration_view/);
   assert.match(rtch, /effective_record_capability_blocker/);
   assert.match(rtch, /raw_packet_rehydration_not_projection_aware/);
