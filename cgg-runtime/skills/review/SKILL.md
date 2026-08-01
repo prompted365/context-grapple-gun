@@ -120,8 +120,12 @@ from the installed CGG runtime; never substitute an ad-hoc fold.
   back-references, and reconciliation receipt; they never retcon source rows.
 
 The canonical schema is
-`cgg-runtime/contracts/record-correction-v1.schema.json`. A correction outside
-that envelope is visible but unauthorized and cannot rewrite an effective
+`cgg-runtime/contracts/record-correction-v1.schema.json`. Active corrections
+also require a repository-controlled, digest-bound receipt conforming to
+`cgg-runtime/contracts/record-correction-authorization-v1.schema.json` in the
+managed migration inventory. Lifecycle, authority, `authorization_ref`, and
+`receipt_path` strings asserted by the correction itself are never sufficient;
+an unverified receipt produces a typed hold and cannot rewrite an effective
 view.
 
 ### 2. Scan for Pending CogPR Flags

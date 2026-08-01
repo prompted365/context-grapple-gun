@@ -30,6 +30,7 @@ CORRECTION_TYPE = "record_correction"
 INDEX_RELATIVE = Path("corrections/effective-record-index.json")
 BACKREFS_RELATIVE = Path("corrections/effective-record-backrefs.jsonl")
 RECEIPTS_RELATIVE = Path("corrections/reconciliation-receipts.jsonl")
+TRUSTED_MIGRATIONS_DIR = Path(__file__).resolve().parents[2] / "migrations"
 
 IDENTIFIER_FIELDS = (
     "id",
@@ -82,12 +83,11 @@ def _legacy_migration_bindings() -> dict[tuple[str, str], set[str]]:
     admitted migration binds the immutable row digest and surface to one
     explicit correction ID.
     """
-    migrations_dir = Path(__file__).resolve().parents[2] / "migrations"
     bindings: dict[tuple[str, str], set[str]] = {}
-    if not migrations_dir.is_dir():
+    if not TRUSTED_MIGRATIONS_DIR.is_dir():
         return bindings
 
-    for path in sorted(migrations_dir.glob("*.json")):
+    for path in sorted(TRUSTED_MIGRATIONS_DIR.glob("*.json")):
         try:
             migration = json.loads(path.read_text(encoding="utf-8"))
         except (OSError, json.JSONDecodeError, TypeError):
@@ -109,6 +109,56 @@ def _legacy_migration_bindings() -> dict[tuple[str, str], set[str]]:
             continue
         bindings.setdefault((surface, declared_digest), set()).add(correction_id)
     return bindings
+
+
+def _trusted_correction_digests() -> set[str]:
+    """Return corrections bound to packaged, repository-controlled receipts.
+
+    A correction row's self-asserted lifecycle and authority strings are not
+    evidence of admission.  The resolver applies an active correction only
+    when an immutable copy and its digest-bound authorization receipt coexist
+    in the managed runtime migration inventory.
+    """
+    trusted: set[str] = set()
+    if not TRUSTED_MIGRATIONS_DIR.is_dir():
+        return trusted
+
+    for path in sorted(TRUSTED_MIGRATIONS_DIR.glob("*.json")):
+        try:
+            migration = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError, TypeError):
+            continue
+        correction = migration.get("canonical_correction")
+        receipt = migration.get("canonical_authorization_receipt")
+        provenance = migration.get("provenance")
+        if not all(isinstance(value, dict) for value in (correction, receipt, provenance)):
+            continue
+
+        correction_digest = digest_value(correction)
+        expected_receipt_path = f"cgg-runtime/migrations/{path.name}"
+        append_commit = receipt.get("canonical_append_commit")
+        valid_commit = (
+            isinstance(append_commit, str)
+            and len(append_commit) == 40
+            and all(character in "0123456789abcdef" for character in append_commit)
+        )
+        if not all((
+            receipt.get("schema_version") == SCHEMA_VERSION,
+            receipt.get("type") == "record_correction_authorization_receipt",
+            receipt.get("correction_id") == correction.get("correction_id"),
+            receipt.get("correction_digest") == correction_digest,
+            receipt.get("authority") == correction.get("authority"),
+            receipt.get("lifecycle_state") == correction.get("lifecycle_state"),
+            receipt.get("lifecycle_state") in ACTIVE_STATES,
+            receipt.get("receipt_path") == expected_receipt_path,
+            correction.get("receipt_path") == expected_receipt_path,
+            receipt.get("canonical_append_repository") == provenance.get("repository"),
+            append_commit == provenance.get("canonical_append_commit"),
+            valid_commit,
+        )):
+            continue
+        trusted.add(correction_digest)
+    return trusted
 
 
 def resolve_audit_root(zone_root: str | Path) -> Path:
@@ -267,7 +317,7 @@ def validate_correction(row: dict[str, Any]) -> list[dict[str, Any]]:
     return issues
 
 
-def correction_is_authorized(row: dict[str, Any]) -> bool:
+def correction_is_authorized(row: dict[str, Any], trusted_digests: set[str]) -> bool:
     authority = row.get("authority") or {}
     return (
         row.get("lifecycle_state") in ACTIVE_STATES
@@ -276,6 +326,7 @@ def correction_is_authorized(row: dict[str, Any]) -> bool:
         and bool(authority.get("author_id"))
         and isinstance(authority.get("authorization_ref"), str)
         and bool(authority.get("authorization_ref"))
+        and digest_value(row) in trusted_digests
     )
 
 
@@ -392,6 +443,7 @@ def build_effective_index(zone_root: str | Path) -> dict[str, Any]:
     legacy_corrections = scanned["legacy_corrections"]
     bases = scanned["bases"]
     unresolved: list[dict[str, Any]] = list(scanned["parse_issues"])
+    trusted_correction_digests = _trusted_correction_digests()
     by_id: dict[str, LocatedRow] = {}
     duplicate_ids: set[str] = set()
     validation: dict[str, list[dict[str, Any]]] = {}
@@ -401,6 +453,24 @@ def build_effective_index(zone_root: str | Path) -> dict[str, Any]:
         correction_id = row.get("correction_id")
         key = correction_id if isinstance(correction_id, str) and correction_id else f"@{located.surface}:{located.line}"
         issues = validate_correction(row)
+        source = row.get("source")
+        source_surface = source.get("surface") if isinstance(source, dict) else None
+        if isinstance(source_surface, str) and source_surface != located.surface:
+            issues.append(_issue(
+                "source_surface_mismatch",
+                "correction row is not located on its declared source surface",
+                declared_surface=source_surface,
+                actual_surface=located.surface,
+            ))
+        if (
+            row.get("lifecycle_state") in ACTIVE_STATES
+            and digest_value(row) not in trusted_correction_digests
+        ):
+            issues.append(_issue(
+                "unverified_authorization_receipt",
+                "active correction is not bound to a repository-controlled authorization receipt",
+                receipt_path=row.get("receipt_path"),
+            ))
         validation[key] = issues
         if issues:
             unresolved.extend({**issue, "correction_id": key, "surface": located.surface, "line": located.line}
@@ -552,7 +622,7 @@ def build_effective_index(zone_root: str | Path) -> dict[str, Any]:
             cid = row.get("correction_id")
             if not isinstance(cid, str) or validation.get(cid) or cid in duplicate_ids:
                 continue
-            if correction_is_authorized(row):
+            if correction_is_authorized(row, trusted_correction_digests):
                 superseded_ids.update(value for value in row.get("supersedes", []) if value in target_ids)
 
         effective = copy.deepcopy(base)
@@ -575,7 +645,11 @@ def build_effective_index(zone_root: str | Path) -> dict[str, Any]:
             elif state == "proposed":
                 disposition = "proposed_not_applied"
                 needs_review = True
-            elif correction_is_authorized(row) and effective is not None and not local_unresolved:
+            elif (
+                correction_is_authorized(row, trusted_correction_digests)
+                and effective is not None
+                and not local_unresolved
+            ):
                 effective = apply_merge_patch(effective, row["patch"])
                 disposition = "applied_ratified" if state == "ratified" else "applied_pending_review"
                 applied_ids.append(cid)
@@ -594,6 +668,7 @@ def build_effective_index(zone_root: str | Path) -> dict[str, Any]:
                 "disposition": disposition,
                 "literal_correction": row.get("literal_correction"),
                 "receipt_path": row.get("receipt_path"),
+                "authority_receipt_verified": digest_value(row) in trusted_correction_digests,
             })
 
         records.append({

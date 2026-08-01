@@ -98,6 +98,7 @@ def effective_record_export_holds(base_dir: str, files: list[tuple[str, str]]) -
     Consolidate is a raw file packager, not an effective-record materializer.
     Refusing only the affected selected surfaces keeps unrelated exports usable
     while preventing a disproven base row from being presented as current.
+    An unresolved issue with no safely derivable surface blocks globally.
     """
     if build_effective_index is None:
         return []
@@ -108,7 +109,8 @@ def effective_record_export_holds(base_dir: str, files: list[tuple[str, str]]) -
     index = build_effective_index(zone_root)
     selected = {str(Path(full).resolve()) for _, full in files}
     holds = []
-    for record in index.get("records", []):
+    records = index.get("records", [])
+    for record in records:
         target = str((zone_root / record["target_surface"]).resolve())
         if target not in selected:
             continue
@@ -125,6 +127,64 @@ def effective_record_export_holds(base_dir: str, files: list[tuple[str, str]]) -
                     + record["target_surface"]
                 ),
             })
+    held_issue_keys = {
+        (hold.get("target_path"), hold.get("target_record_id"), hold.get("reason"))
+        for hold in holds
+    }
+    for issue in index.get("unresolved", []):
+        surfaces = {
+            value for value in (issue.get("target_surface"), issue.get("surface"))
+            if isinstance(value, str) and value
+        }
+        issue_record_id = issue.get("target_record_id")
+        issue_correction_id = issue.get("correction_id")
+        for record in records:
+            same_record = (
+                isinstance(issue_record_id, str)
+                and record.get("target_record_id") == issue_record_id
+            )
+            same_correction = (
+                isinstance(issue_correction_id, str)
+                and any(
+                    row.get("correction_id") == issue_correction_id
+                    for row in record.get("lineage", [])
+                )
+            )
+            if same_record or same_correction:
+                surfaces.add(record["target_surface"])
+
+        if not surfaces:
+            key = (None, issue_record_id or issue_correction_id, "unresolved_correction_chain")
+            if key not in held_issue_keys:
+                holds.append({
+                    "target_record_id": issue_record_id or issue_correction_id,
+                    "target_surface": None,
+                    "target_path": None,
+                    "reason": "unresolved_correction_chain",
+                    "issue_code": issue.get("code"),
+                    "scope": "global_unscoped",
+                    "resolve_with": "effective-record.py scan",
+                })
+                held_issue_keys.add(key)
+            continue
+
+        for surface in sorted(surfaces):
+            target = str((zone_root / surface).resolve())
+            if target not in selected:
+                continue
+            key = (target, issue_record_id or issue_correction_id, "unresolved_correction_chain")
+            if key in held_issue_keys:
+                continue
+            holds.append({
+                "target_record_id": issue_record_id or issue_correction_id,
+                "target_surface": surface,
+                "target_path": target,
+                "reason": "unresolved_correction_chain",
+                "issue_code": issue.get("code"),
+                "scope": "selected_surface",
+                "resolve_with": "effective-record.py scan",
+            })
+            held_issue_keys.add(key)
     return holds
 
 

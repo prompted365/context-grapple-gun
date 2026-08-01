@@ -109,7 +109,8 @@ Exit 2 blocks export because a correction chain is unresolved. Exit 3 means
 one or more raw records have valid corrected views; export the emitted
 `effective_records` for those ids or exclude their raw surfaces. Never package
 a disproven base row as current truth merely because it still exists in the
-append-only source.
+append-only source. An unresolved issue is held on its selected source/target
+surface; if the resolver cannot scope it safely, the whole export fails closed.
 
 ### Step 1: Resolve Targets
 

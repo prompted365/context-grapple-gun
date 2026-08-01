@@ -249,6 +249,7 @@ test('distribution CI freezes published runtime while allowing candidate complet
 test('third-surface correction contract is packaged and wired to review plus hydration', () => {
   const packaged = packedFiles();
   for (const relative of [
+    'cgg-runtime/contracts/record-correction-authorization-v1.schema.json',
     'cgg-runtime/contracts/record-correction-v1.schema.json',
     'cgg-runtime/migrations/record-correction-tic658.json',
     'cgg-runtime/scripts/effective-record.py',

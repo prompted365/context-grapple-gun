@@ -73,6 +73,21 @@
     "legacy_row_digest": "abd598274fea1e50a6cd2635a4f4ac3a578c255b5b520eefad93c3c79ca3f1e6",
     "canonical_correction_id": "rc_review_657_human_gate_and_supply_tic658"
   },
+  "canonical_authorization_receipt": {
+    "schema_version": 1,
+    "type": "record_correction_authorization_receipt",
+    "correction_id": "rc_review_657_human_gate_and_supply_tic658",
+    "correction_digest": "fcaf000d1536f0791102a451f8bf7a869c74a6c59ea32329aad1ac60335c2525",
+    "authority": {
+      "author_id": "ent_homeskillet",
+      "authority_class": "ratified_review",
+      "authorization_ref": "architect-direct:tic658 + /review:664"
+    },
+    "lifecycle_state": "ratified",
+    "receipt_path": "cgg-runtime/migrations/record-correction-tic658.json",
+    "canonical_append_repository": "prompted365/canonical_federation",
+    "canonical_append_commit": "9c8c386091f281b494621a4b52276096aeefea8d"
+  },
   "migration_receipt": {
     "method": "snapshot-preserving canonicalization",
     "base_record_retconned": false,

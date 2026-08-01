@@ -7,6 +7,7 @@ Public registry status is governed by [`release-status.json`](release-status.jso
 - Added the typed third-surface `record_correction` schema, deterministic effective-record resolver, derived back-reference/index receipts, `/review` hold, and SessionStart hydration gate required by the v5 publication admission; raw-only worldview rendering now fails closed on corrected records.
 - Migrated the lived tic 657→658 correction chain as a provenance-pinned, snapshot-preserving regression receipt and pinned its typed canonical append at `canonical_federation@9c8c386091f281b494621a4b52276096aeefea8d`.
 - Bound that preserved legacy row to its canonical correction by exact surface and canonical row digest so later corrections cannot make the migration ambiguous.
+- Required a repository-controlled, digest-bound authorization receipt before any active correction may alter current truth, and made unscoped unresolved issues fail exports closed.
 - Replaced the release workflow's long-lived npm token with exact-workflow OIDC Trusted Publishing and made registry version, dist-tag, and tarball integrity verification precede the public status transition.
 - Bound publication admission to one trusted issue-comment tuple and made registry-exact receipt recovery idempotent across concurrent, non-package `main` advances.
 - Excluded generated Python bytecode/test caches from npm payloads and made CI reject or same-version-freeze any reintroduction.

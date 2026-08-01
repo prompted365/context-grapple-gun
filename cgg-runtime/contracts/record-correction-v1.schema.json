@@ -76,6 +76,7 @@
       "minLength": 1
     },
     "authority": {
+      "description": "Claimed authority metadata. It does not authorize application without a matching repository-controlled record-correction authorization receipt.",
       "type": "object",
       "additionalProperties": true,
       "required": ["author_id", "authority_class", "authorization_ref"],
@@ -139,6 +140,7 @@
       ]
     },
     "receipt_path": {
+      "description": "Managed authorization-receipt path. Existence or a self-authored file is insufficient; the resolver verifies the packaged receipt and correction digest.",
       "type": "string",
       "minLength": 1
     }

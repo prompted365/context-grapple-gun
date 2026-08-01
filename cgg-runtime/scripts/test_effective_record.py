@@ -17,12 +17,14 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 
 HERE = Path(__file__).resolve().parent
 REPO_ROOT = HERE.parents[1]
 sys.path.insert(0, str(HERE))
 
+from lib import effective_record as effective_record_lib  # noqa: E402
 from lib.effective_record import (  # noqa: E402
     BACKREFS_RELATIVE,
     INDEX_RELATIVE,
@@ -42,12 +44,24 @@ TARGET = "audit-logs/cprs/queue.jsonl"
 class EffectiveRecordFixture(unittest.TestCase):
     def setUp(self):
         self.tmp = Path(tempfile.mkdtemp(prefix="effective-record-"))
+        self.trusted_migrations = self.tmp / "managed-runtime" / "migrations"
+        shutil.copytree(
+            REPO_ROOT / "cgg-runtime" / "migrations",
+            self.trusted_migrations,
+        )
+        self.trusted_migrations_patch = patch.object(
+            effective_record_lib,
+            "TRUSTED_MIGRATIONS_DIR",
+            self.trusted_migrations,
+        )
+        self.trusted_migrations_patch.start()
         (self.tmp / ".ticzone").write_text(
             json.dumps({"audit_logs_path": "audit-logs"}) + "\n",
             encoding="utf-8",
         )
 
     def tearDown(self):
+        self.trusted_migrations_patch.stop()
         shutil.rmtree(self.tmp, ignore_errors=True)
 
     def append(self, relative: str, row: dict) -> None:
@@ -62,7 +76,47 @@ class EffectiveRecordFixture(unittest.TestCase):
         self.append(TARGET, row)
         return row
 
-    def correction(self, correction_id="rc-1", **overrides):
+    def trust_correction_for_fixture(self, row: dict) -> None:
+        correction_id = row["correction_id"]
+        safe_id = "".join(
+            character if character.isalnum() or character in "-_" else "-"
+            for character in correction_id
+        )
+        receipt_relative = f"cgg-runtime/migrations/test-{safe_id}.json"
+        row["receipt_path"] = receipt_relative
+        correction_digest = digest_value(row)
+        source = row["source"]
+        migration = {
+            "provenance": {
+                "repository": source["repository"],
+                "canonical_append_commit": source["commit"],
+            },
+            "canonical_correction": row,
+            "canonical_authorization_receipt": {
+                "schema_version": 1,
+                "type": "record_correction_authorization_receipt",
+                "correction_id": correction_id,
+                "correction_digest": correction_digest,
+                "authority": row["authority"],
+                "lifecycle_state": row["lifecycle_state"],
+                "receipt_path": receipt_relative,
+                "canonical_append_repository": source["repository"],
+                "canonical_append_commit": source["commit"],
+            },
+        }
+        (self.trusted_migrations / f"test-{safe_id}.json").write_text(
+            json.dumps(migration, sort_keys=True) + "\n",
+            encoding="utf-8",
+        )
+
+    def correction(
+        self,
+        correction_id="rc-1",
+        *,
+        trusted=True,
+        located_surface="audit-logs/reviews/2026-07-26.jsonl",
+        **overrides,
+    ):
         row = {
             "schema_version": 1,
             "type": "record_correction",
@@ -91,7 +145,9 @@ class EffectiveRecordFixture(unittest.TestCase):
             "receipt_path": "audit-logs/corrections/test.json",
         }
         row.update(overrides)
-        self.append("audit-logs/reviews/2026-07-26.jsonl", row)
+        if trusted and row.get("lifecycle_state") in {"authorized", "ratified"}:
+            self.trust_correction_for_fixture(row)
+        self.append(located_surface, row)
         return row
 
     def one_record(self):
@@ -194,6 +250,44 @@ class TestIssue16RegressionArms(EffectiveRecordFixture):
         self.assertEqual(record["lineage"][0]["disposition"], "proposed_not_applied")
         self.assertEqual(review_gate(index)["status"], "hold")
 
+    def test_self_asserted_ratification_and_forged_zone_receipt_never_apply(self):
+        self.base()
+        correction = self.correction(trusted=False)
+        fake_receipt = self.tmp / correction["receipt_path"]
+        fake_receipt.parent.mkdir(parents=True, exist_ok=True)
+        fake_receipt.write_text(
+            json.dumps({
+                "type": "record_correction_authorization_receipt",
+                "correction_id": correction["correction_id"],
+                "correction_digest": digest_value(correction),
+                "authority": correction["authority"],
+            }) + "\n",
+            encoding="utf-8",
+        )
+
+        index, record = self.one_record()
+        self.assertIn(
+            "unverified_authorization_receipt",
+            {issue["code"] for issue in index["unresolved"]},
+        )
+        self.assertEqual(record["effective_record"], record["base_record"])
+        self.assertEqual(record["lineage"][0]["disposition"], "discarded_invalid")
+        self.assertFalse(record["lineage"][0]["authority_receipt_verified"])
+        self.assertEqual(review_gate(index)["status"], "hold")
+        self.assertEqual(hydration_view(index)["status"], "blocked")
+
+    def test_trusted_correction_replayed_off_its_source_surface_never_applies(self):
+        self.base()
+        self.correction(located_surface="audit-logs/reviews/copied.jsonl")
+
+        index, record = self.one_record()
+        self.assertIn(
+            "source_surface_mismatch",
+            {issue["code"] for issue in index["unresolved"]},
+        )
+        self.assertEqual(record["effective_record"], record["base_record"])
+        self.assertEqual(record["lineage"][0]["disposition"], "discarded_invalid")
+
     def test_hydration_never_emits_disproven_claim_as_current_truth(self):
         wrong = "Architect not resident"
         self.base(claim=wrong)
@@ -279,6 +373,14 @@ class TestRealMigration(EffectiveRecordFixture):
             digest_value(migration["legacy_correction_snapshot"]),
         )
         self.assertEqual(
+            migration["canonical_authorization_receipt"]["correction_digest"],
+            digest_value(migration["canonical_correction"]),
+        )
+        self.assertEqual(
+            migration["canonical_authorization_receipt"]["authority"],
+            migration["canonical_correction"]["authority"],
+        )
+        self.assertEqual(
             migration["migration_receipt"]["canonical_append_commit"],
             "9c8c386091f281b494621a4b52276096aeefea8d",
         )
@@ -289,6 +391,7 @@ class TestRealMigration(EffectiveRecordFixture):
             ["rc_review_657_human_gate_and_supply_tic658"],
         )
         self.assertEqual(record["lineage"][0]["disposition"], "applied_ratified")
+        self.assertTrue(record["lineage"][0]["authority_receipt_verified"])
 
     def test_legacy_binding_stays_stable_after_a_later_correction(self):
         migration = json.loads(
@@ -310,6 +413,7 @@ class TestRealMigration(EffectiveRecordFixture):
             "effective_at": "2026-07-27T00:00:00Z",
             "receipt_path": "audit-logs/reviews/later-correction-receipt.json",
         })
+        self.trust_correction_for_fixture(later)
         self.append(surface, later)
 
         index, record = self.one_record()
@@ -450,9 +554,43 @@ class TestHydrationAndExportConsumers(EffectiveRecordFixture):
         self.assertIn("effective_record_export_hold", result.stderr)
         self.assertNotIn("disproven current claim", result.stdout)
 
+    def test_consolidate_blocks_a_selected_legacy_only_unresolved_surface(self):
+        migration = json.loads(
+            (REPO_ROOT / "cgg-runtime/migrations/record-correction-tic658.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        surface = migration["canonical_correction"]["target_surface"]
+        self.append(surface, migration["base_record_snapshot"])
+        self.append(surface, migration["legacy_correction_snapshot"])
+        result = subprocess.run(
+            [
+                sys.executable,
+                str(HERE / "consolidate.py"),
+                "--base-dir",
+                str(self.tmp),
+                "--targets",
+                str(self.tmp / surface),
+                "--scan",
+            ],
+            capture_output=True,
+            text=True,
+            timeout=15,
+        )
+        self.assertEqual(result.returncode, 3)
+        self.assertIn("legacy_correction_unmigrated", result.stderr)
+        self.assertNotIn("Architect not resident", result.stdout)
+
     def test_consolidate_excludes_corrected_surface_but_keeps_unrelated_export(self):
-        self.base(claim="disproven current claim")
-        self.correction(patch={"claim": "correct current claim"})
+        migration = json.loads(
+            (REPO_ROOT / "cgg-runtime/migrations/record-correction-tic658.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        surface = migration["canonical_correction"]["target_surface"]
+        self.append(surface, migration["base_record_snapshot"])
+        self.append(surface, migration["legacy_correction_snapshot"])
+        self.append(surface, migration["canonical_correction"])
         unrelated = self.tmp / "notes.md"
         unrelated.write_text("independent export\n", encoding="utf-8")
         result = subprocess.run(
@@ -462,7 +600,7 @@ class TestHydrationAndExportConsumers(EffectiveRecordFixture):
                 "--base-dir",
                 str(self.tmp),
                 "--targets",
-                str(self.tmp / TARGET),
+                str(self.tmp / surface),
                 str(unrelated),
                 "--scan",
             ],
