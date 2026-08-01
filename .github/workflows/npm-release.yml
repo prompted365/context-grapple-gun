@@ -43,7 +43,7 @@ jobs:
           package-manager-cache: false
       - name: Use an OIDC-capable npm CLI
         run: |
-          npm install --global npm@^11.5.1
+          npm install --global npm@11.5.1
           node --version
           npm --version
       - name: Enforce the publication-admission receipt from issue 16
@@ -184,7 +184,10 @@ jobs:
           echo "publication_needed=false" >> "$GITHUB_OUTPUT"
       - name: Publish with provenance
         if: ${{ !inputs.dry_run && steps.registry_state.outputs.publication_needed == 'true' }}
-        run: npm publish "${{ steps.pack.outputs.tarball }}" --tag "${{ inputs.dist_tag }}" --access public
+        env:
+          TARBALL: ${{ steps.pack.outputs.tarball }}
+          DIST_TAG: ${{ inputs.dist_tag }}
+        run: npm publish "$TARBALL" --tag "$DIST_TAG" --access public
       - name: Verify registry receipt
         if: ${{ !inputs.dry_run }}
         env:

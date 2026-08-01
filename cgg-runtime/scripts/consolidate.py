@@ -116,7 +116,8 @@ def effective_record_export_holds(base_dir: str, files: list[tuple[str, str]]) -
             holds.append({
                 "target_record_id": record["target_record_id"],
                 "target_surface": record["target_surface"],
-                "reason": "raw_surface_has_effective_view" if record["differs"] else "unresolved_correction_chain",
+                "target_path": target,
+                "reason": "unresolved_correction_chain" if record["unresolved"] else "raw_surface_has_effective_view",
                 "resolve_with": (
                     "effective-record.py resolve --record-id "
                     + record["target_record_id"]
@@ -598,12 +599,28 @@ def main():
 
     export_holds = effective_record_export_holds(base_dir, all_files)
     if export_holds:
+        blocking = [
+            hold for hold in export_holds
+            if hold["reason"] == "unresolved_correction_chain"
+        ]
         print(json.dumps({
             "status": "effective_record_export_hold",
-            "message": "Raw corrected records cannot be packaged as current truth.",
+            "message": (
+                "Unresolved corrections block this export."
+                if blocking
+                else "Raw corrected surfaces were excluded; unrelated exports remain eligible."
+            ),
             "records": export_holds,
         }, indent=2), file=sys.stderr)
-        sys.exit(3)
+        if blocking:
+            sys.exit(3)
+        held_paths = {hold["target_path"] for hold in export_holds}
+        all_files = [
+            (relative, full) for relative, full in all_files
+            if str(Path(full).resolve()) not in held_paths
+        ]
+        if not all_files:
+            sys.exit(3)
 
     # Scan mode — dry run
     if args.scan:

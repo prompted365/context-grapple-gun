@@ -23,6 +23,19 @@ function read(path) {
   return JSON.parse(readFileSync(join(ROOT, path), 'utf-8'));
 }
 
+let packedFileCache;
+function packedFiles() {
+  if (packedFileCache) return packedFileCache;
+  const cache = mkdtempSync(join(tmpdir(), 'cgg-npm-pack-cache-'));
+  const receipt = JSON.parse(execFileSync(
+    'npm',
+    ['--cache', cache, 'pack', '--dry-run', '--json'],
+    { cwd: ROOT, encoding: 'utf-8' },
+  ))[0];
+  packedFileCache = new Set(receipt.files.map((file) => file.path));
+  return packedFileCache;
+}
+
 function markdownLinks(path) {
   const text = readFileSync(path, 'utf-8');
   return [...text.matchAll(/\[[^\]]+\]\(([^)]+)\)/g)].map((match) => match[1]);
@@ -207,6 +220,7 @@ test('full hook authority includes the whole declared lifecycle', () => {
 test('installer smoke executes the packed artifact and all plugin scopes', () => {
   const workflow = readFileSync(join(ROOT, '.github', 'workflows', 'installer-smoke.yml'), 'utf-8');
   assert.match(workflow, /'cgg-runtime\/\*\*'/);
+  assert.equal((workflow.match(/persist-credentials: false/g) || []).length, 1);
   assert.match(workflow, /npm pack --json/);
   for (const scope of ['user', 'project', 'local']) {
     assert.match(workflow, new RegExp(`--scope ${scope}`));
@@ -229,9 +243,11 @@ test('distribution CI freezes published runtime while allowing candidate complet
   assert.match(workflow, /BASE_STATUS/);
   assert.match(workflow, /CURRENT_VERSION/);
   assert.match(workflow, /BASE_STATUS.*published/s);
+  assert.equal((workflow.match(/persist-credentials: false/g) || []).length, 3);
 });
 
 test('third-surface correction contract is packaged and wired to review plus hydration', () => {
+  const packaged = packedFiles();
   for (const relative of [
     'cgg-runtime/contracts/record-correction-v1.schema.json',
     'cgg-runtime/migrations/record-correction-tic658.json',
@@ -240,20 +256,28 @@ test('third-surface correction contract is packaged and wired to review plus hyd
     'cgg-runtime/scripts/test_effective_record.py',
   ]) {
     assert.ok(existsSync(join(ROOT, relative)), relative);
+    assert.ok(packaged.has(relative), `packed artifact missing ${relative}`);
   }
+  assert.equal([...packaged].some((path) => /__pycache__|\.py[co]$|\.pytest_cache/.test(path)), false);
   const review = readFileSync(join(ROOT, 'cgg-runtime/skills/review/SKILL.md'), 'utf-8');
   const session = readFileSync(join(ROOT, 'cgg-runtime/hooks/session-restore.sh'), 'utf-8');
+  const hydration = readFileSync(join(ROOT, 'cgg-runtime/skills/tactical-hydration/SKILL.md'), 'utf-8');
   assert.match(review, /effective-record\.py.*review-gate/s);
   assert.match(review, /check-index/);
   assert.match(session, /hydration-gate --format hook/);
   assert.match(session, /EFFECTIVE_RECORD_HYDRATION_BLOCKED/);
+  assert.match(session, /EFFECTIVE_RECORD_RC" -eq 3.*EFFECTIVE_RECORD_HYDRATION_BLOCKED=0/s);
+  assert.match(session, /command -v python3/);
+  assert.doesNotMatch(hydration, /There is no `rtch\.py` runner yet/);
+  assert.match(hydration, /rtch\.py.*operational/s);
 });
 
 test('npm publication is tokenless OIDC and transitions status only after registry proof', () => {
   const workflow = readFileSync(join(ROOT, '.github', 'workflows', 'npm-release.yml'), 'utf-8');
   assert.match(workflow, /id-token: write/);
   assert.match(workflow, /environment: npm-publish/);
-  assert.match(workflow, /npm@\^11\.5\.1/);
+  assert.match(workflow, /npm@11\.5\.1/);
+  assert.doesNotMatch(workflow, /npm@\^11\.5\.1/);
   assert.match(workflow, /publication-admission-commit/);
   assert.match(workflow, /issue #16 is/);
   assert.match(workflow, /author_association/);
@@ -266,6 +290,8 @@ test('npm publication is tokenless OIDC and transitions status only after regist
   assert.match(workflow, /main advanced during receipt write; retrying/);
   assert.match(workflow, /Transient Python cache entered tarball/);
   assert.match(workflow, /ref: \$\{\{ inputs\.expected_commit \}\}/);
+  assert.doesNotMatch(workflow, /npm publish[^\n]*inputs\.dist_tag/);
+  assert.match(workflow, /DIST_TAG: \$\{\{ inputs\.dist_tag \}\}[\s\S]*npm publish "\$TARBALL" --tag "\$DIST_TAG"/);
   assert.doesNotMatch(workflow, /NPM_TOKEN/);
   const deterministicManifest = workflow.slice(
     workflow.indexOf('Write exact source receipt into the package workspace'),

@@ -82,6 +82,13 @@ def _parser() -> argparse.ArgumentParser:
 def main(argv: list[str] | None = None) -> int:
     args = _parser().parse_args(argv)
     root = Path(args.zone_root).resolve()
+
+    if args.command in {"rebuild", "apply-backrefs"}:
+        timestamp = args.timestamp or datetime.now(timezone.utc).isoformat()
+        result = reconcile(root, authority=args.authority, timestamp=timestamp)
+        _emit({key: value for key, value in result.items() if key != "index"})
+        return 2 if result["index"]["unresolved"] else 0
+
     index = build_effective_index(root)
 
     if args.command == "scan":
@@ -124,12 +131,6 @@ def main(argv: list[str] | None = None) -> int:
         }
         _emit(result)
         return 0 if result["status"] == "pass" else 2
-
-    if args.command in {"rebuild", "apply-backrefs"}:
-        timestamp = args.timestamp or datetime.now(timezone.utc).isoformat()
-        result = reconcile(root, authority=args.authority, timestamp=timestamp)
-        _emit({key: value for key, value in result.items() if key != "index"})
-        return 2 if result["index"]["unresolved"] else 0
 
     return 2
 

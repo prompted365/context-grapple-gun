@@ -153,6 +153,29 @@ class TestIssue16RegressionArms(EffectiveRecordFixture):
         self.assertEqual(dispositions["rc-second"], "applied_ratified")
         self.assertEqual(len(record["lineage"]), 2)
 
+    def test_revoked_correction_preserves_a_revoked_lineage_disposition(self):
+        self.base()
+        self.correction(lifecycle_state="revoked")
+        index, record = self.one_record()
+        self.assertEqual(index["counts"]["unresolved"], 0)
+        self.assertEqual(record["effective_record"], record["base_record"])
+        self.assertEqual(record["lineage"][0]["disposition"], "revoked")
+
+    def test_duplicate_correction_id_is_unresolved(self):
+        self.base()
+        self.correction("rc-duplicate", effective_tic=3)
+        self.correction("rc-duplicate", effective_tic=4)
+        index, record = self.one_record()
+        self.assertIn("duplicate_correction_id", {issue["code"] for issue in index["unresolved"]})
+        self.assertTrue(all(row["disposition"] == "discarded_invalid" for row in record["lineage"]))
+
+    def test_supersession_cycle_is_unresolved(self):
+        self.base()
+        self.correction("rc-cycle-a", effective_tic=3, supersedes=["rc-cycle-b"])
+        self.correction("rc-cycle-b", effective_tic=4, supersedes=["rc-cycle-a"])
+        index, _ = self.one_record()
+        self.assertIn("supersession_cycle", {issue["code"] for issue in index["unresolved"]})
+
     def test_orphan_is_visible_and_blocks_promotion(self):
         self.correction(target_record_id="missing")
         index, record = self.one_record()
@@ -206,6 +229,18 @@ class TestIssue16RegressionArms(EffectiveRecordFixture):
         )
         self.assertFalse(projection_status(self.tmp)["stale"])
 
+        backrefs_path.write_text("torn-write\n", encoding="utf-8")
+        torn = projection_status(self.tmp)
+        self.assertTrue(torn["stale"])
+        self.assertEqual(torn["reason"], "backrefs_digest_changed")
+        repaired = reconcile(
+            self.tmp,
+            authority="ent_homeskillet",
+            timestamp="2026-07-26T00:03:00Z",
+        )
+        self.assertTrue(repaired["changed"])
+        self.assertFalse(projection_status(self.tmp)["stale"])
+
         self.append(TARGET, {"id": "unrelated", "claim": "new source state"})
         stale = projection_status(self.tmp)
         self.assertTrue(stale["stale"])
@@ -232,6 +267,15 @@ class TestRealMigration(EffectiveRecordFixture):
             index["legacy_migrations"][0]["canonical_correction_id"],
             "rc_review_657_human_gate_and_supply_tic658",
         )
+        self.assertEqual(
+            index["legacy_migrations"][0]["disposition"],
+            "preserved_legacy_mapped_to_canonical",
+        )
+        self.assertTrue(migration["migration_receipt"]["canonical_correction_appended"])
+        self.assertEqual(
+            migration["migration_receipt"]["canonical_append_commit"],
+            "9c8c386091f281b494621a4b52276096aeefea8d",
+        )
         self.assertIn("not resident", record["base_record"]["human_gate"])
         self.assertIn("was resident", record["effective_record"]["human_gate"])
         self.assertEqual(
@@ -254,6 +298,10 @@ class TestRealMigration(EffectiveRecordFixture):
         self.assertEqual(index["counts"]["correction_rows"], 0)
         self.assertEqual(index["counts"]["legacy_correction_rows"], 1)
         self.assertEqual(index["unresolved"][0]["code"], "legacy_correction_unmigrated")
+        self.assertEqual(
+            index["legacy_migrations"][0]["disposition"],
+            "preserved_legacy_unmigrated",
+        )
         self.assertEqual(review_gate(index)["status"], "hold")
         self.assertEqual(hydration_view(index)["status"], "blocked")
 
@@ -293,7 +341,13 @@ class TestHydrationAndExportConsumers(EffectiveRecordFixture):
     def test_rtch_preserves_unrelated_hits_on_a_corrected_jsonl_surface(self):
         self.base(claim="disproven current claim")
         self.append(TARGET, {"id": "unrelated", "claim": "independent evidence"})
+        self.append(TARGET, {"id": "claim-2", "claim": "second disproven claim"})
         self.correction(patch={"claim": "correct current claim"})
+        self.correction(
+            "rc-2",
+            target_record_id="claim-2",
+            patch={"claim": "second corrected claim"},
+        )
         projection = hydration_view(build_effective_index(self.tmp))
 
         spec = importlib.util.spec_from_file_location("rtch_effective_scope_test", HERE / "rtch.py")
@@ -307,9 +361,9 @@ class TestHydrationAndExportConsumers(EffectiveRecordFixture):
         }]}]
         chunks = [{
             "path": target,
-            "line_range": "L1-L2",
+            "line_range": "L1-L3",
             "start_line": 1,
-            "end_line": 2,
+            "end_line": 3,
             "target_line": 2,
             "body_preview": "disproven current claim\nindependent evidence",
             "body_full_chars": 44,
@@ -328,6 +382,10 @@ class TestHydrationAndExportConsumers(EffectiveRecordFixture):
         self.assertIn("independent evidence", chunks[0]["body_preview"])
         self.assertIn("correct current claim", chunks[0]["body_preview"])
         self.assertNotIn("disproven current claim", chunks[0]["body_preview"])
+        commands = chunks[0]["effective_record_re_entry_commands"]
+        self.assertEqual(len(commands), 2)
+        self.assertTrue(any("--record-id claim-1 " in command for command in commands))
+        self.assertTrue(any("--record-id claim-2 " in command for command in commands))
 
     def test_consolidate_blocks_raw_corrected_surface_export(self):
         self.base(claim="disproven current claim")
@@ -349,6 +407,31 @@ class TestHydrationAndExportConsumers(EffectiveRecordFixture):
         self.assertEqual(result.returncode, 3)
         self.assertIn("effective_record_export_hold", result.stderr)
         self.assertNotIn("disproven current claim", result.stdout)
+
+    def test_consolidate_excludes_corrected_surface_but_keeps_unrelated_export(self):
+        self.base(claim="disproven current claim")
+        self.correction(patch={"claim": "correct current claim"})
+        unrelated = self.tmp / "notes.md"
+        unrelated.write_text("independent export\n", encoding="utf-8")
+        result = subprocess.run(
+            [
+                sys.executable,
+                str(HERE / "consolidate.py"),
+                "--base-dir",
+                str(self.tmp),
+                "--targets",
+                str(self.tmp / TARGET),
+                str(unrelated),
+                "--scan",
+            ],
+            capture_output=True,
+            text=True,
+            timeout=15,
+        )
+        self.assertEqual(result.returncode, 0)
+        receipt = json.loads(result.stdout)
+        self.assertEqual(receipt["file_list"], ["notes.md"])
+        self.assertIn("Raw corrected surfaces were excluded", result.stderr)
 
 
 if __name__ == "__main__":

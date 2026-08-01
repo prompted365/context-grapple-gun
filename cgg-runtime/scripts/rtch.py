@@ -42,6 +42,7 @@ import hashlib
 import json
 import os
 import re
+import shlex
 import shutil
 import subprocess
 import sys
@@ -1050,11 +1051,12 @@ def apply_effective_record_projection(
             rendered = "[effective-record projection unavailable; raw bounded chunk withheld]"
             chunk["confidence_class"] = "effective_record_projection_hold"
 
-        ids = sorted({
-            record["target_record_id"]
+        reentries = sorted({
+            (record["target_record_id"], record["target_surface"])
             for records in affected.values()
             for record in records
         })
+        ids = [record_id for record_id, _ in reentries]
         chunk["body_preview"] = rendered[:600]
         chunk["body_full_chars"] = len(rendered)
         chunk["effective_record_ids"] = ids
@@ -1066,9 +1068,13 @@ def apply_effective_record_projection(
         chunk["limitation"] = " ".join(
             value for value in (existing_limitation, projection_note) if value
         )
-        chunk["effective_record_re_entry_command"] = (
-            "effective-record.py resolve --record-id " + ",".join(ids)
-        )
+        chunk["effective_record_re_entry_commands"] = [
+            "effective-record.py resolve --record-id "
+            + shlex.quote(record_id)
+            + " --surface "
+            + shlex.quote(surface)
+            for record_id, surface in reentries
+        ]
 
 
 def _render_effective_record(record: dict[str, Any]) -> str:

@@ -92,10 +92,11 @@ PROJECT_KEY=$(echo "$PROJECT_DIR" | sed 's|/|-|g')
 # Effective-record hydration gate (third-surface correction reconciler).
 #
 # A pair of agreeing projections is not current truth when an append-only
-# correction landed on a third surface.  Resolve corrections BEFORE any civic
-# worldview is hydrated.  An unresolved chain suppresses worldview rendering
-# and leaves a loud hook badge; a resolved chain supplies only effective views.
-# The hook remains fail-soft on tool absence, but never silently emits a known
+# correction landed on a third surface. Resolve corrections BEFORE any civic
+# worldview is hydrated. An unresolved chain suppresses worldview rendering
+# and leaves a loud hook badge. A resolved chain leaves worldview rendering
+# enabled while affected JSONL consumers receive only effective views. The
+# hook remains fail-soft on tool absence, but never silently emits a known
 # unsafe worldview after the resolver returns a hold.
 # ============================================================================
 
@@ -104,18 +105,27 @@ EFFECTIVE_RECORD_SCRIPT="$CGG_SCRIPTS_DIR/effective-record.py"
 EFFECTIVE_RECORD_MSG=""
 EFFECTIVE_RECORD_HYDRATION_BLOCKED=0
 if [ -f "$EFFECTIVE_RECORD_SCRIPT" ]; then
-  EFFECTIVE_RECORD_MSG=$(python3 "$EFFECTIVE_RECORD_SCRIPT" --zone-root "$ZONE_ROOT" \
-    hydration-gate --format hook 2>/dev/null)
-  EFFECTIVE_RECORD_RC=$?
-  if [ "$EFFECTIVE_RECORD_RC" -eq 2 ]; then
-    EFFECTIVE_RECORD_HYDRATION_BLOCKED=1
-  elif [ "$EFFECTIVE_RECORD_RC" -eq 3 ]; then
-    # Corrections are valid and resolved, but raw worldview readers do not own
-    # the fold. Suppress them; the hook badge routes consumers to effective ids.
-    EFFECTIVE_RECORD_HYDRATION_BLOCKED=1
-  elif [ "$EFFECTIVE_RECORD_RC" -ne 0 ]; then
-    EFFECTIVE_RECORD_MSG="[EFFECTIVE RECORD WARNING: resolver execution failed; no correction-derived claim is admitted by this hook]"
-    EFFECTIVE_RECORD_HYDRATION_BLOCKED=1
+  if command -v python3 >/dev/null 2>&1; then
+    EFFECTIVE_RECORD_MSG=$(python3 "$EFFECTIVE_RECORD_SCRIPT" --zone-root "$ZONE_ROOT" \
+      hydration-gate --format hook 2>/dev/null)
+    EFFECTIVE_RECORD_RC=$?
+    if [ "$EFFECTIVE_RECORD_RC" -eq 0 ]; then
+      # The safe path is intentionally silent; SessionStart badges stay
+      # signal-bearing instead of announcing the absence of corrections.
+      EFFECTIVE_RECORD_MSG=""
+    elif [ "$EFFECTIVE_RECORD_RC" -eq 2 ]; then
+      EFFECTIVE_RECORD_HYDRATION_BLOCKED=1
+    elif [ "$EFFECTIVE_RECORD_RC" -eq 3 ]; then
+      # Valid resolved corrections retain the routing badge, while the
+      # row-scoped projection prevents affected raw records from hydrating.
+      EFFECTIVE_RECORD_HYDRATION_BLOCKED=0
+    else
+      EFFECTIVE_RECORD_MSG="[EFFECTIVE RECORD WARNING: resolver execution failed; no correction-derived claim is admitted by this hook]"
+      EFFECTIVE_RECORD_HYDRATION_BLOCKED=1
+    fi
+  else
+    EFFECTIVE_RECORD_MSG="[EFFECTIVE RECORD WARNING: python3 unavailable; correction gate skipped fail-soft]"
+    EFFECTIVE_RECORD_HYDRATION_BLOCKED=0
   fi
 fi
 

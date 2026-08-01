@@ -3,7 +3,8 @@
 The public package is published only by the protected GitHub Actions workflow
 at `.github/workflows/npm-release.yml`. The workflow is bound to one exact
 source commit and uses npm Trusted Publishing (OIDC); it does not carry a
-long-lived npm write token.
+long-lived npm write token. The workflow pins npm CLI `11.5.1`, the first
+admitted OIDC-capable toolchain version for this release lane.
 
 ## npm Trusted Publisher settings
 

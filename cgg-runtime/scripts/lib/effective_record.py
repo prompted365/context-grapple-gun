@@ -119,13 +119,22 @@ def source_digest(zone_root: str | Path, paths: Iterable[Path] | None = None) ->
     selected = list(paths if paths is not None else discover_jsonl(root))
     hasher = hashlib.sha256()
     for path in sorted(selected):
-        surface = _relative_surface(path, root)
         data = path.read_bytes()
-        hasher.update(surface.encode("utf-8"))
-        hasher.update(b"\0")
-        hasher.update(hashlib.sha256(data).digest())
-        hasher.update(b"\0")
+        _update_source_hasher(hasher, root, path, data)
     return hasher.hexdigest()
+
+
+def _update_source_hasher(
+    hasher: Any,
+    root: Path,
+    path: Path,
+    data: bytes,
+) -> None:
+    surface = _relative_surface(path, root)
+    hasher.update(surface.encode("utf-8"))
+    hasher.update(b"\0")
+    hasher.update(hashlib.sha256(data).digest())
+    hasher.update(b"\0")
 
 
 def record_identifiers(row: dict[str, Any]) -> list[str]:
@@ -289,10 +298,20 @@ def scan(zone_root: str | Path) -> dict[str, Any]:
     corrections: list[LocatedRow] = []
     legacy_corrections: list[LocatedRow] = []
     parse_issues: list[dict[str, Any]] = []
+    source_hasher = hashlib.sha256()
 
     for path in paths:
         surface = _relative_surface(path, root)
-        for line_number, raw in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
+        data = path.read_bytes()
+        _update_source_hasher(source_hasher, root, path, data)
+        try:
+            text = data.decode("utf-8")
+        except UnicodeDecodeError as exc:
+            parse_issues.append(_issue(
+                "invalid_utf8", str(exc), surface=surface
+            ))
+            continue
+        for line_number, raw in enumerate(text.splitlines(), 1):
             if not raw.strip():
                 continue
             try:
@@ -321,7 +340,7 @@ def scan(zone_root: str | Path) -> dict[str, Any]:
         "zone_root": root,
         "audit_root": resolve_audit_root(root),
         "paths": paths,
-        "source_digest": source_digest(root, paths),
+        "source_digest": source_hasher.hexdigest(),
         "bases": bases,
         "corrections": corrections,
         "legacy_corrections": legacy_corrections,
@@ -381,6 +400,7 @@ def build_effective_index(zone_root: str | Path) -> dict[str, Any]:
                 "target_record_id": legacy_target,
                 "canonical_correction_id": matches[0].value.get("correction_id"),
                 "status": "mapped",
+                "disposition": "preserved_legacy_mapped_to_canonical",
             })
             continue
         issue = _issue(
@@ -404,6 +424,7 @@ def build_effective_index(zone_root: str | Path) -> dict[str, Any]:
             "target_record_id": legacy_target,
             "canonical_correction_id": None,
             "status": "unresolved",
+            "disposition": "preserved_legacy_unmigrated",
         })
 
     grouped: dict[tuple[str, str], list[LocatedRow]] = {}
@@ -610,19 +631,49 @@ def projection_status(zone_root: str | Path, index: dict[str, Any] | None = None
     audit_root = resolve_audit_root(root)
     current = index or build_effective_index(root)
     index_path = audit_root / INDEX_RELATIVE
+    backrefs_path = audit_root / BACKREFS_RELATIVE
     if not index_path.is_file():
         return {"exists": False, "stale": True, "reason": "missing_index"}
     try:
         stored = json.loads(index_path.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError):
         return {"exists": True, "stale": True, "reason": "unreadable_index"}
-    stale = stored.get("source_digest") != current.get("source_digest")
+    stored_digest = stored.get("index_digest")
+    stored_without_digest = dict(stored)
+    stored_without_digest.pop("index_digest", None)
+    computed_stored_digest = digest_value(stored_without_digest)
+    expected_backrefs = build_backrefs(current)
+    expected_backrefs_digest = hashlib.sha256(expected_backrefs).hexdigest()
+
+    reason = "current"
+    if stored.get("source_digest") != current.get("source_digest"):
+        reason = "source_digest_changed"
+    elif stored_digest != computed_stored_digest:
+        reason = "stored_index_digest_invalid"
+    elif stored_digest != current.get("index_digest"):
+        reason = "index_digest_changed"
+    elif not backrefs_path.is_file():
+        reason = "missing_backrefs"
+    else:
+        try:
+            actual_backrefs_digest = hashlib.sha256(backrefs_path.read_bytes()).hexdigest()
+        except OSError:
+            reason = "unreadable_backrefs"
+        else:
+            if actual_backrefs_digest != expected_backrefs_digest:
+                reason = "backrefs_digest_changed"
+
+    stale = reason != "current"
     return {
         "exists": True,
         "stale": stale,
-        "reason": "source_digest_changed" if stale else "current",
+        "reason": reason,
         "stored_source_digest": stored.get("source_digest"),
         "current_source_digest": current.get("source_digest"),
+        "stored_index_digest": stored_digest,
+        "computed_stored_index_digest": computed_stored_digest,
+        "current_index_digest": current.get("index_digest"),
+        "expected_backrefs_digest": expected_backrefs_digest,
     }
 
 
@@ -645,8 +696,10 @@ def reconcile(
     receipts_path = audit_root / RECEIPTS_RELATIVE
     index_bytes = _json_bytes(index)
     backrefs_bytes = build_backrefs(index)
+    projection = projection_status(root, index)
     changed = (
-        not index_path.is_file()
+        projection["stale"]
+        or not index_path.is_file()
         or index_path.read_bytes() != index_bytes
         or not backrefs_path.is_file()
         or backrefs_path.read_bytes() != backrefs_bytes

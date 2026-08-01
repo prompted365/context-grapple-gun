@@ -7,7 +7,9 @@
     "commit": "8e74992343a31fa1eebbf53aabb90940c20dad44",
     "surface": "audit-logs/reviews/2026-07-26.jsonl",
     "doctrine_commit": "69784f56a8b848d45e972960728846b83a72bf7c",
-    "doctrine_anchor": "cgg-ledger/ledger.md#third-surface-correction-pair-agreement-is-not-evidence-currency"
+    "doctrine_anchor": "cgg-ledger/ledger.md#third-surface-correction-pair-agreement-is-not-evidence-currency",
+    "canonical_append_commit": "9c8c386091f281b494621a4b52276096aeefea8d",
+    "canonical_append_pr": "https://github.com/prompted365/canonical_federation/pull/10"
   },
   "base_record_snapshot": {
     "timestamp": "2026-07-26T15:31:06.369720+00:00",
@@ -69,6 +71,10 @@
     "method": "snapshot-preserving canonicalization",
     "base_record_retconned": false,
     "legacy_correction_retconned": false,
+    "canonical_correction_appended": true,
+    "canonical_append_repository": "prompted365/canonical_federation",
+    "canonical_append_surface": "audit-logs/reviews/2026-07-26.jsonl",
+    "canonical_append_commit": "9c8c386091f281b494621a4b52276096aeefea8d",
     "effective_view_required": true
   }
 }
