@@ -357,6 +357,8 @@ test('npm publication is tokenless OIDC and transitions status only after regist
   assert.match(workflow, /--paginate --slurp/);
   assert.match(workflow, /single trusted issue comment/);
   assert.match(workflow, /Registry already carries the exact artifact; entering receipt-only recovery/);
+  assert.match(workflow, /requested dist-tag \$DIST_TAG points to/);
+  assert.match(workflow, /not npm dist-tag mutation/);
   assert.match(workflow, /publication_needed=false/);
   assert.match(workflow, /E404/);
   assert.match(workflow, /refusing to classify the version as absent/);
@@ -373,11 +375,15 @@ test('npm publication is tokenless OIDC and transitions status only after regist
   assert.match(workflow, /Registry attestation is not linked to the exact installed package/);
   assert.match(workflow, /https:\/\/slsa\.dev\/provenance\/v1/);
   assert.match(workflow, /registry_attestations/);
+  assert.match(workflow, /manifest\.registry_dist_tag = process\.env\.DIST_TAG/);
   assert.match(workflow, /Release receipt surfaces disagree/);
   assert.match(workflow, /PACKED_PATHS/);
   assert.match(workflow, /ref: \$\{\{ inputs\.expected_commit \}\}/);
   assert.doesNotMatch(workflow, /npm publish[^\n]*inputs\.dist_tag/);
   assert.match(workflow, /DIST_TAG: \$\{\{ inputs\.dist_tag \}\}[\s\S]*npm publish "\$TARBALL" --tag "\$DIST_TAG"/);
+  assert.match(workflow, /default: latest/);
+  assert.doesNotMatch(workflow, /default: next/);
+  assert.doesNotMatch(workflow, /^\s+npm dist-tag /m);
   assert.doesNotMatch(workflow, /NPM_TOKEN/);
   const manifestStart = workflow.indexOf('Write exact source receipt into the package workspace');
   const manifestEnd = workflow.indexOf('Test distribution contract');
@@ -386,6 +392,7 @@ test('npm publication is tokenless OIDC and transitions status only after regist
   const deterministicManifest = workflow.slice(manifestStart, manifestEnd);
   assert.doesNotMatch(deterministicManifest, /new Date/);
   assert.doesNotMatch(deterministicManifest, /workflow_run/);
+  assert.doesNotMatch(deterministicManifest, /dist_tag|DIST_TAG/);
   const publishAt = workflow.indexOf('npm publish');
   const prePublishDriftAt = workflow.indexOf('refusing irreversible npm publication');
   const verifyAt = workflow.indexOf('Verify registry receipt');

@@ -12,9 +12,9 @@ on:
         required: true
         type: string
       dist_tag:
-        description: npm distribution tag; use latest only after downstream smoke
+        description: Exact npm distribution tag admitted for this publication; OIDC does not mutate existing tags
         required: true
-        default: next
+        default: latest
         type: string
       dry_run:
         description: Build and verify without publishing
@@ -129,16 +129,16 @@ jobs:
         env:
           EXPECTED_VERSION: ${{ inputs.expected_version }}
           EXPECTED_COMMIT: ${{ inputs.expected_commit }}
-          DIST_TAG: ${{ inputs.dist_tag }}
         run: |
           node <<'NODE'
           const fs = require('node:fs');
+          // Dist-tags are mutable registry pointers, not immutable artifact identity.
+          // Registry tag state is recorded only after the exact packed bytes verify.
           const manifest = {
             schema_version: 1,
             package: 'context-grapple-gun',
             release_version: process.env.EXPECTED_VERSION,
             source_commit: process.env.EXPECTED_COMMIT,
-            dist_tag: process.env.DIST_TAG,
             publication_state: 'candidate',
           };
           fs.writeFileSync('release-manifest.json', JSON.stringify(manifest, null, 2) + '\n');
@@ -169,6 +169,7 @@ jobs:
         if: ${{ !inputs.dry_run }}
         env:
           EXPECTED_VERSION: ${{ inputs.expected_version }}
+          DIST_TAG: ${{ inputs.dist_tag }}
           PACK_RECEIPT: ${{ runner.temp }}/cgg-pack.json
         run: |
           set -euo pipefail
@@ -201,6 +202,20 @@ jobs:
           LOCAL_INTEGRITY="$(node -e "const x=require(process.env.PACK_RECEIPT);process.stdout.write(x[0].integrity||'')")"
           if [ "$REMOTE_VERSION" != "$EXPECTED_VERSION" ] || [ -z "$REMOTE_INTEGRITY" ] || [ "$REMOTE_INTEGRITY" != "$LOCAL_INTEGRITY" ]; then
             echo "Registry already contains a non-matching immutable $EXPECTED_VERSION artifact" >&2
+            exit 1
+          fi
+          REMOTE_TAGS_FILE="$RUNNER_TEMP/cgg-remote-tags.json"
+          if npm view context-grapple-gun dist-tags --json \
+            > "$REMOTE_TAGS_FILE" 2> "$REGISTRY_ERROR"; then
+            TAGGED="$(node -e "const fs=require('fs');const x=JSON.parse(fs.readFileSync(process.argv[1],'utf8'));process.stdout.write(x[process.env.DIST_TAG]||'')" "$REMOTE_TAGS_FILE")"
+          else
+            echo "Registry dist-tag lookup failed during receipt recovery" >&2
+            cat "$REGISTRY_ERROR" >&2
+            exit 1
+          fi
+          if [ "$TAGGED" != "$EXPECTED_VERSION" ]; then
+            echo "Registry carries the exact immutable $EXPECTED_VERSION artifact, but requested dist-tag $DIST_TAG points to ${TAGGED:-nothing}." >&2
+            echo "npm Trusted Publishing authorizes publish operations, not npm dist-tag mutation; repair the tag with interactive registry authority, verify it, and rerun receipt recovery." >&2
             exit 1
           fi
           echo "Registry already carries the exact artifact; entering receipt-only recovery"
@@ -348,13 +363,14 @@ jobs:
           status.source_commit = process.env.EXPECTED_COMMIT;
           status.published_at = now;
           manifest.publication_state = 'registry-verified';
+          manifest.registry_dist_tag = process.env.DIST_TAG;
           manifest.registry_integrity = integrity;
           manifest.registry_attestations = attestations;
           manifest.registry_verified_at = now;
           manifest.workflow_run = process.env.WORKFLOW_RUN;
           if (status.version !== manifest.release_version
             || status.source_commit !== manifest.source_commit
-            || status.dist_tag !== manifest.dist_tag) {
+            || status.dist_tag !== manifest.registry_dist_tag) {
             console.error('Release receipt surfaces disagree:', { status, manifest });
             process.exit(1);
           }
@@ -389,6 +405,7 @@ jobs:
             && status.dist_tag === process.env.DIST_TAG
             && manifest.publication_state === 'registry-verified'
             && manifest.source_commit === process.env.EXPECTED_COMMIT
+            && manifest.registry_dist_tag === process.env.DIST_TAG
             && manifest.registry_integrity === integrity
             && manifest.registry_attestations?.provenance?.predicateType === 'https://slsa.dev/provenance/v1';
           const candidate = status.status === 'release-candidate'

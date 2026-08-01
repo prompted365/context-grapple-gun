@@ -9,6 +9,12 @@ GitHub Actions Trusted Publishing generates npm provenance automatically; the
 workflow verifies the resulting registry attestation instead of relying on a
 local `--provenance` assertion.
 
+The requested dist-tag is mutable registry state, not immutable package
+identity. It is deliberately absent from the candidate `release-manifest.json`
+that enters the tarball. The workflow records `registry_dist_tag` in the source
+receipt only after the registry proves that the requested tag identifies the
+exact packed bytes.
+
 ## npm Trusted Publisher settings
 
 On the `context-grapple-gun` package settings page, enter these exact values:
@@ -53,6 +59,13 @@ dist_tag         = latest
 dry_run          = false
 ```
 
+For `5.0.0`, publication is admitted directly to `latest`; this workflow does
+not stage the release under `next` and later promote it. npm Trusted Publishing
+OIDC authorizes `npm publish` but not `npm dist-tag` mutations. If the immutable
+version already exists while the admitted tag points elsewhere, the workflow
+fails with an explicit hold. An interactive npm authority must repair and
+verify that registry mapping before receipt recovery can continue.
+
 The workflow refuses a different branch, an open issue #16, an untrusted,
 split, missing, or mismatched admission receipt, a non-candidate source, or a
 shared-version mismatch. Before publishing, only an explicit registry `E404`
@@ -83,7 +96,8 @@ admitted artifact is immutable.
 
 If npm accepted the immutable artifact but `main` advanced before the source
 receipt push, a rerun checks that the registry integrity exactly matches a
-deterministic repack of the admitted source. It then skips the duplicate
-publish, rebases the receipt over non-package changes, and retries the
-fast-forward push. Any concurrent change to the packed surface is held for
-governed repair rather than being mislabeled as the published artifact.
+deterministic repack of the admitted source and that the admitted tag still
+points to that exact version. It then skips the duplicate publish, rebases the
+receipt over non-package changes, and retries the fast-forward push. Any
+concurrent change to the packed surface or registry tag is held for governed
+repair rather than being mislabeled as the published artifact.
