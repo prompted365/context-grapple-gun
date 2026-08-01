@@ -24,7 +24,8 @@ CLI:
   rtch.py --intake <intake.json>
   rtch.py --validate-example <10.1|10.2|10.3|10.4|10.5>
 
-Exit codes: 0=success, 1=intake error, 2=zone error, 3=probe error, 4=packet error.
+Exit codes: 0=success, 1=intake error, 2=zone/effective-record hold,
+3=probe error, 4=packet error, 5=effective-record capability unavailable.
 
 Hard holds (per binder §12 — enforced at runtime):
   - read-only by default (no source mutation)
@@ -72,11 +73,13 @@ try:
 except ImportError:
     resolve_doctrine_surfaces = None
 
+_EFFECTIVE_RECORD_IMPORT_ERROR = None
 try:
-    from effective_record import build_effective_index, hydration_view
-except ImportError:
+    from lib.effective_record import build_effective_index, hydration_view
+except ImportError as error:
     build_effective_index = None
     hydration_view = None
+    _EFFECTIVE_RECORD_IMPORT_ERROR = error
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -1728,6 +1731,20 @@ def rehydrate_main(argv: list[str]) -> int:
 
 
 def main(argv: Optional[list[str]] = None) -> int:
+    if build_effective_index is None or hydration_view is None:
+        print(json.dumps({
+            "status": "effective_record_capability_blocker",
+            "consumer": "tactical_hydration",
+            "capability": "effective_record_resolution",
+            "message": (
+                "effective-record resolver is unavailable; tactical hydration "
+                "cannot prove correction state"
+            ),
+            "error": str(_EFFECTIVE_RECORD_IMPORT_ERROR or "unknown import failure"),
+            "exit_code": 5,
+        }, indent=2))
+        return 5
+
     raw = argv if argv is not None else sys.argv[1:]
     # Subcommand dispatch (additive — preserves legacy single-mode invocation)
     if raw and raw[0] == "rehydrate":
@@ -1754,21 +1771,15 @@ def main(argv: Optional[list[str]] = None) -> int:
 
     intake = parse_intake(args)
     zone = orient_zone(intake)
-    effective_projection = {
-        "status": "safe",
-        "effective_records": [],
-        "unresolved": [],
-    }
-    if build_effective_index is not None and hydration_view is not None:
-        effective_projection = hydration_view(build_effective_index(zone["zone_root"]))
-        if effective_projection["status"] == "blocked":
-            print(json.dumps({
-                "status": "effective_record_hold",
-                "consumer": "tactical_hydration",
-                "unresolved": effective_projection["unresolved"],
-                "blocked_targets": effective_projection["blocked_targets"],
-            }, indent=2))
-            return 2
+    effective_projection = hydration_view(build_effective_index(zone["zone_root"]))
+    if effective_projection["status"] == "blocked":
+        print(json.dumps({
+            "status": "effective_record_hold",
+            "consumer": "tactical_hydration",
+            "unresolved": effective_projection["unresolved"],
+            "blocked_targets": effective_projection["blocked_targets"],
+        }, indent=2))
+        return 2
     scout = shape_scout(intake, zone)
     basket = build_basket(intake, zone, scout)
     plan = build_probe_plan(intake, zone, basket)

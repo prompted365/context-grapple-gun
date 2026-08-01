@@ -245,6 +245,8 @@ test('installer smoke executes the packed artifact and all plugin scopes', () =>
   assert.match(workflow, /'cgg-runtime\/\*\*'/);
   assertCheckoutCredentialsDisabled(workflow);
   assert.match(workflow, /npm pack --json/);
+  assert.match(workflow, /Verify packed RTCH correction resolver/);
+  assert.match(workflow, /module\.build_effective_index\.__module__ != 'lib\.effective_record'/);
   for (const scope of ['user', 'project', 'local']) {
     assert.match(workflow, new RegExp(`--scope ${scope}`));
   }
@@ -329,6 +331,10 @@ test('third-surface correction contract is packaged and wired to review plus hyd
   assert.match(session, /command -v python3/);
   assert.doesNotMatch(hydration, /There is no `rtch\.py` runner yet/);
   assert.match(hydration, /^\s*runner_script: [^\n]*rtch\.py[^\n]*operational[^\n]*$/m);
+  const rtch = readFileSync(join(ROOT, 'cgg-runtime', 'scripts', 'rtch.py'), 'utf-8');
+  assert.match(rtch, /from lib\.effective_record import build_effective_index, hydration_view/);
+  assert.match(rtch, /effective_record_capability_blocker/);
+  assert.match(rtch, /return 5/);
 });
 
 test('npm publication is tokenless OIDC and transitions status only after registry proof', () => {

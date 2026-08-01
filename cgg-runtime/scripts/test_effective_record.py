@@ -619,6 +619,65 @@ class TestRealMigration(EffectiveRecordFixture):
 
 
 class TestHydrationAndExportConsumers(EffectiveRecordFixture):
+    def test_rtch_clean_process_imports_packaged_effective_record_authority(self):
+        probe = """
+import importlib.util
+import json
+import sys
+from pathlib import Path
+
+scripts_dir = Path(sys.argv[1]).resolve()
+spec = importlib.util.spec_from_file_location('rtch_packaged_import_probe', scripts_dir / 'rtch.py')
+module = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(module)
+resolver_file = Path(sys.modules[module.build_effective_index.__module__].__file__).resolve()
+print(json.dumps({
+    'build_available': module.build_effective_index is not None,
+    'hydration_available': module.hydration_view is not None,
+    'resolver_module': module.build_effective_index.__module__,
+    'resolver_file': str(resolver_file),
+}))
+"""
+        result = subprocess.run(
+            [sys.executable, "-c", probe, str(HERE)],
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        receipt = json.loads(result.stdout)
+        self.assertTrue(receipt["build_available"])
+        self.assertTrue(receipt["hydration_available"])
+        self.assertEqual(receipt["resolver_module"], "lib.effective_record")
+        self.assertEqual(
+            Path(receipt["resolver_file"]),
+            HERE / "lib" / "effective_record.py",
+        )
+
+    def test_rtch_blocks_when_effective_record_capability_is_unavailable(self):
+        spec = importlib.util.spec_from_file_location(
+            "rtch_capability_test",
+            HERE / "rtch.py",
+        )
+        rtch = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(rtch)
+        rtch.build_effective_index = None
+        rtch.hydration_view = None
+        rtch._EFFECTIVE_RECORD_IMPORT_ERROR = ImportError("fixture resolver failure")
+        output = io.StringIO()
+
+        with redirect_stdout(output):
+            code = rtch.main([])
+
+        self.assertEqual(code, 5)
+        receipt = json.loads(output.getvalue())
+        self.assertEqual(receipt["status"], "effective_record_capability_blocker")
+        self.assertEqual(receipt["consumer"], "tactical_hydration")
+        self.assertEqual(receipt["capability"], "effective_record_resolution")
+        self.assertEqual(receipt["exit_code"], 5)
+        self.assertIn("fixture resolver failure", receipt["error"])
+
     def test_rtch_replaces_raw_preview_with_effective_record(self):
         self.base(claim="disproven current claim")
         self.correction(patch={"claim": "correct current claim"})
