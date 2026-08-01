@@ -8,8 +8,9 @@ behavior at the append-only row boundary.
 
 from __future__ import annotations
 
-import json
+import copy
 import importlib.util
+import json
 import shutil
 import subprocess
 import sys
@@ -27,6 +28,7 @@ from lib.effective_record import (  # noqa: E402
     INDEX_RELATIVE,
     RECEIPTS_RELATIVE,
     build_effective_index,
+    digest_value,
     hydration_view,
     projection_status,
     reconcile,
@@ -273,6 +275,10 @@ class TestRealMigration(EffectiveRecordFixture):
         )
         self.assertTrue(migration["migration_receipt"]["canonical_correction_appended"])
         self.assertEqual(
+            migration["legacy_binding"]["legacy_row_digest"],
+            digest_value(migration["legacy_correction_snapshot"]),
+        )
+        self.assertEqual(
             migration["migration_receipt"]["canonical_append_commit"],
             "9c8c386091f281b494621a4b52276096aeefea8d",
         )
@@ -283,6 +289,42 @@ class TestRealMigration(EffectiveRecordFixture):
             ["rc_review_657_human_gate_and_supply_tic658"],
         )
         self.assertEqual(record["lineage"][0]["disposition"], "applied_ratified")
+
+    def test_legacy_binding_stays_stable_after_a_later_correction(self):
+        migration = json.loads(
+            (REPO_ROOT / "cgg-runtime/migrations/record-correction-tic658.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        surface = migration["canonical_correction"]["target_surface"]
+        self.append(surface, migration["base_record_snapshot"])
+        self.append(surface, migration["legacy_correction_snapshot"])
+        self.append(surface, migration["canonical_correction"])
+        later = copy.deepcopy(migration["canonical_correction"])
+        later.update({
+            "correction_id": "rc_review_657_later_clarification_tic659",
+            "patch": {"human_gate": "later ratified clarification"},
+            "literal_correction": "A later correction must not steal the legacy binding.",
+            "reason": "Exercise stable migration identity after another correction lands.",
+            "effective_tic": 659,
+            "effective_at": "2026-07-27T00:00:00Z",
+            "receipt_path": "audit-logs/reviews/later-correction-receipt.json",
+        })
+        self.append(surface, later)
+
+        index, record = self.one_record()
+        self.assertEqual(index["counts"]["unresolved"], 0)
+        self.assertEqual(
+            index["legacy_migrations"][0]["canonical_correction_id"],
+            "rc_review_657_human_gate_and_supply_tic658",
+        )
+        self.assertEqual(
+            record["applied_correction_ids"],
+            [
+                "rc_review_657_human_gate_and_supply_tic658",
+                "rc_review_657_later_clarification_tic659",
+            ],
+        )
 
     def test_unmigrated_legacy_correction_blocks_consumers(self):
         migration = json.loads(

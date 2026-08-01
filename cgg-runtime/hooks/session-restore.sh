@@ -94,10 +94,11 @@ PROJECT_KEY=$(echo "$PROJECT_DIR" | sed 's|/|-|g')
 # A pair of agreeing projections is not current truth when an append-only
 # correction landed on a third surface. Resolve corrections BEFORE any civic
 # worldview is hydrated. An unresolved chain suppresses worldview rendering
-# and leaves a loud hook badge. A resolved chain leaves worldview rendering
-# enabled while affected JSONL consumers receive only effective views. The
-# hook remains fail-soft on tool absence, but never silently emits a known
-# unsafe worldview after the resolver returns a hold.
+# and leaves a loud hook badge. A resolved correction also suppresses the raw
+# worldview compiler until that consumer can accept the row-scoped effective
+# projection; projection-aware consumers such as RTCH use the effective view.
+# The hook remains fail-soft on tool absence, but never silently emits a known
+# unsafe worldview after the resolver reports a correction or hold.
 # ============================================================================
 
 EFFECTIVE_RECORD_SCRIPT="$CGG_SCRIPTS_DIR/effective-record.py"
@@ -116,9 +117,10 @@ if [ -f "$EFFECTIVE_RECORD_SCRIPT" ]; then
     elif [ "$EFFECTIVE_RECORD_RC" -eq 2 ]; then
       EFFECTIVE_RECORD_HYDRATION_BLOCKED=1
     elif [ "$EFFECTIVE_RECORD_RC" -eq 3 ]; then
-      # Valid resolved corrections retain the routing badge, while the
-      # row-scoped projection prevents affected raw records from hydrating.
-      EFFECTIVE_RECORD_HYDRATION_BLOCKED=0
+      # The correction is resolved, but office-worldview.py is still a raw
+      # JSONL consumer. Preserve the effective-record badge and suppress that
+      # renderer until it can consume the row-scoped projection directly.
+      EFFECTIVE_RECORD_HYDRATION_BLOCKED=1
     else
       EFFECTIVE_RECORD_MSG="[EFFECTIVE RECORD WARNING: resolver execution failed; no correction-derived claim is admitted by this hook]"
       EFFECTIVE_RECORD_HYDRATION_BLOCKED=1
@@ -823,19 +825,21 @@ fi
 # Build handoff context
 # ============================================================================
 
+HANDOFF_MSG=""
 if [ -n "$LATEST_PLAN" ]; then
   NEXT_ACTIONS=$(awk '/^## Next Actions/,/^## [^N]/' "$LATEST_PLAN" 2>/dev/null | head -20 | sed 's/"/\\"/g' | tr '\n' ' ')
   if [ -n "$NEXT_ACTIONS" ] && [ ${#NEXT_ACTIONS} -gt 20 ]; then
-    CGG_MSG="[CGG HANDOFF NEXT ACTIONS: $NEXT_ACTIONS] [Full plan if needed: $LATEST_PLAN]"
+    HANDOFF_MSG="[CGG HANDOFF NEXT ACTIONS: $NEXT_ACTIONS] [Full plan if needed: $LATEST_PLAN]"
   else
     WORKING=$(awk '/^### Not Started/,/^### [^N]/' "$LATEST_PLAN" 2>/dev/null | head -15 | sed 's/"/\\"/g' | tr '\n' ' ')
     if [ -n "$WORKING" ] && [ ${#WORKING} -gt 20 ]; then
-      CGG_MSG="[CGG HANDOFF REMAINING: $WORKING] [Full plan if needed: $LATEST_PLAN]"
+      HANDOFF_MSG="[CGG HANDOFF REMAINING: $WORKING] [Full plan if needed: $LATEST_PLAN]"
     else
-      CGG_MSG="[CGG CHARTER: Read $LATEST_PLAN]"
+      HANDOFF_MSG="[CGG CHARTER: Read $LATEST_PLAN]"
     fi
   fi
 fi
+[ -n "$HANDOFF_MSG" ] && CGG_MSG="${CGG_MSG:+$CGG_MSG }$HANDOFF_MSG"
 if [ -n "$TRIGGER_MSG" ]; then
   CGG_MSG="$CGG_MSG $TRIGGER_MSG"
 fi

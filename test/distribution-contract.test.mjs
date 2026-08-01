@@ -266,7 +266,8 @@ test('third-surface correction contract is packaged and wired to review plus hyd
   assert.match(review, /check-index/);
   assert.match(session, /hydration-gate --format hook/);
   assert.match(session, /EFFECTIVE_RECORD_HYDRATION_BLOCKED/);
-  assert.match(session, /EFFECTIVE_RECORD_RC" -eq 3.*EFFECTIVE_RECORD_HYDRATION_BLOCKED=0/s);
+  assert.match(session, /EFFECTIVE_RECORD_RC" -eq 3.*EFFECTIVE_RECORD_HYDRATION_BLOCKED=1/s);
+  assert.match(session, /HANDOFF_MSG=""[\s\S]*CGG_MSG="\$\{CGG_MSG:\+\$CGG_MSG \}\$HANDOFF_MSG"/);
   assert.match(session, /command -v python3/);
   assert.doesNotMatch(hydration, /There is no `rtch\.py` runner yet/);
   assert.match(hydration, /rtch\.py.*operational/s);

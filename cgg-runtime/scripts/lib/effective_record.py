@@ -73,6 +73,44 @@ def digest_value(value: Any) -> str:
     return hashlib.sha256(canonical_json(value).encode("utf-8")).hexdigest()
 
 
+def _legacy_migration_bindings() -> dict[tuple[str, str], set[str]]:
+    """Load repository-controlled, exact legacy-row-to-correction bindings.
+
+    Legacy action rows predate the typed correction contract and carry no
+    canonical correction identifier.  A target/surface heuristic becomes
+    ambiguous as soon as the same record receives another correction, so each
+    admitted migration binds the immutable row digest and surface to one
+    explicit correction ID.
+    """
+    migrations_dir = Path(__file__).resolve().parents[2] / "migrations"
+    bindings: dict[tuple[str, str], set[str]] = {}
+    if not migrations_dir.is_dir():
+        return bindings
+
+    for path in sorted(migrations_dir.glob("*.json")):
+        try:
+            migration = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError, TypeError):
+            continue
+        binding = migration.get("legacy_binding")
+        snapshot = migration.get("legacy_correction_snapshot")
+        if not isinstance(binding, dict) or not isinstance(snapshot, dict):
+            continue
+        surface = binding.get("legacy_surface")
+        declared_digest = binding.get("legacy_row_digest")
+        correction_id = binding.get("canonical_correction_id")
+        if not all(isinstance(value, str) and value for value in (
+            surface,
+            declared_digest,
+            correction_id,
+        )):
+            continue
+        if declared_digest != digest_value(snapshot):
+            continue
+        bindings.setdefault((surface, declared_digest), set()).add(correction_id)
+    return bindings
+
+
 def resolve_audit_root(zone_root: str | Path) -> Path:
     root = Path(zone_root).resolve()
     relative = "audit-logs"
@@ -381,46 +419,56 @@ def build_effective_index(zone_root: str | Path) -> dict[str, Any]:
         ))
 
     legacy_migrations: list[dict[str, Any]] = []
+    legacy_bindings = _legacy_migration_bindings()
     for located in legacy_corrections:
         legacy_target = located.value.get("corrects")
-        matches = []
-        if isinstance(legacy_target, str) and legacy_target:
-            for candidate in corrections:
-                source = candidate.value.get("source")
-                source_surface = source.get("surface") if isinstance(source, dict) else None
-                if (
-                    candidate.value.get("target_record_id") == legacy_target
-                    and source_surface == located.surface
-                ):
-                    matches.append(candidate)
-        if len(matches) == 1:
+        row_digest = digest_value(located.value)
+        bound_ids = sorted(legacy_bindings.get((located.surface, row_digest), set()))
+        matches = [by_id[correction_id] for correction_id in bound_ids if correction_id in by_id]
+        binding_mismatch = False
+        if len(bound_ids) == 1 and len(matches) == 1:
+            candidate = matches[0]
+            source = candidate.value.get("source")
+            source_surface = source.get("surface") if isinstance(source, dict) else None
+            binding_mismatch = not (
+                candidate.value.get("target_record_id") == legacy_target
+                and source_surface == located.surface
+            )
+        if len(bound_ids) == 1 and len(matches) == 1 and not binding_mismatch:
             legacy_migrations.append({
                 "legacy_surface": located.surface,
                 "legacy_line": located.line,
+                "legacy_row_digest": row_digest,
                 "target_record_id": legacy_target,
-                "canonical_correction_id": matches[0].value.get("correction_id"),
+                "canonical_correction_id": bound_ids[0],
+                "binding_method": "exact_surface_and_canonical_row_digest",
                 "status": "mapped",
                 "disposition": "preserved_legacy_mapped_to_canonical",
             })
             continue
+        if len(bound_ids) > 1:
+            issue_code = "legacy_correction_ambiguous"
+            issue_message = "legacy row digest has multiple explicit canonical bindings"
+        elif binding_mismatch:
+            issue_code = "legacy_correction_binding_mismatch"
+            issue_message = "legacy binding points to a correction for another target or source surface"
+        else:
+            issue_code = "legacy_correction_unmigrated"
+            issue_message = "legacy action:record_correction row has no resolvable explicit migration binding"
         issue = _issue(
-            "legacy_correction_unmigrated" if not matches else "legacy_correction_ambiguous",
-            (
-                "legacy action:record_correction row has no typed canonical migration"
-                if not matches
-                else "legacy action:record_correction row maps to multiple typed corrections"
-            ),
+            issue_code,
+            issue_message,
             surface=located.surface,
             line=located.line,
             target_record_id=legacy_target,
-            canonical_matches=sorted(
-                str(item.value.get("correction_id")) for item in matches
-            ),
+            legacy_row_digest=row_digest,
+            canonical_matches=bound_ids,
         )
         unresolved.append(issue)
         legacy_migrations.append({
             "legacy_surface": located.surface,
             "legacy_line": located.line,
+            "legacy_row_digest": row_digest,
             "target_record_id": legacy_target,
             "canonical_correction_id": None,
             "status": "unresolved",

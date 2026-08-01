@@ -67,6 +67,12 @@
     "lifecycle_state": "ratified",
     "receipt_path": "cgg-runtime/migrations/record-correction-tic658.json"
   },
+  "legacy_binding": {
+    "binding_method": "exact_surface_and_canonical_row_digest",
+    "legacy_surface": "audit-logs/reviews/2026-07-26.jsonl",
+    "legacy_row_digest": "abd598274fea1e50a6cd2635a4f4ac3a578c255b5b520eefad93c3c79ca3f1e6",
+    "canonical_correction_id": "rc_review_657_human_gate_and_supply_tic658"
+  },
   "migration_receipt": {
     "method": "snapshot-preserving canonicalization",
     "base_record_retconned": false,

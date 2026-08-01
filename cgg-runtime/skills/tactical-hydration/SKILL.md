@@ -122,7 +122,10 @@ fanout, effective-record, or evidence-boundary contracts below.
    Exit 2 means an unresolved correction chain: stop with the typed warning.
    Exit 3 means corrected views exist: do not hydrate the raw target records;
    consume the emitted `effective_records` or narrow discovery away from those
-   surfaces. This is a source-integrity boundary, not an optional preflight.
+   surfaces. A consumer that cannot accept row-scoped effective views must
+   suppress its output; SessionStart therefore withholds the raw worldview
+   compiler on exit 3. This is a source-integrity boundary, not an optional
+   preflight.
 
 1. **Elicit the intake form** if not provided. The intake is the lane's contract. Required fields:
    - `goal` (one sentence)
