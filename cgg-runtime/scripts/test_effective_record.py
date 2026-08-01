@@ -849,6 +849,61 @@ class TestHydrationAndExportConsumers(EffectiveRecordFixture):
         self.assertIn("legacy_correction_unmigrated", result.stderr)
         self.assertIn("Raw corrected surfaces were excluded", result.stderr)
 
+    def test_consolidate_clone_retains_history_for_valid_receipt_binding(self):
+        self.base(claim="disproven current claim")
+        correction = self.correction(patch={"claim": "correct current claim"})
+        source_surface = correction["source"]["surface"]
+        append_commit = self.git("rev-parse", "HEAD").stdout.strip()
+        note = self.tmp / "later-note.md"
+        note.write_text("later unrelated commit\n", encoding="utf-8")
+        head_commit = self.commit_zone("Advance after trusted correction append")
+        self.assertNotEqual(append_commit, head_commit)
+
+        spec = importlib.util.spec_from_file_location(
+            "consolidate_history_test",
+            HERE / "consolidate.py",
+        )
+        consolidate = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(consolidate)
+        canonical_url = "https://github.com/prompted365/canonical_federation.git"
+        files, clone_dir, _ = consolidate.collect_from_git_repo(str(self.tmp))
+        try:
+            subprocess.run(
+                ["git", "-C", clone_dir, "remote", "set-url", "origin", canonical_url],
+                check=True,
+                capture_output=True,
+                text=True,
+            )
+            shallow = subprocess.run(
+                ["git", "-C", clone_dir, "rev-parse", "--is-shallow-repository"],
+                check=True,
+                capture_output=True,
+                text=True,
+            ).stdout.strip()
+            ancestry = subprocess.run(
+                ["git", "-C", clone_dir, "merge-base", "--is-ancestor", append_commit, "HEAD"],
+                capture_output=True,
+                text=True,
+            )
+            holds = consolidate.effective_record_export_holds(files)
+
+            self.assertEqual(shallow, "false")
+            self.assertEqual(ancestry.returncode, 0, ancestry.stderr)
+            held_paths = {hold["target_path"] for hold in holds}
+            self.assertIn(str((Path(clone_dir) / TARGET).resolve()), held_paths)
+            self.assertNotIn(
+                str((Path(clone_dir) / source_surface).resolve()),
+                held_paths,
+            )
+            self.assertTrue(
+                any(hold["reason"] == "raw_surface_has_effective_view" for hold in holds)
+            )
+            self.assertFalse(
+                any(hold.get("issue_code") == "unverified_repository_binding" for hold in holds)
+            )
+        finally:
+            shutil.rmtree(clone_dir, ignore_errors=True)
+
 
 if __name__ == "__main__":
     unittest.main()

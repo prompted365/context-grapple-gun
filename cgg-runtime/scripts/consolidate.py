@@ -383,7 +383,13 @@ def collect_from_git_repo(url: str) -> tuple:
     tmpdir = os.path.join(tempfile.gettempdir(), f"consolidate-{url_hash}")
     if os.path.exists(tmpdir):
         shutil.rmtree(tmpdir)
-    subprocess.run(["git", "clone", "--depth", "1", url, tmpdir],
+    # Repository-bound correction receipts may point to any ancestor of HEAD.
+    # Keep the full default-branch commit graph while avoiding historical blob
+    # transfer until a receipt's exact append surface is inspected.
+    subprocess.run([
+        "git", "clone", "--filter=blob:none", "--single-branch", "--no-tags",
+        url, tmpdir,
+    ],
                    capture_output=True, check=True, timeout=120)
     # Get commit hash
     result = subprocess.run(["git", "-C", tmpdir, "rev-parse", "HEAD"],
