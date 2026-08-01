@@ -138,7 +138,18 @@ def record_identifiers(row: dict[str, Any]) -> list[str]:
 
 
 def is_correction(row: dict[str, Any]) -> bool:
-    return row.get("type") == CORRECTION_TYPE or row.get("action") == CORRECTION_TYPE
+    """Return true only for the canonical, typed correction envelope.
+
+    Historical rows used ``action: record_correction`` before the v1 contract
+    existed.  Treating those snapshots as v1 envelopes turns their expected
+    missing fields into permanent validation failures.  They are tracked
+    separately and must be paired with a typed migration instead.
+    """
+    return row.get("type") == CORRECTION_TYPE
+
+
+def is_legacy_correction(row: dict[str, Any]) -> bool:
+    return row.get("type") != CORRECTION_TYPE and row.get("action") == CORRECTION_TYPE
 
 
 def _issue(code: str, message: str, **context: Any) -> dict[str, Any]:
@@ -276,6 +287,7 @@ def scan(zone_root: str | Path) -> dict[str, Any]:
     paths = discover_jsonl(root)
     bases: dict[tuple[str, str], list[LocatedRow]] = {}
     corrections: list[LocatedRow] = []
+    legacy_corrections: list[LocatedRow] = []
     parse_issues: list[dict[str, Any]] = []
 
     for path in paths:
@@ -299,6 +311,9 @@ def scan(zone_root: str | Path) -> dict[str, Any]:
             if is_correction(row):
                 corrections.append(located)
                 continue
+            if is_legacy_correction(row):
+                legacy_corrections.append(located)
+                continue
             for identifier in record_identifiers(row):
                 bases.setdefault((surface, identifier), []).append(located)
 
@@ -309,6 +324,7 @@ def scan(zone_root: str | Path) -> dict[str, Any]:
         "source_digest": source_digest(root, paths),
         "bases": bases,
         "corrections": corrections,
+        "legacy_corrections": legacy_corrections,
         "parse_issues": parse_issues,
     }
 
@@ -316,6 +332,7 @@ def scan(zone_root: str | Path) -> dict[str, Any]:
 def build_effective_index(zone_root: str | Path) -> dict[str, Any]:
     scanned = scan(zone_root)
     corrections = scanned["corrections"]
+    legacy_corrections = scanned["legacy_corrections"]
     bases = scanned["bases"]
     unresolved: list[dict[str, Any]] = list(scanned["parse_issues"])
     by_id: dict[str, LocatedRow] = {}
@@ -343,6 +360,51 @@ def build_effective_index(zone_root: str | Path) -> dict[str, Any]:
             "correction_id appears more than once",
             correction_id=correction_id,
         ))
+
+    legacy_migrations: list[dict[str, Any]] = []
+    for located in legacy_corrections:
+        legacy_target = located.value.get("corrects")
+        matches = []
+        if isinstance(legacy_target, str) and legacy_target:
+            for candidate in corrections:
+                source = candidate.value.get("source")
+                source_surface = source.get("surface") if isinstance(source, dict) else None
+                if (
+                    candidate.value.get("target_record_id") == legacy_target
+                    and source_surface == located.surface
+                ):
+                    matches.append(candidate)
+        if len(matches) == 1:
+            legacy_migrations.append({
+                "legacy_surface": located.surface,
+                "legacy_line": located.line,
+                "target_record_id": legacy_target,
+                "canonical_correction_id": matches[0].value.get("correction_id"),
+                "status": "mapped",
+            })
+            continue
+        issue = _issue(
+            "legacy_correction_unmigrated" if not matches else "legacy_correction_ambiguous",
+            (
+                "legacy action:record_correction row has no typed canonical migration"
+                if not matches
+                else "legacy action:record_correction row maps to multiple typed corrections"
+            ),
+            surface=located.surface,
+            line=located.line,
+            target_record_id=legacy_target,
+            canonical_matches=sorted(
+                str(item.value.get("correction_id")) for item in matches
+            ),
+        )
+        unresolved.append(issue)
+        legacy_migrations.append({
+            "legacy_surface": located.surface,
+            "legacy_line": located.line,
+            "target_record_id": legacy_target,
+            "canonical_correction_id": None,
+            "status": "unresolved",
+        })
 
     grouped: dict[tuple[str, str], list[LocatedRow]] = {}
     for located in corrections:
@@ -490,12 +552,17 @@ def build_effective_index(zone_root: str | Path) -> dict[str, Any]:
         "counts": {
             "source_files": len(scanned["paths"]),
             "correction_rows": len(corrections),
+            "legacy_correction_rows": len(legacy_corrections),
+            "mapped_legacy_corrections": sum(
+                1 for migration in legacy_migrations if migration["status"] == "mapped"
+            ),
             "target_records": len(records),
             "changed_records": len(changed),
             "review_required_records": len(review_required),
             "unresolved": len(unresolved),
         },
         "records": records,
+        "legacy_migrations": legacy_migrations,
         "unresolved": sorted(unresolved, key=canonical_json),
     }
     index["index_digest"] = digest_value(index)
@@ -669,6 +736,7 @@ def hydration_view(index: dict[str, Any]) -> dict[str, Any]:
         {
             "target_record_id": record["target_record_id"],
             "target_surface": record["target_surface"],
+            "base_location": record["base_location"],
             "effective_record": record["effective_record"],
             "applied_correction_ids": record["applied_correction_ids"],
         }

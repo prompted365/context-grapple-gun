@@ -30,8 +30,9 @@ short-lived workflow identity, not a registry token.
 
 ## Admission and dispatch
 
-Publication remains held until GitHub issue #16 is closed with one comment
-containing all three exact receipt lines:
+Publication remains held until GitHub issue #16 is closed with one trusted
+owner, member, or collaborator comment containing all three exact receipt
+lines as one contiguous tuple:
 
 ```text
 publication-admission-commit: <full main commit sha>
@@ -48,10 +49,10 @@ dist_tag         = latest
 dry_run          = false
 ```
 
-The workflow refuses a different branch, an open issue #16, a missing or
-mismatched admission receipt, a non-candidate status, a shared-version
-mismatch, or an already-published version. It packs and tests the artifact,
-publishes through OIDC, and requires the registry to return all of:
+The workflow refuses a different branch, an open issue #16, an untrusted,
+split, missing, or mismatched admission receipt, a non-candidate source, or a
+shared-version mismatch. It packs and tests the artifact, publishes through
+OIDC, and requires the registry to return all of:
 
 - version `5.0.0`;
 - the requested `latest` dist-tag;
@@ -63,3 +64,10 @@ Only after those checks pass does the workflow transition
 base status is `published`, CI forbids any runtime change at the same semantic
 version. That closes the drift window: a candidate may be completed before
 admission, but an admitted artifact is immutable.
+
+If npm accepted the immutable artifact but `main` advanced before the source
+receipt push, a rerun checks that the registry integrity exactly matches a
+deterministic repack of the admitted source. It then skips the duplicate
+publish, rebases the receipt over non-package changes, and retries the
+fast-forward push. Any concurrent change to the packed surface is held for
+governed repair rather than being mislabeled as the published artifact.

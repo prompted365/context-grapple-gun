@@ -120,6 +120,9 @@ test('npm package contains the deterministic runtime payload and one release ide
   assert.equal(pkg.publishConfig.access, 'public');
   assert.equal(pkg.publishConfig.provenance, true);
   assert.ok(existsSync(join(ROOT, '.github', 'workflows', 'npm-release.yml')));
+  const runtimeNpmIgnore = readFileSync(join(ROOT, 'cgg-runtime', '.npmignore'), 'utf-8');
+  assert.match(runtimeNpmIgnore, /__pycache__/);
+  assert.match(runtimeNpmIgnore, /\*\.pyc/);
 });
 
 test('zone bootstrap is idempotent and never activates PRESTIGE', () => {
@@ -253,7 +256,23 @@ test('npm publication is tokenless OIDC and transitions status only after regist
   assert.match(workflow, /npm@\^11\.5\.1/);
   assert.match(workflow, /publication-admission-commit/);
   assert.match(workflow, /issue #16 is/);
+  assert.match(workflow, /author_association/);
+  assert.match(workflow, /trustedAssociations/);
+  assert.match(workflow, /--paginate --slurp/);
+  assert.match(workflow, /single trusted issue comment/);
+  assert.match(workflow, /Registry already carries the exact artifact; entering receipt-only recovery/);
+  assert.match(workflow, /publication_needed=false/);
+  assert.match(workflow, /git rebase origin\/main/);
+  assert.match(workflow, /main advanced during receipt write; retrying/);
+  assert.match(workflow, /Transient Python cache entered tarball/);
+  assert.match(workflow, /ref: \$\{\{ inputs\.expected_commit \}\}/);
   assert.doesNotMatch(workflow, /NPM_TOKEN/);
+  const deterministicManifest = workflow.slice(
+    workflow.indexOf('Write exact source receipt into the package workspace'),
+    workflow.indexOf('Test distribution contract'),
+  );
+  assert.doesNotMatch(deterministicManifest, /new Date/);
+  assert.doesNotMatch(deterministicManifest, /workflow_run/);
   const publishAt = workflow.indexOf('npm publish');
   const verifyAt = workflow.indexOf('Verify registry receipt');
   const transitionAt = workflow.indexOf('Transition public release status after registry verification');

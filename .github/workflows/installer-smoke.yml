@@ -53,6 +53,7 @@ jobs:
           npm pack --json > "$RUNNER_TEMP/cgg-pack.json"
           TARBALL="$(node -e "const x=require(process.argv[1]); process.stdout.write(x[0].filename)" "$RUNNER_TEMP/cgg-pack.json")"
           test -f "$TARBALL"
+          node -e "const x=require(process.argv[1]);const bad=x[0].files.filter(f=>/(^|\/)__pycache__\/|\.py[co]$|(^|\/)\.pytest_cache\//.test(f.path));if(bad.length){console.error('Transient Python cache entered tarball:',bad);process.exit(1)}" "$RUNNER_TEMP/cgg-pack.json"
           PREFIX="$RUNNER_TEMP/cgg-prefix"
           npm install --prefix "$PREFIX" "$GITHUB_WORKSPACE/$TARBALL"
           test -x "$PREFIX/node_modules/.bin/cgg"

@@ -7,6 +7,8 @@ Public registry status is governed by [`release-status.json`](release-status.jso
 - Added the typed third-surface `record_correction` schema, deterministic effective-record resolver, derived back-reference/index receipts, `/review` hold, and SessionStart hydration gate required by the v5 publication admission.
 - Migrated the lived tic 657→658 correction chain as a provenance-pinned, snapshot-preserving regression receipt.
 - Replaced the release workflow's long-lived npm token with exact-workflow OIDC Trusted Publishing and made registry version, dist-tag, and tarball integrity verification precede the public status transition.
+- Bound publication admission to one trusted issue-comment tuple and made registry-exact receipt recovery idempotent across concurrent, non-package `main` advances.
+- Excluded generated Python bytecode/test caches from npm payloads and made CI reject or same-version-freeze any reintroduction.
 
 This release rebinds the public package and Claude Code plugin to the current CGG v5 runtime instead of preserving the older 4.0.1 distribution assumptions.
 

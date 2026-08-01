@@ -983,43 +983,117 @@ def apply_effective_record_projection(
     zone: dict[str, Any],
     projection: dict[str, Any],
 ) -> None:
-    """Replace raw previews from corrected surfaces with effective views.
+    """Project corrected JSONL rows without discarding unrelated evidence.
 
-    RTCH may still identify the append-only source as evidence, but it must not
-    emit a disproven base row as current hydration.  Every hit/chunk from an
-    affected surface is therefore redacted and replaced by the shared
-    resolver's effective record set for that surface.
+    A correction applies to one identified base row, not every row that shares
+    its append-only file.  Exact target hits become effective-record views;
+    bounded chunks preserve unrelated lines and replace only corrected base
+    line numbers.  This keeps a query hit on a neighboring row from being
+    relabeled as evidence for an unrelated correction.
     """
     root = Path(zone["zone_root"]).resolve()
-    by_path: dict[str, list[dict[str, Any]]] = {}
+    by_path: dict[str, dict[int, list[dict[str, Any]]]] = {}
     for record in projection.get("effective_records", []):
+        location = record.get("base_location")
+        line = location.get("line") if isinstance(location, dict) else None
+        if not isinstance(line, int) or line < 1:
+            continue
         full = (root / record["target_surface"]).resolve()
-        by_path.setdefault(str(full), []).append(record)
+        by_path.setdefault(str(full), {}).setdefault(line, []).append(record)
     if not by_path:
         return
 
     for probe in executed:
         for hit in probe.get("hits", []):
             path = hit.get("path")
-            if path and str(Path(path).resolve()) in by_path:
-                hit["preview"] = "[superseded base preview withheld; consume effective_record_projection]"
+            line = hit.get("line")
+            affected = by_path.get(str(Path(path).resolve())) if path else None
+            matched = affected.get(line, []) if affected and isinstance(line, int) else []
+            if matched:
+                hit["preview"] = "\n".join(_render_effective_record(record) for record in matched)
                 hit["effective_record_required"] = True
+                hit["effective_record_ids"] = [
+                    record["target_record_id"] for record in matched
+                ]
 
     for chunk in chunks:
         path = chunk.get("path")
-        affected = by_path.get(str(Path(path).resolve())) if path else None
+        affected_by_line = by_path.get(str(Path(path).resolve())) if path else None
+        bounds = _chunk_line_bounds(chunk)
+        if not affected_by_line or bounds is None:
+            continue
+        start, end = bounds
+        affected = {
+            line: records for line, records in affected_by_line.items()
+            if start <= line <= end
+        }
         if not affected:
             continue
-        rendered = json.dumps(affected, sort_keys=True, ensure_ascii=False)
+        try:
+            rendered_lines: list[str] = []
+            with Path(path).open(encoding="utf-8", errors="ignore") as handle:
+                for line_number, raw in enumerate(handle, 1):
+                    if line_number < start:
+                        continue
+                    if line_number > end:
+                        break
+                    replacements = affected.get(line_number)
+                    if replacements:
+                        rendered_lines.extend(
+                            _render_effective_record(record) + "\n"
+                            for record in replacements
+                        )
+                    else:
+                        rendered_lines.append(raw)
+            rendered = "".join(rendered_lines)
+        except OSError:
+            rendered = "[effective-record projection unavailable; raw bounded chunk withheld]"
+            chunk["confidence_class"] = "effective_record_projection_hold"
+
+        ids = sorted({
+            record["target_record_id"]
+            for records in affected.values()
+            for record in records
+        })
         chunk["body_preview"] = rendered[:600]
         chunk["body_full_chars"] = len(rendered)
-        chunk["confidence_class"] = "effective_record_view"
-        chunk["limitation"] = "Resolver-derived current view; inspect preserved lineage for the authored base."
-        chunk["why_included"] = "Raw target surface has an admitted third-surface correction."
-        ids = [record["target_record_id"] for record in affected]
-        chunk["next_re_entry_command"] = (
+        chunk["effective_record_ids"] = ids
+        target_line = chunk.get("target_line")
+        if isinstance(target_line, int) and target_line in affected:
+            chunk["confidence_class"] = "effective_record_view"
+        existing_limitation = chunk.get("limitation", "")
+        projection_note = "Corrected rows use resolver views; unrelated bounded rows are preserved."
+        chunk["limitation"] = " ".join(
+            value for value in (existing_limitation, projection_note) if value
+        )
+        chunk["effective_record_re_entry_command"] = (
             "effective-record.py resolve --record-id " + ",".join(ids)
         )
+
+
+def _render_effective_record(record: dict[str, Any]) -> str:
+    return json.dumps({
+        "type": "effective_record_view",
+        "target_record_id": record["target_record_id"],
+        "target_surface": record["target_surface"],
+        "effective_record": record["effective_record"],
+        "applied_correction_ids": record.get("applied_correction_ids", []),
+    }, sort_keys=True, ensure_ascii=False)
+
+
+def _chunk_line_bounds(chunk: dict[str, Any]) -> Optional[tuple[int, int]]:
+    start = chunk.get("start_line")
+    end = chunk.get("end_line")
+    if isinstance(start, int) and isinstance(end, int) and start >= 1 and end >= start:
+        return start, end
+    line_range = chunk.get("line_range")
+    if isinstance(line_range, str):
+        match = re.fullmatch(r"L(\d+)-L(\d+)", line_range)
+        if match:
+            parsed = (int(match.group(1)), int(match.group(2)))
+            if parsed[0] >= 1 and parsed[1] >= parsed[0]:
+                return parsed
+    return None
 
 
 def _execute_probe(probe: dict[str, Any], zone: dict[str, Any]) -> dict[str, Any]:
@@ -1143,6 +1217,9 @@ def _hydrate_hits(probe_outcome: dict[str, Any], zone: dict[str, Any], intake: d
             "chunk_id": f"rtch_chunk_{probe_outcome['probe_id']}_{len(chunks)+1:02d}",
             "path": path,
             "line_range": f"L{start}-L{end}",
+            "start_line": start,
+            "end_line": end,
+            "target_line": line if isinstance(line, int) and line > 0 else None,
             "why_included": f"{family} hit on '{hit.get('matched_term','?')}' at L{line}",
             "term_or_shape": hit.get("matched_term", "?"),
             "confidence_class": confidence,

@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 """Regression floor for the third-surface effective-record contract.
 
-The eight named arms mirror the publication gate in issue #16.  A ninth arm
-executes the migrated tic 657→658 correction from current federation history.
+The eight named arms mirror the publication gate in issue #16.  Migration and
+consumer arms exercise the real tic 657→658 correction plus safe RTCH/export
+behavior at the append-only row boundary.
 """
 
 from __future__ import annotations
@@ -220,10 +221,17 @@ class TestRealMigration(EffectiveRecordFixture):
         )
         surface = migration["canonical_correction"]["target_surface"]
         self.append(surface, migration["base_record_snapshot"])
+        self.append(surface, migration["legacy_correction_snapshot"])
         self.append(surface, migration["canonical_correction"])
 
         index, record = self.one_record()
         self.assertEqual(index["counts"]["unresolved"], 0)
+        self.assertEqual(index["counts"]["legacy_correction_rows"], 1)
+        self.assertEqual(index["counts"]["mapped_legacy_corrections"], 1)
+        self.assertEqual(
+            index["legacy_migrations"][0]["canonical_correction_id"],
+            "rc_review_657_human_gate_and_supply_tic658",
+        )
         self.assertIn("not resident", record["base_record"]["human_gate"])
         self.assertIn("was resident", record["effective_record"]["human_gate"])
         self.assertEqual(
@@ -231,6 +239,23 @@ class TestRealMigration(EffectiveRecordFixture):
             ["rc_review_657_human_gate_and_supply_tic658"],
         )
         self.assertEqual(record["lineage"][0]["disposition"], "applied_ratified")
+
+    def test_unmigrated_legacy_correction_blocks_consumers(self):
+        migration = json.loads(
+            (REPO_ROOT / "cgg-runtime/migrations/record-correction-tic658.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        surface = migration["canonical_correction"]["target_surface"]
+        self.append(surface, migration["base_record_snapshot"])
+        self.append(surface, migration["legacy_correction_snapshot"])
+
+        index = build_effective_index(self.tmp)
+        self.assertEqual(index["counts"]["correction_rows"], 0)
+        self.assertEqual(index["counts"]["legacy_correction_rows"], 1)
+        self.assertEqual(index["unresolved"][0]["code"], "legacy_correction_unmigrated")
+        self.assertEqual(review_gate(index)["status"], "hold")
+        self.assertEqual(hydration_view(index)["status"], "blocked")
 
 
 class TestHydrationAndExportConsumers(EffectiveRecordFixture):
@@ -243,9 +268,13 @@ class TestHydrationAndExportConsumers(EffectiveRecordFixture):
         rtch = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(rtch)
         target = str((self.tmp / TARGET).resolve())
-        executed = [{"hits": [{"path": target, "preview": "disproven current claim"}]}]
+        executed = [{"hits": [{"path": target, "line": 1, "preview": "disproven current claim"}]}]
         chunks = [{
             "path": target,
+            "line_range": "L1-L1",
+            "start_line": 1,
+            "end_line": 1,
+            "target_line": 1,
             "body_preview": "disproven current claim",
             "body_full_chars": 23,
             "confidence_class": "source_bearing_hit",
@@ -260,6 +289,45 @@ class TestHydrationAndExportConsumers(EffectiveRecordFixture):
         self.assertNotIn("disproven current claim", rendered)
         self.assertIn("correct current claim", rendered)
         self.assertEqual(chunks[0]["confidence_class"], "effective_record_view")
+
+    def test_rtch_preserves_unrelated_hits_on_a_corrected_jsonl_surface(self):
+        self.base(claim="disproven current claim")
+        self.append(TARGET, {"id": "unrelated", "claim": "independent evidence"})
+        self.correction(patch={"claim": "correct current claim"})
+        projection = hydration_view(build_effective_index(self.tmp))
+
+        spec = importlib.util.spec_from_file_location("rtch_effective_scope_test", HERE / "rtch.py")
+        rtch = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(rtch)
+        target = str((self.tmp / TARGET).resolve())
+        executed = [{"hits": [{
+            "path": target,
+            "line": 2,
+            "preview": "independent evidence",
+        }]}]
+        chunks = [{
+            "path": target,
+            "line_range": "L1-L2",
+            "start_line": 1,
+            "end_line": 2,
+            "target_line": 2,
+            "body_preview": "disproven current claim\nindependent evidence",
+            "body_full_chars": 44,
+            "confidence_class": "claim_supporting",
+            "limitation": "bounded hit",
+            "why_included": "unrelated row matched",
+            "next_re_entry_command": "Read unrelated row",
+        }]
+        rtch.apply_effective_record_projection(
+            executed, chunks, {"zone_root": str(self.tmp)}, projection
+        )
+
+        self.assertEqual(executed[0]["hits"][0]["preview"], "independent evidence")
+        self.assertEqual(chunks[0]["confidence_class"], "claim_supporting")
+        self.assertEqual(chunks[0]["why_included"], "unrelated row matched")
+        self.assertIn("independent evidence", chunks[0]["body_preview"])
+        self.assertIn("correct current claim", chunks[0]["body_preview"])
+        self.assertNotIn("disproven current claim", chunks[0]["body_preview"])
 
     def test_consolidate_blocks_raw_corrected_surface_export(self):
         self.base(claim="disproven current claim")
