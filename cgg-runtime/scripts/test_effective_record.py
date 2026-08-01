@@ -235,7 +235,9 @@ runpy.run_path(sys.argv[0], run_name="__main__")
             "receipt_path": "audit-logs/corrections/test.json",
         }
         row.update(overrides)
-        if trusted and row.get("lifecycle_state") in {"authorized", "ratified"}:
+        if trusted and row.get("lifecycle_state") in {
+            "authorized", "ratified", "superseded", "revoked",
+        }:
             self.append_trusted_correction(located_surface, row)
         else:
             self.append(located_surface, row)
@@ -264,6 +266,7 @@ class TestIssue16RegressionArms(EffectiveRecordFixture):
         self.assertEqual(record["base_record"]["claim"], "Architect not resident")
         self.assertEqual(record["effective_record"]["claim"], "Architect was resident")
         self.assertEqual(review_gate(index)["status"], "hold")
+        self.assertEqual(hydration_view(index)["status"], "blocked")
 
     def test_authorized_backref_updates_effective_view(self):
         self.base()
@@ -310,6 +313,26 @@ class TestIssue16RegressionArms(EffectiveRecordFixture):
         self.assertEqual(index["counts"]["unresolved"], 0)
         self.assertEqual(record["effective_record"], record["base_record"])
         self.assertEqual(record["lineage"][0]["disposition"], "revoked")
+        self.assertTrue(record["lineage"][0]["authority_receipt_verified"])
+
+    def test_unauthenticated_revocation_cannot_resurrect_disproven_truth(self):
+        self.base()
+        correction = self.correction()
+        source_path = self.tmp / correction["source"]["surface"]
+        tampered = copy.deepcopy(correction)
+        tampered["lifecycle_state"] = "revoked"
+        source_path.write_text(json.dumps(tampered, sort_keys=True) + "\n", encoding="utf-8")
+        self.commit_zone("Attempt unauthenticated correction revocation")
+
+        index, record = self.one_record()
+        self.assertIn(
+            "unverified_authorization_receipt",
+            {issue["code"] for issue in index["unresolved"]},
+        )
+        self.assertEqual(record["lineage"][0]["disposition"], "discarded_invalid")
+        self.assertFalse(record["lineage"][0]["authority_receipt_verified"])
+        self.assertEqual(review_gate(index)["status"], "hold")
+        self.assertEqual(hydration_view(index)["status"], "blocked")
 
     def test_duplicate_correction_id_is_unresolved(self):
         self.base()
@@ -341,6 +364,7 @@ class TestIssue16RegressionArms(EffectiveRecordFixture):
         self.assertEqual(record["effective_record"], record["base_record"])
         self.assertEqual(record["lineage"][0]["disposition"], "proposed_not_applied")
         self.assertEqual(review_gate(index)["status"], "hold")
+        self.assertEqual(hydration_view(index)["status"], "blocked")
 
     def test_self_asserted_ratification_and_forged_zone_receipt_never_apply(self):
         self.base()

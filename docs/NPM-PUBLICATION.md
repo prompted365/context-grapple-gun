@@ -68,6 +68,11 @@ through OIDC, and requires the registry to return all of:
   clean registry install;
 - a successful registry-origin `cgg --version` execution.
 
+Immediately before the irreversible `npm publish`, the workflow refetches
+`main` and compares every top-level path represented by the actual pack receipt
+against the admitted commit. Any packed-surface advance stops publication;
+unrelated non-package advances remain eligible for receipt reconciliation.
+
 Only after those checks pass does the workflow transition
 `release-status.json` to `published`, bind the registry integrity and
 attestation metadata into `release-manifest.json`, validate the two receipt

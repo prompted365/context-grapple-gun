@@ -292,6 +292,10 @@ test('third-surface correction contract is packaged and wired to review plus hyd
     'utf-8',
   ));
   assert.ok(authorizationSchema.required.includes('canonical_append_surface'));
+  assert.deepEqual(
+    [...authorizationSchema.properties.lifecycle_state.enum].sort(),
+    ['authorized', 'ratified', 'revoked', 'superseded'],
+  );
   assert.equal(
     migration.canonical_authorization_receipt.canonical_append_surface,
     migration.provenance.surface,
@@ -348,8 +352,10 @@ test('npm publication is tokenless OIDC and transitions status only after regist
   assert.doesNotMatch(deterministicManifest, /new Date/);
   assert.doesNotMatch(deterministicManifest, /workflow_run/);
   const publishAt = workflow.indexOf('npm publish');
+  const prePublishDriftAt = workflow.indexOf('refusing irreversible npm publication');
   const verifyAt = workflow.indexOf('Verify registry receipt');
   const transitionAt = workflow.indexOf('Transition public release status after registry verification');
+  assert.ok(prePublishDriftAt >= 0 && prePublishDriftAt < publishAt);
   assert.ok(publishAt >= 0 && publishAt < verifyAt && verifyAt < transitionAt);
 });
 

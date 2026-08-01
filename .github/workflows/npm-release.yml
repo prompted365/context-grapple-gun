@@ -160,6 +160,9 @@ jobs:
           test -f "$TARBALL"
           echo "tarball=$TARBALL" >> "$GITHUB_OUTPUT"
           node -e "const x=require(process.argv[1]);const bad=x[0].files.filter(f=>/(^|\/)__pycache__\/|\.py[co]$|(^|\/)\.pytest_cache\//.test(f.path));if(bad.length){console.error('Transient Python cache entered tarball:',bad);process.exit(1)}" "$RUNNER_TEMP/cgg-pack.json"
+          node -e "const x=require(process.argv[1]);const roots=new Set(x[0].files.map(({path})=>path.split('/')[0]));process.stdout.write([...roots].sort().join('\\n')+'\\n')" \
+            "$RUNNER_TEMP/cgg-pack.json" > "$RUNNER_TEMP/cgg-packed-path-roots.txt"
+          test -s "$RUNNER_TEMP/cgg-packed-path-roots.txt"
           node -e "const fs=require('fs');const x=require(process.argv[1]);console.log(JSON.stringify(x,null,2))" "$RUNNER_TEMP/cgg-pack.json"
       - name: Classify registry state for publish or receipt recovery
         id: registry_state
@@ -207,7 +210,23 @@ jobs:
         env:
           TARBALL: ${{ steps.pack.outputs.tarball }}
           DIST_TAG: ${{ inputs.dist_tag }}
-        run: npm publish "$TARBALL" --tag "$DIST_TAG" --access public
+          EXPECTED_COMMIT: ${{ inputs.expected_commit }}
+        run: |
+          set -euo pipefail
+          git fetch origin main
+          git merge-base --is-ancestor "$EXPECTED_COMMIT" origin/main || {
+            echo "Approved source commit is no longer an ancestor of main" >&2
+            exit 1
+          }
+          mapfile -t PACKED_PATHS < "$RUNNER_TEMP/cgg-packed-path-roots.txt"
+          test "${#PACKED_PATHS[@]}" -gt 0
+          PACKED_DRIFT="$(git diff --name-only "$EXPECTED_COMMIT"..origin/main -- "${PACKED_PATHS[@]}")"
+          if [ -n "$PACKED_DRIFT" ]; then
+            echo "Packed surface changed after admission; refusing irreversible npm publication:" >&2
+            echo "$PACKED_DRIFT" >&2
+            exit 1
+          fi
+          npm publish "$TARBALL" --tag "$DIST_TAG" --access public
       - name: Verify registry receipt and provenance
         if: ${{ !inputs.dry_run }}
         env:
@@ -307,7 +326,6 @@ jobs:
           EXPECTED_VERSION: ${{ inputs.expected_version }}
           EXPECTED_COMMIT: ${{ inputs.expected_commit }}
           DIST_TAG: ${{ inputs.dist_tag }}
-          PACK_RECEIPT: ${{ runner.temp }}/cgg-pack.json
         run: |
           set -euo pipefail
           git config user.name "Prompted Release Bot"
@@ -360,10 +378,7 @@ jobs:
               exit 1
             }
 
-            PACKED_PATHS_FILE="$RUNNER_TEMP/cgg-packed-path-roots.txt"
-            node -e "const x=require(process.env.PACK_RECEIPT);const roots=new Set(x[0].files.map(({path})=>path.split('/')[0]));process.stdout.write([...roots].sort().join('\\n')+'\\n')" \
-              > "$PACKED_PATHS_FILE"
-            mapfile -t PACKED_PATHS < "$PACKED_PATHS_FILE"
+            mapfile -t PACKED_PATHS < "$RUNNER_TEMP/cgg-packed-path-roots.txt"
             test "${#PACKED_PATHS[@]}" -gt 0 || {
               echo "Packed receipt produced no admitted path roots" >&2
               exit 1

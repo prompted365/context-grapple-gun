@@ -47,6 +47,7 @@ ACTIVE_STATES = {"authorized", "ratified"}
 REVIEW_REQUIRED_STATES = {"proposed", "authorized"}
 INACTIVE_STATES = {"superseded", "revoked"}
 LIFECYCLE_STATES = ACTIVE_STATES | REVIEW_REQUIRED_STATES | INACTIVE_STATES
+PROVENANCE_REQUIRED_STATES = ACTIVE_STATES | INACTIVE_STATES
 AUTHORITY_CLASSES = {
     "architect",
     "ratified_review",
@@ -168,10 +169,10 @@ def _trusted_correction_receipts() -> dict[str, dict[str, str]]:
     """Return digest-bound, packaged authorization receipt metadata.
 
     A correction row's self-asserted lifecycle and authority strings are not
-    evidence of admission.  The resolver applies an active correction only
-    when an immutable copy and its digest-bound authorization receipt coexist
-    in the managed runtime migration inventory.  Repository proof is evaluated
-    separately against the zone's local Git history.
+    evidence of admission.  The resolver honors any truth-affecting correction
+    state only when an immutable copy and its digest-bound authorization receipt
+    coexist in the managed runtime migration inventory.  Repository proof is
+    evaluated separately against the zone's local Git history.
     """
     trusted: dict[str, dict[str, str]] = {}
     conflicts: set[str] = set()
@@ -209,7 +210,7 @@ def _trusted_correction_receipts() -> dict[str, dict[str, str]]:
             receipt.get("correction_digest") == correction_digest,
             receipt.get("authority") == correction.get("authority"),
             receipt.get("lifecycle_state") == correction.get("lifecycle_state"),
-            receipt.get("lifecycle_state") in ACTIVE_STATES,
+            receipt.get("lifecycle_state") in PROVENANCE_REQUIRED_STATES,
             receipt.get("receipt_path") == expected_receipt_path,
             correction.get("receipt_path") == expected_receipt_path,
             repository is not None,
@@ -613,12 +614,12 @@ def build_effective_index(zone_root: str | Path) -> dict[str, Any]:
                 actual_surface=located.surface,
             ))
         correction_digest = digest_value(row)
-        if row.get("lifecycle_state") in ACTIVE_STATES:
+        if row.get("lifecycle_state") in PROVENANCE_REQUIRED_STATES:
             trusted_receipt = trusted_correction_receipts.get(correction_digest)
             if trusted_receipt is None:
                 issues.append(_issue(
                     "unverified_authorization_receipt",
-                    "active correction is not bound to a repository-controlled authorization receipt",
+                    "truth-affecting correction state is not bound to a repository-controlled authorization receipt",
                     receipt_path=row.get("receipt_path"),
                 ))
             else:
@@ -634,7 +635,7 @@ def build_effective_index(zone_root: str | Path) -> dict[str, Any]:
                 else:
                     issues.append(_issue(
                         "unverified_repository_binding",
-                        "active correction receipt is not proven by the current repository history",
+                        "truth-affecting correction receipt is not proven by the current repository history",
                         repository=trusted_receipt["repository"],
                         canonical_append_commit=trusted_receipt["append_commit"],
                         canonical_append_surface=trusted_receipt["append_surface"],
@@ -1085,9 +1086,10 @@ def review_gate(index: dict[str, Any]) -> dict[str, Any]:
 
 
 def hydration_view(index: dict[str, Any]) -> dict[str, Any]:
-    affected_unresolved = {
+    blocked_targets = {
         (record["target_surface"], record["target_record_id"])
-        for record in index["records"] if record["unresolved"]
+        for record in index["records"]
+        if record["unresolved"] or record["needs_review"]
     }
     records = [
         {
@@ -1099,9 +1101,9 @@ def hydration_view(index: dict[str, Any]) -> dict[str, Any]:
         }
         for record in index["records"]
         if record["differs"]
-        and (record["target_surface"], record["target_record_id"]) not in affected_unresolved
+        and (record["target_surface"], record["target_record_id"]) not in blocked_targets
     ]
-    blocked = bool(index["unresolved"])
+    blocked = bool(index["unresolved"] or blocked_targets)
     status = "blocked" if blocked else ("corrected" if records else "safe")
     return {
         "schema_version": SCHEMA_VERSION,
@@ -1110,7 +1112,7 @@ def hydration_view(index: dict[str, Any]) -> dict[str, Any]:
         "effective_records": records,
         "blocked_targets": [
             {"target_surface": surface, "target_record_id": record_id}
-            for surface, record_id in sorted(affected_unresolved)
+            for surface, record_id in sorted(blocked_targets)
         ],
         "unresolved": index["unresolved"],
         "source_digest": index["source_digest"],
