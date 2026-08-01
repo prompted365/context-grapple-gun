@@ -272,6 +272,7 @@ test('distribution CI freezes published runtime while allowing candidate complet
     /BASE_STATUS" = "published".*BASE_VERSION" = "\$CURRENT_VERSION".*CURRENT_STATUS" != "published"/s,
   );
   assert.match(workflow, /Published release status cannot regress at the same version/);
+  assert.doesNotMatch(workflow, /\|\| true/);
   assert.match(
     workflow,
     /pull_request:[\s\S]*?paths:[\s\S]*?release-manifest\.json[\s\S]*?push:/,
@@ -352,6 +353,11 @@ test('npm publication is tokenless OIDC and transitions status only after regist
   assert.match(workflow, /main advanced during receipt write; retrying/);
   assert.match(workflow, /Transient Python cache entered tarball/);
   assert.match(workflow, /npm audit signatures --json/);
+  assert.match(workflow, /cgg-installed-tree\.json/);
+  assert.match(workflow, /installed\.version !== expected/);
+  assert.match(workflow, /\['invalid', 'missing'\]/);
+  assert.match(workflow, /audit\[key\]\.length !== 0/);
+  assert.match(workflow, /Registry attestation is not linked to the exact installed package/);
   assert.match(workflow, /https:\/\/slsa\.dev\/provenance\/v1/);
   assert.match(workflow, /registry_attestations/);
   assert.match(workflow, /Release receipt surfaces disagree/);

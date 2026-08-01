@@ -281,8 +281,49 @@ jobs:
             cd "$PROVENANCE_DIR"
             npm init --yes >/dev/null
             npm install --ignore-scripts --no-audit --no-fund "context-grapple-gun@$EXPECTED_VERSION"
+            npm ls --json --depth=0 > "$RUNNER_TEMP/cgg-installed-tree.json"
             npm audit signatures --json > "$RUNNER_TEMP/cgg-npm-audit-signatures.json"
           )
+          AUDIT_REPORT="$RUNNER_TEMP/cgg-npm-audit-signatures.json" \
+          INSTALLED_TREE="$RUNNER_TEMP/cgg-installed-tree.json" \
+          ATTESTATION_REPORT="$RUNNER_TEMP/cgg-registry-attestations.json" \
+          node <<'NODE'
+          const fs = require('node:fs');
+          const expected = process.env.EXPECTED_VERSION;
+          const installedTree = JSON.parse(fs.readFileSync(process.env.INSTALLED_TREE, 'utf8'));
+          const audit = JSON.parse(fs.readFileSync(process.env.AUDIT_REPORT, 'utf8'));
+          const attestation = JSON.parse(fs.readFileSync(process.env.ATTESTATION_REPORT, 'utf8'));
+          const installed = installedTree.dependencies?.['context-grapple-gun'];
+          if (!installed || installed.version !== expected) {
+            console.error('Signature audit did not run against the exact installed package:', installed);
+            process.exit(1);
+          }
+          for (const key of ['invalid', 'missing']) {
+            if (!Array.isArray(audit[key])) {
+              console.error(`Signature audit report is missing the ${key} result array:`, audit);
+              process.exit(1);
+            }
+            if (audit[key].length !== 0) {
+              console.error(`Signature audit reported ${key} entries:`, audit[key]);
+              process.exit(1);
+            }
+          }
+          let attestationUrl;
+          try {
+            attestationUrl = new URL(attestation.url);
+          } catch {
+            console.error('Registry attestation report has no valid URL:', attestation);
+            process.exit(1);
+          }
+          const linked = attestationUrl.origin === 'https://registry.npmjs.org'
+            && decodeURIComponent(attestationUrl.pathname).endsWith(`/context-grapple-gun@${expected}`)
+            && attestation.provenance?.predicateType === 'https://slsa.dev/provenance/v1';
+          if (!linked) {
+            console.error('Registry attestation is not linked to the exact installed package:', attestation);
+            process.exit(1);
+          }
+          console.log(`Verified registry signatures and SLSA provenance for context-grapple-gun@${expected}`);
+          NODE
           npx --yes "context-grapple-gun@$EXPECTED_VERSION" --version | grep -Fx "$EXPECTED_VERSION"
       - name: Transition public release status after registry verification
         if: ${{ !inputs.dry_run }}

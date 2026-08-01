@@ -15,7 +15,8 @@ Usage:
     python3 consolidate.py --targets ./specs/ --arena arena-spec.yaml --output dump.md
     python3 consolidate.py --scan  (dry run — show what would be included)
 
-Exit codes: 0=success, 1=error, 2=no files found.
+Exit codes: 0=success, 1=error, 2=no files found, 3=unsafe export held,
+4=effective-record capability unavailable.
 """
 
 import argparse
@@ -31,10 +32,17 @@ from collections import Counter
 from datetime import datetime, timezone
 from pathlib import Path
 
+_EFFECTIVE_RECORD_IMPORT_ERROR = None
 try:
     from lib.effective_record import build_effective_index
-except ImportError:
+except ImportError as error:
     build_effective_index = None
+    _EFFECTIVE_RECORD_IMPORT_ERROR = error
+
+
+class EffectiveRecordCapabilityUnavailable(RuntimeError):
+    """Raised when a governed export cannot inspect correction state."""
+
 
 # ---------------------------------------------------------------------------
 # CONFIG
@@ -220,13 +228,20 @@ def effective_record_export_holds(files: list[tuple[str, str]]) -> list[dict]:
     An unresolved issue with no safely derivable surface holds every selected
     file from that zone while leaving independently governed sources eligible.
     """
-    if build_effective_index is None:
-        return []
     zone_files: dict[Path, list[tuple[str, str]]] = {}
     for relative, full in files:
         zone_root = _governed_zone_for_file(full)
         if zone_root is not None:
             zone_files.setdefault(zone_root, []).append((relative, full))
+
+    if not zone_files:
+        return []
+    if build_effective_index is None:
+        detail = str(_EFFECTIVE_RECORD_IMPORT_ERROR or "unknown import failure")
+        raise EffectiveRecordCapabilityUnavailable(
+            "effective-record resolver is unavailable; governed export cannot "
+            f"prove correction state ({detail})"
+        )
 
     holds = []
     for zone_root in sorted(zone_files, key=str):
@@ -711,7 +726,18 @@ def main():
         print("No files found to consolidate.", file=sys.stderr)
         sys.exit(2)
 
-    export_holds = effective_record_export_holds(all_files)
+    try:
+        export_holds = effective_record_export_holds(all_files)
+    except EffectiveRecordCapabilityUnavailable as error:
+        print(json.dumps({
+            "status": "effective_record_capability_blocker",
+            "message": str(error),
+            "capability": "effective_record_resolution",
+            "exit_code": 4,
+        }, indent=2), file=sys.stderr)
+        if tmpdir and os.path.exists(tmpdir):
+            shutil.rmtree(tmpdir)
+        sys.exit(4)
     if export_holds:
         blocking = [
             hold for hold in export_holds

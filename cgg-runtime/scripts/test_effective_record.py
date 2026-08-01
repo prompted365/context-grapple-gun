@@ -8,8 +8,10 @@ behavior at the append-only row boundary.
 
 from __future__ import annotations
 
+from contextlib import redirect_stderr, redirect_stdout
 import copy
 import importlib.util
+import io
 import json
 import shutil
 import subprocess
@@ -903,6 +905,37 @@ class TestHydrationAndExportConsumers(EffectiveRecordFixture):
             )
         finally:
             shutil.rmtree(clone_dir, ignore_errors=True)
+
+    def test_consolidate_blocks_governed_export_without_effective_record_capability(self):
+        self.base()
+        spec = importlib.util.spec_from_file_location(
+            "consolidate_capability_test",
+            HERE / "consolidate.py",
+        )
+        consolidate = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(consolidate)
+        consolidate.build_effective_index = None
+        consolidate._EFFECTIVE_RECORD_IMPORT_ERROR = ImportError("fixture resolver failure")
+        stdout = io.StringIO()
+        stderr = io.StringIO()
+        arguments = [
+            str(HERE / "consolidate.py"),
+            "--base-dir",
+            str(self.tmp),
+            "--targets",
+            str(self.tmp / TARGET),
+            "--scan",
+        ]
+
+        with patch.object(sys, "argv", arguments), redirect_stdout(stdout), redirect_stderr(stderr):
+            with self.assertRaises(SystemExit) as stopped:
+                consolidate.main()
+
+        self.assertEqual(stopped.exception.code, 4)
+        self.assertEqual(stdout.getvalue(), "")
+        self.assertIn('"status": "effective_record_capability_blocker"', stderr.getvalue())
+        self.assertIn('"capability": "effective_record_resolution"', stderr.getvalue())
+        self.assertIn("fixture resolver failure", stderr.getvalue())
 
 
 if __name__ == "__main__":

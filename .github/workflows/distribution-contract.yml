@@ -103,7 +103,7 @@ jobs:
             package.json \
             package-lock.json \
             release-manifest.json \
-            release-status.json || true)"
+            release-status.json)"
           if [ "$BASE_STATUS" = "published" ] && [ "$BASE_VERSION" = "$CURRENT_VERSION" ] && [ "$CURRENT_STATUS" != "published" ]; then
             echo "Published release status cannot regress at the same version." >&2
             echo "Base: $BASE_VERSION status=$BASE_STATUS" >&2
