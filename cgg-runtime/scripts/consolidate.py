@@ -92,20 +92,22 @@ BINARY_MAGIC = {
 }
 
 
-def effective_record_export_holds(base_dir: str, files: list[tuple[str, str]]) -> list[dict]:
-    """Return corrected raw surfaces that this export must not package.
+def _governed_zone_for_file(full_path: str) -> Path | None:
+    """Return the nearest governed zone containing one selected file."""
+    start = Path(full_path).resolve()
+    if not start.is_dir():
+        start = start.parent
+    return next(
+        (path for path in (start, *start.parents) if (path / ".ticzone").is_file()),
+        None,
+    )
 
-    Consolidate is a raw file packager, not an effective-record materializer.
-    Refusing only the affected selected surfaces keeps unrelated exports usable
-    while preventing a disproven base row from being presented as current.
-    An unresolved issue with no safely derivable surface blocks globally.
-    """
-    if build_effective_index is None:
-        return []
-    start = Path(base_dir).resolve()
-    zone_root = next((path for path in (start, *start.parents) if (path / ".ticzone").is_file()), None)
-    if zone_root is None:
-        return []
+
+def _effective_record_export_holds_for_zone(
+    zone_root: Path,
+    files: list[tuple[str, str]],
+) -> list[dict]:
+    """Return unsafe selected surfaces for one governed source zone."""
     index = build_effective_index(zone_root)
     selected = {str(Path(full).resolve()) for _, full in files}
     holds = []
@@ -119,6 +121,7 @@ def effective_record_export_holds(base_dir: str, files: list[tuple[str, str]]) -
                 "target_record_id": record["target_record_id"],
                 "target_surface": record["target_surface"],
                 "target_path": target,
+                "source_zone": str(zone_root),
                 "reason": "unresolved_correction_chain" if record["unresolved"] else "raw_surface_has_effective_view",
                 "resolve_with": (
                     "effective-record.py resolve --record-id "
@@ -163,15 +166,22 @@ def effective_record_export_holds(base_dir: str, files: list[tuple[str, str]]) -
                 surfaces.add(record["target_surface"])
 
         if not surfaces:
-            key = (None, issue_record_id or issue_correction_id, "unresolved_correction_chain")
-            if key not in held_issue_keys:
+            # The issue cannot be narrowed within this zone. Hold every selected
+            # file from this zone, but do not contaminate independently governed
+            # sources included in the same consolidation invocation.
+            for _, full in files:
+                target = str(Path(full).resolve())
+                key = (target, issue_record_id or issue_correction_id, "unresolved_correction_chain")
+                if key in held_issue_keys:
+                    continue
                 holds.append({
                     "target_record_id": issue_record_id or issue_correction_id,
                     "target_surface": None,
-                    "target_path": None,
+                    "target_path": target,
+                    "source_zone": str(zone_root),
                     "reason": "unresolved_correction_chain",
                     "issue_code": issue.get("code"),
-                    "scope": "global_unscoped",
+                    "scope": "selected_zone_unscoped",
                     "resolve_with": "effective-record.py scan",
                 })
                 held_issue_keys.add(key)
@@ -188,12 +198,41 @@ def effective_record_export_holds(base_dir: str, files: list[tuple[str, str]]) -
                 "target_record_id": issue_record_id or issue_correction_id,
                 "target_surface": surface,
                 "target_path": target,
+                "source_zone": str(zone_root),
                 "reason": "unresolved_correction_chain",
                 "issue_code": issue.get("code"),
                 "scope": "selected_surface",
                 "resolve_with": "effective-record.py scan",
             })
             held_issue_keys.add(key)
+    return holds
+
+
+def effective_record_export_holds(files: list[tuple[str, str]]) -> list[dict]:
+    """Return corrected raw surfaces that this export must not package.
+
+    Consolidate is a raw file packager, not an effective-record materializer.
+    Refusing only the affected selected surfaces keeps unrelated exports usable
+    while preventing a disproven base row from being presented as current.
+    Each selected file is resolved against its own nearest governed zone. This
+    matters when a cloned repository and local targets are consolidated in one
+    invocation: correction authority must never be borrowed across zones.
+    An unresolved issue with no safely derivable surface holds every selected
+    file from that zone while leaving independently governed sources eligible.
+    """
+    if build_effective_index is None:
+        return []
+    zone_files: dict[Path, list[tuple[str, str]]] = {}
+    for relative, full in files:
+        zone_root = _governed_zone_for_file(full)
+        if zone_root is not None:
+            zone_files.setdefault(zone_root, []).append((relative, full))
+
+    holds = []
+    for zone_root in sorted(zone_files, key=str):
+        holds.extend(
+            _effective_record_export_holds_for_zone(zone_root, zone_files[zone_root])
+        )
     return holds
 
 
@@ -666,7 +705,7 @@ def main():
         print("No files found to consolidate.", file=sys.stderr)
         sys.exit(2)
 
-    export_holds = effective_record_export_holds(base_dir, all_files)
+    export_holds = effective_record_export_holds(all_files)
     if export_holds:
         blocking = [
             hold for hold in export_holds

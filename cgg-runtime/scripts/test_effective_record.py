@@ -168,7 +168,7 @@ class EffectiveRecordFixture(unittest.TestCase):
         self.trust_correction_for_fixture(row, append_commit)
         return append_commit
 
-    def run_consolidate(self, *targets: str) -> subprocess.CompletedProcess[str]:
+    def run_consolidate_arguments(self, *arguments: str) -> subprocess.CompletedProcess[str]:
         wrapper = """
 import runpy
 import sys
@@ -188,15 +188,20 @@ runpy.run_path(sys.argv[0], run_name="__main__")
                 wrapper,
                 str(HERE),
                 str(self.trusted_migrations),
-                "--base-dir",
-                str(self.tmp),
-                "--targets",
-                *targets,
-                "--scan",
+                *arguments,
             ],
             capture_output=True,
             text=True,
             timeout=15,
+        )
+
+    def run_consolidate(self, *targets: str) -> subprocess.CompletedProcess[str]:
+        return self.run_consolidate_arguments(
+            "--base-dir",
+            str(self.tmp),
+            "--targets",
+            *targets,
+            "--scan",
         )
 
     def correction(
@@ -798,6 +803,50 @@ class TestHydrationAndExportConsumers(EffectiveRecordFixture):
         self.assertEqual(result.returncode, 0)
         receipt = json.loads(result.stdout)
         self.assertEqual(receipt["file_list"], ["notes.md"])
+        self.assertIn("Raw corrected surfaces were excluded", result.stderr)
+
+    def test_consolidate_gates_git_clone_in_its_own_governed_zone(self):
+        migration = json.loads(
+            (REPO_ROOT / "cgg-runtime/migrations/record-correction-tic658.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        surface = migration["canonical_correction"]["target_surface"]
+        self.append(surface, migration["base_record_snapshot"])
+        self.append(surface, migration["legacy_correction_snapshot"])
+        self.commit_zone("Commit unresolved legacy correction source")
+
+        other_zone = self.managed_tmp / "other-zone"
+        other_zone.mkdir()
+        (other_zone / ".ticzone").write_text("{}\n", encoding="utf-8")
+        unrelated = other_zone / "notes.md"
+        unrelated.write_text("independent governed export\n", encoding="utf-8")
+
+        blocked = self.run_consolidate_arguments(
+            "--base-dir",
+            str(other_zone),
+            "--git-repo",
+            str(self.tmp),
+            "--scan",
+        )
+        self.assertEqual(blocked.returncode, 3)
+        self.assertEqual(blocked.stdout, "")
+        self.assertIn("legacy_correction_unmigrated", blocked.stderr)
+
+        result = self.run_consolidate_arguments(
+            "--base-dir",
+            str(other_zone),
+            "--git-repo",
+            str(self.tmp),
+            "--targets",
+            str(unrelated),
+            "--scan",
+        )
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        receipt = json.loads(result.stdout)
+        self.assertEqual(receipt["file_list"], ["notes.md"])
+        self.assertIn("legacy_correction_unmigrated", result.stderr)
         self.assertIn("Raw corrected surfaces were excluded", result.stderr)
 
 

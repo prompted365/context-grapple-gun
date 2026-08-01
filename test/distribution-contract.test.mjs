@@ -272,6 +272,16 @@ test('distribution CI freezes published runtime while allowing candidate complet
     /BASE_STATUS" = "published".*BASE_VERSION" = "\$CURRENT_VERSION".*CURRENT_STATUS" != "published"/s,
   );
   assert.match(workflow, /Published release status cannot regress at the same version/);
+  assert.match(
+    workflow,
+    /pull_request:[\s\S]*?paths:[\s\S]*?release-manifest\.json[\s\S]*?push:/,
+  );
+  assert.match(
+    workflow,
+    /push:[\s\S]*?paths:[\s\S]*?release-manifest\.json[\s\S]*?workflow_dispatch:/,
+  );
+  assert.match(workflow, /CHANGED=.*release-manifest\.json/s);
+  assert.match(workflow, /CHANGED=.*release-status\.json/s);
   assertCheckoutCredentialsDisabled(workflow);
 });
 
