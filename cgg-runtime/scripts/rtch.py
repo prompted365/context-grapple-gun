@@ -1581,6 +1581,28 @@ def rehydrate_main(argv: list[str]) -> int:
                             "known_target": None, "forbid": [], "neighbor": []})
         zone_root = zone["zone_root"]
 
+    effective_projection = hydration_view(build_effective_index(zone_root))
+    if effective_projection["status"] != "safe":
+        outcome = {
+            "rehydrate_outcome": "effective_record_hold",
+            "reason": (
+                "unresolved_correction_chain"
+                if effective_projection["status"] == "blocked"
+                else "raw_packet_rehydration_not_projection_aware"
+            ),
+            "effective_record_status": effective_projection["status"],
+            "current_claim_force": "none",
+            "blocked_targets": effective_projection.get("blocked_targets", []),
+            "unresolved": effective_projection.get("unresolved", []),
+            "past_slice_preserved": True,
+            "rule": (
+                "A raw packet cannot regain current claim force while corrected "
+                "or unresolved records exist; resolve through the effective view."
+            ),
+        }
+        print(json.dumps(outcome, indent=2))
+        return 2
+
     packets_dir = Path(zone_root) / "audit-logs" / "rtch" / "packets"
 
     # Locate packet

@@ -13,6 +13,7 @@ import copy
 import importlib.util
 import io
 import json
+import os
 import shutil
 import subprocess
 import sys
@@ -677,6 +678,78 @@ print(json.dumps({
         self.assertEqual(receipt["capability"], "effective_record_resolution")
         self.assertEqual(receipt["exit_code"], 5)
         self.assertIn("fixture resolver failure", receipt["error"])
+
+    def test_rtch_rehydrate_cannot_restore_raw_claim_force_after_correction(self):
+        self.base(claim="disproven current claim")
+        self.correction(patch={"claim": "correct current claim"})
+        packets = self.tmp / "audit-logs" / "rtch" / "packets"
+        packets.mkdir(parents=True)
+        packet = {
+            "packet_id": "packet-corrected-claim",
+            "current_tic": 1,
+            "ttl_tics": 30,
+            "selected_surfaces": [TARGET],
+            "chunks": [],
+            "intake": {"goal": "restore disproven queue claim"},
+        }
+        (packets / "packet-corrected-claim.json").write_text(
+            json.dumps(packet) + "\n",
+            encoding="utf-8",
+        )
+        spec = importlib.util.spec_from_file_location(
+            "rtch_rehydrate_effective_record_test",
+            HERE / "rtch.py",
+        )
+        rtch = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(rtch)
+        output = io.StringIO()
+
+        with redirect_stdout(output):
+            code = rtch.rehydrate_main([
+                "--packet",
+                "packet-corrected-claim",
+                "--zone-root",
+                str(self.tmp),
+                "--current-tic",
+                "2",
+            ])
+
+        self.assertEqual(code, 2)
+        receipt = json.loads(output.getvalue())
+        self.assertEqual(receipt["rehydrate_outcome"], "effective_record_hold")
+        self.assertEqual(receipt["effective_record_status"], "corrected")
+        self.assertEqual(receipt["current_claim_force"], "none")
+        self.assertTrue(receipt["past_slice_preserved"])
+
+    def test_session_start_stops_before_queue_reader_on_effective_record_hold(self):
+        migration = json.loads(
+            (REPO_ROOT / "cgg-runtime/migrations/record-correction-tic658.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        surface = migration["canonical_correction"]["target_surface"]
+        self.append(surface, migration["base_record_snapshot"])
+        self.append(surface, migration["legacy_correction_snapshot"])
+        self.commit_zone("Commit unresolved legacy correction source")
+        result = subprocess.run(
+            ["bash", str(REPO_ROOT / "cgg-runtime/hooks/session-restore.sh")],
+            input="{}\n",
+            capture_output=True,
+            text=True,
+            timeout=15,
+            env={
+                **os.environ,
+                "CLAUDE_PLUGIN_ROOT": str(REPO_ROOT),
+                "CLAUDE_PROJECT_DIR": str(self.tmp),
+            },
+        )
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        receipt = json.loads(result.stdout)
+        context = receipt["hookSpecificOutput"]["additionalContext"]
+        self.assertIn("EFFECTIVE RECORD HOLD", context)
+        self.assertNotIn("CPR QUEUE", context)
+        self.assertNotIn("CPR STEP", context)
 
     def test_rtch_replaces_raw_preview_with_effective_record(self):
         self.base(claim="disproven current claim")

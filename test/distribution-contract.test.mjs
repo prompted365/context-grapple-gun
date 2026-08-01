@@ -327,6 +327,11 @@ test('third-surface correction contract is packaged and wired to review plus hyd
   assert.match(session, /hydration-gate --format hook/);
   assert.match(session, /EFFECTIVE_RECORD_HYDRATION_BLOCKED/);
   assert.match(session, /EFFECTIVE_RECORD_RC" -eq 3.*EFFECTIVE_RECORD_HYDRATION_BLOCKED=1/s);
+  const sessionStop = session.indexOf('if [ "$EFFECTIVE_RECORD_HYDRATION_BLOCKED" -eq 1 ]');
+  const queueReader = session.indexOf('# Queue.jsonl counting');
+  assert.ok(sessionStop >= 0, 'SessionStart must stop on an effective-record hold');
+  assert.ok(queueReader > sessionStop, 'the effective-record stop must precede raw queue readers');
+  assert.match(session, /SessionStart governance readers suppressed/);
   assert.match(session, /HANDOFF_MSG=""[\s\S]*CGG_MSG="\$\{CGG_MSG:\+\$CGG_MSG \}\$HANDOFF_MSG"/);
   assert.match(session, /command -v python3/);
   assert.doesNotMatch(hydration, /There is no `rtch\.py` runner yet/);
@@ -334,6 +339,8 @@ test('third-surface correction contract is packaged and wired to review plus hyd
   const rtch = readFileSync(join(ROOT, 'cgg-runtime', 'scripts', 'rtch.py'), 'utf-8');
   assert.match(rtch, /from lib\.effective_record import build_effective_index, hydration_view/);
   assert.match(rtch, /effective_record_capability_blocker/);
+  assert.match(rtch, /raw_packet_rehydration_not_projection_aware/);
+  assert.match(rtch, /current_claim_force": "none"/);
   assert.match(rtch, /return 5/);
 });
 

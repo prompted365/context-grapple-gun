@@ -97,8 +97,8 @@ PROJECT_KEY=$(echo "$PROJECT_DIR" | sed 's|/|-|g')
 # and leaves a loud hook badge. A resolved correction also suppresses the raw
 # worldview compiler until that consumer can accept the row-scoped effective
 # projection; projection-aware consumers such as RTCH use the effective view.
-# The hook remains fail-soft on tool absence, but never silently emits a known
-# unsafe worldview after the resolver reports a correction or hold.
+# Resolver absence is a capability blocker: the hook emits only that blocker
+# and stops before every downstream governance reader.
 # ============================================================================
 
 EFFECTIVE_RECORD_SCRIPT="$CGG_SCRIPTS_DIR/effective-record.py"
@@ -126,9 +126,34 @@ if [ -f "$EFFECTIVE_RECORD_SCRIPT" ]; then
       EFFECTIVE_RECORD_HYDRATION_BLOCKED=1
     fi
   else
-    EFFECTIVE_RECORD_MSG="[EFFECTIVE RECORD WARNING: python3 unavailable; correction gate skipped fail-soft]"
-    EFFECTIVE_RECORD_HYDRATION_BLOCKED=0
+    EFFECTIVE_RECORD_MSG="[EFFECTIVE RECORD HOLD: python3 unavailable; SessionStart governance readers suppressed]"
+    EFFECTIVE_RECORD_HYDRATION_BLOCKED=1
   fi
+else
+  EFFECTIVE_RECORD_MSG="[EFFECTIVE RECORD HOLD: resolver unavailable; SessionStart governance readers suppressed]"
+  EFFECTIVE_RECORD_HYDRATION_BLOCKED=1
+fi
+
+# No downstream SessionStart reader is projection-aware yet. Once the gate
+# reports either an unresolved chain (2), a corrected view (3), or a capability
+# failure, emit the effective-record receipt and stop before reading handoffs,
+# plans, queue.jsonl, signals, mandates, or worldview surfaces.
+if [ "$EFFECTIVE_RECORD_HYDRATION_BLOCKED" -eq 1 ]; then
+  if command -v python3 >/dev/null 2>&1; then
+    EFFECTIVE_RECORD_MSG="$EFFECTIVE_RECORD_MSG" python3 -c '
+import json, os
+print(json.dumps({
+    "hookSpecificOutput": {
+        "hookEventName": "SessionStart",
+        "additionalContext": os.environ["EFFECTIVE_RECORD_MSG"],
+        "reloadSkills": True,
+    }
+}))
+'
+  else
+    printf '{"hookSpecificOutput":{"hookEventName":"SessionStart","additionalContext":"%s","reloadSkills":true}}\n' "$EFFECTIVE_RECORD_MSG"
+  fi
+  exit 0
 fi
 
 # ============================================================================
