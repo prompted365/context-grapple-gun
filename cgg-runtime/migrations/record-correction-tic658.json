@@ -1,0 +1,74 @@
+{
+  "schema_version": 1,
+  "type": "record_correction_migration",
+  "migration_id": "migration-review-657-correction-tic658",
+  "provenance": {
+    "repository": "prompted365/canonical_federation",
+    "commit": "8e74992343a31fa1eebbf53aabb90940c20dad44",
+    "surface": "audit-logs/reviews/2026-07-26.jsonl",
+    "doctrine_commit": "69784f56a8b848d45e972960728846b83a72bf7c",
+    "doctrine_anchor": "cgg-ledger/ledger.md#third-surface-correction-pair-agreement-is-not-evidence-currency"
+  },
+  "base_record_snapshot": {
+    "timestamp": "2026-07-26T15:31:06.369720+00:00",
+    "tic": "657",
+    "action": "review_pass",
+    "pass_id": "review-657-substantive-maturity-law",
+    "mode": "substantive_walk_autonomous",
+    "verdicts": "0",
+    "docket": "12 live-lane by queue truth (1 enrichment_eligible + 8 enrichment_needed + 1 tic_gated + 2 extracted); bench packet tic-657 lists 11 pending with enrichment coverage 11/11 — the 1-row lens delta is the tic_gated t654 born (stepped this pass, reconciles enrichment_needed at 658 boot), same lawful bench-vs-queue lens class adjudicated at 654/656",
+    "human_gate": "untouched — Architect not resident this tic; the only eligible row (C3 tic327) is architect_ruling class and STAYS DEFER (child gate may not collapse the parent); 0 warrants active",
+    "anomalies_carried": "A1-657 (C3 parked 22 tics, no re-surfacing route; ADJACENCY SHARPENED: its cure candidate cpr_authority_gated_park_resurfaces_on_authority_retrieval_surface_tic653 reached enrichment_needed this tic — one Architect-resident pass can close both) + A2-657 (degenerate set 720 unexercised, no verdict landed since 655; cure candidate cpr_terminal_writeback_strips_designated_carrier_body_tic656 matures 659) + A4-655 DISCHARGED by stepper (6 no-sep ids stable across 655/656/657, live negative test passed: tic-656 born hash minted colon-correct)",
+    "session_findings_noted": "marker covenant route FULL at 657 (first admitted-covenant complete arc forge→crown→build→earn; execution EARNED via runtime probe) + intake supply RE-EXHAUSTED by lawful route completion (selection-report-tic657.json 0 eligible; new born cpr_supply_window_consumed_by_route_completion_tic657 dry-run-verified, extracts at 658 boot; probable RAY on the t653 exhaustion born per its own review_hints)",
+    "provenance": "walked at operative tic 657 per maturity law (formula review_due 658; worldview line directed extract+adjudicate born candidates — extraction done at boot [t656 born verified in queue] + capture done in-session [t657 born]; adjudication lawfully empty: nothing adjudicable autonomously). Stepper pass 657-cpr-step receipt row 41; boot receipt 9eb4bbc44df6b2f0."
+  },
+  "legacy_correction_snapshot": {
+    "timestamp": "2026-07-26T21:31:15.484176+00:00",
+    "tic": "658",
+    "action": "record_correction",
+    "corrects": "review-657-substantive-maturity-law",
+    "field": "human_gate",
+    "wrong_claim": "Architect not resident this tic",
+    "correction": "The Architect WAS resident — the session opened on his plan approval (seal em-657-d35ab23ba4 approval evidence) and he was present throughout; residency was never probed, only inherited from the prior handoff narrative. The 0-verdict outcome itself may stand only in the weaker form that no docket was PRESENTED to him — not that adjudication was impossible. Architect-corrected at tic 658 entry.",
+    "second_correction": "The same pass row and the rejected tic657-close handoff framed intake supply as exhausted/authority-gated. VERIFIED FALSE at 658: admitted covenants sit on live exec_ready routes (bk-queue-body-refresh-mechanism — /review 614 PROMOTE + 615 build-gate, ledger-committed, backlog open; bk-systems-layers-hoist-dag — admission tic634 receipt, backlog in_progress). The t653 finding was scoped to the review-635 MANIFEST default; generalizing it to all supply was narrative-carry without investigation.",
+    "discipline": "append-only correction, never retcon; failure mode named: persisting narrative sans investigation + hedging on permission already established",
+    "signer": "ent_homeskillet",
+    "model": "claude-fable-5"
+  },
+  "canonical_correction": {
+    "schema_version": 1,
+    "type": "record_correction",
+    "correction_id": "rc_review_657_human_gate_and_supply_tic658",
+    "target_record_id": "review-657-substantive-maturity-law",
+    "target_surface": "audit-logs/reviews/2026-07-26.jsonl",
+    "source": {
+      "repository": "prompted365/canonical_federation",
+      "commit": "8e74992343a31fa1eebbf53aabb90940c20dad44",
+      "surface": "audit-logs/reviews/2026-07-26.jsonl"
+    },
+    "patch": {
+      "human_gate": "corrected — Architect was resident throughout tic 657; no docket was presented, so the zero-verdict outcome stands only on non-presentation, never on claimed absence of human authority",
+      "session_findings_noted": "corrected — the admitted-covenant route completed, but lane-level intake supply was not exhausted; live exec_ready routes remained and the earlier scarcity claim was scoped only to the review-635 manifest"
+    },
+    "literal_correction": "Architect residency was present and intake supply was not exhausted. The inherited contrary claims are disproven; the zero-verdict outcome survives only because no docket was presented.",
+    "authority": {
+      "author_id": "ent_homeskillet",
+      "authority_class": "ratified_review",
+      "authorization_ref": "architect-direct:tic658 + /review:664"
+    },
+    "reason": "Migrate the lived append-only correction that exposed the third-surface blind spot into the typed effective-record contract.",
+    "effective_tic": 658,
+    "effective_at": "2026-07-26T21:31:15.484176+00:00",
+    "supersedes": [],
+    "consequence_class": "operational",
+    "reversible": false,
+    "lifecycle_state": "ratified",
+    "receipt_path": "cgg-runtime/migrations/record-correction-tic658.json"
+  },
+  "migration_receipt": {
+    "method": "snapshot-preserving canonicalization",
+    "base_record_retconned": false,
+    "legacy_correction_retconned": false,
+    "effective_view_required": true
+  }
+}

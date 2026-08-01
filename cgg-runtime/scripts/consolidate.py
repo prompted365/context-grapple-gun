@@ -31,6 +31,11 @@ from collections import Counter
 from datetime import datetime, timezone
 from pathlib import Path
 
+try:
+    from lib.effective_record import build_effective_index
+except ImportError:
+    build_effective_index = None
+
 # ---------------------------------------------------------------------------
 # CONFIG
 # ---------------------------------------------------------------------------
@@ -85,6 +90,41 @@ BINARY_MAGIC = {
     b'ID3',  # MP3
     b'\x00\x00\x00',  # MP4/MOV
 }
+
+
+def effective_record_export_holds(base_dir: str, files: list[tuple[str, str]]) -> list[dict]:
+    """Return corrected raw surfaces that this export must not package.
+
+    Consolidate is a raw file packager, not an effective-record materializer.
+    Refusing only the affected selected surfaces keeps unrelated exports usable
+    while preventing a disproven base row from being presented as current.
+    """
+    if build_effective_index is None:
+        return []
+    start = Path(base_dir).resolve()
+    zone_root = next((path for path in (start, *start.parents) if (path / ".ticzone").is_file()), None)
+    if zone_root is None:
+        return []
+    index = build_effective_index(zone_root)
+    selected = {str(Path(full).resolve()) for _, full in files}
+    holds = []
+    for record in index.get("records", []):
+        target = str((zone_root / record["target_surface"]).resolve())
+        if target not in selected:
+            continue
+        if record["differs"] or record["unresolved"]:
+            holds.append({
+                "target_record_id": record["target_record_id"],
+                "target_surface": record["target_surface"],
+                "reason": "raw_surface_has_effective_view" if record["differs"] else "unresolved_correction_chain",
+                "resolve_with": (
+                    "effective-record.py resolve --record-id "
+                    + record["target_record_id"]
+                    + " --surface "
+                    + record["target_surface"]
+                ),
+            })
+    return holds
 
 
 # ---------------------------------------------------------------------------
@@ -555,6 +595,15 @@ def main():
     if not all_files:
         print("No files found to consolidate.", file=sys.stderr)
         sys.exit(2)
+
+    export_holds = effective_record_export_holds(base_dir, all_files)
+    if export_holds:
+        print(json.dumps({
+            "status": "effective_record_export_hold",
+            "message": "Raw corrected records cannot be packaged as current truth.",
+            "records": export_holds,
+        }, indent=2), file=sys.stderr)
+        sys.exit(3)
 
     # Scan mode — dry run
     if args.scan:

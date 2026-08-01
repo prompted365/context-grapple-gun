@@ -24,6 +24,7 @@ on:
 
 permissions:
   contents: write
+  issues: read
   id-token: write
 
 jobs:
@@ -31,13 +32,40 @@ jobs:
     environment: npm-publish
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           fetch-depth: 0
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v6
         with:
           node-version: '24'
           registry-url: 'https://registry.npmjs.org'
+          package-manager-cache: false
+      - name: Use an OIDC-capable npm CLI
+        run: |
+          npm install --global npm@^11.5.1
+          node --version
+          npm --version
+      - name: Enforce the publication-admission receipt from issue 16
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EXPECTED_VERSION: ${{ inputs.expected_version }}
+          EXPECTED_COMMIT: ${{ inputs.expected_commit }}
+          DIST_TAG: ${{ inputs.dist_tag }}
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REF_NAME" = "main" || {
+            echo "Publication must run from main, not $GITHUB_REF_NAME" >&2
+            exit 1
+          }
+          STATE="$(gh api repos/prompted365/context-grapple-gun/issues/16 --jq .state)"
+          test "$STATE" = "closed" || {
+            echo "npm release held: issue #16 is $STATE" >&2
+            exit 1
+          }
+          RECEIPTS="$(gh api --paginate repos/prompted365/context-grapple-gun/issues/16/comments --jq '.[].body')"
+          grep -F "publication-admission-commit: $EXPECTED_COMMIT" <<<"$RECEIPTS" >/dev/null
+          grep -F "publication-admission-version: $EXPECTED_VERSION" <<<"$RECEIPTS" >/dev/null
+          grep -F "publication-admission-dist-tag: $DIST_TAG" <<<"$RECEIPTS" >/dev/null
       - name: Verify approved source and shared version
         env:
           EXPECTED_VERSION: ${{ inputs.expected_version }}
@@ -61,8 +89,12 @@ jobs:
             console.error('Shared version mismatch:', { expected, values });
             process.exit(1);
           }
-          if (!['release-candidate', 'published'].includes(status.status)) {
-            console.error('Invalid release status:', status.status);
+          if (status.status !== 'release-candidate') {
+            console.error('Publication source must still be a release candidate:', status.status);
+            process.exit(1);
+          }
+          if ([status.dist_tag, status.source_commit, status.published_at].some((value) => value !== null)) {
+            console.error('Release candidate already carries publication state:', status);
             process.exit(1);
           }
           NODE
@@ -70,8 +102,8 @@ jobs:
         env:
           EXPECTED_VERSION: ${{ inputs.expected_version }}
           EXPECTED_COMMIT: ${{ inputs.expected_commit }}
-          DRY_RUN: ${{ inputs.dry_run }}
           DIST_TAG: ${{ inputs.dist_tag }}
+          WORKFLOW_RUN: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
           node <<'NODE'
           const fs = require('node:fs');
@@ -83,17 +115,10 @@ jobs:
             source_commit: process.env.EXPECTED_COMMIT,
             dist_tag: process.env.DIST_TAG,
             generated_at: now,
+            publication_state: 'candidate',
+            workflow_run: process.env.WORKFLOW_RUN,
           };
           fs.writeFileSync('release-manifest.json', JSON.stringify(manifest, null, 2) + '\n');
-          if (process.env.DRY_RUN !== 'true') {
-            const status = JSON.parse(fs.readFileSync('release-status.json'));
-            status.status = 'published';
-            status.registry = 'https://registry.npmjs.org';
-            status.dist_tag = process.env.DIST_TAG;
-            status.source_commit = process.env.EXPECTED_COMMIT;
-            status.published_at = now;
-            fs.writeFileSync('release-status.json', JSON.stringify(status, null, 2) + '\n');
-          }
           NODE
       - name: Test distribution contract
         run: npm test
@@ -123,25 +148,56 @@ jobs:
           fi
       - name: Publish with provenance
         if: ${{ !inputs.dry_run }}
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-        run: npm publish "${{ steps.pack.outputs.tarball }}" --tag "${{ inputs.dist_tag }}" --access public --provenance
+        run: npm publish "${{ steps.pack.outputs.tarball }}" --tag "${{ inputs.dist_tag }}" --access public
       - name: Verify registry receipt
         if: ${{ !inputs.dry_run }}
         env:
           EXPECTED_VERSION: ${{ inputs.expected_version }}
+          DIST_TAG: ${{ inputs.dist_tag }}
+          PACK_RECEIPT: ${{ runner.temp }}/cgg-pack.json
         run: |
           set -euo pipefail
-          for attempt in 1 2 3 4 5; do
+          for attempt in 1 2 3 4 5 6 7 8; do
             ACTUAL="$(npm view "context-grapple-gun@$EXPECTED_VERSION" version 2>/dev/null || true)"
-            if [ "$ACTUAL" = "$EXPECTED_VERSION" ]; then
-              echo "Registry confirms context-grapple-gun@$ACTUAL"
-              exit 0
+            TAGGED="$(npm view context-grapple-gun dist-tags --json 2>/dev/null | node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{try{process.stdout.write(JSON.parse(s)[process.env.DIST_TAG]||'')}catch{}})")"
+            REMOTE_INTEGRITY="$(npm view "context-grapple-gun@$EXPECTED_VERSION" dist.integrity 2>/dev/null || true)"
+            LOCAL_INTEGRITY="$(node -e "const x=require(process.env.PACK_RECEIPT);process.stdout.write(x[0].integrity||'')")"
+            if [ "$ACTUAL" = "$EXPECTED_VERSION" ] && [ "$TAGGED" = "$EXPECTED_VERSION" ] && [ "$REMOTE_INTEGRITY" = "$LOCAL_INTEGRITY" ]; then
+              echo "Registry confirms context-grapple-gun@$ACTUAL at $DIST_TAG with exact packed integrity"
+              printf '%s' "$REMOTE_INTEGRITY" > "$RUNNER_TEMP/cgg-registry-integrity.txt"
+              break
             fi
             sleep 6
           done
-          echo "Registry did not confirm $EXPECTED_VERSION" >&2
-          exit 1
+          test -s "$RUNNER_TEMP/cgg-registry-integrity.txt" || {
+            echo "Registry did not confirm version, dist-tag, and exact integrity for $EXPECTED_VERSION" >&2
+            exit 1
+          }
+          npx --yes "context-grapple-gun@$EXPECTED_VERSION" --version | grep -Fx "$EXPECTED_VERSION"
+      - name: Transition public release status after registry verification
+        if: ${{ !inputs.dry_run }}
+        env:
+          EXPECTED_VERSION: ${{ inputs.expected_version }}
+          EXPECTED_COMMIT: ${{ inputs.expected_commit }}
+          DIST_TAG: ${{ inputs.dist_tag }}
+        run: |
+          node <<'NODE'
+          const fs = require('node:fs');
+          const now = new Date().toISOString();
+          const integrity = fs.readFileSync(process.env.RUNNER_TEMP + '/cgg-registry-integrity.txt', 'utf8');
+          const status = JSON.parse(fs.readFileSync('release-status.json'));
+          status.status = 'published';
+          status.registry = 'https://registry.npmjs.org';
+          status.dist_tag = process.env.DIST_TAG;
+          status.source_commit = process.env.EXPECTED_COMMIT;
+          status.published_at = now;
+          fs.writeFileSync('release-status.json', JSON.stringify(status, null, 2) + '\n');
+          const manifest = JSON.parse(fs.readFileSync('release-manifest.json'));
+          manifest.publication_state = 'registry-verified';
+          manifest.registry_integrity = integrity;
+          manifest.registry_verified_at = now;
+          fs.writeFileSync('release-manifest.json', JSON.stringify(manifest, null, 2) + '\n');
+          NODE
       - name: Commit published status receipt
         if: ${{ !inputs.dry_run }}
         env:

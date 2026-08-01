@@ -6,13 +6,19 @@ on:
       - '.claude-plugin/**'
       - '.github/workflows/installer-smoke.yml'
       - 'bin/**'
-      - 'cgg-runtime/agents/**'
-      - 'cgg-runtime/config/plugin-components.json'
-      - 'cgg-runtime/config/session-learning-protocol.md'
-      - 'cgg-runtime/hooks/**'
-      - 'cgg-runtime/skills/**'
+      - 'cgg-runtime/**'
       - 'hooks/**'
       - 'lib/**'
+      - 'assets/**'
+      - 'docs/**'
+      - 'ARCHITECTURE.md'
+      - 'CHANGELOG.md'
+      - 'CGG_RUNTIME_TOPOLOGY_AND_LIFECYCLE.md'
+      - 'DEV-README.md'
+      - 'INSTALL.md'
+      - 'LICENSE'
+      - 'README.md'
+      - 'START-HERE.md'
       - 'package.json'
       - 'package-lock.json'
       - 'release-status.json'
@@ -26,12 +32,13 @@ jobs:
     name: Packed tarball × scopes × modes × update × sync × uninstall
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           fetch-depth: 0
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v6
         with:
           node-version: '24'
+          package-manager-cache: false
       - name: Install current Claude Code CLI
         run: npm install --global @anthropic-ai/claude-code@latest
       - name: Show toolchain versions

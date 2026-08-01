@@ -94,6 +94,36 @@ If the governance query returns `queue.pending == 0` AND `signals.active == 0`, 
 
 Use the governance query provenance (`index_freshness`, `computed_at_tic`) to assess data staleness. If `index_freshness == "stale"`, note this in the docket header.
 
+### 1.6. Resolve Third-Surface Corrections Before Building the Docket
+
+Run the shared effective-record gate before reading any queue, review, or
+hydration projection as current truth:
+
+```bash
+python3 "${CLAUDE_PLUGIN_ROOT}/cgg-runtime/scripts/effective-record.py" \
+  --zone-root "$PWD" review-gate
+```
+
+If the plugin-root variable is unavailable, resolve the same packaged script
+from the installed CGG runtime; never substitute an ad-hoc fold.
+
+- `status: hold` with an unresolved chain or orphan: **stop adjudication of the
+  affected record**. Surface the typed defect and repair/rebuild the index
+  before a promotion verdict.
+- `status: hold` with an authorized, not-yet-ratified correction: present the
+  effective view—not the base claim—as an explicit correction item in the
+  ratification question set.
+- `status: pass` with changed records: consume each `effective_record`. The
+  preserved `base_record` is lineage evidence, never current truth.
+- After any correction write, run `apply-backrefs --authority <actor>` and
+  require `check-index` to pass. These commands write only the derived index,
+  back-references, and reconciliation receipt; they never retcon source rows.
+
+The canonical schema is
+`cgg-runtime/contracts/record-correction-v1.schema.json`. A correction outside
+that envelope is visible but unauthorized and cannot rewrite an effective
+view.
+
 ### 2. Scan for Pending CogPR Flags
 
 Search for `<!-- --agnostic-candidate -->` blocks with `status: "pending"` in governance files only:
@@ -320,6 +350,7 @@ After applying all approved actions, verify constitutional changes landed cohere
 **Cross-checks:**
 - No duplicate queue entries for the same CogPR (same lesson hash at same scope)
 - No contradictory post-review states (promoted in queue but missing from target, or rejected but still showing as pending)
+- `effective-record.py check-index` passes after any correction or target-surface write; unresolved/orphaned correction chains keep review close on HOLD
 
 **Post-review governance query verification:**
 Run `governance_query.py queue.status --format json` after all verdicts are applied. Compare `counts.pending` against expected post-review count (original pending minus promoted minus skipped). If mismatch, report as consistency failure.

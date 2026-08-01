@@ -71,6 +71,12 @@ try:
 except ImportError:
     resolve_doctrine_surfaces = None
 
+try:
+    from effective_record import build_effective_index, hydration_view
+except ImportError:
+    build_effective_index = None
+    hydration_view = None
+
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Configuration constants
@@ -971,6 +977,51 @@ def execute_probes_and_hydrate(intake: dict[str, Any], zone: dict[str, Any], pla
     return executed, chunks
 
 
+def apply_effective_record_projection(
+    executed: list[dict[str, Any]],
+    chunks: list[dict[str, Any]],
+    zone: dict[str, Any],
+    projection: dict[str, Any],
+) -> None:
+    """Replace raw previews from corrected surfaces with effective views.
+
+    RTCH may still identify the append-only source as evidence, but it must not
+    emit a disproven base row as current hydration.  Every hit/chunk from an
+    affected surface is therefore redacted and replaced by the shared
+    resolver's effective record set for that surface.
+    """
+    root = Path(zone["zone_root"]).resolve()
+    by_path: dict[str, list[dict[str, Any]]] = {}
+    for record in projection.get("effective_records", []):
+        full = (root / record["target_surface"]).resolve()
+        by_path.setdefault(str(full), []).append(record)
+    if not by_path:
+        return
+
+    for probe in executed:
+        for hit in probe.get("hits", []):
+            path = hit.get("path")
+            if path and str(Path(path).resolve()) in by_path:
+                hit["preview"] = "[superseded base preview withheld; consume effective_record_projection]"
+                hit["effective_record_required"] = True
+
+    for chunk in chunks:
+        path = chunk.get("path")
+        affected = by_path.get(str(Path(path).resolve())) if path else None
+        if not affected:
+            continue
+        rendered = json.dumps(affected, sort_keys=True, ensure_ascii=False)
+        chunk["body_preview"] = rendered[:600]
+        chunk["body_full_chars"] = len(rendered)
+        chunk["confidence_class"] = "effective_record_view"
+        chunk["limitation"] = "Resolver-derived current view; inspect preserved lineage for the authored base."
+        chunk["why_included"] = "Raw target surface has an admitted third-surface correction."
+        ids = [record["target_record_id"] for record in affected]
+        chunk["next_re_entry_command"] = (
+            "effective-record.py resolve --record-id " + ",".join(ids)
+        )
+
+
 def _execute_probe(probe: dict[str, Any], zone: dict[str, Any]) -> dict[str, Any]:
     family = probe["family"]
     terms = probe["input_terms"]
@@ -1154,7 +1205,7 @@ def build_packet(intake: dict[str, Any], zone: dict[str, Any], scout: dict[str, 
     selected: list[str] = []
     seen_paths: set[str] = set()
     for c in chunks:
-        if c["confidence_class"] in ("source_bearing_hit", "hydrated_evidence", "claim_supporting"):
+        if c["confidence_class"] in ("source_bearing_hit", "hydrated_evidence", "claim_supporting", "effective_record_view"):
             p = c["path"]
             if p not in seen_paths:
                 selected.append(p)
@@ -1183,7 +1234,7 @@ def build_packet(intake: dict[str, Any], zone: dict[str, Any], scout: dict[str, 
     # Halting reason
     enough = intake.get("enough_evidence_definition", "")
     enough_lower = enough.lower()
-    have_source_bearing = any(c["confidence_class"] in ("source_bearing_hit", "hydrated_evidence", "claim_supporting") for c in chunks)
+    have_source_bearing = any(c["confidence_class"] in ("source_bearing_hit", "hydrated_evidence", "claim_supporting", "effective_record_view") for c in chunks)
     have_chunks = len(chunks) > 0
     if have_source_bearing and have_chunks:
         halting = "enough_evidence_definition_satisfied"
@@ -1618,12 +1669,29 @@ def main(argv: Optional[list[str]] = None) -> int:
 
     intake = parse_intake(args)
     zone = orient_zone(intake)
+    effective_projection = {
+        "status": "safe",
+        "effective_records": [],
+        "unresolved": [],
+    }
+    if build_effective_index is not None and hydration_view is not None:
+        effective_projection = hydration_view(build_effective_index(zone["zone_root"]))
+        if effective_projection["status"] == "blocked":
+            print(json.dumps({
+                "status": "effective_record_hold",
+                "consumer": "tactical_hydration",
+                "unresolved": effective_projection["unresolved"],
+                "blocked_targets": effective_projection["blocked_targets"],
+            }, indent=2))
+            return 2
     scout = shape_scout(intake, zone)
     basket = build_basket(intake, zone, scout)
     plan = build_probe_plan(intake, zone, basket)
     executed, chunks = execute_probes_and_hydrate(intake, zone, plan)
+    apply_effective_record_projection(executed, chunks, zone, effective_projection)
     current_tic = _current_tic(zone)
     packet = build_packet(intake, zone, scout, basket, plan, executed, chunks, current_tic)
+    packet["effective_record_projection"] = effective_projection
 
     if args.handoff:
         packet["packaging_handoff"] = handoff_to_consolidate(packet, zone)

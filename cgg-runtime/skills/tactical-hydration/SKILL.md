@@ -106,6 +106,18 @@ Source discovery is staged. Candidate terms are not truth. Grep terms are not in
 
 ## When the Architect (or another agent) invokes you
 
+0. **Run the effective-record hydration gate before discovery.**
+
+   ```bash
+   python3 "${CLAUDE_PLUGIN_ROOT}/cgg-runtime/scripts/effective-record.py" \
+     --zone-root "${CLAUDE_PROJECT_DIR:-$PWD}" hydration-gate
+   ```
+
+   Exit 2 means an unresolved correction chain: stop with the typed warning.
+   Exit 3 means corrected views exist: do not hydrate the raw target records;
+   consume the emitted `effective_records` or narrow discovery away from those
+   surfaces. This is a source-integrity boundary, not an optional preflight.
+
 1. **Elicit the intake form** if not provided. The intake is the lane's contract. Required fields:
    - `goal` (one sentence)
    - `target_profile` (doctrine_chain | audit_history | code_path | manifest_registry | vague_intent | mixed)

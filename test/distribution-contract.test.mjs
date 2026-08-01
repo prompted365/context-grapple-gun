@@ -203,6 +203,7 @@ test('full hook authority includes the whole declared lifecycle', () => {
 
 test('installer smoke executes the packed artifact and all plugin scopes', () => {
   const workflow = readFileSync(join(ROOT, '.github', 'workflows', 'installer-smoke.yml'), 'utf-8');
+  assert.match(workflow, /'cgg-runtime\/\*\*'/);
   assert.match(workflow, /npm pack --json/);
   for (const scope of ['user', 'project', 'local']) {
     assert.match(workflow, new RegExp(`--scope ${scope}`));
@@ -213,11 +214,50 @@ test('installer smoke executes the packed artifact and all plugin scopes', () =>
   assert.match(workflow, /expected sync check to fail/);
 });
 
-test('distribution CI gates runtime changes on a version advance', () => {
+test('distribution CI freezes published runtime while allowing candidate completion', () => {
   const workflow = readFileSync(join(ROOT, '.github', 'workflows', 'distribution-contract.yml'), 'utf-8');
-  assert.match(workflow, /Verify public runtime version advance/);
+  assert.match(workflow, /'cgg-runtime\/\*\*'/);
+  assert.match(workflow, /^\s+cgg-runtime \\$/m);
+  for (const payload of ['assets', 'docs', 'README.md', 'package-lock.json']) {
+    assert.match(workflow, new RegExp(`^\\s+${payload.replace('.', '\\.')}`, 'm'));
+  }
+  assert.match(workflow, /Verify published runtime immutability/);
   assert.match(workflow, /BASE_VERSION/);
+  assert.match(workflow, /BASE_STATUS/);
   assert.match(workflow, /CURRENT_VERSION/);
+  assert.match(workflow, /BASE_STATUS.*published/s);
+});
+
+test('third-surface correction contract is packaged and wired to review plus hydration', () => {
+  for (const relative of [
+    'cgg-runtime/contracts/record-correction-v1.schema.json',
+    'cgg-runtime/migrations/record-correction-tic658.json',
+    'cgg-runtime/scripts/effective-record.py',
+    'cgg-runtime/scripts/lib/effective_record.py',
+    'cgg-runtime/scripts/test_effective_record.py',
+  ]) {
+    assert.ok(existsSync(join(ROOT, relative)), relative);
+  }
+  const review = readFileSync(join(ROOT, 'cgg-runtime/skills/review/SKILL.md'), 'utf-8');
+  const session = readFileSync(join(ROOT, 'cgg-runtime/hooks/session-restore.sh'), 'utf-8');
+  assert.match(review, /effective-record\.py.*review-gate/s);
+  assert.match(review, /check-index/);
+  assert.match(session, /hydration-gate --format hook/);
+  assert.match(session, /EFFECTIVE_RECORD_HYDRATION_BLOCKED/);
+});
+
+test('npm publication is tokenless OIDC and transitions status only after registry proof', () => {
+  const workflow = readFileSync(join(ROOT, '.github', 'workflows', 'npm-release.yml'), 'utf-8');
+  assert.match(workflow, /id-token: write/);
+  assert.match(workflow, /environment: npm-publish/);
+  assert.match(workflow, /npm@\^11\.5\.1/);
+  assert.match(workflow, /publication-admission-commit/);
+  assert.match(workflow, /issue #16 is/);
+  assert.doesNotMatch(workflow, /NPM_TOKEN/);
+  const publishAt = workflow.indexOf('npm publish');
+  const verifyAt = workflow.indexOf('Verify registry receipt');
+  const transitionAt = workflow.indexOf('Transition public release status after registry verification');
+  assert.ok(publishAt >= 0 && publishAt < verifyAt && verifyAt < transitionAt);
 });
 
 test('Academy is excluded pending its governed refresh', () => {

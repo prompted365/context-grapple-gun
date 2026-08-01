@@ -89,6 +89,37 @@ PROJECT_DIR="$ZONE_ROOT"
 PROJECT_KEY=$(echo "$PROJECT_DIR" | sed 's|/|-|g')
 
 # ============================================================================
+# Effective-record hydration gate (third-surface correction reconciler).
+#
+# A pair of agreeing projections is not current truth when an append-only
+# correction landed on a third surface.  Resolve corrections BEFORE any civic
+# worldview is hydrated.  An unresolved chain suppresses worldview rendering
+# and leaves a loud hook badge; a resolved chain supplies only effective views.
+# The hook remains fail-soft on tool absence, but never silently emits a known
+# unsafe worldview after the resolver returns a hold.
+# ============================================================================
+
+EFFECTIVE_RECORD_SCRIPT="$CGG_SCRIPTS_DIR/effective-record.py"
+[ -f "$EFFECTIVE_RECORD_SCRIPT" ] || EFFECTIVE_RECORD_SCRIPT="$HOME/.claude/cgg-runtime/scripts/effective-record.py"
+EFFECTIVE_RECORD_MSG=""
+EFFECTIVE_RECORD_HYDRATION_BLOCKED=0
+if [ -f "$EFFECTIVE_RECORD_SCRIPT" ]; then
+  EFFECTIVE_RECORD_MSG=$(python3 "$EFFECTIVE_RECORD_SCRIPT" --zone-root "$ZONE_ROOT" \
+    hydration-gate --format hook 2>/dev/null)
+  EFFECTIVE_RECORD_RC=$?
+  if [ "$EFFECTIVE_RECORD_RC" -eq 2 ]; then
+    EFFECTIVE_RECORD_HYDRATION_BLOCKED=1
+  elif [ "$EFFECTIVE_RECORD_RC" -eq 3 ]; then
+    # Corrections are valid and resolved, but raw worldview readers do not own
+    # the fold. Suppress them; the hook badge routes consumers to effective ids.
+    EFFECTIVE_RECORD_HYDRATION_BLOCKED=1
+  elif [ "$EFFECTIVE_RECORD_RC" -ne 0 ]; then
+    EFFECTIVE_RECORD_MSG="[EFFECTIVE RECORD WARNING: resolver execution failed; no correction-derived claim is admitted by this hook]"
+    EFFECTIVE_RECORD_HYDRATION_BLOCKED=1
+  fi
+fi
+
+# ============================================================================
 # Handoff-seal reconcile + interstitial activation (tic 633 plan-lifecycle
 # split; tic 634 recovery-seam repair — both Architect-directed). SessionStart
 # delegates to cadence-handoff-seal.py --reconcile-at-start (ONE owner of the
@@ -123,7 +154,7 @@ fi
 PROCESSED_IDS="$HOME/.claude/cgg-processed-handoff-ids.txt"
 touch "$PROCESSED_IDS"
 FLAG_DIR="${TMPDIR:-/tmp}/claude_cgg/$PROJECT_KEY"
-CGG_MSG=""
+CGG_MSG="$EFFECTIVE_RECORD_MSG"
 HANDOFF_ID=""
 LATEST_PLAN=""
 
@@ -988,7 +1019,7 @@ fi
 
 WORLDVIEW_MSG=""
 WORLDVIEW_SCRIPT=$(resolve_script "office-worldview.py")
-if [ -n "$WORLDVIEW_SCRIPT" ] && [ "$TIC_COUNT" -gt 0 ]; then
+if [ -n "$WORLDVIEW_SCRIPT" ] && [ "$TIC_COUNT" -gt 0 ] && [ "$EFFECTIVE_RECORD_HYDRATION_BLOCKED" -eq 0 ]; then
   WORLDVIEW_RAW=$(python3 "$WORLDVIEW_SCRIPT" render \
     --office ent_homeskillet --tic "$TIC_COUNT" --format human \
     --zone-root "$PROJECT_DIR" --max-chars 20000 2>/dev/null || true)

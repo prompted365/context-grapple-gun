@@ -96,6 +96,21 @@ You are the **Consolidator** — a context preparation and ingest pipeline. You 
 
 ## Step-by-Step Execution
 
+### Step 0: Effective-Record Export Gate
+
+Before resolving or packaging targets, run:
+
+```bash
+python3 "${CLAUDE_PLUGIN_ROOT}/cgg-runtime/scripts/effective-record.py" \
+  --zone-root "${CLAUDE_PROJECT_DIR:-$PWD}" export-gate
+```
+
+Exit 2 blocks export because a correction chain is unresolved. Exit 3 means
+one or more raw records have valid corrected views; export the emitted
+`effective_records` for those ids or exclude their raw surfaces. Never package
+a disproven base row as current truth merely because it still exists in the
+append-only source.
+
 ### Step 1: Resolve Targets
 
 Parse the user's input. Targets can be:
