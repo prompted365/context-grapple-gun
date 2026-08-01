@@ -23,9 +23,45 @@ function read(path) {
   return JSON.parse(readFileSync(join(ROOT, path), 'utf-8'));
 }
 
+let packedFileCache;
+function packedFiles() {
+  if (packedFileCache) return packedFileCache;
+  const cache = mkdtempSync(join(tmpdir(), 'cgg-npm-pack-cache-'));
+  const receipt = JSON.parse(execFileSync(
+    'npm',
+    ['--cache', cache, 'pack', '--dry-run', '--json'],
+    { cwd: ROOT, encoding: 'utf-8' },
+  ))[0];
+  packedFileCache = new Set(receipt.files.map((file) => file.path));
+  return packedFileCache;
+}
+
 function markdownLinks(path) {
   const text = readFileSync(path, 'utf-8');
   return [...text.matchAll(/\[[^\]]+\]\(([^)]+)\)/g)].map((match) => match[1]);
+}
+
+function assertCheckoutCredentialsDisabled(workflow) {
+  const lines = workflow.split('\n');
+  const checkoutSteps = lines
+    .map((line, index) => ({ line, index }))
+    .filter(({ line }) => /^\s*- uses: actions\/checkout@/.test(line));
+  assert.ok(checkoutSteps.length > 0);
+  for (const { line, index } of checkoutSteps) {
+    const indentation = line.indexOf('-');
+    let end = lines.length;
+    for (let candidate = index + 1; candidate < lines.length; candidate += 1) {
+      if (lines[candidate].startsWith(`${' '.repeat(indentation)}- `)) {
+        end = candidate;
+        break;
+      }
+    }
+    assert.match(
+      lines.slice(index, end).join('\n'),
+      /persist-credentials: false/,
+      `checkout at line ${index + 1} must disable persisted credentials`,
+    );
+  }
 }
 
 test('source plugin manifest is the single complete component authority', () => {
@@ -120,6 +156,9 @@ test('npm package contains the deterministic runtime payload and one release ide
   assert.equal(pkg.publishConfig.access, 'public');
   assert.equal(pkg.publishConfig.provenance, true);
   assert.ok(existsSync(join(ROOT, '.github', 'workflows', 'npm-release.yml')));
+  const runtimeNpmIgnore = readFileSync(join(ROOT, 'cgg-runtime', '.npmignore'), 'utf-8');
+  assert.match(runtimeNpmIgnore, /__pycache__/);
+  assert.match(runtimeNpmIgnore, /\*\.pyc/);
 });
 
 test('zone bootstrap is idempotent and never activates PRESTIGE', () => {
@@ -203,7 +242,14 @@ test('full hook authority includes the whole declared lifecycle', () => {
 
 test('installer smoke executes the packed artifact and all plugin scopes', () => {
   const workflow = readFileSync(join(ROOT, '.github', 'workflows', 'installer-smoke.yml'), 'utf-8');
+  assert.match(workflow, /'cgg-runtime\/\*\*'/);
+  assertCheckoutCredentialsDisabled(workflow);
   assert.match(workflow, /npm pack --json/);
+  assert.match(workflow, /PKG_NAME=.*cgg-pack\.json/);
+  assert.match(workflow, /test -d "\$PACKAGE_ROOT"/);
+  assert.match(workflow, /Verify packed RTCH correction resolver/);
+  assert.match(workflow, /resolver_module != 'lib\.effective_record'/);
+  assert.match(workflow, /sys\.modules\.get\(resolver_module\)/);
   for (const scope of ['user', 'project', 'local']) {
     assert.match(workflow, new RegExp(`--scope ${scope}`));
   }
@@ -213,11 +259,152 @@ test('installer smoke executes the packed artifact and all plugin scopes', () =>
   assert.match(workflow, /expected sync check to fail/);
 });
 
-test('distribution CI gates runtime changes on a version advance', () => {
+test('distribution CI freezes published runtime while allowing candidate completion', () => {
   const workflow = readFileSync(join(ROOT, '.github', 'workflows', 'distribution-contract.yml'), 'utf-8');
-  assert.match(workflow, /Verify public runtime version advance/);
+  assert.match(workflow, /'cgg-runtime\/\*\*'/);
+  assert.match(workflow, /^\s+cgg-runtime \\$/m);
+  for (const payload of ['assets', 'docs', 'README.md', 'package-lock.json']) {
+    assert.match(workflow, new RegExp(`^\\s+${payload.replace('.', '\\.')}`, 'm'));
+  }
+  assert.match(workflow, /Verify published runtime immutability/);
   assert.match(workflow, /BASE_VERSION/);
+  assert.match(workflow, /BASE_STATUS/);
+  assert.match(workflow, /CURRENT_STATUS/);
   assert.match(workflow, /CURRENT_VERSION/);
+  assert.match(workflow, /BASE_STATUS.*published/s);
+  assert.match(
+    workflow,
+    /BASE_STATUS" = "published".*BASE_VERSION" = "\$CURRENT_VERSION".*CURRENT_STATUS" != "published"/s,
+  );
+  assert.match(workflow, /Published release status cannot regress at the same version/);
+  assert.doesNotMatch(workflow, /\|\| true/);
+  assert.match(
+    workflow,
+    /pull_request:[\s\S]*?paths:[\s\S]*?release-manifest\.json[\s\S]*?push:/,
+  );
+  assert.match(
+    workflow,
+    /push:[\s\S]*?paths:[\s\S]*?release-manifest\.json[\s\S]*?workflow_dispatch:/,
+  );
+  assert.match(workflow, /CHANGED=.*release-manifest\.json/s);
+  assert.match(workflow, /CHANGED=.*release-status\.json/s);
+  assertCheckoutCredentialsDisabled(workflow);
+});
+
+test('third-surface correction contract is packaged and wired to review plus hydration', () => {
+  const packaged = packedFiles();
+  for (const relative of [
+    'cgg-runtime/contracts/record-correction-authorization-v1.schema.json',
+    'cgg-runtime/contracts/record-correction-v1.schema.json',
+    'cgg-runtime/migrations/record-correction-tic658.json',
+    'cgg-runtime/scripts/effective-record.py',
+    'cgg-runtime/scripts/lib/effective_record.py',
+    'cgg-runtime/scripts/test_effective_record.py',
+  ]) {
+    assert.ok(existsSync(join(ROOT, relative)), relative);
+    assert.ok(packaged.has(relative), `packed artifact missing ${relative}`);
+  }
+  assert.equal([...packaged].some((path) => /__pycache__|\.py[co]$|\.pytest_cache/.test(path)), false);
+  const authorizationSchema = JSON.parse(readFileSync(
+    join(ROOT, 'cgg-runtime/contracts/record-correction-authorization-v1.schema.json'),
+    'utf-8',
+  ));
+  const migration = JSON.parse(readFileSync(
+    join(ROOT, 'cgg-runtime/migrations/record-correction-tic658.json'),
+    'utf-8',
+  ));
+  assert.ok(authorizationSchema.required.includes('canonical_append_surface'));
+  assert.deepEqual(
+    [...authorizationSchema.properties.lifecycle_state.enum].sort(),
+    ['authorized', 'ratified', 'revoked', 'superseded'],
+  );
+  assert.equal(
+    migration.canonical_authorization_receipt.canonical_append_surface,
+    migration.provenance.surface,
+  );
+  const review = readFileSync(join(ROOT, 'cgg-runtime/skills/review/SKILL.md'), 'utf-8');
+  const session = readFileSync(join(ROOT, 'cgg-runtime/hooks/session-restore.sh'), 'utf-8');
+  const hydration = readFileSync(join(ROOT, 'cgg-runtime/skills/tactical-hydration/SKILL.md'), 'utf-8');
+  assert.match(review, /^python3 [^\n]*effective-record\.py[^\n]*review-gate$/m);
+  assert.match(review, /check-index/);
+  assert.match(session, /hydration-gate --format hook/);
+  assert.match(session, /EFFECTIVE_RECORD_HYDRATION_BLOCKED/);
+  assert.match(session, /EFFECTIVE_RECORD_RC" -eq 3.*EFFECTIVE_RECORD_HYDRATION_BLOCKED=1/s);
+  const sessionStop = session.indexOf('if [ "$EFFECTIVE_RECORD_HYDRATION_BLOCKED" -eq 1 ]');
+  const queueReader = session.indexOf('# Queue.jsonl counting');
+  assert.ok(sessionStop >= 0, 'SessionStart must stop on an effective-record hold');
+  assert.ok(queueReader > sessionStop, 'the effective-record stop must precede raw queue readers');
+  assert.match(session, /SessionStart governance readers suppressed/);
+  assert.match(session, /HANDOFF_MSG=""[\s\S]*CGG_MSG="\$\{CGG_MSG:\+\$CGG_MSG \}\$HANDOFF_MSG"/);
+  assert.match(session, /command -v python3/);
+  assert.doesNotMatch(hydration, /There is no `rtch\.py` runner yet/);
+  assert.match(hydration, /^\s*runner_script: [^\n]*rtch\.py[^\n]*operational[^\n]*$/m);
+  const rtch = readFileSync(join(ROOT, 'cgg-runtime', 'scripts', 'rtch.py'), 'utf-8');
+  const consolidate = readFileSync(join(ROOT, 'cgg-runtime', 'scripts', 'consolidate.py'), 'utf-8');
+  assert.match(consolidate, /"--", url, tmpdir/);
+  assert.match(consolidate, /cleanup_git_clone\(tmpdir\)[\s\S]*sys\.exit\(3\)/);
+  assert.match(rtch, /from lib\.effective_record import build_effective_index, hydration_view/);
+  assert.match(rtch, /effective_record_capability_blocker/);
+  assert.match(rtch, /raw_packet_rehydration_not_projection_aware/);
+  assert.match(rtch, /current_claim_force": "none"/);
+  assert.match(rtch, /return 5/);
+});
+
+test('npm publication is tokenless OIDC and transitions status only after registry proof', () => {
+  const workflow = readFileSync(join(ROOT, '.github', 'workflows', 'npm-release.yml'), 'utf-8');
+  assert.match(workflow, /id-token: write/);
+  assert.match(workflow, /environment: npm-publish/);
+  assert.match(workflow, /npm@11\.5\.1/);
+  assert.doesNotMatch(workflow, /npm@\^11\.5\.1/);
+  assert.match(workflow, /publication-admission-commit/);
+  assert.match(workflow, /issue #16 is/);
+  assert.match(workflow, /author_association/);
+  assert.match(workflow, /trustedAssociations/);
+  assert.match(workflow, /--paginate --slurp/);
+  assert.match(workflow, /single trusted issue comment/);
+  assert.match(workflow, /Registry already carries the exact artifact; entering receipt-only recovery/);
+  assert.match(workflow, /requested dist-tag \$DIST_TAG points to/);
+  assert.match(workflow, /not npm dist-tag mutation/);
+  assert.match(workflow, /publication_needed=false/);
+  assert.match(workflow, /E404/);
+  assert.match(workflow, /refusing to classify the version as absent/);
+  assert.doesNotMatch(workflow, /npm view[^\n]*\|\| true/);
+  assert.match(workflow, /git rebase origin\/main/);
+  assert.match(workflow, /git rebase --abort/);
+  assert.match(workflow, /main advanced during receipt write; retrying/);
+  assert.match(workflow, /Transient Python cache entered tarball/);
+  assert.match(workflow, /npm audit signatures --json/);
+  assert.match(workflow, /cgg-installed-tree\.json/);
+  assert.match(workflow, /installed\.version !== expected/);
+  assert.match(workflow, /\['invalid', 'missing'\]/);
+  assert.match(workflow, /audit\[key\]\.length !== 0/);
+  assert.match(workflow, /Registry attestation is not linked to the exact installed package/);
+  assert.match(workflow, /https:\/\/slsa\.dev\/provenance\/v1/);
+  assert.match(workflow, /registry_attestations/);
+  assert.match(workflow, /manifest\.registry_dist_tag = process\.env\.DIST_TAG/);
+  assert.match(workflow, /Release receipt surfaces disagree/);
+  assert.match(workflow, /PACKED_PATHS/);
+  assert.match(workflow, /ref: \$\{\{ inputs\.expected_commit \}\}/);
+  assert.doesNotMatch(workflow, /npm publish[^\n]*inputs\.dist_tag/);
+  assert.match(workflow, /DIST_TAG: \$\{\{ inputs\.dist_tag \}\}[\s\S]*npm publish "\$TARBALL" --tag "\$DIST_TAG"/);
+  assert.match(workflow, /default: latest/);
+  assert.doesNotMatch(workflow, /default: next/);
+  assert.doesNotMatch(workflow, /^\s+npm dist-tag /m);
+  assert.doesNotMatch(workflow, /NPM_TOKEN/);
+  const manifestStart = workflow.indexOf('Write exact source receipt into the package workspace');
+  const manifestEnd = workflow.indexOf('Test distribution contract');
+  assert.ok(manifestStart >= 0, 'candidate manifest step must exist');
+  assert.ok(manifestEnd > manifestStart, 'distribution test must follow candidate manifest creation');
+  const deterministicManifest = workflow.slice(manifestStart, manifestEnd);
+  assert.doesNotMatch(deterministicManifest, /new Date/);
+  assert.doesNotMatch(deterministicManifest, /workflow_run/);
+  assert.doesNotMatch(deterministicManifest, /dist_tag|DIST_TAG/);
+  const publishAt = workflow.indexOf('npm publish');
+  const prePublishDriftAt = workflow.indexOf('refusing irreversible npm publication');
+  const verifyAt = workflow.indexOf('Verify registry receipt');
+  const transitionAt = workflow.indexOf('Transition public release status after registry verification');
+  assert.ok(prePublishDriftAt >= 0 && prePublishDriftAt < publishAt);
+  assert.ok(publishAt >= 0 && publishAt < verifyAt && verifyAt < transitionAt);
 });
 
 test('Academy is excluded pending its governed refresh', () => {

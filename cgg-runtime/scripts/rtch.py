@@ -24,7 +24,8 @@ CLI:
   rtch.py --intake <intake.json>
   rtch.py --validate-example <10.1|10.2|10.3|10.4|10.5>
 
-Exit codes: 0=success, 1=intake error, 2=zone error, 3=probe error, 4=packet error.
+Exit codes: 0=success, 1=intake error, 2=zone/effective-record hold,
+3=probe error, 4=packet error, 5=effective-record capability unavailable.
 
 Hard holds (per binder §12 — enforced at runtime):
   - read-only by default (no source mutation)
@@ -42,6 +43,7 @@ import hashlib
 import json
 import os
 import re
+import shlex
 import shutil
 import subprocess
 import sys
@@ -70,6 +72,14 @@ try:
     from doctrine_surfaces import resolve_doctrine_surfaces
 except ImportError:
     resolve_doctrine_surfaces = None
+
+_EFFECTIVE_RECORD_IMPORT_ERROR = None
+try:
+    from lib.effective_record import build_effective_index, hydration_view
+except ImportError as error:
+    build_effective_index = None
+    hydration_view = None
+    _EFFECTIVE_RECORD_IMPORT_ERROR = error
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -971,6 +981,132 @@ def execute_probes_and_hydrate(intake: dict[str, Any], zone: dict[str, Any], pla
     return executed, chunks
 
 
+def apply_effective_record_projection(
+    executed: list[dict[str, Any]],
+    chunks: list[dict[str, Any]],
+    zone: dict[str, Any],
+    projection: dict[str, Any],
+) -> None:
+    """Project corrected JSONL rows without discarding unrelated evidence.
+
+    A correction applies to one identified base row, not every row that shares
+    its append-only file.  Exact target hits become effective-record views;
+    bounded chunks preserve unrelated lines and replace only corrected base
+    line numbers.  This keeps a query hit on a neighboring row from being
+    relabeled as evidence for an unrelated correction.
+    """
+    root = Path(zone["zone_root"]).resolve()
+    by_path: dict[str, dict[int, list[dict[str, Any]]]] = {}
+    for record in projection.get("effective_records", []):
+        location = record.get("base_location")
+        line = location.get("line") if isinstance(location, dict) else None
+        if not isinstance(line, int) or line < 1:
+            continue
+        full = (root / record["target_surface"]).resolve()
+        by_path.setdefault(str(full), {}).setdefault(line, []).append(record)
+    if not by_path:
+        return
+
+    for probe in executed:
+        for hit in probe.get("hits", []):
+            path = hit.get("path")
+            line = hit.get("line")
+            affected = by_path.get(str(Path(path).resolve())) if path else None
+            matched = affected.get(line, []) if affected and isinstance(line, int) else []
+            if matched:
+                hit["preview"] = "\n".join(_render_effective_record(record) for record in matched)
+                hit["effective_record_required"] = True
+                hit["effective_record_ids"] = [
+                    record["target_record_id"] for record in matched
+                ]
+
+    for chunk in chunks:
+        path = chunk.get("path")
+        affected_by_line = by_path.get(str(Path(path).resolve())) if path else None
+        bounds = _chunk_line_bounds(chunk)
+        if not affected_by_line or bounds is None:
+            continue
+        start, end = bounds
+        affected = {
+            line: records for line, records in affected_by_line.items()
+            if start <= line <= end
+        }
+        if not affected:
+            continue
+        projection_succeeded = True
+        try:
+            rendered_lines: list[str] = []
+            with Path(path).open(encoding="utf-8", errors="ignore") as handle:
+                for line_number, raw in enumerate(handle, 1):
+                    if line_number < start:
+                        continue
+                    if line_number > end:
+                        break
+                    replacements = affected.get(line_number)
+                    if replacements:
+                        rendered_lines.extend(
+                            _render_effective_record(record) + "\n"
+                            for record in replacements
+                        )
+                    else:
+                        rendered_lines.append(raw)
+            rendered = "".join(rendered_lines)
+        except OSError:
+            projection_succeeded = False
+            rendered = "[effective-record projection unavailable; raw bounded chunk withheld]"
+            chunk["confidence_class"] = "effective_record_projection_hold"
+
+        reentries = sorted({
+            (record["target_record_id"], record["target_surface"])
+            for records in affected.values()
+            for record in records
+        })
+        ids = [record_id for record_id, _ in reentries]
+        chunk["body_preview"] = rendered[:600]
+        chunk["body_full_chars"] = len(rendered)
+        chunk["effective_record_ids"] = ids
+        target_line = chunk.get("target_line")
+        if projection_succeeded and isinstance(target_line, int) and target_line in affected:
+            chunk["confidence_class"] = "effective_record_view"
+        existing_limitation = chunk.get("limitation", "")
+        projection_note = "Corrected rows use resolver views; unrelated bounded rows are preserved."
+        chunk["limitation"] = " ".join(
+            value for value in (existing_limitation, projection_note) if value
+        )
+        chunk["effective_record_re_entry_commands"] = [
+            "effective-record.py resolve --record-id "
+            + shlex.quote(record_id)
+            + " --surface "
+            + shlex.quote(surface)
+            for record_id, surface in reentries
+        ]
+
+
+def _render_effective_record(record: dict[str, Any]) -> str:
+    return json.dumps({
+        "type": "effective_record_view",
+        "target_record_id": record["target_record_id"],
+        "target_surface": record["target_surface"],
+        "effective_record": record["effective_record"],
+        "applied_correction_ids": record.get("applied_correction_ids", []),
+    }, sort_keys=True, ensure_ascii=False)
+
+
+def _chunk_line_bounds(chunk: dict[str, Any]) -> Optional[tuple[int, int]]:
+    start = chunk.get("start_line")
+    end = chunk.get("end_line")
+    if isinstance(start, int) and isinstance(end, int) and start >= 1 and end >= start:
+        return start, end
+    line_range = chunk.get("line_range")
+    if isinstance(line_range, str):
+        match = re.fullmatch(r"L(\d+)-L(\d+)", line_range)
+        if match:
+            parsed = (int(match.group(1)), int(match.group(2)))
+            if parsed[0] >= 1 and parsed[1] >= parsed[0]:
+                return parsed
+    return None
+
+
 def _execute_probe(probe: dict[str, Any], zone: dict[str, Any]) -> dict[str, Any]:
     family = probe["family"]
     terms = probe["input_terms"]
@@ -1092,6 +1228,9 @@ def _hydrate_hits(probe_outcome: dict[str, Any], zone: dict[str, Any], intake: d
             "chunk_id": f"rtch_chunk_{probe_outcome['probe_id']}_{len(chunks)+1:02d}",
             "path": path,
             "line_range": f"L{start}-L{end}",
+            "start_line": start,
+            "end_line": end,
+            "target_line": line if isinstance(line, int) and line > 0 else None,
             "why_included": f"{family} hit on '{hit.get('matched_term','?')}' at L{line}",
             "term_or_shape": hit.get("matched_term", "?"),
             "confidence_class": confidence,
@@ -1154,7 +1293,7 @@ def build_packet(intake: dict[str, Any], zone: dict[str, Any], scout: dict[str, 
     selected: list[str] = []
     seen_paths: set[str] = set()
     for c in chunks:
-        if c["confidence_class"] in ("source_bearing_hit", "hydrated_evidence", "claim_supporting"):
+        if c["confidence_class"] in ("source_bearing_hit", "hydrated_evidence", "claim_supporting", "effective_record_view"):
             p = c["path"]
             if p not in seen_paths:
                 selected.append(p)
@@ -1183,7 +1322,7 @@ def build_packet(intake: dict[str, Any], zone: dict[str, Any], scout: dict[str, 
     # Halting reason
     enough = intake.get("enough_evidence_definition", "")
     enough_lower = enough.lower()
-    have_source_bearing = any(c["confidence_class"] in ("source_bearing_hit", "hydrated_evidence", "claim_supporting") for c in chunks)
+    have_source_bearing = any(c["confidence_class"] in ("source_bearing_hit", "hydrated_evidence", "claim_supporting", "effective_record_view") for c in chunks)
     have_chunks = len(chunks) > 0
     if have_source_bearing and have_chunks:
         halting = "enough_evidence_definition_satisfied"
@@ -1442,6 +1581,28 @@ def rehydrate_main(argv: list[str]) -> int:
                             "known_target": None, "forbid": [], "neighbor": []})
         zone_root = zone["zone_root"]
 
+    effective_projection = hydration_view(build_effective_index(zone_root))
+    if effective_projection["status"] != "safe":
+        outcome = {
+            "rehydrate_outcome": "effective_record_hold",
+            "reason": (
+                "unresolved_correction_chain"
+                if effective_projection["status"] == "blocked"
+                else "raw_packet_rehydration_not_projection_aware"
+            ),
+            "effective_record_status": effective_projection["status"],
+            "current_claim_force": "none",
+            "blocked_targets": effective_projection.get("blocked_targets", []),
+            "unresolved": effective_projection.get("unresolved", []),
+            "past_slice_preserved": True,
+            "rule": (
+                "A raw packet cannot regain current claim force while corrected "
+                "or unresolved records exist; resolve through the effective view."
+            ),
+        }
+        print(json.dumps(outcome, indent=2))
+        return 2
+
     packets_dir = Path(zone_root) / "audit-logs" / "rtch" / "packets"
 
     # Locate packet
@@ -1592,6 +1753,20 @@ def rehydrate_main(argv: list[str]) -> int:
 
 
 def main(argv: Optional[list[str]] = None) -> int:
+    if build_effective_index is None or hydration_view is None:
+        print(json.dumps({
+            "status": "effective_record_capability_blocker",
+            "consumer": "tactical_hydration",
+            "capability": "effective_record_resolution",
+            "message": (
+                "effective-record resolver is unavailable; tactical hydration "
+                "cannot prove correction state"
+            ),
+            "error": str(_EFFECTIVE_RECORD_IMPORT_ERROR or "unknown import failure"),
+            "exit_code": 5,
+        }, indent=2))
+        return 5
+
     raw = argv if argv is not None else sys.argv[1:]
     # Subcommand dispatch (additive — preserves legacy single-mode invocation)
     if raw and raw[0] == "rehydrate":
@@ -1618,12 +1793,23 @@ def main(argv: Optional[list[str]] = None) -> int:
 
     intake = parse_intake(args)
     zone = orient_zone(intake)
+    effective_projection = hydration_view(build_effective_index(zone["zone_root"]))
+    if effective_projection["status"] == "blocked":
+        print(json.dumps({
+            "status": "effective_record_hold",
+            "consumer": "tactical_hydration",
+            "unresolved": effective_projection["unresolved"],
+            "blocked_targets": effective_projection["blocked_targets"],
+        }, indent=2))
+        return 2
     scout = shape_scout(intake, zone)
     basket = build_basket(intake, zone, scout)
     plan = build_probe_plan(intake, zone, basket)
     executed, chunks = execute_probes_and_hydrate(intake, zone, plan)
+    apply_effective_record_projection(executed, chunks, zone, effective_projection)
     current_tic = _current_tic(zone)
     packet = build_packet(intake, zone, scout, basket, plan, executed, chunks, current_tic)
+    packet["effective_record_projection"] = effective_projection
 
     if args.handoff:
         packet["packaging_handoff"] = handoff_to_consolidate(packet, zone)

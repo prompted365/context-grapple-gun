@@ -15,7 +15,8 @@ Usage:
     python3 consolidate.py --targets ./specs/ --arena arena-spec.yaml --output dump.md
     python3 consolidate.py --scan  (dry run — show what would be included)
 
-Exit codes: 0=success, 1=error, 2=no files found.
+Exit codes: 0=success, 1=error, 2=no files found, 3=unsafe export held,
+4=effective-record capability unavailable.
 """
 
 import argparse
@@ -30,6 +31,18 @@ import tempfile
 from collections import Counter
 from datetime import datetime, timezone
 from pathlib import Path
+
+_EFFECTIVE_RECORD_IMPORT_ERROR = None
+try:
+    from lib.effective_record import build_effective_index
+except ImportError as error:
+    build_effective_index = None
+    _EFFECTIVE_RECORD_IMPORT_ERROR = error
+
+
+class EffectiveRecordCapabilityUnavailable(RuntimeError):
+    """Raised when a governed export cannot inspect correction state."""
+
 
 # ---------------------------------------------------------------------------
 # CONFIG
@@ -85,6 +98,157 @@ BINARY_MAGIC = {
     b'ID3',  # MP3
     b'\x00\x00\x00',  # MP4/MOV
 }
+
+
+def _governed_zone_for_file(full_path: str) -> Path | None:
+    """Return the nearest governed zone containing one selected file."""
+    start = Path(full_path).resolve()
+    if not start.is_dir():
+        start = start.parent
+    return next(
+        (path for path in (start, *start.parents) if (path / ".ticzone").is_file()),
+        None,
+    )
+
+
+def _effective_record_export_holds_for_zone(
+    zone_root: Path,
+    files: list[tuple[str, str]],
+) -> list[dict]:
+    """Return unsafe selected surfaces for one governed source zone."""
+    index = build_effective_index(zone_root)
+    selected = {str(Path(full).resolve()) for _, full in files}
+    holds = []
+    records = index.get("records", [])
+    for record in records:
+        target = str((zone_root / record["target_surface"]).resolve())
+        if target not in selected:
+            continue
+        if record["differs"] or record["unresolved"]:
+            holds.append({
+                "target_record_id": record["target_record_id"],
+                "target_surface": record["target_surface"],
+                "target_path": target,
+                "source_zone": str(zone_root),
+                "reason": "unresolved_correction_chain" if record["unresolved"] else "raw_surface_has_effective_view",
+                "resolve_with": (
+                    "effective-record.py resolve --record-id "
+                    + record["target_record_id"]
+                    + " --surface "
+                    + record["target_surface"]
+                ),
+            })
+    held_issue_keys = {
+        (hold.get("target_path"), hold.get("target_record_id"), hold.get("reason"))
+        for hold in holds
+    }
+    for issue in index.get("unresolved", []):
+        surfaces = {
+            value for value in (issue.get("target_surface"), issue.get("surface"))
+            if isinstance(value, str) and value
+        }
+        surfaces.update(
+            location["surface"]
+            for location in issue.get("source_locations", [])
+            if (
+                isinstance(location, dict)
+                and isinstance(location.get("surface"), str)
+                and location["surface"]
+            )
+        )
+        issue_record_id = issue.get("target_record_id")
+        issue_correction_id = issue.get("correction_id")
+        for record in records:
+            same_record = (
+                isinstance(issue_record_id, str)
+                and record.get("target_record_id") == issue_record_id
+            )
+            same_correction = (
+                isinstance(issue_correction_id, str)
+                and any(
+                    row.get("correction_id") == issue_correction_id
+                    for row in record.get("lineage", [])
+                )
+            )
+            if same_record or same_correction:
+                surfaces.add(record["target_surface"])
+
+        if not surfaces:
+            # The issue cannot be narrowed within this zone. Hold every selected
+            # file from this zone, but do not contaminate independently governed
+            # sources included in the same consolidation invocation.
+            for _, full in files:
+                target = str(Path(full).resolve())
+                key = (target, issue_record_id or issue_correction_id, "unresolved_correction_chain")
+                if key in held_issue_keys:
+                    continue
+                holds.append({
+                    "target_record_id": issue_record_id or issue_correction_id,
+                    "target_surface": None,
+                    "target_path": target,
+                    "source_zone": str(zone_root),
+                    "reason": "unresolved_correction_chain",
+                    "issue_code": issue.get("code"),
+                    "scope": "selected_zone_unscoped",
+                    "resolve_with": "effective-record.py scan",
+                })
+                held_issue_keys.add(key)
+            continue
+
+        for surface in sorted(surfaces):
+            target = str((zone_root / surface).resolve())
+            if target not in selected:
+                continue
+            key = (target, issue_record_id or issue_correction_id, "unresolved_correction_chain")
+            if key in held_issue_keys:
+                continue
+            holds.append({
+                "target_record_id": issue_record_id or issue_correction_id,
+                "target_surface": surface,
+                "target_path": target,
+                "source_zone": str(zone_root),
+                "reason": "unresolved_correction_chain",
+                "issue_code": issue.get("code"),
+                "scope": "selected_surface",
+                "resolve_with": "effective-record.py scan",
+            })
+            held_issue_keys.add(key)
+    return holds
+
+
+def effective_record_export_holds(files: list[tuple[str, str]]) -> list[dict]:
+    """Return corrected raw surfaces that this export must not package.
+
+    Consolidate is a raw file packager, not an effective-record materializer.
+    Refusing only the affected selected surfaces keeps unrelated exports usable
+    while preventing a disproven base row from being presented as current.
+    Each selected file is resolved against its own nearest governed zone. This
+    matters when a cloned repository and local targets are consolidated in one
+    invocation: correction authority must never be borrowed across zones.
+    An unresolved issue with no safely derivable surface holds every selected
+    file from that zone while leaving independently governed sources eligible.
+    """
+    zone_files: dict[Path, list[tuple[str, str]]] = {}
+    for relative, full in files:
+        zone_root = _governed_zone_for_file(full)
+        if zone_root is not None:
+            zone_files.setdefault(zone_root, []).append((relative, full))
+
+    if not zone_files:
+        return []
+    if build_effective_index is None:
+        detail = str(_EFFECTIVE_RECORD_IMPORT_ERROR or "unknown import failure")
+        raise EffectiveRecordCapabilityUnavailable(
+            "effective-record resolver is unavailable; governed export cannot "
+            f"prove correction state ({detail})"
+        )
+
+    holds = []
+    for zone_root in sorted(zone_files, key=str):
+        holds.extend(
+            _effective_record_export_holds_for_zone(zone_root, zone_files[zone_root])
+        )
+    return holds
 
 
 # ---------------------------------------------------------------------------
@@ -234,14 +398,30 @@ def collect_from_git_repo(url: str) -> tuple:
     tmpdir = os.path.join(tempfile.gettempdir(), f"consolidate-{url_hash}")
     if os.path.exists(tmpdir):
         shutil.rmtree(tmpdir)
-    subprocess.run(["git", "clone", "--depth", "1", url, tmpdir],
-                   capture_output=True, check=True, timeout=120)
+    # Repository-bound correction receipts may point to any ancestor of HEAD.
+    # Keep the full default-branch commit graph while avoiding historical blob
+    # transfer until a receipt's exact append surface is inspected.
+    try:
+        subprocess.run([
+            "git", "clone", "--filter=blob:none", "--single-branch", "--no-tags",
+            "--", url, tmpdir,
+        ],
+                       capture_output=True, check=True, timeout=120)
+    except Exception:
+        shutil.rmtree(tmpdir, ignore_errors=True)
+        raise
     # Get commit hash
     result = subprocess.run(["git", "-C", tmpdir, "rev-parse", "HEAD"],
                             capture_output=True, text=True)
     commit = result.stdout.strip()[:12] if result.returncode == 0 else "unknown"
     files = collect_from_directory(tmpdir, tmpdir)
     return files, tmpdir, commit
+
+
+def cleanup_git_clone(tmpdir: str | None) -> None:
+    """Remove a temporary repository collected for one invocation."""
+    if tmpdir and os.path.exists(tmpdir):
+        shutil.rmtree(tmpdir)
 
 
 def collect_from_git_diff(diff_range: str, repo_dir: str = None) -> list:
@@ -554,7 +734,45 @@ def main():
 
     if not all_files:
         print("No files found to consolidate.", file=sys.stderr)
+        cleanup_git_clone(tmpdir)
         sys.exit(2)
+
+    try:
+        export_holds = effective_record_export_holds(all_files)
+    except EffectiveRecordCapabilityUnavailable as error:
+        print(json.dumps({
+            "status": "effective_record_capability_blocker",
+            "message": str(error),
+            "capability": "effective_record_resolution",
+            "exit_code": 4,
+        }, indent=2), file=sys.stderr)
+        cleanup_git_clone(tmpdir)
+        sys.exit(4)
+    if export_holds:
+        blocking = [
+            hold for hold in export_holds
+            if hold.get("target_path") is None
+        ]
+        print(json.dumps({
+            "status": "effective_record_export_hold",
+            "message": (
+                "Unresolved corrections block this export."
+                if blocking
+                else "Raw corrected surfaces were excluded; unrelated exports remain eligible."
+            ),
+            "records": export_holds,
+        }, indent=2), file=sys.stderr)
+        if blocking:
+            cleanup_git_clone(tmpdir)
+            sys.exit(3)
+        held_paths = {hold["target_path"] for hold in export_holds}
+        all_files = [
+            (relative, full) for relative, full in all_files
+            if str(Path(full).resolve()) not in held_paths
+        ]
+        if not all_files:
+            cleanup_git_clone(tmpdir)
+            sys.exit(3)
 
     # Scan mode — dry run
     if args.scan:
@@ -563,6 +781,7 @@ def main():
             "file_list": [r for r, _ in all_files],
             "categories": dict(Counter(classify_file(r) for r, _ in all_files)),
         }, indent=2))
+        cleanup_git_clone(tmpdir)
         sys.exit(0)
 
     # Determine output path
@@ -599,8 +818,7 @@ def main():
     }, indent=2))
 
     # Cleanup temp dir
-    if tmpdir and os.path.exists(tmpdir):
-        shutil.rmtree(tmpdir)
+    cleanup_git_clone(tmpdir)
 
 
 if __name__ == "__main__":

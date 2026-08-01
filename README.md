@@ -108,6 +108,7 @@ When lexical lookup, file topology, and human review are no longer sufficient, U
 | Use CGG | [START-HERE.md](START-HERE.md) |
 | Install and remove it | [INSTALL.md](INSTALL.md) |
 | Check public release standing | [release-status.json](release-status.json) |
+| Audit npm publication authority | [docs/NPM-PUBLICATION.md](docs/NPM-PUBLICATION.md) |
 | Inspect admitted components | [cgg-runtime/config/plugin-components.json](cgg-runtime/config/plugin-components.json) |
 | Understand the operating pipeline | [DEV-README.md](DEV-README.md) |
 | Evaluate the theory and scale boundary | [ARCHITECTURE.md](ARCHITECTURE.md) |

@@ -12,9 +12,9 @@ on:
         required: true
         type: string
       dist_tag:
-        description: npm distribution tag; use latest only after downstream smoke
+        description: Exact npm distribution tag admitted for this publication; OIDC does not mutate existing tags
         required: true
-        default: next
+        default: latest
         type: string
       dry_run:
         description: Build and verify without publishing
@@ -24,6 +24,7 @@ on:
 
 permissions:
   contents: write
+  issues: read
   id-token: write
 
 jobs:
@@ -31,13 +32,62 @@ jobs:
     environment: npm-publish
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           fetch-depth: 0
-      - uses: actions/setup-node@v4
+          ref: ${{ inputs.expected_commit }}
+      - uses: actions/setup-node@v6
         with:
           node-version: '24'
           registry-url: 'https://registry.npmjs.org'
+          package-manager-cache: false
+      - name: Use an OIDC-capable npm CLI
+        run: |
+          npm install --global npm@11.5.1
+          node --version
+          npm --version
+      - name: Enforce the publication-admission receipt from issue 16
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EXPECTED_VERSION: ${{ inputs.expected_version }}
+          EXPECTED_COMMIT: ${{ inputs.expected_commit }}
+          DIST_TAG: ${{ inputs.dist_tag }}
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REF_NAME" = "main" || {
+            echo "Publication must run from main, not $GITHUB_REF_NAME" >&2
+            exit 1
+          }
+          STATE="$(gh api repos/prompted365/context-grapple-gun/issues/16 --jq .state)"
+          test "$STATE" = "closed" || {
+            echo "npm release held: issue #16 is $STATE" >&2
+            exit 1
+          }
+          COMMENTS_FILE="$RUNNER_TEMP/issue-16-comments.json"
+          gh api --paginate --slurp \
+            "repos/prompted365/context-grapple-gun/issues/16/comments?per_page=100" \
+            > "$COMMENTS_FILE"
+          COMMENTS_FILE="$COMMENTS_FILE" node <<'NODE'
+          const fs = require('node:fs');
+          const pages = JSON.parse(fs.readFileSync(process.env.COMMENTS_FILE, 'utf8'));
+          const comments = pages.flatMap((page) => Array.isArray(page) ? page : []);
+          const trustedAssociations = new Set(['OWNER', 'MEMBER', 'COLLABORATOR']);
+          const receipt = [
+            `publication-admission-commit: ${process.env.EXPECTED_COMMIT}`,
+            `publication-admission-version: ${process.env.EXPECTED_VERSION}`,
+            `publication-admission-dist-tag: ${process.env.DIST_TAG}`,
+          ].join('\n');
+          const matches = comments.filter((comment) =>
+            trustedAssociations.has(comment.author_association)
+            && typeof comment.body === 'string'
+            && comment.body.replace(/\r\n/g, '\n').includes(receipt)
+          );
+          if (matches.length === 0) {
+            console.error('No single trusted issue comment contains the exact publication-admission tuple.');
+            process.exit(1);
+          }
+          console.log(`Admission receipt: issue comment ${matches[0].id} by ${matches[0].user.login} (${matches[0].author_association})`);
+          NODE
       - name: Verify approved source and shared version
         env:
           EXPECTED_VERSION: ${{ inputs.expected_version }}
@@ -47,6 +97,11 @@ jobs:
           ACTUAL_COMMIT="$(git rev-parse HEAD)"
           test "$ACTUAL_COMMIT" = "$EXPECTED_COMMIT" || {
             echo "HEAD=$ACTUAL_COMMIT expected=$EXPECTED_COMMIT" >&2
+            exit 1
+          }
+          git fetch origin main
+          git merge-base --is-ancestor "$EXPECTED_COMMIT" origin/main || {
+            echo "Approved source commit is no longer an ancestor of main" >&2
             exit 1
           }
           node <<'NODE'
@@ -61,8 +116,12 @@ jobs:
             console.error('Shared version mismatch:', { expected, values });
             process.exit(1);
           }
-          if (!['release-candidate', 'published'].includes(status.status)) {
-            console.error('Invalid release status:', status.status);
+          if (status.status !== 'release-candidate') {
+            console.error('Publication source must still be a release candidate:', status.status);
+            process.exit(1);
+          }
+          if ([status.dist_tag, status.source_commit, status.published_at].some((value) => value !== null)) {
+            console.error('Release candidate already carries publication state:', status);
             process.exit(1);
           }
           NODE
@@ -70,30 +129,19 @@ jobs:
         env:
           EXPECTED_VERSION: ${{ inputs.expected_version }}
           EXPECTED_COMMIT: ${{ inputs.expected_commit }}
-          DRY_RUN: ${{ inputs.dry_run }}
-          DIST_TAG: ${{ inputs.dist_tag }}
         run: |
           node <<'NODE'
           const fs = require('node:fs');
-          const now = new Date().toISOString();
+          // Dist-tags are mutable registry pointers, not immutable artifact identity.
+          // Registry tag state is recorded only after the exact packed bytes verify.
           const manifest = {
             schema_version: 1,
             package: 'context-grapple-gun',
             release_version: process.env.EXPECTED_VERSION,
             source_commit: process.env.EXPECTED_COMMIT,
-            dist_tag: process.env.DIST_TAG,
-            generated_at: now,
+            publication_state: 'candidate',
           };
           fs.writeFileSync('release-manifest.json', JSON.stringify(manifest, null, 2) + '\n');
-          if (process.env.DRY_RUN !== 'true') {
-            const status = JSON.parse(fs.readFileSync('release-status.json'));
-            status.status = 'published';
-            status.registry = 'https://registry.npmjs.org';
-            status.dist_tag = process.env.DIST_TAG;
-            status.source_commit = process.env.EXPECTED_COMMIT;
-            status.published_at = now;
-            fs.writeFileSync('release-status.json', JSON.stringify(status, null, 2) + '\n');
-          }
           NODE
       - name: Test distribution contract
         run: npm test
@@ -111,41 +159,230 @@ jobs:
           TARBALL="$(node -e "const x=require(process.argv[1]); process.stdout.write(x[0].filename)" "$RUNNER_TEMP/cgg-pack.json")"
           test -f "$TARBALL"
           echo "tarball=$TARBALL" >> "$GITHUB_OUTPUT"
+          node -e "const x=require(process.argv[1]);const bad=x[0].files.filter(f=>/(^|\/)__pycache__\/|\.py[co]$|(^|\/)\.pytest_cache\//.test(f.path));if(bad.length){console.error('Transient Python cache entered tarball:',bad);process.exit(1)}" "$RUNNER_TEMP/cgg-pack.json"
+          node -e "const x=require(process.argv[1]);const roots=new Set(x[0].files.map(({path})=>path.split('/')[0]));process.stdout.write([...roots].sort().join('\\n')+'\\n')" \
+            "$RUNNER_TEMP/cgg-pack.json" > "$RUNNER_TEMP/cgg-packed-path-roots.txt"
+          test -s "$RUNNER_TEMP/cgg-packed-path-roots.txt"
           node -e "const fs=require('fs');const x=require(process.argv[1]);console.log(JSON.stringify(x,null,2))" "$RUNNER_TEMP/cgg-pack.json"
-      - name: Refuse duplicate public version
+      - name: Classify registry state for publish or receipt recovery
+        id: registry_state
         if: ${{ !inputs.dry_run }}
         env:
           EXPECTED_VERSION: ${{ inputs.expected_version }}
-        run: |
-          if npm view "context-grapple-gun@$EXPECTED_VERSION" version >/dev/null 2>&1; then
-            echo "context-grapple-gun@$EXPECTED_VERSION already exists in the registry" >&2
-            exit 1
-          fi
-      - name: Publish with provenance
-        if: ${{ !inputs.dry_run }}
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-        run: npm publish "${{ steps.pack.outputs.tarball }}" --tag "${{ inputs.dist_tag }}" --access public --provenance
-      - name: Verify registry receipt
-        if: ${{ !inputs.dry_run }}
-        env:
-          EXPECTED_VERSION: ${{ inputs.expected_version }}
+          DIST_TAG: ${{ inputs.dist_tag }}
+          PACK_RECEIPT: ${{ runner.temp }}/cgg-pack.json
         run: |
           set -euo pipefail
-          for attempt in 1 2 3 4 5; do
-            ACTUAL="$(npm view "context-grapple-gun@$EXPECTED_VERSION" version 2>/dev/null || true)"
-            if [ "$ACTUAL" = "$EXPECTED_VERSION" ]; then
-              echo "Registry confirms context-grapple-gun@$ACTUAL"
-              exit 0
+          REGISTRY_ERROR="$RUNNER_TEMP/cgg-registry-query-error.txt"
+          REMOTE_VERSION_FILE="$RUNNER_TEMP/cgg-remote-version.txt"
+          if npm view "context-grapple-gun@$EXPECTED_VERSION" version \
+            > "$REMOTE_VERSION_FILE" 2> "$REGISTRY_ERROR"; then
+            REMOTE_VERSION="$(tr -d '\r\n' < "$REMOTE_VERSION_FILE")"
+          elif grep -Eq '(^|[[:space:]])E404([[:space:]]|$)|404 Not Found' "$REGISTRY_ERROR"; then
+            echo "publication_needed=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          else
+            echo "Registry lookup failed before publication; refusing to classify the version as absent" >&2
+            cat "$REGISTRY_ERROR" >&2
+            exit 1
+          fi
+          test -n "$REMOTE_VERSION" || {
+            echo "Registry returned an empty version without an E404" >&2
+            exit 1
+          }
+          REMOTE_INTEGRITY_FILE="$RUNNER_TEMP/cgg-remote-integrity.txt"
+          if npm view "context-grapple-gun@$EXPECTED_VERSION" dist.integrity \
+            > "$REMOTE_INTEGRITY_FILE" 2> "$REGISTRY_ERROR"; then
+            REMOTE_INTEGRITY="$(tr -d '\r\n' < "$REMOTE_INTEGRITY_FILE")"
+          else
+            echo "Registry integrity lookup failed during receipt recovery" >&2
+            cat "$REGISTRY_ERROR" >&2
+            exit 1
+          fi
+          LOCAL_INTEGRITY="$(node -e "const x=require(process.env.PACK_RECEIPT);process.stdout.write(x[0].integrity||'')")"
+          if [ "$REMOTE_VERSION" != "$EXPECTED_VERSION" ] || [ -z "$REMOTE_INTEGRITY" ] || [ "$REMOTE_INTEGRITY" != "$LOCAL_INTEGRITY" ]; then
+            echo "Registry already contains a non-matching immutable $EXPECTED_VERSION artifact" >&2
+            exit 1
+          fi
+          REMOTE_TAGS_FILE="$RUNNER_TEMP/cgg-remote-tags.json"
+          if npm view context-grapple-gun dist-tags --json \
+            > "$REMOTE_TAGS_FILE" 2> "$REGISTRY_ERROR"; then
+            TAGGED="$(node -e "const fs=require('fs');const x=JSON.parse(fs.readFileSync(process.argv[1],'utf8'));process.stdout.write(x[process.env.DIST_TAG]||'')" "$REMOTE_TAGS_FILE")"
+          else
+            echo "Registry dist-tag lookup failed during receipt recovery" >&2
+            cat "$REGISTRY_ERROR" >&2
+            exit 1
+          fi
+          if [ "$TAGGED" != "$EXPECTED_VERSION" ]; then
+            echo "Registry carries the exact immutable $EXPECTED_VERSION artifact, but requested dist-tag $DIST_TAG points to ${TAGGED:-nothing}." >&2
+            echo "npm Trusted Publishing authorizes publish operations, not npm dist-tag mutation; repair the tag with interactive registry authority, verify it, and rerun receipt recovery." >&2
+            exit 1
+          fi
+          echo "Registry already carries the exact artifact; entering receipt-only recovery"
+          echo "publication_needed=false" >> "$GITHUB_OUTPUT"
+      - name: Publish with provenance
+        if: ${{ !inputs.dry_run && steps.registry_state.outputs.publication_needed == 'true' }}
+        env:
+          TARBALL: ${{ steps.pack.outputs.tarball }}
+          DIST_TAG: ${{ inputs.dist_tag }}
+          EXPECTED_COMMIT: ${{ inputs.expected_commit }}
+        run: |
+          set -euo pipefail
+          git fetch origin main
+          git merge-base --is-ancestor "$EXPECTED_COMMIT" origin/main || {
+            echo "Approved source commit is no longer an ancestor of main" >&2
+            exit 1
+          }
+          mapfile -t PACKED_PATHS < "$RUNNER_TEMP/cgg-packed-path-roots.txt"
+          test "${#PACKED_PATHS[@]}" -gt 0
+          PACKED_DRIFT="$(git diff --name-only "$EXPECTED_COMMIT"..origin/main -- "${PACKED_PATHS[@]}")"
+          if [ -n "$PACKED_DRIFT" ]; then
+            echo "Packed surface changed after admission; refusing irreversible npm publication:" >&2
+            echo "$PACKED_DRIFT" >&2
+            exit 1
+          fi
+          npm publish "$TARBALL" --tag "$DIST_TAG" --access public
+      - name: Verify registry receipt and provenance
+        if: ${{ !inputs.dry_run }}
+        env:
+          EXPECTED_VERSION: ${{ inputs.expected_version }}
+          DIST_TAG: ${{ inputs.dist_tag }}
+          PACK_RECEIPT: ${{ runner.temp }}/cgg-pack.json
+        run: |
+          set -euo pipefail
+          for attempt in 1 2 3 4 5 6 7 8; do
+            ACTUAL=""
+            TAGGED=""
+            REMOTE_INTEGRITY=""
+            ATTESTATION_OK=false
+            if npm view "context-grapple-gun@$EXPECTED_VERSION" version \
+              > "$RUNNER_TEMP/cgg-registry-version.tmp" 2>/dev/null; then
+              ACTUAL="$(tr -d '\r\n' < "$RUNNER_TEMP/cgg-registry-version.tmp")"
+            fi
+            if npm view context-grapple-gun dist-tags --json \
+              > "$RUNNER_TEMP/cgg-registry-tags.tmp.json" 2>/dev/null; then
+              TAGGED="$(node -e "const fs=require('fs');try{const x=JSON.parse(fs.readFileSync(process.argv[1],'utf8'));process.stdout.write(x[process.env.DIST_TAG]||'')}catch{}" "$RUNNER_TEMP/cgg-registry-tags.tmp.json")"
+            fi
+            if npm view "context-grapple-gun@$EXPECTED_VERSION" dist.integrity \
+              > "$RUNNER_TEMP/cgg-registry-integrity.tmp" 2>/dev/null; then
+              REMOTE_INTEGRITY="$(tr -d '\r\n' < "$RUNNER_TEMP/cgg-registry-integrity.tmp")"
+            fi
+            if npm view "context-grapple-gun@$EXPECTED_VERSION" dist.attestations --json \
+              > "$RUNNER_TEMP/cgg-registry-attestations.tmp.json" 2>/dev/null \
+              && node -e "const fs=require('fs');let x,u;try{x=JSON.parse(fs.readFileSync(process.argv[1],'utf8'));u=new URL(x.url)}catch{}const linked=u&&u.origin==='https://registry.npmjs.org'&&decodeURIComponent(u.pathname).endsWith('/context-grapple-gun@'+process.env.EXPECTED_VERSION);process.exit(linked&&x.provenance&&x.provenance.predicateType==='https://slsa.dev/provenance/v1'?0:1)" \
+                "$RUNNER_TEMP/cgg-registry-attestations.tmp.json"; then
+              ATTESTATION_OK=true
+            fi
+            LOCAL_INTEGRITY="$(node -e "const x=require(process.env.PACK_RECEIPT);process.stdout.write(x[0].integrity||'')")"
+            if [ "$ACTUAL" = "$EXPECTED_VERSION" ] \
+              && [ "$TAGGED" = "$EXPECTED_VERSION" ] \
+              && [ "$REMOTE_INTEGRITY" = "$LOCAL_INTEGRITY" ] \
+              && [ "$ATTESTATION_OK" = true ]; then
+              echo "Registry confirms context-grapple-gun@$ACTUAL at $DIST_TAG with exact packed integrity and SLSA provenance"
+              printf '%s' "$REMOTE_INTEGRITY" > "$RUNNER_TEMP/cgg-registry-integrity.txt"
+              mv "$RUNNER_TEMP/cgg-registry-attestations.tmp.json" "$RUNNER_TEMP/cgg-registry-attestations.json"
+              break
             fi
             sleep 6
           done
-          echo "Registry did not confirm $EXPECTED_VERSION" >&2
-          exit 1
+          test -s "$RUNNER_TEMP/cgg-registry-integrity.txt" \
+            && test -s "$RUNNER_TEMP/cgg-registry-attestations.json" || {
+            echo "Registry did not confirm version, dist-tag, exact integrity, and provenance for $EXPECTED_VERSION" >&2
+            exit 1
+          }
+          PROVENANCE_DIR="$RUNNER_TEMP/cgg-provenance-audit"
+          mkdir -p "$PROVENANCE_DIR"
+          (
+            cd "$PROVENANCE_DIR"
+            npm init --yes >/dev/null
+            npm install --ignore-scripts --no-audit --no-fund "context-grapple-gun@$EXPECTED_VERSION"
+            npm ls --json --depth=0 > "$RUNNER_TEMP/cgg-installed-tree.json"
+            npm audit signatures --json > "$RUNNER_TEMP/cgg-npm-audit-signatures.json"
+          )
+          AUDIT_REPORT="$RUNNER_TEMP/cgg-npm-audit-signatures.json" \
+          INSTALLED_TREE="$RUNNER_TEMP/cgg-installed-tree.json" \
+          ATTESTATION_REPORT="$RUNNER_TEMP/cgg-registry-attestations.json" \
+          node <<'NODE'
+          const fs = require('node:fs');
+          const expected = process.env.EXPECTED_VERSION;
+          const installedTree = JSON.parse(fs.readFileSync(process.env.INSTALLED_TREE, 'utf8'));
+          const audit = JSON.parse(fs.readFileSync(process.env.AUDIT_REPORT, 'utf8'));
+          const attestation = JSON.parse(fs.readFileSync(process.env.ATTESTATION_REPORT, 'utf8'));
+          const installed = installedTree.dependencies?.['context-grapple-gun'];
+          if (!installed || installed.version !== expected) {
+            console.error('Signature audit did not run against the exact installed package:', installed);
+            process.exit(1);
+          }
+          for (const key of ['invalid', 'missing']) {
+            if (!Array.isArray(audit[key])) {
+              console.error(`Signature audit report is missing the ${key} result array:`, audit);
+              process.exit(1);
+            }
+            if (audit[key].length !== 0) {
+              console.error(`Signature audit reported ${key} entries:`, audit[key]);
+              process.exit(1);
+            }
+          }
+          let attestationUrl;
+          try {
+            attestationUrl = new URL(attestation.url);
+          } catch {
+            console.error('Registry attestation report has no valid URL:', attestation);
+            process.exit(1);
+          }
+          const linked = attestationUrl.origin === 'https://registry.npmjs.org'
+            && decodeURIComponent(attestationUrl.pathname).endsWith(`/context-grapple-gun@${expected}`)
+            && attestation.provenance?.predicateType === 'https://slsa.dev/provenance/v1';
+          if (!linked) {
+            console.error('Registry attestation is not linked to the exact installed package:', attestation);
+            process.exit(1);
+          }
+          console.log(`Verified registry signatures and SLSA provenance for context-grapple-gun@${expected}`);
+          NODE
+          npx --yes "context-grapple-gun@$EXPECTED_VERSION" --version | grep -Fx "$EXPECTED_VERSION"
+      - name: Transition public release status after registry verification
+        if: ${{ !inputs.dry_run }}
+        env:
+          EXPECTED_VERSION: ${{ inputs.expected_version }}
+          EXPECTED_COMMIT: ${{ inputs.expected_commit }}
+          DIST_TAG: ${{ inputs.dist_tag }}
+          WORKFLOW_RUN: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          node <<'NODE'
+          const fs = require('node:fs');
+          const now = new Date().toISOString();
+          const integrity = fs.readFileSync(process.env.RUNNER_TEMP + '/cgg-registry-integrity.txt', 'utf8');
+          const status = JSON.parse(fs.readFileSync('release-status.json'));
+          const manifest = JSON.parse(fs.readFileSync('release-manifest.json'));
+          const attestations = JSON.parse(
+            fs.readFileSync(process.env.RUNNER_TEMP + '/cgg-registry-attestations.json', 'utf8')
+          );
+          status.status = 'published';
+          status.registry = 'https://registry.npmjs.org';
+          status.dist_tag = process.env.DIST_TAG;
+          status.source_commit = process.env.EXPECTED_COMMIT;
+          status.published_at = now;
+          manifest.publication_state = 'registry-verified';
+          manifest.registry_dist_tag = process.env.DIST_TAG;
+          manifest.registry_integrity = integrity;
+          manifest.registry_attestations = attestations;
+          manifest.registry_verified_at = now;
+          manifest.workflow_run = process.env.WORKFLOW_RUN;
+          if (status.version !== manifest.release_version
+            || status.source_commit !== manifest.source_commit
+            || status.dist_tag !== manifest.registry_dist_tag) {
+            console.error('Release receipt surfaces disagree:', { status, manifest });
+            process.exit(1);
+          }
+          fs.writeFileSync('release-status.json', JSON.stringify(status, null, 2) + '\n');
+          fs.writeFileSync('release-manifest.json', JSON.stringify(manifest, null, 2) + '\n');
+          NODE
       - name: Commit published status receipt
         if: ${{ !inputs.dry_run }}
         env:
           EXPECTED_VERSION: ${{ inputs.expected_version }}
+          EXPECTED_COMMIT: ${{ inputs.expected_commit }}
+          DIST_TAG: ${{ inputs.dist_tag }}
         run: |
           set -euo pipefail
           git config user.name "Prompted Release Bot"
@@ -156,4 +393,78 @@ jobs:
             exit 0
           fi
           git commit -m "chore(release): record npm publication $EXPECTED_VERSION [skip ci]"
-          git push origin HEAD:${GITHUB_REF_NAME}
+          REMOTE_STATE_SCRIPT="$RUNNER_TEMP/classify-main-release-state.cjs"
+          cat > "$REMOTE_STATE_SCRIPT" <<'NODE'
+          const fs = require('node:fs');
+          const status = JSON.parse(fs.readFileSync(process.env.RUNNER_TEMP + '/main-release-status.json'));
+          const manifest = JSON.parse(fs.readFileSync(process.env.RUNNER_TEMP + '/main-release-manifest.json'));
+          const integrity = fs.readFileSync(process.env.RUNNER_TEMP + '/cgg-registry-integrity.txt', 'utf8');
+          const exact = status.status === 'published'
+            && status.version === process.env.EXPECTED_VERSION
+            && status.source_commit === process.env.EXPECTED_COMMIT
+            && status.dist_tag === process.env.DIST_TAG
+            && manifest.publication_state === 'registry-verified'
+            && manifest.source_commit === process.env.EXPECTED_COMMIT
+            && manifest.registry_dist_tag === process.env.DIST_TAG
+            && manifest.registry_integrity === integrity
+            && manifest.registry_attestations?.provenance?.predicateType === 'https://slsa.dev/provenance/v1';
+          const candidate = status.status === 'release-candidate'
+            && status.version === process.env.EXPECTED_VERSION
+            && [status.source_commit, status.dist_tag, status.published_at].every((value) => value === null);
+          process.stdout.write(exact ? 'exact' : (candidate ? 'candidate' : 'conflict'));
+          NODE
+          for attempt in 1 2 3 4 5; do
+            git fetch origin main
+            git merge-base --is-ancestor "$EXPECTED_COMMIT" origin/main || {
+              echo "Approved source commit is no longer an ancestor of main" >&2
+              exit 1
+            }
+
+            git show origin/main:release-status.json > "$RUNNER_TEMP/main-release-status.json"
+            if git show origin/main:release-manifest.json > "$RUNNER_TEMP/main-release-manifest.json" 2>/dev/null; then
+              :
+            else
+              printf '{}\n' > "$RUNNER_TEMP/main-release-manifest.json"
+            fi
+            REMOTE_STATE="$(node "$REMOTE_STATE_SCRIPT")"
+            if [ "$REMOTE_STATE" = "exact" ]; then
+              echo "Published source receipt is already current on main"
+              exit 0
+            fi
+            test "$REMOTE_STATE" = "candidate" || {
+              echo "main carries a conflicting release receipt" >&2
+              exit 1
+            }
+
+            mapfile -t PACKED_PATHS < "$RUNNER_TEMP/cgg-packed-path-roots.txt"
+            test "${#PACKED_PATHS[@]}" -gt 0 || {
+              echo "Packed receipt produced no admitted path roots" >&2
+              exit 1
+            }
+            PACKED_DRIFT="$(git diff --name-only "$EXPECTED_COMMIT"..origin/main -- "${PACKED_PATHS[@]}")"
+            if [ -n "$PACKED_DRIFT" ]; then
+              echo "main changed the admitted package surface after publication began:" >&2
+              echo "$PACKED_DRIFT" >&2
+              exit 1
+            fi
+
+            if git rebase origin/main; then
+              :
+            else
+              git rebase --abort || {
+                echo "Unable to abort conflicted receipt rebase" >&2
+                exit 1
+              }
+              echo "Receipt rebase conflicted; retrying against the next main snapshot ($attempt/5)" >&2
+              sleep 2
+              continue
+            fi
+            if git push origin HEAD:main; then
+              echo "Published source receipt committed after registry verification"
+              exit 0
+            fi
+            echo "main advanced during receipt write; retrying ($attempt/5)" >&2
+            sleep 2
+          done
+          echo "Unable to reconcile the published source receipt after 5 attempts" >&2
+          exit 1

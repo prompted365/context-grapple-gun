@@ -1,0 +1,79 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/prompted365/context-grapple-gun/blob/main/cgg-runtime/contracts/record-correction-authorization-v1.schema.json",
+  "title": "CGG record-correction authorization receipt",
+  "description": "Repository-controlled receipt that binds one immutable correction envelope and every truth-affecting lifecycle state to admitted authority before the effective-record resolver may honor it.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "type",
+    "correction_id",
+    "correction_digest",
+    "authority",
+    "lifecycle_state",
+    "receipt_path",
+    "canonical_append_repository",
+    "canonical_append_commit",
+    "canonical_append_surface"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": 1
+    },
+    "type": {
+      "const": "record_correction_authorization_receipt"
+    },
+    "correction_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "correction_digest": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "authority": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["author_id", "authority_class", "authorization_ref"],
+      "properties": {
+        "author_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "authority_class": {
+          "enum": [
+            "architect",
+            "ratified_review",
+            "maintainer",
+            "system_migration"
+          ]
+        },
+        "authorization_ref": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "lifecycle_state": {
+      "enum": ["authorized", "ratified", "superseded", "revoked"]
+    },
+    "receipt_path": {
+      "type": "string",
+      "minLength": 1
+    },
+    "canonical_append_repository": {
+      "type": "string",
+      "minLength": 1
+    },
+    "canonical_append_commit": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{40}$"
+    },
+    "canonical_append_surface": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.(?:/|$))[^\\\\\\u0000-\\u001f\\u007f]+$"
+    }
+  }
+}

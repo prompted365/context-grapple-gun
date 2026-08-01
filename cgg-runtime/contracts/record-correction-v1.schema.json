@@ -1,0 +1,148 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/prompted365/context-grapple-gun/blob/main/cgg-runtime/contracts/record-correction-v1.schema.json",
+  "title": "CGG canonical record correction",
+  "description": "Append-only, provenance-bearing correction that a shared effective-record resolver may apply without retconning the base record.",
+  "type": "object",
+  "additionalProperties": true,
+  "required": [
+    "schema_version",
+    "type",
+    "correction_id",
+    "target_record_id",
+    "target_surface",
+    "source",
+    "patch",
+    "literal_correction",
+    "authority",
+    "reason",
+    "effective_tic",
+    "effective_at",
+    "supersedes",
+    "consequence_class",
+    "reversible",
+    "lifecycle_state",
+    "receipt_path"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": 1
+    },
+    "type": {
+      "const": "record_correction"
+    },
+    "correction_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "target_record_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "target_surface": {
+      "type": "string",
+      "minLength": 1
+    },
+    "source": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["repository", "commit", "surface"],
+      "properties": {
+        "repository": {
+          "type": "string",
+          "minLength": 1
+        },
+        "commit": {
+          "type": "string",
+          "minLength": 1
+        },
+        "surface": {
+          "type": "string",
+          "minLength": 1
+        },
+        "line": {
+          "type": "integer",
+          "minimum": 1
+        }
+      }
+    },
+    "patch": {
+      "description": "RFC 7396 JSON Merge Patch applied to the base record.",
+      "type": "object",
+      "minProperties": 1
+    },
+    "literal_correction": {
+      "type": "string",
+      "minLength": 1
+    },
+    "authority": {
+      "description": "Claimed authority metadata. It does not authorize application without a matching repository-controlled record-correction authorization receipt.",
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["author_id", "authority_class", "authorization_ref"],
+      "properties": {
+        "author_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "authority_class": {
+          "enum": [
+            "architect",
+            "ratified_review",
+            "maintainer",
+            "system_migration"
+          ]
+        },
+        "authorization_ref": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "reason": {
+      "type": "string",
+      "minLength": 1
+    },
+    "effective_tic": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "effective_at": {
+      "type": "string",
+      "minLength": 1
+    },
+    "supersedes": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
+      "uniqueItems": true
+    },
+    "consequence_class": {
+      "enum": [
+        "informational",
+        "interpretive",
+        "operational",
+        "publication_blocking"
+      ]
+    },
+    "reversible": {
+      "type": "boolean"
+    },
+    "lifecycle_state": {
+      "enum": [
+        "proposed",
+        "authorized",
+        "ratified",
+        "superseded",
+        "revoked"
+      ]
+    },
+    "receipt_path": {
+      "description": "Managed authorization-receipt path. Existence or a self-authored file is insufficient; the resolver verifies the packaged receipt and correction digest.",
+      "type": "string",
+      "minLength": 1
+    }
+  }
+}

@@ -80,8 +80,8 @@ description: |
 
   IMPLEMENTATION_STATUS:
     binder: audit-logs/governance/runtime-tactical-context-hydration-binder.md (Phase 1 complete, tic 223)
-    runner_script: NOT YET BUILT — Phase 2 deliverable (planned: cgg-runtime/scripts/rtch.py)
-    current_mode: manual-discipline — agent walks the 8 stages using Read/Bash/Grep tools directly
+    runner_script: cgg-runtime/scripts/rtch.py (operational; owns staged hydration and the effective-record gate)
+    current_mode: packaged-runner — manual tools remain available for bounded diagnosis and source re-entry
     promotion_status: design lane, not doctrine; Phase 7 routes the doctrine question after Phase 6 validation
 
 user-invocable: true
@@ -100,11 +100,32 @@ Source discovery is staged. Candidate terms are not truth. Grep terms are not in
 
 ## Implementation Mode
 
-**Phase 1 (current)**: manual-discipline mode. The agent walks the 8 stages using Read, Bash (rg, find, wc, jq, git grep), and Grep tools directly. There is no `rtch.py` runner yet — that is Phase 2 deliverable.
+**Current runtime**: `cgg-runtime/scripts/rtch.py` orchestrates the staged intake,
+shape scout, probes, bounded chunks, packet build, and correction-safe
+effective-record projection. The script owns the effective-record hydration
+gate before any probes execute.
 
-**Phase 2+ (future)**: `cgg-runtime/scripts/rtch.py` will orchestrate Stages 2-7 with declared schema enforcement; this skill body will then become a thin CLI wrapper. The discipline below remains the same; only the execution mechanism shifts.
+**Manual diagnostic mode**: An agent may walk the same eight stages with Read,
+Bash (`rg`, `find`, `wc`, `jq`, `git grep`), and Grep when diagnosing the
+runner or re-entering cited sources. Manual work does not bypass the intake,
+fanout, effective-record, or evidence-boundary contracts below.
 
 ## When the Architect (or another agent) invokes you
+
+0. **Run the effective-record hydration gate before discovery.**
+
+   ```bash
+   python3 "${CLAUDE_PLUGIN_ROOT}/cgg-runtime/scripts/effective-record.py" \
+     --zone-root "${CLAUDE_PROJECT_DIR:-$PWD}" hydration-gate
+   ```
+
+   Exit 2 means an unresolved correction chain: stop with the typed warning.
+   Exit 3 means corrected views exist: do not hydrate the raw target records;
+   consume the emitted `effective_records` or narrow discovery away from those
+   surfaces. A consumer that cannot accept row-scoped effective views must
+   suppress its output; SessionStart therefore withholds the raw worldview
+   compiler on exit 3. This is a source-integrity boundary, not an optional
+   preflight.
 
 1. **Elicit the intake form** if not provided. The intake is the lane's contract. Required fields:
    - `goal` (one sentence)

@@ -26,8 +26,9 @@
     "START-HERE.md"
   ],
   "scripts": {
-    "test": "node --test test/*.test.mjs",
+    "test": "node --test test/*.test.mjs && python3 -m unittest cgg-runtime/scripts/test_effective_record.py",
     "test:distribution": "node --test test/distribution-contract.test.mjs",
+    "test:effective-record": "python3 -m unittest cgg-runtime/scripts/test_effective_record.py",
     "pack:check": "npm pack --dry-run",
     "prepublishOnly": "npm test"
   },

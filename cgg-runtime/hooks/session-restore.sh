@@ -89,6 +89,74 @@ PROJECT_DIR="$ZONE_ROOT"
 PROJECT_KEY=$(echo "$PROJECT_DIR" | sed 's|/|-|g')
 
 # ============================================================================
+# Effective-record hydration gate (third-surface correction reconciler).
+#
+# A pair of agreeing projections is not current truth when an append-only
+# correction landed on a third surface. Resolve corrections BEFORE any civic
+# worldview is hydrated. An unresolved chain suppresses worldview rendering
+# and leaves a loud hook badge. A resolved correction also suppresses the raw
+# worldview compiler until that consumer can accept the row-scoped effective
+# projection; projection-aware consumers such as RTCH use the effective view.
+# Resolver absence is a capability blocker: the hook emits only that blocker
+# and stops before every downstream governance reader.
+# ============================================================================
+
+EFFECTIVE_RECORD_SCRIPT="$CGG_SCRIPTS_DIR/effective-record.py"
+[ -f "$EFFECTIVE_RECORD_SCRIPT" ] || EFFECTIVE_RECORD_SCRIPT="$HOME/.claude/cgg-runtime/scripts/effective-record.py"
+EFFECTIVE_RECORD_MSG=""
+EFFECTIVE_RECORD_HYDRATION_BLOCKED=0
+if [ -f "$EFFECTIVE_RECORD_SCRIPT" ]; then
+  if command -v python3 >/dev/null 2>&1; then
+    EFFECTIVE_RECORD_MSG=$(python3 "$EFFECTIVE_RECORD_SCRIPT" --zone-root "$ZONE_ROOT" \
+      hydration-gate --format hook 2>/dev/null)
+    EFFECTIVE_RECORD_RC=$?
+    if [ "$EFFECTIVE_RECORD_RC" -eq 0 ]; then
+      # The safe path is intentionally silent; SessionStart badges stay
+      # signal-bearing instead of announcing the absence of corrections.
+      EFFECTIVE_RECORD_MSG=""
+    elif [ "$EFFECTIVE_RECORD_RC" -eq 2 ]; then
+      EFFECTIVE_RECORD_HYDRATION_BLOCKED=1
+    elif [ "$EFFECTIVE_RECORD_RC" -eq 3 ]; then
+      # The correction is resolved, but office-worldview.py is still a raw
+      # JSONL consumer. Preserve the effective-record badge and suppress that
+      # renderer until it can consume the row-scoped projection directly.
+      EFFECTIVE_RECORD_HYDRATION_BLOCKED=1
+    else
+      EFFECTIVE_RECORD_MSG="[EFFECTIVE RECORD WARNING: resolver execution failed; no correction-derived claim is admitted by this hook]"
+      EFFECTIVE_RECORD_HYDRATION_BLOCKED=1
+    fi
+  else
+    EFFECTIVE_RECORD_MSG="[EFFECTIVE RECORD HOLD: python3 unavailable; SessionStart governance readers suppressed]"
+    EFFECTIVE_RECORD_HYDRATION_BLOCKED=1
+  fi
+else
+  EFFECTIVE_RECORD_MSG="[EFFECTIVE RECORD HOLD: resolver unavailable; SessionStart governance readers suppressed]"
+  EFFECTIVE_RECORD_HYDRATION_BLOCKED=1
+fi
+
+# No downstream SessionStart reader is projection-aware yet. Once the gate
+# reports either an unresolved chain (2), a corrected view (3), or a capability
+# failure, emit the effective-record receipt and stop before reading handoffs,
+# plans, queue.jsonl, signals, mandates, or worldview surfaces.
+if [ "$EFFECTIVE_RECORD_HYDRATION_BLOCKED" -eq 1 ]; then
+  if command -v python3 >/dev/null 2>&1; then
+    EFFECTIVE_RECORD_MSG="$EFFECTIVE_RECORD_MSG" python3 -c '
+import json, os
+print(json.dumps({
+    "hookSpecificOutput": {
+        "hookEventName": "SessionStart",
+        "additionalContext": os.environ["EFFECTIVE_RECORD_MSG"],
+        "reloadSkills": True,
+    }
+}))
+'
+  else
+    printf '{"hookSpecificOutput":{"hookEventName":"SessionStart","additionalContext":"%s","reloadSkills":true}}\n' "$EFFECTIVE_RECORD_MSG"
+  fi
+  exit 0
+fi
+
+# ============================================================================
 # Handoff-seal reconcile + interstitial activation (tic 633 plan-lifecycle
 # split; tic 634 recovery-seam repair — both Architect-directed). SessionStart
 # delegates to cadence-handoff-seal.py --reconcile-at-start (ONE owner of the
@@ -123,7 +191,7 @@ fi
 PROCESSED_IDS="$HOME/.claude/cgg-processed-handoff-ids.txt"
 touch "$PROCESSED_IDS"
 FLAG_DIR="${TMPDIR:-/tmp}/claude_cgg/$PROJECT_KEY"
-CGG_MSG=""
+CGG_MSG="$EFFECTIVE_RECORD_MSG"
 HANDOFF_ID=""
 LATEST_PLAN=""
 
@@ -782,19 +850,21 @@ fi
 # Build handoff context
 # ============================================================================
 
+HANDOFF_MSG=""
 if [ -n "$LATEST_PLAN" ]; then
   NEXT_ACTIONS=$(awk '/^## Next Actions/,/^## [^N]/' "$LATEST_PLAN" 2>/dev/null | head -20 | sed 's/"/\\"/g' | tr '\n' ' ')
   if [ -n "$NEXT_ACTIONS" ] && [ ${#NEXT_ACTIONS} -gt 20 ]; then
-    CGG_MSG="[CGG HANDOFF NEXT ACTIONS: $NEXT_ACTIONS] [Full plan if needed: $LATEST_PLAN]"
+    HANDOFF_MSG="[CGG HANDOFF NEXT ACTIONS: $NEXT_ACTIONS] [Full plan if needed: $LATEST_PLAN]"
   else
     WORKING=$(awk '/^### Not Started/,/^### [^N]/' "$LATEST_PLAN" 2>/dev/null | head -15 | sed 's/"/\\"/g' | tr '\n' ' ')
     if [ -n "$WORKING" ] && [ ${#WORKING} -gt 20 ]; then
-      CGG_MSG="[CGG HANDOFF REMAINING: $WORKING] [Full plan if needed: $LATEST_PLAN]"
+      HANDOFF_MSG="[CGG HANDOFF REMAINING: $WORKING] [Full plan if needed: $LATEST_PLAN]"
     else
-      CGG_MSG="[CGG CHARTER: Read $LATEST_PLAN]"
+      HANDOFF_MSG="[CGG CHARTER: Read $LATEST_PLAN]"
     fi
   fi
 fi
+[ -n "$HANDOFF_MSG" ] && CGG_MSG="${CGG_MSG:+$CGG_MSG }$HANDOFF_MSG"
 if [ -n "$TRIGGER_MSG" ]; then
   CGG_MSG="$CGG_MSG $TRIGGER_MSG"
 fi
@@ -988,7 +1058,7 @@ fi
 
 WORLDVIEW_MSG=""
 WORLDVIEW_SCRIPT=$(resolve_script "office-worldview.py")
-if [ -n "$WORLDVIEW_SCRIPT" ] && [ "$TIC_COUNT" -gt 0 ]; then
+if [ -n "$WORLDVIEW_SCRIPT" ] && [ "$TIC_COUNT" -gt 0 ] && [ "$EFFECTIVE_RECORD_HYDRATION_BLOCKED" -eq 0 ]; then
   WORLDVIEW_RAW=$(python3 "$WORLDVIEW_SCRIPT" render \
     --office ent_homeskillet --tic "$TIC_COUNT" --format human \
     --zone-root "$PROJECT_DIR" --max-chars 20000 2>/dev/null || true)

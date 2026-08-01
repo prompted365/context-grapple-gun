@@ -6,13 +6,19 @@ on:
       - '.claude-plugin/**'
       - '.github/workflows/installer-smoke.yml'
       - 'bin/**'
-      - 'cgg-runtime/agents/**'
-      - 'cgg-runtime/config/plugin-components.json'
-      - 'cgg-runtime/config/session-learning-protocol.md'
-      - 'cgg-runtime/hooks/**'
-      - 'cgg-runtime/skills/**'
+      - 'cgg-runtime/**'
       - 'hooks/**'
       - 'lib/**'
+      - 'assets/**'
+      - 'docs/**'
+      - 'ARCHITECTURE.md'
+      - 'CHANGELOG.md'
+      - 'CGG_RUNTIME_TOPOLOGY_AND_LIFECYCLE.md'
+      - 'DEV-README.md'
+      - 'INSTALL.md'
+      - 'LICENSE'
+      - 'README.md'
+      - 'START-HERE.md'
       - 'package.json'
       - 'package-lock.json'
       - 'release-status.json'
@@ -26,12 +32,14 @@ jobs:
     name: Packed tarball × scopes × modes × update × sync × uninstall
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           fetch-depth: 0
-      - uses: actions/setup-node@v4
+          persist-credentials: false
+      - uses: actions/setup-node@v6
         with:
           node-version: '24'
+          package-manager-cache: false
       - name: Install current Claude Code CLI
         run: npm install --global @anthropic-ai/claude-code@latest
       - name: Show toolchain versions
@@ -46,11 +54,39 @@ jobs:
           npm pack --json > "$RUNNER_TEMP/cgg-pack.json"
           TARBALL="$(node -e "const x=require(process.argv[1]); process.stdout.write(x[0].filename)" "$RUNNER_TEMP/cgg-pack.json")"
           test -f "$TARBALL"
+          node -e "const x=require(process.argv[1]);const bad=x[0].files.filter(f=>/(^|\/)__pycache__\/|\.py[co]$|(^|\/)\.pytest_cache\//.test(f.path));if(bad.length){console.error('Transient Python cache entered tarball:',bad);process.exit(1)}" "$RUNNER_TEMP/cgg-pack.json"
           PREFIX="$RUNNER_TEMP/cgg-prefix"
           npm install --prefix "$PREFIX" "$GITHUB_WORKSPACE/$TARBALL"
           test -x "$PREFIX/node_modules/.bin/cgg"
+          PKG_NAME="$(node -e "const x=require(process.argv[1]); process.stdout.write(x[0].name)" "$RUNNER_TEMP/cgg-pack.json")"
+          PACKAGE_ROOT="$PREFIX/node_modules/$PKG_NAME"
+          test -d "$PACKAGE_ROOT"
           echo "tarball=$GITHUB_WORKSPACE/$TARBALL" >> "$GITHUB_OUTPUT"
           echo "cgg_bin=$PREFIX/node_modules/.bin/cgg" >> "$GITHUB_OUTPUT"
+          echo "package_root=$PACKAGE_ROOT" >> "$GITHUB_OUTPUT"
+      - name: Verify packed RTCH correction resolver
+        env:
+          PACKAGE_ROOT: ${{ steps.pack.outputs.package_root }}
+        run: |
+          python3 - "$PACKAGE_ROOT/cgg-runtime/scripts" <<'PY'
+          import importlib.util
+          import sys
+          from pathlib import Path
+
+          scripts_dir = Path(sys.argv[1]).resolve()
+          spec = importlib.util.spec_from_file_location('packed_rtch_probe', scripts_dir / 'rtch.py')
+          module = importlib.util.module_from_spec(spec)
+          spec.loader.exec_module(module)
+          if module.build_effective_index is None or module.hydration_view is None:
+              raise SystemExit('packed RTCH effective-record capability is unavailable')
+          resolver_module = module.build_effective_index.__module__
+          resolver_file = getattr(sys.modules.get(resolver_module), '__file__', None)
+          resolver = Path(resolver_file).resolve() if resolver_file else None
+          expected = scripts_dir / 'lib' / 'effective_record.py'
+          if resolver_module != 'lib.effective_record' or resolver != expected:
+              raise SystemExit(f'packed RTCH resolver mismatch: module={resolver_module} file={resolver}')
+          print(f'Packed RTCH resolver: {resolver}')
+          PY
       - name: Exercise packed lifecycle
         env:
           CGG_BIN: ${{ steps.pack.outputs.cgg_bin }}
