@@ -264,8 +264,14 @@ test('distribution CI freezes published runtime while allowing candidate complet
   assert.match(workflow, /Verify published runtime immutability/);
   assert.match(workflow, /BASE_VERSION/);
   assert.match(workflow, /BASE_STATUS/);
+  assert.match(workflow, /CURRENT_STATUS/);
   assert.match(workflow, /CURRENT_VERSION/);
   assert.match(workflow, /BASE_STATUS.*published/s);
+  assert.match(
+    workflow,
+    /BASE_STATUS" = "published".*BASE_VERSION" = "\$CURRENT_VERSION".*CURRENT_STATUS" != "published"/s,
+  );
+  assert.match(workflow, /Published release status cannot regress at the same version/);
   assertCheckoutCredentialsDisabled(workflow);
 });
 

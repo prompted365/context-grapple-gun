@@ -81,6 +81,7 @@ jobs:
           BASE_VERSION="$(git show "origin/$BASE_REF:package.json" | node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>process.stdout.write(JSON.parse(s).version))")"
           BASE_STATUS="$(git show "origin/$BASE_REF:release-status.json" | node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>process.stdout.write(JSON.parse(s).status))")"
           CURRENT_VERSION="$(node -p "require('./package.json').version")"
+          CURRENT_STATUS="$(node -p "require('./release-status.json').status")"
           CHANGED="$(git diff --name-only "origin/$BASE_REF...HEAD" -- \
             .claude-plugin \
             assets \
@@ -99,6 +100,12 @@ jobs:
             START-HERE.md \
             package.json \
             package-lock.json || true)"
+          if [ "$BASE_STATUS" = "published" ] && [ "$BASE_VERSION" = "$CURRENT_VERSION" ] && [ "$CURRENT_STATUS" != "published" ]; then
+            echo "Published release status cannot regress at the same version." >&2
+            echo "Base: $BASE_VERSION status=$BASE_STATUS" >&2
+            echo "Current: $CURRENT_VERSION status=$CURRENT_STATUS" >&2
+            exit 1
+          fi
           if [ -n "$CHANGED" ] && [ "$BASE_STATUS" = "published" ] && [ "$BASE_VERSION" = "$CURRENT_VERSION" ]; then
             echo "Published public runtime changed without a version advance." >&2
             echo "Base version: $BASE_VERSION" >&2
@@ -106,7 +113,7 @@ jobs:
             echo "$CHANGED" >&2
             exit 1
           fi
-          echo "Runtime immutability gate passed: status=$BASE_STATUS $BASE_VERSION -> $CURRENT_VERSION"
+          echo "Runtime immutability gate passed: $BASE_VERSION status=$BASE_STATUS -> $CURRENT_VERSION status=$CURRENT_STATUS"
 
   node-contract:
     name: Node ${{ matrix.node }} and npm package contract
