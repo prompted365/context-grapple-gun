@@ -268,6 +268,8 @@
   - *Ledger:* [`cgg-ledger/ledger.md#gate-example-template-must-teach-complete-pass-state`](cgg-ledger/ledger.md#gate-example-template-must-teach-complete-pass-state)
 - **SubagentStart Boot-Receipt Prescriptions Must Be Capability-Gated to the Agent's Tool Schema** — A citizen-boot prescription to emit a receipt via `boot-receipt.py` (Bash) cannot be honored by a no-Bash citizen (ent_ladder_auditor); the emitter row (prescription) must match the reader predicate (agent capability) — grant Bash, give a non-Bash receipt path, or capability-detect and substitute. *(tic 575→603, 5 recurrences)*
   - *Ledger:* [`cgg-ledger/ledger.md#boot-receipt-prescriptions-must-be-capability-gated-to-agent-tool-schema`](cgg-ledger/ledger.md#boot-receipt-prescriptions-must-be-capability-gated-to-agent-tool-schema)
+- **Install-Parity's Reference Is the Sole-Writer Lane, Not the Resident Tree** — install-parity syncs mirror the resident branch's tree AND the drift check compares against that same tree, so any non-main residence silently regresses installed runtime while drift reads 0 (reader and writer share one reference; agreement true, truth false — no disagreement to read); parity is defined against the sole-writer lane (main), enforced by `branch_residence_guard` at the write boundary with `reference_branch` lineage on every sync row. *(tic 673→676)*
+  - *Ledger:* [`cgg-ledger/ledger.md#install-parity-reference-is-sole-writer-lane-not-resident-tree`](cgg-ledger/ledger.md#install-parity-reference-is-sole-writer-lane-not-resident-tree)
 
 ## Verification And Proof Discipline
 
