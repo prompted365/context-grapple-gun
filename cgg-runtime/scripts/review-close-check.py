@@ -315,10 +315,36 @@ def _split_compound_targets(s):
         "file.md (estate doctrine) + dir.ts (StructureCategory union)"
             -> ["file.md (estate doctrine)", "dir.ts (StructureCategory union)"]
         "file.md"  -> ["file.md"]  (no split needed)
+
+    The split is PAREN-AWARE (fix A, authorized /review 680 — the t679/t680
+    false-GENUINE sole live cause): a ` + ` occurring INSIDE a parenthetical
+    scope hint is hint text, not a component boundary. Splitting the raw
+    string before hint-stripping fractured
+    "cgg-gate.sh (… step 2.5 at both sites + in-flight mirror-integrity clause)"
+    mid-paren into two unbalanced components that fell through every
+    classification axis to GENUINE. Normalization precedes decomposition.
     """
     if " + " not in s:
         return [s]
-    return [part.strip() for part in s.split(" + ") if part.strip()]
+    parts = []
+    current = []
+    depth = 0
+    i = 0
+    while i < len(s):
+        if depth == 0 and s.startswith(" + ", i):
+            parts.append("".join(current).strip())
+            current = []
+            i += 3
+            continue
+        ch = s[i]
+        if ch == "(":
+            depth += 1
+        elif ch == ")":
+            depth = max(0, depth - 1)
+        current.append(ch)
+        i += 1
+    parts.append("".join(current).strip())
+    return [part for part in parts if part]
 
 
 def _has_receipt_closure_annotation(s):
@@ -457,6 +483,15 @@ def _read_target(target_str, project_dir, project_basename=None):
     if content_am:
         return content_am
 
+    # Cross-axis consistency hoist (authorized /review 680): the bounded
+    # suffix-rglob lived only in _resolve_target_path, so resolution was
+    # INCONSISTENT ACROSS AXES — domain-relative targets resolved on the
+    # path axis but not the read axis (the true residue of the disproven
+    # claim B: mechanism present but not reached, never absent).
+    resolved = _resolve_target_path(target_str, project_dir, project_basename)
+    if resolved:
+        return _read_with_ledger(resolved)
+
     return ""
 
 
@@ -498,7 +533,11 @@ def _target_exists(target_str, project_dir, project_basename=None):
     if (AUTO_MEMORY_DIR / os.path.basename(bare)).exists():
         return True
 
-    return False
+    # Cross-axis consistency hoist (authorized /review 680): reach the same
+    # bounded suffix-rglob _resolve_target_path already applies, so the
+    # existence axis and the path axis can never disagree on a
+    # domain-relative target.
+    return _resolve_target_path(target_str, project_dir, project_basename) is not None
 
 
 def check_promoted(cpr_id, cpr, project_dir, inscribed_ids=None, lesson_fallbacks=None):
