@@ -36,6 +36,13 @@
       "pattern": "*.schema.json",
       "type": "DATA_SCHEMA",
       "_doc": "Schema/data files read by INSTALLED runtime scripts (mogul-mandate.schema.json \u2192 mandate-write.py fail-closed teeth, /review 598). Scoped to *.schema.json; non-schema config (runtime manifests, examples) stays canonical-only via sync_exclude until a consumer needs it installed. bk-cgg-mandate-schema-install-sync, tic 619."
+    },
+    "migrations": {
+      "canonical_subdir": "migrations",
+      "installed_subdir": ".claude/cgg-runtime/migrations",
+      "pattern": "*.json",
+      "type": "DATA_SCHEMA",
+      "_doc": "Trusted correction-receipt inventory read by INSTALLED effective_record.py (TRUSTED_MIGRATIONS_DIR is script-relative: scripts/lib \u2192 parents[2]/migrations). Without this target the installed resolver cannot verify truth-affecting corrections and fail-closed rejects them (unverified_authorization_receipt \u2192 hydration-gate rc=2 \u2192 session-restore.sh line-156 boot blackout). bk-boot-born-extraction-miss cure leg (a), tic 679."
     }
   },
   "sync_exclude": [

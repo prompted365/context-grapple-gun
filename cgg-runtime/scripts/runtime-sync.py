@@ -291,6 +291,33 @@ def discover_surfaces(plugin_root, zone_root):
                         "type": spec["type"],
                         "category": category,
                     })
+        elif category == "migrations":
+            # Migrations: trusted correction-receipt inventory read by the
+            # INSTALLED effective_record.py (TRUSTED_MIGRATIONS_DIR resolves
+            # script-relative: scripts/lib -> parents[2]/migrations). Without
+            # this the installed resolver cannot verify truth-affecting
+            # corrections and fail-closed rejects them
+            # (unverified_authorization_receipt -> hydration-gate rc=2).
+            # (bk-boot-born-extraction-miss cure leg (a), tic 679)
+            for entry in sorted(os.listdir(canonical_dir)):
+                if entry.endswith(".json"):
+                    if _excluded(entry):
+                        continue
+                    canonical_path = os.path.join(canonical_dir, entry)
+                    rel_key = f"{spec['canonical_subdir']}/{entry}"
+                    if rel_key in SYNC_EXCLUDE:
+                        continue
+                    installed = os.path.join(
+                        home_dir, spec["installed_subdir"], entry
+                    )
+                    name = entry.replace(".json", "")
+                    surfaces.append({
+                        "name": f"migration:{name}",
+                        "canonical": canonical_path,
+                        "installed": installed,
+                        "type": spec["type"],
+                        "category": category,
+                    })
         elif category == "config":
             # Config: schema/data files consumed by INSTALLED runtime scripts
             # (e.g. mogul-mandate.schema.json, read by mandate-write.py via
