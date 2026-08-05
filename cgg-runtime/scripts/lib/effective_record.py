@@ -33,6 +33,15 @@ INDEX_RELATIVE = Path("corrections/effective-record-index.json")
 BACKREFS_RELATIVE = Path("corrections/effective-record-backrefs.jsonl")
 RECEIPTS_RELATIVE = Path("corrections/reconciliation-receipts.jsonl")
 TRUSTED_MIGRATIONS_DIR = Path(__file__).resolve().parents[2] / "migrations"
+KNOWN_NOISE_REGISTRY_NAME = "known-legacy-noise.json"
+
+# Reason-coded known/genuine verifier split (b1, tic 680; doctrine:
+# cgg-ledger#reason-coded-genuine-vs-known-verifier-split). Only PARSE-CLASS
+# structural noise may ever be registered known — correction-semantic issue
+# codes (orphans, unverified receipts, unmigrated legacy rows) are always
+# genuine. Known noise stays REPORTED (never dark) but no longer blocks the
+# truth-independent consumers of the hydration/check gates.
+PARSE_NOISE_CODES = {"invalid_json", "non_object_row", "invalid_utf8"}
 
 IDENTIFIER_FIELDS = (
     "id",
@@ -77,7 +86,7 @@ def digest_value(value: Any) -> str:
     return hashlib.sha256(canonical_json(value).encode("utf-8")).hexdigest()
 
 
-def _legacy_migration_bindings() -> dict[tuple[str, str], set[str]]:
+def _legacy_migration_bindings() -> dict[tuple[str, str], dict[str, dict[str, str] | None]]:
     """Load repository-controlled, exact legacy-row-to-correction bindings.
 
     Legacy action rows predate the typed correction contract and carry no
@@ -85,8 +94,17 @@ def _legacy_migration_bindings() -> dict[tuple[str, str], set[str]]:
     ambiguous as soon as the same record receives another correction, so each
     admitted migration binds the immutable row digest and surface to one
     explicit correction ID.
+
+    A legacy row's free-text ``corrects`` field frequently is NOT the target
+    record's identifier ("pass <id> (<surface>)", "queue.jsonl row N, field
+    ...").  For those rows the digest-bound migration file may carry an
+    explicit ``corrects_resolution`` attestation resolving the free text to a
+    concrete (target_record_id, target_surface).  The attestation is admitted
+    only when its ``legacy_corrects`` matches the digest-protected snapshot's
+    own ``corrects`` verbatim — the resolution can never quietly re-aim a
+    binding at a row it did not snapshot.
     """
-    bindings: dict[tuple[str, str], set[str]] = {}
+    bindings: dict[tuple[str, str], dict[str, dict[str, str] | None]] = {}
     if not TRUSTED_MIGRATIONS_DIR.is_dir():
         return bindings
 
@@ -110,8 +128,101 @@ def _legacy_migration_bindings() -> dict[tuple[str, str], set[str]]:
             continue
         if declared_digest != digest_value(snapshot):
             continue
-        bindings.setdefault((surface, declared_digest), set()).add(correction_id)
+        resolution = binding.get("corrects_resolution")
+        admitted_resolution: dict[str, str] | None = None
+        if (
+            isinstance(resolution, dict)
+            and resolution.get("legacy_corrects") == snapshot.get("corrects")
+            and all(
+                isinstance(resolution.get(field), str) and resolution[field]
+                for field in ("target_record_id", "target_surface")
+            )
+        ):
+            admitted_resolution = {
+                "legacy_corrects": resolution["legacy_corrects"],
+                "target_record_id": resolution["target_record_id"],
+                "target_surface": resolution["target_surface"],
+            }
+        target_bindings = bindings.setdefault((surface, declared_digest), {})
+        if correction_id in target_bindings and target_bindings[correction_id] != admitted_resolution:
+            target_bindings[correction_id] = None
+        else:
+            target_bindings.setdefault(correction_id, admitted_resolution)
     return bindings
+
+
+def _known_noise_registry() -> dict[str, set[str]]:
+    """Load the repository-controlled known-legacy-noise registry.
+
+    Returns surface -> admitted parse-noise codes.  The registry rides the
+    trusted migrations inventory (same sync + review discipline as migration
+    receipts).  Entries admitting non-parse-class codes are ignored: the
+    known lane is for structural noise on enumerated pre-contract surfaces,
+    never for correction-semantic findings.
+    """
+    registry: dict[str, set[str]] = {}
+    registry_path = TRUSTED_MIGRATIONS_DIR / KNOWN_NOISE_REGISTRY_NAME
+    if not registry_path.is_file():
+        return registry
+    try:
+        data = json.loads(registry_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError, TypeError):
+        return registry
+    if (
+        not isinstance(data, dict)
+        or data.get("schema_version") != SCHEMA_VERSION
+        or data.get("type") != "known_legacy_noise_registry"
+    ):
+        return registry
+    entries = data.get("entries")
+    if not isinstance(entries, list):
+        return registry
+    for entry in entries:
+        if not isinstance(entry, dict):
+            continue
+        surface = entry.get("surface")
+        codes = entry.get("codes")
+        if not isinstance(surface, str) or not surface or not isinstance(codes, list):
+            continue
+        admitted = {
+            code for code in codes
+            if isinstance(code, str) and code in PARSE_NOISE_CODES
+        }
+        if admitted:
+            registry.setdefault(surface, set()).update(admitted)
+    return registry
+
+
+def classify_unresolved(issues: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Stamp each unresolved issue with its reason-coded noise class.
+
+    ``known_legacy`` = parse-class code on a registry-enumerated surface;
+    everything else is ``genuine``.  The classification never removes an
+    issue — known noise stays visible so no signal goes dark.
+    """
+    registry = _known_noise_registry()
+    classified: list[dict[str, Any]] = []
+    for issue in issues:
+        code = issue.get("code")
+        surface = issue.get("surface")
+        known = (
+            code in PARSE_NOISE_CODES
+            and isinstance(surface, str)
+            and code in registry.get(surface, set())
+        )
+        classified.append({
+            **issue,
+            "noise_class": "known_legacy" if known else "genuine",
+        })
+    return classified
+
+
+def genuine_unresolved(index: dict[str, Any]) -> list[dict[str, Any]]:
+    """The hazard subset of an index's unresolved issues (G in G/K split)."""
+    return [
+        issue for issue in index.get("unresolved", [])
+        if issue.get("noise_class") != "known_legacy"
+    ]
 
 
 def _normalize_github_repository(value: Any) -> str | None:
@@ -671,15 +782,26 @@ def build_effective_index(zone_root: str | Path) -> dict[str, Any]:
     for located in legacy_corrections:
         legacy_target = located.value.get("corrects")
         row_digest = digest_value(located.value)
-        bound_ids = sorted(legacy_bindings.get((located.surface, row_digest), set()))
+        target_bindings = legacy_bindings.get((located.surface, row_digest), {})
+        bound_ids = sorted(target_bindings)
         matches = [by_id[correction_id] for correction_id in bound_ids if correction_id in by_id]
         binding_mismatch = False
         if len(bound_ids) == 1 and len(matches) == 1:
             candidate = matches[0]
             source = candidate.value.get("source")
             source_surface = source.get("surface") if isinstance(source, dict) else None
+            resolution = target_bindings.get(bound_ids[0])
+            resolution_matches = (
+                resolution is not None
+                and resolution["legacy_corrects"] == legacy_target
+                and candidate.value.get("target_record_id") == resolution["target_record_id"]
+                and candidate.value.get("target_surface") == resolution["target_surface"]
+            )
             binding_mismatch = not (
-                candidate.value.get("target_record_id") == legacy_target
+                (
+                    candidate.value.get("target_record_id") == legacy_target
+                    or resolution_matches
+                )
                 and source_surface == located.surface
             )
         if len(bound_ids) == 1 and len(matches) == 1 and not binding_mismatch:
@@ -871,6 +993,10 @@ def build_effective_index(zone_root: str | Path) -> dict[str, Any]:
 
     changed = [record for record in records if record["differs"]]
     review_required = [record for record in records if record["needs_review"]]
+    classified_unresolved = classify_unresolved(unresolved)
+    known_count = sum(
+        1 for issue in classified_unresolved if issue["noise_class"] == "known_legacy"
+    )
     index = {
         "schema_version": SCHEMA_VERSION,
         "type": "effective_record_index",
@@ -885,11 +1011,13 @@ def build_effective_index(zone_root: str | Path) -> dict[str, Any]:
             "target_records": len(records),
             "changed_records": len(changed),
             "review_required_records": len(review_required),
-            "unresolved": len(unresolved),
+            "unresolved": len(classified_unresolved),
+            "unresolved_known": known_count,
+            "unresolved_genuine": len(classified_unresolved) - known_count,
         },
         "records": records,
         "legacy_migrations": legacy_migrations,
-        "unresolved": sorted(unresolved, key=canonical_json),
+        "unresolved": sorted(classified_unresolved, key=canonical_json),
     }
     index["index_digest"] = digest_value(index)
     return index
@@ -1069,8 +1197,9 @@ def review_gate(index: dict[str, Any]) -> dict[str, Any]:
         for record in index["records"]
         if record["differs"] or record["needs_review"] or record["unresolved"]
     ]
+    genuine = genuine_unresolved(index)
     hold = bool(
-        index["unresolved"]
+        genuine
         or any(record["needs_review"] for record in index["records"])
     )
     return {
@@ -1080,6 +1209,8 @@ def review_gate(index: dict[str, Any]) -> dict[str, Any]:
         "changed_records": index["counts"]["changed_records"],
         "review_required_records": sum(1 for record in index["records"] if record["needs_review"]),
         "unresolved": index["unresolved"],
+        "unresolved_genuine": len(genuine),
+        "unresolved_known": len(index["unresolved"]) - len(genuine),
         "records": surfaced_records,
         "source_digest": index["source_digest"],
     }
@@ -1103,7 +1234,8 @@ def hydration_view(index: dict[str, Any]) -> dict[str, Any]:
         if record["differs"]
         and (record["target_surface"], record["target_record_id"]) not in blocked_targets
     ]
-    blocked = bool(index["unresolved"] or blocked_targets)
+    genuine = genuine_unresolved(index)
+    blocked = bool(genuine or blocked_targets)
     status = "blocked" if blocked else ("corrected" if records else "safe")
     return {
         "schema_version": SCHEMA_VERSION,
@@ -1115,5 +1247,7 @@ def hydration_view(index: dict[str, Any]) -> dict[str, Any]:
             for surface, record_id in sorted(blocked_targets)
         ],
         "unresolved": index["unresolved"],
+        "unresolved_genuine": len(genuine),
+        "unresolved_known": len(index["unresolved"]) - len(genuine),
         "source_digest": index["source_digest"],
     }

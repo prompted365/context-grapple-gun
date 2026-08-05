@@ -105,6 +105,7 @@ EFFECTIVE_RECORD_SCRIPT="$CGG_SCRIPTS_DIR/effective-record.py"
 [ -f "$EFFECTIVE_RECORD_SCRIPT" ] || EFFECTIVE_RECORD_SCRIPT="$HOME/.claude/cgg-runtime/scripts/effective-record.py"
 EFFECTIVE_RECORD_MSG=""
 EFFECTIVE_RECORD_HYDRATION_BLOCKED=0
+EFFECTIVE_RECORD_CAPABILITY_BLOCKED=0
 if [ -f "$EFFECTIVE_RECORD_SCRIPT" ]; then
   if command -v python3 >/dev/null 2>&1; then
     EFFECTIVE_RECORD_MSG=$(python3 "$EFFECTIVE_RECORD_SCRIPT" --zone-root "$ZONE_ROOT" \
@@ -128,17 +129,29 @@ if [ -f "$EFFECTIVE_RECORD_SCRIPT" ]; then
   else
     EFFECTIVE_RECORD_MSG="[EFFECTIVE RECORD HOLD: python3 unavailable; SessionStart governance readers suppressed]"
     EFFECTIVE_RECORD_HYDRATION_BLOCKED=1
+    EFFECTIVE_RECORD_CAPABILITY_BLOCKED=1
   fi
 else
   EFFECTIVE_RECORD_MSG="[EFFECTIVE RECORD HOLD: resolver unavailable; SessionStart governance readers suppressed]"
   EFFECTIVE_RECORD_HYDRATION_BLOCKED=1
+  EFFECTIVE_RECORD_CAPABILITY_BLOCKED=1
 fi
 
-# No downstream SessionStart reader is projection-aware yet. Once the gate
-# reports either an unresolved chain (2), a corrected view (3), or a capability
-# failure, emit the effective-record receipt and stop before reading handoffs,
-# plans, queue.jsonl, signals, mandates, or worldview surfaces.
-if [ "$EFFECTIVE_RECORD_HYDRATION_BLOCKED" -eq 1 ]; then
+# Stop-scope is DERIVED from the consumer set of the held truth (b2, tic 680;
+# doctrine vehicle cpr_fail_closed_boot_hold_must_scope_stop_to_held_truth_
+# consumers_tic679). A TRUTH hold (rc=2 genuine-unresolved, rc=3 corrected,
+# resolver crash) suppresses only the projection-dependent consumer — the raw
+# worldview render, gated below on EFFECTIVE_RECORD_HYDRATION_BLOCKED — while
+# the truth-independent mechanical lanes (handoff discovery, cpr-extract,
+# enrichment scanner, mandate-fabric emission) RUN; the loud badge leads the
+# injected context via CGG_MSG. Three consecutive dark boots (t677/t678/t679)
+# were this early-exit answering a question those lanes never asked. Only a
+# CAPABILITY blocker (resolver or python3 absent — the gate itself cannot run,
+# so running ungated readers would be gate-bypass, not scoping) still stops
+# the boot here fail-closed. rc=3 is PERMANENT once any resolved correction
+# differs from base (corrections are append-only) — an unscoped stop on that
+# status is a blackout with no exit condition at all.
+if [ "$EFFECTIVE_RECORD_CAPABILITY_BLOCKED" -eq 1 ]; then
   if command -v python3 >/dev/null 2>&1; then
     EFFECTIVE_RECORD_MSG="$EFFECTIVE_RECORD_MSG" python3 -c '
 import json, os

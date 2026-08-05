@@ -1,0 +1,26 @@
+{
+  "schema_version": 1,
+  "type": "known_legacy_noise_registry",
+  "authorized_by": "bk-boot-born-extraction-miss leg b1 (/review-class, tic-680 window; doctrine vehicle cpr_fail_closed_boot_hold_must_scope_stop_to_held_truth_consumers_tic679) — reason-coded known/genuine verifier split applied to the effective-record gate lens (cgg-ledger#reason-coded-genuine-vs-known-verifier-split)",
+  "discipline": "parse-class structural noise ONLY (invalid_json / non_object_row / invalid_utf8) on enumerated pre-contract surfaces; correction-semantic issue codes can NEVER be registered known; entries are repository-controlled and ride the trusted migrations inventory + runtime-sync",
+  "entries": [
+    {
+      "surface": "audit-logs/patterns/2026-04-08.jsonl",
+      "codes": [
+        "invalid_json"
+      ],
+      "reason": "pre-contract pattern-mining staging corpus (2026-04-08): 709 rows are non-JSONL free text emitted before the typed staging contract; scan lens classified informational at tic 678; content is historical mining residue, not record truth",
+      "observed_count_at_registration": 709,
+      "registered_tic": 680
+    },
+    {
+      "surface": "audit-logs/agent-mailboxes/ent_cbux_steward/indexes/events.jsonl",
+      "codes": [
+        "non_object_row"
+      ],
+      "reason": "single legacy non-object first row in the cbux-steward inbox events index, predating the envelope-typed index contract; the mailbox registry reads its own typed projection",
+      "observed_count_at_registration": 1,
+      "registered_tic": 680
+    }
+  ]
+}

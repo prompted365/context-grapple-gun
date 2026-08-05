@@ -152,15 +152,20 @@ class EffectiveRecordFixture(unittest.TestCase):
             encoding="utf-8",
         )
 
-    def trust_real_migration_for_fixture(self, migration: dict, append_commit: str) -> None:
+    def trust_real_migration_for_fixture(
+        self,
+        migration: dict,
+        append_commit: str,
+        receipt_name: str = "record-correction-tic658.json",
+    ) -> None:
         trusted = copy.deepcopy(migration)
-        surface = trusted["provenance"]["surface"]
+        surface = trusted["canonical_correction"]["source"]["surface"]
         trusted["provenance"]["canonical_append_commit"] = append_commit
         receipt = trusted["canonical_authorization_receipt"]
         receipt["canonical_append_commit"] = append_commit
         receipt["canonical_append_surface"] = surface
         trusted["migration_receipt"]["canonical_append_commit"] = append_commit
-        (self.trusted_migrations / "record-correction-tic658.json").write_text(
+        (self.trusted_migrations / receipt_name).write_text(
             json.dumps(trusted, sort_keys=True) + "\n",
             encoding="utf-8",
         )
@@ -1074,6 +1079,192 @@ print(json.dumps({
         self.assertIn('"status": "effective_record_capability_blocker"', stderr.getvalue())
         self.assertIn('"capability": "effective_record_resolution"', stderr.getvalue())
         self.assertIn("fixture resolver failure", stderr.getvalue())
+
+
+class TestKnownNoiseSplit(EffectiveRecordFixture):
+    """Reason-coded known/genuine verifier split (b1, tic 680)."""
+
+    REGISTERED_SURFACE = "audit-logs/patterns/legacy-corpus.jsonl"
+
+    def write_registry(self, entries) -> None:
+        (self.trusted_migrations / "known-legacy-noise.json").write_text(
+            json.dumps({
+                "schema_version": 1,
+                "type": "known_legacy_noise_registry",
+                "entries": entries,
+            }) + "\n",
+            encoding="utf-8",
+        )
+
+    def append_raw(self, relative: str, text: str) -> None:
+        path = self.tmp / relative
+        path.parent.mkdir(parents=True, exist_ok=True)
+        with path.open("a", encoding="utf-8") as handle:
+            handle.write(text + "\n")
+
+    def test_registered_parse_noise_is_known_and_nonblocking(self):
+        self.write_registry([
+            {"surface": self.REGISTERED_SURFACE, "codes": ["invalid_json"], "reason": "fixture"},
+        ])
+        self.append_raw(self.REGISTERED_SURFACE, "this is not json {")
+        index = build_effective_index(self.tmp)
+        self.assertEqual(index["counts"]["unresolved"], 1)
+        self.assertEqual(index["counts"]["unresolved_known"], 1)
+        self.assertEqual(index["counts"]["unresolved_genuine"], 0)
+        self.assertEqual(index["unresolved"][0]["noise_class"], "known_legacy")
+        hydration = hydration_view(index)
+        self.assertEqual(hydration["status"], "safe")
+        self.assertEqual(hydration["unresolved_known"], 1)
+        gate = review_gate(index)
+        self.assertEqual(gate["status"], "pass")
+
+    def test_unregistered_parse_noise_stays_genuine_and_blocks(self):
+        self.write_registry([
+            {"surface": self.REGISTERED_SURFACE, "codes": ["invalid_json"], "reason": "fixture"},
+        ])
+        self.append_raw("audit-logs/patterns/unregistered.jsonl", "also not json {")
+        index = build_effective_index(self.tmp)
+        self.assertEqual(index["counts"]["unresolved_genuine"], 1)
+        self.assertEqual(index["unresolved"][0]["noise_class"], "genuine")
+        self.assertEqual(hydration_view(index)["status"], "blocked")
+        self.assertEqual(review_gate(index)["status"], "hold")
+
+    def test_correction_semantic_codes_can_never_be_registered_known(self):
+        self.write_registry([
+            {"surface": TARGET, "codes": ["orphan_correction"], "reason": "unlawful entry"},
+        ])
+        self.correction("rc-orphan", target_record_id="never-existed")
+        index = build_effective_index(self.tmp)
+        orphan_issues = [
+            issue for issue in index["unresolved"] if issue["code"] == "orphan_correction"
+        ]
+        self.assertTrue(orphan_issues)
+        self.assertTrue(all(issue["noise_class"] == "genuine" for issue in orphan_issues))
+        self.assertEqual(hydration_view(index)["status"], "blocked")
+
+
+class TestCorrectsResolutionBinding(EffectiveRecordFixture):
+    """Digest-bound corrects_resolution attestation for free-text legacy corrects."""
+
+    LEGACY_SURFACE = "audit-logs/reviews/legacy-day.jsonl"
+
+    def build_pair(self, resolution_target_id: str):
+        base_row = self.base("pass-repair-1")
+        legacy_row = {
+            "timestamp": "2026-07-28T08:24:16+00:00",
+            "action": "record_correction",
+            "tic": 662,
+            "corrects": "pass pass-repair-1 (some free text, not an identifier)",
+            "correction": "fixture legacy correction with free-text corrects",
+        }
+        self.append(self.LEGACY_SURFACE, legacy_row)
+        self.correction(
+            "rc_fixture_free_text_resolution",
+            located_surface=self.LEGACY_SURFACE,
+            target_record_id="pass-repair-1",
+            source={
+                "repository": "prompted365/canonical_federation",
+                "commit": "a" * 40,
+                "surface": self.LEGACY_SURFACE,
+            },
+        )
+        binding_file = {
+            "legacy_binding": {
+                "binding_method": "exact_surface_and_canonical_row_digest",
+                "legacy_surface": self.LEGACY_SURFACE,
+                "legacy_row_digest": digest_value(legacy_row),
+                "canonical_correction_id": "rc_fixture_free_text_resolution",
+                "corrects_resolution": {
+                    "legacy_corrects": legacy_row["corrects"],
+                    "target_record_id": resolution_target_id,
+                    "target_surface": TARGET,
+                },
+            },
+            "legacy_correction_snapshot": legacy_row,
+        }
+        (self.trusted_migrations / "binding-fixture.json").write_text(
+            json.dumps(binding_file, sort_keys=True) + "\n",
+            encoding="utf-8",
+        )
+
+    def test_resolution_attestation_maps_free_text_corrects(self):
+        self.build_pair("pass-repair-1")
+        index = build_effective_index(self.tmp)
+        self.assertEqual(index["counts"]["mapped_legacy_corrections"], 1)
+        self.assertEqual(
+            index["legacy_migrations"][0]["disposition"],
+            "preserved_legacy_mapped_to_canonical",
+        )
+        self.assertFalse([
+            issue for issue in index["unresolved"]
+            if issue["code"].startswith("legacy_correction")
+        ])
+
+    def test_resolution_aimed_at_other_target_is_a_binding_mismatch(self):
+        self.build_pair("some-other-record")
+        index = build_effective_index(self.tmp)
+        self.assertEqual(index["counts"]["mapped_legacy_corrections"], 0)
+        self.assertTrue([
+            issue for issue in index["unresolved"]
+            if issue["code"] == "legacy_correction_binding_mismatch"
+        ])
+
+
+class TestRealTic680Migrations(EffectiveRecordFixture):
+    """The two tic-680 migration files resolve their legacy rows without retcon."""
+
+    def run_real_migration(self, receipt_name: str) -> dict:
+        migration = json.loads(
+            (REPO_ROOT / "cgg-runtime/migrations" / receipt_name).read_text(encoding="utf-8")
+        )
+        target_surface = migration["canonical_correction"]["target_surface"]
+        source_surface = migration["canonical_correction"]["source"]["surface"]
+        self.append(target_surface, migration["base_record_snapshot"])
+        self.append(source_surface, migration["legacy_correction_snapshot"])
+        self.append(source_surface, migration["canonical_correction"])
+        append_commit = self.commit_zone(f"Append canonical correction ({receipt_name})")
+        self.trust_real_migration_for_fixture(migration, append_commit, receipt_name)
+        index = build_effective_index(self.tmp)
+        self.assertEqual(index["counts"]["unresolved_genuine"], 0)
+        self.assertEqual(index["counts"]["mapped_legacy_corrections"], 1)
+        self.assertEqual(
+            index["legacy_migrations"][0]["canonical_correction_id"],
+            migration["canonical_correction"]["correction_id"],
+        )
+        self.assertEqual(
+            migration["legacy_binding"]["legacy_row_digest"],
+            digest_value(migration["legacy_correction_snapshot"]),
+        )
+        self.assertEqual(
+            migration["canonical_authorization_receipt"]["correction_digest"],
+            digest_value(migration["canonical_correction"]),
+        )
+        return index
+
+    def test_tic662_timestamp_migration_resolves(self):
+        index = self.run_real_migration("record-correction-tic662-a2-timestamp.json")
+        record = [
+            r for r in index["records"]
+            if r["target_record_id"] == "662-a2-661-lesson-type-backfill"
+        ][0]
+        self.assertTrue(record["differs"])
+        self.assertEqual(
+            record["effective_record"]["timestamp"], "2026-07-28T08:22:00+00:00"
+        )
+        self.assertIn("timestamp_provenance", record["effective_record"])
+
+    def test_tic664_probe_artifacts_migration_resolves(self):
+        index = self.run_real_migration("record-correction-tic664-probe-artifacts.json")
+        record = [
+            r for r in index["records"]
+            if r["target_record_id"]
+            == "cpr_correction_can_land_on_a_third_surface_beyond_marker_vocabulary_tic661"
+        ][0]
+        self.assertTrue(record["differs"])
+        self.assertIn(
+            "EPHEMERAL session scratch",
+            record["effective_record"]["advanced_tic_anchor_probe"]["probe_artifacts"],
+        )
 
 
 if __name__ == "__main__":

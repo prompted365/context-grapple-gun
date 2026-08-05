@@ -1,0 +1,159 @@
+{
+  "schema_version": 1,
+  "type": "record_correction_migration",
+  "migration_id": "migration-queue2562-probe-artifacts-correction-tic680",
+  "provenance": {
+    "repository": "prompted365/canonical_federation",
+    "commit": "0f50c22e2729a480df69cfdaa651ee4649dd886f",
+    "surface": "audit-logs/reviews/2026-07-30.jsonl",
+    "doctrine_anchor": "cgg-ledger/ledger.md#third-surface-correction-pair-agreement-is-not-evidence-currency",
+    "authorization_anchor": "bk-legacy-correction-migration ratified-DEFER at /review 678 to the tic-680 civil/infra window",
+    "canonical_append_commit": "2ec0a0df402c9235a55735b9d82ca56451665d3f"
+  },
+  "base_record_snapshot": {
+    "type": "cpr",
+    "id": "cpr_correction_can_land_on_a_third_surface_beyond_marker_vocabulary_tic661",
+    "id_origin": "explicit",
+    "dedup_hash": "bf131c6898ecb349",
+    "status": "promoted",
+    "tier": "tier1",
+    "lesson": "The t611 reader-side divergence cure gives marker vocabulary for exactly TWO loci — the\nqueue row and its source file — but the append-only-never-retcon law GUARANTEES that a\ncorrection is appended where it happened, which is structurally often a THIRD surface\n(e.g. a record_correction row in a reviews ledger) that is neither of the two. When the\nrow and its source file agree with each other, no divergence marker can fire — the\nagreement itself is the trap (Disagreement-as-evidence, inverted: two surfaces agree on\nevidence a third surface has disproven). The docket reader then inherits a disproven\nevidence claim with zero signal. This recurs BY DESIGN, not incidentally: every\nnever-retcon correction to an already-extracted claim lands outside the row/source pair.\nCandidate cure (named at stepper 661, NOT built): a typed correction back-reference — the\ncorrecting row names the corrected queue id — resolved by a deterministic reconciler pass\nthat mints the reader-side staleness marker on the affected row; the author bodies stay\nuntouched (t611). Until then, third-surface corrections are only found by hand-probing,\nwhich is exactly the un-wired-rehydration failure mode (Case 2).",
+    "source": "stepper pass 661-cpr-step anomaly A1-661 (audit-logs/reviews/2026-07-27.jsonl), adjudicating A1-660 — the tic-658 record_correction row narrows the t653 exhaustion row while row 2542 and borns-tic653-admission-supply-and-authority-park-resurfacing.md agree with each other; marker staleness.source_claim_narrowed_by_external_correction minted by hand as the workaround",
+    "source_date": "",
+    "band": "COGNITIVE",
+    "motivation_layer": "COGNITIVE",
+    "subsystem": "",
+    "recommended_scopes": [],
+    "rationale": "",
+    "review_hints": "",
+    "birth_tic": 661,
+    "posture": "OPS/DIRECT",
+    "extracted_at": "2026-07-28T08:11:14.279276+00:00",
+    "extracted_by": "cpr-extract-hook",
+    "source_file": "/Users/breydentaylor/canonical/audit-logs/governance/borns-tic661-correction-can-land-on-a-third-surface.md",
+    "source_block_line": 16,
+    "birth_rung": "site",
+    "birth_scope_path": "/Users/breydentaylor/canonical",
+    "provenance_class": "friction_born",
+    "origin_context": "session",
+    "lesson_type": "doctrine_gap",
+    "prior_status": "extracted",
+    "stepped_at_tic": 664,
+    "stepped_by": "cpr-stepper (pass 664-cpr-step)",
+    "step_reason": "extracted->tic_gated: temporal maturity gate PASSED (birth_tic 661, current_tic 664, delta 3 >= maturity_tics 3 default; provenance_class friction_born -> standing default, no waiver). Verify-twin DEDUP run queue-wide: 0 collisions, 0 exact lesson-text twins. Next transition (tic_gated->enrichment_needed) is MECHANICAL and NOT the stepper's to gate: cpr-gate-advance.py owns it deterministically at boot (tic-470 deadlock fix).",
+    "dedup_check": {
+      "formula": "SHA256(f\"{source}:{lesson}\")[:16] (colon form, authoritative per cpr-extract; doctrine cured tic 653)",
+      "computed_colon_form": "bf131c6898ecb349",
+      "stamped_dedup_hash": "bf131c6898ecb349",
+      "reproduces_stamp": true,
+      "nosep_form_computed": "ec019d2f8d4e640a",
+      "nosep_form_reproduces_stamp": false,
+      "collisions_stamped_index": 0,
+      "collisions_derived_index": 0,
+      "exact_lesson_text_twins": 0,
+      "scope": "queue-wide, 2561 rows / 1103 unique ids at tic 664",
+      "note": "Stamped hash reproduces under the COLON form and not under the no-separator form — third independent confirmation of the tic-652 settlement / tic-653 doctrine cure (stepper anomaly A4-653). Queue-wide, 0 colon-form hashes are shared by 2+ distinct ids."
+    },
+    "updated_at": "2026-07-30T07:15:36.176904+00:00",
+    "advanced_tic": 664,
+    "advanced_tic_anchor_probe": {
+      "trap": "A1-663 advanced_tic re-anchoring (queue_state_compile._resolve_target_tic puts advanced_tic at HEAD of the window-anchor chain advanced_tic -> deferred_tic -> birth_tic)",
+      "gate_state_at_664": "/review-663 rider R3 (merged with A1-663) is RULED but its amendment has NOT landed — bk-review-663-amendment-tranche state=open, last_touched_tic 663; ruled semantics: bound _resolve_target_tic later-direction, mirror of the t649 never-earlier bound. Per-row re-check therefore still required.",
+      "fired": false,
+      "why_not": "Row carries NO maturity_window_tics (and no re_eval_tic / defer_until_tic), so _resolve_target_tic returns None on BOTH arms — there is no window for advanced_tic to re-anchor. Contrast rows 2556/2557 at tic 663, which carried cogpr-ingest maturity_window_tics=3 and DID trip the trap (withheld-with-disclosure); this row matches row 2558's shape, which was lawfully stamped.",
+      "measured": "sandbox compile at --current-tic 664 against a copy of the real queue, BOTH arms run (not predicted): with advanced_tic=664 -> bucket live_now, target_tic null; without advanced_tic -> bucket live_now, target_tic null. Identical. Baseline (pre-step, status extracted) also live_now/null, so the step changes status without moving the row's schedule position.",
+      "probe_artifacts": "scratchpad anchor_trap_probe_664.py (read-only w.r.t. the real queue and the real effective-state dir; sandbox queue + out dirs only)",
+      "disclosure": "Stamped, not withheld. The withheld-with-disclosure shape (advanced_tic_withheld, A1-663 precedent) is reserved for rows where the probe FIRES; recording the negative measurement here keeps the per-row check auditable rather than assumed."
+    },
+    "review_tic": 664,
+    "promoted_to": "canonical_developer/context-grapple-gun/cgg-ledger/ledger.md#third-surface-correction-pair-agreement-is-not-evidence-currency",
+    "promoted_date": "2026-07-30T07:42:38Z",
+    "promotion_ruling": "PROMOTE-as-ray at CGG rung; SIBLING ruling (reconciler NOT folded into bk-queue-body-refresh-mechanism; registered bk-third-surface-correction-reconciler)",
+    "signer": "ent_homeskillet",
+    "model": "claude-fable-5",
+    "boot_receipt": "58bbde08d2a5f2c6"
+  },
+  "legacy_correction_snapshot": {
+    "timestamp": "2026-07-30T07:21:29.842668+00:00",
+    "tic": 664,
+    "actor": "ent_cpr_stepper",
+    "model": "claude-opus-5[1m]",
+    "boot_receipt": "98e22d75e1ed66e2",
+    "pass_id": "664-cpr-step",
+    "action": "record_correction",
+    "corrects": "queue.jsonl row 2562, field advanced_tic_anchor_probe.probe_artifacts",
+    "corrected_id": "cpr_correction_can_land_on_a_third_surface_beyond_marker_vocabulary_tic661",
+    "correction": "The row names a scratchpad path (anchor_trap_probe_664.py) as probe artifact. That path is EPHEMERAL (session scratch, not a durable lane) and must not be read as a durable receipt. The durable evidence for the anchor-trap measurement is (a) the in-row advanced_tic_anchor_probe.measured field, which states both arms and both outcomes, and (b) the anchor_trap_check block of the tic-664 cpr_step record in this ledger. Precedent shape is the tic-663 rows 2556/2557, which recorded the measurement with no artifact path at all. No load-bearing artifact was written to tmp; the pointer is an over-claim of durability, not a missing artifact.",
+    "never_retcon": "row 2562 NOT rewritten — the queue is append-only and an author-declared row is not edited by this office; the correction is appended where it happened",
+    "self_referential_note": "This correction is itself a live instance of the very lesson the corrected row carries: the correction lands on a THIRD surface (this reviews ledger) that is neither the queue row nor its source file. Row 2562 and borns-tic661-correction-can-land-on-a-third-surface.md agree with each other, so no reader-side divergence marker can fire — exactly the trap the born names. Recorded here as fresh, same-tic evidence FOR the candidate, not as a repair of it; the stepper mints no marker and no back-reference (the typed correction back-reference the born proposes is NOT built)."
+  },
+  "canonical_correction": {
+    "schema_version": 1,
+    "type": "record_correction",
+    "correction_id": "rc_queue2562_probe_artifacts_tic664",
+    "target_record_id": "cpr_correction_can_land_on_a_third_surface_beyond_marker_vocabulary_tic661",
+    "target_surface": "audit-logs/cprs/queue.jsonl",
+    "source": {
+      "repository": "prompted365/canonical_federation",
+      "commit": "0f50c22e2729a480df69cfdaa651ee4649dd886f",
+      "surface": "audit-logs/reviews/2026-07-30.jsonl"
+    },
+    "patch": {
+      "advanced_tic_anchor_probe": {
+        "probe_artifacts": "corrected (tic-664 record_correction, append-only): the scratchpad path anchor_trap_probe_664.py is EPHEMERAL session scratch, not a durable receipt, and must not be read as one; the durable evidence for the anchor-trap measurement is (a) this row's advanced_tic_anchor_probe.measured field, which states both arms and both outcomes, and (b) the anchor_trap_check block of the tic-664 cpr_step record in audit-logs/reviews/2026-07-30.jsonl (precedent: tic-663 rows 2556/2557 recorded the measurement with no artifact path); no load-bearing artifact was written to tmp — the pointer was an over-claim of durability, not a missing artifact"
+      }
+    },
+    "literal_correction": "queue.jsonl row 2562's advanced_tic_anchor_probe.probe_artifacts names an ephemeral scratchpad path as probe artifact; the durable evidence is the in-row measured field plus the tic-664 anchor_trap_check block in the reviews ledger — the pointer over-claims durability.",
+    "authority": {
+      "author_id": "ent_homeskillet",
+      "authority_class": "ratified_review",
+      "authorization_ref": "/review:678 ratified-DEFER-to-680 (bk-legacy-correction-migration, tic-680 civil/infra window)"
+    },
+    "reason": "Migrate the lived tic-664 append-only third-surface correction (authored by ent_cpr_stepper on the reviews ledger, targeting the queue row) into the typed effective-record contract (snapshot-preserving canonicalization; base never retconned).",
+    "effective_tic": 664,
+    "effective_at": "2026-07-30T07:21:29.842668+00:00",
+    "supersedes": [],
+    "consequence_class": "interpretive",
+    "reversible": false,
+    "lifecycle_state": "ratified",
+    "receipt_path": "cgg-runtime/migrations/record-correction-tic664-probe-artifacts.json"
+  },
+  "legacy_binding": {
+    "binding_method": "exact_surface_and_canonical_row_digest",
+    "legacy_surface": "audit-logs/reviews/2026-07-30.jsonl",
+    "legacy_row_digest": "473db11223d70d7cb82b05bf5b0b6e7d2332dd99c7f79b70acd71a864fc9378d",
+    "canonical_correction_id": "rc_queue2562_probe_artifacts_tic664",
+    "corrects_resolution": {
+      "legacy_corrects": "queue.jsonl row 2562, field advanced_tic_anchor_probe.probe_artifacts",
+      "target_record_id": "cpr_correction_can_land_on_a_third_surface_beyond_marker_vocabulary_tic661",
+      "target_surface": "audit-logs/cprs/queue.jsonl",
+      "resolution_note": "the legacy corrects field names 'queue.jsonl row 2562, field advanced_tic_anchor_probe.probe_artifacts' (positional free text); resolved to the row's declared id (corrected_id field of the legacy row) on audit-logs/cprs/queue.jsonl — a lived instance of the third-surface born the corrected row itself carries"
+    }
+  },
+  "canonical_authorization_receipt": {
+    "schema_version": 1,
+    "type": "record_correction_authorization_receipt",
+    "correction_id": "rc_queue2562_probe_artifacts_tic664",
+    "correction_digest": "8329481a17b0d0f5d0f97f495b44e0a24089c591f41b82b44e54f05260e085c9",
+    "authority": {
+      "author_id": "ent_homeskillet",
+      "authority_class": "ratified_review",
+      "authorization_ref": "/review:678 ratified-DEFER-to-680 (bk-legacy-correction-migration, tic-680 civil/infra window)"
+    },
+    "lifecycle_state": "ratified",
+    "receipt_path": "cgg-runtime/migrations/record-correction-tic664-probe-artifacts.json",
+    "canonical_append_repository": "prompted365/canonical_federation",
+    "canonical_append_commit": "2ec0a0df402c9235a55735b9d82ca56451665d3f",
+    "canonical_append_surface": "audit-logs/reviews/2026-07-30.jsonl"
+  },
+  "migration_receipt": {
+    "method": "snapshot-preserving canonicalization",
+    "base_record_retconned": false,
+    "legacy_correction_retconned": false,
+    "canonical_correction_appended": true,
+    "canonical_append_repository": "prompted365/canonical_federation",
+    "canonical_append_surface": "audit-logs/reviews/2026-07-30.jsonl",
+    "canonical_append_commit": "2ec0a0df402c9235a55735b9d82ca56451665d3f",
+    "effective_view_required": true
+  }
+}

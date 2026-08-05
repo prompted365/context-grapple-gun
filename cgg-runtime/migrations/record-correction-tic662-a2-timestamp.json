@@ -1,0 +1,103 @@
+{
+  "schema_version": 1,
+  "type": "record_correction_migration",
+  "migration_id": "migration-pass662-a2-timestamp-correction-tic680",
+  "provenance": {
+    "repository": "prompted365/canonical_federation",
+    "commit": "58c40f2076e43ba16f099906a721a39dcf8e6074",
+    "surface": "audit-logs/reviews/2026-07-28.jsonl",
+    "doctrine_anchor": "cgg-ledger/ledger.md#third-surface-correction-pair-agreement-is-not-evidence-currency",
+    "authorization_anchor": "bk-legacy-correction-migration ratified-DEFER at /review 678 to the tic-680 civil/infra window",
+    "canonical_append_commit": "2ec0a0df402c9235a55735b9d82ca56451665d3f"
+  },
+  "base_record_snapshot": {
+    "timestamp": "2026-07-28T08:34:00Z",
+    "action": "scope_repair",
+    "pass_id": "662-a2-661-lesson-type-backfill",
+    "tic": 662,
+    "actor": "ent_homeskillet",
+    "model": "claude-fable-5",
+    "boot_receipt": "1cf6304c07c34b3c",
+    "anomaly": "A2-661",
+    "precedent": "A2-655 scope_repair (row 2520-2522 shape: append-only repair row, no lifecycle/content change, dedup_hash preserved)",
+    "detail": "9-row closed-set lesson_type back-fill EXECUTED: values recovered VERBATIM from each row's source_file born block at source_block_line (independently re-derived this pass, matching the A2-661 enumeration exactly: 4x pattern [t651 x3 + t653 supply-exhaustion], 5x process [t653 authority-park, t655, t656, t657, t658]). Queue 2544 -> 2553 rows, 9 appended. Serialization honored: executed after mandate tic-662 queue_refresh completed and with stepper not dispatched this tic (steppable derived 0). VERIFIED post-repair: all 9 latest-per-id rows carry the declared lesson_type; status distribution unchanged; dedup_hash values unchanged (hash is over source+lesson only, by design); the 2 ids carrying A2-655 scope_repair blocks had them preserved via prior_repairs chain (no repair record goes dark in the latest projection). Remaining pending rows without lesson_type: C3 tic327 + pin-race tic654 — both OUTSIDE the closed set, source blocks declare none, absence stays absent per the cured extractor's own rule. Row 2468 stays un-probeable (source_file absent), unchanged from the A2-661 bound.",
+    "not_a_docket_item": "REPAIR work under the A2-655 precedent, not /review work — recorded as a repair pass row, not booked to any docket (handoff truth boundary honored)"
+  },
+  "legacy_correction_snapshot": {
+    "timestamp": "2026-07-28T08:24:16.415550+00:00",
+    "action": "record_correction",
+    "tic": 662,
+    "actor": "ent_homeskillet",
+    "corrects": "pass 662-a2-661-lesson-type-backfill (reviews/2026-07-28.jsonl)",
+    "correction": "That row's hand-stamped timestamp 2026-07-28T08:34:00Z is WRONG — ahead of wall clock. The repair actually landed ~08:21-08:22Z: the 9 queue repair rows carry the true machine repaired_at stamps, and the bench packet regenerated at 08:23:15Z already contains the back-filled values. Tic remains the time authority; timestamps are observability-only — corrected here append-only, never retconned.",
+    "evidence": "queue rows 2545-2553 repaired_at (machine datetime.now) + bench-packets/latest.json mtime 08:23:15Z carrying lesson_type on t657/t658 rows"
+  },
+  "canonical_correction": {
+    "schema_version": 1,
+    "type": "record_correction",
+    "correction_id": "rc_pass662_a2_backfill_timestamp_tic662",
+    "target_record_id": "662-a2-661-lesson-type-backfill",
+    "target_surface": "audit-logs/reviews/2026-07-28.jsonl",
+    "source": {
+      "repository": "prompted365/canonical_federation",
+      "commit": "58c40f2076e43ba16f099906a721a39dcf8e6074",
+      "surface": "audit-logs/reviews/2026-07-28.jsonl"
+    },
+    "patch": {
+      "timestamp": "2026-07-28T08:22:00+00:00",
+      "timestamp_provenance": "machine-bounded ~08:21-08:22Z (queue rows 2545-2553 repaired_at machine stamps; bench packet regenerated 08:23:15Z already carried the back-filled values); the base row's hand-stamp 08:34:00Z was ahead of wall clock and is corrected append-only per the tic-662 record_correction on this surface — tic remains the time authority, timestamps are observability-only"
+    },
+    "literal_correction": "The scope_repair pass row's hand-stamped timestamp 2026-07-28T08:34:00Z is wrong (ahead of wall clock); the repair actually landed ~08:21-08:22Z per the queue rows' machine repaired_at stamps and the 08:23:15Z bench-packet regeneration that already contained the back-filled values.",
+    "authority": {
+      "author_id": "ent_homeskillet",
+      "authority_class": "ratified_review",
+      "authorization_ref": "/review:678 ratified-DEFER-to-680 (bk-legacy-correction-migration, tic-680 civil/infra window)"
+    },
+    "reason": "Migrate the lived tic-662 append-only timestamp correction into the typed effective-record contract (snapshot-preserving canonicalization; base never retconned).",
+    "effective_tic": 662,
+    "effective_at": "2026-07-28T08:24:16.415550+00:00",
+    "supersedes": [],
+    "consequence_class": "informational",
+    "reversible": false,
+    "lifecycle_state": "ratified",
+    "receipt_path": "cgg-runtime/migrations/record-correction-tic662-a2-timestamp.json"
+  },
+  "legacy_binding": {
+    "binding_method": "exact_surface_and_canonical_row_digest",
+    "legacy_surface": "audit-logs/reviews/2026-07-28.jsonl",
+    "legacy_row_digest": "10a04444fadc9de1a586a9c20e3a038317a85016cbfe91ad1ff3f66dc73e1377",
+    "canonical_correction_id": "rc_pass662_a2_backfill_timestamp_tic662",
+    "corrects_resolution": {
+      "legacy_corrects": "pass 662-a2-661-lesson-type-backfill (reviews/2026-07-28.jsonl)",
+      "target_record_id": "662-a2-661-lesson-type-backfill",
+      "target_surface": "audit-logs/reviews/2026-07-28.jsonl",
+      "resolution_note": "the legacy corrects field is free text ('pass <pass_id> (<surface>)'); resolved to the pass row's pass_id identifier on the same surface — attested here inside the digest-bound migration file"
+    }
+  },
+  "canonical_authorization_receipt": {
+    "schema_version": 1,
+    "type": "record_correction_authorization_receipt",
+    "correction_id": "rc_pass662_a2_backfill_timestamp_tic662",
+    "correction_digest": "f6b09065c779efed7f7ab64455dcc489514d980445bac23a483c4201376c6f45",
+    "authority": {
+      "author_id": "ent_homeskillet",
+      "authority_class": "ratified_review",
+      "authorization_ref": "/review:678 ratified-DEFER-to-680 (bk-legacy-correction-migration, tic-680 civil/infra window)"
+    },
+    "lifecycle_state": "ratified",
+    "receipt_path": "cgg-runtime/migrations/record-correction-tic662-a2-timestamp.json",
+    "canonical_append_repository": "prompted365/canonical_federation",
+    "canonical_append_commit": "2ec0a0df402c9235a55735b9d82ca56451665d3f",
+    "canonical_append_surface": "audit-logs/reviews/2026-07-28.jsonl"
+  },
+  "migration_receipt": {
+    "method": "snapshot-preserving canonicalization",
+    "base_record_retconned": false,
+    "legacy_correction_retconned": false,
+    "canonical_correction_appended": true,
+    "canonical_append_repository": "prompted365/canonical_federation",
+    "canonical_append_surface": "audit-logs/reviews/2026-07-28.jsonl",
+    "canonical_append_commit": "2ec0a0df402c9235a55735b9d82ca56451665d3f",
+    "effective_view_required": true
+  }
+}

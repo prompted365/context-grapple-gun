@@ -11,6 +11,7 @@ from pathlib import Path
 
 from lib.effective_record import (
     build_effective_index,
+    genuine_unresolved,
     hydration_view,
     projection_status,
     reconcile,
@@ -22,23 +23,35 @@ def _emit(value, output_format: str = "json") -> None:
     if output_format == "hook":
         status = value.get("status")
         changed = len(value.get("effective_records", []))
-        blocked = len(value.get("blocked_targets", []))
+        blocked_targets = value.get("blocked_targets", [])
+        genuine = value.get("unresolved_genuine", len(value.get("unresolved", [])))
+        known = value.get("unresolved_known", 0)
+        known_note = f"; {known} known-legacy noise row(s) reason-coded nonblocking" if known else ""
         digest = value.get("source_digest", "")[:12]
         if status == "blocked":
+            named = ", ".join(
+                f"{target['target_surface']}#{target['target_record_id']}"
+                for target in blocked_targets[:5]
+            )
+            overflow = "" if len(blocked_targets) <= 5 else f" (+{len(blocked_targets) - 5} more)"
+            target_note = f"; held targets: {named}{overflow}" if named else ""
             print(
-                f"[EFFECTIVE RECORD HOLD: {blocked} target(s) unresolved; "
+                f"[EFFECTIVE RECORD HOLD: {genuine} genuine unresolved"
+                f"{target_note}{known_note}; "
                 "unsafe base projections suppressed; run effective-record.py scan; "
                 f"source {digest}]"
             )
         elif status == "corrected":
             print(
-                f"[EFFECTIVE RECORD: {changed} corrected view(s) active; "
+                f"[EFFECTIVE RECORD: {changed} corrected view(s) active"
+                f"{known_note}; "
                 "raw worldview suppressed; resolve affected ids before hydration; "
                 f"source {digest}]"
             )
         else:
             print(
-                f"[EFFECTIVE RECORD: safe; {changed} corrected view(s) active; "
+                f"[EFFECTIVE RECORD: safe; {changed} corrected view(s) active"
+                f"{known_note}; "
                 f"source {digest}]"
             )
         return
@@ -87,13 +100,13 @@ def main(argv: list[str] | None = None) -> int:
         timestamp = args.timestamp or datetime.now(timezone.utc).isoformat()
         result = reconcile(root, authority=args.authority, timestamp=timestamp)
         _emit({key: value for key, value in result.items() if key != "index"})
-        return 2 if result["index"]["unresolved"] else 0
+        return 2 if genuine_unresolved(result["index"]) else 0
 
     index = build_effective_index(root)
 
     if args.command == "scan":
         _emit({**index, "projection": projection_status(root, index)})
-        return 2 if index["unresolved"] else 0
+        return 2 if genuine_unresolved(index) else 0
 
     if args.command == "resolve":
         matches = [
@@ -124,10 +137,13 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.command == "check-index":
         status = projection_status(root, index)
+        genuine = genuine_unresolved(index)
         result = {
-            "status": "pass" if not status["stale"] and not index["unresolved"] else "hold",
+            "status": "pass" if not status["stale"] and not genuine else "hold",
             "projection": status,
             "unresolved": index["unresolved"],
+            "unresolved_genuine": len(genuine),
+            "unresolved_known": len(index["unresolved"]) - len(genuine),
         }
         _emit(result)
         return 0 if result["status"] == "pass" else 2
