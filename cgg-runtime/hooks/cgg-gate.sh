@@ -333,15 +333,15 @@ json.dump(m, open('$MANDATE_FILE', 'w'), indent=2)
         MANDATE_OUTPUT="[MOGUL MANDATE: consumed] Lightweight cycles completed inline: ${LIGHTWEIGHT_RESULTS%,}."
       else
         log_meta "{\"timestamp\":\"$TIMESTAMP\",\"action\":\"lightweight_mandate_consumption_failed\",\"mandate_id\":\"$MANDATE_ID\",\"cycles\":\"$ALL_CYCLES\"}"
-        MANDATE_OUTPUT="[MOGUL MANDATE: lightweight] Pending cycles: $ALL_CYCLES (inline consumption failed). [MANDATE FAILURE PROTOCOL v1: (1) Check audit-logs/mogul/cycle-reports/ for runner logs. (2) Read audit-logs/mogul/mandates/current.json for error field. (3) If recoverable (script not found, timeout), fix and re-run. (4) If structural (schema mismatch, missing infrastructure), emit signal and defer to next /review.]"
+        MANDATE_OUTPUT="[MOGUL MANDATE: lightweight] Pending cycles: $ALL_CYCLES (inline consumption failed). [MANDATE FAILURE PROTOCOL v1: (1) Check audit-logs/mogul/cycle-reports/ for runner logs. (2) Read audit-logs/mogul/mandates/current.json for error field. (2.5) Cross-check current.json status against the latest mandates/history/<date>.jsonl transition for this mandate_id — on disagreement the LEDGER is truth: complete the runner's recorded writeback as a replica (lifecycle-reachable, no new judgment) before classifying. (3) If recoverable (script not found, timeout, environmental: ENOSPC/credit-wall), fix and re-run. (4) If structural (schema mismatch, missing infrastructure), emit signal and defer to next /review.]"
       fi
 
       fi  # end race guard (CogPR-57 fix #1)
     fi
   elif [ "$MANDATE_STATUS" = "running" ]; then
-    MANDATE_OUTPUT="[MOGUL MANDATE: in-flight] Mandate $MANDATE_ID still running (cycles: $ALL_CYCLES)."
+    MANDATE_OUTPUT="[MOGUL MANDATE: in-flight] Mandate $MANDATE_ID still running (cycles: $ALL_CYCLES). [Mirror-integrity, protocol step 2.5 (ops born tic 677): if this in-flight state persists across boots, cross-check against the latest mandates/history/<date>.jsonl transition — on disagreement the LEDGER is truth; a swallowed writeback (ENOSPC class) leaves a false 'running' mirror.]"
   elif [ "$MANDATE_STATUS" = "failed" ]; then
-    MANDATE_OUTPUT="[MOGUL MANDATE: FAILED] Mandate $MANDATE_ID failed (cycles: $ALL_CYCLES). [MANDATE FAILURE PROTOCOL v1: (1) Check audit-logs/mogul/cycle-reports/ for runner logs. (2) Read audit-logs/mogul/mandates/current.json for error field. (3) If recoverable (script not found, timeout), fix and re-run. (4) If structural (schema mismatch, missing infrastructure), emit signal and defer to next /review.]"
+    MANDATE_OUTPUT="[MOGUL MANDATE: FAILED] Mandate $MANDATE_ID failed (cycles: $ALL_CYCLES). [MANDATE FAILURE PROTOCOL v1: (1) Check audit-logs/mogul/cycle-reports/ for runner logs. (2) Read audit-logs/mogul/mandates/current.json for error field. (2.5) Cross-check current.json status against the latest mandates/history/<date>.jsonl transition for this mandate_id — on disagreement the LEDGER is truth: complete the runner's recorded writeback as a replica (lifecycle-reachable, no new judgment) before classifying. (3) If recoverable (script not found, timeout, environmental: ENOSPC/credit-wall), fix and re-run. (4) If structural (schema mismatch, missing infrastructure), emit signal and defer to next /review.]"
     log_meta "{\"timestamp\":\"$TIMESTAMP\",\"action\":\"mogul_mandate_failed_surfaced\",\"mandate_id\":\"$MANDATE_ID\",\"cycles\":\"$ALL_CYCLES\"}"
   else
     # consumed or unknown — no output needed
