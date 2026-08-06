@@ -444,7 +444,10 @@ ENRICHMENT_MSG=""
 ENRICHMENT_SCANNER=$(resolve_script "cpr-enrichment-scanner.py")
 if [ -n "$ENRICHMENT_SCANNER" ] && [ "$HOLDING_CPRS" -gt 0 ]; then
   python3 "$ENRICHMENT_SCANNER" --project-dir "$PROJECT_DIR" > /dev/null 2>&1 &
-  ENRICHMENT_MSG="[ENRICHMENT: scanning $HOLDING_CPRS CogPRs (enrichment_needed/enrichment_eligible status) in background. Completion updates queue.jsonl status. No action needed — enrichment runs automatically. Results visible in next /review.]"
+  # Banner must not assert an unowned status transition as automatic: the scanner
+  # consolidates evidence artifacts; it does not rename queue status
+  # (cgg-ledger#need-asserting-status-name-needs-rename-owner-count-field-not-label).
+  ENRICHMENT_MSG="[ENRICHMENT: gathering evidence for $HOLDING_CPRS CogPRs (enrichment_needed/enrichment_eligible FIELD state, queue.jsonl latest-per-id) in background. The scanner consolidates evidence artifacts only — it does NOT rename queue status; status transitions are owned by cpr-gate-advance (deterministic), the cpr-stepper (model lane), and /review verdicts. Results visible in next /review.]"
 fi
 
 # ============================================================================
@@ -882,7 +885,11 @@ if [ -n "$TRIGGER_MSG" ]; then
   CGG_MSG="$CGG_MSG $TRIGGER_MSG"
 fi
 if [ "$TOTAL_CPRS" -gt 0 ]; then
-  CGG_MSG="$CGG_MSG [CPR QUEUE: $TOTAL_CPRS pending ($CPR_COUNT inline + $QUEUE_COUNT in queue.jsonl). /review when ready.] [CPR LIFECYCLE v1: pending CogPRs advance through: extracted -> enrichment_needed -> enrichment_eligible -> promotable -> promoted. Run /review to triage and promote.]"
+  # Lifecycle banner names OWNED transitions, not a linear label chain: 13/13 of the
+  # birth-650..658 cohort reached terminal without traversing enrichment_eligible —
+  # asserting the unwalked chain as the path misleads every booting reader
+  # (cgg-ledger#need-asserting-status-name-needs-rename-owner-count-field-not-label).
+  CGG_MSG="$CGG_MSG [CPR QUEUE: $TOTAL_CPRS pending ($CPR_COUNT inline + $QUEUE_COUNT in queue.jsonl). /review when ready.] [CPR LIFECYCLE v1: status values are LABELS over queue.jsonl latest-per-id FIELD state; every transition has an OWNER — cpr-stepper (extracted -> tic_gated maturity-gated; enrichment_eligible -> promotable), cpr-gate-advance (tic_gated -> enrichment_needed, deterministic), /review verdicts (terminal states + DEFER). No unowned edge advances by itself. Run /review to triage and promote.]"
 fi
 if [ -n "$ENRICHMENT_MSG" ]; then
   CGG_MSG="$CGG_MSG $ENRICHMENT_MSG"
