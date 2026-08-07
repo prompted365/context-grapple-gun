@@ -28,12 +28,32 @@ MODE="${MODE:-${CGG_STATUSLINE_MODE:-FULL}}"
 
 mkdir -p "$HARMONY_DIR"
 
+# 0-pre. Chain clock resolution (bk-braid-tic-clock-inheritance, /review 684
+#    ratified fix-site): resolve THIS chain's tic ONCE, from the same authority
+#    harmony-input-builder uses (current_tic: counter file, conformation
+#    fallback), and INHERIT it down to the braid sub-step. The braid's tic
+#    identity was order-dependent on the economy pointer — the lag direction
+#    was set by scheduling, not content — so inheritance replaces the race and
+#    the builder declares any pointer divergence FIRST-CLASS (never a constant
+#    offset). Fail-soft: an unresolved chain clock leaves CHAIN_TIC empty and
+#    the braid runs uninherited (legacy pointer-primary path, divergence still
+#    declared builder-side).
+CHAIN_TIC=$(python3 - "$INPUT_BUILDER" <<'PY' 2>/dev/null || true
+import importlib.util, sys
+spec = importlib.util.spec_from_file_location("hib", sys.argv[1])
+m = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(m)
+t = m.current_tic()
+print(t if t else "")
+PY
+)
+
 # 0. Braid step (cable BR5, fail-soft): refresh the braid packet BEFORE input
 #    assembly so the builder can ingest a current-tic braid. Any failure here
 #    leaves the legacy harmony lane fully intact (braid-invoke is itself
 #    fail-soft and exits 0; the guard below is belt-and-suspenders).
-echo "→ braid-invoke.sh (braid step, fail-soft)"
-bash "$SCRIPT_DIR/braid-invoke.sh" || \
+echo "→ braid-invoke.sh (braid step, fail-soft; inherited chain tic=${CHAIN_TIC:-unresolved})"
+BRAID_INHERIT_TIC="${CHAIN_TIC:-}" bash "$SCRIPT_DIR/braid-invoke.sh" || \
   echo "WARN harmony: braid step failed — continuing without braid (fail-soft)" >&2
 
 # 1. Build input from federation state

@@ -47,6 +47,19 @@ if [ -z "$TIC" ] || [ "$TIC" = "None" ]; then
 fi
 PACKET_PATH="$BRAID_DIR/braid-tic-$TIC.json"
 
+# Same-tic rerun declaration (bk-braid-tic-clock-inheritance sibling decision,
+# tic 685): the packet stays LATEST-WINS by design — a later same-tic braid
+# over fresher economy/harmony state is the more current lawful reading
+# (same-tic-replay doctrine: both lawful, consumers declare source) — but the
+# replace is DECLARED, never silent: WARN here + same_tic_rerun fields on the
+# invocations audit line. Write-once was considered and rejected (it would
+# freeze the staler reading).
+PRIOR_GENERATED_AT=""
+if [ -f "$PACKET_PATH" ]; then
+  PRIOR_GENERATED_AT=$(python3 -c "import json;print(json.load(open('$PACKET_PATH')).get('generated_at') or '')" 2>/dev/null || echo "")
+  echo "⚠ braid: same-tic rerun — replacing braid-tic-$TIC.json (prior generated_at=${PRIOR_GENERATED_AT:-unknown}); latest-wins by design, declared not silent" >&2
+fi
+
 # 2. Run the kernel engine via the python3 import seam (harmony's node-seam
 #    analog). Pure transform; the WRITE happens here in the outer ring.
 if ! python3 - "$INPUT_PATH" "$PACKET_PATH" "$REPO" <<'PY'
@@ -99,11 +112,13 @@ print(f"current pointer: {out}", file=sys.stderr)
 PY
 
 # 4. Append the invocations audit line.
-python3 - "$INPUT_PATH" "$PACKET_PATH" "$REPO" <<'PY' || echo "WARN braid: invocations append failed (fail-soft)" >&2
+python3 - "$INPUT_PATH" "$PACKET_PATH" "$REPO" "$PRIOR_GENERATED_AT" <<'PY' || echo "WARN braid: invocations append failed (fail-soft)" >&2
 import json, pathlib, sys, time
 repo = pathlib.Path(sys.argv[3])
 inp, pkt = pathlib.Path(sys.argv[1]), pathlib.Path(sys.argv[2])
+prior_generated_at = sys.argv[4] if len(sys.argv) > 4 else ""
 d = json.loads(pkt.read_text())
+env = json.loads(inp.read_text())
 entry = {
     "tic": d.get("tic"),
     "invoked_at": time.strftime("%Y-%m-%dT%H:%M:%S.000Z", time.gmtime()),
@@ -113,6 +128,12 @@ entry = {
     "jerk_flags": d.get("trajectory", {}).get("jerk_flags"),
     "honest_flags": d.get("honest_flags"),
     "writeback_ratified": d.get("economic_writeback", {}).get("ratified"),
+    # bk-braid-tic-clock-inheritance observability: clock authority + declared
+    # divergence + same-tic-rerun declaration (latest-wins, never silent).
+    "tic_authority": env.get("tic_authority"),
+    "clock_divergence": env.get("clock_divergence"),
+    "same_tic_rerun": bool(prior_generated_at),
+    "replaced_prior_generated_at": prior_generated_at or None,
 }
 log = repo / "audit-logs" / "braid" / "invocations.jsonl"
 with log.open("a") as f:

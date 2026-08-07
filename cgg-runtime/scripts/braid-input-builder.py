@@ -93,7 +93,7 @@ def _conformation_files():
     return sorted((f for f in files if tic_of(f) >= 0), key=tic_of)
 
 
-def build():
+def build(inherit_tic=None):
     honest_flags = []
     sources = {}
 
@@ -126,15 +126,18 @@ def build():
 
     # --- economy: pointer + latest snapshot (flat) + heartbeat detail ------
     pointer = latest = detail = None
-    tic = None
+    pointer_tic = None
     try:
         pointer = _read_json(ECON_POINTER)
-        tic = pointer.get("tic")
+        pointer_tic = pointer.get("tic")
         sources["economy_pointer"] = _rel(ECON_POINTER)
     except Exception as e:
         honest_flags.append(f"economy_pointer_absent:{e}")
-    if tic is not None:
-        latest_path = os.path.join(ECON_DIR, f"economy-tic-{tic}.json")
+    # The economy snapshot keeps the ECONOMY's own clock: the latest lookup is
+    # keyed on the POINTER's tic, never the chain's — two clocks, one envelope
+    # (bk-braid-tic-clock-inheritance).
+    if pointer_tic is not None:
+        latest_path = os.path.join(ECON_DIR, f"economy-tic-{pointer_tic}.json")
         try:
             snap = _read_json(latest_path)
             latest = {k: v for k, v in snap.items() if k != "detail"}
@@ -142,10 +145,60 @@ def build():
             sources["economy_latest"] = _rel(latest_path)
         except Exception as e:
             honest_flags.append(f"economy_latest_absent:{e}")
-    if tic is None:
-        tic = conf_tic
+
+    # --- tic resolution (bk-braid-tic-clock-inheritance, /review 684) ------
+    # The braid's tic identity was ORDER-DEPENDENT: pointer-primary resolution
+    # stamps whatever tic the economy pointer happens to carry when the braid
+    # runs, so the lag direction is set by scheduling, not by content. The
+    # ratified cure is parent-clock INHERITANCE (the chain passes its resolved
+    # tic down) with any pointer divergence declared FIRST-CLASS — never a
+    # constant offset, which is wrong on exactly the lag-0 tics (the parent
+    # row's ALWAYS clause was struck at /review 684 on that evidence).
+    clock_divergence = None
+    if inherit_tic is not None:
+        tic = inherit_tic
+        tic_authority = "inherited_parent_clock"
+        if pointer_tic is not None and pointer_tic != inherit_tic:
+            clock_divergence = {
+                "inherited_tic": inherit_tic,
+                "economy_pointer_tic": pointer_tic,
+                "conformation_tic": conf_tic,
+                "resolved_tic": tic,
+                "resolution": tic_authority,
+                "note": ("order-dependent two-clock divergence declared "
+                         "first-class; never corrected by a constant offset "
+                         "(/review 684 — lag direction is set by execution "
+                         "order)"),
+            }
+            honest_flags.append(
+                f"clock_divergence_declared:pointer={pointer_tic},"
+                f"inherited={inherit_tic}")
+    else:
+        tic = pointer_tic
+        tic_authority = "economy_pointer"
         if tic is None:
-            honest_flags.append("tic_unresolved_no_pointer_no_conformation")
+            tic = conf_tic
+            tic_authority = "conformation_fallback"
+            if tic is None:
+                tic_authority = "unresolved"
+                honest_flags.append("tic_unresolved_no_pointer_no_conformation")
+        elif conf_tic is not None and conf_tic != pointer_tic:
+            # Legacy standalone path: behavior preserved (pointer primary),
+            # but the observable two-authority divergence is DECLARED.
+            clock_divergence = {
+                "inherited_tic": None,
+                "economy_pointer_tic": pointer_tic,
+                "conformation_tic": conf_tic,
+                "resolved_tic": tic,
+                "resolution": tic_authority,
+                "note": ("order-dependent two-clock divergence declared "
+                         "first-class; never corrected by a constant offset "
+                         "(/review 684 — lag direction is set by execution "
+                         "order)"),
+            }
+            honest_flags.append(
+                f"clock_divergence_declared:pointer={pointer_tic},"
+                f"conformation={conf_tic}")
 
     # --- harmony + trust pointers (null + flag when absent) ----------------
     harmony = None
@@ -188,6 +241,8 @@ def build():
     envelope = {
         "type": "lattice.braid.input",
         "tic": tic,
+        "tic_authority": tic_authority,
+        "clock_divergence": clock_divergence,
         # stamped HERE so the kernel engine stays wall-clock-free.
         "generated_at": time.strftime("%Y-%m-%dT%H:%M:%S.000Z", time.gmtime()),
         "conformation_shape8": shape8,
@@ -213,9 +268,21 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--print", action="store_true",
                     help="print the written input path to stdout")
+    ap.add_argument("--inherit-tic", type=int, default=None,
+                    help="parent-chain resolved tic (clock inheritance; "
+                         "also read from BRAID_INHERIT_TIC env)")
     args = ap.parse_args()
+    inherit_tic = args.inherit_tic
+    if inherit_tic is None:
+        env_tic = os.environ.get("BRAID_INHERIT_TIC", "").strip()
+        if env_tic:
+            try:
+                inherit_tic = int(env_tic)
+            except ValueError:
+                print(f"braid input builder: ignoring non-integer "
+                      f"BRAID_INHERIT_TIC={env_tic!r}", file=sys.stderr)
     try:
-        out_path, flags = build()
+        out_path, flags = build(inherit_tic=inherit_tic)
     except Exception as e:  # fail-soft to the last resort: report, exit 0
         print(f"braid input builder failed soft: {e}", file=sys.stderr)
         return 0
