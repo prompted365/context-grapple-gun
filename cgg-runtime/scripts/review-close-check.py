@@ -392,8 +392,20 @@ def _collect_targets(cpr):
 
     targets = []
     for raw in raw_targets:
-        for component in _split_compound_targets(raw):
-            targets.append(component)
+        components = _split_compound_targets(raw)
+        targets.extend(components)
+        # Resolution-order repair (Verifier-Split Ch.4 claim A,
+        # bk-review-close-check-resolution-order, tic 684): when decomposition
+        # actually split, keep the RAW unsplit string as a LAST-RESORT candidate.
+        # A ` + ` at paren depth 0 inside a real filename (this federation has
+        # such files — "cpr_x + deep_audit_y.consolidated.json") fractures into
+        # components that resolve nowhere; every downstream classification axis
+        # is resolution-gated, so the finding fell through as false GENUINE.
+        # Components stay first (more specific); the raw form is only reached
+        # when they all fail. Shared source: heals finding-production
+        # (check_promoted) and classification (classify_known_reason) together.
+        if len(components) > 1:
+            targets.append(raw)
     return targets
 
 
@@ -1310,9 +1322,14 @@ def classify_known_reason(cpr_id, cpr, project_dir, project_basename=None,
     behavioral = None
     anchor_present = None
     prose_spec = None
+    resolved_any = False
+    targets_unresolved = []
     for t in targets:
         existing = _resolve_target_path(t, project_dir, project_basename)
+        if existing is not None:
+            resolved_any = True
         if existing is None:
+            targets_unresolved.append(t)
             if relocated is None:
                 hit = _find_relocated(t, project_dir, cpr_id, snippet)
                 if hit:
@@ -1424,6 +1441,23 @@ def classify_known_reason(cpr_id, cpr, project_dir, project_basename=None,
                     "quotable doctrine prose at the named target",
         }
 
+    # Resolution-layer disclosure (Verifier-Split Ch.4 claim A, tic 684): the
+    # resolution layer sits BENEATH every classification axis, so when NO target
+    # resolves, content verification never ran — grading that "genuinely missing"
+    # asserted positive knowledge from an absent input. The finding STAYS genuine
+    # (a broken pointer is never a known non-hazard; surface-don't-hide), but the
+    # evidence discloses the resolution-layer miss loudly instead of silently.
+    if targets and not resolved_any:
+        return None, {
+            "resolution_layer_miss": True,
+            "targets_unresolved": targets_unresolved[:5],
+            "note": "NO target resolved to any filesystem surface — content "
+                    "verification never ran. This is a resolution-layer failure "
+                    "(broken/malformed pointer), surfaced loudly as its own "
+                    "shape; it is NOT a verified-missing inscription. Still "
+                    "GENUINE: either the pointer is broken or the inscription "
+                    "is missing — both need attention.",
+        }
     return None, {
         "note": "no code/behavioral target, no relocation, no present anchor, and no "
                 "affirming receipt surface found; inscription appears genuinely missing",

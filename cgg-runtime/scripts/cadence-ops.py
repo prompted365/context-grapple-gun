@@ -545,8 +545,20 @@ def query_governance_compound(zone_root: str) -> list:
     return []
 
 
-def extract_governance_enrichment(gq_responses: list) -> dict:
-    """Extract enrichment fields from governance.query compound responses."""
+def extract_governance_enrichment(gq_responses: list, manifest_records=None) -> dict:
+    """Extract enrichment fields from governance.query compound responses.
+
+    manifest_records (tic 684, bk-conformation-emitter-adopt-active-ray-predicate):
+    the FULL latest-per-id active-manifest records the conformation lane already
+    holds. governance_query's signals.status rows are THIN (state only — no heat
+    projection), so computing manifold_summary.active from them re-ran the
+    RETIRED raw-status enum and diverged delta-2 from the conformation's own
+    is_active_ray count (57 vs 55, recurred t680→t683 stepper F5 — the /review
+    683 PROMOTE of 4b0fefebb476, #predicate-retirement-needs-reader-consumer-
+    sweep). When records are supplied, `active` adopts the single-owner
+    predicate; the thin-row count survives as `active_raw_enum` with the source
+    split DECLARED, and manifold_state keys on the adopted count.
+    """
     enrichment = {}
     for resp in gq_responses:
         qt = resp.get("query_type")
@@ -562,11 +574,25 @@ def extract_governance_enrichment(gq_responses: list) -> dict:
             active = len([r for r in results if r.get("state") == "active"])
             resolved = len([r for r in results if r.get("state") == "resolved"])
             dismissed = len([r for r in results if r.get("state") == "dismissed"])
-            enrichment["manifold_summary"] = {
+            manifold_summary = {
                 "active": active,
                 "resolved": resolved,
                 "dismissed": dismissed,
             }
+            if manifest_records is not None:
+                predicate_active = sum(
+                    1 for r in manifest_records if is_active_ray(r))
+                manifold_summary["active_raw_enum"] = active
+                manifold_summary["active"] = predicate_active
+                manifold_summary["active_source"] = (
+                    "lib.signal_active.is_active_ray over active-manifest "
+                    "latest-per-id (single-owner predicate, t674). "
+                    "active_raw_enum is governance_query's thin-row "
+                    "state=='active' count (no heat projection) — declared "
+                    "source split, not a silent divergence."
+                )
+                active = predicate_active
+            enrichment["manifold_summary"] = manifold_summary
             # manifold_state is a pure count threshold:
             #   active == 0    -> CLEAR
             #   active in 1..2 -> ACTIVE
@@ -754,10 +780,16 @@ def write_conformation(zone_root: str, tic_count: int, tic_timestamp: str,
     if posture:
         conformation["posture"] = posture
 
-    # Enrichment from governance.query compound (cross-repo subprocess call)
+    # Enrichment from governance.query compound (cross-repo subprocess call).
+    # latest_by_signal_id carries the FULL manifest records, so the enrichment's
+    # manifold_summary.active adopts the same single-owner predicate the
+    # conformation's own active_signals list uses — the two counters agree, or
+    # their residual divergence carries a declared source split (tic 684,
+    # bk-conformation-emitter-adopt-active-ray-predicate).
     gq_responses = query_governance_compound(zone_root)
     if gq_responses:
-        enrichment = extract_governance_enrichment(gq_responses)
+        enrichment = extract_governance_enrichment(
+            gq_responses, manifest_records=list(latest_by_signal_id.values()))
         if enrichment:
             conformation["governance_query_enrichment"] = enrichment
 
