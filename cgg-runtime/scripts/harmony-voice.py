@@ -21,7 +21,8 @@ Contract:
     renarrow_triggers as grounding.
   - Kill switch: HARMONY_VOICE=off skips the LLM entirely.
   - Headless call: `claude -p` with model ${HARMONY_VOICE_MODEL:-sonnet},
-    --max-turns 1, 45s subprocess timeout.
+    --max-turns 1, ${HARMONY_VOICE_TIMEOUT_S:-120}s subprocess timeout
+    (raised 45→120 at tic 684: measured headless cold-start ~72.5s).
 
 Writes the `voice` object INTO disposition-tic-N.json (additive field,
 audit-logs/harmony/ surface only) and prints it on stdout.
@@ -61,7 +62,19 @@ HARMONY_DIR = REPO_ROOT / "audit-logs" / "harmony"
 BRAID_DIR = REPO_ROOT / "audit-logs" / "braid"
 
 MAX_CHARS = 240
-LLM_TIMEOUT_S = 45
+# Voice budget (tic 684 diagnosis — the 677-684 eight-tic fallback streak):
+# the first stderr residue (canary-docket t673 (b), landed t683) proved the
+# CLI emitted NOTHING before the 45s kill — and live probes showed why: a
+# minimal headless `claude -p` in this environment COMPLETES ("OK") but takes
+# ~72.5s wall / ~39.6s user CPU cold-start (CLI 2.1.221). Env-cleaned,
+# stdin-closed, MCP-disabled, and opus-model variants all still exceeded
+# their caps — the latency is headless-CLI cold-start, not model/env/stdin/
+# MCP-specific. So llm_timeout_45s was a BUDGET-KILL of a healthy call, not
+# a hang. Default raised to cover the measured cold start with headroom;
+# env-overridable so the Architect can tune without a code change. If the
+# cold start grows past this too, the fallback_reason canary
+# (llm_timeout_<N>s) resurfaces through the same recurrence machinery.
+LLM_TIMEOUT_S = int(os.environ.get("HARMONY_VOICE_TIMEOUT_S", "120"))
 DEFAULT_MODEL = "sonnet"
 
 # ---------------------------------------------------------------------------
@@ -215,10 +228,16 @@ def build_prompt(disposition: dict[str, Any], braid_packet: Optional[dict[str, A
 # ---------------------------------------------------------------------------
 
 def _run_claude(prompt: str, model: str, timeout_s: int = LLM_TIMEOUT_S) -> str:
-    """Headless `claude -p` call. Raises on failure/timeout (caller absorbs)."""
+    """Headless `claude -p` call. Raises on failure/timeout (caller absorbs).
+
+    stdin is explicitly closed (DEVNULL): the voice call is doubly nested
+    (mogul claude -p → python → this claude -p) and an inherited open pipe is
+    a classic silent-wait surface — ruled out as the t684 cause by probe, but
+    closed on principle so it can never become one."""
     proc = subprocess.run(
         ["claude", "-p", prompt, "--model", model, "--max-turns", "1"],
         capture_output=True, text=True, timeout=timeout_s,
+        stdin=subprocess.DEVNULL,
     )
     if proc.returncode != 0:
         raise RuntimeError(f"claude -p exit {proc.returncode}: {proc.stderr.strip()[:200]}")
