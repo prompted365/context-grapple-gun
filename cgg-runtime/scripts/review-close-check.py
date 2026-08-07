@@ -1682,9 +1682,13 @@ def run_check(project_dir, dry_run=False):
         output_path = os.path.join(report_dir, output_filename)
 
         decision = "write"
+        prior_raw = None
+        prior_generated_at = None
         if (mandate_tic is not None or mandate_id) and os.path.exists(output_path):
             try:
-                prior = json.loads(Path(output_path).read_text(encoding="utf-8"))
+                prior_raw = Path(output_path).read_bytes()
+                prior = json.loads(prior_raw.decode("utf-8"))
+                prior_generated_at = prior.get("generated_at")
                 # Compare full report content minus the volatile timestamp —
                 # findings-only comparison let a stale verdict_counts survive a
                 # counter repair (tic 554: on-disk deferred=35 vs runtime 36).
@@ -1695,8 +1699,9 @@ def run_check(project_dir, dry_run=False):
                     decision = "skip"
                 else:
                     decision = "replace"
-            except (OSError, json.JSONDecodeError):
-                # Corrupt or unreadable prior — overwrite under latest-wins semantics.
+            except (OSError, json.JSONDecodeError, UnicodeDecodeError):
+                # Corrupt or unreadable prior — overwrite under latest-wins semantics
+                # (the raw bytes, if readable, are still preserved below).
                 decision = "replace"
 
         identity_label = (
@@ -1704,6 +1709,7 @@ def run_check(project_dir, dry_run=False):
             else f"mandate {mandate_id}"
         )
 
+        superseded_receipt = None
         if decision == "skip":
             # Touch existing file so the runner's `find -newer $MANDATE_FILE` verification
             # succeeds. Skip means findings are identical and the cycle DID run correctly;
@@ -1716,10 +1722,49 @@ def run_check(project_dir, dry_run=False):
                 file=sys.stderr,
             )
         else:
+            # Preserve-prior-under-superseded-receipt (bk-review-close-check-
+            # observation-key, /review 685 ratified — ray on cgg-ledger#artifact-
+            # count-1-fix-family): the N=1-per-tic canonical identity STANDS, but
+            # two distinct mandates within one tic are two distinct OBSERVATIONS
+            # (pre-/review baseline vs post-/review state) — the replace branch
+            # destroyed the earlier one with only a stderr INFO line. Before the
+            # overwrite, the prior artifact's RAW BYTES are preserved (sequence-
+            # numbered, never themselves overwritten) and the log row carries a
+            # first-class receipt: a terminal-essence state change requires a
+            # justified receipt and may not let signal go dark. NEVER per-mandate
+            # filenames (re-opens the N!=1 family); NEVER a review-phase detector
+            # (inference, not evidence — preservation invents nothing).
+            if decision == "replace" and prior_raw is not None:
+                superseded_dir = os.path.join(report_dir, "superseded")
+                os.makedirs(superseded_dir, exist_ok=True)
+                stem = os.path.splitext(output_filename)[0]
+                seq = 1
+                while os.path.exists(os.path.join(
+                        superseded_dir, f"{stem}.superseded-{seq}.json")):
+                    seq += 1
+                preserved_abs = os.path.join(
+                    superseded_dir, f"{stem}.superseded-{seq}.json")
+                Path(preserved_abs).write_bytes(prior_raw)
+                try:
+                    preserved_rel = os.path.relpath(preserved_abs, project_dir)
+                except ValueError:
+                    preserved_rel = preserved_abs
+                superseded_receipt = {
+                    "preserved_path": preserved_rel,
+                    "justification_class": (
+                        "superseded_by_same_tic_reobservation"
+                        if prior_generated_at is not None
+                        else "corrupt_prior_replaced"),
+                    "prior_generated_at": prior_generated_at,
+                }
             Path(output_path).write_text(json.dumps(report, indent=2), encoding="utf-8")
             if decision == "replace":
+                preserved_note = (
+                    f" prior observation preserved at {superseded_receipt['preserved_path']}"
+                    if superseded_receipt else " prior unreadable — nothing to preserve"
+                )
                 print(
-                    f"INFO: review_close_check replaced existing report for {identity_label} (findings changed).",
+                    f"INFO: review_close_check replaced existing report for {identity_label} (findings changed);{preserved_note}.",
                     file=sys.stderr,
                 )
             else:
@@ -1742,6 +1787,8 @@ def run_check(project_dir, dry_run=False):
             "known_count": report["summary"]["known_count"],
             "genuine_consistent": report["summary"]["genuine_consistent"],
         }
+        if superseded_receipt is not None:
+            log_entry["superseded_receipt"] = superseded_receipt
         atomic_append_jsonl(
             os.path.join(al_path, "services", "review-close-check-log.jsonl"),
             log_entry,

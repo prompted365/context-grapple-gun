@@ -128,6 +128,11 @@ current = {
     "mode": "$MODE",
     "ambient_voice": voice.get("ambient_voice"),
     "voice_source": voice.get("voice_source"),
+    # bk-harmony-fallback-consecutive-counter (/review 685): the streak +
+    # escalation ride the pointer so glance-speed consumers (statusline)
+    # can eat them — honest nulls when the voice step didn't run.
+    "consecutive_fallbacks": voice.get("consecutive_fallbacks"),
+    "fallback_escalation_fired": (voice.get("fallback_escalation") or {}).get("fired"),
     "braid_tic": braid_tic,
 }
 out = pathlib.Path("$HARMONY_DIR/disposition-current.json")

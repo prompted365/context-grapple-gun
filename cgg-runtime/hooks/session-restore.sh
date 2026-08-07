@@ -942,6 +942,25 @@ if os.path.isfile(manifest):
             d = json.loads(line)
             signals.append(d)
         except: pass
+# Terminal-valve latest-per-id projection (bk-boot-banner-latest-per-id-reader,
+# tic 686) — SOURCE OF TRUTH: signal_active.latest_per_id (imported below with
+# is_active_ray when reachable; embedded replica kept in lockstep otherwise).
+# The manifest is append-only BETWEEN prune sweeps: an update/resolve appends a
+# NEW row for the same signal, so counting every row counts stale predecessors
+# (the 65/62-vs-57 banner divergence, t681/t682/t685) and can crown a resolved
+# row loudest. 'Latest' = file-append order within this ONE file (chronological
+# provenance); key = signal_id then id; id-less rows pass through unprojected
+# (never silently dropped).
+def _latest_per_id_replica(records):
+    latest = {}
+    unkeyed = []
+    for rec in records:
+        if not isinstance(rec, dict): continue
+        sid = rec.get('signal_id') or rec.get('id')
+        if sid: latest[sid] = rec
+        else: unkeyed.append(rec)
+    return list(latest.values()) + unkeyed
+latest_per_id = None
 # Warrants: still scan daily logs (no manifest yet)
 warrants = {}
 for f in sorted(glob.glob('$SIGNAL_DIR/*.jsonl')):
@@ -964,9 +983,16 @@ for _libdir in ['$CGG_SCRIPTS_DIR/lib', os.path.expanduser('~/.claude/cgg-runtim
         sys.path.insert(0, _libdir)
         try:
             from signal_active import is_active_ray
+            try:
+                from signal_active import latest_per_id
+            except ImportError:
+                pass  # older installed lib — replica below covers it
             break
         except Exception:
             sys.path.pop(0)
+if latest_per_id is None:
+    latest_per_id = _latest_per_id_replica
+signals = latest_per_id(signals)
 if is_active_ray is None:
     _TERM = frozenset({'resolved','dismissed','superseded'})
     _TERM_SS = frozenset({'resolved','superseded'})

@@ -343,6 +343,91 @@ def propose_voice(
 
 
 # ---------------------------------------------------------------------------
+# Consecutive-fallback counter (bk-harmony-fallback-consecutive-counter,
+# /review 685 ratified fix-site — ray on presence-observation-fallacy-guard):
+# success-with-fallback is an unreported outage, and fail-soft removes exactly
+# the escalation channel. The fingerprint above (voice_source/fallback_reason)
+# existed through the whole 677-684 eight-tic streak — what was missing was a
+# CONSUMER reading it per-tic. This is that consumer: every receipt carries
+# `consecutive_fallbacks` (streak including the current run; 0 when healthy),
+# and at streak >= threshold an ESCALATION line lands on stderr — which the
+# invoke wrapper captures to stderr-tic-N.log and announces as residue.
+# "Consecutive" means consecutive INVOCATIONS (prior disposition files walked
+# in tic order), never consecutive tic integers — heartbeats can skip tics.
+# A prior disposition with NO voice object STOPS the count (absence is not
+# fallback; the pre-voice era never retroactively counts as outage).
+# ---------------------------------------------------------------------------
+
+_DISPOSITION_TIC_RE = re.compile(r"disposition-tic-(\d+)\.json$")
+_FALLBACK_STREAK_SCAN_LIMIT = 50  # bound the backward walk
+
+
+def _fallback_threshold() -> int:
+    try:
+        return int(os.environ.get("HARMONY_FALLBACK_STREAK_THRESHOLD", "2"))
+    except ValueError:
+        return 2
+
+
+def count_prior_fallback_streak(current_tic: int) -> int:
+    """Consecutive template_fallback runs STRICTLY BEFORE current_tic.
+
+    Walks prior disposition-tic-N.json files in descending tic order; counts
+    while voice_source == "template_fallback"; stops at an llm run (reset) or
+    a disposition without a voice object (honest stop — absence ≠ fallback).
+    """
+    tics: list[int] = []
+    try:
+        for p in HARMONY_DIR.glob("disposition-tic-*.json"):
+            m = _DISPOSITION_TIC_RE.search(p.name)
+            if m and int(m.group(1)) < current_tic:
+                tics.append(int(m.group(1)))
+    except Exception:
+        return 0
+    streak = 0
+    for tic in sorted(tics, reverse=True)[:_FALLBACK_STREAK_SCAN_LIMIT]:
+        try:
+            body = json.loads((HARMONY_DIR / f"disposition-tic-{tic}.json").read_text())
+        except Exception:
+            break
+        source = ((body.get("voice") or {}).get("voice_source"))
+        if source == "template_fallback":
+            streak += 1
+        else:
+            break
+    return streak
+
+
+def apply_fallback_counter(voice: dict[str, Any], current_tic: int) -> dict[str, Any]:
+    """Stamp the streak into the receipt; escalate LOUD at threshold.
+
+    Mutates and returns `voice`. The escalation object is schema-stable on
+    every path ({threshold, fired, streak}); the stderr ESCALATION line fires
+    only at streak >= threshold — the invoke wrapper's stderr capture turns it
+    into announced per-tic residue (the loud path fail-soft had removed).
+    """
+    threshold = _fallback_threshold()
+    if voice.get("voice_source") == "template_fallback":
+        streak = count_prior_fallback_streak(current_tic) + 1
+    else:
+        streak = 0
+    fired = streak >= threshold
+    voice["consecutive_fallbacks"] = streak
+    voice["fallback_escalation"] = {
+        "threshold": threshold, "fired": fired, "streak": streak,
+    }
+    if fired:
+        print(
+            f"ESCALATION harmony-voice-fallback-streak: {streak} consecutive "
+            f"template_fallback runs at tic {current_tic} (threshold={threshold}, "
+            f"latest fallback_reason={voice.get('fallback_reason')}) — the voice "
+            f"lane is degraded across runs, not once; re-diagnose, never just re-raise",
+            file=sys.stderr,
+        )
+    return voice
+
+
+# ---------------------------------------------------------------------------
 # Surfaces
 # ---------------------------------------------------------------------------
 
@@ -391,6 +476,15 @@ def main() -> int:
         braid_packet = load_braid_packet()
 
     voice = propose_voice(disposition, braid_packet)
+
+    # Consecutive-fallback counter (fail-soft: an unparsable tic leaves the
+    # receipt without the counter — honest absence, never a guessed tic).
+    tic_match = _DISPOSITION_TIC_RE.search(disp_path.name)
+    if tic_match:
+        voice = apply_fallback_counter(voice, int(tic_match.group(1)))
+    else:
+        print(f"WARN harmony-voice: tic unparsable from {disp_path.name} — "
+              f"fallback counter skipped", file=sys.stderr)
 
     # Additive write INTO the disposition (harmony surface only).
     try:

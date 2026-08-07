@@ -116,6 +116,32 @@ def active_rays(records) -> list:
     return [r for r in records if is_active_ray(r)]
 
 
+def latest_per_id(records) -> list:
+    """Terminal-valve latest-per-id projection over manifest rows
+    (bk-boot-banner-latest-per-id-reader, tic 686).
+
+    The active manifest is append-only BETWEEN prune sweeps — an update/resolve
+    appends a NEW row for the same signal, so a reader that counts every row
+    counts stale predecessors (the 65/62-vs-57 banner divergence) and can crown
+    a resolved row loudest. 'Latest' is input order (file-append order within
+    the ONE manifest file = chronological provenance); the key is signal_id
+    with id as fallback. Id-less rows cannot be projected and pass through
+    unprojected (conservative — never silently dropped). Run is_active_ray on
+    the PROJECTED rows, never the raw ones.
+    """
+    latest = {}
+    unkeyed = []
+    for rec in records:
+        if not isinstance(rec, dict):
+            continue
+        sid = rec.get("signal_id") or rec.get("id")
+        if sid:
+            latest[sid] = rec
+        else:
+            unkeyed.append(rec)
+    return list(latest.values()) + unkeyed
+
+
 # ---------------------------------------------------------------------------
 # Escalation-attention readers (tic 674, bk-age-unknown-escalation-reader —
 # the MOUTH for the t671 anti-silencing canary).
