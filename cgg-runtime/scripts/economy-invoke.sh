@@ -68,26 +68,37 @@ esac
 echo "→ economy-heartbeat.py --tic $TIC"
 
 # 2. Invoke the handler — spawn swarm, run one GUNSLINGER economy tic, write artifacts.
-# Crash-vs-verdict discrimination by ARTIFACT PRESENCE: a nonzero handler exit may be a
-# seed_stabilized=false HEALTH verdict (not a crash) — reserve nonzero ONLY for a missing
-# artifact (ref: ledger#wrapper-must-discriminate-instrument-exit-code-semantics).
+# Crash-vs-verdict discrimination (ref: ledger#wrapper-must-discriminate-instrument-exit-
+# code-semantics-crash-vs-verdict). Since tic 684 (bk-economy-attest-execution-fix) the
+# handler's exit code is EXECUTION-reserved: nonzero means the cadence did not execute or
+# the artifacts did not land — NEVER a health verdict. `seed_stabilized` is a HEALTH
+# verdict and is read from the ARTIFACT below, never from the exit code; a lawful loud
+# zero-mint halt tic now exits 0.
+# Clean primary proof first (the artifact), then the exit code as the second gate.
 HANDLER_RC=0
 SNAP_PATH="$(python3 "$HANDLER" --tic "$TIC" --print)" || HANDLER_RC=$?
 [ -f "$SNAP_PATH" ] \
   || { echo "ERR: economy-heartbeat.py wrote no snapshot (tic=$TIC, exit=$HANDLER_RC)" >&2; exit 1; }
+[ "$HANDLER_RC" -eq 0 ] \
+  || { echo "ERR: economy-heartbeat.py EXECUTION failure (tic=$TIC, exit=$HANDLER_RC); snapshot at $SNAP_PATH — read detail.execution_attestation.failed_checks" >&2; exit 1; }
 
 # 3. One-line summary read back off the artifacts the handler just wrote.
+# Source-declared: every number below comes from the ARTIFACT, never from handler stdout.
 python3 - "$SNAP_PATH" "$ECON_DIR/current-pointer.json" <<'PY'
 import json, sys
 snap = json.load(open(sys.argv[1]))
-ptr = json.load(open(sys.argv[2]))
-assert ptr["tic"] == snap["tic"], \
-    f"anti-freeze: pointer tic {ptr['tic']} != snapshot tic {snap['tic']}"
+if snap.get("series_mode") != "replay":
+    ptr = json.load(open(sys.argv[2]))
+    assert ptr["tic"] == snap["tic"], \
+        f"anti-freeze: pointer tic {ptr['tic']} != snapshot tic {snap['tic']}"
 print(
     f"✓ economy heartbeat complete (tic={snap['tic']}) "
-    f"mode={snap['mode']} seed_stabilized={snap['seed_stabilized']} "
+    f"mode={snap['mode']} series_mode={snap.get('series_mode')} "
+    f"execution_attested={snap.get('execution_attested')} "
+    f"seed_stabilized={snap['seed_stabilized']} "
     f"g_t={snap['g_t']} mint_total={snap['mint_total']} burn_total={snap['burn_total']} "
     f"supply={snap['supply']} reserve_ratio={snap['reserve_ratio']} "
-    f"breach_flags={snap['breach_flags']}"
+    f"breach_flags={snap['breach_flags']} "
+    f"[source: {sys.argv[1]}]"
 )
 PY

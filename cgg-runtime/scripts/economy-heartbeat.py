@@ -25,11 +25,36 @@ tics via audit-logs/economy/economy-state.json. tic N+1 CONTINUES tic N. The
 advance guard types every run genesis|continue|replay — a re-fire of an
 already-advanced tic runs as REPLAY (no state write, no series clobber).
 
+ATTESTATION BASIS (tic 684 — bk-economy-attest-execution-fix)
+-------------------------------------------------------------
+A cable ATTESTS on EXECUTION-lawfulness, never on OUTCOME-health. The economy is
+DESIGNED to halt the mint when aggregate trust sits below tau — a full-tic
+zero-mint run is the LOUD, LAWFUL breach state (surface-don't-hide), not a
+failure. The CADENCE worker used to require `mint_accrued > 0`, so that by-design
+breach dropped a fully-executed cable out of the winch dispatch and cascaded to
+all_three_cables_committed=false -> seed_stabilized=false while 11/12
+stabilization checks passed and the CADENCE trace was complete (lived at tics
+652 and 683). The predicate is now `execution_evidence()`: the tic ran its full
+cadence, the guards held, the federal boundary normalized, and the carry ledger
+advanced (or lawfully refused the write under REPLAY). Mint / breach / supply
+numbers ride along as OBSERVABILITY fields on the receipt and the snapshot —
+they are never the predicate.
+Ref: cgg-ledger#attestation-predicate-must-prove-execution-not-outcome (ray on
+cgg-ledger#wrapper-must-discriminate-instrument-exit-code-semantics-crash-vs-verdict).
+
+EXIT-CODE CONTRACT
+------------------
+Nonzero is reserved for EXECUTION FAILURE (the cadence did not execute, or the
+artifacts did not land). The HEALTH verdict (`seed_stabilized`) is read from the
+artifact and NEVER from the exit code — a verdict is not a crash.
+
 FENCES / MEMBRANE
 -----------------
   * Read-only of federation / governance state. This handler NEVER writes signals,
     queue, mandate, conformations, or CLAUDE.md, and imports NONE of
     atomic_append / queue / signals / manifest / mandate / conformation.
+    (The invocations append takes an flock via stdlib `fcntl` — atomicity without
+    coupling the economy lane to the governance primitives.)
   * Writes ONLY to audit-logs/economy/.
   * No mounted-volume runtime reference (membrane held; canonical is sole-writer). The
     OT mechanic was harpooned read-only into the imported modules; this handler
@@ -56,6 +81,7 @@ USAGE
 from __future__ import annotations
 
 import argparse
+import fcntl
 import json
 import sys
 import time
@@ -342,13 +368,128 @@ def run_assembled_economy(tic: int) -> dict:
 
 
 # ===========================================================================
-# FIRE the raise in GUNSLINGER (seed) mode over the assembled cables.
-# (Verbatim call sequence from seed_the_ember.fire_gunslinger — cradle + RBD armed.)
+# EXECUTION EVIDENCE — did the cycle RUN and LAND its state?
+#
+# This is the CADENCE cable's attestation predicate. It reads ONLY execution
+# facts: the tic ran its full cadence, the tick accounting closes, the cap>=seed
+# guard held, the federal boundary normalized, and the carry ledger (the series'
+# spine) advanced to this tic — or, under REPLAY, lawfully refused the write.
+#
+# It reads NO economic outcome. mint_accrued / breach_flags / supply are carried
+# under "observability" and are never consulted by the predicate. A designed
+# zero-mint breach tic with a clean run ATTESTS TRUE; a run that did not execute
+# (short cadence, tripped floor guard, un-advanced series) ATTESTS FALSE.
+# (bk-economy-attest-execution-fix; ledger ray
+#  #attestation-predicate-must-prove-execution-not-outcome)
 # ===========================================================================
-def fire_gunslinger(econ_trace: dict) -> dict:
+_CADENCE_NUMERIC_FIELDS = (
+    "supply_before", "supply_after", "reserves_before", "reserves_after",
+    "final_reserve_ratio", "min_supply_during_tic", "min_reserve_ratio_during_tic",
+    "mint_accrued", "burn_accrued", "ticks_with_mint", "zero_mint_ticks",
+    "swarm_trust_start", "swarm_final_aggregate_g_t",
+)
+
+
+def _is_number(v) -> bool:
+    """bool is an int subclass — a True in a numeric slot is a malformed trace."""
+    return isinstance(v, (int, float)) and not isinstance(v, bool)
+
+
+def read_carry_state_tic() -> tuple:
+    """(tic, note) of the carry ledger — the series' spine. note is None on success."""
+    try:
+        state = motion.load_state(str(STATE_PATH))
+    except Exception as exc:                                   # unreadable/malformed
+        return None, f"carry_state_unreadable: {exc!r}"
+    if state is None:
+        return None, "carry_state_absent"
+    try:
+        return int(state["tic"]), None
+    except (KeyError, TypeError, ValueError) as exc:
+        return None, f"carry_state_malformed: {exc!r}"
+
+
+def execution_evidence(tic: int, econ_trace: dict) -> dict:
+    """EXECUTION-lawfulness evidence for the CADENCE cable. Never outcome-health."""
+    cad = econ_trace.get("CADENCE") or {}
+    series = cad.get("series") or {}
+    boundary = cad.get("tic_boundary") or {}
+    series_mode = series.get("mode")
+    ticks_ran = cad.get("ticks_per_tic")
+
+    ran_full_tic = bool(cad.get("one_tic_ran_1000_ticks")) and _is_number(ticks_ran) and ticks_ran > 0
+    trace_complete = all(_is_number(cad.get(k)) for k in _CADENCE_NUMERIC_FIELDS)
+    tick_accounting_closed = (
+        _is_number(ticks_ran)
+        and _is_number(cad.get("ticks_with_mint")) and _is_number(cad.get("zero_mint_ticks"))
+        and (cad["ticks_with_mint"] + cad["zero_mint_ticks"]) == ticks_ran
+    )
+    guards_clear = bool(cad.get("cap_ge_seed_guard_clear"))
+    tic_boundary_normalized = (
+        bool(boundary.get("anchor_frozen_center_excluded"))
+        and _is_number(boundary.get("federal_normalizations"))
+        and boundary["federal_normalizations"] >= 1
+    )
+
+    state_tic, state_note = read_carry_state_tic()
+    if series_mode in ("genesis", "continue"):
+        series_state_advanced = (state_tic == tic)
+    elif series_mode == "replay":
+        # REPLAY lawfully refuses the state write (the double-advance guard).
+        # Its execution evidence is that the series already sits at/past this tic.
+        series_state_advanced = (state_tic is not None and state_tic >= tic)
+    else:
+        series_state_advanced = False
+        state_note = state_note or f"unknown_series_mode: {series_mode!r}"
+
+    checks = {
+        "ran_full_tic": ran_full_tic,
+        "trace_complete": trace_complete,
+        "tick_accounting_closed": tick_accounting_closed,
+        "guards_clear": guards_clear,
+        "tic_boundary_normalized": tic_boundary_normalized,
+        "series_state_advanced": series_state_advanced,
+    }
+    failed = [k for k, v in checks.items() if not v]
+    breach_counts = cad.get("breach_flag_tick_counts") or {}
+    return {
+        "cadence_executed": not failed,
+        "checks": checks,
+        "failed_checks": failed,
+        "series_mode": series_mode,
+        "carry_state_tic": state_tic,
+        "carry_state_note": state_note,
+        "ticks_ran": ticks_ran if _is_number(ticks_ran) else None,
+        "predicate": ("execution evidence (ran_full_tic / trace_complete / "
+                      "tick_accounting_closed / guards_clear / "
+                      "tic_boundary_normalized / series_state_advanced) — "
+                      "NEVER mint or breach outcome"),
+        # --- OBSERVABILITY ONLY. Not consulted by the predicate above. --------
+        "observability": {
+            "mint_accrued": cad.get("mint_accrued"),
+            "burn_accrued": cad.get("burn_accrued"),
+            "ticks_with_mint": cad.get("ticks_with_mint"),
+            "zero_mint_ticks": cad.get("zero_mint_ticks"),
+            "supply_after": cad.get("supply_after"),
+            "breach_flags_fired": [k for k, v in breach_counts.items() if v],
+        },
+    }
+
+
+# ===========================================================================
+# FIRE the raise in GUNSLINGER (seed) mode over the assembled cables.
+# (Call sequence from seed_the_ember.fire_gunslinger — cradle + RBD armed.
+#  The CADENCE worker's predicate is the tic-684 attestation fix; SWARM and
+#  PRICING keep their wiring proofs, which are tic-independent property tests
+#  over a fresh seed-42 pool, not this tic's economic outcome.)
+# ===========================================================================
+def fire_gunslinger(econ_trace: dict, evidence: dict) -> dict:
     """GUNSLINGER: raise every exec-ready cable AT ONCE under one shared DissonanceBasin
     cradle with a RollbackDrill armed. Each cable's worker ATTESTS its assembled result
-    and returns its receipt."""
+    and returns its receipt.
+
+    `evidence` is execution_evidence(tic, econ_trace) — the CADENCE cable attests on
+    it, so a lawful zero-mint breach tic with clean execution still raises."""
     exec_ready = list(EXEC_READY_FRONTIER)
 
     def worker(cable: str):
@@ -359,13 +500,22 @@ def fire_gunslinger(econ_trace: dict) -> dict:
                               f"(low g_t={t['aggregate_g_t_low_trust']} mint={t['mint_low_trust_20gen']}; "
                               f"high g_t={t['aggregate_g_t_high_trust']} mint={t['mint_high_trust_20gen']})")
         if cable == "CADENCE":
-            ok = (t.get("one_tic_ran_1000_ticks") and t.get("cap_ge_seed_guard_clear")
-                  and t.get("supply_after", 0) > 0 and t.get("mint_accrued", 0) > 0
-                  and t["tic_boundary"]["anchor_frozen_center_excluded"])
-            return (bool(ok), f"CADENCE receipt: 1 tic = {t['ticks_per_tic']} ticks; "
-                              f"mint_accrued={t['mint_accrued']}; supply {t['supply_before']}->"
-                              f"{t['supply_after']}; federal anchor frozen at "
-                              f"{t['tic_boundary']['held_rate_after']}")
+            # ATTEST ON EXECUTION, NOT OUTCOME. mint/breach appear in the receipt
+            # text as observability only — they do not gate `ok`.
+            ok = bool(evidence.get("cadence_executed"))
+            obs = evidence.get("observability") or {}
+            return (ok, f"CADENCE receipt [EXECUTION-attested={ok}"
+                        f"{'' if ok else ' failed=' + repr(evidence.get('failed_checks'))}]: "
+                        f"1 tic = {t.get('ticks_per_tic')} ticks; "
+                        f"series={evidence.get('series_mode')} "
+                        f"carry_state_tic={evidence.get('carry_state_tic')}; "
+                        f"supply {t.get('supply_before')}->{t.get('supply_after')}; "
+                        f"federal anchor frozen at "
+                        f"{(t.get('tic_boundary') or {}).get('held_rate_after')} "
+                        f"| OBSERVABILITY (not attestation basis): "
+                        f"mint_accrued={obs.get('mint_accrued')} "
+                        f"ticks_with_mint={obs.get('ticks_with_mint')} "
+                        f"breach_flags={obs.get('breach_flags_fired')}")
         if cable == "PRICING":
             ok = t.get("coin_usd_anchored") and t.get("within_band")
             return (bool(ok), f"PRICING receipt: held rate={t['held_rate']} in band {t['band']}; "
@@ -400,6 +550,10 @@ def stabilization_verdict(econ_trace: dict, fire: dict) -> dict:
     price = econ_trace["PRICING"]
 
     checks = {
+        # Post-tic-684 this reads "all three cables EXECUTED lawfully" — the
+        # CADENCE leg no longer smuggles an economic outcome into a structural
+        # stability verdict (bk-economy-attest-execution-fix). The genuinely
+        # outcome-shaped health checks stay below, where they belong.
         "all_three_cables_committed": fire["committed"] and fire["all_cables_raised_at_once"],
         "rollback_reversible_gate_passed": (fire["rollback_drill"] is not None
                                             and fire["rollback_drill"]["is_reversible"]),
@@ -430,10 +584,80 @@ def stabilization_verdict(econ_trace: dict, fire: dict) -> dict:
 
 
 # ===========================================================================
-# WRITE the per-tic snapshot + current-pointer + invocations audit trail.
-# Writes ONLY to audit-logs/economy/.
+# POST-WRITE artifact verification — the second half of the execution proof.
+#
+# The attestation above proves the cycle RAN; this proves it LANDED. A missing
+# or unparseable artifact, or a pointer that did not re-aim at this tic, is an
+# EXECUTION failure (nonzero exit). A health verdict never is.
 # ===========================================================================
-def write_outputs(tic: int, econ_trace: dict, fire: dict, verdict: dict) -> dict:
+def verify_artifacts(tic: int, snap_path: Path, ptr_path: Path,
+                     inv_path: Path, series_mode: str) -> dict:
+    failures = []
+
+    snapshot_verified = False
+    try:
+        snap = json.loads(snap_path.read_text(encoding="utf-8"))
+        if int(snap.get("tic", -1)) != tic:
+            failures.append(f"snapshot tic {snap.get('tic')!r} != {tic}")
+        else:
+            snapshot_verified = True
+    except Exception as exc:
+        failures.append(f"snapshot unreadable at {snap_path}: {exc!r}")
+
+    # REPLAY lawfully leaves the pointer anchored on the series row — not a defect.
+    pointer_checked = (series_mode != "replay")
+    pointer_verified = None
+    if pointer_checked:
+        pointer_verified = False
+        try:
+            ptr = json.loads(ptr_path.read_text(encoding="utf-8"))
+            if int(ptr.get("tic", -1)) != tic:
+                failures.append(f"pointer tic {ptr.get('tic')!r} != {tic} "
+                                f"(anti-freeze tooth)")
+            else:
+                pointer_verified = True
+        except Exception as exc:
+            failures.append(f"pointer unreadable at {ptr_path}: {exc!r}")
+
+    invocation_appended = False
+    try:
+        rows = [ln for ln in inv_path.read_text(encoding="utf-8").splitlines() if ln.strip()]
+        last = json.loads(rows[-1])
+        if int(last.get("tic", -1)) != tic:
+            failures.append(f"invocation row tic {last.get('tic')!r} != {tic}")
+        else:
+            invocation_appended = True
+    except Exception as exc:
+        failures.append(f"invocation row not appended at {inv_path}: {exc!r}")
+
+    return {
+        "ok": not failures,
+        "failures": failures,
+        "snapshot_verified": snapshot_verified,
+        "pointer_checked": pointer_checked,
+        "pointer_verified": pointer_verified,
+        "invocation_appended": invocation_appended,
+    }
+
+
+def _flock_append(path: Path, obj: dict) -> None:
+    """Atomic append under an exclusive flock. Stdlib only — the economy lane
+    stays uncoupled from the governance atomic_append primitive (FENCES)."""
+    with path.open("a", encoding="utf-8") as f:
+        fcntl.flock(f.fileno(), fcntl.LOCK_EX)
+        try:
+            f.write(json.dumps(obj) + "\n")
+            f.flush()
+        finally:
+            fcntl.flock(f.fileno(), fcntl.LOCK_UN)
+
+
+# ===========================================================================
+# WRITE the per-tic snapshot + current-pointer + invocations audit trail,
+# then VERIFY the artifacts landed. Writes ONLY to audit-logs/economy/.
+# ===========================================================================
+def write_outputs(tic: int, econ_trace: dict, fire: dict, verdict: dict,
+                  evidence: dict) -> dict:
     ECON_DIR.mkdir(parents=True, exist_ok=True)
 
     cad = econ_trace["CADENCE"]
@@ -441,6 +665,7 @@ def write_outputs(tic: int, econ_trace: dict, fire: dict, verdict: dict) -> dict
     series_mode = series["mode"]
     breach_flags = verdict["breach_flags_fired_during_tic"]
     seed_stabilized = bool(verdict["seed_stabilized"])
+    execution_attested = bool(evidence["cadence_executed"])
     mode = fire["mode"]
 
     # 1) the tic snapshot ----------------------------------------------------
@@ -460,6 +685,10 @@ def write_outputs(tic: int, econ_trace: dict, fire: dict, verdict: dict) -> dict
         "mode": mode,
         "breach_flags": breach_flags,
         "seed_stabilized": seed_stabilized,
+        # EXECUTION-lawfulness, decoupled from outcome-health. seed_stabilized is
+        # the HEALTH verdict; execution_attested is the "did the cycle run and
+        # land" verdict and is the only one the exit code speaks for.
+        "execution_attested": execution_attested,
         # --- richer auditable detail (nested; the flat fields above are the contract) ---
         "detail": {
             "n_agents": econ_trace["SWARM"]["n_agents"],
@@ -474,6 +703,7 @@ def write_outputs(tic: int, econ_trace: dict, fire: dict, verdict: dict) -> dict
             "tic_boundary": cad["tic_boundary"],
             "winch_fire": fire,
             "stabilization_checks": verdict["checks"],
+            "execution_attestation": evidence,
             "economy_trace": econ_trace,
         },
         "membrane": "held; canonical sole-writer; no OT runtime ref; writes only audit-logs/economy/",
@@ -496,11 +726,12 @@ def write_outputs(tic: int, econ_trace: dict, fire: dict, verdict: dict) -> dict
             "generated_at": time.strftime("%Y-%m-%dT%H:%M:%S.000Z", time.gmtime()),
             "breach_flags": breach_flags,
             "seed_stabilized": seed_stabilized,
+            "execution_attested": execution_attested,
             "series_mode": series_mode,
         }
         ptr_path.write_text(json.dumps(pointer, indent=2) + "\n", encoding="utf-8")
 
-    # 3) invocations.jsonl (append-only audit trail)
+    # 3) invocations.jsonl (append-only audit trail; atomic under flock)
     inv_path = ECON_DIR / "invocations.jsonl"
     entry = {
         "tic": tic,
@@ -511,14 +742,20 @@ def write_outputs(tic: int, econ_trace: dict, fire: dict, verdict: dict) -> dict
         "mint_total": cad["mint_accrued"],
         "breach_flags": breach_flags,
         "seed_stabilized": seed_stabilized,
+        "execution_attested": execution_attested,
+        "execution_failed_checks": evidence["failed_checks"],
     }
-    with inv_path.open("a", encoding="utf-8") as f:
-        f.write(json.dumps(entry) + "\n")
+    _flock_append(inv_path, entry)
+
+    # 4) VERIFY the artifacts landed (post-write half of the execution proof)
+    artifact_verification = verify_artifacts(tic, snap_path, ptr_path, inv_path,
+                                             series_mode)
 
     return {
         "snapshot": snap_path,
         "pointer": ptr_path,
         "invocations": inv_path,
+        "artifact_verification": artifact_verification,
     }
 
 
@@ -534,9 +771,13 @@ def main() -> int:
     tic = args.tic
 
     econ_trace = run_assembled_economy(tic)
-    fire = fire_gunslinger(econ_trace)
+    evidence = execution_evidence(tic, econ_trace)
+    fire = fire_gunslinger(econ_trace, evidence)
     verdict = stabilization_verdict(econ_trace, fire)
-    paths = write_outputs(tic, econ_trace, fire, verdict)
+    paths = write_outputs(tic, econ_trace, fire, verdict, evidence)
+
+    av = paths["artifact_verification"]
+    execution_ok = bool(evidence["cadence_executed"]) and bool(av["ok"])
 
     cad = econ_trace["CADENCE"]
     if args.print_path:
@@ -545,6 +786,7 @@ def main() -> int:
         print(
             f"economy heartbeat tic={tic}: mode={fire['mode']} "
             f"series={cad['series']['mode']} "
+            f"execution_attested={execution_ok} "
             f"seed_stabilized={verdict['seed_stabilized']} "
             f"g_t={cad['swarm_trust_start']:.4f}->{cad['swarm_final_aggregate_g_t']:.4f} "
             f"mint={cad['mint_accrued']:.2f} burn={cad['burn_accrued']:.2f} "
@@ -553,7 +795,19 @@ def main() -> int:
             f"-> {paths['snapshot'].relative_to(ROOT)}",
             file=sys.stderr,
         )
-    return 0 if verdict["seed_stabilized"] else 1
+
+    # EXECUTION failures are always loud, on BOTH stdout modes — the exit code
+    # speaks only for them, so their reason must be legible next to it.
+    if not execution_ok:
+        print(f"EXECUTION FAILURE tic={tic}: "
+              f"cadence_failed_checks={evidence['failed_checks']} "
+              f"artifact_failures={av['failures']}", file=sys.stderr)
+
+    # EXIT-CODE CONTRACT (ledger#wrapper-must-discriminate-instrument-exit-code-
+    # semantics-crash-vs-verdict): nonzero is reserved for EXECUTION failure.
+    # `seed_stabilized` is a HEALTH verdict and is read from the artifact — a
+    # lawful loud-halt tic exits 0.
+    return 0 if execution_ok else 1
 
 
 if __name__ == "__main__":

@@ -274,6 +274,8 @@ Ratify verdict-by-verdict through the question set — the answers are the judgm
 
 ### 7. Apply Approved Actions
 
+**Queue-write mechanism (ALL CogPR verdicts).** The field lists below say WHAT each verdict changes; they do NOT license hand-building the queue row. `queue.jsonl` is read latest-entry-per-id, so an appended row REPLACES the entry rather than merging into it — a row carrying only the verdict fields DELETES the CogPR's envelope (`lesson`, `source`, `source_date`, `subsystem`, `recommended_scopes`, `birth_tic`, …) from authoritative state, and the enrichment scanner then classifies the row on evidence the writeback itself destroyed (bk-review-execute-lifecycle-writeback-envelope-stripping, tic 682 → repaired 683). Every verdict writeback routes through the copy-forward writer `cgg-runtime/scripts/queue-lifecycle-writeback.py` (review-execute drives it; see review-execute.md "Queue.jsonl Update Method"), which copies the full envelope forward, mutates only lifecycle fields, and refuses an envelope-stripping row before the append.
+
 **CogPR Verdicts:**
 
 For each approved PROMOTE:

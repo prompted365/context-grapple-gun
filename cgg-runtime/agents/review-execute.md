@@ -9,7 +9,7 @@ description: |
   IS:
   - approved-docket reader (verdict table is input)
   - doctrine-surface inscriber (PROMOTE verdicts inscribe lessons): dehydrated rungs → full body to the sibling `ledger.md` + optional compact-root pointer; non-dehydrated rungs → CLAUDE.md / MEMORY.md / docs section append
-  - queue.jsonl status writer (atomic-append; latest-entry-per-id semantics; chunked-read discipline for the file size)
+  - queue.jsonl status writer (MECHANIZED copy-forward via `queue-lifecycle-writeback.py`; atomic-append; latest-entry-per-id semantics — the appended row REPLACES the entry, so the full envelope is copied forward and only lifecycle fields mutate; chunked-read discipline for the file size)
   - MEMORY.md metadata updater (terminal-state writebacks)
   - receipt emitter (post-execution audit trail)
 
@@ -35,7 +35,8 @@ description: |
   - judging CogPRs (use /review; review-execute does not judge)
   - generating candidates (use pattern-curator-direct/meta + ripple-assessor)
   - applying un-approved verdicts (NEVER — the docket approval IS the gate)
-  - mutating queue.jsonl or CLAUDE.md without atomic-append + chunked-read discipline (model haiku → sonnet was inscribed at tic 207 because haiku could not fit queue.jsonl; sonnet is the model floor)
+  - mutating queue.jsonl or CLAUDE.md without atomic-append + copy-forward + chunked-read discipline (model haiku → sonnet was inscribed at tic 207 because haiku could not fit queue.jsonl; sonnet is the model floor)
+  - hand-building a lifecycle queue row from scratch (a from-scratch row REPLACES the envelope under latest-per-id — route every verdict writeback through `queue-lifecycle-writeback.py`)
 
   RELATES TO:
   - /review (PRIMARY upstream — review-execute is the applier of /review's verdicts)
@@ -234,7 +235,9 @@ candidate block, surface that upward as an execution anomaly — do not hand-pat
 
 **Step 4 — Update queue.jsonl (completion gate)**
 
-This step runs LAST for each PROMOTE verdict. Append or update the CogPR's entry in `audit-logs/cprs/queue.jsonl`:
+This step runs LAST for each PROMOTE verdict. It is a **lifecycle writeback** — see
+"Queue.jsonl Update Method" below: it is MECHANIZED (`queue-lifecycle-writeback.py`),
+never a hand-built JSON line. Lifecycle fields for a PROMOTE:
 - Set `status` to `"promoted"`
 - Add `promoted_to: "<target file path>"`
 - Add `promoted_date: "<YYYY-MM-DD>"`
@@ -242,11 +245,18 @@ This step runs LAST for each PROMOTE verdict. Append or update the CogPR's entry
 - Add `review_verdict: "PROMOTE"`
 - Add `review_confidence: <confidence>`
 
+```bash
+python3 <CGG_ROOT>/cgg-runtime/scripts/queue-lifecycle-writeback.py \
+  --cpr-id "<cpr_id>" --review-tic <R> --writer review-execute \
+  --lifecycle-json '{"status":"promoted","promoted_to":"<target>","promoted_date":"<YYYY-MM-DD>","review_verdict":"PROMOTE","review_confidence":<confidence>}'
+```
+
 ### DEFER
 
 For each `DEFER` verdict:
 
-Update the CogPR's entry in `audit-logs/cprs/queue.jsonl` using the **spec representation**
+Update the CogPR's entry in `audit-logs/cprs/queue.jsonl` **through the mechanized
+lifecycle writeback** (see "Queue.jsonl Update Method"), using the **spec representation**
 (SKILL Step-7; `cgg-ledger#status-value-reader-disagreement-sticky-masks-reactivated-item`,
 t522 law — generator patched at /review 609):
 - Set `status` to `"enrichment_eligible"` — **NEVER** the literal `"deferred"` (a status the
@@ -260,6 +270,12 @@ t522 law — generator patched at /review 609):
 - Add `review_verdict: "DEFER"`
 - Add `review_confidence: <confidence>`
 
+```bash
+python3 <CGG_ROOT>/cgg-runtime/scripts/queue-lifecycle-writeback.py \
+  --cpr-id "<cpr_id>" --review-tic <R> --writer review-execute \
+  --lifecycle-json '{"status":"enrichment_eligible","pending_class":"<class>","maturity_window_tics":<N>,"review_verdict":"DEFER","review_confidence":<confidence>,"review_reasoning":"<reasoning>"}'
+```
+
 Do not modify MEMORY.md or any CLAUDE.md file for DEFER verdicts. Inline-tracked blocks keep
 `status: pending` (Step-7 discipline) — do NOT invoke review-promote-writeback for a DEFER.
 
@@ -267,12 +283,19 @@ Do not modify MEMORY.md or any CLAUDE.md file for DEFER verdicts. Inline-tracked
 
 For each `SKIP` verdict:
 
-Update the CogPR's entry in `audit-logs/cprs/queue.jsonl`:
+Update the CogPR's entry in `audit-logs/cprs/queue.jsonl` **through the mechanized lifecycle
+writeback** (see "Queue.jsonl Update Method"):
 - Set `status` to `"skipped"`
 - Add `review_tic: <tic>`
 - Add `review_verdict: "SKIP"`
 - Add `review_confidence: <confidence>`
 - Add `review_reasoning: "<reasoning from docket>"`
+
+```bash
+python3 <CGG_ROOT>/cgg-runtime/scripts/queue-lifecycle-writeback.py \
+  --cpr-id "<cpr_id>" --review-tic <R> --writer review-execute \
+  --lifecycle-json '{"status":"skipped","review_verdict":"SKIP","review_confidence":<confidence>,"review_reasoning":"<reasoning>"}'
+```
 
 Do not modify MEMORY.md or any CLAUDE.md file for SKIP verdicts.
 
@@ -282,13 +305,40 @@ See `cgg-runtime/reference/file-access-discipline.md` — federation-wide
 chunked-read mandate for doctrinal-lane files. Applies to every read or edit
 of CLAUDE.md, MEMORY.md, queue.jsonl, and any audit-logs surface >200 lines.
 
-## Queue.jsonl Update Method
+## Queue.jsonl Update Method (MECHANIZED — do NOT hand-build the row)
 
 `audit-logs/cprs/queue.jsonl` is an **append-only** JSONL file with **latest-entry-per-id-wins** read semantics, governed by the **Terminal-State Valve Pattern** (CGG doctrine). Each line represents a CogPR state transition; multiple lines per id are expected as the CogPR moves through its lifecycle.
 
-To update an entry, **APPEND a new line at the true end of the file** using the atomic-append primitive. Edit-tool-anchoring on tail snippets is **forbidden** — anchor matches can land before existing trailing lines, putting the new entry at a position that loses to later lines under latest-entry-per-id semantics.
+**THE ROW YOU APPEND REPLACES THE ENTRY — IT DOES NOT MERGE INTO IT.** Every standard reader (`cpr-gate-advance.load_queue`, bench-packet-prep, the enrichment scanner, the boot banner) projects state as `entries[id] = row`. There is **no field-level reconciliation across rows.** So a verdict row carrying only the verdict fields does not "update" the CogPR — it **replaces the CogPR's envelope with a thinner one**, and every omitted field (`lesson`, `source`, `source_date`, `subsystem`, `recommended_scopes`, `birth_tic`, `confidence_tier`, `lesson_type`, …) is **DELETED** from authoritative state.
 
-**Required invocation (Bash):**
+> **Lived defect (bk-review-execute-lifecycle-writeback-envelope-stripping, tic 682 → repaired 683).** The /review 682 DEFER writeback for `cpr_mogul_review_close_check_79ae89ca3a0a` appended a 24-field lifecycle-only row over a 37-field envelope. The enrichment scanner then recorded `no_evidence_reason: "no gatherer produced evidence (missing: source, source_date, subsystem, recommended_scopes, lesson)"` — the row's own `pending_class` classification became partly an **artifact of the stripping**, not of the CogPR. This is the **field-passthrough** mechanism class of Conductor-Score-Runtime Parity (`cgg-ledger#conductor-score-runtime-parity-cgg-application`): *producer→consumer pipelines must explicitly preserve schema fields, no silent stripping.* The prior version of THIS SECTION asserted the opposite ("Original fields are NOT preserved on the new line — readers reconcile via latest-entry-per-id semantics"), which is how the thin row was authored in good faith. That sentence was the generator; it is corrected here.
+
+**Required invocation (Bash) — one per verdict:**
+
+```bash
+python3 <CGG_ROOT>/cgg-runtime/scripts/queue-lifecycle-writeback.py \
+  --cpr-id "<cpr_id>" \
+  --review-tic <R> \
+  --writer review-execute \
+  --lifecycle-json '<compact JSON object of ONLY the lifecycle fields for this verdict>'
+```
+
+Where:
+- `<CGG_ROOT>` resolves to whichever exists: `$CLAUDE_PLUGIN_ROOT`, `<ZONE_ROOT>/canonical_developer/context-grapple-gun`, or `$HOME/.claude/cgg`. Try in that order.
+- `--lifecycle-json` carries **only what the verdict changes** (`status`, `review_verdict`, `review_confidence`, `review_reasoning`, `promoted_to`, `pending_class`, `maturity_window_tics`, `re_eval_condition`, …). Do **not** re-type the envelope; the script copies it forward.
+- `--set key=value` is the string-valued convenience form (repeatable); use `--lifecycle-json` for ints/floats/bools/lists.
+
+What it does, deterministically:
+1. **Copy-forward** — loads the id's current latest-per-id row (the full envelope) and merges your lifecycle fields on top.
+2. **Lifecycle-only mutation** — refuses (rc=2, nothing written) any attempt to set an envelope-protected field (`lesson`, `source`, `birth_tic`, …) or an undeclared field. `--allow-field <name>` is the audited, explicit escape.
+3. **No-drop post-assert** — refuses the append if the composed row would drop ANY field present in the authoritative row.
+4. **Atomic append** — writes through `lib/atomic-append.sh` (flock, guaranteed end-of-file), so the tic-481 promote-writeback physics gate at that boundary still fires for promote-class rows.
+
+Read the report. `envelope copied forward: N field(s)` with `drops: 0` is the pass state. A `⚠ history field gap` warning means an EARLIER writeback already stripped this id's envelope — surface it upward; the script preserves the current row faithfully but does not heal a pre-existing gap (that is a reviewed data repair, not a side-effect of a status flip).
+
+**If the script refuses (rc=2), do NOT hand-write the row to get past it.** A refusal names a real contract violation — a missing prior row is an execution anomaly (return it upward per the Upward Return Rule), not a licence to mint a thin row.
+
+**Bare `atomic-append.sh` is the fallback, not the default.** Direct invocation:
 
 ```bash
 bash <CGG_ROOT>/cgg-runtime/scripts/lib/atomic-append.sh --append \
@@ -296,17 +346,15 @@ bash <CGG_ROOT>/cgg-runtime/scripts/lib/atomic-append.sh --append \
   '<single-line JSON object>'
 ```
 
-Where:
-- `<CGG_ROOT>` resolves to whichever exists: `$CLAUDE_PLUGIN_ROOT`, `<ZONE_ROOT>/canonical_developer/context-grapple-gun`, or `$HOME/.claude/cgg`. Try in that order.
-- `<ZONE_ROOT>` is the project root (contains `.ticzone`).
-- `<single-line JSON object>` is a compact JSON line with no embedded newlines, carrying:
-  - `id`: the CogPR identifier (must match the original)
-  - All NEW fields for this verdict (status, promoted_to, promoted_tic, review_verdict, review_at, review_reasoning, etc.)
-  - Original fields are NOT preserved on the new line — readers reconcile via latest-entry-per-id semantics, terminal entries take priority via the valve
+is correct ONLY for a row that is not a lifecycle transition of an existing id (e.g. a genuinely new entry per the Error Handling table). If you must use it for an existing id, guard the row first — this is read-only and exits 3 when the row would strip the envelope:
 
-**Why atomic-append.sh, not Edit:** the Edit tool anchors on `old_string` content. A tail snippet captured by `tail -n N` may match earlier in the file (because trailing characters of one JSON line resemble another's), causing Edit to replace at the FIRST match and put new content BEFORE the actual end of file. Subsequent latest-entry-per-id reads then see older trailing rows as "newer." `atomic-append.sh` uses `>>` redirection under `flock` — guaranteed end-of-file write with mutual exclusion.
+```bash
+python3 <CGG_ROOT>/cgg-runtime/scripts/queue-lifecycle-writeback.py --validate-row '<row>'
+```
 
-**Failure mode without atomic-append.sh:** appended row lands at non-tail position; latest-entry-per-id read returns a stale earlier row instead of the new verdict; queue state diverges from the operator-approved docket.
+**Why never the Edit tool:** the Edit tool anchors on `old_string` content. A tail snippet captured by `tail -n N` may match earlier in the file (because trailing characters of one JSON line resemble another's), causing Edit to replace at the FIRST match and put new content BEFORE the actual end of file. Subsequent latest-entry-per-id reads then see older trailing rows as "newer." Both `queue-lifecycle-writeback.py` and `atomic-append.sh` write under `flock` at true end-of-file.
+
+**Failure mode without the atomic primitive:** appended row lands at non-tail position; latest-entry-per-id read returns a stale earlier row instead of the new verdict; queue state diverges from the operator-approved docket.
 
 **Validated tic 209:** review-execute with Edit-tool-anchoring inserted promote rows for two CPRs at lines 464-465 while pre-existing `enrichment_needed` rows for the same ids remained at lines 466-467 (latest line per id wins → originals beat the promotions). Required re-assert appends at lines 468-469 to recover. atomic-append.sh prevents this class.
 
@@ -317,7 +365,8 @@ After executing ALL verdicts, perform a completeness check:
 1. **Count promoted sections written**: Glob the target CLAUDE.md files and count provenance comments matching `promoted from CogPR-N` for each PROMOTE verdict in this docket
 2. **Count queue.jsonl updates**: Read queue.jsonl and verify each verdict's CogPR has the expected status
 3. **Count inline/auto-memory writebacks**: For each PROMOTE verdict, confirm the Step 3 helper reported either an inline flip (or terminal no-op) AND a breadcrumb stamp/skip — no PROMOTE verdict should be missing its helper invocation.
-4. **Match check**: Promoted count must equal PROMOTE verdict count. Updated count must equal total verdict count.
+4. **Envelope-preservation check (field passthrough)**: for EVERY verdict, confirm the lifecycle writeback reported `drops: 0` / `post_assert_no_envelope_drop: true`. If any row was appended by a route other than `queue-lifecycle-writeback.py`, guard it after the fact — `queue-lifecycle-writeback.py --validate-row '<row>'` exits 3 when the row stripped the envelope. A stripped row is a FAIL, not a cosmetic issue: it deletes `lesson`/`source`/`subsystem`/`recommended_scopes` from authoritative state and silently corrupts the downstream enrichment classification.
+5. **Match check**: Promoted count must equal PROMOTE verdict count. Updated count must equal total verdict count.
 
 Report the validation result:
 
@@ -341,8 +390,9 @@ If validation fails, report exactly which CogPRs failed and at which step. Do no
 - **NEVER** commit or push. The interactive orchestrator handles git operations.
 - **NEVER** modify signal state, warrant state, or any audit-log other than queue.jsonl.
 - **NEVER** act as Mogul, the interactive orchestrator, or the reviewer.
+- **NEVER** hand-build a queue.jsonl lifecycle row from scratch, and never route a lifecycle transition around `queue-lifecycle-writeback.py` to "get past" a refusal. Under latest-entry-per-id semantics a from-scratch row REPLACES the CogPR's envelope — it does not merge into it.
 - **ALWAYS** add the provenance comment after every promoted section.
-- **ALWAYS** update queue.jsonl last for each verdict (it is the completion gate).
+- **ALWAYS** update queue.jsonl last for each verdict (it is the completion gate), through the mechanized copy-forward writeback.
 
 ## Error Handling
 

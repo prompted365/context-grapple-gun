@@ -421,6 +421,116 @@ def _load_json(path: Path):
         return None
 
 
+# ----- EFFECTIVE-RECORD PROJECTION (b3, tic 683) ---------------------------------
+# bk-worldview-projection-aware-b3: this renderer was suppressed WHOLESALE at the
+# hydration-gate's rc=3 ("corrected") because it read raw JSONL — a suppression that
+# is PERMANENT under append-only corrections (any resolved correction anywhere kept
+# every boot render dark). The cure is row-scoped consumption: the renderer builds
+# the same effective view the resolver serves (base + ordered authorized corrections),
+# overrides corrected rows with their effective_record, drops blocked rows (unresolved/
+# review-held corrections) row-scoped fail-closed, and DECLARES the projection as a
+# leading fragment. Corrections on surfaces this render never reads suppress nothing.
+
+def _effective_projection(zone_root: Path, view_path: str = None):
+    """Resolve the row-scoped effective-record projection for this render, once.
+
+    Returns (corrections, blocked, record_ids_fn, meta) or None on failure.
+    corrections maps (surface_rel, record_id) -> effective_record; blocked is a set
+    of the same keys. record_ids_fn is the resolver's OWN row-addressing function
+    (exact parity — this projection must never invent a different identity axis).
+
+    THREE SOURCES, cheapest-honest first (a full index build reads every JSONL
+    surface — ~70s on the live zone — and may NOT ride every render: the citizen
+    seam spawns per-subagent):
+      boot_view    — view_path (--effective-view): the hydration view the boot
+                     gate JUST built (hydration-gate --emit-view). Authoritative
+                     for this boot; ONE build serves badge + render.
+      stored_index — the resolver's derived index on disk (instant read). Best-
+                     effort freshness, declared as such; strictly better than the
+                     raw read this renderer did before b3.
+      no_contract  — the zone has no audit-logs/corrections/ directory at all:
+                     no correction contract, raw rows ARE the effective rows.
+    On None the caller must suppress JSONL-sourced rays rather than render raw:
+    fail-closed at the consumer, row-scoped, never a silent raw read under
+    possibly-active corrections."""
+    try:
+        from effective_record import (  # lib/ is on sys.path (fragment_contract block)
+            INDEX_RELATIVE, hydration_view, record_identifiers, resolve_audit_root)
+        view = None
+        source = None
+        if view_path:
+            try:
+                candidate = json.loads(Path(view_path).read_text(encoding="utf-8"))
+                if isinstance(candidate, dict) and "effective_records" in candidate:
+                    view = candidate
+                    source = "boot_view"
+            except (OSError, ValueError):
+                view = None  # fall through to the stored index
+        if view is None:
+            audit_root = resolve_audit_root(zone_root)
+            if not (audit_root / "corrections").is_dir():
+                return ({}, set(), record_identifiers,
+                        {"status": "no_contract", "corrected": 0, "blocked": 0,
+                         "source_digest": "", "projection_source": "no_contract"})
+            index = json.loads((audit_root / INDEX_RELATIVE).read_text(encoding="utf-8"))
+            view = hydration_view(index)
+            source = "stored_index"
+        corrections = {
+            (r["target_surface"], r["target_record_id"]): r["effective_record"]
+            for r in view.get("effective_records", [])
+        }
+        blocked = {(b["target_surface"], b["target_record_id"])
+                   for b in view.get("blocked_targets", [])}
+        meta = {
+            "status": view.get("status"),
+            "corrected": len(corrections),
+            "blocked": len(blocked),
+            "source_digest": (view.get("source_digest") or "")[:12],
+            "projection_source": source,
+        }
+        return corrections, blocked, record_identifiers, meta
+    except Exception:
+        return None
+
+
+def _jsonl_rows_effective(path: Path, zone_root: Path, eff) -> list:
+    """Load JSONL rows THROUGH the effective-record projection (b3).
+
+    eff is _effective_projection's return. None (projection unavailable) -> [] —
+    the source is withheld row-scoped rather than rendered raw under possibly-active
+    corrections (the caller's fragment simply does not render; fail-soft for the
+    boot, fail-closed for the correction contract). Corrected rows are replaced by
+    their effective_record; blocked rows are dropped."""
+    if eff is None:
+        return []
+    corrections, blocked, record_ids, _meta = eff
+    try:
+        surface = str(path.resolve().relative_to(Path(zone_root).resolve()))
+    except (ValueError, OSError):
+        surface = str(path)
+    rows = []
+    try:
+        text = path.read_text(encoding="utf-8", errors="replace")
+    except OSError:
+        return []
+    for line in text.splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        try:
+            row = json.loads(line)
+        except ValueError:
+            continue
+        if not isinstance(row, dict):
+            continue
+        keys = {(surface, rid) for rid in record_ids(row)}
+        if keys & blocked:
+            continue  # a correction on this row is unresolved/review-held — suppressed row-scoped
+        effective = next((corrections[k] for k in keys if k in corrections), None)
+        rows.append(effective if effective is not None else row)
+    return rows
+
+
 def _frag(zone_root: Path, fid: str, source: str, text: str, cls: str,
           reason: str, weight: float = None, receipt: bool = None,
           boost: str = None, suppress: str = None, gated: bool = False,
@@ -579,7 +689,8 @@ def _telos_purpose(zone_root: Path) -> str:
 
 # ----- THE COMPILER --------------------------------------------------------------
 
-def compile_fragments(zone_root: Path, office: str, tic: int) -> list:
+def compile_fragments(zone_root: Path, office: str, tic: int,
+                      effective_view_path: str = None) -> list:
     """Produce the typed worldview_fragment list for (office, tic). Fail-soft per source."""
     frags = []
     base = _office_baseline(zone_root, office, tic)
@@ -591,6 +702,34 @@ def compile_fragments(zone_root: Path, office: str, tic: int) -> list:
     frags.append(_frag(zone_root, "boot.read_invariant", "cgg-runtime/scripts/office-worldview.py",
         BOOT_READ_INVARIANT_TEXT, "SUBSTRATE", BOOT_READ_INVARIANT_REASON,
         receipt=False, boost="boot-read precondition — gates all mutation; read-in-full first"))
+
+    # --- EFFECTIVE-RECORD PROJECTION (b3, tic 683): built ONCE per render; every
+    # JSONL-sourced ray below consumes rows through it (_jsonl_rows_effective). The
+    # declaration is legible (surface-don't-hide): active corrections are named, and a
+    # failed projection build is a loud COUNTER, never a silent raw read. ---
+    eff = _effective_projection(zone_root, effective_view_path)
+    if eff is not None:
+        _em = eff[3]
+        if _em["corrected"] or _em["blocked"]:
+            frags.append(_frag(zone_root, "boot.effective_projection", "lib/effective_record.py",
+                f"effective-record projection ACTIVE: {_em['corrected']} corrected view(s) consumed "
+                "row-scoped"
+                + (f", {_em['blocked']} blocked target(s) suppressed row-scoped" if _em["blocked"] else "")
+                + f" (source {_em['source_digest']} · via {_em.get('projection_source','?')}) — "
+                "base + ordered authorized corrections = effective view; raw rows are overridden "
+                "where a resolved correction lands. This render is projection-aware (b3); "
+                "corrections on surfaces it does not read suppress nothing.",
+                "SUBSTRATE",
+                "the append-only correction fold — shapes every JSONL-sourced ray in this render; "
+                "not locally editable", receipt=False))
+    else:
+        frags.append(_frag(zone_root, "boot.effective_projection", "lib/effective_record.py",
+            "effective-record projection UNAVAILABLE this render — JSONL-sourced rays withheld "
+            "row-scoped (fail-closed: rendering raw rows under possibly-active corrections is the "
+            "forbidden path; run effective-record.py scan)",
+            "COUNTER",
+            "the projection could not be built; JSONL-sourced rays are suppressed rather than "
+            "rendered raw — diagnose via effective-record.py scan"))
 
     # --- L0 HARMONY (the framer; orientation only, non-citable by her own contract) ---
     try:
@@ -769,12 +908,9 @@ def compile_fragments(zone_root: Path, office: str, tic: int) -> list:
                     "the current mandate is yours to consume" if mine else "another office's mandate — field context, understand but do not act on or re-spawn"))
         man = al / "signals" / "active-manifest.jsonl"
         if man.is_file():
-            sigs = []
-            for line in man.read_text(encoding="utf-8", errors="replace").splitlines():
-                line = line.strip()
-                if line:
-                    try: sigs.append(json.loads(line))
-                    except ValueError: pass
+            # b3: rows load THROUGH the effective-record projection (corrected rows
+            # overridden, blocked rows dropped, projection-unavailable -> withheld).
+            sigs = _jsonl_rows_effective(man, zone_root, eff)
             if sigs:
                 loud = max(sigs, key=lambda s: s.get("effective_volume", s.get("volume", 0)))
                 drift = "drift" in str(loud.get("signal_id", ""))
@@ -1058,13 +1194,19 @@ def main() -> int:
     r.add_argument("--max-chars", type=int, default=DEFAULT_MAX_CHARS)
     r.add_argument("--no-receipt-frame", dest="receipt_frame", action="store_false",
                    default=True, help="suppress the budget-exempt boot-receipt request framing")
+    r.add_argument("--effective-view", default=None,
+                   help="path to a hydration-view JSON the boot gate just built "
+                        "(effective-record.py hydration-gate --emit-view); one index build "
+                        "serves badge + render. Without it the stored index is the "
+                        "best-effort projection source (b3).")
     args = ap.parse_args()
 
     zone_root = _zone_root(Path(__file__).resolve().parent, args.zone_root)
     if zone_root is None:
         return 0
     try:
-        frags = compile_fragments(zone_root, args.office, args.tic)
+        frags = compile_fragments(zone_root, args.office, args.tic,
+                                  effective_view_path=args.effective_view)
         if not frags:
             return 0
         if args.format == "json":

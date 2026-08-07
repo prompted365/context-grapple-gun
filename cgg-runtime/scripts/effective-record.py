@@ -45,7 +45,8 @@ def _emit(value, output_format: str = "json") -> None:
             print(
                 f"[EFFECTIVE RECORD: {changed} corrected view(s) active"
                 f"{known_note}; "
-                "raw worldview suppressed; resolve affected ids before hydration; "
+                "row-scoped effective views serve projection-aware consumers; "
+                "raw readers must resolve affected ids before hydration; "
                 f"source {digest}]"
             )
         else:
@@ -75,6 +76,14 @@ def _parser() -> argparse.ArgumentParser:
 
     hydrate = sub.add_parser("hydration-gate", help="emit correction-safe hydration views")
     hydrate.add_argument("--format", choices=("json", "hook"), default="json")
+    hydrate.add_argument(
+        "--emit-view",
+        default=None,
+        help="also write the full hydration view JSON to this path — one index build "
+             "serves both the boot badge and downstream projection-aware renderers "
+             "(office-worldview.py render --effective-view). Best-effort: an emission "
+             "failure never blocks the gate.",
+    )
 
     export = sub.add_parser("export-gate", help="emit correction-safe export views")
     export.add_argument("--format", choices=("json", "hook"), default="json")
@@ -128,6 +137,15 @@ def main(argv: list[str] | None = None) -> int:
     if args.command in {"hydration-gate", "export-gate"}:
         result = hydration_view(index)
         result["consumer"] = "hydration" if args.command == "hydration-gate" else "export"
+        emit_view = getattr(args, "emit_view", None)
+        if emit_view:
+            try:
+                Path(emit_view).write_text(
+                    json.dumps(result, sort_keys=True, ensure_ascii=False),
+                    encoding="utf-8",
+                )
+            except OSError:
+                pass  # best-effort: renderers fall back to the stored index
         _emit(result, args.format)
         if result["status"] == "blocked":
             return 2

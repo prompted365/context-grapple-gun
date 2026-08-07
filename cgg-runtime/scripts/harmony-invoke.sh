@@ -45,6 +45,13 @@ INPUT_PATH=$(CGG_POSTURE="$POSTURE" CGG_STATUSLINE_MODE="$MODE" \
 TIC=$(python3 -c "import json,sys; print(json.load(open('$INPUT_PATH'))['terrainSlice']['tic'])")
 DISPOSITION_PATH="$HARMONY_DIR/disposition-tic-$TIC.json"
 
+# stderr capture (canary-docket t673 (b)): the engine + voice steps' stderr was
+# UNCAPTURED — callers commonly discard it (2>/dev/null), so a degraded path's
+# diagnostics (e.g. WHY the voice LLM times out, seven consecutive fallback tics
+# 677-683) left no residue. Captured per-tic; caller-visible WARN lines below
+# name the file. Empty logs are removed at the end (no zero-byte litter).
+STDERR_LOG="$HARMONY_DIR/stderr-tic-$TIC.log"
+
 # 2. Invoke engine via node — read input from stdin, write disposition packet
 node --input-type=module -e "
   import { runHarmonyEngine } from '$ENGINE';
@@ -53,16 +60,16 @@ node --input-type=module -e "
   const out = runHarmonyEngine(input);
   writeFileSync('$DISPOSITION_PATH', JSON.stringify(out, null, 2));
   console.log('disposition:', out.disposition?.stance, '|', 'meaning:', out.acousticSignature?.meaningState ?? 'n/a');
-" || { echo "ERR: engine invocation failed" >&2; exit 1; }
+" 2>>"$STDERR_LOG" || { echo "ERR: engine invocation failed (stderr at $STDERR_LOG)" >&2; exit 1; }
 
 # 2.5 Voice step (cable BR5, fail-soft): bounded-morphism ambient voice
 #     proposer — constrained LLM line, validator-gated, honest template
 #     fallback. Writes the voice object INTO the disposition file (additive).
 #     HARMONY_VOICE=off skips the LLM inside the script. Any failure leaves
 #     the disposition standing without a voice object (legacy-equivalent).
-echo "→ harmony-voice.py (voice step, fail-soft)"
-python3 "$SCRIPT_DIR/harmony-voice.py" --disposition "$DISPOSITION_PATH" || \
-  echo "WARN harmony: voice step failed — disposition stands without voice (fail-soft)" >&2
+echo "→ harmony-voice.py (voice step, fail-soft; stderr → $STDERR_LOG)"
+python3 "$SCRIPT_DIR/harmony-voice.py" --disposition "$DISPOSITION_PATH" 2>>"$STDERR_LOG" || \
+  echo "WARN harmony: voice step failed — disposition stands without voice (fail-soft; stderr at $STDERR_LOG)" >&2
 
 # 3. Update disposition-current.json (compact pointer for statusline)
 python3 <<PY
@@ -124,5 +131,13 @@ with log.open("a") as f:
     f.write(json.dumps(entry) + "\n")
 print(f"audit logged: {log}")
 PY
+
+# drop an empty stderr capture (a clean run leaves no zero-byte litter);
+# a non-empty one is the tic's diagnostic residue — announce it.
+if [ -s "$STDERR_LOG" ]; then
+  echo "⚠ stderr residue captured: $STDERR_LOG" >&2
+else
+  rm -f "$STDERR_LOG" 2>/dev/null || true
+fi
 
 echo "✓ harmony invocation complete (tic=$TIC posture=$POSTURE mode=$MODE)"

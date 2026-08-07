@@ -108,8 +108,13 @@ EFFECTIVE_RECORD_HYDRATION_BLOCKED=0
 EFFECTIVE_RECORD_CAPABILITY_BLOCKED=0
 if [ -f "$EFFECTIVE_RECORD_SCRIPT" ]; then
   if command -v python3 >/dev/null 2>&1; then
+    # --emit-view: the gate's ONE index build also serves the projection-aware
+    # worldview render below (b3) — the renderer reuses this boot's view instead
+    # of rebuilding (a full build reads every JSONL surface). Best-effort file;
+    # the renderer falls back to the stored index if it is absent/unreadable.
+    EFFECTIVE_VIEW_FILE="${TMPDIR:-/tmp}/cgg-effective-view-$$.json"
     EFFECTIVE_RECORD_MSG=$(python3 "$EFFECTIVE_RECORD_SCRIPT" --zone-root "$ZONE_ROOT" \
-      hydration-gate --format hook 2>/dev/null)
+      hydration-gate --format hook --emit-view "$EFFECTIVE_VIEW_FILE" 2>/dev/null)
     EFFECTIVE_RECORD_RC=$?
     if [ "$EFFECTIVE_RECORD_RC" -eq 0 ]; then
       # The safe path is intentionally silent; SessionStart badges stay
@@ -118,10 +123,17 @@ if [ -f "$EFFECTIVE_RECORD_SCRIPT" ]; then
     elif [ "$EFFECTIVE_RECORD_RC" -eq 2 ]; then
       EFFECTIVE_RECORD_HYDRATION_BLOCKED=1
     elif [ "$EFFECTIVE_RECORD_RC" -eq 3 ]; then
-      # The correction is resolved, but office-worldview.py is still a raw
-      # JSONL consumer. Preserve the effective-record badge and suppress that
-      # renderer until it can consume the row-scoped projection directly.
-      EFFECTIVE_RECORD_HYDRATION_BLOCKED=1
+      # Corrections are resolved AND office-worldview.py is PROJECTION-AWARE
+      # (b3, tic 683 — bk-worldview-projection-aware-b3): the renderer builds
+      # the same effective view the resolver serves and consumes JSONL rows
+      # through it (corrected rows overridden by effective_record, blocked rows
+      # dropped row-scoped, the projection declared as a leading SUBSTRATE
+      # fragment; a failed in-render projection build withholds JSONL-sourced
+      # rays rather than reading raw). rc=3 is therefore no longer a
+      # render-suppression state — the badge stays (loud, leads the context),
+      # the render proceeds. rc=2 (genuine-unresolved) and resolver-crash
+      # remain blocking; the capability blocker still stops the boot.
+      EFFECTIVE_RECORD_HYDRATION_BLOCKED=0
     else
       EFFECTIVE_RECORD_MSG="[EFFECTIVE RECORD WARNING: resolver execution failed; no correction-derived claim is admitted by this hook]"
       EFFECTIVE_RECORD_HYDRATION_BLOCKED=1
@@ -139,18 +151,21 @@ fi
 
 # Stop-scope is DERIVED from the consumer set of the held truth (b2, tic 680;
 # doctrine vehicle cpr_fail_closed_boot_hold_must_scope_stop_to_held_truth_
-# consumers_tic679). A TRUTH hold (rc=2 genuine-unresolved, rc=3 corrected,
-# resolver crash) suppresses only the projection-dependent consumer — the raw
-# worldview render, gated below on EFFECTIVE_RECORD_HYDRATION_BLOCKED — while
-# the truth-independent mechanical lanes (handoff discovery, cpr-extract,
+# consumers_tic679). A TRUTH hold (rc=2 genuine-unresolved, resolver crash)
+# suppresses only the projection-dependent consumer — the raw worldview
+# render, gated below on EFFECTIVE_RECORD_HYDRATION_BLOCKED — while the
+# truth-independent mechanical lanes (handoff discovery, cpr-extract,
 # enrichment scanner, mandate-fabric emission) RUN; the loud badge leads the
 # injected context via CGG_MSG. Three consecutive dark boots (t677/t678/t679)
 # were this early-exit answering a question those lanes never asked. Only a
 # CAPABILITY blocker (resolver or python3 absent — the gate itself cannot run,
 # so running ungated readers would be gate-bypass, not scoping) still stops
-# the boot here fail-closed. rc=3 is PERMANENT once any resolved correction
-# differs from base (corrections are append-only) — an unscoped stop on that
-# status is a blackout with no exit condition at all.
+# the boot here fail-closed. rc=3 (corrected) no longer holds anything: the
+# renderer is projection-aware (b3, tic 683) and consumes the row-scoped
+# effective views itself — the badge stays, the render proceeds. (rc=3 is
+# PERMANENT once any resolved correction differs from base — corrections are
+# append-only — which is exactly why suppression-on-rc=3 was a blackout with
+# no exit condition, and why the exit had to be renderer-side awareness.)
 if [ "$EFFECTIVE_RECORD_CAPABILITY_BLOCKED" -eq 1 ]; then
   if command -v python3 >/dev/null 2>&1; then
     EFFECTIVE_RECORD_MSG="$EFFECTIVE_RECORD_MSG" python3 -c '
@@ -1079,13 +1094,44 @@ fi
 WORLDVIEW_MSG=""
 WORLDVIEW_SCRIPT=$(resolve_script "office-worldview.py")
 if [ -n "$WORLDVIEW_SCRIPT" ] && [ "$TIC_COUNT" -gt 0 ] && [ "$EFFECTIVE_RECORD_HYDRATION_BLOCKED" -eq 0 ]; then
+  # b3: hand the renderer this boot's hydration view (built once at the gate above)
+  # so its row-scoped effective projection reuses that build; absent/unreadable file
+  # falls back to the stored index inside the renderer.
+  WORLDVIEW_EFF_ARGS=""
+  [ -n "${EFFECTIVE_VIEW_FILE:-}" ] && [ -f "$EFFECTIVE_VIEW_FILE" ] && \
+    WORLDVIEW_EFF_ARGS="--effective-view $EFFECTIVE_VIEW_FILE"
   WORLDVIEW_RAW=$(python3 "$WORLDVIEW_SCRIPT" render \
     --office ent_homeskillet --tic "$TIC_COUNT" --format human \
-    --zone-root "$PROJECT_DIR" --max-chars 20000 2>/dev/null || true)
+    --zone-root "$PROJECT_DIR" --max-chars 20000 $WORLDVIEW_EFF_ARGS 2>/dev/null || true)
+  [ -n "${EFFECTIVE_VIEW_FILE:-}" ] && rm -f "$EFFECTIVE_VIEW_FILE" 2>/dev/null
   if [ -n "$WORLDVIEW_RAW" ]; then
     # JSON-escape preserving newlines as \n (NOT flattened) for safe additionalContext
     # embedding — keeps the badge-per-line worldview readable in the injected context.
     WORLDVIEW_MSG=$(printf '%s' "$WORLDVIEW_RAW" | python3 -c "import sys,json; print(json.dumps(sys.stdin.read())[1:-1])" 2>/dev/null || true)
+  fi
+fi
+
+# ============================================================================
+# Mid-tic resumption note (bk-sovereign-midtic-pause-receipt, tic 683): if a
+# durable hold-note exists for the ACTIVE emission, inject it — resumption
+# never leans on harness-transcript fidelity. Fail-soft; the note lane is
+# audit-logs/tics/interstitial-notes.jsonl (midtic-note.py, sibling of the
+# interstitial marker — this hook is the lane's live consumer).
+# ============================================================================
+MIDTIC_MSG=""
+MIDTIC_SCRIPT=$(resolve_script "midtic-note.py")
+if [ -n "$MIDTIC_SCRIPT" ]; then
+  ACTIVE_EMISSION=$(python3 -c "
+import json
+try:
+    print(json.load(open('$AUDIT_LOGS/tics/.interstitial-marker.json')).get('emission_id') or '')
+except Exception:
+    print('')
+" 2>/dev/null)
+  if [ -n "$ACTIVE_EMISSION" ]; then
+    MIDTIC_MSG=$(python3 "$MIDTIC_SCRIPT" --zone-root "$ZONE_ROOT" latest \
+      --emission-id "$ACTIVE_EMISSION" --format line 2>/dev/null || true)
+    [ "$MIDTIC_MSG" = "no note" ] && MIDTIC_MSG=""
   fi
 fi
 
@@ -1114,6 +1160,7 @@ if [ -n "$MOGUL_MANDATE_MSG" ]; then
     FULL_MSG="$FULL_MSG [MOGUL CONSUMPTION: Mogul consumes mandates via: bash $MOGUL_RUNNER]"
   fi
 fi
+[ -n "$MIDTIC_MSG" ] && FULL_MSG="${FULL_MSG:+$FULL_MSG }$MIDTIC_MSG"
 [ -n "$PARALLEL_MSG" ] && FULL_MSG="${FULL_MSG:+$FULL_MSG }$PARALLEL_MSG"
 [ -n "$CRISIS_MSG" ] && FULL_MSG="${FULL_MSG:+$FULL_MSG }$CRISIS_MSG"
 [ -n "$SEAL_RECONCILE_MSG" ] && FULL_MSG="${FULL_MSG:+$FULL_MSG }$SEAL_RECONCILE_MSG"

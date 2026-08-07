@@ -282,8 +282,21 @@ def propose_voice(
                 used_model = model
             else:
                 fallback_reason = f"validation_failed:{reason}"
-        except subprocess.TimeoutExpired:
+        except subprocess.TimeoutExpired as exc:
             fallback_reason = f"llm_timeout_{LLM_TIMEOUT_S}s"
+            # canary-docket t673 (b): the timeout's partial output was DISCARDED,
+            # leaving the 677-683 seven-tic fallback streak with no diagnosable
+            # residue. Emit it to stderr — the invoke wrapper captures stderr to
+            # a per-tic file (audit-logs/harmony/stderr-tic-N.log).
+            for _stream, _payload in (("stdout", exc.stdout), ("stderr", exc.stderr)):
+                if _payload:
+                    _text = _payload if isinstance(_payload, str) else _payload.decode("utf-8", "replace")
+                    print(f"DIAG harmony-voice timeout[{_stream}] model={model}: "
+                          f"{_text.strip()[:400]}", file=sys.stderr)
+            if not (exc.stdout or exc.stderr):
+                print(f"DIAG harmony-voice timeout: NO partial output after {LLM_TIMEOUT_S}s "
+                      f"(model={model}) — the CLI hung before emitting anything",
+                      file=sys.stderr)
         except FileNotFoundError:
             fallback_reason = "claude_cli_not_found"
         except Exception as exc:
@@ -472,6 +485,26 @@ def _selftest() -> int:
     checks.append(("llm_error_falls_back_honestly",
                    v_err["voice_source"] == "template_fallback"
                    and str(v_err["fallback_reason"]).startswith("llm_error:")))
+
+    # [7b] TimeoutExpired (with partial output) → honest fallback + no raise;
+    # the diagnostic print is stderr-side (captured per-tic by the wrapper) and
+    # must never break the propose cycle. (canary-docket t673 (b))
+    def _times_out(prompt: str, model: str) -> str:
+        raise subprocess.TimeoutExpired(cmd=["claude", "-p"], timeout=LLM_TIMEOUT_S,
+                                        output="partial line before hang",
+                                        stderr="transport stalled")
+    v_to = propose_voice(fixture_disposition, fixture_braid_fired,
+                         kill_switch="", runner=_times_out)
+    checks.append(("llm_timeout_falls_back_honestly",
+                   v_to["voice_source"] == "template_fallback"
+                   and v_to["fallback_reason"] == f"llm_timeout_{LLM_TIMEOUT_S}s"))
+    def _times_out_silent(prompt: str, model: str) -> str:
+        raise subprocess.TimeoutExpired(cmd=["claude", "-p"], timeout=LLM_TIMEOUT_S)
+    v_tos = propose_voice(fixture_disposition, fixture_braid_fired,
+                          kill_switch="", runner=_times_out_silent)
+    checks.append(("llm_timeout_no_partial_output_falls_back",
+                   v_tos["voice_source"] == "template_fallback"
+                   and v_tos["fallback_reason"] == f"llm_timeout_{LLM_TIMEOUT_S}s"))
 
     # [8] receipt shape (ρ_j) — required keys + AMD-1 naming, always
     required = {"ambient_voice", "voice_source", "model", "duration_ms",
