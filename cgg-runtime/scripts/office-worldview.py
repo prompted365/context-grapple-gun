@@ -689,6 +689,36 @@ def _telos_purpose(zone_root: Path) -> str:
 
 # ----- THE COMPILER --------------------------------------------------------------
 
+def _mandate_cycle_position(zone_root: Path, tic: int, cycle: str) -> str:
+    """Producer scheduled-position for a per-tic mandate cycle
+    (bk-worldview-staleness-canary-scheduled-position, /review-687 ratified ray on
+    constitution-ledger#presence-observation-fallacy-guard).
+
+    The harmony_invoke / contagion_heartbeat producers RIDE this tic's mandate, so
+    at boot — before the mandate is consumed — their scheduled position IS tic-1
+    and lag==1 is the expected per-tic shape, not a miss.
+
+    Returns:
+      pre_mandate  — THIS tic's mandate still carries the cycle open (status
+                     pending/running — the real lifecycle vocabulary is
+                     pending → running → consumed|failed): the obligation can
+                     still land this tic; lag==1 downgrades to INFO
+      post_mandate — the mandate for this tic is terminal: persistence is a miss
+      unknown      — no mandate / different tic / cycle unscheduled: conservative
+                     (callers treat as COUNTER — fail toward loud, never quiet)
+    """
+    mandate = _load_json(zone_root / "audit-logs" / "mogul" / "mandates" / "current.json")
+    if not isinstance(mandate, dict):
+        return "unknown"
+    tcx = mandate.get("tic_context") or {}
+    cyc = (mandate.get("cycle_request") or {}).get("run_now") or []
+    if tcx.get("current_tic") != tic or cycle not in cyc:
+        return "unknown"
+    if mandate.get("status") in ("pending", "running"):
+        return "pre_mandate"
+    return "post_mandate"
+
+
 def compile_fragments(zone_root: Path, office: str, tic: int,
                       effective_view_path: str = None) -> list:
     """Produce the typed worldview_fragment list for (office, tic). Fail-soft per source."""
@@ -744,10 +774,23 @@ def compile_fragments(zone_root: Path, office: str, tic: int,
             # looks live. Surface staleness diagnostically; still use it (fail-soft).
             _disp_tic = disp.get("tic")
             if isinstance(_disp_tic, int) and _disp_tic < tic:
-                frags.append(_frag(zone_root, "harmony.staleness", "harmony/disposition-current",
-                    f"harmony disposition is STALE: tic-{_disp_tic} read at tic-{tic} (lag {tic - _disp_tic}) — L0 orientation lags the field",
-                    "COUNTER",
-                    "liveness canary — the disposition read fell back to a stale tic; treat orientation as lagging, re-invoke harmony if it gates a decision"))
+                # Severity by the producer's SCHEDULED position, never by lag alone
+                # (bk-worldview-staleness-canary-scheduled-position): harmony_invoke
+                # rides this tic's mandate, so lag==1 pre-mandate is the expected
+                # shape (INFO/FIELD); lag>=2, post-mandate persistence, or an
+                # unresolvable position stay COUNTER. Surfacing is never removed.
+                _lag = tic - _disp_tic
+                _pos = _mandate_cycle_position(zone_root, tic, "harmony_invoke")
+                if _lag == 1 and _pos == "pre_mandate":
+                    frags.append(_frag(zone_root, "harmony.staleness", "harmony/disposition-current",
+                        f"harmony disposition at scheduled position: tic-{_disp_tic} read at tic-{tic} (lag 1 pre-mandate — harmony_invoke rides this tic's mandate and has not run yet)",
+                        "FIELD",
+                        "liveness canary at INFO — lag 1 against the producer's scheduled position (pre-mandate) is the expected per-tic shape; escalates to COUNTER at lag>=2 or post-mandate persistence"))
+                else:
+                    frags.append(_frag(zone_root, "harmony.staleness", "harmony/disposition-current",
+                        f"harmony disposition is STALE: tic-{_disp_tic} read at tic-{tic} (lag {_lag}, {_pos}) — L0 orientation lags the field",
+                        "COUNTER",
+                        "liveness canary — the disposition lags the producer's scheduled position; treat orientation as lagging, re-invoke harmony if it gates a decision"))
             d = disp.get("disposition") or {}
             if d.get("stance"):
                 lens = "primary lens — calibrates your resolve directly" if primary else "primary lens projected onto your office — same cores, your centroid"
@@ -791,10 +834,23 @@ def compile_fragments(zone_root: Path, office: str, tic: int,
         if isinstance(cp, dict):
             _cp_tic = cp.get("tic")
             if isinstance(_cp_tic, int) and _cp_tic < tic:
-                frags.append(_frag(zone_root, "contagion.staleness", "contagion/current-pointer",
-                    f"contagion heartbeat STALE: disposition tic-{_cp_tic} read at tic-{tic} (lag {tic - _cp_tic}) — the conformation echo lags the field; the heartbeat cycle missed",
-                    "COUNTER",
-                    "liveness canary — the per-tic contagion_heartbeat did not land for this tic; treat the echo as lagging"))
+                # Same scheduled-position split as harmony.staleness. The old text
+                # asserted "the heartbeat cycle missed" at ANY lag — a false causal
+                # claim pre-mandate (the cycle simply has not run yet this tic);
+                # the /review-687 ray retires the blanket miss claim in BOTH arms
+                # (the COUNTER wording scopes the claim to the scheduled tic).
+                _cp_lag = tic - _cp_tic
+                _cp_pos = _mandate_cycle_position(zone_root, tic, "contagion_heartbeat")
+                if _cp_lag == 1 and _cp_pos == "pre_mandate":
+                    frags.append(_frag(zone_root, "contagion.staleness", "contagion/current-pointer",
+                        f"contagion disposition at scheduled position: tic-{_cp_tic} read at tic-{tic} (lag 1 pre-mandate — contagion_heartbeat rides this tic's mandate and has not run yet)",
+                        "FIELD",
+                        "liveness canary at INFO — lag 1 against the producer's scheduled position (pre-mandate) is the expected per-tic shape; escalates to COUNTER at lag>=2 or post-mandate persistence"))
+                else:
+                    frags.append(_frag(zone_root, "contagion.staleness", "contagion/current-pointer",
+                        f"contagion heartbeat STALE: disposition tic-{_cp_tic} read at tic-{tic} (lag {_cp_lag}, {_cp_pos}) — the conformation echo lags the field; the disposition did not land for its scheduled tic",
+                        "COUNTER",
+                        "liveness canary — the echo lags the producer's scheduled position; treat the echo as lagging"))
             if cp.get("one_way_injection"):
                 frags.append(_frag(zone_root, "contagion.echo", f"contagion/disposition-tic-{_cp_tic}",
                     f"conformation echo (shape-match against learned terrain, not text): {cp['one_way_injection']}",
