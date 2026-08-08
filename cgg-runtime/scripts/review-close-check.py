@@ -1492,8 +1492,55 @@ def load_mandate_id(al_path):
     return (mandate_id, tic)
 
 
-def run_check(project_dir, dry_run=False):
-    """Run the full review-close consistency check."""
+def resolve_obligation_clock(al_path, obligation_tic=None, obligation_mandate_id=None):
+    """Resolve the artifact-naming clock — the OBLIGATION's tic, not the executor's
+    (bk-review-close-check-obligation-clock-naming, /review-687 ratified ray on
+    cgg-ledger#even-tic-review-close-routing-review-step-8-5-discipline).
+
+    The consistency artifact must file under the tic of the mandate that DISPATCHED
+    this review_close_check cycle. Reading current.json at write time is the
+    EXECUTOR clock: when a run crosses a tic boundary (cadence supersedes
+    current.json mid-flight), it files tic-N evidence under tic-{N+1}-check.json
+    and tic-N reads never-checked at count=1. NEVER per-mandate filenames (that
+    re-opens the N!=1 artifact-cardinality family); the N=1-per-tic canonical
+    identity stands — this only fixes WHICH tic names the artifact.
+
+    Precedence:
+      1. explicit CLI (--obligation-tic / --obligation-mandate-id) — invocation authority
+      2. CGG_OBLIGATION_TIC / CGG_OBLIGATION_MANDATE_ID env — pinned by
+         mogul-runner.sh at mandate-snapshot time and inherited by the agent's
+         subprocesses; immune to a mid-run supersede of current.json
+      3. current.json (executor clock) — correct only while no boundary was crossed
+
+    A malformed env tic fails soft (channel treated absent — the cycle must never
+    crash on a bad pin). Returns (mandate_id, tic, source) with source in
+    {"cli", "env", "executor_clock"}.
+    """
+    if obligation_tic is not None or obligation_mandate_id:
+        return (obligation_mandate_id, obligation_tic, "cli")
+    env_tic_raw = os.environ.get("CGG_OBLIGATION_TIC")
+    env_mid = os.environ.get("CGG_OBLIGATION_MANDATE_ID") or None
+    env_tic = None
+    if env_tic_raw:
+        try:
+            env_tic = int(env_tic_raw)
+        except ValueError:
+            env_tic = None
+    if env_tic is not None or env_mid:
+        if env_tic is not None:
+            return (env_mid, env_tic, "env")
+        # mandate-id-only pin: still the obligation channel (mandate-keyed naming)
+        return (env_mid, None, "env")
+    mid, tic = load_mandate_id(al_path)
+    return (mid, tic, "executor_clock")
+
+
+def run_check(project_dir, dry_run=False, obligation_tic=None, obligation_mandate_id=None):
+    """Run the full review-close consistency check.
+
+    obligation_tic / obligation_mandate_id: explicit obligation-clock identity for
+    the written artifact (see resolve_obligation_clock) — the tic of the mandate
+    that dispatched this cycle, outranking the executor clock (current.json)."""
     project_dir = os.path.abspath(project_dir)
     # Rebuild the receipt-surface index fresh each run (tic 593 widened sweep).
     _RECEIPT_INDEX_CACHE.clear()
@@ -1657,7 +1704,20 @@ def run_check(project_dir, dry_run=False):
         report_dir = os.path.join(al_path, "mogul", "cycle-reports", "review-close-checks")
         os.makedirs(report_dir, exist_ok=True)
 
-        mandate_id, mandate_tic = load_mandate_id(al_path)
+        # Obligation-clock naming (bk-review-close-check-obligation-clock-naming):
+        # the artifact files under the OBLIGATION's tic. When an obligation channel
+        # is present and the executor clock (current.json) disagrees, the divergence
+        # is disclosed first-class in the log row — the boundary crossing made
+        # visible, never silently absorbed (surface-don't-hide).
+        mandate_id, mandate_tic, clock_source = resolve_obligation_clock(
+            al_path, obligation_tic, obligation_mandate_id)
+        executor_clock_tic = None
+        if clock_source != "executor_clock":
+            _exec_mid, _exec_tic = load_mandate_id(al_path)
+            if _exec_tic is not None and _exec_tic != mandate_tic:
+                executor_clock_tic = _exec_tic
+            if mandate_id is None:
+                mandate_id = _exec_mid  # audit-trail fallback; naming stays obligation-clocked
         if mandate_tic is not None:
             # Tic-keyed canonical filename — collapses multiple mandates within
             # the same tic to a single artifact (N=1 cardinality target).
@@ -1778,6 +1838,7 @@ def run_check(project_dir, dry_run=False):
         log_entry = {
             "mandate_id": mandate_id,
             "tic": mandate_tic,
+            "obligation_clock_source": clock_source,
             "timestamp": datetime.now(timezone.utc).isoformat(),
             "decision": decision,
             "report_path": output_path,
@@ -1787,6 +1848,10 @@ def run_check(project_dir, dry_run=False):
             "known_count": report["summary"]["known_count"],
             "genuine_consistent": report["summary"]["genuine_consistent"],
         }
+        if executor_clock_tic is not None:
+            # The cured defect, observed live: the run crossed a tic boundary and
+            # the executor clock would have mis-filed this evidence.
+            log_entry["executor_clock_tic"] = executor_clock_tic
         if superseded_receipt is not None:
             log_entry["superseded_receipt"] = superseded_receipt
         atomic_append_jsonl(
@@ -1812,10 +1877,19 @@ def main():
     parser.add_argument("--json", action="store_true", dest="output_json",
                         help="Output structured JSON to stdout")
     parser.add_argument("--quiet", action="store_true")
+    parser.add_argument("--obligation-tic", type=int, default=None,
+                        help="Obligation-clock tic for artifact naming (the tic of "
+                             "the mandate that dispatched this cycle); outranks the "
+                             "CGG_OBLIGATION_TIC env pin and the executor clock")
+    parser.add_argument("--obligation-mandate-id", default=None,
+                        help="Obligation mandate id (audit trail; pairs with "
+                             "--obligation-tic)")
     args = parser.parse_args()
 
     project_dir = args.project_dir or resolve_zone_root()
-    report = run_check(project_dir, dry_run=args.dry_run)
+    report = run_check(project_dir, dry_run=args.dry_run,
+                       obligation_tic=args.obligation_tic,
+                       obligation_mandate_id=args.obligation_mandate_id)
 
     if args.output_json:
         report.pop("_output_path", None)

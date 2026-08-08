@@ -227,6 +227,16 @@ MANDATE_FILE_SNAPSHOT_REF="$MANDATE_SNAPSHOT_DIR/mandate-snapshot-$$.ref"
 touch -r "$MANDATE_FILE" "$MANDATE_FILE_SNAPSHOT_REF"
 trap 'rm -f "$MANDATE_FILE_SNAPSHOT_REF"' EXIT
 
+# Obligation-clock pin (bk-review-close-check-obligation-clock-naming, /review-687
+# ratified ray): export the DISPATCHED mandate's identity so child invocations —
+# the agent's review-close-check.py runs — name their evidence artifact under the
+# OBLIGATION's tic even when /cadence supersedes current.json mid-run (the executor
+# clock, which files tic-N evidence under tic-N+1 across a boundary crossing).
+# Composes with the tic-280 mtime snapshot above: that pins the READ side
+# (find -newer verification); this pins the artifact-NAMING side.
+export CGG_OBLIGATION_TIC="$CURRENT_TIC"
+export CGG_OBLIGATION_MANDATE_ID="$MANDATE_ID"
+
 echo "Mandate: $MANDATE_ID"
 echo "Cycles:  $CYCLES"
 echo "Tic:     $CURRENT_TIC"
