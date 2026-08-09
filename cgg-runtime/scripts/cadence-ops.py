@@ -1263,7 +1263,9 @@ def write_cadence_mandate(zone_root: str, tic: int, trigger_source: str,
     # tic is already the newly-emitted tic (counter_after from the tic event).
     # The mandate targets THIS tic's session, not tic+1.
     due_cycles = compute_due_cycles(tic)
-    due_markers = compute_due_markers(tic)
+    # zone_root threads through so review_due_tic derives from queue truth
+    # (bk-cadence-ops-review-due-formula-off-by-one, t690).
+    due_markers = compute_due_markers(tic, zone_root)
 
     # Read existing mandate for merge-before-write
     al = audit_logs_path(zone_root)

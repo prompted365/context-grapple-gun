@@ -36,11 +36,77 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from zone_root import birth_topology
 
 
-def compute_due_markers(tic: int) -> dict:
-    """Compute due marker tics from current tic count."""
+# Queue-truth review_due derivation (bk-cadence-ops-review-due-formula-off-by-one,
+# filed tic 690 after four consecutive off-by-one observations t687-690: the
+# unconditional tic+1 stamp contradicted the queue maturity law, which matures
+# rows AT entry). review_due_tic is a PROJECTION for readers of tic_context —
+# the bench/docket lane derives the real docket independently and has never
+# been wrong; derivation here is therefore fail-soft (any read failure falls
+# back to tic + 1) so a mandate write can never block on the stamp.
+# LOCKSTEP MIRRORS (no import to avoid a cadence-ops circular import):
+#   _DEFAULT_MATURITY_TICS mirrors ripple-assessor.py DEFAULT_MATURITY_TICS;
+#   _REVIEW_PENDING_STATUSES mirrors cadence-ops.py pending_statuses.
+_DEFAULT_MATURITY_TICS = 3
+_REVIEW_PENDING_STATUSES = {
+    "pending", "extracted", "tic_gated", "enrichment_needed",
+    "enrichment_in_progress", "enrichment_eligible", "promotable", "review_ready",
+}
+
+
+def _derive_review_due_tic(tic: int, queue_path: Path | None) -> int:
+    """min over pending birth-carrying rows of (birth_tic + maturity_tics),
+    clamped to >= tic; tic + 1 when no row carries a maturity clock.
+
+    Latest-entry-per-id read discipline; birthless rows (birth_tic null/0 —
+    evidence-gated classes like C3) contribute no clock. Fail-soft throughout.
+    """
+    default = tic + 1
+    if queue_path is None or not queue_path.exists():
+        return default
+    try:
+        entries: dict[str, dict] = {}
+        with open(queue_path) as f:
+            for line in f:
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    row = json.loads(line)
+                except json.JSONDecodeError:
+                    continue
+                rid = row.get("id")
+                if rid:
+                    entries[rid] = row
+        clocks = []
+        for row in entries.values():
+            if row.get("status") not in _REVIEW_PENDING_STATUSES:
+                continue
+            # `or 0` coalesces explicit birth_tic: null (tic-646 mirror).
+            birth = row.get("birth_tic") or 0
+            if not isinstance(birth, int) or birth <= 0:
+                continue
+            mt = row.get("maturity_tics")
+            mt = _DEFAULT_MATURITY_TICS if mt is None else mt
+            clocks.append(birth + mt)
+        if not clocks:
+            return default
+        return max(tic, min(clocks))
+    except Exception:
+        return default
+
+
+def compute_due_markers(tic: int, zone_root_path: str | None = None) -> dict:
+    """Compute due marker tics from current tic count.
+
+    With zone_root_path, review_due_tic derives from queue truth (see
+    _derive_review_due_tic); without it, the legacy tic + 1 projection holds.
+    """
+    queue_path = None
+    if zone_root_path:
+        queue_path = Path(zone_root_path) / "audit-logs" / "cprs" / "queue.jsonl"
     return {
         "current_tic": tic,
-        "review_due_tic": tic + 1,
+        "review_due_tic": _derive_review_due_tic(tic, queue_path),
         "memory_mining_due_tic": tic + (3 - tic % 3) if tic % 3 != 0 else tic + 3,
         "pattern_mining_due_tic": tic + (4 - tic % 4) if tic % 4 != 0 else tic + 4,
         "ladder_audit_due_tic": tic + (5 - tic % 5) if tic % 5 != 0 else tic + 5,
@@ -137,7 +203,7 @@ def build_mandate(
         "merged_from": merged_from,
         "actor": {"office": "mogul", "embodiment": "cgg_runtime"},
         "trigger": {"kind": trigger_kind, "source_ref": trigger_source},
-        "tic_context": compute_due_markers(tic),
+        "tic_context": compute_due_markers(tic, zone_root_path),
         "cycle_request": {
             "run_now": list(set(cycles)),
             "reason": _build_reason(tic, trigger_kind, cycles, merged_from),
