@@ -115,6 +115,11 @@ LIFECYCLE_MUTABLE_FIELDS = frozenset({
     # --- PROMOTE landing ---
     "promoted_to", "promoted_tic", "promoted_date", "promoted_at",
     "inscription_form", "compact_root_status",
+    # --- ABSORB landing (MERGE / SUPERSEDE / absorb-as-stub; the /review Step-7
+    #     shape: status=absorbed + absorbed_reason "merged into <id>" / "superseded
+    #     by <id>" / stub-of-twin. Family was absent until t689 — all 220 prior
+    #     absorbed rows predate this writer, so its first absorb refused fail-closed) ---
+    "absorbed_reason", "absorbed_tic", "absorbed_date", "absorbed_by",
     # --- advance / reconcile breadcrumbs ---
     "advanced_tic", "advanced_at", "advanced_by", "advance_reason", "current_tic",
     "gate_advanced_at_tic", "gate_advanced_by", "gate_advance_reason",

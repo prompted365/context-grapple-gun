@@ -295,6 +295,23 @@ class TestRefusals(_TmpQueue):
             allow_fields=["wat"], emit_only=True)
         self.assertEqual(report["row"]["wat"], 1)
 
+    def test_absorb_landing_family_is_declared(self):
+        """The ABSORB family (MERGE/SUPERSEDE/absorb-as-stub Step-7 shape) writes
+        without the escape hatch — its first live use (t689 stub absorb) refused
+        fail-closed because the family was absent from the declared set."""
+        write_queue(self.q, [envelope_row()])
+        report = qlw.lifecycle_writeback(
+            CPR_ID,
+            {"status": "absorbed",
+             "absorbed_reason": "malformed duplicate stub of cpr_twin (verify-twin)",
+             "absorbed_tic": 689, "absorbed_date": "2026-08-09",
+             "absorbed_by": "ent_homeskillet/review-689-pass-1"},
+            queue_path=self.q, emit_only=True)
+        self.assertEqual(report["row"]["status"], "absorbed")
+        self.assertEqual(report["row"]["absorbed_tic"], 689)
+        # copy-forward still holds: the envelope survives the absorb
+        self.assertEqual(report["row"]["lesson"], envelope_row()["lesson"])
+
     def test_all_violations_reported_at_once(self):
         write_queue(self.q, [envelope_row()])
         with self.assertRaises(qlw.LifecycleWritebackRefused) as ctx:
