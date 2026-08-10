@@ -46,14 +46,90 @@ from atomic_append import dedup_signal_append, atomic_append_jsonl  # noqa: E402
 # ---------------------------------------------------------------------------
 # Discovery
 # ---------------------------------------------------------------------------
+#
+# CHAIN-MEMBERSHIP FENCE (ratified /review 688 from
+# cpr_mogul_ladder_audit_d3df75aab9fa — PROMOTE-as-ray on
+# cgg-ledger#precondition-gate-perimeter-completeness, membership axis).
+#
+# `skip_dirs` below fences NOISE (build artifacts, vendor internals, nested
+# repos). It never answered the MEMBERSHIP question — is this artifact a member
+# of the governed chain AT ALL? Declaring HOW parentage was inferred (the
+# confidence_note's path-nesting disclosure) qualifies the INFERENCE axis and is
+# silent on MEMBERSHIP, so a reader who honors the disclosure still inherits a
+# contaminated set.
+#
+# An ASSESSMENT MEMBRANE — an agent mailbox, a harpoon-target queue, an inbound
+# harpoonable — holds material that is UNDER assessment and has NOT been admitted
+# (observe-not-couple). At tic 685 the walk adopted two foreign artifacts parked
+# under audit-logs/agent-mailboxes/ as federation chain children (2 of 8 files,
+# 31 of 316 rules) and then emitted a coherence finding whose proposed cure was
+# for the FEDERATION ROOT to reference a harpoon ASSESSMENT TARGET as though it
+# were a governed rung — inbound-material adoption dressed as a coherence repair.
+#
+# Two halves, both required:
+#   1. FENCE the membrane out of chain discovery BEFORE any finding can be
+#      derived from the artifact (the fence runs first in the per-file loop);
+#   2. DISCLOSE the exclusion as a first-class ENUMERATED list
+#      (`membership_exclusions`), never as an implicit noise-skip consequence.
+#
+# SCOPE FENCE — deliberate, do NOT widen: this is not a blanket `audit-logs`
+# exclusion. Governed rung surfaces under audit-logs/ stay discoverable; only the
+# assessment membranes named below are fenced. Matching is PATH-COMPONENT-EXACT,
+# so a lookalike directory name (`inbound-notes`, `harpoonTargets-archive`) is
+# not over-fenced.
+#
+# Engine/content separation (federation KI): the walk is the ENGINE; the membrane
+# name set + reason vocabulary below are the CONTENT.
 
-def discover_claude_mds(zone_root):
-    """Walk from zone root downward, find all CLAUDE.md files.
+ASSESSMENT_MEMBRANE_DIRS = (
+    "agent-mailboxes",   # entity inboxes — inbound envelopes, not doctrine
+    "harpoonTargets",    # covenant-strike assessment targets (queue/)
+    "harpoonables",      # candidate strike material awaiting assessment
+    "inbound",           # the mailbox inbound leg
+)
+
+# Reason vocabulary for a membership exclusion. One class today; the field is
+# typed so a future non-membrane exclusion class lands as data, not a new branch.
+MEMBERSHIP_EXCLUSION_REASONS = {
+    "assessment_membrane": (
+        "un-admitted assessment-membrane material — a mailbox / harpoon-target "
+        "queue / inbound harpoonable holds artifacts UNDER assessment "
+        "(observe-not-couple). They are not members of the governed chain and "
+        "must not become coherence-finding subjects."
+    ),
+}
+
+
+def _membrane_marker(parts):
+    """The OUTERMOST assessment-membrane path component this artifact sits under,
+    or None.
+
+    `parts` is the zone-relative path split on os.sep; only the DIRECTORY
+    components are considered (the trailing CLAUDE.md filename is skipped).
+    Matching is component-EXACT — never substring — so `inbound-notes` and
+    `harpoonTargets-archive` are governed surfaces, not membrane.
+    """
+    for p in parts[:-1]:
+        if p in ASSESSMENT_MEMBRANE_DIRS:
+            return p
+    return None
+
+
+def discover_claude_mds_with_exclusions(zone_root):
+    """Walk from zone root downward; return (chain_members, membership_exclusions).
+
+    chain_members       — the CLAUDE.md files admitted into the governance chain.
+    membership_exclusions — the ENUMERATED disclosure of artifacts fenced OUT on
+        the membership axis: [{path, reason, membrane_marker, detail}]. Always a
+        list, empty when nothing fired (honest-empty, never an absent key).
 
     Aggressively skips vendor submodule internals and nested repos to avoid
-    polluting the governance chain with files outside the zone's authority.
+    polluting the governance chain with files outside the zone's authority, AND
+    fences the assessment membrane (see the section header) so un-admitted
+    inbound material never becomes a chain member or a finding subject.
     """
     found = []
+    membership_exclusions = []
     root = Path(zone_root)
 
     # Directories to skip entirely — nested repos, vendor internals, build artifacts
@@ -64,6 +140,18 @@ def discover_claude_mds(zone_root):
     for md in sorted(root.rglob("CLAUDE.md")):
         rel = str(md.relative_to(root))
         parts = rel.split(os.sep)
+
+        # MEMBERSHIP FENCE — runs FIRST, before every noise skip and before any
+        # finding can be derived from this artifact. Enumerated, not implicit.
+        marker = _membrane_marker(parts)
+        if marker is not None:
+            membership_exclusions.append({
+                "path": rel,
+                "reason": "assessment_membrane",
+                "membrane_marker": marker,
+                "detail": MEMBERSHIP_EXCLUSION_REASONS["assessment_membrane"],
+            })
+            continue
 
         # Skip hidden directories (except .claude)
         if any(p.startswith(".") and p != ".claude" for p in parts):
@@ -86,6 +174,17 @@ def discover_claude_mds(zone_root):
             continue
 
         found.append(md)
+    return found, membership_exclusions
+
+
+def discover_claude_mds(zone_root):
+    """Legacy single-return entry point — the admitted chain members only.
+
+    Kept list-returning so existing callers are unaffected. A caller that must
+    surface WHAT WAS FENCED (any consumer that emits findings or a report) uses
+    `discover_claude_mds_with_exclusions` and carries the disclosure forward.
+    """
+    found, _ = discover_claude_mds_with_exclusions(zone_root)
     return found
 
 
@@ -400,10 +499,15 @@ def load_active_signals(zone_root):
 def run_audit(zone_root, verbose=False):
     """Execute the full ladder audit and return structured results."""
     zone_root = os.path.abspath(zone_root)
-    md_paths = discover_claude_mds(zone_root)
+    md_paths, membership_exclusions = discover_claude_mds_with_exclusions(zone_root)
 
     if not md_paths:
-        return {"error": "No CLAUDE.md files found", "zone_root": zone_root}
+        # The fence disclosure survives the empty-chain path: a zone whose only
+        # CLAUDE.mds were membrane material must still report what it fenced,
+        # or the exclusion goes dark exactly when it explains the empty result.
+        return {"error": "No CLAUDE.md files found", "zone_root": zone_root,
+                "membership_exclusions": membership_exclusions,
+                "membership_exclusion_count": len(membership_exclusions)}
 
     nodes = build_chain(zone_root, md_paths)
     findings = cross_reference(nodes)
@@ -472,6 +576,19 @@ def run_audit(zone_root, verbose=False):
             "for surfacing potential issues, not for authoritative constitutional "
             "judgment. False positives are expected in vendor/nested-repo areas."
         ),
+        "membership_fence_declaration": (
+            "MEMBERSHIP axis (distinct from the inference axis above): artifacts "
+            "under an ASSESSMENT MEMBRANE ("
+            + ", ".join(ASSESSMENT_MEMBRANE_DIRS) +
+            ") are un-admitted inbound material (observe-not-couple) and are "
+            "fenced OUT of chain discovery BEFORE any finding is derived. Each "
+            "exclusion is enumerated below with its reason class — never an "
+            "implicit noise-skip consequence. This is NOT a blanket audit-logs "
+            "exclusion: governed rung surfaces under audit-logs/ stay "
+            "discoverable, and membrane matching is path-component-exact."
+        ),
+        "membership_exclusions": membership_exclusions,
+        "membership_exclusion_count": len(membership_exclusions),
         "claude_md_count": len(md_paths),
         "rules_audited": len(rule_classifications),
         "chain_map": chain_map,
@@ -4470,6 +4587,7 @@ def format_human_readable(result):
     lines.append(f"  Confidence:      {result.get('confidence', 'preliminary')}")
     lines.append(f"  CLAUDE.md files: {result.get('claude_md_count', 0)}")
     lines.append(f"  Rules audited:   {result.get('rules_audited', 0)}")
+    lines.append(f"  Fenced (membership): {result.get('membership_exclusion_count', 0)}")
     lines.append("")
     lines.append("  NOTE: Parent/child inferred from path nesting, not explicit")
     lines.append("  governance linkage. Not authoritative constitutional judgment.")
@@ -4483,6 +4601,21 @@ def format_human_readable(result):
         indent = "  " * info["depth"]
         parent_note = f" (parent: {info['parent']})" if info["parent"] else ""
         lines.append(f"  {indent}{rel} ({info['rule_count']} rules){parent_note}")
+    lines.append("")
+
+    # Membership exclusions — the enumerated fence disclosure (always rendered,
+    # including the honest-empty case: "fenced nothing" is a claim, not a silence).
+    exclusions = result.get("membership_exclusions", [])
+    lines.append(f"MEMBERSHIP EXCLUSIONS ({len(exclusions)}) — fenced OUT of the chain "
+                 "before findings:")
+    lines.append("-" * 60)
+    if result.get("membership_fence_declaration"):
+        lines.append(f"  scope: {result['membership_fence_declaration']}")
+    if not exclusions:
+        lines.append("  (none — no assessment-membrane material encountered)")
+    for e in exclusions:
+        lines.append(f"  [{e.get('reason', '?')}] {e.get('path', '?')}")
+        lines.append(f"      membrane_marker: {e.get('membrane_marker', '?')}")
     lines.append("")
 
     # Summary
