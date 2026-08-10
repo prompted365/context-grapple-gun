@@ -303,12 +303,28 @@ def ingest_candidate_cogprs(
             "extracted_by": "arena-pressure-ingest",
         }
 
-        # QR-T25-001: Auto-assign maturity window when absent
-        if "maturity_window_tics" not in cpr and "maturity_window_tics" not in candidate:
-            cpr["maturity_window_tics"] = 3
-            cpr["review_tic"] = source_tic + 3
-            cpr["assigned_by"] = "arena-pressure-ingest"
-            cpr["assignment_reason"] = "auto-window backfill"
+        # QR-T25-001: Auto-assign maturity clock when absent — one resolved
+        # value feeds BOTH fields (bk-cpr-maturity-field-name-mismatch, struck
+        # tic 694: gate readers read maturity_tics, the compile layer parks on
+        # maturity_window_tics; equal stamps close the silent split). A
+        # candidate authored in the window-only vocabulary resolves as the
+        # clock — previously a candidate-supplied window was DROPPED here (the
+        # backfill branch skipped and nothing copied it into the row).
+        try:
+            maturity_tics = int(candidate.get(
+                "maturity_tics", candidate.get("maturity_window_tics", 3)))
+        except (TypeError, ValueError):
+            maturity_tics = 3
+        cpr["maturity_tics"] = maturity_tics
+        cpr["maturity_window_tics"] = maturity_tics
+        cpr["review_tic"] = source_tic + maturity_tics
+        cpr["assigned_by"] = "arena-pressure-ingest"
+        cpr["assignment_reason"] = (
+            "auto-window backfill"
+            if "maturity_tics" not in candidate
+            and "maturity_window_tics" not in candidate
+            else "candidate clock resolved"
+        )
 
         if not dry_run:
             append_to_queue(cpr, audit_logs)

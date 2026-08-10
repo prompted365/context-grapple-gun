@@ -71,6 +71,10 @@ TERMINAL_STATUSES = frozenset({
 # a born gets a 3-tic review window so it does not look instantly review-due.
 DEFAULT_MATURITY_WINDOW_TICS = 3
 
+# The extracted-gate maturity clock (mirrors lib/cpr_steppable.py and the
+# cpr-stepper.md lifecycle table: tic_delta >= maturity_tics, default 3).
+DEFAULT_MATURITY_TICS = 3
+
 
 def resolve_audit_logs(zone_root: Path) -> Path:
     """Resolve audit-logs path from .ticzone (fallback: audit-logs)."""
@@ -223,6 +227,23 @@ def mint_entry(candidate: dict, source_cycle: str, report: dict, birth_tic: int,
     actor = report.get("actor", {})
     runtime = actor.get("runtime", "") if isinstance(actor, dict) else ""
 
+    # ONE resolved maturity clock feeds BOTH fields below
+    # (bk-cpr-maturity-field-name-mismatch, struck tic 694): the gate readers
+    # (lib/cpr_steppable.py, ripple-assessor.py, mandate-write.py) read
+    # maturity_tics — a field this lane never stamped, so they ran on the
+    # default and agreed with the stamped window only by value-coincidence —
+    # while the compile layer (queue_state_compile._resolve_target_tic) parks
+    # extracted rows on birth + maturity_window_tics. Equal stamps from one
+    # source make the two reader families structurally agree; a candidate
+    # authored in the window-only vocabulary still resolves as the clock.
+    try:
+        maturity_tics = int(candidate.get(
+            "maturity_tics",
+            candidate.get("maturity_window_tics", DEFAULT_MATURITY_TICS),
+        ))
+    except (TypeError, ValueError):
+        maturity_tics = DEFAULT_MATURITY_TICS
+
     entry = {
         "type": "cpr",
         "id": entry_id,
@@ -241,10 +262,9 @@ def mint_entry(candidate: dict, source_cycle: str, report: dict, birth_tic: int,
         "confidence_tier": candidate.get("confidence_tier", "tentative"),
         "lesson_type": candidate.get("lesson_type", "unknown"),
         "birth_tic": candidate.get("birth_tic", birth_tic),
-        "maturity_window_tics": candidate.get(
-            "maturity_window_tics", DEFAULT_MATURITY_WINDOW_TICS
-        ),
-        "review_tic": birth_tic + DEFAULT_MATURITY_WINDOW_TICS,
+        "maturity_tics": maturity_tics,
+        "maturity_window_tics": maturity_tics,
+        "review_tic": birth_tic + maturity_tics,
         "origin_context": "mogul_cycle",
         "source_cycle": cycle,
         "mogul_mandate_id": report.get("mandate_id", ""),
