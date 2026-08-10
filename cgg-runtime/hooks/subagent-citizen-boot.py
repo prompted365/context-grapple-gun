@@ -307,6 +307,57 @@ def render_write_path_receipt_frame(entity: str, tic: int) -> str:
     )
 
 
+# ── invocation currency (tic 695 · bk-agent-status-manifest-currency-writes) ──
+# agent-status.manifest.json declares currency AXES (status / last_validated_tic) but the
+# runtime never wrote an invocation-side currency fact — 18/19 entries lacked
+# last_invoked_tic entirely, so readers saw a currency CLAIM with no currency FACT (an
+# unwritten freshness field suppresses the probe absence would prompt; filed from the
+# /review-693 PROMOTE ray). SubagentStart is the only per-spawn seam that knows BOTH the
+# resolved agent_type AND the tic, so the boot stamps `last_invoked_tic` here.
+#
+# BOUNDS: the manifest is sync_exclude'd (runtime-sync never copies it), so this write
+# mints no install-drift noise. The hook is a CURRENCY WRITER, not a schema author — it
+# stamps only entries that already exist (an unknown agent_type is a silent no-op, never
+# an invented entry). Resolution is ZONE-ROOT-ONLY (the manifest's only copy lives in
+# the source tree under the federation root, and every call site already holds a resolved
+# zone_root — main() exits before them when the zone is unresolvable). No HOOK_DIR
+# fallback: a fallback here is dead code in production AND a fixture-leak vector under
+# test (a root-pinned fixture with no manifest would fall through and stamp the REAL
+# manifest — caught live at tic 695). Atomic-replace, fail-soft: a lost stamp degrades
+# observability, it NEVER blocks a boot.
+_MANIFEST_SUBPATH = (
+    "canonical_developer/context-grapple-gun/cgg-runtime/config/"
+    "agent-status.manifest.json"
+)
+
+
+def record_invocation_currency(zone_root: Path, agent_type: str, tic: int) -> None:
+    """Stamp last_invoked_tic on the agent's EXISTING manifest entry. Fail-soft no-op on
+    missing/corrupt manifest or unknown agent_type."""
+    if not agent_type:
+        return
+    manifest = zone_root / _MANIFEST_SUBPATH
+    if not manifest.is_file():
+        return
+    try:
+        doc = json.loads(manifest.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return
+    agents = doc.get("agents") if isinstance(doc, dict) else None
+    if not isinstance(agents, dict) or agent_type not in agents:
+        return
+    entry = agents[agent_type]
+    if not isinstance(entry, dict):
+        return
+    entry["last_invoked_tic"] = tic
+    try:
+        tmp = manifest.with_suffix(".json.tmp")
+        tmp.write_text(json.dumps(doc, indent=2) + "\n", encoding="utf-8")
+        os.replace(tmp, manifest)
+    except OSError:
+        pass  # currency is best-effort; never block a boot
+
+
 def valid_entities(zone_root: Path) -> set[str]:
     """Load the registered entity-id set from the actor registry."""
     reg = zone_root / "autonomous_kernel" / "actor-registry.json"
@@ -558,6 +609,7 @@ def main() -> int:
         # No inbox (no standing to receive mail), no office-worldview (no office), no
         # identity/memory/inscription. Receipt scales to stakes — kept compact here.
         tic = current_tic(zone_root)
+        record_invocation_currency(zone_root, str(agent_type), tic)
         inject = render_boot_injection(tic, "task_scoped_worker", zone_root)
         parts = [TASK_SCOPED_WORKER_FRAME]
         if inject:
@@ -596,6 +648,7 @@ def main() -> int:
         return 0
 
     tic = current_tic(zone_root)
+    record_invocation_currency(zone_root, str(agent_type), tic)
 
     # CAPABILITY GATE (tic 620): decide the boot-receipt lane from the agent's tool schema BEFORE
     # rendering the worldview, so office-worldview's Bash boot-receipt.py prescription is suppressed
