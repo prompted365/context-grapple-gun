@@ -184,9 +184,20 @@ def extract_candidates(report: dict):
                     yield cand, cyc
 
 
-def mint_entry(candidate: dict, source_cycle: str, report: dict, birth_tic: int, topo: dict):
+def mint_entry(candidate: dict, source_cycle: str, report: dict, birth_tic: int,
+               topo: dict, source_file: str = ""):
     """Build a queue birth-state row from a candidate. Returns the entry dict
     or None when the candidate has no lesson (the one hard requirement).
+
+    source_file (bk-cogpr-ingest-source-file-unstamped, struck tic 694): the
+    producing cycle-report path, zone-relative — stamped so the scanner's
+    Gate-1 A1-665 resolution (stamped source_file FIRST, colon-heuristic over
+    `source` as fallback) stops falling through both attempts and minting an
+    honest-but-discounting source_missing ray (-0.30) on every mogul row. The
+    `source` field stays the mogul:<cycle> provenance TAG (id/dedup formula
+    input) — the stamp adds a path, it never rewrites the tag. Omitted →
+    field absent (no empty-string noise); sibling of the t692 dedup_hash
+    stamp on this same surface.
 
     Provenance (UNIFIED ACROSS HARNESSES): the row carries the same birth
     provenance shape as a cpr-extract-authored born (birth_rung,
@@ -276,6 +287,8 @@ def mint_entry(candidate: dict, source_cycle: str, report: dict, birth_tic: int,
         "extracted_at": now.isoformat(),
         "extracted_by": "cogpr-ingest",
     }
+    if source_file:
+        entry["source_file"] = source_file
     return entry
 
 
@@ -347,9 +360,20 @@ def ingest(zone_root: Path, report_path: Path, dry_run: bool):
     topo = birth_topology(str(zone_root))
     queue_file = str(audit_logs / "cprs" / "queue.jsonl")
 
+    # Zone-relative provenance path for the source_file stamp (relative paths
+    # anchor at zone root, never cwd); a report outside the zone degrades to
+    # its absolute path rather than lying or dropping.
+    try:
+        source_file_rel = str(
+            report_path.resolve().relative_to(Path(zone_root).resolve())
+        )
+    except ValueError:
+        source_file_rel = str(report_path)
+
     for candidate, source_cycle in extract_candidates(report):
         summary["candidates_seen"] += 1
-        entry = mint_entry(candidate, source_cycle, report, birth_tic, topo)
+        entry = mint_entry(candidate, source_cycle, report, birth_tic, topo,
+                           source_file=source_file_rel)
         if entry is None:
             summary["skipped_no_lesson"] += 1
             continue
