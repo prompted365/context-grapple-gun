@@ -369,13 +369,51 @@ def _fallback_threshold() -> int:
         return 2
 
 
-def count_prior_fallback_streak(current_tic: int) -> int:
-    """Consecutive template_fallback runs STRICTLY BEFORE current_tic.
+def _admission_recurrence_threshold() -> int:
+    try:
+        return int(os.environ.get("HARMONY_ADMISSION_RECURRENCE_THRESHOLD", "2"))
+    except ValueError:
+        return 2
 
-    Walks prior disposition-tic-N.json files in descending tic order; counts
-    while voice_source == "template_fallback"; stops at an llm run (reset) or
-    a disposition without a voice object (honest stop — absence ≠ fallback).
+
+# Reason-FAMILY key (bk-harmony-fallback-counter-reason-family, /review-689
+# ratified ray on presence-observation-fallacy-guard, COUNTER-KEY axis; struck
+# tic 692). The reason-blind scalar converted a HEALTHY validator refusal into
+# outage-escalation input (t686: scalar=1 on validation_failed:imperative_
+# vocabulary) and could never surface slow admission-gate recurrence (t670+t686,
+# 16 tics apart — a prompt-drift signal, not an outage). Families:
+#   infrastructure — the LLM lane itself failed (timeout / missing CLI / error):
+#       an outage class; escalates LOUD at small consecutive N.
+#   admission_gate — the validators refused the LLM's output (validation_
+#       failed:*): the gate WORKING; a quality watch over a window, NOT outage.
+#   kill_switch — deliberate operator switch-off: neither failure nor quality;
+#       counts toward nothing, escalates nothing.
+def fallback_reason_family(reason: Optional[str]) -> Optional[str]:
+    if not reason:
+        return None
+    if reason.startswith("validation_failed:"):
+        return "admission_gate"
+    if reason.startswith("kill_switch:"):
+        return "kill_switch"
+    return "infrastructure"
+
+
+def scan_prior_fallback_families(current_tic: int) -> dict[str, Any]:
+    """Family-keyed walk over prior dispositions STRICTLY BEFORE current_tic.
+
+    Walks prior disposition-tic-N.json files in descending tic order (bounded);
+    a disposition without a voice object STOPS the walk (honest stop — the
+    pre-voice era never retroactively counts). Returns:
+      infrastructure_streak — leading run of consecutive infrastructure-family
+          fallbacks (any non-infra run — healthy, admission_gate, kill_switch —
+          breaks it: an admission refusal is not outage evidence);
+      admission_gate_count / admission_gate_tics — admission_gate occurrences
+          across the WHOLE walked window, no consecutivity required (the t670+
+          t686 recurrence is 16 tics apart — a streak can never see it);
+      window_scanned — dispositions actually walked.
     """
+    out = {"infrastructure_streak": 0, "admission_gate_count": 0,
+           "admission_gate_tics": [], "window_scanned": 0}
     tics: list[int] = []
     try:
         for p in HARMONY_DIR.glob("disposition-tic-*.json"):
@@ -383,45 +421,91 @@ def count_prior_fallback_streak(current_tic: int) -> int:
             if m and int(m.group(1)) < current_tic:
                 tics.append(int(m.group(1)))
     except Exception:
-        return 0
-    streak = 0
+        return out
+    infra_run_live = True
     for tic in sorted(tics, reverse=True)[:_FALLBACK_STREAK_SCAN_LIMIT]:
         try:
             body = json.loads((HARMONY_DIR / f"disposition-tic-{tic}.json").read_text())
         except Exception:
             break
-        source = ((body.get("voice") or {}).get("voice_source"))
-        if source == "template_fallback":
-            streak += 1
+        v = body.get("voice")
+        if not isinstance(v, dict):
+            break  # pre-voice era — honest stop
+        out["window_scanned"] += 1
+        if v.get("voice_source") == "template_fallback":
+            family = fallback_reason_family(v.get("fallback_reason"))
+            if family == "infrastructure" and infra_run_live:
+                out["infrastructure_streak"] += 1
+            else:
+                infra_run_live = False
+            if family == "admission_gate":
+                out["admission_gate_count"] += 1
+                out["admission_gate_tics"].append(tic)
         else:
-            break
-    return streak
+            infra_run_live = False  # healthy run breaks the outage streak
+    return out
+
+
+def count_prior_fallback_streak(current_tic: int) -> int:
+    """Back-compat shim: the infrastructure-family streak (the outage class).
+    Pre-t692 this counted ALL fallback reasons — the reason-blind defect."""
+    return scan_prior_fallback_families(current_tic)["infrastructure_streak"]
 
 
 def apply_fallback_counter(voice: dict[str, Any], current_tic: int) -> dict[str, Any]:
-    """Stamp the streak into the receipt; escalate LOUD at threshold.
+    """Stamp family-keyed counters into the receipt; escalate LOUD per family.
 
-    Mutates and returns `voice`. The escalation object is schema-stable on
-    every path ({threshold, fired, streak}); the stderr ESCALATION line fires
-    only at streak >= threshold — the invoke wrapper's stderr capture turns it
-    into announced per-tic residue (the loud path fail-soft had removed).
+    Mutates and returns `voice`. `consecutive_fallbacks` keeps its OUTAGE
+    semantics for existing consumers (mogul cycle report, invoke wrapper) but
+    now counts ONLY the infrastructure family — a healthy validator refusal no
+    longer inflates it. The escalation object stays schema-stable
+    ({threshold, fired, streak}, + family); the admission-gate watch is a
+    SEPARATE channel with its own threshold and an explicitly-not-an-outage
+    stderr line. kill_switch counts toward nothing.
     """
     threshold = _fallback_threshold()
+    adm_threshold = _admission_recurrence_threshold()
+    prior = scan_prior_fallback_families(current_tic)
+    current_family = None
     if voice.get("voice_source") == "template_fallback":
-        streak = count_prior_fallback_streak(current_tic) + 1
-    else:
-        streak = 0
-    fired = streak >= threshold
-    voice["consecutive_fallbacks"] = streak
+        current_family = fallback_reason_family(voice.get("fallback_reason"))
+
+    infra_streak = (prior["infrastructure_streak"] + 1) if current_family == "infrastructure" else 0
+    adm_count = prior["admission_gate_count"] + (1 if current_family == "admission_gate" else 0)
+
+    fired = infra_streak >= threshold
+    voice["consecutive_fallbacks"] = infra_streak
     voice["fallback_escalation"] = {
-        "threshold": threshold, "fired": fired, "streak": streak,
+        "threshold": threshold, "fired": fired, "streak": infra_streak,
+        "family": "infrastructure",
+    }
+    voice["fallback_families"] = {
+        "current": current_family,
+        "infrastructure_streak": infra_streak,
+        "admission_gate_window_count": adm_count,
+        "window_scanned": prior["window_scanned"],
+    }
+    adm_fired = adm_count >= adm_threshold
+    voice["admission_gate_watch"] = {
+        "threshold": adm_threshold, "fired": adm_fired, "count": adm_count,
     }
     if fired:
         print(
-            f"ESCALATION harmony-voice-fallback-streak: {streak} consecutive "
-            f"template_fallback runs at tic {current_tic} (threshold={threshold}, "
-            f"latest fallback_reason={voice.get('fallback_reason')}) — the voice "
-            f"lane is degraded across runs, not once; re-diagnose, never just re-raise",
+            f"ESCALATION harmony-voice-fallback-streak: {infra_streak} consecutive "
+            f"infrastructure-family fallback runs at tic {current_tic} "
+            f"(threshold={threshold}, latest fallback_reason={voice.get('fallback_reason')}) "
+            f"— the voice lane is degraded across runs, not once; re-diagnose, "
+            f"never just re-raise",
+            file=sys.stderr,
+        )
+    if adm_fired:
+        prior_tics = prior["admission_gate_tics"]
+        print(
+            f"QUALITY-WATCH harmony-voice-admission-gate-recurrence: {adm_count} "
+            f"validator refusals in the last {prior['window_scanned'] + 1} runs "
+            f"(prior refusal tics: {prior_tics}; threshold={adm_threshold}) — the "
+            f"admission gate is WORKING; this is a prompt-drift signal, NOT an "
+            f"outage — review the voice prompt/validators, do not escalate the lane",
             file=sys.stderr,
         )
     return voice
