@@ -8,7 +8,8 @@ Exercises the four lowered fragments:
                 execution boundary before any side effect lands
   wave 0 obj-1  refusal typed + visible (structured return + log line)
   wave 1 obj-0  single-emission happy path byte-for-byte unchanged
-                (OLD-vs-NEW twin-zone byte parity under a frozen clock)
+                (OLD-vs-NEW twin-zone byte parity under a frozen clock and a
+                frozen uuid — emission_id is by-design unique per mint)
   wave 1 obj-1  phantom-tic recurrence class (266/579/580/588) can no longer
                 mint a duplicate counted emission
 
@@ -30,6 +31,7 @@ import subprocess
 import sys
 import tempfile
 import time
+import uuid
 from datetime import datetime, timezone
 
 SCRIPTS_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -42,6 +44,18 @@ class FakeDT(datetime):
     @classmethod
     def now(cls, tz=None):
         return FIXED_NOW
+
+
+class FrozenUuid:
+    """uuid stand-in for the parity arm — emission_id is by-design unique per
+    mint (uuid4 at cadence-ops emit), so byte parity must pin it; every other
+    byte of the twin rows still has to match on its own."""
+    class _V:
+        hex = "0" * 32
+
+    @staticmethod
+    def uuid4():
+        return FrozenUuid._V
 
 
 def load_module(path, name):
@@ -97,6 +111,8 @@ def main():
 
             old_mod.datetime = FakeDT
             new_mod.datetime = FakeDT
+            old_mod.uuid = FrozenUuid
+            new_mod.uuid = FrozenUuid
             os.environ.pop("CLAUDE_CODE_SESSION_ID", None)
 
             zone_old = make_zone(tmp, "zone-old")
@@ -121,6 +137,10 @@ def main():
             results["A_byte_parity"] = "PASS (tic row + mirror byte-identical; sidecar additive)"
         except Exception as err:  # noqa: BLE001
             failures.append(f"A_byte_parity: {err}")
+        finally:
+            # The refusal arms need unique emission ids again (frozen ids would
+            # trip the guard's same-emission_id replay path instead of refusal).
+            new_mod.uuid = uuid
 
         # Fresh zone for the refusal arms.
         zone = make_zone(tmp, "zone-guard")
