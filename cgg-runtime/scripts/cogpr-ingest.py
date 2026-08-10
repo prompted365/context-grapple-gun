@@ -202,6 +202,17 @@ def mint_entry(candidate: dict, source_cycle: str, report: dict, birth_tic: int,
     # same id, so dedup_queue_append idempotently skips re-births.
     digest = hashlib.sha256(f"{cycle}:{lesson}".encode()).hexdigest()[:12]
     entry_id = f"cpr_mogul_{cycle}_{digest}"
+    # Colon-form dedup_hash stamped AT CAPTURE — the cpr-extract lane's exact
+    # formula, sha256("{source}:{lesson}")[:16] — so hash-dedup on this lane
+    # stops being ABSENT entirely (bk-cogpr-ingest-dedup-hash-unstamped, struck
+    # tic 692: 25/36 ingest rows corpus-wide carried NO dedup_hash vs
+    # cpr-extract at 171/171; sharpened by the t687 stub-pair finding). The
+    # stamp is capture-side parity only — the stub-ABSORB question stays the
+    # /review lane's (scope fence), and historical unstamped rows are not
+    # retro-edited (append-only; latest-per-id carries the stamp forward on
+    # any future lifecycle row via copy-forward).
+    source = f"mogul:{cycle}"
+    dedup_hash = hashlib.sha256(f"{source}:{lesson}".encode()).hexdigest()[:16]
 
     scopes = candidate.get("recommended_scopes")
     if scopes is None and "recommended_scope" in candidate:
@@ -219,7 +230,8 @@ def mint_entry(candidate: dict, source_cycle: str, report: dict, birth_tic: int,
         "status": "extracted",
         "tier": "tier1",
         "lesson": lesson,
-        "source": f"mogul:{cycle}",
+        "source": source,
+        "dedup_hash": dedup_hash,
         "source_date": now.strftime("%Y-%m-%d"),
         "band": candidate.get("band", "COGNITIVE"),
         "motivation_layer": candidate.get("motivation_layer", "COGNITIVE"),
