@@ -163,7 +163,22 @@ atomic_append() {
   esac
 }
 
-# Python-callable version for subprocess invocation
-if [ "${1:-}" = "--append" ] && [ -n "${2:-}" ] && [ -n "${3:-}" ]; then
-  atomic_append "$2" "$3"
+# Python-callable version for subprocess invocation.
+#
+# Argument-shape guard (bk-atomic-append-positional-silent-noop, struck tic 692):
+# EXECUTED without the --append sentinel this file used to fall through — exit 0,
+# ZERO bytes written — a silent no-op that read as success at every call site
+# (caught live by the tic-691 cpr-stepper reading its receipt back). Misuse now
+# fails LOUD: exit 2 + usage naming the sentinel. Scoped to EXECUTION only
+# (BASH_SOURCE test): sourcing consumers (cgg-gate / session-restore /
+# posttool-microscan / mogul-runner) carry their own positional args, which must
+# stay inert — a sourced library must never act on, or object to, its caller's argv.
+if [ "${BASH_SOURCE[0]}" = "$0" ]; then
+  if [ "${1:-}" = "--append" ] && [ -n "${2:-}" ] && [ -n "${3:-}" ]; then
+    atomic_append "$2" "$3"
+  else
+    echo "usage: atomic-append.sh --append <target-file> <json-line>" >&2
+    echo "[atomic-append] REFUSED (exit 2): executed without the --append sentinel (got: ${*:-<no args>}) — this misuse-shape used to no-op silently with exit 0; it now fails loud (bk-atomic-append-positional-silent-noop)." >&2
+    exit 2
+  fi
 fi
