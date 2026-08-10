@@ -79,7 +79,8 @@
       "last_validated_tic": 220,
       "validation_source": "audit-logs/agent-mailboxes/ent_breyden/inbound/cgg-runtime-agent-matrix-tic219.md",
       "decision_required": null,
-      "notes": "Model upgraded haiku \u2192 sonnet at tic 219 per federation KI tic 207 (spec-runtime alignment). /loop skill target. Append-only queue.jsonl semantics with latest-entry-per-id-wins read."
+      "notes": "Model upgraded haiku \u2192 sonnet at tic 219 per federation KI tic 207 (spec-runtime alignment). /loop skill target. Append-only queue.jsonl semantics with latest-entry-per-id-wins read.",
+      "last_invoked_tic": 696
     },
     "crisis-sentinel": {
       "status": "current",

@@ -419,6 +419,42 @@ def select_borns_files(governance_dir, window=BORNS_RECENCY_WINDOW):
     return [f for _, _, f in selected]
 
 
+def _data_tree_root(project_dir):
+    """Resolve the zone's audit-logs DATA-tree root (config-driven, never the
+    literal "audit-logs" basename — engine-content separation). Fallback to the
+    universal default keeps the boundary CLOSED if .ticzone is unreadable;
+    failing open here would silently reopen the intake hole."""
+    try:
+        return Path(audit_logs_path(project_dir, load_ticzone(project_dir))).resolve()
+    except Exception:
+        return (Path(project_dir) / "audit-logs").resolve()
+
+
+# Typed reason code for the --plan-file membrane guard (arm B of
+# bk-cpr-extract-declared-emitter-allowlist, tic 696).
+MEMBRANE_PLAN_FILE_REASON = "plan_file_membrane_path_rejected"
+
+
+def membrane_plan_file_reason(plan_file, project_dir, tz_config=None):
+    """Typed intake guard for --plan-file: returns MEMBRANE_PLAN_FILE_REASON
+    when the resolved plan file lies inside the zone's agent-mailboxes membrane
+    tree, else None. Membrane paths are FIELD evidence, never emitter surfaces
+    — inbound dumps carry other-entity-authored candidate-shaped text that must
+    not enter the queue by being pointed at (rescue material routes by copying
+    into a declared emitter surface under a /review-gated decision)."""
+    try:
+        p = Path(plan_file).resolve()
+        al = Path(audit_logs_path(
+            project_dir, tz_config if tz_config is not None else load_ticzone(project_dir)
+        )).resolve()
+        mailboxes = al / "agent-mailboxes"
+        if p == mailboxes or mailboxes in p.parents:
+            return MEMBRANE_PLAN_FILE_REASON
+    except Exception:
+        return None
+    return None
+
+
 def find_governance_files(project_dir, excludes, plan_file=None,
                           session_lessons_window=SESSION_LESSONS_RECENCY_WINDOW,
                           borns_window=BORNS_RECENCY_WINDOW):
@@ -430,16 +466,34 @@ def find_governance_files(project_dir, excludes, plan_file=None,
     Auto-memory surfaces (MEMORY.md + session_lessons in ~/.claude) are NOT
     scanned since tic 570 — memory is not governance (see the DECOUPLED note
     below). session_lessons_window is a deprecated no-op kept for back-compat.
+
+    DECLARED-EMITTER ALLOW-LIST (bk-cpr-extract-declared-emitter-allowlist,
+    tic 696): emitter status is DECLARED, never inferred from a basename. The
+    doctrine-tree rglob below may not enter the audit-logs DATA tree — that
+    tree's only declared emitter (the borns home) is its own allow-listed leg
+    further down, and its agent-mailboxes membrane accumulates inbound dumps
+    whose files are merely NAMED CLAUDE.md/MEMORY.md (2 live mailbox ingests at
+    strike time; 29 extractable blocks in the filing's survey, held out of the
+    queue only by terminal-valve luck). This closes the asymmetry where this
+    leg ran an unbounded rglob behind the .ticignore DENY-list while the borns
+    and --plan-file legs were already allow-lists. NOT a ported deny-fence: the
+    boundary is the declared doctrine-tree/data-tree split, resolved from
+    .ticzone config (see _data_tree_root), not a path blacklist.
     """
     gov_files = []
+    data_tree = _data_tree_root(project_dir)
     for name in ["CLAUDE.md", "MEMORY.md"]:
         for f in Path(project_dir).rglob(name):
             try:
                 rel = f.relative_to(project_dir)
             except ValueError:
                 continue
-            if not should_exclude(rel, excludes):
-                gov_files.append(f)
+            if should_exclude(rel, excludes):
+                continue
+            fr = f.resolve()
+            if fr == data_tree or data_tree in fr.parents:
+                continue
+            gov_files.append(f)
 
     # MEMORY DECOUPLED (tic 570, Architect-directed: memory is not governance).
     # The auto-memory directory (~/.claude/projects/<key>/memory/ — MEMORY.md and
@@ -674,6 +728,26 @@ def extract_cprs(project_dir, dry_run=False, plan_file=None, anomaly_threshold=0
     project_dir = os.path.abspath(project_dir)
     tz_config = load_ticzone(project_dir)
     al_path = audit_logs_path(project_dir, tz_config)
+
+    # --plan-file membrane arming (bk-cpr-extract-declared-emitter-allowlist,
+    # tic 696, arm B): typed reject AT INTAKE, before any read/write side
+    # effect. A membrane plan-file would route other-entity inbound dumps
+    # (block AND liberal prose-fallback forms) straight into the queue.
+    if plan_file:
+        _reject = membrane_plan_file_reason(plan_file, project_dir, tz_config)
+        if _reject:
+            print(
+                f"cpr-extract intake reject [{_reject}]: --plan-file "
+                f"{plan_file!r} resolves inside the zone's agent-mailboxes "
+                f"membrane tree. Membrane paths are FIELD evidence, never "
+                f"emitter surfaces — copy rescue material into a declared "
+                f"emitter surface under a /review-gated decision instead of "
+                f"pointing the extractor at the membrane "
+                f"(bk-cpr-extract-declared-emitter-allowlist).",
+                file=sys.stderr,
+            )
+            raise SystemExit(2)
+
     queue_file = os.path.join(al_path, "cprs", "queue.jsonl")
     excludes = load_ticignore(project_dir)
     existing_hashes, terminal_ids = load_existing_state(queue_file)
