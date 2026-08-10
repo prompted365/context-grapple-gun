@@ -331,6 +331,65 @@ def validate_mandate_or_die(mandate: dict) -> None:
         _die_invalid(errors)
 
 
+def _append_history_jsonl(history_file: Path, row: dict) -> None:
+    """Append one row to the mandate history ledger (atomic-append discipline)."""
+    try:
+        from lib.atomic_append import atomic_append_jsonl
+        atomic_append_jsonl(str(history_file), row)
+    except ImportError:
+        import fcntl
+        lockfile = str(history_file) + ".lock"
+        with open(lockfile, "w") as lf:
+            fcntl.flock(lf.fileno(), fcntl.LOCK_EX)
+            try:
+                with open(history_file, "a") as f:
+                    f.write(json.dumps(row) + "\n")
+            finally:
+                fcntl.flock(lf.fileno(), fcntl.LOCK_UN)
+
+
+def _terminalize_absorbed_pending(mandate: dict, absorbed: dict | None, history_file: Path) -> None:
+    """Close the absorbed lane at the merge site (bk-mandate-merge-terminalize-absorbed,
+    /review-691 ratified: A MERGE MUST TERMINALIZE WHAT IT CONSUMES).
+
+    A merge that absorbs a NEVER-DISPATCHED (pending) predecessor is the only
+    absorption with no other terminal writer: a running predecessor's own runner
+    still lands running_to_consumed[_detached] through the write-back guard, and
+    the supersede branch fires only on already-terminal records. Recording the
+    absorption only on the absorber (merged_from) left the absorbed record's
+    ledger lane permanently non-terminal — inverting the declared tiebreaker
+    authority ("on disagreement the LEDGER is truth", cgg-gate.sh protocol 2.5).
+
+    Emission keys on BOUNDARY TRUTH — the record current.json held at the
+    clobber, not the merge-time snapshot: it must be named in this mandate's
+    merged_from AND still be status "pending" (an unrecognized live status is
+    merged for safety but never mislabeled pending_to_merged; a predecessor that
+    started running in between keeps its own terminal writer). Fail-soft: a
+    ledger emission failure warns and never blocks the mandate write.
+    """
+    if absorbed is None:
+        return
+    absorbed_id = absorbed.get("mandate_id", "")
+    if not absorbed_id or absorbed_id == mandate.get("mandate_id"):
+        return
+    if absorbed_id not in mandate.get("merged_from", []):
+        return
+    if absorbed.get("status", "pending") != "pending":
+        return
+    try:
+        _append_history_jsonl(history_file, {
+            "transition": "pending_to_merged",
+            "mandate_id": absorbed_id,
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "merged_into": mandate["mandate_id"],
+            "emitted_by": "mandate-write",
+        })
+    except Exception as e:
+        print(f"[mandate-write] WARN: pending_to_merged emission failed for "
+              f"{absorbed_id} ({e}); the absorbed lane stays open in the ledger.",
+              file=sys.stderr)
+
+
 def write_mandate(mandate: dict, zone_root: Path, audit_logs_rel: str = "audit-logs") -> Path:
     """Write mandate to current.json and append to history.
 
@@ -338,6 +397,8 @@ def write_mandate(mandate: dict, zone_root: Path, audit_logs_rel: str = "audit-l
     covered: the CLI main() path (session-restore.sh) AND direct-import callers
     (cadence-ops.py builds+writes via the imported functions, bypassing main()). A
     malformed mandate raises SystemExit(2) before any disk write. (/review 598.)
+    The merge-terminalize emission lives at the same boundary for the same reason:
+    the current.json overwrite IS the absorption.
     """
     validate_mandate_or_die(mandate)
     audit_logs = zone_root / audit_logs_rel
@@ -347,23 +408,16 @@ def write_mandate(mandate: dict, zone_root: Path, audit_logs_rel: str = "audit-l
     history_dir.mkdir(parents=True, exist_ok=True)
 
     mandate_file = mandate_dir / "current.json"
+    # Read the record being clobbered BEFORE the overwrite — the terminalize
+    # decision keys on what the file holds at the boundary.
+    absorbed = read_existing_mandate(mandate_file)
     mandate_file.write_text(json.dumps(mandate, indent=2))
 
     today = datetime.now().strftime("%Y-%m-%d")
     history_file = history_dir / f"{today}.jsonl"
-    try:
-        from lib.atomic_append import atomic_append_jsonl
-        atomic_append_jsonl(str(history_file), mandate)
-    except ImportError:
-        import fcntl
-        lockfile = str(history_file) + ".lock"
-        with open(lockfile, "w") as lf:
-            fcntl.flock(lf.fileno(), fcntl.LOCK_EX)
-            try:
-                with open(history_file, "a") as f:
-                    f.write(json.dumps(mandate) + "\n")
-            finally:
-                fcntl.flock(lf.fileno(), fcntl.LOCK_UN)
+    # Ledger order: close the absorbed lane first, then the successor's row.
+    _terminalize_absorbed_pending(mandate, absorbed, history_file)
+    _append_history_jsonl(history_file, mandate)
 
     return mandate_file
 
