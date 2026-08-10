@@ -216,6 +216,13 @@ def mine_patterns(project_dir, dry_run=False):
     patterns_file = os.path.join(patterns_dir, f"{date_str}.jsonl")
 
     new_patterns = []
+    # Early-gate suppression counter (cgg-ledger#extractor-anomaly-self-reporting,
+    # refined /review 695): a detected recurrence dropped as count-unchanged is a
+    # SUPPRESSION, and every suppression gate must self-report — otherwise this
+    # loop's zero is indistinguishable from detection-zero at the reader (lived
+    # t692: 57 detected / 57 suppressed / reader saw nothing). Symmetric with the
+    # late gate's skipped_duplicate report in emit_pattern_envelopes.
+    suppressed_unchanged = 0
 
     # For each CPR, check for recurrence across the queue
     for cpr_id, cpr in queue.items():
@@ -255,6 +262,7 @@ def mine_patterns(project_dir, dry_run=False):
 
         # Only emit if count increased or pattern is new
         if existing and new_count <= prev_count:
+            suppressed_unchanged += 1
             continue
 
         # Determine confidence tier from observation count
@@ -308,6 +316,17 @@ def mine_patterns(project_dir, dry_run=False):
 
         new_patterns.append(pattern)
         existing_patterns[pattern_id] = pattern
+
+    # Early-gate suppression self-report: label the zero by its cause-axis so a
+    # suppression-zero never reads as pattern absence (not detection-zero).
+    if suppressed_unchanged:
+        print(
+            f"[pattern_miner] early-gate suppression: {suppressed_unchanged} "
+            f"detected recurrence(s) suppressed as count-unchanged vs existing "
+            f"pattern records — an empty emission this run is suppression-aware, "
+            f"not detection-zero",
+            file=sys.stderr,
+        )
 
     # Write patterns
     if new_patterns and not dry_run:
