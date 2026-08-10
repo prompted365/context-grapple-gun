@@ -31,6 +31,9 @@ from zone_root import resolve_zone_root, load_ticzone, load_subsystems_config, a
 from pattern_miner import gather_recurrence_count
 # Shared active-ray predicate (tic 403): heat-based, retires acknowledged-as-active.
 from lib.signal_active import is_active_ray
+# Shared doctrine-surface owner (tic 335): '<surface>#<anchor>' scope resolution
+# routes through the single ledger-discovery owner, never re-derived here (t692).
+from lib.doctrine_surfaces import resolve_surface_anchor, anchor_present
 
 
 HOLDING_STATUSES = {"enrichment_needed", "enrichment_eligible"}
@@ -386,6 +389,28 @@ def gather_target_absence(cpr, project_dir):
         # produced false target_absence_confirmed reports — surfaced by Tier 1
         # swarm across many records.)
         scope_path_str = scope.split(" (")[0].strip() if " (" in scope else scope.strip()
+
+        # '<surface>#<anchor>' scope forms (cgg-ledger#..., constitution-ledger#...)
+        # resolve through the shared doctrine-surface owner, NOT as literal paths —
+        # the literal Path(project_dir)/'cgg-ledger#...' never exists, which
+        # manufactured a FALSE 'target_absence_confirmed (file missing)' row on
+        # every ledger-scoped CogPR (bk-enrichment-scanner-surface-anchor-target-
+        # resolution, struck tic 692). An unresolvable alias falls through to the
+        # literal-path branch so its honest '(file missing)' report is preserved.
+        anchor_ledger, anchor = resolve_surface_anchor(scope_path_str, project_dir)
+        if anchor_ledger is not None:
+            try:
+                ledger_content = Path(anchor_ledger).read_text(encoding="utf-8")
+            except (OSError, UnicodeDecodeError):
+                absent_targets.append(f"{scope} (unreadable)")
+                continue
+            if snippet in ledger_content:
+                present_targets.append(scope)
+            elif anchor_present(ledger_content, anchor):
+                absent_targets.append(scope)
+            else:
+                absent_targets.append(f"{scope} (anchor missing)")
+            continue
 
         # Federation-prefix tolerance: operators write "canonical/X" meaning
         # the federation root file, but project_dir IS canonical. Try literal

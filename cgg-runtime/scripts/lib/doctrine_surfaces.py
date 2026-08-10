@@ -160,6 +160,83 @@ def read_doctrine_body(
 
 
 # ---------------------------------------------------------------------------
+# Surface-alias resolution for '<surface>#<anchor>' scope forms
+# (bk-enrichment-scanner-surface-anchor-target-resolution, struck tic 692)
+# ---------------------------------------------------------------------------
+#
+# The /review lane standardized doctrine scopes as '<surface>#<anchor>'
+# (cgg-ledger#mandate-lifecycle-defects, constitution-ledger#...). The surface
+# alias IS the ledger directory's basename by that convention. A consumer that
+# treats the form as a literal filesystem path manufactures FALSE
+# 'target_absence_confirmed (file missing)' evidence on every ledger-scoped
+# CogPR — the t691 find. This module owns ledger discovery, so the alias→file
+# mapping lives here (extend the single owner; consumers route through it).
+_SURFACE_ALIAS_GLOBS = [
+    "audit-logs/governance/*-ledger/ledger.md",   # federation rung (nested)
+    "*-ledger/ledger.md",                          # zone-root siblings
+    "canonical_developer/*/*-ledger/ledger.md",    # developer-estate domain rungs
+]
+
+
+def ledger_alias_map(zone_root: _PathLike) -> dict[str, str]:
+    """Map ledger-directory basenames (the '<surface>' in '<surface>#<anchor>'
+    scope forms) to their ledger.md paths, discovered from the zone root.
+    First-found wins per alias (deterministic: globs searched in declared
+    order, hits sorted)."""
+    zone_root = os.fspath(zone_root)
+    aliases: dict[str, str] = {}
+    for pat in _SURFACE_ALIAS_GLOBS:
+        for hit in sorted(_glob.glob(os.path.join(zone_root, pat))):
+            if os.path.isfile(hit):
+                aliases.setdefault(os.path.basename(os.path.dirname(hit)), hit)
+    return aliases
+
+
+def _slug(text: str) -> str:
+    return re.sub(r"[^a-z0-9]+", "-", text.lower()).strip("-")
+
+
+def anchor_present(text: str, anchor: str) -> bool:
+    """True iff the anchor exists in a doctrine body — as an explicit
+    `<a id="...">`/`<a name="...">` tag (the cgg-ledger form) or as a markdown
+    heading whose GitHub-style slug matches (the constitution-ledger form).
+    Prefix containment is accepted either way because compact-root pointers
+    truncate long slugs (e.g. `...-architect-authorized-c`)."""
+    want = _slug(anchor)
+    if not want:
+        return False
+    for m in re.finditer(r'<a\s+(?:id|name)="([^"]+)"', text):
+        got = _slug(m.group(1))
+        if got == want or got.startswith(want) or want.startswith(got):
+            return True
+    for line in text.splitlines():
+        if line.startswith("#"):
+            got = _slug(line.lstrip("#").strip())
+            if got and (got == want or got.startswith(want) or want.startswith(got)):
+                return True
+    return False
+
+
+def resolve_surface_anchor(
+    scope: str, zone_root: _PathLike
+) -> tuple[Optional[str], Optional[str]]:
+    """Resolve a '<surface>#<anchor>' scope form to (ledger_path, anchor).
+
+    Returns (None, None) when the scope is not a surface#anchor form (a path
+    containing '/' before the '#' is a literal file path with a fragment, not
+    an alias). Returns (None, anchor) when the form matches but no ledger
+    resolves for the alias — the caller keeps its literal-path fallback."""
+    if "#" not in scope:
+        return None, None
+    surface, anchor = scope.split("#", 1)
+    surface = surface.strip()
+    if not surface or "/" in surface or "." in surface:
+        return None, None
+    ledger = ledger_alias_map(zone_root).get(surface)
+    return ledger, anchor.strip()
+
+
+# ---------------------------------------------------------------------------
 # Doctrine-id matching (legacy CogPR-N + current cpr_<slug>)
 # ---------------------------------------------------------------------------
 #
