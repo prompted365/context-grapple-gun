@@ -235,19 +235,56 @@ def detect_harmonic_triads(active_signals, window_hours=24):
 # CPR inline scan
 # ---------------------------------------------------------------------------
 
+def _load_cpr_extract():
+    """Load the sibling cpr-extract module (hyphenated filename) for its
+    declared-emitter universe + block grammar. Returns the module or None."""
+    import importlib.util
+    script = os.path.join(
+        os.path.dirname(os.path.abspath(__file__)), "cpr-extract.py")
+    try:
+        spec = importlib.util.spec_from_file_location("cpr_extract", script)
+        mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mod)
+        return mod
+    except Exception:
+        return None
+
+
 def count_pending_cprs_inline(project_dir):
-    """Count pending CPR flags in CLAUDE.md files. Returns int."""
+    """Count pending-status CogPR candidate BLOCKS on the declared emitter
+    surfaces. Returns an int, or None when the emitter universe cannot be
+    resolved (honest-unknown — never a fabricated 0, which reads as all-clear).
+
+    Consumes cpr-extract's find_governance_files universe (ONE universe by
+    construction — the tic-696 declared-emitter allow-list: doctrine-tree
+    CLAUDE.md/MEMORY.md fenced out of the data tree, plus the allow-listed
+    borns home) and its BLOCK_RE + parse_cpr_block grammar, so this counter
+    cannot diverge from what the extractor actually reaches. The prior
+    same-line predicate matched nothing zone-wide (marker and status live on
+    DIFFERENT lines in the mandated block form), false-positived on prose
+    mentions, and its blanket audit-logs skip excluded the borns home
+    (bk-ripple-assessor-inline-cpr-count-dead-predicate, tic 697). The
+    boundary is the declared doctrine-tree/data-tree split the allow-list
+    resolves — never a re-carved "audit-logs minus membrane" exclusion.
+    """
+    mod = _load_cpr_extract()
+    if mod is None:
+        return None
+    try:
+        excludes = mod.load_ticignore(project_dir)
+        gov_files = mod.find_governance_files(project_dir, excludes)
+    except Exception:
+        return None
     count = 0
-    skip = {"vendor", "node_modules", ".git", "audit-logs"}
-    for md in Path(project_dir).rglob("CLAUDE.md"):
-        if skip & set(md.parts):
-            continue
+    for gf in gov_files:
         try:
-            for line in md.read_text(encoding="utf-8").splitlines():
-                if "agnostic-candidate" in line and "pending" in line:
-                    count += 1
+            text = Path(gf).read_text(encoding="utf-8")
         except Exception:
             continue
+        for m in mod.BLOCK_RE.finditer(text):
+            block = mod.parse_cpr_block(m.group(1))
+            if str(block.get("status", "")).strip().lower() == "pending":
+                count += 1
     return count
 
 
@@ -519,7 +556,13 @@ def compile_proposals(evaluate_data, classified, triads, tic_counter,
     L.append(f"- **Tic counter**: {current_tic} (last: {tic_counter.get('last_tic', 'unknown')})")
     L.append(f"- **Expected CPRs**: {expected_cprs}")
     L.append(f"- **Found CPRs**: {found_cprs}")
-    L.append(f"- **Inline pending CPRs**: {inline_cpr_count}")
+    if inline_cpr_count is None:
+        # Honest-unknown: the declared-emitter universe could not be resolved.
+        # Never render a fabricated 0 here — this line is a cross-check and a
+        # 0 reads as all-clear.
+        L.append("- **Inline pending CPRs**: unavailable (declared-emitter universe unresolved)")
+    else:
+        L.append(f"- **Inline pending CPRs**: {inline_cpr_count}")
     L.append(f"- **Active signals**: {len(asig)} (+ {len(wsig)} working)")
     L.append(f"- **Active warrants**: {len(all_warrants)}")
     L.append(f"- **Harmonic triads**: {len(triads)}")
