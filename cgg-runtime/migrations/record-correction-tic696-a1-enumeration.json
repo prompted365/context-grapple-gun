@@ -1,0 +1,248 @@
+{
+  "base_record_snapshot": {
+    "advanced": [
+      {
+        "birth_tic": 693,
+        "current_tic": 696,
+        "dedup_hash_nosep_control": "a623e30986eaefdb",
+        "dedup_hash_recomputed_colon": "d69398cc250a3d4e",
+        "dedup_hash_stamped": "d69398cc250a3d4e",
+        "dedup_result": "CLEAN - colon form REPRODUCES the row's own stamp exactly; 0 collisions across 419 hashable latest-per-id rows and 232 stamped dedup_hash fields; 0 exact-lesson-text twins",
+        "from": "extracted",
+        "gate": "temporal maturity (maturity_tics ABSENT -> gate default 3 at READ time; deliberately NOT backfilled - pre-fix vintage, t694 mint fix is forward-only)",
+        "id": "cpr_mogul_memory_mining_7ee1368dcad8",
+        "provenance_class": "ABSENT -> friction_born treat-as-default; field NOT written; no construction_authoritative waiver applied or needed",
+        "queue_line": 2683,
+        "tic_delta": 3,
+        "to": "tic_gated",
+        "two_clock_families": "maturity_window_tics 3 == gate-default 3 -> queue_state_compile (birth+window) and cpr_steppable (birth+maturity_tics) COINCIDE at 696; the t694 split does not bite here"
+      }
+    ],
+    "anomalies": [
+      {
+        "cured": false,
+        "finding": "review-log entry-type vocabulary is unclosed: stepper-authored advancement entries across the review lane carry at least 9 distinct `type` values (cpr_step_rationale 26, cpr_step_pass 6, cpr_advancement 3, cpr_held 3, cpr_stepper_run 2, cpr_stepper_advancement 1, stepper_session 1, cpr_advance 1, cpr_step 1, cpr_step_hold 1, cpr_step_addendum 1) plus 442 rows with NO type field at all. Any consumer filtering stepper advances by `type` reads a partial set by construction. This pass used cpr_step_rationale (the plurality and the shape used at 693/695). REPORTED, not cured - schema closure is not the stepper's authority.",
+        "id": "A1-696",
+        "severity": "observation"
+      }
+    ],
+    "authority_fence": "MECHANICAL advance only. No promotion, no verdict, no landing_kind, no lifecycle_state, no doctrine surface touched. The /review human gate is untouched; this row is now in-transit toward enrichment_needed, which cpr-gate-advance.py owns deterministically.",
+    "boot_read": {
+      "apophatic_bounds": [
+        "queue.jsonl: 1136 terminal latest-per-id rows consumed as an id+status+source+lesson-hash projection for the DEDUP collision scan (419 hashable, 232 carrying a stamped dedup_hash), NOT as full bodies; all 5 pending rows read in full; 1541 superseded historical rows excluded by the latest-per-id valve by design, not by budget.",
+        "mandate lane read shape-only (Mogul-owned FIELD, 10 cycles running); 58 active signals read as ambient count only."
+      ],
+      "boot_read_mode": "full",
+      "chunking": "surface_typed",
+      "clipped_preview_detected": true,
+      "clipped_preview_note": "worldview arrived RENDER-BOUND with 10 rays omitted by budget (classes ESCALATE/FIELD/OFFICE/PEER/SUBSTRATE); expanded via office-worldview.py render --office ent_cpr_stepper --tic 696 --max-chars 0 and read in full BEFORE the mutation. Recovered standing=resident/queue_state_machine, answers_to=ent_mogul, the peer roster, and the effective-record projection ray (3 corrected views, source 4da4e2bf3ea0) - these bound the abstentions.",
+      "full_boot_injection_read": true,
+      "required_unread_ranges": []
+    },
+    "boot_receipt_note": "TWO receipts this tic, both lawful, NOT a duplicate: the first closed the boot loop, the sink's ack flagged the ladder explain-back as owed ('the crux drift-audit wants your 5 sentences every tic'), and the emitter is idempotent on the WHOLE semantic record - so the completed re-emit (identical civic body + 5-sentence explain-back) hashes to a distinct receipt_id by design rather than deduping. Mutation gate consulted BEFORE the write: gate-check -> allow=true via boot_read_receipt (50d84fc6c31fb345), rc=0.",
+    "boot_receipts": [
+      "50d84fc6c31fb345",
+      "0ad0e3c00f33f2bf"
+    ],
+    "downstream": {
+      "expected_scanner_discount": "-0.30 source_missing (source_file ABSENT, pre-t694-fix vintage) - KNOWN vintage discount, not a new defect; true source resolved by hand and recorded, NOT stamped (no retro-edit)",
+      "next_transition": "tic_gated -> enrichment_needed",
+      "owner": "cpr-gate-advance.py (deterministic reconciler, runs at boot before the enrichment scanner)",
+      "precondition_verified": "audit-logs/governance/enrichment/cpr_mogul_memory_mining_7ee1368dcad8.consolidated.json EXISTS (tic-427 baseline) -> the gate is unblocked; the row is in-transit, not deadlocked"
+    },
+    "envelope_passthrough": {
+      "carried_verbatim": {
+        "confidence_tier": "tentative",
+        "dedup_hash": "d69398cc250a3d4e",
+        "lesson_type": "refinement-candidate",
+        "origin_context": "mogul_cycle",
+        "source": "mogul:memory_mining"
+      },
+      "envelope_drops": 0,
+      "field_count_after": 36,
+      "field_count_before": 27,
+      "lesson_type_note": "'refinement-candidate' is an authored value OUTSIDE the documented enum; passed through UNCHANGED per the /review-663 rider R5-M5+O1-663 (passthrough never rewrites an authored value)",
+      "not_minted": [
+        "lifecycle_state",
+        "landing_kind",
+        "provenance_class",
+        "source_file",
+        "maturity_tics"
+      ],
+      "relations": "ABSENT and left ABSENT (treat-as-{} at read time, not written)",
+      "verified": true
+    },
+    "expected_vs_observed": "session-lead expectation (steppable universe EXACTLY 1 = 7ee1368dcad8; 3 parked; C3 untouched) CONFIRMED against queue truth with zero divergence",
+    "gate1_staleness": {
+      "condition_resolved": false,
+      "evidence": [
+        "source lane artifact PRESENT: audit-logs/mogul/cycle-reports/reports/2026-08-10T053410-tic-693.report.json",
+        "lesson BYTE-IDENTICAL queue row vs report /results/memory_mining/candidate_cogprs[0]/lesson (sha256 head 2eddb17c3dcf9f5f both sides)",
+        "recommended-scope anchor RESOLVES at ledger.md:1195 (#structural-transform-implies-closed-consumer-set-obligation)",
+        "absorption probe NEGATIVE: zero epoch-marker / temporal-consumer / measurement-correction language in ledger.md or canonical/CLAUDE.md -> no absorbed move warranted"
+      ],
+      "last_checked_tic": 696,
+      "method_note": "a raw-text substring probe of the report first reported the lesson ABSENT - a JSON \\u2014 escaping artifact, NOT divergence. Source stability on JSON-embedded lessons must be compared on PARSED values, never raw file text. Recorded so the next pass does not mis-read a false source_diverged.",
+      "source_stable": true
+    },
+    "model": "claude-opus-5[1m]",
+    "not_advanced": [
+      {
+        "birth_tic": 695,
+        "id": "cpr_mogul_harmony_invoke_340eabfce027",
+        "reason": "immature - maturity_tics 3, matures 698. PARKED, untouched.",
+        "status": "extracted",
+        "tic_delta": 1
+      },
+      {
+        "birth_tic": 696,
+        "id": "cpr_mogul_review_close_check_d0c2e2d0867c",
+        "reason": "immature - born THIS tic by the detached tic-695 review-close runner; maturity_tics 3, matures 699. PARKED, untouched.",
+        "status": "extracted",
+        "tic_delta": 0
+      },
+      {
+        "birth_tic": 696,
+        "id": "cpr_mogul_review_close_check_f5a8f2a39d37",
+        "reason": "immature - born THIS tic by the detached tic-695 review-close runner; maturity_tics 3, matures 699. PARKED, untouched.",
+        "status": "extracted",
+        "tic_delta": 0
+      },
+      {
+        "id": "cpr_relational_meaning_pinning_fidelity_preserving_decoupling_tic327",
+        "reason": "Architect-held C3. promotion_gate.gate_type=evidence with an UNLANDED proof obligation (fidelity drill: decouple->simulate->rehydrate), ruled at tic 662 by ent_breyden. maturity_window_tics is null and birth_tic is null, so NO regression window is resolvable - schedule_not_resolvable, NOT overdue; the tic-696 stepper does not manufacture a window the ruling declined to set. UNTOUCHED.",
+        "status": "enrichment_eligible"
+      }
+    ],
+    "pass": "696-cpr-step",
+    "read_discipline": {
+      "projection": "latest_entry_per_id",
+      "raw_rows_at_read": 2682,
+      "status_distribution_before": {
+        "absorbed": 223,
+        "enrichment_eligible": 1,
+        "extracted": 4,
+        "implemented": 9,
+        "production_validated_pending_natural_falsification": 1,
+        "promoted": 675,
+        "promoted_spec": 34,
+        "rejected": 43,
+        "resolved": 4,
+        "skipped": 123,
+        "superseded": 22,
+        "withdrawn_inline_tracked": 2
+      },
+      "terminal_counts_agree_with_t695_close": "promoted 675 / skipped 123 / absorbed 223 - matches the /review-695 close (674->675 PROMOTE, 222->223 MERGE-absorb)",
+      "unique_ids": 1141,
+      "unparseable_or_no_id": 0
+    },
+    "signer": "ent_cpr_stepper",
+    "standing": "resident / queue_state_machine (answers to ent_mogul; no request/fulfill/decide rights)",
+    "steppable_universe": {
+      "agreement": "session-lead declared universe and queue truth AGREE ID-for-ID; zero divergence",
+      "independently_verified": 1,
+      "predicate": "per_id_maturity_v1 (STEPPABLE_STATUSES=('extracted','tic_gated'), DEFAULT_MATURITY_TICS=3)",
+      "queue_truth": "2682 rows -> 1141 unique ids (latest-per-id) -> EXACTLY 5 pending (4 extracted + 1 enrichment_eligible)",
+      "session_lead_claim": 1
+    },
+    "stepped_by": "ent_cpr_stepper",
+    "tic": 696,
+    "tic_authority": {
+      "current_tic": 696,
+      "not": "raw type=tic row count (bk-cpr-extract-tic-count-drift, fixed tic 554)",
+      "raw_row_count_not_used": true,
+      "source": "audit-logs/tics/2026-08-10.jsonl domain_counter_after of LATEST tic event em-696-5cf3c46f64"
+    },
+    "timestamp": "2026-08-10T14:30:18.171184+00:00",
+    "type": "cpr_step_rationale",
+    "writeback": {
+      "added_fields": [
+        "advance_reason",
+        "advanced_by",
+        "advanced_tic",
+        "current_tic",
+        "lifecycle_writeback",
+        "prior_status",
+        "staleness",
+        "stepper_annotation",
+        "updated_at"
+      ],
+      "allow_field_used": [],
+      "append_via": "atomic-append.sh",
+      "dry_run_first": true,
+      "envelope_drops": 0,
+      "field_count_after": 36,
+      "field_count_before": 27,
+      "history_field_gap": [],
+      "mutated_fields": [
+        "status"
+      ],
+      "new_status": "tic_gated",
+      "prior_status": "extracted",
+      "refusals": 0,
+      "tool": "queue-lifecycle-writeback.py",
+      "writer": "cpr-stepper (ent_cpr_stepper, cpr-step-696)"
+    }
+  },
+  "canonical_authorization_receipt": {
+    "authority": {
+      "author_id": "ent_homeskillet",
+      "authority_class": "ratified_review",
+      "authorization_ref": "/review:696 in-tic ratification question set (gate-repair item, Architect-ratified 2026-08-10)"
+    },
+    "canonical_append_commit": "55a1eb4af96b791942ff91f25090089dd23df2c6",
+    "canonical_append_repository": "prompted365/canonical_federation",
+    "canonical_append_surface": "audit-logs/reviews/2026-08-10.jsonl",
+    "correction_digest": "481d30861f0ddb3ec4197ea381ba8511d265e2237329e77e33b30c43a2689ce4",
+    "correction_id": "rc_cprstep696_a1_type_enumeration_tic696",
+    "lifecycle_state": "ratified",
+    "receipt_path": "cgg-runtime/migrations/record-correction-tic696-a1-enumeration.json",
+    "schema_version": 1,
+    "type": "record_correction_authorization_receipt"
+  },
+  "canonical_correction": {
+    "append_only_note": "base record 696-cpr-step is NOT rewritten; this correction supersedes only the two named fields under the record_correction convention (tics 658/662/664 precedent).",
+    "authority": {
+      "author_id": "ent_homeskillet",
+      "authority_class": "ratified_review",
+      "authorization_ref": "/review:696 in-tic ratification question set (gate-repair item, Architect-ratified 2026-08-10)"
+    },
+    "authority_fence": "observational correction to the stepper's own receipt; no queue row, doctrine surface, or verdict is touched.",
+    "consequence_class": "interpretive",
+    "corrected_by": "ent_cpr_stepper (cpr-step-696, self-caught on read-back before close)",
+    "correction_class": "enumeration_incompleteness_and_unlabelled_measurement_instant",
+    "correction_id": "rc_cprstep696_a1_type_enumeration_tic696",
+    "effective_at": "2026-08-10T14:31:08.956406+00:00",
+    "effective_tic": 696,
+    "lifecycle_state": "ratified",
+    "literal_correction": "receipt row 696-cpr-step's A1-696 finding under-enumerated the stepper-like `type` vocabulary (11 listed, omitting cpr_stepper_rationale x7 - a near-homograph of the type the pass itself writes) and cited a pre-write count (26) without labelling the measurement instant (post-write truth 27); the corrected enumeration is TWELVE distinct type values plus 442 rows with no type field, and both counts are true at their own labelled instants.",
+    "patch": {
+      "anomalies[A1-696].count_provenance": "the inscribed '26' for cpr_step_rationale was a PRE-write measurement and was not labelled as such; post-write it reads 27 because this pass's own entry landed in the interval. Both numbers are true at their own instant - the defect was the missing instant-label, an in-vivo instance of exactly the measurement-comparability lesson the advanced row (7ee1368dcad8) carries. Recorded as such, not cured.",
+      "anomalies[A1-696].finding": "CORRECTED enumeration. The tic-696 A1 finding said 'at least 9 distinct type values' and then listed 11, OMITTING `cpr_stepper_rationale` (7) - a near-homograph of the very type this pass wrote (`cpr_step_rationale`), which is itself corroborating evidence for the finding rather than against it. The precise count re-measured post-write: TWELVE distinct stepper-like `type` values across the review lane - cpr_step_rationale 27 (26 pre-write + this pass's own entry), cpr_stepper_rationale 7, cpr_step_pass 6, cpr_advancement 3, cpr_held 3, cpr_stepper_run 2, cpr_advance 1, cpr_step 1, cpr_step_addendum 1, cpr_step_hold 1, cpr_stepper_advancement 1, stepper_session 1 - plus 442 rows carrying NO `type` field at all. The substance of A1-696 is UNCHANGED and strengthened: a consumer filtering stepper advances by `type` reads a partial set by construction."
+    },
+    "reason": "Regularize the cpr-stepper's honest same-session self-correction into the typed record-correction-v1 contract. The stepper authored the correction citing the record_correction convention (tics 658/662/664 precedent) but emitted an informal envelope; the row was UNCOMMITTED (HEAD blob held 13 lines; this row is line 15 of the working tree only), so the envelope is completed in place before it enters versioned history - the t695 caught-before-commit cure class, not a retcon of recorded truth. Patch content byte-preserved; only schema envelope fields added. ROUTE DISCLOSURE: the ratified option described an append-superseding v2 row; that route structurally cannot clear correction-semantic validation noise (always genuine, never registrable - test_correction_semantic_codes_can_never_be_registered_known), so the same ratified intent is discharged via pre-commit envelope completion instead, disclosed here.",
+    "receipt_path": "cgg-runtime/migrations/record-correction-tic696-a1-enumeration.json",
+    "reversible": false,
+    "schema_version": 1,
+    "source": {
+      "commit": "6cb7b02a21350d86f4e68f0979b1d5c05792ccd1",
+      "repository": "prompted365/canonical_federation",
+      "surface": "audit-logs/reviews/2026-08-10.jsonl"
+    },
+    "supersedes": [],
+    "target_record_id": "696-cpr-step",
+    "target_surface": "audit-logs/reviews/2026-08-10.jsonl",
+    "timestamp": "2026-08-10T14:31:08.956406+00:00",
+    "type": "record_correction"
+  },
+  "migration_id": "migration-696cprstep-a1-enumeration-correction-tic696",
+  "provenance": {
+    "authorization_anchor": "/review:696 in-tic ratification question set (gate-repair item, Architect-ratified 2026-08-10)",
+    "canonical_append_commit": "55a1eb4af96b791942ff91f25090089dd23df2c6",
+    "doctrine_anchor": "cgg-ledger/ledger.md#third-surface-correction-pair-agreement-is-not-evidence-currency",
+    "repository": "prompted365/canonical_federation",
+    "surface": "audit-logs/reviews/2026-08-10.jsonl"
+  },
+  "schema_version": 1,
+  "type": "record_correction_migration"
+}
