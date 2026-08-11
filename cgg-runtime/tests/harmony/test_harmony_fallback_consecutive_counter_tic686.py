@@ -53,6 +53,11 @@ def _make_zone(prior_voices=None):
         body = {"meaningState": "preserved", "disposition": {"stance": "idle"}}
         if source is not None:
             body["voice"] = {"voice_source": source}
+            if source == "template_fallback":
+                # Post-t692 the streak is family-keyed on fallback_reason; a
+                # reason-less prior fallback classifies as no family and never
+                # counts. Fixtures must carry an infrastructure-family reason.
+                body["voice"]["fallback_reason"] = "llm_timeout_120s"
         (hdir / f"disposition-tic-{tic}.json").write_text(json.dumps(body))
     return zone
 
@@ -134,7 +139,7 @@ def test_streak_arm_counts_and_escalates():
     assert esc["fired"] is True
     assert esc["threshold"] == 2
     assert esc["streak"] == 3
-    assert "ESCALATION" in err and "template_fallback" in err
+    assert "DECORATIVE-BAND-NOTICE" in err and "fallback_reason=llm_error" in err
 
 
 # ---------------------------------------------------------------------------
@@ -148,7 +153,7 @@ def test_healthy_reset_arm():
     voice, err = _apply(mod, _fallback_voice(mod), 686)
     assert voice["consecutive_fallbacks"] == 1
     assert voice["fallback_escalation"]["fired"] is False
-    assert "ESCALATION" not in err
+    assert "DECORATIVE-BAND-NOTICE" not in err
 
 
 # ---------------------------------------------------------------------------
@@ -175,7 +180,7 @@ def test_first_fallback_no_history():
     voice, err = _apply(mod, _fallback_voice(mod), 685)
     assert voice["consecutive_fallbacks"] == 1
     assert voice["fallback_escalation"]["fired"] is False
-    assert "ESCALATION" not in err
+    assert "DECORATIVE-BAND-NOTICE" not in err
 
 
 # ---------------------------------------------------------------------------
@@ -212,19 +217,21 @@ def test_threshold_env_override():
     voice_hold, err_hold = _apply(mod, _fallback_voice(mod), 685, threshold_env=4)
     assert voice_hold["consecutive_fallbacks"] == 3
     assert voice_hold["fallback_escalation"]["fired"] is False
-    assert "ESCALATION" not in err_hold
+    assert "DECORATIVE-BAND-NOTICE" not in err_hold
 
     voice_fire, err_fire = _apply(mod, _fallback_voice(mod), 685, threshold_env=1)
     assert voice_fire["fallback_escalation"]["fired"] is True
-    assert "ESCALATION" in err_fire
+    assert "DECORATIVE-BAND-NOTICE" in err_fire
 
 
 # ---------------------------------------------------------------------------
-# [8] End-to-end main() wiring: run the script for real (kill switch — zero
-#     network) against a zone with one prior fallback; the written-back
-#     disposition must carry the counter and the escalation, and the
-#     ESCALATION line must land on stderr (harmony-invoke.sh captures that
-#     stream to stderr-tic-N.log — the announced residue channel).
+# [8] End-to-end main() wiring: run the script for real (CLI unfindable —
+#     zero network; post-t692 a kill_switch run counts toward nothing, so the
+#     loud path needs an infrastructure-family fallback) against a zone with
+#     one prior fallback; the written-back disposition must carry the counter
+#     and the escalation, and the DECORATIVE-BAND-NOTICE line must land on
+#     stderr (harmony-invoke.sh captures that stream to stderr-tic-N.log —
+#     the announced residue channel).
 # ---------------------------------------------------------------------------
 def test_main_wiring_writes_counter_into_disposition():
     zone = _make_zone({684: "template_fallback"})
@@ -233,7 +240,7 @@ def test_main_wiring_writes_counter_into_disposition():
     disp_path.write_text(json.dumps(_DISPOSITION))
     env = dict(os.environ,
                CGG_REPO_ROOT=str(zone),
-               HARMONY_VOICE="off")
+               PATH=str(zone))
     proc = subprocess.run(
         [sys.executable, str(VOICE_SCRIPT), "--disposition", str(disp_path)],
         capture_output=True, text=True, env=env, timeout=60)
@@ -243,7 +250,7 @@ def test_main_wiring_writes_counter_into_disposition():
     assert voice["voice_source"] == "template_fallback"
     assert voice["consecutive_fallbacks"] == 2
     assert voice["fallback_escalation"]["fired"] is True
-    assert "ESCALATION" in proc.stderr
+    assert "DECORATIVE-BAND-NOTICE" in proc.stderr
 
 
 if __name__ == "__main__":

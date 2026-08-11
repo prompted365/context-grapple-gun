@@ -53,7 +53,7 @@
       "parity_state": "verified",
       "routing_state": "delegated_only",
       "last_validated_tic": 220,
-      "last_invoked_tic": 220,
+      "last_invoked_tic": 700,
       "validation_source": "audit-logs/agent-mailboxes/ent_breyden/inbound/cgg-runtime-agent-matrix-tic219.md",
       "decision_required": null,
       "resolved_at_tic": 220,
@@ -80,7 +80,7 @@
       "validation_source": "audit-logs/agent-mailboxes/ent_breyden/inbound/cgg-runtime-agent-matrix-tic219.md",
       "decision_required": null,
       "notes": "Model upgraded haiku \u2192 sonnet at tic 219 per federation KI tic 207 (spec-runtime alignment). /loop skill target. Append-only queue.jsonl semantics with latest-entry-per-id-wins read.",
-      "last_invoked_tic": 696
+      "last_invoked_tic": 705
     },
     "crisis-sentinel": {
       "status": "current",
@@ -100,7 +100,8 @@
       "last_validated_tic": 220,
       "validation_source": "audit-logs/agent-mailboxes/ent_breyden/inbound/cgg-runtime-agent-matrix-tic219.md",
       "decision_required": null,
-      "notes": "Architect-gated; 84-tic zero-warrant streak reflects operational stability, not vestigiality. Office of Crisis Response holder."
+      "notes": "Architect-gated; 84-tic zero-warrant streak reflects operational stability, not vestigiality. Office of Crisis Response holder.",
+      "last_invoked_tic": 701
     },
     "ladder-auditor": {
       "status": "current",
@@ -110,7 +111,8 @@
       "last_validated_tic": 220,
       "validation_source": "audit-logs/agent-mailboxes/ent_breyden/inbound/cgg-runtime-agent-matrix-tic219.md",
       "decision_required": null,
-      "notes": "Mogul team T1 + T9; 5-tic ladder cycle (tic % 5 == 0); team-merged output."
+      "notes": "Mogul team T1 + T9; 5-tic ladder cycle (tic % 5 == 0); team-merged output.",
+      "last_invoked_tic": 701
     },
     "mogul": {
       "status": "current",
@@ -163,7 +165,8 @@
       "last_validated_tic": 220,
       "validation_source": "audit-logs/agent-mailboxes/ent_breyden/inbound/cgg-runtime-agent-matrix-tic219.md",
       "decision_required": null,
-      "notes": "Read-only CogPR distillation surface; routes through /review pipeline. Distinct from resolution-analyst."
+      "notes": "Read-only CogPR distillation surface; routes through /review pipeline. Distinct from resolution-analyst.",
+      "last_invoked_tic": 700
     },
     "resolution-analyst": {
       "status": "current",
@@ -173,7 +176,8 @@
       "last_validated_tic": 220,
       "validation_source": "audit-logs/agent-mailboxes/ent_breyden/inbound/cgg-runtime-agent-matrix-tic219.md",
       "decision_required": null,
-      "notes": "Steward-dispatched post-restoration root-cause investigation. Distinct from prevention-architect (cause vs pattern)."
+      "notes": "Steward-dispatched post-restoration root-cause investigation. Distinct from prevention-architect (cause vs pattern).",
+      "last_invoked_tic": 700
     },
     "restoration-operator": {
       "status": "current",
@@ -197,7 +201,7 @@
       "validation_source": "audit-logs/agent-mailboxes/ent_breyden/inbound/cgg-runtime-agent-matrix-tic219.md",
       "decision_required": null,
       "notes": "/review skill subagent dispatch. Sync evidence at tic 209 + tic 210. Properly upgraded haiku \u2192 sonnet per tic 207 federation alignment. Exemplar mechanical executor.",
-      "last_invoked_tic": 696
+      "last_invoked_tic": 705
     },
     "ripple-assessor": {
       "status": "current",
@@ -210,7 +214,8 @@
       "notes": "Trigger-manifest declares ripple.assessment routing to ent_ripple_assessor, but the mailbox does not exist. Output flows to ~/.claude/grapple-proposals/latest.md per agent hard constraint. Decision needed: create mailbox or clarify trigger declaration.",
       "resolved_at_tic": 222,
       "resolution_artifact": "audit-logs/governance/cgg-review-tic222-decisions.md",
-      "resolution_verdict": "CLARIFY + RECEIPT MIRROR (primary deterministic path preserved; mirror added)"
+      "resolution_verdict": "CLARIFY + RECEIPT MIRROR (primary deterministic path preserved; mirror added)",
+      "last_invoked_tic": 700
     },
     "videographer": {
       "status": "current",

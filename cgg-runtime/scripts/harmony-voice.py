@@ -478,6 +478,13 @@ def apply_fallback_counter(voice: dict[str, Any], current_tic: int) -> dict[str,
     voice["fallback_escalation"] = {
         "threshold": threshold, "fired": fired, "streak": infra_streak,
         "family": "infrastructure",
+        # `family` classifies the fallback REASON (cause axis). The BLAST axis
+        # is banded at the layer that OWNS the failed artifact: the voice line
+        # is non-citable ambient with no consumer outside this lane, so its
+        # failure is decorative/Dashboard-band, never an infrastructure
+        # incident (/review 705 re-band; cure: bk-harmony-voice-invocation-path-cure).
+        "artifact_band": "decorative",
+        "band_ruling": "review-705",
     }
     voice["fallback_families"] = {
         "current": current_family,
@@ -491,11 +498,13 @@ def apply_fallback_counter(voice: dict[str, Any], current_tic: int) -> dict[str,
     }
     if fired:
         print(
-            f"ESCALATION harmony-voice-fallback-streak: {infra_streak} consecutive "
+            f"DECORATIVE-BAND-NOTICE harmony-voice-fallback-streak: {infra_streak} consecutive "
             f"infrastructure-family fallback runs at tic {current_tic} "
             f"(threshold={threshold}, latest fallback_reason={voice.get('fallback_reason')}) "
-            f"— the voice lane is degraded across runs, not once; re-diagnose, "
-            f"never just re-raise",
+            f"— the fail-soft VOICE sub-step is dark across runs; the citable "
+            f"disposition is unaffected. Banded decorative/Dashboard per the "
+            f"artifact-owning layer; re-diagnose the invocation path "
+            f"(bk-harmony-voice-invocation-path-cure), never just re-raise",
             file=sys.stderr,
         )
     if adm_fired:
