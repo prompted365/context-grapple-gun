@@ -266,6 +266,15 @@ def count_pending_cprs_inline(project_dir):
     (bk-ripple-assessor-inline-cpr-count-dead-predicate, tic 697). The
     boundary is the declared doctrine-tree/data-tree split the allow-list
     resolves — never a re-carved "audit-logs minus membrane" exclusion.
+
+    GOVERNING LAW (citation added tic 697, Architect-caught — the strike
+    landed uncited): constitution-ledger#four-state-zero-taxonomy-classify-
+    a-zero-by-its-cause (/review 393). The dead predicate was zero-by-
+    BLINDNESS (records present, consumer shape unable to parse them)
+    compounded with an UNDECLARED exclusion (the borns-home skip — not even
+    zero-by-filter, which requires the filter be declared). The None →
+    "unavailable" contract implements the taxonomy's lock line: ship a
+    declared not-wired state, never a silent zero.
     """
     mod = _load_cpr_extract()
     if mod is None:
