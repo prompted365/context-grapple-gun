@@ -1,0 +1,125 @@
+{
+ "schema_version": 1,
+ "type": "record_correction_migration",
+ "migration_id": "migration-rc_offenum_5616eca4_tic709",
+ "provenance": {
+  "repository": "prompted365/canonical_federation",
+  "commit": "22d96a999c8ace1ee059d4187f1be6e21a8c6298",
+  "surface": "audit-logs/reviews/2026-08-12.jsonl",
+  "doctrine_anchor": "audit-logs/governance/off-enum-confidence-tier-decision-brief-tic708.md",
+  "authorization_anchor": "/review:708 off-enum rulings 1-3 (Architect-ratified in-tic question set; ruling rows off-enum-ruling-1..4, audit-logs/reviews/2026-08-12.jsonl) + /review:709 D1 EXECUTE-at-the-gate (Architect-ratified in-tic question set)",
+  "canonical_append_commit": "22d96a999c8ace1ee059d4187f1be6e21a8c6298"
+ },
+ "canonical_correction": {
+  "schema_version": 1,
+  "type": "record_correction",
+  "correction_id": "rc_offenum_5616eca4_tic709",
+  "target_record_id": "cpr_mogul_memory_mining_e5fa86d6ec02",
+  "target_surface": "audit-logs/cprs/queue.jsonl",
+  "source": {
+   "repository": "prompted365/canonical_federation",
+   "commit": "d29e26f5d0b4bf3d4088be1178fa18fe96f77793",
+   "surface": "audit-logs/reviews/2026-08-12.jsonl"
+  },
+  "patch": {
+   "confidence_class": "exact",
+   "confidence_tier": null
+  },
+  "literal_correction": "queue row cpr_mogul_memory_mining_e5fa86d6ec02 carries confidence_tier 'exact' — a confidence_class enum value that bled into the tier field (field-routing defect, the 6/39 seam, A2-708). Row-scoped repair per /review 708 ruling 1: the value moves to confidence_class (lawful — no conflicting class on the row) and confidence_tier clears to typed absence.",
+  "authority": {
+   "author_id": "ent_homeskillet",
+   "authority_class": "ratified_review",
+   "authorization_ref": "/review:708 off-enum rulings 1-3 (Architect-ratified in-tic question set; ruling rows off-enum-ruling-1..4, audit-logs/reviews/2026-08-12.jsonl) + /review:709 D1 EXECUTE-at-the-gate (Architect-ratified in-tic question set)"
+  },
+  "reason": "Off-enum confidence_tier historical repair, row-scoped (11-row tranche, bk-off-enum-tier-correction-tranche): ratified SHAPE at /review 708 (rulings 1-3), EXECUTED at the /review 709 gate as designed (the pairing: two of the six exact rows ARE the 709 docket rows, corrected on their own adjudication). The physics guard (CGG ab8e22c) holds the population static; base rows never retconned — row-scoped effective view only.",
+  "effective_tic": 709,
+  "effective_at": "2026-08-12T13:53:55.063080+00:00",
+  "supersedes": [],
+  "consequence_class": "interpretive",
+  "reversible": false,
+  "lifecycle_state": "ratified",
+  "receipt_path": "cgg-runtime/migrations/record-correction-tic709-offenum-03-5616eca4.json"
+ },
+ "canonical_authorization_receipt": {
+  "schema_version": 1,
+  "type": "record_correction_authorization_receipt",
+  "correction_id": "rc_offenum_5616eca4_tic709",
+  "correction_digest": "a8195e0b91f356697daa59742fa7c8b5a63998cb53eebac8146e7bcda83dac13",
+  "authority": {
+   "author_id": "ent_homeskillet",
+   "authority_class": "ratified_review",
+   "authorization_ref": "/review:708 off-enum rulings 1-3 (Architect-ratified in-tic question set; ruling rows off-enum-ruling-1..4, audit-logs/reviews/2026-08-12.jsonl) + /review:709 D1 EXECUTE-at-the-gate (Architect-ratified in-tic question set)"
+  },
+  "lifecycle_state": "ratified",
+  "receipt_path": "cgg-runtime/migrations/record-correction-tic709-offenum-03-5616eca4.json",
+  "canonical_append_repository": "prompted365/canonical_federation",
+  "canonical_append_commit": "22d96a999c8ace1ee059d4187f1be6e21a8c6298",
+  "canonical_append_surface": "audit-logs/reviews/2026-08-12.jsonl"
+ },
+ "base_record_snapshot": {
+  "type": "cpr",
+  "id": "cpr_mogul_memory_mining_e5fa86d6ec02",
+  "id_origin": "hash_derived",
+  "status": "promoted",
+  "tier": "tier1",
+  "lesson": "A defect whose diagnosis says 'always' must have its ALWAYS tested separately from its MECHANISM — because the cure a fixer reaches for is chosen by the scope claim, not by the mechanism. Lived at tic 681 correcting the live pending row cpr_mogul_harmony_invoke + deep_audit_f4de0ac773fb (birth 680, STRUCTURAL, status extracted). That row traced the braid tic-resolution mechanism CORRECTLY: braid-input-builder.py (~line 130) resolves its tic from the ECONOMY current-pointer as PRIMARY authority with conformation only as an absent-pointer FALLBACK, while its parent harmony-input-builder.py reads conformation tic_count_physical; because harmony_invoke runs before economy_heartbeat in cycle order, the pointer has not advanced when braid reads it. That mechanism stands, and the cure it names — a chained sub-step inherits its parent's clock, or declares its own clock as a first-class output field so the divergence is visible rather than silent — stands unchanged. What does NOT stand is its scope claim: 'braid resolves tic N-1 on EVERY cadence run', verified 'consistently across tics 677/678/679/680'. Observed braid_tic per harmony disposition: t674->673 (lag 1), t675->675 (lag 0), t676->676 (lag 0), t677->677 (lag 0), t678->677, t679->678, t680->679, t681->680 (lag 1). Paired invocation timestamps give the cause: at t675 economy wrote its pointer at 20:34:27Z and braid ran at 20:34:51Z — 24s AFTER — so braid read the already-advanced pointer and resolved lag 0; at t677 an earlier same-tic economy run (Aug 3 14:34:08Z) had advanced the pointer before the later braid invocation (Aug 4 23:01:21Z), lag 0 again; at t681 economy wrote at 22:05:05Z and braid ran at 22:04:16Z — 49s EARLIER — lag 1, predicted before the run and confirmed after. The lag is therefore EXECUTION-ORDER-DEPENDENT, not constant: lag 1 on a clean single-pass cadence, lag 0 whenever a prior same-tic run already advanced the pointer. The operational bite: 'N-1 on every run' invites a constant-offset repair (add 1, or treat braid packets as uniformly lag-1) which would be WRONG on precisely the lag-0 tics and would silently mis-stamp them — an order-dependent defect cannot be cured by a constant. Generalizes past this locus: when an artifact derives its own identity from a MUTABLE POINTER that a SIBLING step refreshes, its identity is a property of execution order, not of its content or its invocation, so the defect's period is set by scheduling and reads as intermittent-but-mechanical rather than always-on. SECOND CONSEQUENCE the t680 row does not name: same-label overwrite. audit-logs/braid/invocations.jsonl records TWO invocations each for tics 672, 676 and 677, every pair writing the same braid-tic-N.json path; the second write silently replaces the first. The ledger retains both provenance rows while the artifact retains only the last — a snapshot lane reporting more history than it holds. That half is data-integrity-class, distinct from the identity-derivation half, and needs its own decision (write-once-per-tic, or tic+attempt-scoped filenames) rather than riding the clock fix.",
+  "source": "mogul:memory_mining",
+  "source_date": "2026-08-05",
+  "band": "STRUCTURAL",
+  "motivation_layer": "COGNITIVE",
+  "subsystem": "cgg-runtime braid/harmony invoke chain — tic identity derivation + snapshot artifact naming",
+  "recommended_scopes": [
+   "REFINES/CORRECTS pending queue row cpr_mogul_harmony_invoke + deep_audit_f4de0ac773fb (birth 680) — /review 682 should correct the 'EVERY cadence run' scope claim BEFORE authorizing any fix, per the t680 precedent where cpr_mogul_review_close_check_6540e0503eaa required claim-B correction before fix authorization",
+   "cgg-runtime/scripts/braid-input-builder.py (~line 130) — tic resolution; the t680 cure (inherit parent clock or emit divergence as first-class field) is unchanged and correct; do NOT apply a constant offset",
+   "cgg-runtime/scripts/braid-invoke.sh — PACKET_PATH construction: decide write-once-per-tic vs tic+attempt-scoped filenames so a re-invocation cannot silently replace a prior packet"
+  ],
+  "note": "Deduped BEFORE emitting: queue_refresh ran first and surfaced the t680 row as live-pending, so the mechanism I traced independently was NOT re-minted as net-new — only the delta is emitted (falsified scope claim + unnamed overwrite consequence). Evidence is producer-side and reproducible: the code path in braid-input-builder.py, 11 rows of audit-logs/braid/invocations.jsonl, 8 harmony disposition braid_tic values, and paired economy/braid invocation timestamps across 4 tics carrying BOTH lag values. Tier 'exact' is claimed on the falsification specifically — the lag-0 datapoints at t675/676/677 are directly observable in shipped artifacts and are sufficient to refute 'every run' regardless of any further modelling. Not claimed: any assertion about WHY cycle order varies across runs (that would need the scheduler's intent), or that the alternation has a cause. /review 682 is due next tic, so this lands in time.",
+  "confidence_tier": "exact",
+  "lesson_type": "correction",
+  "birth_tic": 681,
+  "maturity_window_tics": 3,
+  "review_tic": 684,
+  "origin_context": "mogul_cycle",
+  "source_cycle": "memory_mining",
+  "mogul_mandate_id": "tic-681-20260805T180514",
+  "mogul_runtime": "claude_code",
+  "birth_rung": "site",
+  "birth_scope_path": "/Users/breydentaylor/canonical",
+  "extracted_at": "2026-08-05T22:13:24.476454+00:00",
+  "extracted_by": "cogpr-ingest",
+  "promoted_to": "canonical_developer/context-grapple-gun/cgg-ledger/ledger.md#the-corrector-inherits-the-verification-obligation",
+  "promoted_date": "2026-08-07",
+  "promoted_tic": 684,
+  "review_verdict": "PROMOTE",
+  "review_confidence": 0.9,
+  "review_pass": "review-684",
+  "review_ratified_by": "Architect (in-tic question set, /review 684, ratified 2026-08-07); applied mechanically by ent_review_execute — no re-adjudication",
+  "inscription_form": "refinement_ray",
+  "compact_root_status": "ledger_only",
+  "review_reasoning": "PROMOTE-as-refinement-ray on cgg-ledger#the-corrector-inherits-the-verification-obligation, QUANTIFIER axis: a defect diagnosis's SCOPE QUANTIFIER (always/sometimes) and its MECHANISM are separately testable claims — the cure a fixer reaches for is chosen by the scope claim, not the mechanism, so an untested quantifier authorizes the wrong fix-shape even when the mechanism is exactly right. Sharpens the existing SELF-authorship ray's probe-each-claimed-cause-independently along the WITHIN-a-claim axis. Adjudicated FIRST per the t683 anchored-DEFER law (corrector before parent, correction admitted BEFORE any fix authorization). Evidence: the parent row (cpr_mogul_harmony_invoke + deep_audit_f4de0ac773fb) ALWAYS clause falsified LIVE twice — t683 stepper F2 lag 0, and t684 braid read the already-advanced economy pointer (economy-invoke 16:11:05Z, braid 16:11:12Z; t684 mandate report cross_cycle_observations braid_economy_lag_zero_second_consecutive) — while the mechanism stood intact both times; a constant-offset repair would have been wrong on exactly those tics. SECOND lived instance of the joint-adjudication law (Pair A at /review 683 was the first). Maturity discharged: birth 681 + 3 = 684.",
+  "prior_status": "extracted",
+  "updated_at": "2026-08-07T17:13:36.947402+00:00",
+  "lifecycle_writeback": {
+   "by": "queue-lifecycle-writeback",
+   "writer": "review-execute",
+   "at": "2026-08-07T17:13:36.947402+00:00",
+   "prior_status": "extracted",
+   "copied_forward_fields": 26,
+   "mutated_fields": [
+    "compact_root_status",
+    "inscription_form",
+    "prior_status",
+    "promoted_date",
+    "promoted_tic",
+    "promoted_to",
+    "review_confidence",
+    "review_pass",
+    "review_ratified_by",
+    "review_reasoning",
+    "review_tic",
+    "review_verdict",
+    "status"
+   ]
+  }
+ }
+}

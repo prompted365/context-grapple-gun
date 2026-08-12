@@ -1,0 +1,152 @@
+{
+ "schema_version": 1,
+ "type": "record_correction_migration",
+ "migration_id": "migration-rc_offenum_11e539b2_tic709",
+ "provenance": {
+  "repository": "prompted365/canonical_federation",
+  "commit": "22d96a999c8ace1ee059d4187f1be6e21a8c6298",
+  "surface": "audit-logs/reviews/2026-08-12.jsonl",
+  "doctrine_anchor": "audit-logs/governance/off-enum-confidence-tier-decision-brief-tic708.md",
+  "authorization_anchor": "/review:708 off-enum rulings 1-3 (Architect-ratified in-tic question set; ruling rows off-enum-ruling-1..4, audit-logs/reviews/2026-08-12.jsonl) + /review:709 D1 EXECUTE-at-the-gate (Architect-ratified in-tic question set)",
+  "canonical_append_commit": "22d96a999c8ace1ee059d4187f1be6e21a8c6298"
+ },
+ "canonical_correction": {
+  "schema_version": 1,
+  "type": "record_correction",
+  "correction_id": "rc_offenum_11e539b2_tic709",
+  "target_record_id": "cpr_mogul_ladder_audit_d750f40dfb8c",
+  "target_surface": "audit-logs/cprs/queue.jsonl",
+  "source": {
+   "repository": "prompted365/canonical_federation",
+   "commit": "d29e26f5d0b4bf3d4088be1178fa18fe96f77793",
+   "surface": "audit-logs/reviews/2026-08-12.jsonl"
+  },
+  "patch": {
+   "confidence_class": "exact",
+   "confidence_tier": null
+  },
+  "literal_correction": "queue row cpr_mogul_ladder_audit_d750f40dfb8c carries confidence_tier 'exact' — a confidence_class enum value that bled into the tier field (field-routing defect, the 6/39 seam, A2-708). Row-scoped repair per /review 708 ruling 1: the value moves to confidence_class (lawful — no conflicting class on the row) and confidence_tier clears to typed absence.",
+  "authority": {
+   "author_id": "ent_homeskillet",
+   "authority_class": "ratified_review",
+   "authorization_ref": "/review:708 off-enum rulings 1-3 (Architect-ratified in-tic question set; ruling rows off-enum-ruling-1..4, audit-logs/reviews/2026-08-12.jsonl) + /review:709 D1 EXECUTE-at-the-gate (Architect-ratified in-tic question set)"
+  },
+  "reason": "Off-enum confidence_tier historical repair, row-scoped (11-row tranche, bk-off-enum-tier-correction-tranche): ratified SHAPE at /review 708 (rulings 1-3), EXECUTED at the /review 709 gate as designed (the pairing: two of the six exact rows ARE the 709 docket rows, corrected on their own adjudication). The physics guard (CGG ab8e22c) holds the population static; base rows never retconned — row-scoped effective view only.",
+  "effective_tic": 709,
+  "effective_at": "2026-08-12T13:53:55.063080+00:00",
+  "supersedes": [],
+  "consequence_class": "interpretive",
+  "reversible": false,
+  "lifecycle_state": "ratified",
+  "receipt_path": "cgg-runtime/migrations/record-correction-tic709-offenum-02-11e539b2.json"
+ },
+ "canonical_authorization_receipt": {
+  "schema_version": 1,
+  "type": "record_correction_authorization_receipt",
+  "correction_id": "rc_offenum_11e539b2_tic709",
+  "correction_digest": "0ab04e50d1427bf00236e8309d2be87383f09b331d1900731f8d47d28d07e2bf",
+  "authority": {
+   "author_id": "ent_homeskillet",
+   "authority_class": "ratified_review",
+   "authorization_ref": "/review:708 off-enum rulings 1-3 (Architect-ratified in-tic question set; ruling rows off-enum-ruling-1..4, audit-logs/reviews/2026-08-12.jsonl) + /review:709 D1 EXECUTE-at-the-gate (Architect-ratified in-tic question set)"
+  },
+  "lifecycle_state": "ratified",
+  "receipt_path": "cgg-runtime/migrations/record-correction-tic709-offenum-02-11e539b2.json",
+  "canonical_append_repository": "prompted365/canonical_federation",
+  "canonical_append_commit": "22d96a999c8ace1ee059d4187f1be6e21a8c6298",
+  "canonical_append_surface": "audit-logs/reviews/2026-08-12.jsonl"
+ },
+ "base_record_snapshot": {
+  "type": "cpr",
+  "id": "cpr_mogul_ladder_audit_d750f40dfb8c",
+  "id_origin": "hash_derived",
+  "status": "promoted",
+  "tier": "tier1",
+  "lesson": "A dehydration transform corrects the SOURCE surface's self-description and leaves the DESTINATION's self-description frozen at transform time — while the destination is precisely the surface that keeps accreting. Lived at tic 680: canonical/CLAUDE.md had its stale 'Pass-4-A draft / not yet swapped' banner corrected at /review 316, explicitly noted as having 'contradicted reality since the swap.' Its sibling and transform TARGET, constitution-ledger/ledger.md, never got the same correction: ledger.md:3 still reads 'Pass-4-B authored draft (tic 267)' and ledger.md:22 still reads 'Total demoted entries: 74' against 243 actual anchored entries — a 3.3x under-declaration, because ~169 entries were promoted INTO the ledger across tics 278-640 after the head was written. This is not covered by the existing structural-transform invariant, which enumerates the closed set of READERS OF THE SOURCE. The destination's own head-matter is a different locus: it is the transform's PRODUCT, and it degrades monotonically as the destination grows. It is a textbook silent-degrade consumer — an agent sizing the corpus from the head, or a rehydration lane budgeting a read, under-reads by 3.3x with no loud error — and it trips the internal-snapshots-must-carry-timestamps-or-TTLs invariant, the head being an unprobed tic-267 snapshot on the federation's largest doctrinal surface. The rule: a relocation's closed consumer set must include the DESTINATION's self-description, and any count in that self-description must be derived at read time or carry an explicit as-of tic.",
+  "source": "mogul:ladder_audit",
+  "source_date": "2026-08-05",
+  "band": "COGNITIVE",
+  "motivation_layer": "COGNITIVE",
+  "subsystem": "constitution-ledger / doctrine surface maintenance",
+  "recommended_scopes": [
+   "audit-logs/governance/constitution-ledger/ledger.md (head refresh: banner + counts + rendering-axis line)",
+   "constitution-ledger: refine structural-transform-implies-closed-consumer-set-obligation to include the destination's own self-description"
+  ],
+  "note": "Surfaced by the ladder-auditor as F-1 and INDEPENDENTLY VERIFIED by me at the locus (ledger.md:3, :22; 243 anchors counted directly). Deliberately scoped as a durable lesson, not merely the repair — the repair is a head refresh, the lesson is that transform destinations need self-description in their consumer set. Note the same pass's F-2 did NOT survive my verification (its premise that Tic 613 was the last header is false), which is why F-1 was re-verified rather than carried on the auditor's authority.",
+  "confidence_tier": "exact",
+  "lesson_type": "invariant_refinement",
+  "birth_tic": 680,
+  "maturity_window_tics": 3,
+  "review_tic": 683,
+  "origin_context": "mogul_cycle",
+  "source_cycle": "ladder_audit",
+  "mogul_mandate_id": "tic-680-20260805T113323",
+  "mogul_runtime": "claude_code",
+  "birth_rung": "site",
+  "birth_scope_path": "/Users/breydentaylor/canonical",
+  "extracted_at": "2026-08-05T13:26:12.792125+00:00",
+  "extracted_by": "cogpr-ingest",
+  "prior_status": "tic_gated",
+  "current_tic": 683,
+  "advanced_tic": 683,
+  "advanced_at": "2026-08-06T23:41:24.602770+00:00",
+  "advanced_by": "cpr-stepper (ent_cpr_stepper, resident/queue_state_machine)",
+  "pass_id": "cpr-step-683",
+  "boot_receipt": "bbe29151ba159724",
+  "advance_reason": "temporal maturity discharged at tic 683 (birth_tic 680 + maturity_tics 3 <= 683); provenance_class absent -> treated friction_born, field NOT written; no waiver applied",
+  "dedup_hash": "fbba138b390a837f",
+  "dedup_verification": {
+   "form": "sha256(f'{source}:{lesson}')[:16]",
+   "previously_stamped": false,
+   "stamped_now": "fbba138b390a837f",
+   "match": null,
+   "no_separator_form_would_be": "75d803f6e8a3c606",
+   "collisions": 0,
+   "scan_scope": "1120 latest-per-id / 2609 raw rows"
+  },
+  "staleness": {
+   "source_kind": "cycle_pointer_not_file",
+   "source_stable": true,
+   "claim_reverified_at_tic_683": "ledger.md:3 still reads 'Pass-4-B authored draft (tic 267)'; ledger.md:22 still reads '- **Total demoted entries:** 74'. Both stale head-matter strings the row named at tic 680 are PRESENT at 683.",
+   "count_axis_note": "My independent probe counted 239 '^### ' anchored entries; the row asserts 243. I do not adjudicate the exact figure — the counting AXIS may differ (heading level / anchor form). The row's SHAPE (head declares 74 against a ~3.2-3.3x larger real corpus) is confirmed under either count.",
+   "condition_resolved": false,
+   "last_checked_tic": 683
+  },
+  "relations": {},
+  "review_verdict": "PROMOTE",
+  "review_confidence": 0.85,
+  "review_pass": "review-683",
+  "review_ratified_by": "Architect (in-tic question set, /review 683, ratified 2026-08-07)",
+  "review_confidence_tier": "exact",
+  "promoted_to": "audit-logs/governance/constitution-ledger/ledger.md#structural-transform-implies-closed-consumer-set-obligation",
+  "promoted_tic": 683,
+  "promoted_date": "2026-08-07",
+  "inscription_form": "refinement_ray_on_existing_entry + in-lane head refresh of the destination surface",
+  "compact_root_status": "ledger_only — docket did not mark this entry compact-root-worthy; no pointer line added to canonical/CLAUDE.md (the parent KI already carries one)",
+  "review_reasoning": "PROMOTE as a refinement ray on constitution-ledger#structural-transform-implies-closed-consumer-set-obligation (NOTE: constitution-ledger, not cgg-ledger). The DESTINATION own self-description is a member of the transform closed consumer set — a dehydration corrects the SOURCE banner and leaves the accreting DESTINATION frozen at transform time. The parent enumerates readers of the SOURCE; this ray adds the transform PRODUCT, which degrades monotonically as the destination grows (a textbook silent-degrade consumer, and an unprobed tic-267 snapshot tripping the timestamps-or-TTLs invariant). PLUS the ratified IN-LANE FIX, applied same pass to ledger.md own head: line 3 Pass-4-B authored draft (tic 267) banner replaced with the LIVE post-Pass-4-C accreting reality (swap commits 22341a42 / b03cdb89, freeze lifted tic 267); line 22 Total demoted entries: 74 converted to a NON-ROTTING derived formulation naming where the live count comes from (grep -c on the file itself) with an explicit as-of tic 683 reading of 239 entry headings / 243 anchors, the historical 74 preserved as the never-retconned Pass-4 baseline. The terrain-class breakdown was left numerically untouched (out of the ratified scope) but marked as-of-267 rather than left implicitly live. Entry bodies untouched. The doctrine remedy dogfooded on the surface that taught it.",
+  "updated_at": "2026-08-07T10:43:07.491365+00:00",
+  "lifecycle_writeback": {
+   "by": "queue-lifecycle-writeback",
+   "writer": "review-execute",
+   "at": "2026-08-07T10:43:07.491365+00:00",
+   "prior_status": "tic_gated",
+   "copied_forward_fields": 38,
+   "mutated_fields": [
+    "compact_root_status",
+    "inscription_form",
+    "prior_status",
+    "promoted_date",
+    "promoted_tic",
+    "promoted_to",
+    "review_confidence",
+    "review_confidence_tier",
+    "review_pass",
+    "review_ratified_by",
+    "review_reasoning",
+    "review_tic",
+    "review_verdict",
+    "status"
+   ]
+  }
+ }
+}

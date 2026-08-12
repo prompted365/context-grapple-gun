@@ -1,0 +1,115 @@
+{
+ "schema_version": 1,
+ "type": "record_correction_migration",
+ "migration_id": "migration-rc_offenum_acaa785e_tic709",
+ "provenance": {
+  "repository": "prompted365/canonical_federation",
+  "commit": "22d96a999c8ace1ee059d4187f1be6e21a8c6298",
+  "surface": "audit-logs/reviews/2026-08-12.jsonl",
+  "doctrine_anchor": "audit-logs/governance/off-enum-confidence-tier-decision-brief-tic708.md",
+  "authorization_anchor": "/review:708 off-enum rulings 1-3 (Architect-ratified in-tic question set; ruling rows off-enum-ruling-1..4, audit-logs/reviews/2026-08-12.jsonl) + /review:709 D1 EXECUTE-at-the-gate (Architect-ratified in-tic question set)",
+  "canonical_append_commit": "22d96a999c8ace1ee059d4187f1be6e21a8c6298"
+ },
+ "canonical_correction": {
+  "schema_version": 1,
+  "type": "record_correction",
+  "correction_id": "rc_offenum_acaa785e_tic709",
+  "target_record_id": "cpr_mogul_review_close_check_ad00d4c652c8",
+  "target_surface": "audit-logs/cprs/queue.jsonl",
+  "source": {
+   "repository": "prompted365/canonical_federation",
+   "commit": "d29e26f5d0b4bf3d4088be1178fa18fe96f77793",
+   "surface": "audit-logs/reviews/2026-08-12.jsonl"
+  },
+  "patch": {
+   "confidence_class": "exact",
+   "confidence_tier": null
+  },
+  "literal_correction": "queue row cpr_mogul_review_close_check_ad00d4c652c8 carries confidence_tier 'exact' — a confidence_class enum value that bled into the tier field (field-routing defect, the 6/39 seam, A2-708). Row-scoped repair per /review 708 ruling 1: the value moves to confidence_class (lawful — no conflicting class on the row) and confidence_tier clears to typed absence.",
+  "authority": {
+   "author_id": "ent_homeskillet",
+   "authority_class": "ratified_review",
+   "authorization_ref": "/review:708 off-enum rulings 1-3 (Architect-ratified in-tic question set; ruling rows off-enum-ruling-1..4, audit-logs/reviews/2026-08-12.jsonl) + /review:709 D1 EXECUTE-at-the-gate (Architect-ratified in-tic question set)"
+  },
+  "reason": "Off-enum confidence_tier historical repair, row-scoped (11-row tranche, bk-off-enum-tier-correction-tranche): ratified SHAPE at /review 708 (rulings 1-3), EXECUTED at the /review 709 gate as designed (the pairing: two of the six exact rows ARE the 709 docket rows, corrected on their own adjudication). The physics guard (CGG ab8e22c) holds the population static; base rows never retconned — row-scoped effective view only.",
+  "effective_tic": 709,
+  "effective_at": "2026-08-12T13:53:55.063080+00:00",
+  "supersedes": [],
+  "consequence_class": "interpretive",
+  "reversible": false,
+  "lifecycle_state": "ratified",
+  "receipt_path": "cgg-runtime/migrations/record-correction-tic709-offenum-04-acaa785e.json"
+ },
+ "canonical_authorization_receipt": {
+  "schema_version": 1,
+  "type": "record_correction_authorization_receipt",
+  "correction_id": "rc_offenum_acaa785e_tic709",
+  "correction_digest": "77ea5184585e89fd361238d9e9472849db01688ff202a5179ebc13a757ee1052",
+  "authority": {
+   "author_id": "ent_homeskillet",
+   "authority_class": "ratified_review",
+   "authorization_ref": "/review:708 off-enum rulings 1-3 (Architect-ratified in-tic question set; ruling rows off-enum-ruling-1..4, audit-logs/reviews/2026-08-12.jsonl) + /review:709 D1 EXECUTE-at-the-gate (Architect-ratified in-tic question set)"
+  },
+  "lifecycle_state": "ratified",
+  "receipt_path": "cgg-runtime/migrations/record-correction-tic709-offenum-04-acaa785e.json",
+  "canonical_append_repository": "prompted365/canonical_federation",
+  "canonical_append_commit": "22d96a999c8ace1ee059d4187f1be6e21a8c6298",
+  "canonical_append_surface": "audit-logs/reviews/2026-08-12.jsonl"
+ },
+ "base_record_snapshot": {
+  "type": "cpr",
+  "id": "cpr_mogul_review_close_check_ad00d4c652c8",
+  "id_origin": "hash_derived",
+  "status": "promoted",
+  "tier": "tier1",
+  "lesson": "A hand-carried streak counter whose declared UNIT does not match its counting PRACTICE converts unobserved intervals into asserted continuity. The review-close 'genuine-zero' streak is reported with an explicitly declared unit — 'unit: PASSES', inscribed as a ray at tic 704 — and was carried into tic 706 as '24 consecutive PASSES (680->706)'. The log does not support that reading under any single unit: audit-logs/services/review-close-check-log.jsonl holds 32 consecutive genuine-zero ROWS over that span (7 tics carry 2-3 rows each, from same-tic re-observations that the script itself marks decision=replace and files a superseded receipt for), across 24 DISTINCT check-bearing tics, inside a 27-tic span (680..706) in which 3 tics — 683, 687, 693 — had NO check row at all. The reported 24 therefore counts distinct check-bearing tics, not passes; and the three unobserved tics are silently absorbed into a claim of continuity. Two defects, one root: (a) the declared unit is not the counted unit, so the same number is defensible under whichever reading a given tic needs — the streak cannot be falsified by a miss; (b) 'consecutive' over a gapped observation series asserts the passing property for tics never measured, which is the presence/observation family's absence-conflation running in the favorable direction (an unobserved tic is not a passed tic). The cure is mechanization plus disclosure: the streak must be computed by the script that writes the log row (no hand-carried number in mandate/commit prose), must state its unit and compute in exactly that unit, and must disclose gaps and same-tic re-observations rather than absorbing them — a re-observation of an already-passing tic is not new evidence about a new boundary.",
+  "source": "mogul:review_close_check",
+  "dedup_hash": "3ab71148beee02c0",
+  "source_date": "2026-08-12",
+  "band": "COGNITIVE",
+  "motivation_layer": "COGNITIVE",
+  "subsystem": "review_close_check / governance streak reporting",
+  "recommended_scopes": [
+   "canonical_developer/context-grapple-gun/cgg-runtime/scripts/review-close-check.py",
+   "audit-logs/governance/constitution-ledger/ledger.md"
+  ],
+  "note": "DERIVABILITY CHALLENGE DISCLOSED, /review owns the altitude call: this sits adjacent to the presence-observation-fallacy-guard family (guard 4, observed-absence-does-not-prove-breakage-without-manifest-status) and may adjudicate as a refinement ray onto it rather than standalone — the net-new candidate is the favorable-direction mirror (an unobserved interval read as a passing interval) plus the declared-unit-vs-counted-unit mismatch, neither of which the existing guards name. No streak-computing code exists (grep found none) — the number lives only in mandate watch text and commit prose, which is itself part of the finding.",
+  "confidence_tier": "exact",
+  "lesson_type": "measurement_integrity_constraint",
+  "birth_tic": 706,
+  "maturity_tics": 3,
+  "maturity_window_tics": 3,
+  "review_tic": 709,
+  "origin_context": "mogul_cycle",
+  "source_cycle": "review_close_check",
+  "mogul_mandate_id": "tic-706-review-close-20260812T001953",
+  "mogul_runtime": "claude_code",
+  "birth_rung": "site",
+  "birth_scope_path": "/Users/breydentaylor/canonical",
+  "extracted_at": "2026-08-12T00:32:28.187915+00:00",
+  "extracted_by": "cogpr-ingest",
+  "source_file": "audit-logs/mogul/cycle-reports/reports/2026-08-11T202558-tic-706.report.json",
+  "promoted_to": "audit-logs/governance/constitution-ledger/ledger.md#presence-observation-fallacy-guard",
+  "promoted_date": "2026-08-12",
+  "review_verdict": "PROMOTE",
+  "review_confidence": 0.85,
+  "prior_status": "extracted",
+  "updated_at": "2026-08-12T13:51:27.662840+00:00",
+  "lifecycle_writeback": {
+   "by": "queue-lifecycle-writeback",
+   "writer": "review-execute",
+   "at": "2026-08-12T13:51:27.662840+00:00",
+   "prior_status": "extracted",
+   "copied_forward_fields": 29,
+   "mutated_fields": [
+    "prior_status",
+    "promoted_date",
+    "promoted_to",
+    "review_confidence",
+    "review_tic",
+    "review_verdict",
+    "status"
+   ]
+  }
+ }
+}

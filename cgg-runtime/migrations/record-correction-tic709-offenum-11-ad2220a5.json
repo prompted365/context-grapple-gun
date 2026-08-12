@@ -1,0 +1,155 @@
+{
+ "schema_version": 1,
+ "type": "record_correction_migration",
+ "migration_id": "migration-rc_offenum_ad2220a5_tic709",
+ "provenance": {
+  "repository": "prompted365/canonical_federation",
+  "commit": "22d96a999c8ace1ee059d4187f1be6e21a8c6298",
+  "surface": "audit-logs/reviews/2026-08-12.jsonl",
+  "doctrine_anchor": "audit-logs/governance/off-enum-confidence-tier-decision-brief-tic708.md",
+  "authorization_anchor": "/review:708 off-enum rulings 1-3 (Architect-ratified in-tic question set; ruling rows off-enum-ruling-1..4, audit-logs/reviews/2026-08-12.jsonl) + /review:709 D1 EXECUTE-at-the-gate (Architect-ratified in-tic question set)",
+  "canonical_append_commit": "22d96a999c8ace1ee059d4187f1be6e21a8c6298"
+ },
+ "canonical_correction": {
+  "schema_version": 1,
+  "type": "record_correction",
+  "correction_id": "rc_offenum_ad2220a5_tic709",
+  "target_record_id": "cpr_narrative_carry_without_reverification_tic658",
+  "target_surface": "audit-logs/cprs/queue.jsonl",
+  "source": {
+   "repository": "prompted365/canonical_federation",
+   "commit": "d29e26f5d0b4bf3d4088be1178fa18fe96f77793",
+   "surface": "audit-logs/reviews/2026-08-12.jsonl"
+  },
+  "patch": {
+   "confidence_tier": null
+  },
+  "literal_correction": "queue row cpr_narrative_carry_without_reverification_tic658 carries confidence_tier 'validated' — a stray value foreign to the admitted tier enum (tentative/reinforced/convergent + measured/measured_single_locus, /review 708 ruling 3). Per-row classification (ruling 3's map-to-admitted-or-typed-absence): no admitted value is entailed by the row's own evidence — mapping 'validated' to an evidence-count tier would MINT an evidence claim the row does not carry. Typed absence; the stray value stays disclosed here.",
+  "authority": {
+   "author_id": "ent_homeskillet",
+   "authority_class": "ratified_review",
+   "authorization_ref": "/review:708 off-enum rulings 1-3 (Architect-ratified in-tic question set; ruling rows off-enum-ruling-1..4, audit-logs/reviews/2026-08-12.jsonl) + /review:709 D1 EXECUTE-at-the-gate (Architect-ratified in-tic question set)"
+  },
+  "reason": "Off-enum confidence_tier historical repair, row-scoped (11-row tranche, bk-off-enum-tier-correction-tranche): ratified SHAPE at /review 708 (rulings 1-3), EXECUTED at the /review 709 gate as designed (the pairing: two of the six exact rows ARE the 709 docket rows, corrected on their own adjudication). The physics guard (CGG ab8e22c) holds the population static; base rows never retconned — row-scoped effective view only.",
+  "effective_tic": 709,
+  "effective_at": "2026-08-12T13:53:55.063080+00:00",
+  "supersedes": [],
+  "consequence_class": "interpretive",
+  "reversible": false,
+  "lifecycle_state": "ratified",
+  "receipt_path": "cgg-runtime/migrations/record-correction-tic709-offenum-11-ad2220a5.json"
+ },
+ "canonical_authorization_receipt": {
+  "schema_version": 1,
+  "type": "record_correction_authorization_receipt",
+  "correction_id": "rc_offenum_ad2220a5_tic709",
+  "correction_digest": "1d9274ecf038574324a7bf5601de65b7e2b3665a406a1f50b8a1ac1d552f8661",
+  "authority": {
+   "author_id": "ent_homeskillet",
+   "authority_class": "ratified_review",
+   "authorization_ref": "/review:708 off-enum rulings 1-3 (Architect-ratified in-tic question set; ruling rows off-enum-ruling-1..4, audit-logs/reviews/2026-08-12.jsonl) + /review:709 D1 EXECUTE-at-the-gate (Architect-ratified in-tic question set)"
+  },
+  "lifecycle_state": "ratified",
+  "receipt_path": "cgg-runtime/migrations/record-correction-tic709-offenum-11-ad2220a5.json",
+  "canonical_append_repository": "prompted365/canonical_federation",
+  "canonical_append_commit": "22d96a999c8ace1ee059d4187f1be6e21a8c6298",
+  "canonical_append_surface": "audit-logs/reviews/2026-08-12.jsonl"
+ },
+ "base_record_snapshot": {
+  "type": "cpr",
+  "id": "cpr_narrative_carry_without_reverification_tic658",
+  "id_origin": "explicit",
+  "dedup_hash": "05fc6ba61a779b82",
+  "status": "skipped",
+  "tier": "tier1",
+  "lesson": "A claim inherited from handoff/prior-tic narrative is a HYPOTHESIS, not blocker state — before any gate/blocker/absence claim shapes a session's plan, it must be re-verified against the live field (the specific registry, the live board slice, the actual presence evidence), and the verification is CASE-2 SHAPED: the governing laws usually already exist and may even recite at boot (absence-from-an-index is not absence-from-the-field; RE-TEST capability walls; probe residency, don't inherit it) — the gap is rehydration AT THE LOCUS where the claim enters (the tool's default-parameter scope, the handoff's residency line, the 'if room' hedge). Three teeth: (1) a DEFAULT parameter's scope silently becomes the claim's scope — a selection that read only the default manifest may only claim manifest-absence, never field-absence; (2) residency/presence of the human is a probeable fact (session-opening approval, same-day capture artifacts), never a narrative carry; (3) an undefined scheduling hedge ('if room') is a blocker-claim in disguise — replace with a tranche position or a named gate. Wrong claims already acted on get append-only record corrections, never retcons.",
+  "source": "Architect challenge at tic 658 (live, verbatim: 'persisting the narrative sans investigaton and hedging on permission when already established') + record-correction row in reviews/2026-07-26.jsonl @658 + disproof receipts: admission-manifest-live-supply-tic658.json (pointer at /review 614/615 admission), emitter journal row splat-req-bk-queue-body-refresh-mechanism-tic658, selection-report-tic658.json (first ELIGIBLE in lane history) vs selection-report-tic657.json (the false-scarcity read)",
+  "source_date": "",
+  "band": "COGNITIVE",
+  "motivation_layer": "COGNITIVE",
+  "subsystem": "session-lead orientation layer (handoff intake x blocker-state verification) — cross-cutting, surfaced at the intake-journal lane",
+  "recommended_scopes": [
+   ".claude/skills/cadence/SKILL.md (handoff-consumption protocol: inherited gate/blocker claims re-verify before they shape the entry plan)",
+   "audit-logs/governance/observation-windows/emitter (default-manifest scope disclosure at selection time — claim manifest-absence, not field-absence)"
+  ],
+  "rationale": "Boot-verbatim law did not prevent the recurrence because the law rehydrates at the CORPUS/CAPABILITY loci it names, not at the handoff-intake locus where inherited blocker claims enter; one Architect challenge cost a full accounting cycle that a 3-probe entry check (residency, claimed-gate liveness, default-scope disclosure) would have prevented.",
+  "review_hints": "Non-derivability is honestly WEAK against the standing-substrate law (absence-from-index) + RE-TEST-capability-walls + presence/observation-fallacy-guard — this is likely CASE 2 (properly ledgered, un-applied at a new locus): if so, the durable home is the rehydration wiring named in recommended_scopes (cadence handoff-consumption step + emitter scope disclosure), NOT new federation law. The residency tooth may also map onto architect-active-use-is-fastest-validation-channel. SKIP-with-home is a fully satisfying verdict here.",
+  "birth_tic": 658,
+  "posture": "OPS/DIRECT",
+  "extracted_at": "2026-07-26T22:16:56.301637+00:00",
+  "extracted_by": "cpr-extract-hook",
+  "source_file": "/Users/breydentaylor/canonical/audit-logs/governance/borns-tic658-narrative-carry-without-reverification.md",
+  "source_block_line": 7,
+  "birth_rung": "site",
+  "birth_scope_path": "/Users/breydentaylor/canonical",
+  "provenance_class": "friction_born",
+  "confidence_tier": "validated",
+  "origin_context": "session",
+  "prior_status": "tic_gated",
+  "current_tic": 661,
+  "advanced_tic": 661,
+  "advanced_by": "cpr-stepper",
+  "stepped_by": "cpr-stepper",
+  "maturity_tics": 3,
+  "advance_reason": "Temporal maturity gate SATISFIED: birth_tic=658, current_tic=661 (canonical authority domain_counter_after=661, latest tic event audit-logs/tics/2026-07-27.jsonl @2026-07-27T20:12:30Z emission em-661-4462f14165 -- NOT a raw type=tic row count), tic_delta=3 >= maturity_tics=3 (default; no per-row override). provenance_class=friction_born EXPLICIT -> standing 3-tic hold applies, no construction_authoritative waiver. Correctly held at 659 (delta 1) and 660 (delta 2). Derived from birth_tic at the queue under per_id_maturity_v1; dispatch named a COUNT (1) and NOT an id -- the id was derived here independently and PARITY CONFIRMED three ways (my derivation 1 == orchestrator's independent derivation 1 == boot marker audit-logs/hooks/cpr-step-lane-seen.json {tic:661, steppable:1, predicate:per_id_maturity_v1}), and cross-checked against the single-owner predicate module cgg-runtime/scripts/lib/cpr_steppable.py count_steppable() which also returns 1. The three tic-660 births (rows 2537/2538/2539, birth 660, delta 1) are IMMATURE until 663 and were NOT stepped. verify-twin DEDUP CLEAN.",
+  "dedup_verification": "Stored dedup_hash 05fc6ba61a779b82 REPRODUCES EXACTLY under the authoritative colon form sha256(f'{source}:{lesson}')[:16]; the no-separator form sha256(source+lesson) yields de246a0a776835fe and is correctly rejected (doctrine-drift cured tic 653, stepper anomaly A4-653). Collision scan: 0 collisions queue-wide -- 218 stored hashes on latest-per-id rows are 218 DISTINCT values, and the target hash is carried by exactly 1 id. Content-recompute collision on the target's colon-form hash: 0 other ids. Safe-recompute set (214 latest-per-id rows carrying source+lesson+dedup_hash; 887 rows partitioned OUT as degenerate/field-missing per A3 discipline): 172 reproduce, 42 do not -- that 42-row non-reproducing set is a PRE-CURE LEGACY residue, not a live defect: max birth_tic among them is 620 (all predate the tic-653 hash-form cure) and ALL 42 sit at terminal statuses (19 promoted / 18 absorbed / 3 superseded / 2 skipped), so ZERO of them are /review-reachable (filed observation-only as A3-661). Verify-twin: zero lexical twins queue-wide -- 'narrative carry', 're-verified against the live field', 'HYPOTHESIS, not blocker state', 'default parameter'/'default-parameter', 'if room', 'residency', 'blocker-claim in disguise', 'manifest-absence', 'field-absence' each return EXACTLY 1 hit (this row); 'narrative-carry' hyphenated returns 0 (the row uses the spaced form). Nearest neighbours on the 're-verif' stem (3, all PROMOTED, none a twin): cpr_dual_posture_method_output_unverified_until_looked_at_tic417 is the strongest DERIVABILITY neighbour -- its centroid is a METHOD'S OWN OUTPUT unverified until looked-at (in-session, own product), whereas this centroid is an INHERITED NARRATIVE CLAIM crossing a session boundary and shaping an entry plan (the locus, not the act, is the candidate's own); cpr_receipt_flagged_language_is_not_routing_self_foreclosure_lying_heuristic_tic559 (declaration-of-intent vs mechanical event) and cpr_hoist_s6_close_anchor_must_track_proposal_head_tic590 (receipt stays valid as head advances) are adjacent but different loci. Internal-neighbour hits are REVIEW-ROUTING EVIDENCE, never prior-art: the row's own review_hints already declare non-derivability HONESTLY WEAK and name SKIP-with-home as fully satisfying -- refinement-vs-net-new is /review's call, not the stepper's.",
+  "staleness": {
+   "source_stable": true,
+   "source_kind": "borns_file_block",
+   "source_stable_evidence": "source_file present at /Users/breydentaylor/canonical/audit-logs/governance/borns-tic658-narrative-carry-without-reverification.md (24 lines, 4681 bytes); --agnostic-candidate block intact at source_block_line 7 carrying 'id: cpr_narrative_carry_without_reverification_tic658' + 'status: pending'; the queue row's lesson string AND source string are both present VERBATIM in the file (byte-level containment checks, both True -- not head matches). A5-659 mtime-proxy arm run and CLEAN: file mtime 2026-07-26T21:41:19Z PREDATES extracted_at 2026-07-26T22:16:56Z by ~36 minutes, so the file was NOT touched after extraction. Outside-aperture divergence arm run and CLEAN: the file's framing prose (line 3) is CONSISTENT with the block -- it recites the same three challenged claims the lesson generalizes; there is no correction addendum and no contradicting surrounding text (contrast row 2536/2540 t657, which DOES carry one).",
+   "condition_resolved": false,
+   "condition_resolved_evidence": "Target-scope absorption probe NEGATIVE on BOTH recommended scopes. (1) .claude/skills/cadence/SKILL.md (823 lines; probed at BOTH faces -- the installed ~/.claude/skills/cadence/SKILL.md and the authoring cgg-runtime/skills/cadence/SKILL.md, byte-identical line counts): ZERO hits for 'narrative-carry', 're-verif', 'HYPOTHESIS, not blocker', 'manifest-absence', 'field-absence', 'inherited claim', 'probe residency'. The single 'blocker' hit (line 783) is the handoff template's unrelated prose field ('blockers hit. Max 5 lines'), NOT a handoff-consumption re-verification step. The named handoff-consumption protocol step does not exist. (2) audit-logs/governance/observation-windows/emitter: the default-manifest scope tooth is UNABSORBED and the condition is still STRUCTURALLY LIVE -- live-splat-request-emitter.py:36 still documents '[--manifest PATH] admission manifest (default: review-635-admitted-active-nodes.json)', i.e. the exact silent default whose scope became the absence claim's scope at t657. PARTIAL disclosure exists on the EMISSION side only (:195 stamps 'admission_manifest': <path> into the emitted request), but the SELECTION-REPORT -- the artifact that actually MADE the absence claim -- carries no scope disclosure: selection-report-tic659.json keys are [tool, version, segment, evaluated_at, current_tic, board_operative_tic, journal, requests_evaluated, eligible_count, refused_count, results] with no manifest/scope/apophatic field. So the disclosure obligation is unmet precisely where the lesson points it.",
+   "last_checked_tic": 661
+  },
+  "updated_at": "2026-08-05T17:57:25+00:00",
+  "gate_advanced_at_tic": 662,
+  "gate_advanced_by": "cpr-gate-advance",
+  "gate_advance_reason": "tic-427 baseline consolidated present (pre-enrichment evidence); deterministic tic_gated->enrichment_needed reconcile",
+  "enrichment": [
+   {
+    "evidence_type": "cross_reference",
+    "value": "Lesson referenced in 1 other files",
+    "detail": [
+     "audit-logs/governance/borns-tic658-narrative-carry-without-reverification.md"
+    ],
+    "gathered_at": "2026-07-28T08:11:14.573026+00:00",
+    "gathered_by": "cpr-enrichment-scanner"
+   },
+   {
+    "evidence_type": "target_absence_confirmed",
+    "value": "2/2 targets lack lesson content",
+    "detail": [
+     ".claude/skills/cadence/SKILL.md (handoff-consumption protocol: inherited gate/blocker claims re-verify before they shape the entry plan) (file missing)",
+     "audit-logs/governance/observation-windows/emitter (default-manifest scope disclosure at selection time — claim manifest-absence, not field-absence) (unreadable)"
+    ],
+    "gathered_at": "2026-07-28T08:11:14.573026+00:00",
+    "gathered_by": "cpr-enrichment-scanner"
+   },
+   {
+    "evidence_type": "source_stable",
+    "value": "Source file exists, lesson text still present",
+    "gathered_at": "2026-07-30T08:19:49.428075+00:00",
+    "gathered_by": "cpr-enrichment-scanner"
+   }
+  ],
+  "enrichment_scanned_at": "2026-07-30T08:22:25.432793+00:00",
+  "enrichment_rung": "site",
+  "enrichment_scan_count": 3,
+  "enrichment_confidence": 0.5,
+  "lesson_type": "process",
+  "scope_repair": {
+   "anomaly": "A2-661",
+   "repaired_at_tic": 662,
+   "repaired_by": "ent_homeskillet",
+   "repaired_at": "2026-07-28T08:22:29.459180+00:00",
+   "change": "back-filled author-declared lesson_type dropped by the pre-cure extractor (extractor cured b6f7667 at t660: passthrough now live, confirmed on born-661 row 2543); value recovered VERBATIM from the source_file born block at source_block_line, not inferred; no lifecycle/content fields changed; dedup_hash preserved (hash is over source+lesson only)",
+   "prior_state": "lesson_type absent from all rows of this id"
+  },
+  "review_tic": 680,
+  "review_verdict": "SKIP",
+  "review_confidence": 0.8,
+  "review_reasoning": "CASE-2 closed: rehydration at the locus already landed and firing — CGG CONSUMPTION PROTOCOL v1 step (3) injected with every handoff + presence-observation guards; lived at t658/t679/t680 re-verifications. SKIP ≠ DISCARD: home pre-exists, no new write owed.",
+  "reviewed_by": "ent_review_execute (claude-sonnet-5)",
+  "reviewed_at": "2026-08-05T17:57:25+00:00"
+ }
+}

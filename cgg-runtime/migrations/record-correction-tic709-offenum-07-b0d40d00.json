@@ -1,0 +1,114 @@
+{
+ "schema_version": 1,
+ "type": "record_correction_migration",
+ "migration_id": "migration-rc_offenum_b0d40d00_tic709",
+ "provenance": {
+  "repository": "prompted365/canonical_federation",
+  "commit": "22d96a999c8ace1ee059d4187f1be6e21a8c6298",
+  "surface": "audit-logs/reviews/2026-08-12.jsonl",
+  "doctrine_anchor": "audit-logs/governance/off-enum-confidence-tier-decision-brief-tic708.md",
+  "authorization_anchor": "/review:708 off-enum rulings 1-3 (Architect-ratified in-tic question set; ruling rows off-enum-ruling-1..4, audit-logs/reviews/2026-08-12.jsonl) + /review:709 D1 EXECUTE-at-the-gate (Architect-ratified in-tic question set)",
+  "canonical_append_commit": "22d96a999c8ace1ee059d4187f1be6e21a8c6298"
+ },
+ "canonical_correction": {
+  "schema_version": 1,
+  "type": "record_correction",
+  "correction_id": "rc_offenum_b0d40d00_tic709",
+  "target_record_id": "cpr_mogul_economy_heartbeat_b37a95e35cb8",
+  "target_surface": "audit-logs/cprs/queue.jsonl",
+  "source": {
+   "repository": "prompted365/canonical_federation",
+   "commit": "d29e26f5d0b4bf3d4088be1178fa18fe96f77793",
+   "surface": "audit-logs/reviews/2026-08-12.jsonl"
+  },
+  "patch": {
+   "confidence_tier": null
+  },
+  "literal_correction": "queue row cpr_mogul_economy_heartbeat_b37a95e35cb8 carries confidence_tier 'high' — a stray value foreign to the admitted tier enum (tentative/reinforced/convergent + measured/measured_single_locus, /review 708 ruling 3). Per-row classification (ruling 3's map-to-admitted-or-typed-absence): no admitted value is entailed by the row's own evidence — mapping 'high' to an evidence-count tier would MINT an evidence claim the row does not carry. Typed absence; the stray value stays disclosed here.",
+  "authority": {
+   "author_id": "ent_homeskillet",
+   "authority_class": "ratified_review",
+   "authorization_ref": "/review:708 off-enum rulings 1-3 (Architect-ratified in-tic question set; ruling rows off-enum-ruling-1..4, audit-logs/reviews/2026-08-12.jsonl) + /review:709 D1 EXECUTE-at-the-gate (Architect-ratified in-tic question set)"
+  },
+  "reason": "Off-enum confidence_tier historical repair, row-scoped (11-row tranche, bk-off-enum-tier-correction-tranche): ratified SHAPE at /review 708 (rulings 1-3), EXECUTED at the /review 709 gate as designed (the pairing: two of the six exact rows ARE the 709 docket rows, corrected on their own adjudication). The physics guard (CGG ab8e22c) holds the population static; base rows never retconned — row-scoped effective view only.",
+  "effective_tic": 709,
+  "effective_at": "2026-08-12T13:53:55.063080+00:00",
+  "supersedes": [],
+  "consequence_class": "interpretive",
+  "reversible": false,
+  "lifecycle_state": "ratified",
+  "receipt_path": "cgg-runtime/migrations/record-correction-tic709-offenum-07-b0d40d00.json"
+ },
+ "canonical_authorization_receipt": {
+  "schema_version": 1,
+  "type": "record_correction_authorization_receipt",
+  "correction_id": "rc_offenum_b0d40d00_tic709",
+  "correction_digest": "2ab101a0f8e60de8fed9f2d0feedde1607304d3bd982b08c2b23162daccde60a",
+  "authority": {
+   "author_id": "ent_homeskillet",
+   "authority_class": "ratified_review",
+   "authorization_ref": "/review:708 off-enum rulings 1-3 (Architect-ratified in-tic question set; ruling rows off-enum-ruling-1..4, audit-logs/reviews/2026-08-12.jsonl) + /review:709 D1 EXECUTE-at-the-gate (Architect-ratified in-tic question set)"
+  },
+  "lifecycle_state": "ratified",
+  "receipt_path": "cgg-runtime/migrations/record-correction-tic709-offenum-07-b0d40d00.json",
+  "canonical_append_repository": "prompted365/canonical_federation",
+  "canonical_append_commit": "22d96a999c8ace1ee059d4187f1be6e21a8c6298",
+  "canonical_append_surface": "audit-logs/reviews/2026-08-12.jsonl"
+ },
+ "base_record_snapshot": {
+  "type": "cpr",
+  "id": "cpr_mogul_economy_heartbeat_b37a95e35cb8",
+  "id_origin": "hash_derived",
+  "status": "promoted",
+  "tier": "tier1",
+  "lesson": "A tic-boundary breach indicator computed as a boolean OR over a high-frequency inner loop SATURATES and destroys exactly the severity signal it exists to carry — the flag must expose its duty cycle, or its consumers must read the per-tick counts instead of the flag. The c-coin economy heartbeat is the proof. Its top-level breach_flags array is IDENTICAL — ['trust_below_tau','mint_halted'] — across four consecutive tics whose underlying reality differs enormously: tic 683 breached 1000/1000 inner ticks with ZERO minting ticks (a total halt); tic 684 breached 335/1000 with 665 minting ticks (mostly healthy); tic 685 breached 592/1000 with 408 minting; tic 686 breached 729/1000 with 271 minting. A total-halt tic and a two-thirds-healthy tic present the reader with the same two strings. Because the inner loop runs 1000 ticks per governance tic, any single breached inner tick saturates the flag to true, so across the entire observed operating range the flag is non-discriminating — it is true always, and therefore carries no information beyond 'the simulation ran.' The discriminating measurement ALREADY EXISTS and is already emitted: detail.breach_flag_tick_counts carries 1000 / 335 / 592 / 729, and detail.ticks_with_mint carries 0 / 665 / 408 / 271. This is not a missing measurement — it is a measurement that is flattened at precisely the surface consumers read, which is the more dangerous shape because the artifact looks complete. This is the inverse of the Presence/Observation Fallacy Guard's observed-success arm: here, observed-BREACH does not prove breach-SEVERITY, and a reader that treats the flag as a severity signal will read a recovering economy and a halted one as the same state. It is also the same family as the tic-684 execution_attested cure (which fixed 'seed_stabilized alone reads breach-visibility as instability') but on a distinct axis — that cure separated execution from stability; this one concerns the breach indicator's own resolution. Remedy shape: either carry a duty-cycle/severity alongside each flag at the top level (flag + breached_ticks/total_ticks), or declare in the artifact contract that breach_flags is an occurrence witness only and that every severity consumer MUST read breach_flag_tick_counts — and then sweep the consumer set, since a flag that has been non-discriminating for its whole observed history may already have silent-degrade readers treating it as severity.",
+  "source": "mogul:economy_heartbeat",
+  "source_date": "2026-08-07",
+  "band": "STRUCTURAL",
+  "motivation_layer": "COGNITIVE",
+  "subsystem": "economy_heartbeat_observability",
+  "recommended_scopes": [
+   "canonical_developer/context-grapple-gun/cgg-ledger/ledger.md"
+  ],
+  "note": "Evidence-complete at birth: four consecutive on-disk economy artifacts (economy-tic-683/684/685/686.json) are enumerated above with both the saturated flag array and the discriminating per-tick counts; the contradiction is verifiable without any further probe. Neighbor-check performed: this is NOT the t684 execution_attested cure re-filed — that cure addressed seed_stabilized-vs-execution attestation and is confirmed HOLDING this tic (execution_attested true on a breach-showing tic); this is the resolution of the breach flag itself, a distinct axis. Sits near ledger#presence-observation-fallacy-guard (inverse arm) and near the federation KI 'Authoritative-set readers must read the manifest, not aggregate raw emissions' — /review should adjudicate whether it lands as a refinement ray on one of those or as net-new, which is why lesson_type is offered as net_new rather than asserted. Consumer-set sweep is named as part of the remedy per the closed-consumer-set obligation, NOT performed — filing, not building.",
+  "confidence_tier": "high",
+  "lesson_type": "net_new",
+  "birth_tic": 686,
+  "maturity_window_tics": 3,
+  "review_tic": 689,
+  "origin_context": "mogul_cycle",
+  "source_cycle": "economy_heartbeat",
+  "mogul_mandate_id": "tic-686-20260807T184809",
+  "mogul_runtime": "claude_code",
+  "birth_rung": "site",
+  "birth_scope_path": "/Users/breydentaylor/canonical",
+  "extracted_at": "2026-08-07T19:32:14.986480+00:00",
+  "extracted_by": "cogpr-ingest",
+  "review_verdict": "promote_net_new",
+  "promoted_to": "canonical_developer/context-grapple-gun/cgg-ledger/ledger.md#breach-flag-or-saturation-expose-duty-cycle",
+  "promoted_date": "2026-08-09",
+  "review_pass": "689-pass-1",
+  "review_confidence": 0.85,
+  "review_reasoning": "Architect-ratified round 1: net-new duty-cycle observability law at CGG rung, cross-rayed to federation presence-observation-fallacy-guard (inverse arm); fifth illustration live at ratification (economy-tic-689 g_t 0.749 above tau, flags saturated); remedy rides bk-economy-reporting-contract-temporal-scope",
+  "prior_status": "extracted",
+  "updated_at": "2026-08-09T05:11:20.603008+00:00",
+  "lifecycle_writeback": {
+   "by": "queue-lifecycle-writeback",
+   "writer": "ent_homeskillet/review-689-pass-1",
+   "at": "2026-08-09T05:11:20.603008+00:00",
+   "prior_status": "extracted",
+   "copied_forward_fields": 26,
+   "mutated_fields": [
+    "prior_status",
+    "promoted_date",
+    "promoted_to",
+    "review_confidence",
+    "review_pass",
+    "review_reasoning",
+    "review_tic",
+    "review_verdict",
+    "status"
+   ]
+  }
+ }
+}
