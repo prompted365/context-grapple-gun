@@ -432,8 +432,11 @@ def emit(args) -> int:
     # observability only — NEVER gate-blocking (a 4- or 6-sentence explain-back still records).
     if getattr(args, "ladder_explainback", None):
         rec["ladder_explainback"] = args.ladder_explainback
+        # A2-711: allow closing quotes/brackets after terminal punctuation — a sentence ending
+        # ."  .'  .)  .] must still split (the bare (?:\s|$) form undercounted doctrine-quoting
+        # explain-backs, biasing the drift-audit lane against them).
         rec["ladder_explainback_sentence_count"] = len(
-            [s for s in re.split(r"[.!?]+(?:\s|$)", args.ladder_explainback.strip()) if s.strip()])
+            [s for s in re.split(r"[.!?]+['\")\]”’]*(?:\s|$)", args.ladder_explainback.strip()) if s.strip()])
     # Boot-read fields (tic 406): present iff the caller supplied them (a payload may also
     # carry them). Recorded as-is; the gate evaluates them via boot_read_passes().
     if getattr(args, "boot_read_mode", None) is not None:
