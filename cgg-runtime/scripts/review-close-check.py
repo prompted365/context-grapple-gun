@@ -682,11 +682,26 @@ _PROVENANCE_VERB_RE = re.compile(
     re.IGNORECASE | re.DOTALL,
 )
 _CPR_REF_RE = re.compile(r"(cpr_[A-Za-z0-9_]+|CogPR-\d+)")
+# Reserved sibling namespaces under the cpr_ prefix that are NOT CogPR ids.
+# A namespace-prefix match is not identifier membership (/review 709,
+# cpr_mogul_review_close_check_f94b63ce931d): at tic 706 the era metadata label
+# `cpr_era_tic_700_749` entered the inscribed index and moved the counter
+# without an inscription event, making the mandate's exactly-one prediction
+# read +2. Reserved tokens are excluded at every _CPR_REF_RE consumer and
+# REPORTED as unresolved, never silently admitted.
+_RESERVED_REF_PREFIXES = ("cpr_era_",)
+
+
+def _is_reserved_ref(token):
+    """True for tokens in reserved sibling namespaces (metadata labels, not ids)."""
+    return any(token.startswith(p) for p in _RESERVED_REF_PREFIXES)
+
+
 # Backwards-compat alias retained for downstream callers; not used internally.
 _PROVENANCE_RE = _PROVENANCE_VERB_RE
 
 
-def build_inscribed_index(project_dir):
+def build_inscribed_index(project_dir, queue_ids=None, diagnostics=None):
     """Scan governance files for `<!-- promoted from <id>` markers.
 
     Returns set of CPR ids that have provenance comments anywhere in the
@@ -694,6 +709,15 @@ def build_inscribed_index(project_dir):
     verification axis — surviving the comment is sufficient evidence of
     inscription, regardless of whether the queue entry's `promoted_to` field
     points at the correct file.
+
+    Membership resolution (/review 709, f94b63ce931d): a candidate ref is
+    admitted only by resolving against the id namespace this index claims to
+    measure. Reserved sibling-prefix tokens (_RESERVED_REF_PREFIXES) are
+    EXCLUDED and reported via `diagnostics`; when `queue_ids` is provided,
+    id-shaped tokens that fail queue membership are still admitted (legacy
+    inscriptions predate the queue's full coverage — dropping them would flip
+    historical checks) but DISCLOSED as unresolved-against-queue, so the
+    counter's referent is measured rather than assumed.
 
     Scanned surfaces (patch tic 216, extended tic 280):
     - canonical/CLAUDE.md, INDEX.md, GIT_RULES.md — federation root governance docs
@@ -760,6 +784,8 @@ def build_inscribed_index(project_dir):
             if fpath.suffix == ".md" and fpath.is_file():
                 candidate_paths.append(str(fpath))
 
+    reserved_excluded = {}
+    unresolved_against_queue = set()
     for path in candidate_paths:
         content = read_file_safe(path)
         if not content:
@@ -769,7 +795,22 @@ def build_inscribed_index(project_dir):
         # surfaces both refs from a single comment.
         for m in _PROVENANCE_VERB_RE.finditer(content):
             for ref_match in _CPR_REF_RE.finditer(m.group(0)):
-                inscribed.add(ref_match.group(1))
+                token = ref_match.group(1)
+                if _is_reserved_ref(token):
+                    reserved_excluded.setdefault(token, set()).add(
+                        os.path.relpath(path, project_dir) if path.startswith(project_dir) else path
+                    )
+                    continue
+                if queue_ids is not None and token not in queue_ids:
+                    unresolved_against_queue.add(token)
+                inscribed.add(token)
+    if diagnostics is not None:
+        diagnostics["reserved_tokens_excluded"] = {
+            tok: sorted(paths) for tok, paths in sorted(reserved_excluded.items())
+        }
+        diagnostics["reserved_excluded_count"] = len(reserved_excluded)
+        diagnostics["unresolved_against_queue_count"] = len(unresolved_against_queue)
+        diagnostics["unresolved_against_queue_sample"] = sorted(unresolved_against_queue)[:25]
     return inscribed
 
 
@@ -1258,6 +1299,11 @@ def _receipt_surface_ids(project_dir):
                 if not content:
                     continue
                 for match in _CPR_REF_RE.finditer(content):
+                    # Membership resolution (/review 709, f94b63ce931d): reserved
+                    # sibling-prefix tokens are metadata labels, not ids — the
+                    # A5-707 second call site, cured with the first.
+                    if _is_reserved_ref(match.group(1)):
+                        continue
                     ids.add(match.group(1))
     _RECEIPT_INDEX_CACHE[key] = ids
     return ids
@@ -1535,6 +1581,80 @@ def resolve_obligation_clock(al_path, obligation_tic=None, obligation_mandate_id
     return (mid, tic, "executor_clock")
 
 
+def compute_genuine_zero_streak(log_path, current_tic, current_genuine_count):
+    """Mechanized genuine-zero streak (/review 709, ad00d4c652c8).
+
+    UNIT — declared AND counted: DISTINCT CHECK-BEARING TICS whose every log
+    row has genuine_count == 0, walking backward from the current entry's tic
+    to the nearest tic bearing a row with genuine_count > 0. The cure the
+    lesson names: the streak is computed by the script that writes the log
+    row (no hand-carried number), in exactly its declared unit, with gaps and
+    same-tic re-observations DISCLOSED rather than absorbed — an unobserved
+    tic is not a passed tic, and a re-observation of an already-passing tic is
+    not new evidence about a new boundary.
+
+    Returns a dict embedded in the log row; both arms are first-class: a
+    current row with genuine_count > 0 yields streak 0 with the breaking tic
+    disclosed.
+    """
+    by_tic = {}
+    p = Path(log_path)
+    if p.exists():
+        for line in p.read_text(encoding="utf-8").splitlines():
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                row = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            t = row.get("tic")
+            g = row.get("genuine_count")
+            if t is None or g is None:
+                continue
+            by_tic.setdefault(t, []).append(g)
+    if current_tic is not None:
+        by_tic.setdefault(current_tic, []).append(current_genuine_count)
+
+    result = {
+        "unit": "distinct_check_bearing_tics",
+        "computed_by": "review-close-check.py:compute_genuine_zero_streak",
+        "distinct_check_bearing_tics": 0,
+        "row_count_within_streak": 0,
+        "span": None,
+        "gap_tics_no_check_row": [],
+        "same_tic_reobservation_tics": {},
+        "broken_at_tic": None,
+    }
+    if current_tic is None or not by_tic:
+        return result
+    if current_genuine_count and current_genuine_count > 0:
+        result["broken_at_tic"] = current_tic
+        return result
+
+    streak_tics = []
+    rows_in_streak = 0
+    for t in sorted((t for t in by_tic if t <= current_tic), reverse=True):
+        counts = by_tic[t]
+        if any(g > 0 for g in counts):
+            result["broken_at_tic"] = t
+            break
+        streak_tics.append(t)
+        rows_in_streak += len(counts)
+    if streak_tics:
+        first, last = min(streak_tics), max(streak_tics)
+        result["distinct_check_bearing_tics"] = len(streak_tics)
+        result["row_count_within_streak"] = rows_in_streak
+        result["span"] = [first, last]
+        result["gap_tics_no_check_row"] = [
+            t for t in range(first, last + 1) if t not in by_tic
+        ]
+        result["same_tic_reobservation_tics"] = {
+            str(t): len(by_tic[t]) for t in streak_tics if len(by_tic[t]) > 1
+        }
+    return result
+
+
 def run_check(project_dir, dry_run=False, obligation_tic=None, obligation_mandate_id=None):
     """Run the full review-close consistency check.
 
@@ -1553,7 +1673,10 @@ def run_check(project_dir, dry_run=False, obligation_tic=None, obligation_mandat
     # when the latest (promoted) entry is a minimal writeback with no lesson field.
     lesson_fallbacks = load_lesson_fallbacks(queue_path)
 
-    inscribed_ids = build_inscribed_index(project_dir)
+    inscribed_diagnostics = {}
+    inscribed_ids = build_inscribed_index(
+        project_dir, queue_ids=set(queue.keys()), diagnostics=inscribed_diagnostics
+    )
 
     all_findings = []
 
@@ -1658,6 +1781,10 @@ def run_check(project_dir, dry_run=False, obligation_tic=None, obligation_mandat
         "queue_path": queue_path,
         "total_cprs": len(queue),
         "inscribed_index_size": len(inscribed_ids),
+        # Membership-resolution diagnostics (/review 709, f94b63ce931d): the
+        # counter's referent is measured — reserved tokens excluded, id-shaped
+        # refs that fail queue membership admitted-but-disclosed.
+        "inscribed_index_unresolved": inscribed_diagnostics,
         "historical_artifacts": historical_count,
         "verdict_counts": {
             "promoted": promoted_count,
@@ -1848,6 +1975,13 @@ def run_check(project_dir, dry_run=False, obligation_tic=None, obligation_mandat
             "known_count": report["summary"]["known_count"],
             "genuine_consistent": report["summary"]["genuine_consistent"],
         }
+        # Mechanized streak (/review 709, ad00d4c652c8): computed by the writer
+        # of the log row, in its declared unit, gaps + re-observations disclosed.
+        log_entry["genuine_zero_streak"] = compute_genuine_zero_streak(
+            os.path.join(al_path, "services", "review-close-check-log.jsonl"),
+            mandate_tic,
+            report["summary"]["genuine_count"],
+        )
         if executor_clock_tic is not None:
             # The cured defect, observed live: the run crossed a tic boundary and
             # the executor clock would have mis-filed this evidence.

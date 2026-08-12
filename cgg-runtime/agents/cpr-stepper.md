@@ -249,6 +249,8 @@ Otherwise, queue for human review via `/review` docket.
 
 **Write-side terminal-valve guard (the fence's mechanical backstop):** before appending any advancement row, preflight it through `queue-lifecycle-writeback.py --validate-row '<row JSON>'` — it refuses (rc=3) both envelope-stripping thin rows AND terminal-state resurrection (a non-terminal status appended over an id whose current latest row is hard-terminal: promoted / absorbed / superseded / rejected / dismissed / resolved / skipped; `deferred` is suspensive by design and re-activates lawfully). If the preflight refuses on resurrection, the id raced with a concurrent verdict — drop the advancement, report it loudly, never force it.
 
+**Fence↔maturity coincidence is BY-DESIGN for the mogul cohort (/review 709 D2 ruling, Architect-ratified).** cogpr-ingest stamps `review_tic = birth + maturity`, so a mogul-cohort row's first advance-eligible tic IS its fenced tic — `extracted → tic_gated` is unreachable there by construction (A1-708; A2-709: 82/82 zero-variance Δ3, births 493→708 — a mint-site convention, not an accident). The cohort adjudicates DIRECTLY from `extracted` at /review; the five intermediate states are the enrichment-cohort path. Consequences you must hold: (1) repeated LAWFUL ZERO-ADVANCE over the mogul cohort is the designed steady state, never queue quiescence and never a defect to cure; (2) do NOT propose a stamp +1 or a fence weakening to "exercise" the walk (A4-708 mounted-bear caution — the write guard validates on its own test surface); (3) your dedup + Gate-1 staleness duties over fenced/held rows are unchanged — the fence parks advancement, not observation.
+
 ## Key Paths
 
 - CPR queue: `audit-logs/cprs/queue.jsonl`

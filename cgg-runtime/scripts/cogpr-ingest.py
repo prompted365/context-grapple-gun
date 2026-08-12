@@ -295,6 +295,14 @@ def mint_entry(candidate: dict, source_cycle: str, report: dict, birth_tic: int,
         "birth_tic": candidate.get("birth_tic", birth_tic),
         "maturity_tics": maturity_tics,
         "maturity_window_tics": maturity_tics,
+        # review_tic = birth + maturity: the maturity gate and the stepper's
+        # structural docket fence COINCIDE BY CONSTRUCTION — extracted→tic_gated
+        # is unreachable for this cohort. RULED BY-DESIGN at /review 709 (D2,
+        # Architect-ratified; A1-708/A2-709 evidence: 82/82 zero-variance Δ3,
+        # births 493→708): the mogul cohort adjudicates DIRECTLY from
+        # `extracted` at its review_tic; the five intermediate states are the
+        # enrichment-cohort path, not this lane's. Do NOT +1 this stamp to
+        # exercise unused states, and do not weaken the fence (A4-708).
         "review_tic": birth_tic + maturity_tics,
         "origin_context": "mogul_cycle",
         "source_cycle": cycle,
