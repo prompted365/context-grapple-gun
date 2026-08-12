@@ -467,5 +467,93 @@ class TestFieldClasses(unittest.TestCase):
             self.assertIn(field, qlw.LIFECYCLE_MUTABLE_FIELDS)
 
 
+# ===========================================================================
+# WRITE-SIDE TERMINAL VALVE (bk-cpr-stepper-docket-race-write-guard, tic 707)
+# — the stepper-vs-verdict race lands as a REFUSAL, never a resurrection
+# ===========================================================================
+
+class TestTerminalValveGuard(_TmpQueue):
+    def test_resurrection_over_promoted_is_refused(self):
+        # the measured race shape: a stale stepper advance (extracted->tic_gated)
+        # appended AFTER a concurrent /review PROMOTE landed
+        write_queue(self.q, [envelope_row(status="promoted")])
+        with self.assertRaises(qlw.LifecycleWritebackRefused) as ctx:
+            qlw.lifecycle_writeback(
+                CPR_ID, {"status": "tic_gated", "advance_reason": "stale race"},
+                queue_path=self.q, writer="cpr-stepper")
+        codes = [r["code"] for r in ctx.exception.reasons]
+        self.assertIn("terminal_state_resurrection", codes)
+        self.assertEqual(len(self.rows()), 1)  # nothing appended
+
+    def test_every_hard_terminal_status_is_guarded(self):
+        for status in sorted(qlw.HARD_TERMINAL_STATUSES):
+            write_queue(self.q, [envelope_row(status=status)])
+            with self.assertRaises(qlw.LifecycleWritebackRefused):
+                qlw.lifecycle_writeback(
+                    CPR_ID, {"status": "extracted"}, queue_path=self.q)
+
+    def test_deferred_is_suspensive_not_guarded(self):
+        # `deferred` re-activates lawfully by design (SUSPENSIVE_STATUSES) —
+        # the valve must NOT block a later row over it
+        write_queue(self.q, [envelope_row(status="deferred")])
+        report = qlw.lifecycle_writeback(
+            CPR_ID, {"status": "enrichment_eligible",
+                     "pending_class": "stability_window"},
+            queue_path=self.q, writer="review-execute")
+        self.assertEqual(report["summary"]["new_status"], "enrichment_eligible")
+        self.assertEqual(len(self.rows()), 2)
+
+    def test_terminal_to_terminal_stays_lawful(self):
+        # reviewed reshaping (e.g. a down-lane SUPERSEDE over a promoted row)
+        write_queue(self.q, [envelope_row(status="promoted")])
+        report = qlw.lifecycle_writeback(
+            CPR_ID, {"status": "superseded",
+                     "absorbed_reason": "superseded by cpr_newer"},
+            queue_path=self.q, writer="review-execute")
+        self.assertEqual(report["summary"]["new_status"], "superseded")
+
+    def test_metadata_annotation_on_terminal_row_passes(self):
+        # no status change — annotating a terminal row is not a resurrection
+        write_queue(self.q, [envelope_row(status="promoted")])
+        report = qlw.lifecycle_writeback(
+            CPR_ID, {"relations": {"refined_by": "cpr_child"}},
+            queue_path=self.q, writer="review-execute")
+        self.assertEqual(report["summary"]["new_status"], "promoted")
+
+    def test_escape_hatch_allows_and_audits(self):
+        write_queue(self.q, [envelope_row(status="promoted")])
+        report = qlw.lifecycle_writeback(
+            CPR_ID, {"status": "enrichment_eligible",
+                     "pending_class": "feedback_required"},
+            queue_path=self.q, writer="review-execute",
+            allow_terminal_transition=True)
+        self.assertEqual(report["summary"]["new_status"], "enrichment_eligible")
+        landed = self.rows()[-1]
+        self.assertTrue(landed["lifecycle_writeback"]["terminal_transition_allowed"])
+
+    def test_validate_row_refuses_resurrection(self):
+        write_queue(self.q, [envelope_row(status="promoted")])
+        candidate = dict(envelope_row(status="promoted"))
+        candidate["status"] = "tic_gated"
+        res = qlw.validate_row(candidate, queue_path=self.q)
+        self.assertEqual(res["verdict"], "REFUSE")
+        self.assertTrue(res["terminal_state_resurrection"])
+        self.assertIn("terminal_state_resurrection", res["reason"])
+
+    def test_validate_row_passes_lawful_advance(self):
+        write_queue(self.q, [envelope_row(status="extracted")])
+        candidate = dict(envelope_row(status="extracted"))
+        candidate["status"] = "tic_gated"
+        res = qlw.validate_row(candidate, queue_path=self.q)
+        self.assertEqual(res["verdict"], "PASS")
+        self.assertFalse(res["terminal_state_resurrection"])
+
+    def test_hard_terminal_set_excludes_suspensive(self):
+        self.assertNotIn("deferred", qlw.HARD_TERMINAL_STATUSES)
+        for s in ("promoted", "absorbed", "superseded", "rejected",
+                  "dismissed", "resolved", "skipped"):
+            self.assertIn(s, qlw.HARD_TERMINAL_STATUSES)
+
+
 if __name__ == "__main__":
     unittest.main()

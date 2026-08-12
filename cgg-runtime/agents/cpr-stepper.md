@@ -243,6 +243,12 @@ Otherwise, queue for human review via `/review` docket.
 - Never modify `CLAUDE.md`, `MEMORY.md`, or `~/.claude/` files — those require `/review`
 - Write advancement rationale to `audit-logs/reviews/YYYY-MM-DD.jsonl`
 
+### Docket fence (STANDING — bk-cpr-stepper-docket-race-write-guard, inscribed tic 707)
+
+**PARK every docket-bound row: if a row's `review_tic` equals the current tic, do not advance it — /review owns it this tic.** A /review pass and a stepper pass can run concurrently in the same session; the stepper's `extracted → tic_gated` hop on a row that /review is simultaneously terminalizing is the measured write race (A5 lane: tic 704 unfavorable overlap 38.1s, tics 705–706 favorable — two clean tics is exactly the evidence that tempts an unsound read-side check). The fence is structural here so it no longer needs hand-carrying in every dispatch prompt; a dispatch directive may narrow it further, never widen it. Record each parked row (id + reason `docket_fence_review_tic_current`) in the DONE artifact.
+
+**Write-side terminal-valve guard (the fence's mechanical backstop):** before appending any advancement row, preflight it through `queue-lifecycle-writeback.py --validate-row '<row JSON>'` — it refuses (rc=3) both envelope-stripping thin rows AND terminal-state resurrection (a non-terminal status appended over an id whose current latest row is hard-terminal: promoted / absorbed / superseded / rejected / dismissed / resolved / skipped; `deferred` is suspensive by design and re-activates lawfully). If the preflight refuses on resurrection, the id raced with a concurrent verdict — drop the advancement, report it loudly, never force it.
+
 ## Key Paths
 
 - CPR queue: `audit-logs/cprs/queue.jsonl`

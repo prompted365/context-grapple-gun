@@ -43,6 +43,17 @@ THE CONTRACT (what this script guarantees):
   4. ATOMIC APPEND. The write goes through `lib/atomic-append.sh` (flock) so the
      tic-481 promote-writeback physics gate at that boundary still fires for
      promote-class rows. History rows are NEVER rewritten (append-only).
+  5. WRITE-SIDE TERMINAL VALVE (bk-cpr-stepper-docket-race-write-guard, tic 707).
+     The prior row is re-read AT WRITE TIME, and a candidate that would move a
+     hard-terminal id (promoted/absorbed/superseded/rejected/dismissed/resolved/
+     skipped — `deferred` is suspensive and excluded) back to a NON-terminal status
+     is REFUSED as `terminal_state_resurrection` (rc=2): the stepper-vs-verdict
+     write race lands here as a refusal instead of a resurrection. Terminal→
+     terminal stays lawful; `--allow-terminal-transition` is the audited escape
+     hatch, stamped on the row when it fires. The same predicate runs in
+     `--validate-row` (rc=3) so any other writer can preflight. Residual window:
+     the compose-time re-read closes the minutes-scale race; the sub-second
+     window between re-read and flock append is documented, not defended.
 
 NOT THIS SCRIPT'S JOB:
   - Minting a BIRTH row (no prior row -> refuse; that is cpr-extract.py's surface).
@@ -139,6 +150,23 @@ ENVELOPE_PROTECTED_FIELDS = frozenset({
     "origin_context", "origin_formulation", "origin_source_hash",
     "origin_source_pointer", "type", "tier", "band", "motivation_layer", "note",
     "mogul_mandate_id", "mogul_runtime", "source_cycle", "schema_version",
+})
+
+# WRITE-SIDE TERMINAL VALVE (bk-cpr-stepper-docket-race-write-guard, tic 707).
+# The hard-terminal subset of the shared read-side TERMINAL_STATUSES (bench-packet-
+# prep / cogpr-ingest / cpr-extract): a status whose latest-per-id row settles the
+# id. `deferred` is deliberately EXCLUDED — it is SUSPENSIVE by design (a
+# chronologically later row lawfully re-activates the id; see bench-packet-prep
+# SUSPENSIVE_STATUSES). A lifecycle writeback that would move a hard-terminal id
+# BACK to a non-terminal status is a RESURRECTION — the measured stepper-vs-
+# review-execute race shape (A5 lane, tic 704: 38.1s unfavorable overlap) — and is
+# refused at compose time, where the prior row is re-read at write time. Terminal→
+# terminal transitions stay lawful (reviewed reshaping, e.g. a down-lane
+# SUPERSEDE); `--allow-terminal-transition` is the audited escape hatch for a
+# reviewed reactivation lane.
+HARD_TERMINAL_STATUSES = frozenset({
+    "promoted", "absorbed", "superseded", "rejected",
+    "dismissed", "resolved", "skipped",
 })
 
 
@@ -268,7 +296,7 @@ def classify_lifecycle_fields(lifecycle, allow_fields=()):
 
 
 def build_lifecycle_row(prior_row, lifecycle, review_tic=None, writer=None,
-                        allow_fields=(), now=None):
+                        allow_fields=(), now=None, allow_terminal_transition=False):
     """Compose the copy-forward row. Raises LifecycleWritebackRefused on any violation.
 
     Order is load-bearing: classify FIRST (so a protected-field attempt never reaches
@@ -287,6 +315,28 @@ def build_lifecycle_row(prior_row, lifecycle, review_tic=None, writer=None,
     lifecycle = dict(lifecycle)
     if review_tic is not None and "review_tic" not in lifecycle:
         lifecycle["review_tic"] = review_tic
+
+    # Write-side terminal valve: a non-terminal status over a hard-terminal prior is
+    # a resurrection (the stepper-vs-verdict race shape), refused unless the caller
+    # explicitly carries the audited escape hatch.
+    prior_status_now = prior_row.get("status")
+    candidate_status = lifecycle.get("status")
+    if (prior_status_now in HARD_TERMINAL_STATUSES
+            and candidate_status is not None
+            and candidate_status != prior_status_now
+            and candidate_status not in HARD_TERMINAL_STATUSES
+            and not allow_terminal_transition):
+        reasons.append({
+            "code": "terminal_state_resurrection",
+            "message": f"prior row is hard-terminal ({prior_status_now!r}) and the "
+                       f"candidate status {candidate_status!r} is non-terminal — "
+                       f"appending it would RESURRECT a decided id under "
+                       f"latest-per-id semantics. If this id genuinely raced a "
+                       f"concurrent verdict, drop the advancement and report it; a "
+                       f"reviewed reactivation lane may pass "
+                       f"--allow-terminal-transition (audited).",
+        })
+        raise LifecycleWritebackRefused(reasons)
 
     ok, protected, unknown = classify_lifecycle_fields(lifecycle, allow_fields)
     if protected:
@@ -332,6 +382,11 @@ def build_lifecycle_row(prior_row, lifecycle, review_tic=None, writer=None,
         "copied_forward_fields": len(before_keys),
         "mutated_fields": sorted(lifecycle),
     }
+    if (allow_terminal_transition and prior_status in HARD_TERMINAL_STATUSES
+            and candidate_status is not None
+            and candidate_status not in HARD_TERMINAL_STATUSES):
+        # the audited escape hatch actually fired — record it on the row itself
+        row["lifecycle_writeback"]["terminal_transition_allowed"] = True
 
     drops = envelope_drops(prior_row, row)
     if drops:  # pragma: no cover - unreachable by construction; the tripwire is the point
@@ -419,7 +474,7 @@ def append_row(queue_path, row):
 
 def lifecycle_writeback(cpr_id, lifecycle, queue_path=None, review_tic=None,
                         writer=None, allow_fields=(), dry_run=False, emit_only=False,
-                        now=None):
+                        now=None, allow_terminal_transition=False):
     """Compose + guard + atomically append one lifecycle-class row for cpr_id."""
     qpath = Path(queue_path) if queue_path else default_queue_path()
     if qpath is None or not Path(qpath).is_file():
@@ -442,7 +497,8 @@ def lifecycle_writeback(cpr_id, lifecycle, queue_path=None, review_tic=None,
 
     row, report = build_lifecycle_row(
         prior, lifecycle, review_tic=review_tic, writer=writer,
-        allow_fields=allow_fields, now=now)
+        allow_fields=allow_fields, now=now,
+        allow_terminal_transition=allow_terminal_transition)
 
     gap = history_field_gap(qpath, cpr_id)
     append_via = "none(dry-run)" if (dry_run or emit_only) else append_row(qpath, row)
@@ -490,17 +546,34 @@ def validate_row(candidate_row, queue_path=None):
                 "reason": "no prior row for this id (birth row — nothing to preserve)",
                 "envelope_drops": []}
     drops = envelope_drops(prior, candidate_row)
+    prior_status = prior.get("status")
+    cand_status = candidate_row.get("status")
+    resurrection = (prior_status in HARD_TERMINAL_STATUSES
+                    and cand_status is not None
+                    and cand_status != prior_status
+                    and cand_status not in HARD_TERMINAL_STATUSES)
+    if resurrection:
+        reason = (f"terminal_state_resurrection: prior row is hard-terminal "
+                  f"({prior_status!r}) and the candidate status {cand_status!r} is "
+                  f"non-terminal — appending it would resurrect a decided id "
+                  f"(write-side terminal valve; the id likely raced a concurrent "
+                  f"verdict — drop the advancement and report it)")
+    elif drops:
+        reason = (f"row drops {len(drops)} envelope field(s) present in the "
+                  f"authoritative row — under latest-per-id semantics they would be "
+                  f"DELETED, not merged")
+    else:
+        reason = "envelope preserved; no terminal resurrection"
     return {
         "mode": "validate_row",
         "cpr_id": cpr_id,
-        "prior": {"line": prior_line, "status": prior.get("status"),
+        "prior": {"line": prior_line, "status": prior_status,
                   "field_count": len(prior)},
         "candidate_field_count": len(candidate_row),
         "envelope_drops": drops,
-        "verdict": "REFUSE" if drops else "PASS",
-        "reason": (f"row drops {len(drops)} envelope field(s) present in the "
-                   f"authoritative row — under latest-per-id semantics they would be "
-                   f"DELETED, not merged" if drops else "envelope preserved"),
+        "terminal_state_resurrection": resurrection,
+        "verdict": "REFUSE" if (drops or resurrection) else "PASS",
+        "reason": reason,
     }
 
 
@@ -538,6 +611,12 @@ def main(argv=None):
     ap.add_argument("--allow-field", action="append", dest="allow_fields", default=[],
                     help="Explicitly permit an undeclared/protected field (audited "
                          "escape hatch); repeatable.")
+    ap.add_argument("--allow-terminal-transition", action="store_true",
+                    dest="allow_terminal_transition",
+                    help="Explicitly permit a hard-terminal -> non-terminal status "
+                         "transition (a reviewed reactivation lane; audited on the "
+                         "row). Without it such a row is refused as "
+                         "terminal_state_resurrection.")
     ap.add_argument("--queue-path", default=None, help="Override the queue path (test hook)")
     ap.add_argument("--validate-row", default=None,
                     help="READ-ONLY: given a candidate single-line JSON row, report "
@@ -584,7 +663,8 @@ def main(argv=None):
             args.cpr_id, lifecycle, queue_path=args.queue_path,
             review_tic=args.review_tic, writer=args.writer,
             allow_fields=args.allow_fields, dry_run=args.dry_run,
-            emit_only=args.emit_only)
+            emit_only=args.emit_only,
+            allow_terminal_transition=args.allow_terminal_transition)
     except LifecycleWritebackRefused as exc:
         if args.output_json:
             print(json.dumps({"mode": "lifecycle_writeback", "cpr_id": args.cpr_id,

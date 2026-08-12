@@ -126,14 +126,41 @@ def find_advanceable(queue_entries, enrichment_dir):
 
 
 def append_transitions(queue_path, update_map):
-    """Append transition rows under flock (append-only history; latest-per-id is state)."""
+    """Append transition rows under flock (append-only history; latest-per-id is state).
+
+    WRITE-SIDE TERMINAL-VALVE GUARD (bk-cpr-stepper-docket-race-write-guard, tic 707):
+    update_map was composed from a read taken BEFORE this lock, so a concurrent writer
+    (review-execute landing a /review verdict) may have terminalized an id in the
+    window — appending the stale transition would resurrect a decided row under
+    latest-per-id semantics. Under the lock, re-project each id's CURRENT status and
+    compare-and-swap against the entry's recorded `prior_status`: on mismatch the
+    entry is SKIPPED LOUDLY (stderr + returned), never written and never silent.
+
+    Returns the list of raced skips: [(id, expected_prior_status, current_status)].
+    """
     import fcntl
     p = Path(queue_path)
     os.makedirs(os.path.dirname(queue_path), exist_ok=True)
     lockfile = queue_path + ".lock"
+    raced = []
     with open(lockfile, "w") as lf:
         fcntl.flock(lf.fileno(), fcntl.LOCK_EX)
         try:
+            current = load_queue(queue_path)
+            writable = {}
+            for eid, entry in update_map.items():
+                expected = entry.get("prior_status")
+                now_status = current.get(eid, {}).get("status")
+                if expected is not None and now_status != expected:
+                    raced.append((eid, expected, now_status))
+                    continue
+                writable[eid] = entry
+            for eid, expected, now_status in raced:
+                sys.stderr.write(
+                    f"[cpr-gate-advance] RACED-SKIP {eid}: expected prior_status "
+                    f"{expected!r} but current is {now_status!r} — a concurrent writer "
+                    f"advanced this id after our read; transition NOT appended "
+                    f"(write-side terminal-valve guard)\n")
             needs_newline = (
                 p.exists() and p.stat().st_size > 0
                 and not p.read_text(encoding="utf-8").endswith("\n")
@@ -141,10 +168,11 @@ def append_transitions(queue_path, update_map):
             with open(p, "a", encoding="utf-8") as f:
                 if needs_newline:
                     f.write("\n")
-                for entry in update_map.values():
+                for entry in writable.values():
                     f.write(json.dumps(entry, separators=(",", ":"), default=str) + "\n")
         finally:
             fcntl.flock(lf.fileno(), fcntl.LOCK_UN)
+    return raced
 
 
 def advance_gated(project_dir, dry_run=False, quiet=False):
@@ -177,14 +205,19 @@ def advance_gated(project_dir, dry_run=False, quiet=False):
         if not quiet:
             print(f"  {eid}: tic_gated -> enrichment_needed (baseline: {os.path.basename(baseline)})")
 
+    raced = []
     if not dry_run:
-        append_transitions(queue_path, update_map)
+        raced = append_transitions(queue_path, update_map)
 
+    advanced = len(update_map) - len(raced)
     if not quiet:
         verb = "would advance" if dry_run else "advanced"
-        print(f"{len(update_map)}")
-        sys.stderr.write(f"[cpr-gate-advance] {verb} {len(update_map)} tic_gated -> enrichment_needed\n")
-    return len(update_map)
+        print(f"{advanced}")
+        sys.stderr.write(f"[cpr-gate-advance] {verb} {advanced} tic_gated -> enrichment_needed\n")
+        if raced:
+            sys.stderr.write(f"[cpr-gate-advance] {len(raced)} raced-and-skipped by the "
+                             f"write-side terminal-valve guard (see RACED-SKIP lines)\n")
+    return advanced
 
 
 def main():
