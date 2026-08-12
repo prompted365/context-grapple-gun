@@ -657,6 +657,58 @@ def _parse_set(pairs):
     return out
 
 
+def recompile_effective_state(queue_path=None, current_tic=None):
+    """Refresh the derived effective-state projection after a LANDED writeback.
+
+    The projection (audit-logs/cprs/effective-state/, written by the canonical-side
+    queue_state_compile.py that lives BESIDE the queue) is a derived cache — queue.jsonl
+    stays the sole authority — but the rebuild had NO owner: it went stale by exactly
+    one /review pass at every civil audit (tics 690/700/710, third consecutive
+    recurrence). This hook makes the mutation boundary the owner (/review 710,
+    Architect-ratified F1). Constraints, load-bearing:
+      - BEST-EFFORT: a recompile failure is LOUD on stderr but NEVER fails the
+        writeback — a derived-cache miss must not block a constitutional write.
+      - Requires a tic (queue_state_compile --current-tic is required for maturity
+        classification); a writeback without --review-tic SKIPS loudly rather than
+        guessing a clock.
+      - civil-engineer's deterministic repair remains the redundant backstop layer.
+    """
+    if current_tic is None:
+        print("  ⚠ effective-state recompile skipped — no --review-tic on this writeback "
+              "(the compiler requires a tic); projection stale until the next "
+              "tic-bearing rebuild (backstop: civil).", file=sys.stderr)
+        return
+    qp = Path(queue_path) if queue_path else default_queue_path()
+    if qp is None:
+        print("  ⚠ effective-state recompile skipped — queue path unresolved; "
+              "projection stale until the next rebuild (backstop: civil).", file=sys.stderr)
+        return
+    compile_script = qp.parent / "queue_state_compile.py"
+    if not compile_script.is_file():
+        print(f"  ⚠ effective-state recompile skipped — {compile_script} not found; "
+              f"projection stale until the next rebuild (backstop: civil).", file=sys.stderr)
+        return
+    try:
+        # --out pinned beside the queue: the compiler's DEFAULT_OUT is
+        # Path(__file__)-relative and would follow a relocated/copied script,
+        # not the queue actually written. The projection lives with its source.
+        res = subprocess.run(
+            [sys.executable, str(compile_script), "compile",
+             "--queue", str(qp), "--out", str(qp.parent / "effective-state"),
+             "--current-tic", str(current_tic)],
+            capture_output=True, text=True, timeout=120)
+    except Exception as exc:
+        print(f"  ⚠ effective-state recompile error — {exc}; projection stale until "
+              f"the next rebuild (backstop: civil).", file=sys.stderr)
+        return
+    if res.returncode != 0:
+        detail = (res.stderr or res.stdout or "").strip()[:300]
+        print(f"  ⚠ effective-state recompile FAILED rc={res.returncode} — projection "
+              f"stale until the next rebuild (backstop: civil): {detail}", file=sys.stderr)
+    else:
+        print("  effective-state projection recompiled (derived cache; queue.jsonl rules)")
+
+
 def main(argv=None):
     ap = argparse.ArgumentParser(
         description="Queue Lifecycle Writeback — copy-forward writer for lifecycle-class "
@@ -769,6 +821,9 @@ def main(argv=None):
     if report.get("unparseable_lines_scanned"):
         print(f"  ⚠ {report['unparseable_lines_scanned']} unparseable queue line(s) "
               f"matched this id and were skipped.", file=sys.stderr)
+    if not args.dry_run and not args.emit_only:
+        recompile_effective_state(queue_path=args.queue_path,
+                                  current_tic=args.review_tic)
     return 0
 
 

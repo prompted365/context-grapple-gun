@@ -126,8 +126,8 @@ systematically misses bypass scripts that emit through none of them.
 
 **Envelope-aware OR-gate — a script is envelope-aware IF ANY of the following hold:**
 
-1. **Imports `inbox_envelope`** — the canonical inbox envelope writer.
-2. **Imports `dedup_signal_append`** — the dedup-at-write boundary primitive from `lib.atomic_append`; signals routed through this primitive carry the dedup-by-canonical-identity property the envelope contract requires.
+1. **Imports `inbox_envelope` OR routes through the `inbox-envelope.py` CLI surface** — the canonical inbox envelope writer; module import and subprocess invocation of the validated surface both count, so the hyphenated CLI token `inbox-envelope.py` is a greppable mechanism token alongside the module name. *(Amended /review 710 — provenance below.)*
+2. **Imports a dedup-at-write primitive from `lib.atomic_append` — `dedup_signal_append` OR `dedup_queue_append`** — sibling boundary primitives; records routed through either carry the dedup-by-canonical-identity property the envelope contract requires. *(Amended /review 710 — provenance below.)*
 3. **Imports `atomic_write_json`** — atomic JSON write coupled with a manifest contract (e.g. CacheEnvelope, ArchivistEnvelope); the atomic boundary IS the envelope guarantee at the Physics layer.
 4. **Declares `envelope_type` literally** — an explicit `envelope_type` field in the script's docstring or in the records it constructs, naming the envelope class the script honors.
 5. **Cites `envelopes.yaml`** — references the envelope schema registry (or any envelope-spec file) in docstring or imports; citation indicates the script reads the schema and constructs records to conform.
@@ -144,6 +144,8 @@ systematically misses bypass scripts that emit through none of them.
 **Falsification gate**: if subsequent civil-engineer envelope-pattern audits with the multi-mechanism check produce >5% false-positive rate OR any false negative, the heuristic still requires refinement (possibly toward full per-script tactical-hydration classification as the canonical method). Surface the falsification finding to Mogul; do not silently widen.
 
 **Out of scope (this section)**: the per-script primitive that does the classification (the implementation of a `civil-audit` script or equivalent) is deferred per the PROMOTE-SPEC verdict-shape. This section is the agent-spec amendment only; the per-script classification primitive will be inscribed in its own tranche.
+
+<!-- Amendment provenance (/review 710, Architect-ratified in-tic via AskUserQuestion question set, reviewer ent_homeskillet, boot receipt 336860c2502e862c): mechanisms 1+2 vocabulary widened per civil-engineer's OWN falsification-gate surfacing at tics 700 + 710 (envelope_mechanism_citation_reverification, three consecutive-pass mis-citations byte-verified this tic: cogpr-ingest.py + cpr-extract.py import dedup_queue_append — lib/atomic_append.py:107, sibling of dedup_signal_append:50; ladder-feedback-push.py routes via the inbox-envelope.py CLI by subprocess at line 194, the validated trigger surface itself — all three scripts compliant all along; the audit VOCABULARY lagged the physics-lib's growth). The widening is gate-ratified, NOT silent — exactly the disposition path the falsification clause demands ("Surface the falsification finding to Mogul; do not silently widen"). This dispositions the falsification gate's false-NEGATIVE axis; the false-POSITIVE axis (writes_governance_state predicate, 30% sampled false-positive rate at tic 690) remains OPEN, routed on backlog row bk-civil-envelope-citation-and-falsification-gate-recurrence. -->
 
 ## Execution Protocol
 

@@ -53,7 +53,7 @@
       "parity_state": "verified",
       "routing_state": "delegated_only",
       "last_validated_tic": 220,
-      "last_invoked_tic": 700,
+      "last_invoked_tic": 710,
       "validation_source": "audit-logs/agent-mailboxes/ent_breyden/inbound/cgg-runtime-agent-matrix-tic219.md",
       "decision_required": null,
       "resolved_at_tic": 220,
@@ -80,7 +80,7 @@
       "validation_source": "audit-logs/agent-mailboxes/ent_breyden/inbound/cgg-runtime-agent-matrix-tic219.md",
       "decision_required": null,
       "notes": "Model upgraded haiku \u2192 sonnet at tic 219 per federation KI tic 207 (spec-runtime alignment). /loop skill target. Append-only queue.jsonl semantics with latest-entry-per-id-wins read.",
-      "last_invoked_tic": 709
+      "last_invoked_tic": 710
     },
     "crisis-sentinel": {
       "status": "current",
@@ -112,7 +112,7 @@
       "validation_source": "audit-logs/agent-mailboxes/ent_breyden/inbound/cgg-runtime-agent-matrix-tic219.md",
       "decision_required": null,
       "notes": "Mogul team T1 + T9; 5-tic ladder cycle (tic % 5 == 0); team-merged output.",
-      "last_invoked_tic": 701
+      "last_invoked_tic": 710
     },
     "mogul": {
       "status": "current",
@@ -201,7 +201,7 @@
       "validation_source": "audit-logs/agent-mailboxes/ent_breyden/inbound/cgg-runtime-agent-matrix-tic219.md",
       "decision_required": null,
       "notes": "/review skill subagent dispatch. Sync evidence at tic 209 + tic 210. Properly upgraded haiku \u2192 sonnet per tic 207 federation alignment. Exemplar mechanical executor.",
-      "last_invoked_tic": 709
+      "last_invoked_tic": 710
     },
     "ripple-assessor": {
       "status": "current",
