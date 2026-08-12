@@ -1,0 +1,22 @@
+{
+  "schema_version": "confidence-tier-enum-v1",
+  "ratified": "/review 708 (off-enum rulings 1-4, Architect-ratified in-tic via AskUserQuestion question set)",
+  "ruling_rows": "audit-logs/reviews/2026-08-12.jsonl (decision_id off-enum-ruling-1..4, tic 708)",
+  "brief": "audit-logs/governance/off-enum-confidence-tier-decision-brief-tic708.md",
+  "enum": {
+    "tentative": "single-source lesson; no independent conformation yet (the birth default)",
+    "reinforced": "multiple independent sources or a validated recurrence of the same pattern",
+    "convergent": "independent lanes converged on the same centroid from different evidence",
+    "measured": "instrument-measured in-lane at extraction (set-difference, count, or probe computed in the producing cycle) — not inferred",
+    "measured_single_locus": "measured, with an explicit single-locus scope fence: the measurement generalizes as method, not as population claim"
+  },
+  "absence": "field absent (or null) = no tier asserted. This is the lawful representation of 'no tier'; ruling 2 refuses absence-markers-as-values.",
+  "refused_as_tier": {
+    "confidence_class_values": ["descriptive", "inferential", "exact", "mixed"],
+    "confidence_class_reason": "lawful members of the confidence_class enum (federation KI artifact-language-must-not-exceed-its-declared-confidence-classification) — a value in this list appearing in confidence_tier is field-routing bleed (ruling 1), not a tier",
+    "non_tier_markers": ["unknown", "observed"],
+    "non_tier_reason": "absence/observation markers, not tiers (ruling 2): admission would launder absence as epistemics; represent 'no tier asserted' by omitting the field"
+  },
+  "historical_disclosure": "45 pre-708 rows (latest-per-id, births 122-706) carry off-enum values: exact(6) -> row-scoped field-routing repair (ruling 1); unknown(9)+observed(22) -> stay disclosed, typed absence prospectively (ruling 2); measured(1)+measured_single_locus(2) -> ADMITTED (ruling 3); high(3)+resolved(1)+validated(1) -> per-row classification via the correction lane (ruling 3 rider). Unchanged carry-forward of a historical off-enum value through copy-forward is permitted and disclosed; INTRODUCTION of an off-enum value is refused (ruling 4).",
+  "write_surfaces": ["cogpr-ingest.py (birth: off-enum value stripped to absent + typed tier_refusal marker + stderr TIER-REFUSAL notice)", "queue-lifecycle-writeback.py (verdict writeback: off-enum INTRODUCTION refused rc=2 confidence_tier_off_enum; unchanged prior carry-forward allowed + stderr TIER-CARRY-NOTICE; --validate-row runs the same predicate rc=3)"]
+}

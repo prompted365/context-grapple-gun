@@ -555,5 +555,109 @@ class TestTerminalValveGuard(_TmpQueue):
             self.assertIn(s, qlw.HARD_TERMINAL_STATUSES)
 
 
+class TestTierVocabularyGuard(_TmpQueue):
+    """Guarantee 6 — /review 708 off-enum rulings 1-4 (tic 708).
+
+    Introduction of an off-enum confidence_tier is refused; unchanged
+    carry-forward of a historical off-enum value stays lawful and disclosed
+    (ruling 2); the admitted measured family is lawful (ruling 3); the same
+    predicate runs in validate_row, including on birth rows.
+    """
+
+    def _prior(self, tier="tentative", status="extracted"):
+        row = envelope_row(status=status)
+        row["confidence_tier"] = tier
+        write_queue(self.q, [row])
+        return row
+
+    def test_introduction_of_off_enum_is_refused(self):
+        self._prior(tier="tentative")
+        with self.assertRaises(qlw.LifecycleWritebackRefused) as ctx:
+            qlw.lifecycle_writeback(
+                CPR_ID, {"stepper_annotation": "x", "confidence_tier": "observed"},
+                queue_path=self.q, writer="test",
+                allow_fields=["confidence_tier"])
+        codes = [r["code"] for r in ctx.exception.reasons]
+        self.assertIn("confidence_tier_off_enum", codes)
+        self.assertEqual(len(self.rows()), 1)  # nothing appended
+
+    def test_class_bleed_is_refused_and_named(self):
+        self._prior(tier="tentative")
+        with self.assertRaises(qlw.LifecycleWritebackRefused) as ctx:
+            qlw.lifecycle_writeback(
+                CPR_ID, {"stepper_annotation": "x", "confidence_tier": "exact"},
+                queue_path=self.q, writer="test",
+                allow_fields=["confidence_tier"])
+        msg = "; ".join(r["message"] for r in ctx.exception.reasons)
+        self.assertIn("class_bleed", msg)
+
+    def test_non_tier_marker_is_refused_and_named(self):
+        self._prior(tier="tentative")
+        with self.assertRaises(qlw.LifecycleWritebackRefused) as ctx:
+            qlw.lifecycle_writeback(
+                CPR_ID, {"stepper_annotation": "x", "confidence_tier": "unknown"},
+                queue_path=self.q, writer="test",
+                allow_fields=["confidence_tier"])
+        msg = "; ".join(r["message"] for r in ctx.exception.reasons)
+        self.assertIn("non_tier_marker", msg)
+
+    def test_admitted_measured_family_is_lawful(self):
+        for value in ("measured", "measured_single_locus"):
+            self._prior(tier="tentative")
+            report = qlw.lifecycle_writeback(
+                CPR_ID, {"stepper_annotation": "x", "confidence_tier": value},
+                queue_path=self.q, writer="test",
+                allow_fields=["confidence_tier"])
+            self.assertEqual(self.rows()[-1]["confidence_tier"], value)
+            self.assertTrue(report)
+
+    def test_unchanged_carry_forward_is_lawful(self):
+        self._prior(tier="observed")
+        qlw.lifecycle_writeback(
+            CPR_ID, {"stepper_annotation": "x", "confidence_tier": "observed"},
+            queue_path=self.q, writer="test",
+            allow_fields=["confidence_tier"])
+        self.assertEqual(self.rows()[-1]["confidence_tier"], "observed")
+
+    def test_clearing_to_none_is_lawful(self):
+        self._prior(tier="observed")
+        qlw.lifecycle_writeback(
+            CPR_ID, {"stepper_annotation": "x", "confidence_tier": None},
+            queue_path=self.q, writer="test",
+            allow_fields=["confidence_tier"])
+        self.assertIsNone(self.rows()[-1]["confidence_tier"])
+
+    def test_validate_row_refuses_birth_off_enum(self):
+        write_queue(self.q, [])
+        candidate = envelope_row(cpr_id="cpr_fresh_birth_row_000000000000")
+        candidate["confidence_tier"] = "observed"
+        res = qlw.validate_row(candidate, queue_path=self.q)
+        self.assertEqual(res["verdict"], "REFUSE")
+        self.assertIn("confidence_tier_off_enum", res["reason"])
+
+    def test_validate_row_passes_birth_lawful(self):
+        write_queue(self.q, [])
+        candidate = envelope_row(cpr_id="cpr_fresh_birth_row_000000000000")
+        candidate["confidence_tier"] = "measured"
+        res = qlw.validate_row(candidate, queue_path=self.q)
+        self.assertEqual(res["verdict"], "PASS")
+
+    def test_validate_row_refuses_introduction(self):
+        self._prior(tier="tentative")
+        candidate = envelope_row(status="extracted")
+        candidate["confidence_tier"] = "high"
+        res = qlw.validate_row(candidate, queue_path=self.q)
+        self.assertEqual(res["verdict"], "REFUSE")
+        self.assertTrue(res["confidence_tier_off_enum"])
+
+    def test_validate_row_allows_carry_forward_with_disclosure(self):
+        self._prior(tier="observed")
+        candidate = envelope_row(status="extracted")
+        candidate["confidence_tier"] = "observed"
+        res = qlw.validate_row(candidate, queue_path=self.q)
+        self.assertEqual(res["verdict"], "PASS")
+        self.assertIn("carried forward unchanged", res["reason"])
+
+
 if __name__ == "__main__":
     unittest.main()

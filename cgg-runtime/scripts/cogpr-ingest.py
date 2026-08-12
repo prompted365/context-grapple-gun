@@ -255,6 +255,27 @@ def mint_entry(candidate: dict, source_cycle: str, report: dict, birth_tic: int,
     except (TypeError, ValueError):
         maturity_tics = DEFAULT_MATURITY_TICS
 
+    # Tier vocabulary guard (/review 708 ruling 4 — write-boundary physics; the
+    # vocabulary must not depend on producer restraint, A6-707). An off-enum
+    # candidate value is stripped to ABSENT with a typed tier_refusal marker +
+    # a loud stderr notice — the LESSON is never dropped (a row-level reject at
+    # a background birth surface would be its own coverage drop). Content lives
+    # in contracts/confidence-tier-enum-v1.json; the default stays "tentative"
+    # (a lawful enum member) when the candidate asserts nothing.
+    from lib.confidence_tier import classify_tier_value, refusal_message
+    tier_value = candidate.get("confidence_tier", "tentative")
+    tier_kind = classify_tier_value(tier_value)
+    tier_refusal = None
+    if tier_kind != "lawful":
+        tier_refusal = {
+            "value": tier_value,
+            "reason": tier_kind,
+            "ruling": "review-708",
+        }
+        print(f"TIER-REFUSAL [{entry_id}]: {refusal_message(tier_value, tier_kind)}",
+              file=sys.stderr)
+        tier_value = None
+
     entry = {
         "type": "cpr",
         "id": entry_id,
@@ -270,7 +291,6 @@ def mint_entry(candidate: dict, source_cycle: str, report: dict, birth_tic: int,
         "subsystem": candidate.get("subsystem", ""),
         "recommended_scopes": scopes,
         "note": candidate.get("note", ""),
-        "confidence_tier": candidate.get("confidence_tier", "tentative"),
         "lesson_type": candidate.get("lesson_type", "unknown"),
         "birth_tic": candidate.get("birth_tic", birth_tic),
         "maturity_tics": maturity_tics,
@@ -287,6 +307,10 @@ def mint_entry(candidate: dict, source_cycle: str, report: dict, birth_tic: int,
         "extracted_at": now.isoformat(),
         "extracted_by": "cogpr-ingest",
     }
+    if tier_value is not None:
+        entry["confidence_tier"] = tier_value
+    if tier_refusal is not None:
+        entry["tier_refusal"] = tier_refusal
     if source_file:
         entry["source_file"] = source_file
     return entry

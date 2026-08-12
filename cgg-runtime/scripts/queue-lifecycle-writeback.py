@@ -54,6 +54,19 @@ THE CONTRACT (what this script guarantees):
      `--validate-row` (rc=3) so any other writer can preflight. Residual window:
      the compose-time re-read closes the minutes-scale race; the sub-second
      window between re-read and flock append is documented, not defended.
+  6. TIER VOCABULARY GUARD (/review 708 off-enum rulings 1-4, tic 708). A candidate
+     that would INTRODUCE an off-enum `confidence_tier` (not a member of
+     contracts/confidence-tier-enum-v1.json's ratified enum, and not the prior
+     row's own value) is REFUSED as `confidence_tier_off_enum` (rc=2) — the
+     typed reject names the sub-kind (class_bleed / non_tier_marker / off_enum)
+     and points at the governing artifact. Unchanged carry-forward of a
+     historical off-enum value stays lawful and is disclosed via a stderr
+     TIER-CARRY-NOTICE (ruling 2: history stays as-is). The same predicate runs
+     in `--validate-row` (rc=3), including on birth rows (a fresh row is by
+     definition an introduction). Content lives in the contract file — the
+     enum is a data edit, never an engine change. Sibling birth surface:
+     cogpr-ingest.py strips an off-enum candidate value to ABSENT with a typed
+     `tier_refusal` marker (the lesson is never dropped).
 
 NOT THIS SCRIPT'S JOB:
   - Minting a BIRTH row (no prior row -> refuse; that is cpr-extract.py's surface).
@@ -96,6 +109,10 @@ try:
     from zone_root import resolve_zone_root  # noqa: E402
 except Exception:  # pragma: no cover - zone_root always present in runtime
     resolve_zone_root = None  # type: ignore
+# Tier vocabulary guard content (/review 708 ruling 4). Deliberately NOT
+# fail-soft: a guard surface whose governing contract is missing must crash
+# loudly at import, not run half-guarded.
+from confidence_tier import classify_tier_value, refusal_message  # noqa: E402
 
 _QUEUE_REL = os.path.join("audit-logs", "cprs", "queue.jsonl")
 _ATOMIC_APPEND_REL = os.path.join("lib", "atomic-append.sh")
@@ -338,6 +355,32 @@ def build_lifecycle_row(prior_row, lifecycle, review_tic=None, writer=None,
         })
         raise LifecycleWritebackRefused(reasons)
 
+    # Tier vocabulary guard — guarantee 6 (/review 708 ruling 4, write-boundary
+    # physics; A6-707: the vocabulary must not depend on producer restraint).
+    # confidence_tier is envelope-protected, so this path is reachable only via
+    # the audited --allow-field escape — the escape audits envelope MUTATION,
+    # not vocabulary, so the guard still refuses an off-enum INTRODUCTION here.
+    # Unchanged carry-forward of a historical off-enum value stays lawful and
+    # is disclosed (ruling 2: the 31 historical marker rows stay as-is).
+    if "confidence_tier" in lifecycle:
+        cand_tier = lifecycle["confidence_tier"]
+        prior_tier = prior_row.get("confidence_tier")
+        tier_kind = classify_tier_value(cand_tier)
+        if tier_kind != "lawful":
+            if cand_tier == prior_tier:
+                print(f"TIER-CARRY-NOTICE [{prior_row.get('id')}]: off-enum "
+                      f"confidence_tier {cand_tier!r} carried forward unchanged "
+                      f"(historical row, disclosed per /review 708 ruling 2)",
+                      file=sys.stderr)
+            else:
+                reasons.append({
+                    "code": "confidence_tier_off_enum",
+                    "message": f"refusing to INTRODUCE an off-enum confidence_tier "
+                               f"({tier_kind}): "
+                               f"{refusal_message(cand_tier, tier_kind)}",
+                })
+                raise LifecycleWritebackRefused(reasons)
+
     ok, protected, unknown = classify_lifecycle_fields(lifecycle, allow_fields)
     if protected:
         reasons.append({
@@ -541,7 +584,19 @@ def validate_row(candidate_row, queue_path=None):
                 "reason": f"could not resolve the CogPR queue ({qpath!r})",
                 "envelope_drops": []}
     prior, prior_line, _ = latest_row_for_id(qpath, cpr_id)
+    cand_tier = candidate_row.get("confidence_tier")
+    cand_tier_kind = classify_tier_value(cand_tier)
     if prior is None:
+        # Birth row: nothing to preserve, but the tier vocabulary guard still
+        # applies — a fresh row is by definition an INTRODUCTION (/review 708
+        # ruling 4; guarantee 6).
+        if cand_tier_kind != "lawful":
+            return {"mode": "validate_row", "cpr_id": cpr_id, "verdict": "REFUSE",
+                    "confidence_tier_off_enum": True,
+                    "reason": f"confidence_tier_off_enum ({cand_tier_kind}) on a "
+                              f"birth row: "
+                              f"{refusal_message(cand_tier, cand_tier_kind)}",
+                    "envelope_drops": []}
         return {"mode": "validate_row", "cpr_id": cpr_id, "verdict": "PASS",
                 "reason": "no prior row for this id (birth row — nothing to preserve)",
                 "envelope_drops": []}
@@ -552,6 +607,8 @@ def validate_row(candidate_row, queue_path=None):
                     and cand_status is not None
                     and cand_status != prior_status
                     and cand_status not in HARD_TERMINAL_STATUSES)
+    tier_introduction = (cand_tier_kind != "lawful"
+                         and cand_tier != prior.get("confidence_tier"))
     if resurrection:
         reason = (f"terminal_state_resurrection: prior row is hard-terminal "
                   f"({prior_status!r}) and the candidate status {cand_status!r} is "
@@ -562,8 +619,16 @@ def validate_row(candidate_row, queue_path=None):
         reason = (f"row drops {len(drops)} envelope field(s) present in the "
                   f"authoritative row — under latest-per-id semantics they would be "
                   f"DELETED, not merged")
+    elif tier_introduction:
+        reason = (f"confidence_tier_off_enum ({cand_tier_kind}): candidate "
+                  f"INTRODUCES an off-enum value the prior row does not carry — "
+                  f"{refusal_message(cand_tier, cand_tier_kind)}")
     else:
         reason = "envelope preserved; no terminal resurrection"
+        if cand_tier_kind != "lawful":
+            reason += (f"; off-enum confidence_tier {cand_tier!r} carried forward "
+                       f"unchanged (historical row, disclosed per /review 708 "
+                       f"ruling 2)")
     return {
         "mode": "validate_row",
         "cpr_id": cpr_id,
@@ -572,7 +637,8 @@ def validate_row(candidate_row, queue_path=None):
         "candidate_field_count": len(candidate_row),
         "envelope_drops": drops,
         "terminal_state_resurrection": resurrection,
-        "verdict": "REFUSE" if (drops or resurrection) else "PASS",
+        "confidence_tier_off_enum": tier_introduction,
+        "verdict": "REFUSE" if (drops or resurrection or tier_introduction) else "PASS",
         "reason": reason,
     }
 
