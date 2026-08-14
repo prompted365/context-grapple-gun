@@ -390,7 +390,10 @@ def economy_observation(zone_root=None):
 def full_cycle(tic, zone_root=None):
     """Run all visitor economy monitoring operations.
 
-    Returns combined results dict.
+    Returns combined results dict. The mandate contract demands MEASURED keys
+    from this cycle, so the measurement must outlive the caller's transcript:
+    the full result persists to audit-logs/visitor-economy/full-cycle-tic-<N>.json
+    (re-readable without re-executing a signal-emitting cycle).
     """
     results = {}
     results["cache_refresh"] = cache_refresh_cycle(tic, zone_root)
@@ -398,6 +401,17 @@ def full_cycle(tic, zone_root=None):
     results["biome_health"] = biome_health_check(zone_root)
     results["census"] = visitor_census(zone_root)
     results["economy_observation"] = economy_observation(zone_root)
+
+    _, al = _resolve_zone()
+    artifact_dir = os.path.join(al, "visitor-economy")
+    artifact_path = os.path.join(artifact_dir, f"full-cycle-tic-{tic}.json")
+    try:
+        os.makedirs(artifact_dir, exist_ok=True)
+        atomic_write_json(artifact_path, results)
+        results["artifact_path"] = artifact_path
+    except Exception as e:
+        results["artifact_path"] = None
+        results["artifact_write_error"] = str(e)
     return results
 
 

@@ -117,6 +117,40 @@ class CacheRefreshContractParityTest(unittest.TestCase):
         self.assertIn('"--full-cycle"', src)
         self.assertRegex(src, r"args\.full_cycle is not None:\s*\n\s*result = full_cycle\(")
 
+    # -- Arm 5: the measurement has a durable birth (t714, a4c8 no-path ray) --
+    # A mandate-DEMANDED measurement whose producer emits only to stdout has no
+    # durable birth: the consuming report becomes the sole record, and clipping
+    # makes re-EXECUTION of a signal-emitting cycle the only recovery. Static
+    # teeth on both halves of the cure: the producer persists full_cycle output
+    # to an addressable artifact, and the runner instruction names that path.
+    def test_full_cycle_persists_durable_artifact(self):
+        tree = ast.parse(open(_MONITOR, encoding="utf-8").read())
+        fc = next(
+            (n for n in ast.walk(tree)
+             if isinstance(n, ast.FunctionDef) and n.name == "full_cycle"),
+            None,
+        )
+        self.assertIsNotNone(fc, "full_cycle() not found in monitor")
+        calls = {node.func.id for node in ast.walk(fc)
+                 if isinstance(node, ast.Call)
+                 and isinstance(node.func, ast.Name)}
+        self.assertIn("atomic_write_json", calls,
+                      "full_cycle() no longer persists its output — the "
+                      "measurement's only sink is stdout again (the a4c8 "
+                      "no-path defect)")
+        src = ast.get_source_segment(open(_MONITOR, encoding="utf-8").read(), fc)
+        self.assertIn("full-cycle-tic-", src,
+                      "full_cycle() artifact path lost its addressable "
+                      "tic-keyed name")
+
+    def test_runner_instruction_names_durable_artifact_path(self):
+        line = _runner_cache_refresh_instruction()
+        self.assertIn(
+            "audit-logs/visitor-economy/full-cycle-tic-", line,
+            "the cache_refresh instruction demands measured keys and names a "
+            "producer but no longer names the producer's durable artifact "
+            "path — the contract-completeness corollary of the a4c8 ray")
+
 
 if __name__ == "__main__":
     unittest.main()

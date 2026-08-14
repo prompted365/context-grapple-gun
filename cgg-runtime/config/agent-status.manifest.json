@@ -80,7 +80,7 @@
       "validation_source": "audit-logs/agent-mailboxes/ent_breyden/inbound/cgg-runtime-agent-matrix-tic219.md",
       "decision_required": null,
       "notes": "Model upgraded haiku \u2192 sonnet at tic 219 per federation KI tic 207 (spec-runtime alignment). /loop skill target. Append-only queue.jsonl semantics with latest-entry-per-id-wins read.",
-      "last_invoked_tic": 711
+      "last_invoked_tic": 714
     },
     "crisis-sentinel": {
       "status": "current",
@@ -201,7 +201,7 @@
       "validation_source": "audit-logs/agent-mailboxes/ent_breyden/inbound/cgg-runtime-agent-matrix-tic219.md",
       "decision_required": null,
       "notes": "/review skill subagent dispatch. Sync evidence at tic 209 + tic 210. Properly upgraded haiku \u2192 sonnet per tic 207 federation alignment. Exemplar mechanical executor.",
-      "last_invoked_tic": 711
+      "last_invoked_tic": 714
     },
     "ripple-assessor": {
       "status": "current",
