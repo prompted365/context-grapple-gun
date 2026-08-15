@@ -108,6 +108,30 @@ class TestUnitDeclaration(_HermeticHome):
         self.assertEqual(diag["unit_declaration"]["multi_token_comment_count"], 0)
 
 
+class TestPromoteAsRefinementVerbMatched(_HermeticHome):
+    """tic-716 verb-alternation fix (n=2 of the tic-515 class), both arms."""
+
+    def _run(self, text):
+        tmp = tempfile.TemporaryDirectory()
+        root = Path(tmp.name)
+        (root / "CLAUDE.md").write_text(text, encoding="utf-8")
+        with tmp:
+            return rcc.build_inscribed_index(str(root))
+
+    def test_promote_as_refinement_comment_admitted(self):
+        idx = self._run(
+            "<!-- PROMOTE-AS-REFINEMENT (ray to some-entry), /review 716. "
+            "Promoted from cpr_ray_token_tic716. -->\n")
+        self.assertIn("cpr_ray_token_tic716", idx)
+
+    def test_skip_with_home_opening_stays_excluded(self):
+        # A SKIP pointer is NOT an inscription witness — excluded by design.
+        idx = self._run(
+            "<!-- SKIP-WITH-HOME POINTER (cpr_skip_token_tic716, born tic 700) "
+            "durable home elsewhere -->\n")
+        self.assertNotIn("cpr_skip_token_tic716", idx)
+
+
 class TestReportCarriesUnitBesideInteger(unittest.TestCase):
     def test_report_block_publishes_inscribed_index_unit(self):
         # Generator-enforce: the report dict publishes the unit declaration

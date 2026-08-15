@@ -676,7 +676,17 @@ def check_promoted(cpr_id, cpr, project_dir, inscribed_ids=None, lesson_fallback
 # inscription witness — the verb-set must recognize every governed inscription verb.
 _PROVENANCE_VERB_RE = re.compile(
     r"<!--\s*(?:"
-    r"(?:promoted-spec|promoted|absorbed|refinement|refined|conformation|conformed|extended|merged|superseded)"
+    # tic-716 fix, n=2 of the tic-515 verb-alternation-gap class: ray
+    # inscriptions authored since tic 597 open with "PROMOTE-AS-REFINEMENT"
+    # — a governed inscription verb the anchored alternation never matched,
+    # so their cpr tokens were invisible to the index (measured: 3 comments,
+    # constitution ledger; caught by the /review-716 FLAT-720 watch reading
+    # against the just-declared unit). Longer form precedes "promoted"
+    # by the same longest-first discipline as refinement/refined.
+    # SKIP-WITH-HOME openings stay EXCLUDED BY DESIGN (a skip pointer is
+    # not an inscription witness); "Inscribed"/"review-executed" openings
+    # are census residue, not admitted without adjudication.
+    r"(?:promote-as-refinement|promoted-spec|promoted|absorbed|refinement|refined|conformation|conformed|extended|merged|superseded)"
     r"|CPR-ID:"
     r").*?-->",
     re.IGNORECASE | re.DOTALL,
