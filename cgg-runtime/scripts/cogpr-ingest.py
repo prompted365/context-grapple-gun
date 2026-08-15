@@ -75,6 +75,11 @@ DEFAULT_MATURITY_WINDOW_TICS = 3
 # cpr-stepper.md lifecycle table: tic_delta >= maturity_tics, default 3).
 DEFAULT_MATURITY_TICS = 3
 
+# The candidate-carrier field name — a bare-string candidate whose text names
+# this field is an intra-document pointer, refused at birth (see
+# extract_candidates docstring; A1-716/A2-716).
+_CARRIER_FIELD = "candidate_cogprs"
+
 
 def resolve_audit_logs(zone_root: Path) -> Path:
     """Resolve audit-logs path from .ticzone (fallback: audit-logs)."""
@@ -158,9 +163,27 @@ def extract_candidates(report: dict):
     normalized to {"lesson": <string>}. source_cycle is the results.<cycle> key
     the candidate came from (or "report" for the top-level array, or the
     candidate's own declared source_cycle when present).
+
+    Carrier-pointer refusal (A1-716/A2-716, two instruments convergent): a
+    BARE-STRING candidate whose text names the carrier field it rode in
+    (`candidate_cogprs`) is an intra-document cross-reference — "See top-level
+    candidate_cogprs[0] …" — not a self-contained lesson. Minted, it births a
+    queue row whose entire payload dangles the moment it is read divorced from
+    the report (latest-per-id readers never see the report), and it propagates
+    (pattern-miner rows inherited the pointer text verbatim at tic 716). The
+    refusal is STRUCTURAL, not a content blacklist: the payload names its own
+    envelope's field — the class is "lesson derives meaning from its carrier",
+    per the instance-cure-never-cures-the-class warning (502236e96cf1). It is
+    scoped to the bare-string form ONLY: a dict candidate with structured
+    fields may legitimately discuss the candidate_cogprs mechanism by name
+    (over-blocking guard — the tic-716 defect cohort was bare-string-shaped
+    in every observed instance). Refused candidates are counted + loud on
+    stderr, never silently dropped.
     """
     def _normalize(c, default_cycle):
         if isinstance(c, str):
+            if _CARRIER_FIELD in c:
+                return {"__carrier_pointer__": c}, default_cycle
             return {"lesson": c}, default_cycle
         if isinstance(c, dict):
             return c, c.get("source_cycle", default_cycle)
@@ -370,6 +393,7 @@ def ingest(zone_root: Path, report_path: Path, dry_run: bool):
         "candidates_seen": 0,
         "ingested": 0,
         "skipped_no_lesson": 0,
+        "skipped_carrier_pointer": 0,
         "skipped_lesson_dup": 0,
         "skipped_terminal": 0,
         "skipped_present": 0,
@@ -404,6 +428,17 @@ def ingest(zone_root: Path, report_path: Path, dry_run: bool):
 
     for candidate, source_cycle in extract_candidates(report):
         summary["candidates_seen"] += 1
+        if "__carrier_pointer__" in candidate:
+            summary["skipped_carrier_pointer"] += 1
+            print(
+                f"CARRIER-POINTER REFUSAL [{source_cycle}]: bare-string "
+                f"candidate names its own carrier field ('{_CARRIER_FIELD}') — "
+                f"an intra-document pointer, not a self-contained lesson; "
+                f"refused at birth (A1-716/A2-716): "
+                f"{candidate['__carrier_pointer__'][:120]!r}",
+                file=sys.stderr,
+            )
+            continue
         entry = mint_entry(candidate, source_cycle, report, birth_tic, topo,
                            source_file=source_file_rel)
         if entry is None:
@@ -482,7 +517,8 @@ def main():
                 f"{prefix}cogpr-ingest: {summary['ingested']} ingested / "
                 f"{summary['candidates_seen']} seen "
                 f"(dup:{summary['skipped_lesson_dup']} present:{summary['skipped_present']} "
-                f"terminal:{summary['skipped_terminal']} no_lesson:{summary['skipped_no_lesson']})"
+                f"terminal:{summary['skipped_terminal']} no_lesson:{summary['skipped_no_lesson']} "
+                f"carrier_ptr:{summary['skipped_carrier_pointer']})"
             )
             for eid in summary["ingested_ids"]:
                 print(f"  + {eid}")
