@@ -786,6 +786,8 @@ def build_inscribed_index(project_dir, queue_ids=None, diagnostics=None):
 
     reserved_excluded = {}
     unresolved_against_queue = set()
+    matched_comment_count = 0
+    multi_token_comment_count = 0
     for path in candidate_paths:
         content = read_file_safe(path)
         if not content:
@@ -794,6 +796,8 @@ def build_inscribed_index(project_dir, queue_ids=None, diagnostics=None):
         # cpr_xxx / CogPR-N ref inside it. The compound case ("refined from A + B")
         # surfaces both refs from a single comment.
         for m in _PROVENANCE_VERB_RE.finditer(content):
+            matched_comment_count += 1
+            distinct_in_comment = set()
             for ref_match in _CPR_REF_RE.finditer(m.group(0)):
                 token = ref_match.group(1)
                 if _is_reserved_ref(token):
@@ -804,6 +808,9 @@ def build_inscribed_index(project_dir, queue_ids=None, diagnostics=None):
                 if queue_ids is not None and token not in queue_ids:
                     unresolved_against_queue.add(token)
                 inscribed.add(token)
+                distinct_in_comment.add(token)
+            if len(distinct_in_comment) > 1:
+                multi_token_comment_count += 1
     if diagnostics is not None:
         diagnostics["reserved_tokens_excluded"] = {
             tok: sorted(paths) for tok, paths in sorted(reserved_excluded.items())
@@ -811,6 +818,22 @@ def build_inscribed_index(project_dir, queue_ids=None, diagnostics=None):
         diagnostics["reserved_excluded_count"] = len(reserved_excluded)
         diagnostics["unresolved_against_queue_count"] = len(unresolved_against_queue)
         diagnostics["unresolved_against_queue_sample"] = sorted(unresolved_against_queue)[:25]
+        # Class-cure (/review 716, 502236e96cf1 SKIP-with-routing, executed
+        # same tic): the counter's POPULATION and UNIT are declared as fields
+        # BESIDE the integer, so a consumer predicting against it must predict
+        # in the counter's own unit. The tic-706 reserved-prefix exclusion was
+        # an instance-cure (one token family removed from a counter whose unit
+        # stayed undeclared); this is the class-cure the guard-11 refinement
+        # ray (/review 712) entails: every multi-unit disclosure publishes a
+        # declared population per named unit and a declared boundary rule.
+        diagnostics["unit_declaration"] = {
+            "unit": "distinct_cpr_shaped_tokens_inside_matched_provenance_comments",
+            "population": "provenance HTML-comments matched by _PROVENANCE_VERB_RE across the scanned surfaces declared in build_inscribed_index's docstring",
+            "boundary_rule": "any cpr_/CogPR-shaped token ANYWHERE inside a matched comment is admitted (a sibling id NARRATED in another entry's provenance prose is indistinguishable from an inscription witness); reserved sibling-namespace prefixes excluded and disclosed",
+            "not_the_unit": "inscription EVENTS — the strictly-narrower referent an observer may assume; predictions against this counter are lawful only in the token unit",
+            "matched_comment_count": matched_comment_count,
+            "multi_token_comment_count": multi_token_comment_count,
+        }
     return inscribed
 
 
@@ -1781,6 +1804,11 @@ def run_check(project_dir, dry_run=False, obligation_tic=None, obligation_mandat
         "queue_path": queue_path,
         "total_cprs": len(queue),
         "inscribed_index_size": len(inscribed_ids),
+        # Unit declaration BESIDE the integer (/review 716 class-cure,
+        # 502236e96cf1): what was scanned, what unit the integer counts, and
+        # how many comments yield >1 distinct id — the fields a consumer needs
+        # to predict in the counter's own unit.
+        "inscribed_index_unit": inscribed_diagnostics.get("unit_declaration"),
         # Membership-resolution diagnostics (/review 709, f94b63ce931d): the
         # counter's referent is measured — reserved tokens excluded, id-shaped
         # refs that fail queue membership admitted-but-disclosed.
@@ -1892,7 +1920,14 @@ def run_check(project_dir, dry_run=False, obligation_tic=None, obligation_mandat
                 # Compare full report content minus the volatile timestamp —
                 # findings-only comparison let a stale verdict_counts survive a
                 # counter repair (tic 554: on-disk deferred=35 vs runtime 36).
-                _volatile = ("generated_at",)
+                # superseded_receipt is comparison-volatile too (/review 716
+                # AUDIENCE/HANDLE cure): the live artifact now carries the
+                # supersession receipt for its OWN prior; a fresh in-memory
+                # report never has one, so comparing it would force decision=
+                # replace on every run after a supersession even when findings
+                # are identical — the exact skip-branch the receipt must not
+                # break.
+                _volatile = ("generated_at", "superseded_receipt")
                 prior_norm = {k: v for k, v in prior.items() if k not in _volatile}
                 report_norm = {k: v for k, v in report.items() if k not in _volatile}
                 if prior_norm == report_norm:
@@ -1957,6 +1992,27 @@ def run_check(project_dir, dry_run=False, obligation_tic=None, obligation_mandat
                         else "corrupt_prior_replaced"),
                     "prior_generated_at": prior_generated_at,
                 }
+                # AUDIENCE/HANDLE ray cure (/review 716, 07c597566b16 PROMOTE-
+                # as-refinement-ray): made_known discharges at the CONSUMER'S
+                # HANDLE, not only in the producer's lane. The receipt below is
+                # ALSO written into the live replacing artifact — a consumer
+                # holding this stable path (an immutable past cycle report
+                # citing report_path) discovers the supersession HERE without
+                # ever reading review-close-check-log.jsonl. Same block, second
+                # audience; single computation, two sinks (the /review 715
+                # discipline). Excluded from the dedup comparison via
+                # _volatile above so identical-findings runs still skip.
+                report["superseded_receipt"] = superseded_receipt
+                # Back-stamp beside the preserved copy as a SIDECAR — the
+                # preserved artifact's RAW BYTES stay byte-exact (the /review
+                # 685 preservation law); the stamp rides NEXT TO it, never
+                # inside it.
+                Path(preserved_abs + ".superseded-by.json").write_text(
+                    json.dumps({
+                        "superseded_by_live_path": output_path,
+                        "superseded_at": datetime.now(timezone.utc).isoformat(),
+                        "justification_class": superseded_receipt["justification_class"],
+                    }, indent=2), encoding="utf-8")
             Path(output_path).write_text(json.dumps(report, indent=2), encoding="utf-8")
             if decision == "replace":
                 preserved_note = (
