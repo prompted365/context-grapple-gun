@@ -199,5 +199,45 @@ class TestGenuineZeroStreak(unittest.TestCase):
             os.unlink(log)
 
 
+class TestDesignatedEvidenceSurfaceCure(unittest.TestCase):
+    """/review 715 cure (cpr_mogul_review_close_check_6372e7b37b73): the streak
+    the machine computes belongs in the cycle's DESIGNATED evidence artifact
+    (the tic-check report), not only the service-log audit trail. Source-contract
+    arms (static, per the a4c8 precedent — verification never re-runs a
+    signal-emitting cycle): one computation, two sinks, embedded before both the
+    dedup comparison and the report write."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.src = (_HERE / "review-close-check.py").read_text(encoding="utf-8")
+
+    def test_streak_embedded_in_report_before_write_and_comparison(self):
+        embed = self.src.index(
+            'report["genuine_zero_streak"] = compute_genuine_zero_streak('
+        )
+        comparison = self.src.index('decision = "write"')
+        write = self.src.index("Path(output_path).write_text(json.dumps(report")
+        # Embedded before the dedup comparison (so a streak change is a REAL
+        # content change routed through the superseded-receipt branch)...
+        self.assertLess(embed, comparison)
+        # ...and before the designated artifact's write (so it lands in the file).
+        self.assertLess(embed, write)
+
+    def test_single_computation_two_sinks(self):
+        # The log row REUSES the report's value — one measurement, never two
+        # divergent computations of the same field.
+        self.assertIn(
+            'log_entry["genuine_zero_streak"] = report["genuine_zero_streak"]',
+            self.src,
+        )
+        # Exactly one call site beyond the def: the report embed. A second call
+        # would reintroduce the divergence hazard this cure closes.
+        call_sites = self.src.count("compute_genuine_zero_streak(")
+        self.assertEqual(
+            call_sites, 2, "expected def + exactly one call site, found "
+            f"{call_sites - 1} call site(s)"
+        )
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

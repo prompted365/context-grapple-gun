@@ -1868,6 +1868,19 @@ def run_check(project_dir, dry_run=False, obligation_tic=None, obligation_mandat
             )
         output_path = os.path.join(report_dir, output_filename)
 
+        # Designated-evidence-surface cure (/review 715, 6372e7b37b73): the
+        # streak the machine computes belongs in the artifact the cycle names
+        # as its evidence, not only in the service-log audit trail — a durable
+        # birth in the wrong lane still forces consumers to hand-project.
+        # Computed ONCE here (before the dedup comparison, so a same-tic
+        # re-observation that changes the streak is a REAL content change and
+        # routes through the superseded-receipt branch), reused for the log row.
+        report["genuine_zero_streak"] = compute_genuine_zero_streak(
+            os.path.join(al_path, "services", "review-close-check-log.jsonl"),
+            mandate_tic,
+            report["summary"]["genuine_count"],
+        )
+
         decision = "write"
         prior_raw = None
         prior_generated_at = None
@@ -1977,11 +1990,10 @@ def run_check(project_dir, dry_run=False, obligation_tic=None, obligation_mandat
         }
         # Mechanized streak (/review 709, ad00d4c652c8): computed by the writer
         # of the log row, in its declared unit, gaps + re-observations disclosed.
-        log_entry["genuine_zero_streak"] = compute_genuine_zero_streak(
-            os.path.join(al_path, "services", "review-close-check-log.jsonl"),
-            mandate_tic,
-            report["summary"]["genuine_count"],
-        )
+        # Single computation, two sinks (/review 715): the value embedded in the
+        # designated report artifact above IS the value logged here — one
+        # measurement, never two divergent computations.
+        log_entry["genuine_zero_streak"] = report["genuine_zero_streak"]
         if executor_clock_tic is not None:
             # The cured defect, observed live: the run crossed a tic boundary and
             # the executor clock would have mis-filed this evidence.

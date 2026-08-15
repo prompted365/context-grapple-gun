@@ -3,7 +3,7 @@
   "type": "known_legacy_noise_registry",
   "authorized_by": "bk-boot-born-extraction-miss leg b1 (/review-class, tic-680 window; doctrine vehicle cpr_fail_closed_boot_hold_must_scope_stop_to_held_truth_consumers_tic679) — reason-coded known/genuine verifier split applied to the effective-record gate lens (cgg-ledger#reason-coded-genuine-vs-known-verifier-split)",
   "discipline": "parse-class structural noise ONLY (invalid_json / non_object_row / invalid_utf8) on enumerated pre-contract surfaces; correction-semantic issue codes can NEVER be registered known; entries are repository-controlled and ride the trusted migrations inventory + runtime-sync",
-  "entries": [
+  "retired_entries": [
     {
       "surface": "audit-logs/patterns/2026-04-08.jsonl",
       "codes": [
@@ -11,8 +11,12 @@
       ],
       "reason": "pre-contract pattern-mining staging corpus (2026-04-08): 709 rows are non-JSONL free text emitted before the typed staging contract; scan lens classified informational at tic 678; content is historical mining residue, not record truth",
       "observed_count_at_registration": 709,
-      "registered_tic": 680
-    },
+      "registered_tic": 680,
+      "retired_tic": 715,
+      "retired_reason": "Architect-directed resolution at tic 715: the surface was measured to parse as ONE pretty-printed JSON document (not 709 free-text rows) and was renamed to its truthful format audit-logs/patterns/2026-04-08.legacy.json (git mv, content byte-identical, receipt audit-logs/governance/receipts/2026-08-14-tic715-patterns-legacy-format-truth-rename.md). The .jsonl scan population no longer contains it, so the registered noise class can no longer fire; entry retired, not deleted, so the registration history stays legible."
+    }
+  ],
+  "entries": [
     {
       "surface": "audit-logs/agent-mailboxes/ent_cbux_steward/indexes/events.jsonl",
       "codes": [
