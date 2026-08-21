@@ -11,6 +11,16 @@ No LLM. Background-safe. Designed to run at SessionStart from session-restore.sh
 Subsystem-to-path mappings are loaded from .cgg/subsystems.json (zone root).
 Falls back to empty mappings if the config file doesn't exist.
 
+RECOMMENDED (never required) enrichment expression — the six-facet strike:
+KAT(IS, centroid) / APO(IS-NOT, heaviest: name the nearest excluded neighbors
+this entry is NOT) / PAR(HOLDS) / PLE(COMPLEMENT) / ENA(COUNTER, the failure it
+answers) / TEL(TELOS) — plus optional fields on the enriched entry: relations
+(sibling:/refines:/composes:/distinct_from: edges), apophatic_exclusions,
+slice_scope (centroid claims slice-scoped, never global by default),
+cost_of_action, cost_of_inaction (neither primary), deferred_facets (declared
+absent, never fabricated). Full explainer: the EXPRESSION ray in the boot
+worldview (office-worldview.py).
+
 Usage:
   python3 cpr-enrichment-scanner.py --project-dir /path/to/project
   python3 cpr-enrichment-scanner.py --project-dir /path/to/project --quiet
@@ -100,6 +110,10 @@ def get_extracted_baseline_cprs(queue_entries):
 
 # ---------------------------------------------------------------------------
 # Evidence Gatherers
+#
+# Lens-common note: the recommended (never required) six-facet expression for
+# what an enrichment pass produces — KAT/APO/PAR/PLE/ENA/TEL plus the optional
+# perimeter fields — is stated ONCE in this module's docstring, not per-lens.
 # ---------------------------------------------------------------------------
 
 def resolve_source_path(source_file, project_dir):

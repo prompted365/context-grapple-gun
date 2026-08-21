@@ -33,6 +33,35 @@ Each candidate is a dict: {lesson (REQUIRED), band?, subsystem?,
 confidence_tier?, lesson_type?, recommended_scopes?, note?, source_cycle?}.
 A bare string is treated as {"lesson": <string>}.
 
+RECOMMENDED OPTIONAL EXPRESSION FIELDS (six-facet spine; THE SNAP COVENANT §4,
+`audit-logs/governance/six-facet-snap-covenant-tic721.md`, raised tic 722).
+Beside the existing envelope, a candidate MAY carry:
+  relations             list of `sibling:` / `refines:` / `composes:` /
+                        `distinct_from:` edges
+  apophatic_exclusions  what it is NOT — the nearest EXCLUDED neighbors
+  slice_scope           the slice the centroid claim is indexed to
+                        ("system-wide by slice at best")
+  cost_of_action        a short assessed clause
+  cost_of_inaction      a short assessed clause (neither clamp is primary)
+  deferred_facets       facets declared absent-and-visible
+Contract: OPTIONAL FOREVER · ABSENT is NEVER refused (nothing defaults them,
+nothing infers them; an omitted field is simply absent from the row) · NO GATE
+READS THEM (observability and expression only — never admission) · MALFORMED
+values follow DECODE-OR-REFUSE: a typed loud failure at whatever surface
+decodes them, never silently wrapped into a plausible shape (the t721 law,
+`constitution-ledger#defensive-normalization-masks-malformed-input-decode-or-refuse`).
+THIS lane neither validates nor normalizes them — present values are copied
+forward VERBATIM, so a malformed value stays visible instead of being laundered
+into well-formed WRONG data. Existing fields (recommended_scopes, note,
+confidence_tier) are unchanged: they are already the KAT/TEL/ENA carriers.
+
+THE SIX-FACET STRIKE (what those fields carry): KAT (IS — the centroid) · APO
+(IS-NOT — the heaviest facet; the nearest excluded neighbors) · PAR (what
+HOLDS) · PLE (the COMPLEMENT) · ENA (the COUNTER) · TEL (the TELOS served). A
+facet you cannot fill is DECLARED absent (`deferred_facets`) — never fabricated,
+never silently omitted. Full explainer: the EXPRESSION ray in the boot worldview
+(office-worldview.py).
+
 Dedup is three-axis (defense in depth):
   1. deterministic id  cpr_mogul_<cycle>_<sha256(lesson)[:12]> — re-surfacing the
      same lesson yields the same id; dedup_queue_append skips it at the write
@@ -79,6 +108,20 @@ DEFAULT_MATURITY_TICS = 3
 # this field is an intra-document pointer, refused at birth (see
 # extract_candidates docstring; A1-716/A2-716).
 _CARRIER_FIELD = "candidate_cogprs"
+
+# The six RECOMMENDED optional expression fields (THE SNAP COVENANT §4, raised
+# tic 722; the covenant is their governing artifact and the ONLY source for
+# these names). Optional forever · absent is never refused · no gate reads them
+# · malformed values are decode-or-refuse and are NEVER normalized here. See the
+# module docstring's RECOMMENDED OPTIONAL EXPRESSION FIELDS section.
+EXPRESSION_FIELDS = (
+    "relations",
+    "apophatic_exclusions",
+    "slice_scope",
+    "cost_of_action",
+    "cost_of_inaction",
+    "deferred_facets",
+)
 
 
 def resolve_audit_logs(zone_root: Path) -> Path:
@@ -344,6 +387,21 @@ def mint_entry(candidate: dict, source_cycle: str, report: dict, birth_tic: int,
         entry["tier_refusal"] = tier_refusal
     if source_file:
         entry["source_file"] = source_file
+    # Six-facet expression passthrough (THE SNAP COVENANT §4, tic 722) —
+    # ADDITIVE, copy-if-present, no defaults, no validation, no normalization.
+    # WHY IT IS NEEDED: the `entry` literal above is a CLOSED field set — the
+    # mint reads only the keys it names, so without this loop a candidate's §4
+    # fields would be silently DROPPED at birth (present in the report, absent
+    # from the queue row). Copy-if-present keeps ABSENT absent (no field is
+    # invented, nothing is refused for missing) and carries a present value
+    # VERBATIM — including a malformed one, deliberately: wrapping it into a
+    # plausible shape here would launder malformed input into well-formed WRONG
+    # data, which is exactly what decode-or-refuse forbids
+    # (constitution-ledger#defensive-normalization-masks-malformed-input-decode-or-refuse).
+    # No gate reads these fields; nothing downstream may hard-couple to them.
+    for _facet_field in EXPRESSION_FIELDS:
+        if _facet_field in candidate:
+            entry[_facet_field] = candidate[_facet_field]
     return entry
 
 

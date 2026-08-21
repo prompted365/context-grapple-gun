@@ -284,6 +284,9 @@ After synthesis:
 }
 ```
 
+**RECOMMENDED (never required) expression for extracted pressure / CogPR candidates leaving the arena** — the six-facet strike: KAT (IS, centroid) / APO (IS-NOT, heaviest: nearest excluded neighbors) / PAR (HOLDS) / PLE (COMPLEMENT) / ENA (COUNTER, the failure it answers) / TEL (TELOS). Plus optional fields: `relations` (`sibling:` / `refines:` / `composes:` / `distinct_from:` edges), `apophatic_exclusions`, `slice_scope` (arena findings are slice-scoped to the arena's decision space — declare it), `cost_of_action`, `cost_of_inaction` (neither primary), `deferred_facets` (declared absent, never fabricated).
+Optional forever — an absent facet or field is never refused, and nothing here gates extraction, routing, or the `live → completed` flip. Full explainer: the EXPRESSION ray in the boot worldview (`office-worldview.py`).
+
 ### Step 9: Governance Routing
 
 After pressure extraction:

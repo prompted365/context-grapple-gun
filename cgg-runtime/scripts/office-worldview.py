@@ -345,6 +345,44 @@ def render_governed_loop(tic: int) -> str:
     )
 
 
+# ── THE EXPRESSION RAY — six-facet expression guidance for EVERY minting seat ──
+# The tic-722 SNAP raise keystone (covenant: audit-logs/governance/six-facet-snap-covenant-
+# tic721.md, Architect-ratified t721). ALL-STANDINGS: appended budget-exempt beside the
+# citizen-gated blocks — ADDITIVE; the citizen gate on identity/substrate/loop/ladder is
+# untouched (its retype rides the /review 723 docket). RECOMMENDED-NOT-ENFORCED is the
+# design constraint, not a soft launch: enforcement introduces over-hedging on transitions,
+# and optional fields keep rollback-velocity > attachment-velocity (nothing downstream may
+# hard-couple to them). No gate reads these fields; ABSENT is never refused; MALFORMED
+# values follow decode-or-refuse (t721 law). Uptake is observed by the expression-coverage
+# counter (declared unit), never forced. This text is the CANONICAL CONDENSED form the
+# per-lane snippets point to (template, not doctrine — acceptable duplication is the 3–5
+# line lane mention, never this body).
+EXPRESSION_RAY = """
+THE SIX-FACET EXPRESSION FORMAT (recommended, never enforced — no gate reads it; absence is never a fault). When you MINT anything — a born, a CogPR, a proposal, a finding, a report row, a signal rationale — the recommended natural-language expression is the six-facet strike:
+  KAT ⟨IS⟩ what it positively is — the centroid, one clean claim.
+  APO ⟨IS-NOT⟩ the HEAVIEST facet — what it is NOT: the nearest neighbors it explicitly excludes, the families a reader would confuse it with.
+  PAR ⟨HOLDS⟩ the tension it carries without collapsing (both-true pairs, undecided forks).
+  PLE ⟨COMPLEMENT⟩ what completes it or sits beside it (siblings, the other half of its pair).
+  ENA ⟨COUNTER⟩ the failure mode it answers — the concrete symptom that makes it worth minting.
+  TEL ⟨TELOS⟩ the purpose it serves — which invariant or lane it feeds.
+DECLARE YOUR SCOPE: a centroid claim is indexed to the slice you actually observed — "system-wide by slice at best," never global by default (observer-indexed, slice-scoped). CARRY THE DOUBLE CLAMP: cost_of_action AND cost_of_inaction, each assessed on its own evidence, neither primary — a verdict that names only one clamp is half-assessed. KEEP DEFERRED FACETS VISIBLE: a facet you cannot fill is declared absent (deferred_facets), never fabricated, never silently omitted — declared negative space is honest expression, not failure.
+RECOMMENDED OPTIONAL FIELDS (beside your existing envelope, optional forever): relations (sibling:/refines:/composes:/distinct_from: edges) · apophatic_exclusions · slice_scope · cost_of_action · cost_of_inaction · deferred_facets. Existing fields (recommended_scopes, rationale, review_hints, confidence_tier) already carry KAT/TEL/ENA — no renames, no migrations.
+WHY (the payoff, measured t721): rehydration is shape-derived — relations + exclusions + scope are the perimeter that lets one truth rehydrate to a symptom sharing no keywords with it. The perimeter is built at mint, or rebuilt expensively at /review; mint lanes that carry a rich structured brief express it at 100%.
+"""
+
+
+def render_expression_ray(tic: int) -> str:
+    """THE EXPRESSION RAY — budget-exempt, EVERY standing, every tic (tic-722 raise).
+    The six-facet expression grammar served to every seat that mints, mentioned-and-
+    explained, never gated. Additive beside the citizen-gated siblings; one revert
+    removes it everywhere (covenant T6: attachment stays low by design)."""
+    return (
+        f"\n━━━ THE EXPRESSION RAY · how to express what you mint · every standing · tic {tic} "
+        "(budget-exempt — recommended-not-enforced, forever) ━━━"
+        + EXPRESSION_RAY
+    )
+
+
 def render_receipt_frame(office: str, tic: int, disp: str, zone_root: Path, ladder: bool = False) -> str:
     """The receipt-REQUEST framing — explicit, warm, and DELIBERATELY budget-exempt.
 
@@ -1215,6 +1253,10 @@ def render_human(office: str, tic: int, base: dict, frags: list, max_chars: int,
     except Exception:
         is_citizen = False
         is_primary = False
+    # THE EXPRESSION RAY — ALL STANDINGS, before the citizen-gated siblings (tic-722 raise):
+    # every seat that mints gets the six-facet expression grammar, citizen or not, primary or
+    # not. Additive beside the is_citizen gate below — the gate itself is untouched (T5).
+    body = body + "\n" + render_expression_ray(tic)
     if is_citizen:
         body = body + "\n" + render_identity_frame(tic)
         body = body + "\n" + render_standing_substrate(tic)

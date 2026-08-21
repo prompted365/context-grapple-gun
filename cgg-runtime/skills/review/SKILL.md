@@ -447,8 +447,15 @@ Telos
   ```
   **Terminal-verdict receipts (PROMOTE / SKIP / MODIFY / MERGE / DEFER / SUPERSEDE) MUST carry the `consumed_fields` slot** — the predicate inputs the verdict actually consumed. The shape is the cpr-stepper's self-authored record, adopted as the template by rider R4 (/review 663): it was present at the mechanical office and absent at the authority-bearing one. A clean-negative measurement is RECORDED, not discarded to memory (O1-664: a Gate-1 probe run and then dropped leaves the next reader unable to tell staleness was ever checked). This slot is how the three maturity loci name their warrant — VP1 (R6) closes as a consequence of R2–R4, not silently.
 - If proposals file was consumed, delete `~/.claude/grapple-proposals/latest.md`
+- **Optional dual-clamp slot on decision rows** (recommended, never enforced — six-facet covenant §4, tic 722): `consumed_fields` MAY additionally carry `"cost_of_action"` and `"cost_of_inaction"` — each a short clause assessed on its own evidence, neither primary. Absent is never a fault; malformed values follow decode-or-refuse.
 
-## Protected Files
+## Recommended Expression Conventions (tic 722 — recommended, never enforced)
+
+The six-facet expression spine (covenant: `audit-logs/governance/six-facet-snap-covenant-tic721.md`; full explainer: the EXPRESSION ray in the boot worldview). Nothing here gates a verdict; absence is never refused; these shape expression only.
+
+- **Inscription skeleton for PROMOTE bodies** (the recommended shape when writing a lesson into a ledger/doctrine surface): **anchor** (the slug the queue credential will cite — inscribe BEFORE the queue write) · **tags** (terrain_class / lanes / era / target_rung as the surface uses) · **relations** (sibling:/refines:/composes:/distinct_from: edges to existing entries — the lattice, built at inscription) · **body** (the dehydrated centroid, KAT-led, with the APO perimeter — what this law is NOT, its nearest excluded neighbors) · **lock line** (the one-sentence non-negotiable, where the entry carries one) · **slice scope** (the slice the centroid claim is indexed to — observer-indexed, "system-wide by slice at best", never global by default).
+- **Deferred facets stay visible**: a facet the inscription cannot fill is declared absent (`deferred_facets`), never fabricated, never silently omitted.
+- **AgencyReceipt-lite on ratification events** (recommended one-liner recorded with the decision row when a human ratifies): `ratified_by: <who> · basis: <the verbatim answer/direction reference> · scope: <what the ratification covers and does not>`. This makes the human gate auditable without adding any new gate — the ratification itself remains the authority; the line only records it.
 
 These files require EXTRA confirmation before writing:
 - `~/.claude/CLAUDE.md` (global root) — always ask explicitly

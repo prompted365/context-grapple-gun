@@ -186,6 +186,10 @@ confidence:          <0.0–1.0>
 possible_overlap_with_opposing_miner: <brief note if a metalearning pattern is nearby, or "none">
 ```
 
+**RECOMMENDED (never required) expression for each surfaced candidate** — the six-facet strike: KAT (IS, the centroid) / APO (IS-NOT, the heaviest facet: the nearest excluded neighbors — name what this candidate is NOT) / PAR (HOLDS, the tension held) / PLE (COMPLEMENT) / ENA (COUNTER, the concrete failure it answers) / TEL (TELOS, what it serves).
+Optional fields alongside the schema above: `relations` (sibling:/refines:/composes:/distinct_from: edges) · `apophatic_exclusions` (nearest excluded neighbors) · `slice_scope` (a centroid claim is indexed to the slice you actually mined — declare it; never global by default) · `cost_of_action` · `cost_of_inaction` (a short assessed clause each, neither primary) · `deferred_facets` (a facet you cannot fill is DECLARED ABSENT, never fabricated).
+These are OPTIONAL forever — omitting any of them is never a defect, and no candidate is refused for their absence. Full explainer: the EXPRESSION ray in the boot worldview (`office-worldview.py`).
+
 ### Elimination output (Phase 3)
 
 For each of your partner's candidates, produce:
