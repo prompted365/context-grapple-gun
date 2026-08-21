@@ -405,10 +405,15 @@ def full_cycle(tic, zone_root=None):
     _, al = _resolve_zone()
     artifact_dir = os.path.join(al, "visitor-economy")
     artifact_path = os.path.join(artifact_dir, f"full-cycle-tic-{tic}.json")
+    # stamp-then-write: the attestation must be serialized INSIDE the durable
+    # copy — a stamp applied after the write exists only on the in-memory copy,
+    # i.e. on the channel this recovery artifact exists to outlive. The failure
+    # path reports on the in-memory copy because a failed write has no other
+    # carrier.
+    results["artifact_path"] = artifact_path
     try:
         os.makedirs(artifact_dir, exist_ok=True)
         atomic_write_json(artifact_path, results)
-        results["artifact_path"] = artifact_path
     except Exception as e:
         results["artifact_path"] = None
         results["artifact_write_error"] = str(e)
