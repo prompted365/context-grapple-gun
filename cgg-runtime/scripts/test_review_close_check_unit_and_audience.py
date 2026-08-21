@@ -132,6 +132,72 @@ class TestPromoteAsRefinementVerbMatched(_HermeticHome):
         self.assertNotIn("cpr_skip_token_tic716", idx)
 
 
+class TestReview719VerbAdmissionsAndLoudCounter(_HermeticHome):
+    """/review-719 first-consumer patch (3a40ab346adb, PROMOTE-as-ray + patch,
+    Architect-ratified): the census-residue and measured compound heads are
+    ADMITTED, and any FUTURE head that fails the alternation is surfaced by the
+    unmatched-provenance-shape loud counter instead of dropping out silently.
+    Both arms of every documented conditional are exercised."""
+
+    def _run(self, text):
+        tmp = tempfile.TemporaryDirectory()
+        root = Path(tmp.name)
+        (root / "CLAUDE.md").write_text(text, encoding="utf-8")
+        with tmp:
+            diag = {}
+            idx = rcc.build_inscribed_index(str(root), diagnostics=diag)
+            return idx, diag
+
+    def test_admitted_heads_all_indexed(self):
+        heads = {
+            "INSCRIBED": "cpr_inscribed_head_tic719",
+            "review-executed": "cpr_review_executed_head_tic719",
+            "CONDITIONAL-PROMOTED": "cpr_conditional_head_tic719",
+            "MERGE": "cpr_merge_head_tic719",
+            "REINFORCED": "cpr_reinforced_head_tic719",
+        }
+        text = "".join(
+            f"<!-- {head} at /review 719, from {token}. -->\n"
+            for head, token in heads.items()
+        )
+        idx, diag = self._run(text)
+        for token in heads.values():
+            self.assertIn(token, idx)
+        self.assertEqual(diag["unmatched_provenance_shaped_count"], 0)
+
+    def test_novel_head_fires_loud_counter_not_index(self):
+        idx, diag = self._run(
+            "<!-- RATIFIED-INTO some-entry, from cpr_novel_head_tic719. -->\n")
+        self.assertNotIn("cpr_novel_head_tic719", idx)
+        self.assertEqual(diag["unmatched_provenance_shaped_count"], 1)
+        sample = diag["unmatched_provenance_shaped_samples"][0]
+        self.assertIn("cpr_novel_head_tic719", sample["tokens"])
+        self.assertTrue(sample["head"].startswith("<!-- RATIFIED-INTO"))
+
+    def test_skip_head_not_counted_by_loud_counter(self):
+        idx, diag = self._run(
+            "<!-- SKIP-WITH-HOME POINTER (cpr_skip_loud_tic719) home elsewhere -->\n")
+        self.assertNotIn("cpr_skip_loud_tic719", idx)
+        self.assertEqual(diag["unmatched_provenance_shaped_count"], 0)
+
+    def test_reserved_only_comment_not_counted(self):
+        # A comment whose only token is a reserved sibling-namespace label is
+        # metadata, not a shed inscription witness.
+        _, diag = self._run("<!-- era boundary marker cpr_era_tic_700_749 -->\n")
+        self.assertEqual(diag["unmatched_provenance_shaped_count"], 0)
+
+    def test_tokenless_unmatched_comment_not_counted(self):
+        _, diag = self._run("<!-- an ordinary prose comment, no ids at all -->\n")
+        self.assertEqual(diag["unmatched_provenance_shaped_count"], 0)
+
+    def test_merged_still_admitted_longest_first(self):
+        # `merge` was added AFTER `merged` — the longer form must keep matching.
+        idx, diag = self._run(
+            "<!-- merged from cpr_merged_form_tic719 + cpr_other_form_tic719 -->\n")
+        self.assertIn("cpr_merged_form_tic719", idx)
+        self.assertEqual(diag["unmatched_provenance_shaped_count"], 0)
+
+
 class TestReportCarriesUnitBesideInteger(unittest.TestCase):
     def test_report_block_publishes_inscribed_index_unit(self):
         # Generator-enforce: the report dict publishes the unit declaration

@@ -684,13 +684,32 @@ _PROVENANCE_VERB_RE = re.compile(
     # against the just-declared unit). Longer form precedes "promoted"
     # by the same longest-first discipline as refinement/refined.
     # SKIP-WITH-HOME openings stay EXCLUDED BY DESIGN (a skip pointer is
-    # not an inscription witness); "Inscribed"/"review-executed" openings
-    # are census residue, not admitted without adjudication.
-    r"(?:promote-as-refinement|promoted-spec|promoted|absorbed|refinement|refined|conformation|conformed|extended|merged|superseded)"
+    # not an inscription witness).
+    # /review-719 adjudication (cpr_mogul_review_close_check_3a40ab346adb,
+    # PROMOTE-as-refinement-ray + first-consumer patch, Architect-ratified):
+    # the census-residue heads "inscribed"/"review-executed" are ADMITTED
+    # (the adjudication the tic-716 note reserved them for), together with
+    # the row's measured unmatched inscription-witness heads
+    # "CONDITIONAL-PROMOTED" (1), "MERGE" (list carried only `merged`) and
+    # "REINFORCED" (1). The closed-list sin is not re-committed silently:
+    # the unmatched-provenance-shaped loud counter below surfaces every
+    # FUTURE head that fails this alternation instead of letting it drop
+    # out of the index (cgg-ledger#emitter-rows-must-match-a-reader-
+    # predicate, reciprocal direction — reader predicate over an OPEN
+    # authoring vocabulary).
+    r"(?:conditional-promoted|promote-as-refinement|promoted-spec|promoted|absorbed|refinement|refined|reinforced|review-executed|inscribed|conformation|conformed|extended|merged|merge|superseded)"
     r"|CPR-ID:"
     r").*?-->",
     re.IGNORECASE | re.DOTALL,
 )
+
+# Unmatched-provenance-shape loud counter (/review 719, 3a40ab346adb).
+# Any HTML comment carrying a cpr-shaped token that FAILS the verb alternation
+# is counted + sampled in diagnostics and announced on stderr — never gating,
+# never silently dropped. SKIP-* heads are excluded by design (a skip pointer
+# is deliberately not an inscription witness, so its non-match is correct).
+_HTML_COMMENT_RE = re.compile(r"<!--.*?-->", re.DOTALL)
+_SKIP_HEAD_RE = re.compile(r"<!--\s*skip", re.IGNORECASE)
 _CPR_REF_RE = re.compile(r"(cpr_[A-Za-z0-9_]+|CogPR-\d+)")
 # Reserved sibling namespaces under the cpr_ prefix that are NOT CogPR ids.
 # A namespace-prefix match is not identifier membership (/review 709,
@@ -798,6 +817,8 @@ def build_inscribed_index(project_dir, queue_ids=None, diagnostics=None):
     unresolved_against_queue = set()
     matched_comment_count = 0
     multi_token_comment_count = 0
+    unmatched_shaped_count = 0
+    unmatched_shaped_samples = []
     for path in candidate_paths:
         content = read_file_safe(path)
         if not content:
@@ -821,6 +842,37 @@ def build_inscribed_index(project_dir, queue_ids=None, diagnostics=None):
                 distinct_in_comment.add(token)
             if len(distinct_in_comment) > 1:
                 multi_token_comment_count += 1
+        # Unmatched-provenance-shape loud counter (/review 719, 3a40ab346adb):
+        # a cpr-token-bearing comment that fails the verb alternation is exactly
+        # the shape that silently dropped out of the index while the inscription
+        # stayed valid (measured live at tic 716: PROMOTE-AS-REFINEMENT, delta
+        # read 0 against a landed inscription). Counted + sampled, never gating;
+        # SKIP-* heads excluded by design; reserved-only comments not counted.
+        for cm in _HTML_COMMENT_RE.finditer(content):
+            seg = cm.group(0)
+            if _PROVENANCE_VERB_RE.match(seg) or _SKIP_HEAD_RE.match(seg):
+                continue
+            tokens = [t.group(1) for t in _CPR_REF_RE.finditer(seg)
+                      if not _is_reserved_ref(t.group(1))]
+            if not tokens:
+                continue
+            unmatched_shaped_count += 1
+            if len(unmatched_shaped_samples) < 10:
+                unmatched_shaped_samples.append({
+                    "path": (os.path.relpath(path, project_dir)
+                             if path.startswith(project_dir) else path),
+                    "head": " ".join(seg[:120].split()),
+                    "tokens": sorted(set(tokens))[:5],
+                })
+    if unmatched_shaped_count:
+        print(
+            f"UNMATCHED-PROVENANCE-SHAPE: {unmatched_shaped_count} cpr-token-"
+            f"bearing comment(s) fail the inscription-verb alternation and are "
+            f"NOT indexed (skip-heads excluded by design). A new verdict head "
+            f"must enter the matcher to enter the index — see "
+            f"inscribed_index_unresolved.unmatched_provenance_shaped_samples.",
+            file=sys.stderr,
+        )
     if diagnostics is not None:
         diagnostics["reserved_tokens_excluded"] = {
             tok: sorted(paths) for tok, paths in sorted(reserved_excluded.items())
@@ -828,6 +880,11 @@ def build_inscribed_index(project_dir, queue_ids=None, diagnostics=None):
         diagnostics["reserved_excluded_count"] = len(reserved_excluded)
         diagnostics["unresolved_against_queue_count"] = len(unresolved_against_queue)
         diagnostics["unresolved_against_queue_sample"] = sorted(unresolved_against_queue)[:25]
+        # /review-719 loud counter (3a40ab346adb): the residue an anchored
+        # closed alternation sheds from an open authoring vocabulary, made
+        # visible beside the index it was invisible to. Non-gating.
+        diagnostics["unmatched_provenance_shaped_count"] = unmatched_shaped_count
+        diagnostics["unmatched_provenance_shaped_samples"] = unmatched_shaped_samples
         # Class-cure (/review 716, 502236e96cf1 SKIP-with-routing, executed
         # same tic): the counter's POPULATION and UNIT are declared as fields
         # BESIDE the integer, so a consumer predicting against it must predict
