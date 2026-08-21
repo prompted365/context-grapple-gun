@@ -58,7 +58,7 @@ SCRIPT_PATH = Path(__file__).resolve()
 FEDERATION_ROOT = SCRIPT_PATH.parent.parent.parent.parent.parent
 QUEUE_FILE = FEDERATION_ROOT / "audit-logs" / "cprs" / "queue.jsonl"
 OUT_DIR = FEDERATION_ROOT / "audit-logs" / "governance" / "queue-drift-audit"
-TIC_FILE = FEDERATION_ROOT / "audit-logs" / "tics" / "current.json"
+TIC_LOG_DIR = FEDERATION_ROOT / "audit-logs" / "tics"
 
 # Terminal statuses per CGG `Terminal-State Valve Pattern` doctrine.
 TERMINAL_STATUSES = {
@@ -108,16 +108,38 @@ DEFAULT_OVERDUE_THRESHOLD_TICS = 20
 
 
 def load_current_tic():
-    """Return the current federation tic, or None if unresolvable."""
+    """Return the current federation tic from the canonical tic log, or None.
+
+    Resolves from `audit-logs/tics/*.jsonl` latest event, field
+    `domain_counter_after` (Temporal Scope Discipline — the tic emission
+    lane is the time authority). The prior source, `audit-logs/tics/
+    current.json`, never existed, so `age_tics` stayed None and the
+    `overdue_active` detector could never fire while the duplicate-class
+    banner printed every run (F4-723, verified; repaired /review 723).
+    """
     try:
-        data = json.loads(TIC_FILE.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError):
+        files = sorted(TIC_LOG_DIR.glob("*.jsonl"))
+    except OSError:
         return None
-    # Common shapes: {"current_tic": N} or {"counter_after": N} or {"tic": N}
-    for key in ("current_tic", "counter_after", "tic", "global_counter"):
-        val = data.get(key)
-        if isinstance(val, int):
-            return val
+    for path in reversed(files):
+        try:
+            lines = path.read_text(encoding="utf-8").splitlines()
+        except OSError:
+            continue
+        for line in reversed(lines):
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                event = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            if not isinstance(event, dict):
+                continue
+            for key in ("domain_counter_after", "counter_after", "current_tic", "tic"):
+                val = event.get(key)
+                if isinstance(val, int):
+                    return val
     return None
 
 
@@ -283,7 +305,7 @@ def main():
         "--tic",
         type=int,
         default=None,
-        help="Override current tic resolution (default: read from tics/current.json)",
+        help="Override current tic resolution (default: latest event in audit-logs/tics/*.jsonl)",
     )
     parser.add_argument(
         "--json",

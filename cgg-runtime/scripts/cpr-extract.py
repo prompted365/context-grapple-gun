@@ -1031,11 +1031,50 @@ def extract_cprs(project_dir, dry_run=False, plan_file=None, anomaly_threshold=0
             if block.get("lesson_type"):
                 entry["lesson_type"] = block["lesson_type"]
 
+            # Six-facet §4 expression-field passthrough (raise arbitration 7 →
+            # /review 723; the N1b cogpr-ingest precedent applied at the
+            # born→queue boundary). RECOMMENDED-NEVER-ENFORCED (six-facet
+            # covenant t721 §4/T5): presence-keyed copy-forward only — an
+            # authored field reaches the queue row untouched; absence stays
+            # absent (deferred facets are declared by the author, never
+            # fabricated here); no shape coercion, no defaults, no gate.
+            # Without this hop, born-authored §4 fields were queue-invisible
+            # to expression-coverage.py (the instrument reads queue.jsonl).
+            for _facet_field in (
+                "relations", "apophatic_exclusions", "slice_scope",
+                "cost_of_action", "cost_of_inaction", "deferred_facets",
+            ):
+                if block.get(_facet_field):
+                    entry[_facet_field] = block[_facet_field]
+
             # Parse birth_tic as int if it came from block as string
             try:
                 entry["birth_tic"] = int(entry["birth_tic"])
             except (ValueError, TypeError):
                 entry["birth_tic"] = tic_count
+
+            # Schedule-window stamp at mint (F2-723 generator repair, /review
+            # 723). 2/2 prior cpr-extract-hook borns landed
+            # schedule_not_resolvable: queue_state_compile._resolve_target_tic
+            # found no maturity_window_tics / re_eval_tic / defer_until_tic and
+            # rendered the ABSENT INPUT as no-schedule, so the row defaulted
+            # into live_now beside mature rows; the stepper repaired each by
+            # hand from the row's own birth_tic + the provenance-class default.
+            # Stamp at the generator instead: friction_born holds the standing
+            # default (3); construction_authoritative's temporal hold is waived
+            # (0). A declared value wins (copy-if-present, stamp-if-absent).
+            # review_tic is deliberately NOT minted here — that fence is
+            # cogpr-ingest's mint-site convention (A2-709), not the extractor's.
+            _declared_window = block.get("maturity_window_tics", "")
+            if _declared_window:
+                try:
+                    entry["maturity_window_tics"] = int(_declared_window)
+                except (ValueError, TypeError):
+                    entry["maturity_window_tics"] = 3
+            else:
+                entry["maturity_window_tics"] = (
+                    0 if provenance_class == "construction_authoritative" else 3
+                )
 
             new_entries.append(entry)
             existing_hashes.add(dedup_hash)
@@ -1124,6 +1163,10 @@ def extract_cprs(project_dir, dry_run=False, plan_file=None, anomaly_threshold=0
                     # Prose form carries no structured fields, so no declaration
                     # is possible — always the default (declared-never-inferred).
                     "provenance_class": PROVENANCE_DEFAULT,
+                    # F2-723 generator repair: prose-born rows carry the
+                    # friction_born schedule window too (see the block-form
+                    # stamp above; prose can declare nothing, so the default).
+                    "maturity_window_tics": 3,
                     "authoring_form": "prose_fallback",
                 }
                 _oc = _origin_context_for(gov_file)
