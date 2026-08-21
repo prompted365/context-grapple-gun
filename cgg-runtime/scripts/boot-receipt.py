@@ -28,6 +28,10 @@ USAGE:
   boot-receipt.py emit --entity ent_x --tic 329 \
       --understood "..." --constraint "a" --constraint "b" \
       --abstention "x" --first-action "..." --route "cadence/review"
+  # a NON-citizen boot whose worldview render carried no ladder content declines, typed
+  # (/review 724) — recorded as a first-class state, never as a missing field:
+  boot-receipt.py emit --entity ent_cpr_stepper --tic 724 ... \
+      --ladder-declination "standing=resident render carried no ladder content"
   boot-receipt.py list --tic 329
   boot-receipt.py compact          # collapse same-id duplicates (dedup-at-read pass)
 
@@ -152,6 +156,17 @@ def content_fingerprint(rec: dict) -> str:
     # and additive like the attestation layer: records without it hash exactly as before.
     if "ladder_explainback" in rec:
         sem["ladder_explainback"] = rec["ladder_explainback"]
+    # /review 724 (typed ladder declination): a DECLINED explain-back is a first-class semantic
+    # state, so it participates in the fingerprint the same way the explain-back does — presence-
+    # keyed and additive. Consequences mirror the tic-643 attestation layer exactly: a receipt
+    # WITHOUT a declination hashes byte-identically to the pre-724 algorithm (every historical
+    # receipt_id stays valid), and a declination that is later CORRECTED (different standing or
+    # reason) mints a distinct id and LANDS beside the first rather than dedup-vanishing.
+    if rec.get("ladder_explainback_declined"):
+        sem["ladder_explainback_declined"] = {
+            "reason": rec.get("ladder_declination_reason", ""),
+            "standing": rec.get("ladder_declination_standing", ""),
+        }
     blob = json.dumps(sem, sort_keys=True, ensure_ascii=False)
     return hashlib.sha256(blob.encode("utf-8")).hexdigest()
 
@@ -236,6 +251,51 @@ def classify_boot_read_ranges(required_unread_range, omitted_range):
         else:
             req_unread.append(v)
     return req_unread, rerouted
+
+
+# ── THE TYPED LADDER DECLINATION (/review 724) ────────────────────────────────────────────
+# Ratified adjudication closing bk-worldview-ladder-retype-adjudication; parent doctrine
+# cgg-ledger#boot-attestation-demand-must-be-capability-gated-to-worldview-content (/review 723).
+#
+# THE DEFECT: this sink demanded a ladder explain-back "regenerated from THIS boot's text" from
+# every entity class, while office-worldview.py citizen-gates the LADDER block — so a NON-citizen
+# standing (resident, recognized_body, registered_artifact, guest, task_scoped_worker) booted with
+# ZERO ladder content at ANY budget and could only fabricate from memory (the copy-forward shape
+# the drift audit exists to catch) or comply silently-not-at-all. Both outcomes are INVISIBLE in
+# the corpus: a seat that was never HANDED the ladder is indistinguishable from a seat that carries
+# it thinly, which corrupts the drift audit at its core crux.
+#
+# THE CURE (emitter/reader pair — office-worldview.py renders the withheld-ray line, this sink
+# records it): decline-to-fabricate becomes a FIRST-CLASS, corpus-visible state. It is NEVER a
+# missing field (the ladder was never in _OWED_FIELDS) and NEVER silently equal to absence — the
+# ack, the emitted JSON, and the stored record all distinguish declined from simply-omitted.
+# NOT a gate input: boot_read_passes() is untouched; the declination cannot block or unblock a
+# mutation, exactly as the explain-back never could.
+#
+# The machine token the RENDER stamps into its withheld-ray line. Load-bearing, not prose: an agent
+# that pastes the render's declination line into --ladder-explainback is REROUTED to the declination
+# path rather than filing a fabricated-looking explain-back into the drift corpus. Same reroute
+# discipline as classify_boot_read_ranges() above — keyed on an EXACT emitted token, never a fuzzy
+# prose classifier (a genuine explain-back that happens to discuss declination is not misfiled,
+# because the token is machine vocabulary the render emits, not language a human writes).
+_LADDER_DECLINATION_TOKEN = "typed_declination"
+_LADDER_STANDING_RE = re.compile(r"standing\s*=\s*([A-Za-z0-9_\-]+)")
+
+
+def parse_ladder_declination(reason: str) -> dict:
+    """Type a --ladder-declination reason string into the stored declination block.
+
+    Returns the fields to merge onto the record. `ladder_declination_standing` is extracted
+    from a `standing=<token>` clause when present (the form office-worldview.py emits) and is
+    simply ABSENT when the reason does not carry one — fail-soft, never a fabricated standing.
+    The raw reason is always preserved verbatim; the parse is an ADDITIVE index over it, never
+    a replacement for it."""
+    rec = {"ladder_explainback_declined": True,
+           "ladder_declination_reason": reason}
+    m = _LADDER_STANDING_RE.search(reason or "")
+    if m:
+        rec["ladder_declination_standing"] = m.group(1)
+    return rec
 
 
 def boot_read_passes(rec: dict) -> tuple:
@@ -430,13 +490,44 @@ def emit(args) -> int:
     # ladder text is fixed in the worldview render, so divergence across these explain-backs (scanned
     # across tics in boot-receipts.jsonl) is the drift signal at the crux. Sentence count is
     # observability only — NEVER gate-blocking (a 4- or 6-sentence explain-back still records).
-    if getattr(args, "ladder_explainback", None):
-        rec["ladder_explainback"] = args.ladder_explainback
+    # /review 724 — TYPED LADDER DECLINATION, resolved BEFORE the explain-back is recorded.
+    # Two entry paths, both announced and never silent:
+    #   (a) --ladder-declination — the explicit, typed flag (the render prescribes it);
+    #   (b) REROUTE — an --ladder-explainback value carrying the render's machine token
+    #       `typed_declination`, i.e. the agent pasted the withheld-ray line into the wrong
+    #       flag. Filing that verbatim into the drift corpus would pollute exactly the lane
+    #       this cures, so it is rerouted LOUDLY (same discipline as the --omitted-range
+    #       apophatic reroute above).
+    # PAYLOAD CONFLICT GUARD: a --payload carrying a real ladder_explainback ALONGSIDE
+    # --ladder-declination is contradictory (you cannot both ground it and decline it). The
+    # grounded explain-back is the stronger proof and WINS; the declination is dropped with a
+    # loud warning rather than writing a record that claims both. (The CLI form of the conflict
+    # is refused earlier by argparse's mutually-exclusive group.)
+    _declination = getattr(args, "ladder_declination", None)
+    _lb = getattr(args, "ladder_explainback", None)
+    if _lb and _LADDER_DECLINATION_TOKEN in _lb:
+        sys.stderr.write(
+            "WARN boot-receipt: --ladder-explainback carries the render's machine token "
+            f"'{_LADDER_DECLINATION_TOKEN}' — this is the WITHHELD-RAY line, not an explain-back. "
+            "REROUTED to --ladder-declination (recorded as a typed declination, NOT filed into the "
+            "drift-audit corpus). Prefer --ladder-declination directly.\n")
+        _declination = _declination or _lb
+        _lb = None
+    if _declination and rec.get("ladder_explainback"):
+        sys.stderr.write(
+            "WARN boot-receipt: --ladder-declination given alongside a payload ladder_explainback — "
+            "a grounded explain-back OUTRANKS a declination (you cannot both ground it and decline "
+            "it). The declination is DROPPED; the explain-back stands.\n")
+        _declination = None
+    if _declination:
+        rec.update(parse_ladder_declination(_declination))
+    if _lb:
+        rec["ladder_explainback"] = _lb
         # A2-711: allow closing quotes/brackets after terminal punctuation — a sentence ending
         # ."  .'  .)  .] must still split (the bare (?:\s|$) form undercounted doctrine-quoting
         # explain-backs, biasing the drift-audit lane against them).
         rec["ladder_explainback_sentence_count"] = len(
-            [s for s in re.split(r"[.!?]+['\")\]”’]*(?:\s|$)", args.ladder_explainback.strip()) if s.strip()])
+            [s for s in re.split(r"[.!?]+['\")\]”’]*(?:\s|$)", _lb.strip()) if s.strip()])
     # Boot-read fields (tic 406): present iff the caller supplied them (a payload may also
     # carry them). Recorded as-is; the gate evaluates them via boot_read_passes().
     if getattr(args, "boot_read_mode", None) is not None:
@@ -518,9 +609,22 @@ def emit(args) -> int:
 
     ack = greeting(args.entity, args.tic, missing)
     lb = rec.get("ladder_explainback")
+    declined = bool(rec.get("ladder_explainback_declined"))
     if lb:
         ack += (f" 🪜 ladder explain-back recorded ({rec.get('ladder_explainback_sentence_count')} "
                 "sentences) to the drift-audit lane.")
+    elif declined:
+        # /review 724: a DECLINED explain-back is a first-class recorded state — it must never
+        # read as the plain no-explainback nudge below, and must never be counted as a missing
+        # field. Declining to fabricate against a render that carried no ladder content IS the
+        # correct behavior; the corpus now says so out loud.
+        _st = rec.get("ladder_declination_standing")
+        ack += (" 🪜 ladder explain-back DECLINED (typed) and RECORDED"
+                + (f" · standing={_st}" if _st else "")
+                + f": {rec.get('ladder_declination_reason')}"
+                " — a first-class receipt state, NOT a missing field. The drift-audit lane counts"
+                " this as declined-by-standing, never as silent non-compliance; refusing to"
+                " fabricate against a render that carried no ladder content is correct.")
     else:
         ack += " 🪜 NOTE: no --ladder-explainback this tic — the crux drift-audit wants your 5 sentences every tic."
     sys.stderr.write(ack + "\n")
@@ -528,11 +632,20 @@ def emit(args) -> int:
         sink_disp = str(path.relative_to(root))
     except ValueError:
         sink_disp = str(path)  # an isolation sink outside the zone
-    print(json.dumps({"status": "recorded", "receipt_id": rid, "entity": args.entity,
-                      "tic": args.tic, "sink": sink_disp,
-                      "sink_override": bool(getattr(args, "sink", None)),
-                      "missing_fields": missing, "ack": ack,
-                      "ladder_explainback_recorded": bool(lb)}))
+    out = {"status": "recorded", "receipt_id": rid, "entity": args.entity,
+           "tic": args.tic, "sink": sink_disp,
+           "sink_override": bool(getattr(args, "sink", None)),
+           "missing_fields": missing, "ack": ack,
+           "ladder_explainback_recorded": bool(lb)}
+    # /review 724 — THREE distinguishable states on this axis, never two: recorded / declined /
+    # absent. The declination keys are emitted ONLY when a declination is present, so an existing
+    # --ladder-explainback (or plain) emit keeps a byte-identical stdout envelope; a declination-
+    # aware consumer reads .get("ladder_explainback_declined", False). Presence-keyed, additive.
+    if declined:
+        out["ladder_explainback_declined"] = True
+        out["ladder_declination_standing"] = rec.get("ladder_declination_standing")
+        out["ladder_declination_reason"] = rec.get("ladder_declination_reason")
+    print(json.dumps(out))
     return 0
 
 
@@ -681,11 +794,27 @@ def main():
     e.add_argument("--model")
     # LADDER explain-back (tic 491) — the 5-sentence regenerated-from-boot crux re-statement;
     # the baked-in drift-audit field. Recorded as-is; never gate-blocking (observability lane).
-    e.add_argument("--ladder-explainback", dest="ladder_explainback",
+    # The explain-back and its typed DECLINATION are mutually exclusive by construction: you
+    # cannot both ground the crux from THIS boot's text and declare that this boot carried none
+    # (/review 724). argparse refuses the contradictory CLI form; the payload form is caught at
+    # runtime in emit() where the grounded explain-back outranks.
+    _ladder = e.add_mutually_exclusive_group()
+    _ladder.add_argument("--ladder-explainback", dest="ladder_explainback",
                    help="EXACTLY five sentences explaining the dehydration↔rehydration ladder, "
                         "regenerated from THIS boot's worldview text (not copied from a handoff). "
                         "Recorded to the drift-audit lane; the canonical ladder text is fixed, so "
                         "divergence across explain-backs is the drift signal at the crux.")
+    # TYPED LADDER DECLINATION (/review 724, closing bk-worldview-ladder-retype-adjudication).
+    _ladder.add_argument("--ladder-declination", dest="ladder_declination",
+                   help="decline the ladder explain-back as UNSERVABLE from this boot, with a "
+                        "reason (e.g. \"standing=resident render carried no ladder content\"). "
+                        "Use when office-worldview.py rendered the [LADDER RAY WITHHELD · "
+                        "typed_declination] line: the ladder block is citizen-gated, so a "
+                        "non-citizen standing carries NO ladder content at ANY budget and an "
+                        "explain-back could only be fabricated from memory. Records "
+                        "ladder_explainback_declined + the standing + the reason as a FIRST-CLASS "
+                        "corpus state — never a missing field, never silently equal to absence, "
+                        "and never a mutation-gate input.")
     # boot-read fields (tic 406) — supply --boot-read-mode to activate the boot-read block
     e.add_argument("--full-boot-read", dest="full_boot_read", action="store_true",
                    help="record full_boot_injection_read=true")

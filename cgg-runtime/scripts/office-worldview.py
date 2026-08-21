@@ -383,7 +383,46 @@ def render_expression_ray(tic: int) -> str:
     )
 
 
-def render_receipt_frame(office: str, tic: int, disp: str, zone_root: Path, ladder: bool = False) -> str:
+# ── THE TYPED LADDER DECLINATION — the withheld-ray receipt, EVERY budget ──
+# Ratified /review 724 (closing bk-worldview-ladder-retype-adjudication; parent doctrine
+# cgg-ledger#boot-attestation-demand-must-be-capability-gated-to-worldview-content, promoted
+# /review 723). THE DEFECT: the LADDER explainer is citizen-gated (render_human below), so
+# every NON-citizen standing — resident, recognized_body, registered_artifact, guest,
+# task_scoped_worker, and the fail-closed unresolved cell — rendered with ZERO ladder content
+# while the sink's explain-back demand ("regenerated from THIS boot's text") stood. Silent
+# starvation: the seat could only fabricate from memory (the exact copy-forward shape the
+# drift audit exists to CATCH) or comply silently-not-at-all, indistinguishable in the corpus
+# from a seat that carries the ladder thinly.
+#
+# THE RATIFIED VERDICT IS TYPED DECLINATION NOW — never silent starvation. Granting the ray to
+# non-citizen classes is DEFERRED and evidence-gated; this half only makes the withholding
+# LEGIBLE and its refusal-to-fabricate a first-class, corpus-visible state.
+#
+# BUDGET-EXEMPT BY CONSTRUCTION: appended after the body is bounded, like the ladder block it
+# stands in for. Its absence at a tight seam IS the silent starvation being cured, so it may
+# never be the thing a budget cuts (cgg-ledger#budget-exempt-closure-framing-and-unit-safe-truncation).
+# ONE LINE, badge-bearing, machine-recognizable on the literal token `typed_declination`.
+def render_ladder_declination(standing: str) -> str:
+    """The typed LADDER DECLINATION line — budget-exempt, EVERY non-citizen standing, every tic.
+
+    Stands exactly where render_ladder_explainer() would have stood for a citizen, so the
+    withheld ray leaves a receipt instead of a hole. Machine-recognizable: the literal token
+    `typed_declination` is the reader predicate (boot-receipt.py reroutes an explain-back
+    carrying it to the declination path). Rendered with the SUBSTRATE badge via the shared
+    contract renderer — a load-bearing boundary beneath the office, shape-only, not locally
+    editable — never a hand-built badge literal that could drift from AUTHORITY_DEFAULTS."""
+    b = _badge("SUBSTRATE", AUTHORITY_DEFAULTS["SUBSTRATE"])
+    return (
+        f"  {b} [LADDER RAY WITHHELD · standing={standing} · typed_declination] this render "
+        "carries no ladder-explainer content by standing-gate; an explain-back demand against "
+        "this render is unservable — decline-to-fabricate is the correct response. Record the "
+        "declination (it is a first-class receipt state, NOT a missing field): boot-receipt.py "
+        f"emit … --ladder-declination \"standing={standing} render carried no ladder content\"."
+    )
+
+
+def render_receipt_frame(office: str, tic: int, disp: str, zone_root: Path, ladder: bool = False,
+                         declination: str = None) -> str:
     """The receipt-REQUEST framing — explicit, warm, and DELIBERATELY budget-exempt.
 
     This is NOT the worldview body and is NOT counted against --max-chars. It is the
@@ -409,7 +448,8 @@ def render_receipt_frame(office: str, tic: int, disp: str, zone_root: Path, ladd
         '--first-action "…" --route "cadence/review" \\\n'
         '    --model "<your model id, e.g. claude-opus-4-8>" \\\n'
         "    --full-boot-read --boot-read-mode full --chunking gapless"
-        + ('  \\\n    --ladder-explainback "<EXACTLY five sentences>"' if ladder else "")
+        + ('  \\\n    --ladder-explainback "<EXACTLY five sentences>"' if ladder
+           else (f'  \\\n    --ladder-declination "{declination}"' if declination else ""))
         + "\n  ⚠ boot-read attestation (the mutation gate reads THESE; a receipt without them "
         "self-DoSes at your first mutation): the flags above assert the honest happy path — "
         "adjust them to the truth of YOUR read. If the packet arrived clipped/preview-limited "
@@ -420,7 +460,8 @@ def render_receipt_frame(office: str, tic: int, disp: str, zone_root: Path, ladd
         "--pertinence-rationale. Never attest a full gapless read you did not perform."
         + "\n  owed: understood_scope · accepted_constraints · abstentions · "
         "first_action_or_escalation"
-        + (" · ladder_explainback" if ladder else "")
+        + (" · ladder_explainback" if ladder
+           else (" · ladder_declination" if declination else ""))
         + " · boot-read attestation"
         + "\n  (signer = --entity; model = --model — two distinct fields, never a "
         "conflated 'entity-modelcode' signature)"
@@ -433,6 +474,20 @@ def render_receipt_frame(office: str, tic: int, disp: str, zone_root: Path, ladd
             "verbiage; it must NOT be your understanding). The canonical ladder text never moves; "
             "your five sentences will, tic to tic; the gap between them is the BAKED-IN DRIFT AUDIT "
             "at the core crux. If you cannot say it in five, you have not rehydrated it — you have located it."
+        )
+    elif declination:
+        # The reader half of the typed declination (/review 724). The ladder block is WITHHELD
+        # for this standing, so the explain-back demand is unservable from THIS boot's text.
+        # Decline-to-fabricate is the correct response — and the declination is RECORDED, not
+        # silent: a declined explain-back is a first-class corpus state, never equal to absence.
+        frame += (
+            "\n  ⟜ LADDER EXPLAIN-BACK: DECLINED BY STANDING-GATE (typed). Your worldview render "
+            "carries NO ladder-explainer content at ANY budget for this standing, so a 5-sentence "
+            "explain-back 'regenerated from THIS boot's text' is UNSERVABLE — anything you produced "
+            "would come from memory or general knowledge, which is exactly the copy-forward shape "
+            "the drift audit exists to catch. DO NOT FABRICATE ONE. Pass --ladder-declination "
+            "instead: the sink records ladder_explainback_declined with your standing + reason as a "
+            "first-class state, never counted as a missing field and never silently equal to absence."
         )
     return frame
 
@@ -1245,12 +1300,19 @@ def render_human(office: str, tic: int, base: dict, frags: list, max_chars: int,
     # offices get the full dehydration↔rehydration explainer verbatim every tic; non-citizen
     # boots — guest / artifact / task_scoped_worker — stay minimal). The receipt frame then asks
     # for a 5-sentence explain-back regenerated from THIS text: a baked-in drift audit at the crux.
+    # /review 724: the standing STRING is now carried (not just the citizen boolean) because the
+    # non-citizen arm must NAME the standing in its typed declination. Fail-closed exactly as
+    # before — an unresolved standing is non-citizen, and now renders `standing=unresolved`
+    # rather than starving silently.
     is_citizen = False
     is_primary = False
+    standing = None
     try:
-        is_citizen = (_entity_standing(zone_root, office) == "citizen") if zone_root is not None else False
+        standing = _entity_standing(zone_root, office) if zone_root is not None else None
+        is_citizen = (standing == "citizen")
         is_primary = _is_primary_office(zone_root, office) if zone_root is not None else False
     except Exception:
+        standing = None
         is_citizen = False
         is_primary = False
     # THE EXPRESSION RAY — ALL STANDINGS, before the citizen-gated siblings (tic-722 raise):
@@ -1267,8 +1329,18 @@ def render_human(office: str, tic: int, base: dict, frags: list, max_chars: int,
         if is_primary:
             body = body + "\n" + render_governed_loop(tic)
         body = body + "\n" + render_ladder_explainer(tic)
+    # THE TYPED LADDER DECLINATION (/review 724) — the NON-citizen arm of the SAME gate. The
+    # ladder ray is withheld by standing; the withholding now leaves a RECEIPT in its place
+    # instead of a hole. Budget-exempt like its citizen sibling (appended after the body is
+    # bounded), so it renders at EVERY budget — its absence at a tight seam is precisely the
+    # silent starvation this cures. Never silent starvation.
+    declination = None
+    if not is_citizen:
+        declination = f"standing={standing or 'unresolved'} render carried no ladder content"
+        body = body + "\n" + render_ladder_declination(standing or "unresolved")
     if receipt_frame:
-        body = body + "\n" + render_receipt_frame(office, tic, disp, zone_root or Path("."), ladder=is_citizen)
+        body = body + "\n" + render_receipt_frame(office, tic, disp, zone_root or Path("."),
+                                                  ladder=is_citizen, declination=declination)
     return body
 
 

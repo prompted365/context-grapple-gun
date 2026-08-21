@@ -22,6 +22,7 @@ The SHARED STRUCTURAL DIMENSION SCHEMA (STRUCT_DIMS) — every vector, current a
 learned, is projected into these axes. No text token ever enters a vector.
 """
 import argparse
+import datetime
 import glob
 import json
 import os
@@ -82,6 +83,39 @@ def clamp01(x):
     except (TypeError, ValueError):
         return 0.0
     return max(0.0, min(1.0, x))
+
+
+# ---------------------------------------------------------------------------
+# AS-OF STAMPS — the volatility obligation travels with the transcription.
+#
+# Ratified law (/review 724): a provenance block that TRANSCRIBES measured
+# values across a boundary must carry the SOURCE's as-of stamp. The block below
+# copies the conformation's figures (pending_cogprs, active_signals,
+# manifold_state, byte counts) into the contagion input; without the source
+# stamp those figures read as live when they may be minutes old, and the packet
+# is unfalsifiable by its own reader. Measured defect (tic 721): a 33-minute
+# stale conformation drove pending_pressure to 0.6667 when live truth was 1.0,
+# and nothing in the packet let the reader detect it.
+# ---------------------------------------------------------------------------
+def utc_now_iso():
+    """This packet's build time, ISO-8601 UTC.
+
+    Same shape the conformation emitter writes for `snapshot_at`, so a reader
+    can subtract the two stamps directly instead of normalizing formats first.
+    """
+    return datetime.datetime.now(datetime.timezone.utc).isoformat()
+
+
+def conformation_stamp(conf):
+    """The conformation's OWN as-of stamp — the SOURCE side of the transcription.
+
+    `snapshot_at` is the precise emitter stamp. `tic` is the coarser ISO
+    fallback for pre-`snapshot_at` conformations (absent in 32 of 703 as of tic
+    724, none of them recent). None when the source carries neither — an absent
+    stamp is reported as absent, never synthesized from the read's own clock,
+    which would launder a stale read as fresh.
+    """
+    return conf.get("snapshot_at") or conf.get("tic") or None
 
 
 # ---------------------------------------------------------------------------
@@ -176,7 +210,19 @@ def conformation_shape(conf):
             "pending_cogprs": counts.get("pending_cogprs", 0),
             "site_bytes": site_b,
             "global_bytes": glob_b,
+            # The as-of stamp of the conformation every figure ABOVE was copied
+            # from. It rides INSIDE derived_from because the obligation belongs
+            # to the transcription itself, not to the packet as a whole.
+            "source_snapshot_at": conformation_stamp(conf),
         },
+        # This block's own build time. Paired with derived_from.source_snapshot_at
+        # it makes the read's staleness a COMPUTABLE DELTA, so the packet is
+        # falsifiable by its reader rather than trusted blind. Carried here (not
+        # at envelope top level) because the engine destructures a fixed key set
+        # and forwards ONLY shapeProvenance verbatim — as currentShapeProvenance
+        # — so this is the sole builder->disposition channel that survives
+        # without a kernel-rung change.
+        "built_at": utc_now_iso(),
         "note": "STRUCTURAL shape only — no text tokens enter this vector (fence #2)",
     }
     return vec, provenance

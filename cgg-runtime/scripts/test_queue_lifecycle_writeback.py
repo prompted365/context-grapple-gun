@@ -16,7 +16,9 @@ Per `cgg-ledger#selftest-fixtures-must-exercise-documented-conditional-paths`, e
 documented conditional gets BOTH arms: prior-row present/absent, payload empty/non-empty,
 field declared/protected/unknown(+allowed), prior_status auto-stamp fires/suppressed,
 review_tic merged/caller-wins, append via atomic-append.sh / in-process fallback,
-history gap present/absent, validate-row PASS/REFUSE, dry-run vs write.
+history gap present/absent, validate-row PASS/REFUSE, dry-run vs write, and — for the
+post-write effective-state recompile — clock explicit / clock from --review-tic / clock
+resolved from the tic log / clock unresolvable (A2-724).
 
 Isolation: every case builds its own queue.jsonl under a TemporaryDirectory and passes
 it via the `queue_path` hook — nothing reads or writes the real federation queue.
@@ -25,7 +27,9 @@ physics gate at the atomic-append boundary is never fired against real auto-memo
 
 Run:  python3 -m unittest test_queue_lifecycle_writeback   (from cgg-runtime/scripts/)
 """
+import contextlib
 import importlib.util
+import io
 import json
 import os
 import tempfile
@@ -77,6 +81,16 @@ def envelope_row(cpr_id=CPR_ID, status="tic_gated"):
         "advanced_by": "cpr-stepper", "advanced_tic": 682, "current_tic": 682,
         "prior_status": "extracted",
     }
+
+
+def stepper_envelope_row(cpr_id=CPR_ID, status="extracted"):
+    """The shape a cpr-stepper advance actually copies forward: the envelope WITHOUT
+    `review_tic`. The stepper must never stamp that field (it would falsely assert
+    /review docket ownership and self-fence the row under the docket-race write
+    guard), which is exactly why it cannot supply `--review-tic` (A2-724)."""
+    row = envelope_row(cpr_id=cpr_id, status=status)
+    row.pop("review_tic")
+    return row
 
 
 def thin_defer_row_682(cpr_id=CPR_ID):
@@ -657,6 +671,183 @@ class TestTierVocabularyGuard(_TmpQueue):
         res = qlw.validate_row(candidate, queue_path=self.q)
         self.assertEqual(res["verdict"], "PASS")
         self.assertIn("carried forward unchanged", res["reason"])
+
+
+class _RecompileZone(unittest.TestCase):
+    """A fixture ZONE, not just a queue file.
+
+    The recompile hook resolves both its compiler (`queue.parent/queue_state_compile.py`)
+    and its fallback clock (`<audit-logs>/tics/*.jsonl`) RELATIVE TO THE QUEUE, so the
+    fixture must carry the real `<audit-logs>/{cprs,tics}/` shape. A STUB compiler that
+    records its argv stands in for the real one: it proves WHICH CLOCK reached the
+    compiler without running a real compile against a fixture, and keeps the live
+    projection untouched.
+    """
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        self.al = Path(self.tmp.name) / "audit-logs"
+        (self.al / "cprs").mkdir(parents=True)
+        self.q = self.al / "cprs" / "queue.jsonl"
+        self.argv_log = self.al / "cprs" / "compile-argv.json"
+        (self.al / "cprs" / "queue_state_compile.py").write_text(
+            "import json, sys\n"
+            "from pathlib import Path\n"
+            "Path(__file__).with_name('compile-argv.json').write_text(\n"
+            "    json.dumps(sys.argv[1:]))\n",
+            encoding="utf-8")
+
+    def write_tic_log(self, *counters, name="2026-08-21.jsonl"):
+        """Canonical tic events carrying `domain_counter_after` (the time authority)."""
+        tic_dir = self.al / "tics"
+        tic_dir.mkdir(parents=True, exist_ok=True)
+        (tic_dir / name).write_text(
+            "".join(json.dumps({"type": "tic", "count_mode": "counted",
+                                "domain_counter_after": c}) + "\n" for c in counters),
+            encoding="utf-8")
+
+    def run_cli(self, *argv):
+        """main() with both streams captured — the recompile speaks on stderr when it
+        skips and on stdout when it lands."""
+        err, out = io.StringIO(), io.StringIO()
+        with contextlib.redirect_stderr(err), contextlib.redirect_stdout(out):
+            rc = qlw.main(list(argv))
+        return rc, out.getvalue(), err.getvalue()
+
+    def compile_clock(self):
+        """The `--current-tic` the stub compiler received, or None if it never ran."""
+        if not self.argv_log.is_file():
+            return None
+        argv = json.loads(self.argv_log.read_text(encoding="utf-8"))
+        return int(argv[argv.index("--current-tic") + 1])
+
+    def rows(self):
+        return [json.loads(ln) for ln in
+                self.q.read_text(encoding="utf-8").splitlines() if ln.strip()]
+
+
+# ===========================================================================
+# RECOMPILE CLOCK vs VERDICT FIELD (A2-724, cpr-stepper tics 723 + 724)
+# — the hook keyed its clock on --review-tic, a field the stepper lane must
+#   never pass, so it skipped on EVERY stepper write by construction
+# ===========================================================================
+
+class TestRecompileClockDecoupledFromVerdict(_RecompileZone):
+
+    ADVANCE = ["--set", "status=tic_gated", "--set", "advance_reason=maturity discharged"]
+
+    def test_current_tic_drives_the_recompile_without_stamping_the_row(self):
+        """(a) The explicit clock reaches the compiler and touches NOTHING on the row —
+        neither `review_tic` (the verdict field) nor `current_tic` (the same-named row
+        field). A wrong tic log is seeded to prove the explicit flag outranks it."""
+        write_queue(self.q, [stepper_envelope_row()])
+        self.write_tic_log(999)
+        rc, _, err = self.run_cli(
+            "--cpr-id", CPR_ID, "--queue-path", str(self.q), "--writer", "cpr-stepper",
+            "--current-tic", "724", *self.ADVANCE)
+
+        self.assertEqual(rc, 0)
+        self.assertEqual(self.compile_clock(), 724, "explicit clock must win")
+        self.assertNotIn("SKIPPED", err)
+
+        landed = self.rows()[-1]
+        self.assertEqual(landed["status"], "tic_gated")
+        self.assertNotIn("review_tic", landed,
+                         "--current-tic must NOT stamp the verdict field")
+        self.assertEqual(landed["current_tic"], stepper_envelope_row()["current_tic"],
+                         "--current-tic is a clock, not a row write")
+
+    def test_legacy_review_tic_only_call_recompiles_identically(self):
+        """(b) Every existing review-execute call site is byte-for-byte unchanged: the
+        verdict tic is still the clock AND still merges onto the row as `review_tic`."""
+        write_queue(self.q, [envelope_row(status="promotable")])
+        self.write_tic_log(999)
+        rc, out, err = self.run_cli(
+            "--cpr-id", CPR_ID, "--queue-path", str(self.q),
+            "--writer", "review-execute", "--review-tic", "683",
+            "--set", "status=skipped", "--set", "review_verdict=SKIP")
+
+        self.assertEqual(rc, 0)
+        self.assertEqual(self.compile_clock(), 683)
+        self.assertNotIn("SKIPPED", err)
+        self.assertIn("recompiled at tic 683", out)
+
+        landed = self.rows()[-1]
+        self.assertEqual(landed["review_tic"], 683, "verdict semantics must not change")
+        self.assertEqual(landed["review_verdict"], "SKIP")
+
+    def test_explicit_clock_outranks_review_tic_without_disturbing_the_verdict(self):
+        """Both surfaces present and distinct: --current-tic sets the clock, --review-tic
+        still lands as the verdict field."""
+        write_queue(self.q, [envelope_row(status="extracted")])
+        rc, _, _ = self.run_cli(
+            "--cpr-id", CPR_ID, "--queue-path", str(self.q), "--review-tic", "683",
+            "--current-tic", "724", "--set", "status=tic_gated")
+        self.assertEqual(rc, 0)
+        self.assertEqual(self.compile_clock(), 724)
+        self.assertEqual(self.rows()[-1]["review_tic"], 683)
+
+    def test_neither_flag_falls_back_to_the_resolved_canonical_tic(self):
+        """(c) THE DEFECT ARM: a stepper advance carries no verdict tic at all. This
+        used to SKIP the recompile every single pass; it now resolves the clock."""
+        write_queue(self.q, [stepper_envelope_row()])
+        self.write_tic_log(724)
+        rc, out, err = self.run_cli(
+            "--cpr-id", CPR_ID, "--queue-path", str(self.q), "--writer", "cpr-stepper",
+            *self.ADVANCE)
+
+        self.assertEqual(rc, 0)
+        self.assertEqual(self.compile_clock(), 724, "the recompile must no longer skip")
+        self.assertNotIn("SKIPPED", err)
+        self.assertIn("resolved-from-tic-log", out)
+        self.assertNotIn("review_tic", self.rows()[-1])
+
+    def test_unresolvable_clock_skips_LOUDLY_and_still_lands_the_write(self):
+        """The fail-soft arm: no flags AND no tic log. The recompile skips exactly as
+        before — but says so loudly and names the cure — and the constitutional write
+        still lands (a derived-cache miss must never block it)."""
+        write_queue(self.q, [stepper_envelope_row()])
+        rc, _, err = self.run_cli(
+            "--cpr-id", CPR_ID, "--queue-path", str(self.q), "--writer", "cpr-stepper",
+            *self.ADVANCE)
+
+        self.assertEqual(rc, 0, "fail-soft: a clock miss does not fail the writeback")
+        self.assertIsNone(self.compile_clock(), "the compiler must not run clockless")
+        self.assertIn("effective-state recompile SKIPPED", err)
+        self.assertIn("queue_state_compile.py compile --current-tic", err)
+        self.assertEqual(len(self.rows()), 2, "the queue row still landed")
+
+    def test_dry_run_and_emit_only_never_recompile(self):
+        """Unchanged: no write, no derived-cache rebuild."""
+        write_queue(self.q, [stepper_envelope_row()])
+        self.write_tic_log(724)
+        for flag in ("--dry-run", "--emit-only"):
+            rc, _, _ = self.run_cli("--cpr-id", CPR_ID, "--queue-path", str(self.q),
+                                    "--current-tic", "724", flag, *self.ADVANCE)
+            self.assertEqual(rc, 0)
+            self.assertIsNone(self.compile_clock(), f"{flag} must not recompile")
+
+    # --- the resolver itself (reused, not reimplemented) ---------------------
+
+    def test_resolver_reads_domain_counter_after_not_the_raw_row_count(self):
+        """bk-cpr-extract-tic-count-drift discipline: the authority is the LATEST
+        `domain_counter_after`, never a count of `type=tic` rows (which would stamp a
+        tic in the past here, and in the future on the live log)."""
+        write_queue(self.q, [stepper_envelope_row()])
+        self.write_tic_log(721, 722, 723, name="2026-08-20.jsonl")
+        self.write_tic_log(724, name="2026-08-21.jsonl")
+        self.assertEqual(qlw.resolve_recompile_tic(self.q), 724)
+
+    def test_resolver_returns_none_when_the_tic_log_is_absent(self):
+        write_queue(self.q, [stepper_envelope_row()])
+        self.assertIsNone(qlw.resolve_recompile_tic(self.q))
+
+    def test_resolver_returns_none_on_an_empty_tic_log(self):
+        write_queue(self.q, [stepper_envelope_row()])
+        self.write_tic_log()
+        self.assertIsNone(qlw.resolve_recompile_tic(self.q),
+                          "a zero clock is not a clock")
 
 
 if __name__ == "__main__":

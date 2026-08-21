@@ -85,6 +85,13 @@ Usage:
   python3 queue-lifecycle-writeback.py --cpr-id cpr_x_tic679 --review-tic 683 \
     --set status=skipped --set review_verdict=SKIP --set review_reasoning="derivable"
 
+  # cpr-stepper ADVANCE — no --review-tic (stamping it would falsely assert /review
+  # docket ownership and self-fence the row). `--current-tic` carries the recompile
+  # clock instead; it is NEVER merged onto the row. Omit it and the clock resolves
+  # from the canonical tic log.
+  python3 queue-lifecycle-writeback.py --cpr-id cpr_x_tic721 --writer cpr-stepper \
+    --current-tic 724 --lifecycle-json '{"status":"tic_gated","advanced_tic":724}'
+
   # Compose + validate WITHOUT writing (prints the single-line JSON row)
   python3 queue-lifecycle-writeback.py --cpr-id ... --emit-only --set status=...
 
@@ -657,6 +664,50 @@ def _parse_set(pairs):
     return out
 
 
+def _load_gate_advance_module():
+    """Load the hyphenated cpr-gate-advance.py from this scripts dir.
+
+    The filename is hyphenated so it cannot be imported by name; resolve it via
+    importlib against this file's directory (the cadence-ops convention).
+    """
+    import importlib.util
+    mod_path = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                            "cpr-gate-advance.py")
+    spec = importlib.util.spec_from_file_location("cpr_gate_advance", mod_path)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
+
+
+def resolve_recompile_tic(queue_path=None):
+    """The canonical current tic, resolved the way the rest of the runtime resolves it.
+
+    REUSED, not reimplemented: `cpr-gate-advance.resolve_current_tic` is the cured
+    sibling in this same queue-lifecycle lane — `domain_counter_after` on the LATEST
+    tic event, never a raw `type=tic` row count (bk-cpr-extract-tic-count-drift, cured
+    tic 554; raw aggregation over-counts and would open every downstream temporal gate
+    early). A SECOND tic reader in the queue lane is exactly the counter-disagreement
+    shape `Disagreement-as-evidence` names, so this defers to the existing one.
+
+    The audit-logs root is derived from the QUEUE's own location
+    (`<audit-logs>/cprs/queue.jsonl` -> `<audit-logs>`) — the same discipline the
+    recompile already applies to `--out`: the clock is read beside the queue actually
+    being written, not from whatever zone this script happens to sit in.
+
+    Returns an int tic, or None when the tic log is absent/unreadable (the sibling
+    signals that as -1) or the helper itself cannot be loaded. NEVER raises: this is a
+    derived-cache clock, and a resolution failure must not fail a constitutional write.
+    """
+    qp = Path(queue_path) if queue_path else default_queue_path()
+    if qp is None:
+        return None
+    try:
+        tic = _load_gate_advance_module().resolve_current_tic(qp.parent.parent)
+    except Exception:
+        return None
+    return tic if isinstance(tic, int) and tic > 0 else None
+
+
 def recompile_effective_state(queue_path=None, current_tic=None):
     """Refresh the derived effective-state projection after a LANDED writeback.
 
@@ -668,15 +719,35 @@ def recompile_effective_state(queue_path=None, current_tic=None):
     Architect-ratified F1). Constraints, load-bearing:
       - BEST-EFFORT: a recompile failure is LOUD on stderr but NEVER fails the
         writeback — a derived-cache miss must not block a constitutional write.
+      - THE CLOCK IS NOT THE VERDICT (A2-724, cpr-stepper tics 723 + 724, n=2
+        consecutive and structurally n=every-stepper-pass). This hook used to key its
+        clock on `--review-tic`. But `--review-tic` is a VERDICT field — it merges onto
+        the row as `review_tic` — and a cpr-stepper advance must NEVER stamp it (that
+        would falsely assert /review docket ownership AND self-fence the row under the
+        docket-race write guard). So the stepper lane lawfully omits it and the
+        recompile skipped on EVERY stepper write BY CONSTRUCTION: /review 710 made the
+        mutation boundary the owner, but the clock key silently exempted one of the two
+        writers AT that boundary — the doctrine named it, the runtime enforced it for
+        one writer only (conductor-score-runtime parity, field-passthrough-adjacent).
+        The clock is now its own argument (`--current-tic`), falling back to
+        `--review-tic` (byte-for-byte unchanged for every existing review-execute call
+        site) and then to the canonical tic resolved from the tic log.
       - Requires a tic (queue_state_compile --current-tic is required for maturity
-        classification); a writeback without --review-tic SKIPS loudly rather than
-        guessing a clock.
+        classification); a writeback whose clock cannot be resolved AT ALL skips
+        LOUDLY rather than guessing one.
       - civil-engineer's deterministic repair remains the redundant backstop layer.
     """
+    clock_source = "explicit"
     if current_tic is None:
-        print("  ⚠ effective-state recompile skipped — no --review-tic on this writeback "
-              "(the compiler requires a tic); projection stale until the next "
-              "tic-bearing rebuild (backstop: civil).", file=sys.stderr)
+        current_tic = resolve_recompile_tic(queue_path)
+        clock_source = "resolved-from-tic-log"
+    if current_tic is None:
+        print("  ⚠⚠ effective-state recompile SKIPPED — no --current-tic/--review-tic on "
+              "this writeback AND the canonical tic could not be resolved from "
+              "audit-logs/tics/*.jsonl (the compiler requires a tic); the derived "
+              "projection is STALE until a tic-bearing rebuild. Cure: re-run "
+              "queue_state_compile.py compile --current-tic <N> (backstop: civil).",
+              file=sys.stderr)
         return
     qp = Path(queue_path) if queue_path else default_queue_path()
     if qp is None:
@@ -706,7 +777,8 @@ def recompile_effective_state(queue_path=None, current_tic=None):
         print(f"  ⚠ effective-state recompile FAILED rc={res.returncode} — projection "
               f"stale until the next rebuild (backstop: civil): {detail}", file=sys.stderr)
     else:
-        print("  effective-state projection recompiled (derived cache; queue.jsonl rules)")
+        print(f"  effective-state projection recompiled at tic {current_tic} "
+              f"(clock: {clock_source}; derived cache — queue.jsonl rules)")
 
 
 def main(argv=None):
@@ -723,6 +795,15 @@ def main(argv=None):
                          "Use --lifecycle-json for typed values.")
     ap.add_argument("--review-tic", type=int, default=None,
                     help="Merged as `review_tic` when the payload does not set it.")
+    ap.add_argument("--current-tic", type=int, default=None,
+                    help="Clock for the post-write effective-state recompile ONLY. "
+                         "NOT merged onto the row — unlike --review-tic, which is a "
+                         "VERDICT field. Use this from a lane that must not stamp "
+                         "review_tic (cpr-stepper advances). Falls back to "
+                         "--review-tic, then to the canonical tic from the tic log. "
+                         "(To write the ROW's `current_tic` field, use --set "
+                         "current_tic=N / --lifecycle-json; same name, different "
+                         "surface.)")
     ap.add_argument("--writer", default=None,
                     help="Calling actor recorded in the lifecycle_writeback stamp "
                          "(e.g. 'review-execute').")
@@ -822,8 +903,14 @@ def main(argv=None):
         print(f"  ⚠ {report['unparseable_lines_scanned']} unparseable queue line(s) "
               f"matched this id and were skipped.", file=sys.stderr)
     if not args.dry_run and not args.emit_only:
-        recompile_effective_state(queue_path=args.queue_path,
-                                  current_tic=args.review_tic)
+        # Clock precedence: explicit --current-tic, then --review-tic (so every
+        # existing review-execute call site behaves byte-for-byte as before), then
+        # resolution from the tic log inside the hook. --current-tic never reaches
+        # `lifecycle`, so it cannot stamp the row.
+        recompile_effective_state(
+            queue_path=args.queue_path,
+            current_tic=(args.current_tic if args.current_tic is not None
+                         else args.review_tic))
     return 0
 
 

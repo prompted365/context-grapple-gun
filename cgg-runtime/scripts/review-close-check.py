@@ -730,6 +730,198 @@ def _is_reserved_ref(token):
     return any(token.startswith(p) for p in _RESERVED_REF_PREFIXES)
 
 
+# --- Admission-route DISCLOSURE PARITY (/review 724 RIDER 1;
+# cgg-ledger#instance-keyed-cures-cannot-see-sibling-routes-disclosure-parity) ---
+#
+# The pre-724 boundary_rule justified this index's over-admission by exactly ONE
+# route — "a sibling id NARRATED in another entry's provenance prose". At tic 721
+# a token entered the index by a route that rationale does not cover: a
+# CPR-SHAPED SUBSTRING OF A FILENAME cited in a provenance comment's `Source:`
+# clause (`Source: DONE_cpr_stepper_advance_tic718.json` admits the token
+# `cpr_stepper_advance_tic718`). An instance-keyed rationale cannot see its
+# sibling routes — so the declaration below is derived from the MECHANISM, not
+# from the two known instances.
+#
+# THE MECHANISM, read directly:
+#   * _PROVENANCE_VERB_RE anchors an inscription verb at the comment HEAD, then
+#     spans `.*?-->` under DOTALL. ONE head verb therefore licenses EVERY token
+#     up to the first `-->`, at any distance, in any grammatical role.
+#   * _CPR_REF_RE is `(cpr_[A-Za-z0-9_]+|CogPR-\\d+)` — NO left word boundary, no
+#     right boundary beyond the character class, no path/quote/fence exclusion,
+#     no polarity reading, and no queue-membership predicate at match time.
+# Every consequence of those two facts is an admission route the boundary cannot
+# discriminate. They are enumerated here in full.
+#
+# SCOPE (ratified): the cure is DISCLOSURE PARITY, NOT GATING. Nothing below
+# changes what is admitted — the class test over-excludes, and that was
+# adjudicated. `machine_countable` marks the routes whose occurrences are
+# COUNTED AT RUNTIME (never a frozen number) into route_occurrence_counts; the
+# rest are NOT countable BY CONSTRUCTION — a boundary able to count them would
+# be able to discriminate them, and it cannot. That asymmetry is itself the
+# disclosure.
+_ADMISSION_ROUTES_NOT_DISCRIMINABLE = [
+    {
+        "route": "head_subject_token",
+        "intended_witness": True,
+        "mechanism": "the first token in the matched comment — normally the id the "
+                     "head verb is actually about. This is the ONLY route where a "
+                     "token approximates an inscription EVENT.",
+        "machine_countable": True,
+        "counter": "head_subject_token",
+    },
+    {
+        "route": "sibling_id_narrated_in_provenance_prose",
+        "mechanism": "the head verb's `.*?-->` span licenses every later token, so a "
+                     "sibling id merely NARRATED in the body ('extended by CogPR-87', "
+                     "'refined from A + B', 'Source: cpr_other') is admitted with the "
+                     "same weight as the head subject.",
+        "machine_countable": "partially — every non-first occurrence is counted as "
+                             "body_scope_token, but body-scope is a superset: the "
+                             "narrating/naming distinction is semantic, not structural",
+        "counter": "body_scope_token",
+    },
+    {
+        "route": "cpr_shaped_substring_of_a_cited_FILENAME_or_PATH",
+        "mechanism": "_CPR_REF_RE has no left word boundary and no path/quote "
+                     "exclusion, so a mailbox-envelope filename or artifact path cited "
+                     "in the comment donates its embedded cpr-shaped run to the index "
+                     "(`Source: DONE_cpr_stepper_advance_tic718.json`). THE TIC-721 "
+                     "ROUTE — the one the pre-724 rationale did not cover.",
+        "machine_countable": True,
+        "counter": "substring_of_cited_filename_or_path",
+    },
+    {
+        "route": "cpr_shaped_substring_of_ANY_longer_identifier",
+        "mechanism": "the same missing left boundary admits an embedded run from any "
+                     "longer identifier, not only paths — an entity/actor name "
+                     "(`ent_cpr_stepper` admits `cpr_stepper`), a prefixed slug, a "
+                     "concatenated token. The admitted string need not be any real "
+                     "CogPR id. Generalization of the filename route.",
+        "machine_countable": True,
+        "counter": "substring_of_longer_identifier",
+    },
+    {
+        "route": "greedy_right_extension_past_the_real_id",
+        "mechanism": "`[A-Za-z0-9_]+` is greedy and stops only at a character outside "
+                     "the class, so an id embedded in an underscore-joined compound is "
+                     "admitted AS THE COMPOUND — a token that exists nowhere as an id. "
+                     "Counted only for tokens outside the queue namespace that strictly "
+                     "extend a queue id at an underscore.",
+        "machine_countable": True,
+        "counter": "greedy_right_extension",
+    },
+    {
+        "route": "bare_CogPR_N_numeric_form",
+        "mechanism": "`CogPR-\\d+` matches anywhere in the comment, including pure "
+                     "cross-references ('Refinement of … (CogPR-118)', "
+                     "'Non-derivability vs CogPR-100 adjudicated'). It also truncates a "
+                     "slash-compound to its first element (`CogPR-170/171/172/173` "
+                     "admits only CogPR-170) — the same boundary that over-admits here "
+                     "UNDER-admits there.",
+        "machine_countable": True,
+        "counter": "cogpr_numeric_form",
+    },
+    {
+        "route": "contrastive_negated_or_superseding_mention",
+        "mechanism": "the boundary reads no POLARITY. An id named in order to be "
+                     "excluded, superseded, contrasted, or ruled non-duplicative "
+                     "('Supersedes CogPR-14', 'Sibling cited, not re-opened: cpr_X', "
+                     "'theme-adjacent (NOT duplicate) to cpr_Y') is admitted identically "
+                     "to one named as inscribed.",
+        "machine_countable": False,
+        "counter": None,
+    },
+    {
+        "route": "illustrative_or_documentary_occurrence",
+        "mechanism": "the scan has no fence/quote/example awareness anywhere, and the "
+                     "scanned set includes SKILL.md / AUTHORING_CONVENTION.md / "
+                     "CLAUDE.md / ledger.md / auto-memory *.md — surfaces that DOCUMENT "
+                     "the breadcrumb format. A provenance-shaped comment inside an "
+                     "example, template, fenced block, or quoted snippet is "
+                     "structurally identical to a real breadcrumb.",
+        "machine_countable": False,
+        "counter": None,
+    },
+    {
+        "route": "token_outside_the_queue_id_namespace",
+        "mechanism": "queue membership is NOT an admission predicate — an id-shaped "
+                     "token that resolves to no queue id is admitted by design (legacy "
+                     "inscriptions predate full queue coverage; dropping them would flip "
+                     "historical checks) and disclosed via unresolved_against_queue_*. "
+                     "Named here because it is an admission route, not a discrimination.",
+        "machine_countable": True,
+        "counter": "unresolved_against_queue (see inscribed_index_unresolved)",
+    },
+    {
+        "route": "population_is_not_content_deduplicated",
+        "mechanism": "the token SET dedups, the declared POPULATION does not: a "
+                     "breadcrumb repeated within or across scanned surfaces increments "
+                     "matched_comment_count once per occurrence while contributing its "
+                     "tokens once. The two declared numbers are therefore NOT in a fixed "
+                     "ratio, and a delta in one does not entail a delta in the other.",
+        "machine_countable": False,
+        "counter": None,
+    },
+]
+
+# Enumerated prose form of the same disclosure, carried in boundary_rule so a
+# consumer reading only the string still sees every route.
+_BOUNDARY_RULE = (
+    "ADMIT: any cpr_/CogPR-shaped token ANYWHERE inside a comment whose HEAD matches "
+    "_PROVENANCE_VERB_RE, up to that comment's first `-->`. EXCLUDE: reserved "
+    "sibling-namespace prefixes (disclosed separately). The boundary CANNOT "
+    "discriminate these admission routes — enumerated from the mechanism "
+    "(_PROVENANCE_VERB_RE head-anchored + `.*?-->` DOTALL span; _CPR_REF_RE with no "
+    "left word boundary, no path/quote/fence exclusion, no polarity, no queue "
+    "predicate), NOT from the known instances: "
+    "(a) head-subject token — the only route where token ~ inscription event; "
+    "(b) sibling id NARRATED in the body prose, licensed by the head verb; "
+    "(c) cpr-shaped SUBSTRING OF A CITED FILENAME/PATH — the tic-721 route "
+    "(`Source: DONE_cpr_stepper_advance_tic718.json` admits "
+    "`cpr_stepper_advance_tic718`), which the pre-724 sibling-narration rationale "
+    "did not cover; "
+    "(d) cpr-shaped substring of ANY longer identifier (entity/actor names such as "
+    "`ent_cpr_stepper` -> `cpr_stepper`) — the admitted string need not be a real id; "
+    "(e) greedy RIGHT extension past the real id into an underscore-joined compound; "
+    "(f) bare `CogPR-N` numeric form, including pure cross-references, and its mirror "
+    "defect of truncating slash-compounds to the first element; "
+    "(g) contrastive / negated / superseding mentions — no polarity is read, so an id "
+    "named to be EXCLUDED is admitted as a witness; "
+    "(h) illustrative / documentary occurrences — no fence, quote, or example "
+    "awareness on surfaces that document the breadcrumb format; "
+    "(i) tokens outside the queue id namespace — admitted by design, disclosed; "
+    "(j) the population (matched comments) is not content-deduplicated while the unit "
+    "(distinct tokens) is, so the two are not in a fixed ratio. "
+    "SCOPE: this is DISCLOSURE PARITY, not gating — the admission mechanism is "
+    "unchanged (the class test over-excludes; adjudicated /review 724)."
+)
+
+
+def _enclosing_pathish_run(text, start, end):
+    """Return the maximal filename/path-shaped run containing [start, end), else None.
+
+    Route-census helper (/review 724 RIDER 1). Expands left and right over the
+    path character class and reports the run only when it is STRICTLY LARGER than
+    the token and looks like a path (contains `/`) or a filename (ends in a dotted
+    extension). This is what separates the tic-721 filename route
+    (`DONE_cpr_stepper_advance_tic718.json`) from the plain longer-identifier
+    route (`ent_cpr_stepper`). Disclosure only — never gates admission.
+    """
+    i = start
+    while i > 0 and (text[i - 1].isalnum() or text[i - 1] in "_./~-"):
+        i -= 1
+    j = end
+    while j < len(text) and (text[j].isalnum() or text[j] in "_./~-"):
+        j += 1
+    run = text[i:j]
+    if run == text[start:end]:
+        return None
+    trimmed = run.rstrip(".,;:")
+    if "/" in run or re.search(r"\.[A-Za-z0-9]+$", trimmed):
+        return run
+    return None
+
+
 # Backwards-compat alias retained for downstream callers; not used internally.
 _PROVENANCE_RE = _PROVENANCE_VERB_RE
 
@@ -823,27 +1015,73 @@ def build_inscribed_index(project_dir, queue_ids=None, diagnostics=None):
     multi_token_comment_count = 0
     unmatched_shaped_count = 0
     unmatched_shaped_samples = []
+    # Route census (/review 724 RIDER 1 — disclosure parity). Counts TOKEN
+    # OCCURRENCES inside matched comments, not distinct tokens (the index unit),
+    # and is computed at runtime so the disclosure can never rot into a frozen
+    # claim. head_subject_token + body_scope_token PARTITION the occurrence
+    # total; the remaining counters are OVERLAPPING attributes of the same
+    # occurrences. Purely observational — no counter gates admission.
+    route_counts = {
+        "head_subject_token": 0,
+        "body_scope_token": 0,
+        "substring_of_longer_identifier": 0,
+        "substring_of_cited_filename_or_path": 0,
+        "greedy_right_extension": 0,
+        "cogpr_numeric_form": 0,
+    }
+    substring_route_samples = []
     for path in candidate_paths:
         content = read_file_safe(path)
         if not content:
             continue
+        rel_path = (os.path.relpath(path, project_dir)
+                    if path.startswith(project_dir) else path)
         # Two-pass: find each provenance HTML-comment block, then extract every
         # cpr_xxx / CogPR-N ref inside it. The compound case ("refined from A + B")
         # surfaces both refs from a single comment.
         for m in _PROVENANCE_VERB_RE.finditer(content):
             matched_comment_count += 1
+            seg = m.group(0)
             distinct_in_comment = set()
-            for ref_match in _CPR_REF_RE.finditer(m.group(0)):
+            seen_any_in_comment = False
+            for ref_match in _CPR_REF_RE.finditer(seg):
                 token = ref_match.group(1)
                 if _is_reserved_ref(token):
-                    reserved_excluded.setdefault(token, set()).add(
-                        os.path.relpath(path, project_dir) if path.startswith(project_dir) else path
-                    )
+                    reserved_excluded.setdefault(token, set()).add(rel_path)
                     continue
                 if queue_ids is not None and token not in queue_ids:
                     unresolved_against_queue.add(token)
                 inscribed.add(token)
                 distinct_in_comment.add(token)
+                # --- route census for this occurrence (disclosure only) ---
+                if seen_any_in_comment:
+                    route_counts["body_scope_token"] += 1
+                else:
+                    route_counts["head_subject_token"] += 1
+                    seen_any_in_comment = True
+                if token.startswith("CogPR-"):
+                    route_counts["cogpr_numeric_form"] += 1
+                t_start, t_end = ref_match.span(1)
+                left = seg[t_start - 1] if t_start > 0 else ""
+                if left and (left.isalnum() or left == "_"):
+                    route_counts["substring_of_longer_identifier"] += 1
+                    enclosing = _enclosing_pathish_run(seg, t_start, t_end)
+                    if enclosing:
+                        route_counts["substring_of_cited_filename_or_path"] += 1
+                    if len(substring_route_samples) < 10:
+                        substring_route_samples.append({
+                            "path": rel_path,
+                            "admitted_token": token,
+                            "enclosing_identifier": enclosing,
+                            "route": ("cpr_shaped_substring_of_a_cited_FILENAME_or_PATH"
+                                      if enclosing else
+                                      "cpr_shaped_substring_of_ANY_longer_identifier"),
+                            "context": " ".join(
+                                seg[max(0, t_start - 70):t_end + 30].split())[:180],
+                        })
+                if queue_ids and token not in queue_ids and any(
+                        token.startswith(q + "_") for q in queue_ids):
+                    route_counts["greedy_right_extension"] += 1
             if len(distinct_in_comment) > 1:
                 multi_token_comment_count += 1
         # Unmatched-provenance-shape loud counter (/review 719, 3a40ab346adb):
@@ -897,10 +1135,29 @@ def build_inscribed_index(project_dir, queue_ids=None, diagnostics=None):
         # stayed undeclared); this is the class-cure the guard-11 refinement
         # ray (/review 712) entails: every multi-unit disclosure publishes a
         # declared population per named unit and a declared boundary rule.
+        # RIDER 1 (/review 724, cgg-ledger#instance-keyed-cures-cannot-see-
+        # sibling-routes-disclosure-parity): boundary_rule now enumerates EVERY
+        # admission route the boundary cannot discriminate — derived from the
+        # mechanism, not from the two known instances — and the structurally
+        # countable ones are MEASURED at runtime beside it. Disclosure parity,
+        # not gating: admission is byte-for-byte unchanged.
         diagnostics["unit_declaration"] = {
             "unit": "distinct_cpr_shaped_tokens_inside_matched_provenance_comments",
             "population": "provenance HTML-comments matched by _PROVENANCE_VERB_RE across the scanned surfaces declared in build_inscribed_index's docstring",
-            "boundary_rule": "any cpr_/CogPR-shaped token ANYWHERE inside a matched comment is admitted (a sibling id NARRATED in another entry's provenance prose is indistinguishable from an inscription witness); reserved sibling-namespace prefixes excluded and disclosed",
+            "boundary_rule": _BOUNDARY_RULE,
+            "admission_routes_not_discriminable": _ADMISSION_ROUTES_NOT_DISCRIMINABLE,
+            "route_occurrence_counts": route_counts,
+            "route_counting_unit": (
+                "TOKEN OCCURRENCES inside matched provenance comments — NOT the "
+                "index unit (distinct tokens). head_subject_token + "
+                "body_scope_token partition the occurrence total; the remaining "
+                "counters are overlapping attributes of the same occurrences and "
+                "do not sum to it. Routes marked machine_countable:false in "
+                "admission_routes_not_discriminable are absent here BY "
+                "CONSTRUCTION — a boundary that could count them could "
+                "discriminate them."
+            ),
+            "substring_route_samples": substring_route_samples,
             "not_the_unit": "inscription EVENTS — the strictly-narrower referent an observer may assume; predictions against this counter are lawful only in the token unit",
             "matched_comment_count": matched_comment_count,
             "multi_token_comment_count": multi_token_comment_count,
@@ -1836,6 +2093,191 @@ def compute_genuine_zero_streak(log_path, current_tic, current_genuine_count):
     return result
 
 
+# ---------------------------------------------------------------------------
+# Per-unit delta (/review 724 RIDER 2 — constitution-ledger streak-claims ray)
+# ---------------------------------------------------------------------------
+
+_CHECK_ARTIFACT_TIC_RE = re.compile(r"^tic-(\d+)-check\.json$")
+
+
+def _canonical_output_filename(mandate_tic, mandate_id, now=None):
+    """Compute the canonical check-artifact filename ONCE for the whole run.
+
+    Returns (filename, identity_kind) with identity_kind in {"tic","mandate",
+    "timestamp"} so the write path can still emit its identity-degradation
+    warnings without recomputing the name. Hoisted out of the write block at
+    tic 724 so the per-unit delta can EXCLUDE this run's own artifact from its
+    baseline search using the same name the writer will use — one computation,
+    two consumers (the /review 715 discipline). Ordering is unchanged:
+    tic-keyed > mandate-keyed > timestamp-keyed (T4c ladder).
+    """
+    if mandate_tic is not None:
+        return f"tic-{mandate_tic}-check.json", "tic"
+    if mandate_id:
+        return f"{mandate_id}-check.json", "mandate"
+    ts = (now or datetime.now(timezone.utc)).strftime("%Y-%m-%dT%H%M%S")
+    return f"{ts}-check.json", "timestamp"
+
+
+def _find_prior_check_artifact(report_dir, current_filename, current_tic):
+    """Locate the most recent PRIOR check artifact, or (None, reason).
+
+    Returns (path, selector) where selector names HOW it was chosen — the
+    baseline is disclosed, never assumed.
+
+    A same-tic re-observation is the SAME pass re-run, not a new pass, so this
+    run's own canonical artifact (current_filename) is EXCLUDED from the search.
+    That is what keeps the delta stable across a same-tic re-run: if the run's
+    own prior bytes could serve as the baseline, an unchanged re-run would
+    compute delta 0/0 where the first run computed +N, manufacture a content
+    delta, and break the dedup skip branch the /review-685 preservation law
+    depends on. The superseded/ subdirectory is likewise out of scope (it is a
+    preservation lane, not a pass series) — the listing is non-recursive.
+
+    Selection: prefer the highest tic-keyed artifact strictly BELOW the current
+    tic (the previous pass in the canonical tic series); fall back to newest by
+    mtime when no tic-keyed candidate qualifies (mandate-keyed / timestamp-keyed
+    identity, or an unresolvable current tic).
+
+    "no baseline" is reported as ONE selector regardless of whether the lane
+    directory is absent or merely holds nothing but this run's own artifact.
+    Splitting those two states flipped the emitted reason between a first write
+    (lane absent) and its same-tic re-run (lane now exists, still no prior pass)
+    — a spurious content delta that would route an otherwise-identical re-run to
+    `replace` and mint a superseded copy. Same meaning, same string.
+    """
+    if not os.path.isdir(report_dir):
+        return None, "no_prior_pass_artifact"
+    try:
+        entries = [
+            fn for fn in os.listdir(report_dir)
+            if fn.endswith("-check.json")
+            and fn != current_filename
+            and os.path.isfile(os.path.join(report_dir, fn))
+        ]
+    except OSError:
+        return None, "report_dir_unreadable"
+    if not entries:
+        return None, "no_prior_pass_artifact"
+
+    tic_keyed = []
+    for fn in entries:
+        m = _CHECK_ARTIFACT_TIC_RE.match(fn)
+        if m:
+            tic_keyed.append((int(m.group(1)), fn))
+    if tic_keyed:
+        if current_tic is not None:
+            below = [(t, fn) for t, fn in tic_keyed if t < current_tic]
+            if below:
+                t, fn = max(below)
+                return os.path.join(report_dir, fn), f"tic_keyed_prior_tic_{t}"
+        else:
+            t, fn = max(tic_keyed)
+            return os.path.join(report_dir, fn), f"tic_keyed_max_tic_{t}_no_current_tic"
+    newest = max(entries, key=lambda fn: os.path.getmtime(os.path.join(report_dir, fn)))
+    return os.path.join(report_dir, newest), "newest_by_mtime"
+
+
+def compute_unit_deltas(report_dir, current_filename, current_tic,
+                        current_tokens, current_matched_comments):
+    """Per-pass PER-UNIT DELTA for the inscribed-index counter (/review 724 RIDER 2).
+
+    The /review-716 class-cure declared the counter's UNIT beside the integer.
+    A declared unit still leaves the consumer hand-projecting movement: the
+    counter owes a per-pass DELTA in each of its declared units. This emits:
+
+      delta_tokens             — change in `inscribed_index_size` (DISTINCT
+                                 cpr-shaped tokens) vs the previous pass artifact
+      delta_matched_comments   — change in the declared POPULATION
+                                 (unit_declaration.matched_comment_count)
+      units_collapsed_this_pass— True iff the two deltas are EQUAL
+
+    WHY THE COLLAPSE FLAG: when both units move by the same amount, every new
+    matched comment carried exactly one new token — the token unit and the
+    comment unit are indistinguishable FOR THIS PASS, and an observer reading
+    agreement between them would be reading a collapse, not a corroboration.
+    Marking it makes agreement-under-collapse legible AS collapse. (Its own
+    honest limit: equal deltas are necessary, not sufficient — offsetting
+    additions and removals can produce equal deltas without lockstep. The flag
+    names a collapse CANDIDATE, and says so.)
+
+    NO FABRICATED ZEROS: with no prior artifact — or a prior artifact that
+    predates these fields — the deltas are None and `delta_baseline_absent` is
+    True with the reason disclosed. A zero would assert measured no-change from
+    an absent measurement.
+    """
+    block = {
+        "unit_tokens": "distinct_cpr_shaped_tokens_inside_matched_provenance_comments",
+        "unit_matched_comments": "provenance_comments_matched_by_PROVENANCE_VERB_RE",
+        "current_tokens": current_tokens,
+        "current_matched_comments": current_matched_comments,
+        "delta_tokens": None,
+        "delta_matched_comments": None,
+        "units_collapsed_this_pass": None,
+        "delta_baseline_absent": True,
+        "baseline": {
+            "artifact": None,
+            "selector": None,
+            "tokens": None,
+            "matched_comments": None,
+            "reason_absent": None,
+        },
+        "note": (
+            "per-pass delta in the counter's OWN declared units; the baseline is "
+            "the previous PASS artifact — this run's own canonical artifact is "
+            "excluded, so a same-tic re-observation re-measures against the same "
+            "baseline rather than against itself. units_collapsed_this_pass is a "
+            "collapse CANDIDATE (equal deltas are necessary, not sufficient)."
+        ),
+    }
+
+    if not isinstance(current_tokens, int) or not isinstance(current_matched_comments, int):
+        # Nothing measured on this side either — an absent minuend cannot yield
+        # a delta. Absent, never zero.
+        block["baseline"]["reason_absent"] = "current_pass_units_unmeasured"
+        return block
+
+    prior_path, selector = _find_prior_check_artifact(
+        report_dir, current_filename, current_tic)
+    block["baseline"]["selector"] = selector
+    if prior_path is None:
+        block["baseline"]["reason_absent"] = selector
+        return block
+
+    try:
+        prior = json.loads(Path(prior_path).read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError, UnicodeDecodeError):
+        block["baseline"]["reason_absent"] = "prior_artifact_unreadable"
+        return block
+
+    # Basename only: the artifact lane is fixed and already named by
+    # report_path in the log row; an absolute path here would make the report
+    # machine-dependent and would churn the dedup comparison across zones.
+    block["baseline"]["artifact"] = os.path.basename(prior_path)
+
+    prior_tokens = prior.get("inscribed_index_size")
+    prior_unit = prior.get("inscribed_index_unit") or {}
+    prior_comments = prior_unit.get("matched_comment_count")
+
+    if not isinstance(prior_tokens, int) or not isinstance(prior_comments, int):
+        # An older-schema artifact carries no baseline for these units. Absent,
+        # not zero — the distinction the rider makes load-bearing.
+        block["baseline"]["reason_absent"] = "prior_artifact_predates_these_fields"
+        block["baseline"]["tokens"] = prior_tokens if isinstance(prior_tokens, int) else None
+        block["baseline"]["matched_comments"] = (
+            prior_comments if isinstance(prior_comments, int) else None)
+        return block
+
+    block["baseline"]["tokens"] = prior_tokens
+    block["baseline"]["matched_comments"] = prior_comments
+    block["delta_tokens"] = current_tokens - prior_tokens
+    block["delta_matched_comments"] = current_matched_comments - prior_comments
+    block["units_collapsed_this_pass"] = (
+        block["delta_tokens"] == block["delta_matched_comments"])
+    block["delta_baseline_absent"] = False
+    return block
+
+
 def run_check(project_dir, dry_run=False, obligation_tic=None, obligation_mandate_id=None):
     """Run the full review-close consistency check.
 
@@ -1960,6 +2402,35 @@ def run_check(project_dir, dry_run=False, obligation_tic=None, obligation_mandat
 
     historical_count = sum(1 for c in queue.values() if c.get("historical_artifact"))
 
+    # Artifact-identity resolution HOISTED out of the write block (/review 724
+    # RIDER 2): the per-unit delta must exclude this run's OWN artifact from its
+    # baseline search, and it must do so using the exact name the writer will
+    # use — so the name is computed ONCE here and reused below (single
+    # computation, two consumers). Both calls are pure reads (env / CLI /
+    # current.json); the identity-degradation WARNINGS stay in the write path,
+    # where they are true. dry-run therefore gets the delta too, and prints it
+    # under --json without touching disk.
+    report_dir = os.path.join(al_path, "mogul", "cycle-reports", "review-close-checks")
+    mandate_id, mandate_tic, clock_source = resolve_obligation_clock(
+        al_path, obligation_tic, obligation_mandate_id)
+    executor_clock_tic = None
+    if clock_source != "executor_clock":
+        _exec_mid, _exec_tic = load_mandate_id(al_path)
+        if _exec_tic is not None and _exec_tic != mandate_tic:
+            executor_clock_tic = _exec_tic
+        if mandate_id is None:
+            mandate_id = _exec_mid  # audit-trail fallback; naming stays obligation-clocked
+    output_filename, identity_kind = _canonical_output_filename(mandate_tic, mandate_id)
+
+    inscribed_unit = inscribed_diagnostics.get("unit_declaration") or {}
+    index_delta = compute_unit_deltas(
+        report_dir,
+        output_filename,
+        mandate_tic,
+        len(inscribed_ids),
+        inscribed_unit.get("matched_comment_count"),
+    )
+
     report = {
         "check_type": "review_close_check",
         "generated_at": datetime.now(timezone.utc).isoformat(),
@@ -1971,6 +2442,12 @@ def run_check(project_dir, dry_run=False, obligation_tic=None, obligation_mandat
         # how many comments yield >1 distinct id — the fields a consumer needs
         # to predict in the counter's own unit.
         "inscribed_index_unit": inscribed_diagnostics.get("unit_declaration"),
+        # Per-unit DELTA beside the integer and its unit (/review 724 RIDER 2,
+        # constitution-ledger streak-claims ray): the counter owes a per-pass
+        # delta in EACH of its declared units, plus the collapse flag that makes
+        # agreement-under-collapse legible as collapse. Baseline absent =>
+        # nulls + delta_baseline_absent, never fabricated zeros.
+        "inscribed_index_delta": index_delta,
         # Membership-resolution diagnostics (/review 709, f94b63ce931d): the
         # counter's referent is measured — reserved tokens excluded, id-shaped
         # refs that fail queue membership admitted-but-disclosed.
@@ -2018,7 +2495,6 @@ def run_check(project_dir, dry_run=False, obligation_tic=None, obligation_mandat
         # the dedup decision policy below.
         from lib.atomic_append import atomic_append_jsonl
 
-        report_dir = os.path.join(al_path, "mogul", "cycle-reports", "review-close-checks")
         os.makedirs(report_dir, exist_ok=True)
 
         # Obligation-clock naming (bk-review-close-check-obligation-clock-naming):
@@ -2026,31 +2502,19 @@ def run_check(project_dir, dry_run=False, obligation_tic=None, obligation_mandat
         # is present and the executor clock (current.json) disagrees, the divergence
         # is disclosed first-class in the log row — the boundary crossing made
         # visible, never silently absorbed (surface-don't-hide).
-        mandate_id, mandate_tic, clock_source = resolve_obligation_clock(
-            al_path, obligation_tic, obligation_mandate_id)
-        executor_clock_tic = None
-        if clock_source != "executor_clock":
-            _exec_mid, _exec_tic = load_mandate_id(al_path)
-            if _exec_tic is not None and _exec_tic != mandate_tic:
-                executor_clock_tic = _exec_tic
-            if mandate_id is None:
-                mandate_id = _exec_mid  # audit-trail fallback; naming stays obligation-clocked
-        if mandate_tic is not None:
-            # Tic-keyed canonical filename — collapses multiple mandates within
-            # the same tic to a single artifact (N=1 cardinality target).
-            output_filename = f"tic-{mandate_tic}-check.json"
-        elif mandate_id:
-            # No tic resolvable but mandate_id present — fall back to mandate-keyed
-            # filename. Preserves per-mandate dedup even when tic parse fails.
-            output_filename = f"{mandate_id}-check.json"
+        #
+        # mandate_id / mandate_tic / clock_source / executor_clock_tic /
+        # output_filename were resolved ONCE above (hoisted at tic 724 so the
+        # per-unit delta excludes this run's own artifact by the writer's exact
+        # name). The T4c identity ladder is unchanged; only the WARNINGS live
+        # here, because only a write can degrade an artifact's identity.
+        if identity_kind == "mandate":
             print(
                 "WARNING: review_close_check write without mandate tic; "
                 "falling back to mandate-keyed identity (per-tic dedup degraded).",
                 file=sys.stderr,
             )
-        else:
-            timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H%M%S")
-            output_filename = f"{timestamp}-check.json"
+        elif identity_kind == "timestamp":
             print(
                 "WARNING: review_close_check write without mandate_id; "
                 "falling back to timestamp identity (canonical artifact identity unstable).",

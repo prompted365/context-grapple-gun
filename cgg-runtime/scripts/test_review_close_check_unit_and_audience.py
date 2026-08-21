@@ -19,11 +19,27 @@ the conditional's both arms live in the replace branch a unit fixture cannot
 cheaply reach; the source asserts pin the wiring, and the first live fire
 rides the next real supersession event.
 
+RIDER 1 (/review 724, cgg-ledger#instance-keyed-cures-cannot-see-sibling-routes-
+disclosure-parity): the unit_declaration's boundary_rule justified the index's
+over-admission by ONE route (a sibling id narrated in provenance prose). At tic
+721 a token entered by a route that rationale does not cover — a CPR-shaped
+SUBSTRING OF A FILENAME cited in a `Source:` clause. boundary_rule now enumerates
+every admission route derived from the MECHANISM, the structurally countable ones
+are measured at runtime, and admission itself is UNCHANGED (disclosure parity,
+not gating).
+
+RIDER 2 (/review 724, constitution-ledger streak-claims ray): the counter emits a
+per-pass PER-UNIT DELTA — delta_tokens, delta_matched_comments, and
+units_collapsed_this_pass (true iff the two deltas are equal, so agreement under
+collapse is legible AS collapse) — against the previous PASS artifact, with
+nulls + delta_baseline_absent when no baseline exists (never fabricated zeros).
+
 Both arms of every documented conditional are exercised
 (cgg-ledger#selftest-fixtures-must-exercise-documented-conditional-paths).
 """
 
 import importlib.util
+import json
 import os
 import sys
 import tempfile
@@ -233,6 +249,366 @@ class TestAudienceHandleCureWiring(unittest.TestCase):
                       _SRC.replace("\n        ", "\n"))
         # tolerant match: the exact line exists with its original indentation
         self.assertIn('log_entry["superseded_receipt"] = superseded_receipt', _SRC)
+
+
+class TestRider1AdmissionRouteDisclosureParity(_HermeticHome):
+    """/review 724 RIDER 1: boundary_rule enumerates EVERY admission route the
+    boundary cannot discriminate — including the tic-721 FILENAME-substring route
+    the sibling-narration rationale never covered — and the structurally
+    countable routes are MEASURED at runtime, never asserted as frozen numbers.
+    Admission is unchanged: this is disclosure parity, not gating."""
+
+    def _run(self, text):
+        tmp = tempfile.TemporaryDirectory()
+        root = Path(tmp.name)
+        (root / "CLAUDE.md").write_text(text, encoding="utf-8")
+        with tmp:
+            diag = {}
+            idx = rcc.build_inscribed_index(str(root), diagnostics=diag)
+            return idx, diag["unit_declaration"]
+
+    # --- the enumeration itself ---------------------------------------------
+
+    def test_boundary_rule_enumerates_the_filename_substring_route(self):
+        _, ud = self._run("<!-- promoted from cpr_head_tic724 -->\n")
+        rule = ud["boundary_rule"]
+        # The tic-721 route is named explicitly, with its concrete shape.
+        self.assertIn("FILENAME", rule)
+        self.assertIn("DONE_cpr_stepper_advance_tic718.json", rule)
+        # ...and the pre-724 route is not dropped in the process.
+        self.assertIn("NARRATED", rule)
+
+    def test_boundary_rule_enumerates_every_mechanism_derived_route(self):
+        _, ud = self._run("<!-- promoted from cpr_head_tic724 -->\n")
+        rule = ud["boundary_rule"].lower()
+        for fragment in (
+            "head-subject",                 # (a) intended witness
+            "narrated",                     # (b) sibling narration
+            "filename",                     # (c) tic-721 route
+            "longer identifier",            # (d) generalization
+            "greedy right extension",       # (e) right over-run
+            "cogpr-n",                      # (f) numeric form
+            "polarity",                     # (g) contrastive/negated
+            "fence",                        # (h) documentary occurrence
+            "queue id namespace",           # (i) unresolved-but-admitted
+            "not content-deduplicated",     # (j) population vs unit
+        ):
+            self.assertIn(fragment, rule, f"boundary_rule must enumerate: {fragment}")
+
+    def test_declaration_is_disclosure_not_gating(self):
+        _, ud = self._run("<!-- promoted from cpr_head_tic724 -->\n")
+        self.assertIn("not gating", ud["boundary_rule"].lower())
+
+    def test_every_declared_route_carries_mechanism_and_countability(self):
+        _, ud = self._run("<!-- promoted from cpr_head_tic724 -->\n")
+        routes = ud["admission_routes_not_discriminable"]
+        self.assertGreaterEqual(len(routes), 10)
+        counters = ud["route_occurrence_counts"]
+        for r in routes:
+            self.assertIn("route", r)
+            self.assertIn("mechanism", r)
+            self.assertIn("machine_countable", r)
+            # machine_countable:True must point at a counter that really exists;
+            # machine_countable:False must NOT claim one (not countable by
+            # construction — that asymmetry IS the disclosure).
+            if r["machine_countable"] is True and r["counter"] in counters:
+                self.assertIsInstance(counters[r["counter"]], int)
+            if r["machine_countable"] is False:
+                self.assertIsNone(r["counter"])
+
+    # --- the routes, measured -------------------------------------------------
+
+    def test_filename_substring_route_counted_sampled_and_still_admitted(self):
+        idx, ud = self._run(
+            "<!-- promoted from cpr_head_tic724. "
+            "Source: DONE_cpr_sibling_advance_tic718.json A1 finding -->\n")
+        counts = ud["route_occurrence_counts"]
+        # ADMISSION UNCHANGED — the filename-borne token is still indexed.
+        self.assertIn("cpr_sibling_advance_tic718", idx)
+        self.assertIn("cpr_head_tic724", idx)
+        # ...and now DISCLOSED as the filename route.
+        self.assertEqual(counts["substring_of_cited_filename_or_path"], 1)
+        self.assertEqual(counts["substring_of_longer_identifier"], 1)
+        samples = ud["substring_route_samples"]
+        self.assertEqual(len(samples), 1)
+        self.assertEqual(samples[0]["admitted_token"], "cpr_sibling_advance_tic718")
+        self.assertEqual(samples[0]["enclosing_identifier"],
+                         "DONE_cpr_sibling_advance_tic718.json")
+        self.assertEqual(samples[0]["route"],
+                         "cpr_shaped_substring_of_a_cited_FILENAME_or_PATH")
+
+    def test_longer_identifier_route_distinguished_from_filename_route(self):
+        # The other arm of the enclosing-run conditional: an entity name is a
+        # longer identifier but NOT a filename/path.
+        idx, ud = self._run(
+            "<!-- promoted from cpr_head_tic724. Source: tic 573 ent_cpr_stepper -->\n")
+        counts = ud["route_occurrence_counts"]
+        self.assertIn("cpr_stepper", idx)
+        self.assertEqual(counts["substring_of_longer_identifier"], 1)
+        self.assertEqual(counts["substring_of_cited_filename_or_path"], 0)
+        self.assertEqual(ud["substring_route_samples"][0]["enclosing_identifier"], None)
+        self.assertEqual(ud["substring_route_samples"][0]["route"],
+                         "cpr_shaped_substring_of_ANY_longer_identifier")
+
+    def test_clean_comment_fires_no_substring_route(self):
+        # Negative arm: a well-formed breadcrumb triggers neither substring route.
+        _, ud = self._run("<!-- promoted from cpr_head_tic724 (tic 724) -->\n")
+        counts = ud["route_occurrence_counts"]
+        self.assertEqual(counts["substring_of_longer_identifier"], 0)
+        self.assertEqual(counts["substring_of_cited_filename_or_path"], 0)
+        self.assertEqual(ud["substring_route_samples"], [])
+
+    def test_head_and_body_scope_partition_occurrences(self):
+        _, ud = self._run(
+            "<!-- promoted from cpr_a_tic724, extended by cpr_b_tic724 -->\n"
+            "<!-- promoted from cpr_c_tic724 -->\n")
+        counts = ud["route_occurrence_counts"]
+        self.assertEqual(counts["head_subject_token"], 2)   # one per comment
+        self.assertEqual(counts["body_scope_token"], 1)     # the narrated sibling
+
+    def test_cogpr_numeric_form_counted(self):
+        _, ud = self._run(
+            "<!-- promoted from CogPR-71, extended by CogPR-87 -->\n")
+        self.assertEqual(ud["route_occurrence_counts"]["cogpr_numeric_form"], 2)
+
+    def test_greedy_right_extension_counted_only_against_queue_namespace(self):
+        # Both arms: with queue_ids the over-run is measurable; without them the
+        # counter cannot claim a route it has no namespace to judge against.
+        text = "<!-- promoted from cpr_real_tic724_envelope -->\n"
+        tmp = tempfile.TemporaryDirectory()
+        root = Path(tmp.name)
+        (root / "CLAUDE.md").write_text(text, encoding="utf-8")
+        with tmp:
+            diag = {}
+            rcc.build_inscribed_index(
+                str(root), queue_ids={"cpr_real_tic724"}, diagnostics=diag)
+            self.assertEqual(
+                diag["unit_declaration"]["route_occurrence_counts"]
+                ["greedy_right_extension"], 1)
+            diag2 = {}
+            rcc.build_inscribed_index(str(root), diagnostics=diag2)
+            self.assertEqual(
+                diag2["unit_declaration"]["route_occurrence_counts"]
+                ["greedy_right_extension"], 0)
+
+    def test_enclosing_pathish_run_helper_both_arms(self):
+        seg = "Source: DONE_cpr_x_tic1.json and ent_cpr_y here"
+        i = seg.index("cpr_x_tic1")
+        self.assertEqual(
+            rcc._enclosing_pathish_run(seg, i, i + len("cpr_x_tic1")),
+            "DONE_cpr_x_tic1.json")
+        j = seg.index("cpr_y")
+        self.assertIsNone(rcc._enclosing_pathish_run(seg, j, j + len("cpr_y")))
+        # A bare token with no enclosing run at all.
+        bare = "from cpr_z tic 1"
+        k = bare.index("cpr_z")
+        self.assertIsNone(rcc._enclosing_pathish_run(bare, k, k + len("cpr_z")))
+
+
+class _ZoneRun(_HermeticHome):
+    """Zone fixture for run_check integration (RIDER 2)."""
+
+    ENV_TIC = "CGG_OBLIGATION_TIC"
+    ENV_MID = "CGG_OBLIGATION_MANDATE_ID"
+
+    def setUp(self):
+        super().setUp()
+        self._zone_tmp = tempfile.TemporaryDirectory()
+        self.zone = Path(self._zone_tmp.name)
+        (self.zone / "audit-logs" / "cprs").mkdir(parents=True)
+        (self.zone / "audit-logs" / "cprs" / "queue.jsonl").write_text("", encoding="utf-8")
+        self._saved = {k: os.environ.pop(k, None)
+                       for k in (self.ENV_TIC, self.ENV_MID)}
+
+    def tearDown(self):
+        for k, v in self._saved.items():
+            if v is None:
+                os.environ.pop(k, None)
+            else:
+                os.environ[k] = v
+        self._zone_tmp.cleanup()
+        super().tearDown()
+
+    def _claude_md(self, text):
+        (self.zone / "CLAUDE.md").write_text(text, encoding="utf-8")
+
+    def _run_at(self, tic, dry_run=False):
+        os.environ[self.ENV_TIC] = str(tic)
+        return rcc.run_check(str(self.zone), dry_run=dry_run)
+
+    def _report_dir(self):
+        return self.zone / "audit-logs" / "mogul" / "cycle-reports" / "review-close-checks"
+
+
+class TestRider2PerUnitDelta(_ZoneRun):
+    """/review 724 RIDER 2: the counter owes a per-pass PER-UNIT DELTA in each of
+    its declared units, plus the collapse flag. No fabricated zeros."""
+
+    def test_null_baseline_arm_emits_nulls_not_zeros(self):
+        self._claude_md("<!-- promoted from cpr_one_tic700 -->\n")
+        rep = self._run_at(700)
+        d = rep["inscribed_index_delta"]
+        self.assertTrue(d["delta_baseline_absent"])
+        self.assertIsNone(d["delta_tokens"])
+        self.assertIsNone(d["delta_matched_comments"])
+        self.assertIsNone(d["units_collapsed_this_pass"])
+        self.assertEqual(d["baseline"]["reason_absent"], "no_prior_pass_artifact")
+        # The current-side measurements are still first-class.
+        self.assertEqual(d["current_tokens"], rep["inscribed_index_size"])
+        self.assertEqual(d["current_matched_comments"], 1)
+
+    def test_delta_computed_against_previous_pass_artifact(self):
+        self._claude_md("<!-- promoted from cpr_one_tic700 -->\n")
+        self._run_at(700)
+        self._claude_md(
+            "<!-- promoted from cpr_one_tic700 -->\n"
+            "<!-- promoted from cpr_two_tic701 -->\n")
+        rep = self._run_at(701)
+        d = rep["inscribed_index_delta"]
+        self.assertFalse(d["delta_baseline_absent"])
+        self.assertEqual(d["baseline"]["artifact"], "tic-700-check.json")
+        self.assertEqual(d["baseline"]["selector"], "tic_keyed_prior_tic_700")
+        self.assertEqual(d["delta_tokens"], 1)
+        self.assertEqual(d["delta_matched_comments"], 1)
+        # One new comment carrying exactly one new token — the units moved in
+        # lockstep, so this pass cannot tell them apart. Legible AS collapse.
+        self.assertTrue(d["units_collapsed_this_pass"])
+
+    def test_units_not_collapsed_when_deltas_differ(self):
+        # The other arm: one new comment carrying TWO new tokens separates the
+        # units — the token unit moved +2 while the population moved +1.
+        self._claude_md("<!-- promoted from cpr_one_tic700 -->\n")
+        self._run_at(700)
+        self._claude_md(
+            "<!-- promoted from cpr_one_tic700 -->\n"
+            "<!-- promoted from cpr_two_tic701 merged with cpr_three_tic701 -->\n")
+        rep = self._run_at(701)
+        d = rep["inscribed_index_delta"]
+        self.assertEqual(d["delta_tokens"], 2)
+        self.assertEqual(d["delta_matched_comments"], 1)
+        self.assertFalse(d["units_collapsed_this_pass"])
+
+    def test_negative_delta_is_reported_not_clamped(self):
+        self._claude_md(
+            "<!-- promoted from cpr_one_tic700 -->\n"
+            "<!-- promoted from cpr_two_tic700 -->\n")
+        self._run_at(700)
+        self._claude_md("<!-- promoted from cpr_one_tic700 -->\n")
+        rep = self._run_at(701)
+        d = rep["inscribed_index_delta"]
+        self.assertEqual(d["delta_tokens"], -1)
+        self.assertEqual(d["delta_matched_comments"], -1)
+
+    def test_same_tic_reobservation_reuses_the_same_baseline(self):
+        """A same-tic re-run is the SAME pass re-run, not a new pass: the run's
+        own artifact is excluded from the baseline search, so the delta does not
+        silently reset to 0/0 (which would manufacture a content change and
+        break the dedup skip branch the /review-685 preservation law needs)."""
+        self._claude_md("<!-- promoted from cpr_one_tic700 -->\n")
+        self._run_at(700)
+        self._claude_md(
+            "<!-- promoted from cpr_one_tic700 -->\n"
+            "<!-- promoted from cpr_two_tic701 -->\n")
+        first = self._run_at(701)["inscribed_index_delta"]
+        second = self._run_at(701)["inscribed_index_delta"]
+        self.assertEqual(first, second)
+        self.assertEqual(second["delta_tokens"], 1)
+        self.assertEqual(second["baseline"]["artifact"], "tic-700-check.json")
+
+    def test_first_write_and_same_tic_rerun_emit_identical_delta_block(self):
+        """The no-baseline arm of the same-pass rule: a first write (lane absent)
+        and its same-tic re-run (lane now exists, still holding only this run's
+        own artifact) must report the SAME 'no baseline' state. Splitting them
+        would manufacture a content delta on an otherwise-identical re-run and
+        route it to `replace`, minting a superseded copy for nothing."""
+        self._claude_md("<!-- promoted from cpr_one_tic700 -->\n")
+        first = self._run_at(700)["inscribed_index_delta"]
+        second = self._run_at(700)["inscribed_index_delta"]
+        self.assertEqual(first, second)
+        self.assertEqual(second["baseline"]["reason_absent"], "no_prior_pass_artifact")
+
+    def test_prior_artifact_predating_the_fields_is_absent_not_zero(self):
+        self._claude_md("<!-- promoted from cpr_one_tic700 -->\n")
+        self._run_at(700)
+        legacy = self._report_dir() / "tic-700-check.json"
+        legacy.write_text(json.dumps({"check_type": "review_close_check"}),
+                          encoding="utf-8")
+        rep = self._run_at(701)
+        d = rep["inscribed_index_delta"]
+        self.assertTrue(d["delta_baseline_absent"])
+        self.assertIsNone(d["delta_tokens"])
+        self.assertIsNone(d["units_collapsed_this_pass"])
+        self.assertEqual(d["baseline"]["reason_absent"],
+                         "prior_artifact_predates_these_fields")
+
+    def test_unreadable_prior_artifact_is_absent_not_zero(self):
+        self._claude_md("<!-- promoted from cpr_one_tic700 -->\n")
+        self._run_at(700)
+        (self._report_dir() / "tic-700-check.json").write_text(
+            "{not json —", encoding="utf-8")
+        d = self._run_at(701)["inscribed_index_delta"]
+        self.assertTrue(d["delta_baseline_absent"])
+        self.assertIsNone(d["delta_tokens"])
+        self.assertEqual(d["baseline"]["reason_absent"], "prior_artifact_unreadable")
+
+    def test_superseded_lane_is_not_a_pass_in_the_series(self):
+        # The preservation lane must never be selected as a baseline.
+        self._claude_md("<!-- promoted from cpr_one_tic700 -->\n")
+        self._run_at(700)
+        sup = self._report_dir() / "superseded"
+        sup.mkdir(parents=True, exist_ok=True)
+        (sup / "tic-9999-check.superseded-1.json").write_text(
+            json.dumps({"inscribed_index_size": 999,
+                        "inscribed_index_unit": {"matched_comment_count": 999}}),
+            encoding="utf-8")
+        d = self._run_at(701)["inscribed_index_delta"]
+        self.assertEqual(d["baseline"]["artifact"], "tic-700-check.json")
+
+    def test_delta_present_in_dry_run_without_touching_disk(self):
+        self._claude_md("<!-- promoted from cpr_one_tic700 -->\n")
+        rep = self._run_at(700, dry_run=True)
+        self.assertIn("inscribed_index_delta", rep)
+        self.assertTrue(rep["inscribed_index_delta"]["delta_baseline_absent"])
+        self.assertFalse(self._report_dir().exists(),
+                         "dry-run must not create the artifact lane")
+
+    def test_delta_lands_in_the_written_artifact(self):
+        self._claude_md("<!-- promoted from cpr_one_tic700 -->\n")
+        self._run_at(700)
+        self._claude_md(
+            "<!-- promoted from cpr_one_tic700 -->\n"
+            "<!-- promoted from cpr_two_tic701 -->\n")
+        self._run_at(701)
+        on_disk = json.loads(
+            (self._report_dir() / "tic-701-check.json").read_text(encoding="utf-8"))
+        self.assertEqual(on_disk["inscribed_index_delta"]["delta_tokens"], 1)
+        self.assertTrue(on_disk["inscribed_index_delta"]["units_collapsed_this_pass"])
+        # RIDER 1's enumeration reaches the artifact too.
+        self.assertIn("FILENAME", on_disk["inscribed_index_unit"]["boundary_rule"])
+
+
+class TestRider2ArtifactIdentityHoistIsSingleComputation(unittest.TestCase):
+    """The output filename is computed ONCE and reused by both consumers (the
+    delta's self-exclusion and the writer) — a second computation would let the
+    two disagree, which is the divergence the /review-715 discipline forbids."""
+
+    def test_single_filename_computation_site(self):
+        self.assertEqual(_SRC.count("_canonical_output_filename("), 2,
+                         "expected def + exactly one call site")
+
+    def test_delta_excludes_the_runs_own_artifact(self):
+        i_name = _SRC.index("output_filename, identity_kind = _canonical_output_filename(")
+        i_delta = _SRC.index("index_delta = compute_unit_deltas(", i_name)
+        i_write = _SRC.index("output_path = os.path.join(report_dir, output_filename)")
+        self.assertLess(i_name, i_delta)
+        self.assertLess(i_delta, i_write)
+
+    def test_identity_ladder_warnings_stay_in_the_write_path(self):
+        # Hoisting the computation must not hoist the WARNINGS — only a write
+        # can degrade an artifact's identity.
+        i_dryrun = _SRC.index("if not dry_run:")
+        self.assertGreater(_SRC.index("falling back to mandate-keyed identity"), i_dryrun)
+        self.assertGreater(_SRC.index("falling back to timestamp identity"), i_dryrun)
 
 
 if __name__ == "__main__":
