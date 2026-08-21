@@ -18,8 +18,11 @@ promoted-missing / orphaned finding is classified with a REASON code
 only reason=None findings are GENUINE, and the report carries
 `consistent:false(genuine=G, known=K)` — only `G>0` is a hazard. Two mechanisms back
 the split beyond the shared dehydration resolver: a provenance-trace axis (git
-lineage of the cpr_id) for behavioral/code targets, and a relocation-aware
-pointer-correction axis for Pass-4-moved archive files.
+lineage of the cpr_id, ANCHORED to the id's birth commit + full pickaxe depth per
+bk-review-close-provenance-evidence-anchor / /review 723 — never a newest-first
+truncation window, which converges to a global churn cursor) for behavioral/code
+targets, and a relocation-aware pointer-correction axis for Pass-4-moved archive
+files.
 
 Output: JSON consistency report.
 
@@ -172,7 +175,8 @@ _PATH_ANCHOR_RE = re.compile(r"^([^#:\s]+\.[A-Za-z]+)(?:[#:][^\s]*)?$")
 # file (or a SKILL.md whose change is behavioral) lands as a code BEHAVIOR, not
 # quotable text — content-matching can never verify it. Classified
 # `behavioral_text_unverifiable` and verified via the provenance-trace axis
-# (git lineage of the cpr_id) rather than literal-content match.
+# (git lineage of the cpr_id — see _git_provenance_anchor for the anchored,
+# churn-stable shape ratified at /review 723) rather than literal-content match.
 _CODE_SUFFIXES = {".py", ".sh", ".ts", ".tsx", ".js", ".mjs", ".cjs", ".rs", ".go"}
 
 # Relocation roots searched by the relocation-aware pointer-correction axis: when
@@ -1191,28 +1195,105 @@ def _resolve_target_path(target_str, project_dir, project_basename=None):
     return sorted(hits)[0] if hits else None
 
 
-def _git_pickaxe_hits(project_dir, cpr_id, limit=5):
-    """Provenance-trace axis: return up to `limit` short commit hashes whose diff
-    introduces or removes the cpr_id (`git log -S`).
+# Provenance-anchor memo — classify_known_reason is reachable TWICE for the same
+# id (a promoted_text_missing and an orphaned_promotion finding both classify), and
+# the full-history pickaxe is the most expensive call in this file. Cleared per
+# run_check beside _RECEIPT_INDEX_CACHE.
+_PICKAXE_CACHE = {}
 
-    A behavioral inscription leaves NO content-matchable trace in its code
-    target, but the cpr_id itself has committed lineage (queue.jsonl writeback,
-    spec files) — pickaxe -S confirms the CogPR is a real, committed governance
-    artifact, not a phantom id. Combined with an existing code/behavioral target,
-    that is sufficient positive evidence the promotion is behavioral-and-landed.
-    Fail-soft to [] when git is unavailable or the dir is not a repo.
+
+def _git_provenance_anchor(project_dir, cpr_id, sample_limit=3):
+    """Provenance-trace axis: anchor the cpr_id's committed lineage to its BIRTH
+    commit and its full pickaxe depth, with a small newest-first sample.
+
+    Returns {"birth_commit", "total_commits", "recent_sample", "trace_available"}.
+
+    A behavioral inscription leaves NO content-matchable trace in its code target,
+    but the cpr_id itself has committed lineage (queue.jsonl writeback, spec files)
+    — pickaxe -S confirms the CogPR is a real, committed governance artifact, not a
+    phantom id. Combined with an existing code/behavioral target, that is sufficient
+    positive evidence the promotion is behavioral-and-landed.
+
+    WHY THIS SHAPE (bk-review-close-provenance-evidence-anchor, authorized /review
+    723; cgg-ledger#churn-window-evidence-field-is-a-global-cursor-not-per-subject-
+    provenance): the prior implementation emitted `git log --all -S<id>
+    --max-count=5` — a NEWEST-FIRST window, so the OLDEST hit (the CogPR's birth /
+    inscription commit — the one thing the field's name promises) is the FIRST to
+    be evicted. Every /review batch rewrites queue.jsonl rows bearing every cpr_id,
+    so under that churn the window converges to a CONSTANT across unrelated
+    subjects: measured at tic 719, three findings at pickaxe depths 230 / 277 / 48
+    all displayed the byte-identical 5-commit window (the five most recent
+    queue.jsonl-touching batch commits) while each subject's real birth commit sat
+    evicted and invisible. It rendered as per-subject provenance while carrying zero
+    discriminating information — a global churn cursor wearing a per-subject name.
+    Raising N only delays eviction; the cure is anchoring. birth_commit and
+    total_commits are per-subject and move only on real change.
+
+    SECOND-ORDER, AND INTENTIONAL: unrelated queue.jsonl churn no longer shifts this
+    field, so a semantically-identical re-observation no longer differs HERE. That is
+    deliberate against run_check's dedup comparison: the /review-685 preservation law
+    stops spending durable superseded byte-copies on a pure cursor shift (measured at
+    tic 719: the run flipped to decision=replace and minted
+    tic-719-check.superseded-1.json whose ONLY real delta across 5 changed findings
+    was that cursor). The law is NOT weakened — it still fires on every REAL content
+    change; it just stops paying for the cursor.
+
+    SCOPE-HONEST RESIDUE (measured at tic 723 while landing this cure, NOT cured
+    here, DIFFERENT owner): the dedup comparison also covers `genuine_zero_streak`,
+    which by /review-715 design discloses same-tic re-observations
+    (row_count_within_streak / same_tic_reobservation_tics), and the log row it reads
+    is appended on EVERY run — including `skip`. So a same-tic re-run still computes
+    a content delta from the streak alone and still routes to `replace`; the `skip`
+    branch is effectively unreachable for a same-tic re-run. Evidence that this is
+    pre-existing and independent of this change:
+    tests/review/test_close_check_superseded_receipt_tic686.py::
+    test_skip_path_preserves_nothing fails identically (4/5) on the pre-patch HEAD
+    script and on this one. Reported upward, never silently absorbed.
+
+    CLAIM SEMANTICS PRESERVED: the verifier claims only that a non-empty trace
+    proves the id is a real committed artifact, not a phantom. `total_commits > 0`
+    is exactly the old `trace != []` predicate, so the behavioral axis's positive
+    evidence is unchanged in strength.
+
+    Fail-soft (trace_available=False) when git is unavailable or the dir is not a
+    repo — a git failure must never crash the cycle.
     """
+    key = (os.path.abspath(project_dir), cpr_id)
+    cached = _PICKAXE_CACHE.get(key)
+    if cached is not None:
+        return cached
+    anchor = {
+        "birth_commit": None,
+        "total_commits": 0,
+        "recent_sample": [],
+        "trace_available": False,
+    }
     try:
+        # ONE full-history pickaxe in CHRONOLOGICAL order — no --max-count, because
+        # the truncation window IS the defect. hits[0] is the birth commit,
+        # len(hits) the true depth, and the newest-first sample is the tail
+        # re-reversed (so the old window's content is still available as context,
+        # just demoted from "the evidence" to "a sample").
         out = subprocess.run(
-            ["git", "-C", project_dir, "log", "--all", "--oneline",
-             f"-S{cpr_id}", f"--max-count={limit}"],
-            capture_output=True, text=True, timeout=15,
+            ["git", "-C", project_dir, "log", "--all", "--reverse",
+             "--format=%h", f"-S{cpr_id}"],
+            capture_output=True, text=True, timeout=60,
         )
     except (OSError, subprocess.SubprocessError):
-        return []
+        _PICKAXE_CACHE[key] = anchor
+        return anchor
     if out.returncode != 0:
-        return []
-    return [ln.split()[0] for ln in out.stdout.splitlines() if ln.strip()]
+        _PICKAXE_CACHE[key] = anchor
+        return anchor
+    hits = [ln.strip() for ln in out.stdout.splitlines() if ln.strip()]
+    anchor["trace_available"] = True
+    if hits:
+        anchor["birth_commit"] = hits[0]
+        anchor["total_commits"] = len(hits)
+        sample = hits[-sample_limit:] if sample_limit > 0 else []
+        anchor["recent_sample"] = list(reversed(sample))
+    _PICKAXE_CACHE[key] = anchor
+    return anchor
 
 
 def _find_relocated(target_str, project_dir, cpr_id, snippet=""):
@@ -1430,7 +1511,9 @@ def classify_known_reason(cpr_id, cpr, project_dir, project_basename=None,
          is content-verified at the new path, the strongest positive signal.
       2. behavioral_text_unverifiable — a target resolves to an existing
          code/behavioral surface (.py/.sh/SKILL.md/...); the inscription is a
-         BEHAVIOR not text, strengthened by the git provenance-trace.
+         BEHAVIOR not text, strengthened by the git provenance-trace ANCHOR
+         ({birth_commit, total_commits, recent_sample} — per-subject and
+         churn-stable; /review 723, bk-review-close-provenance-evidence-anchor).
       3. anchor_present_text_rephrased — the resolved doctrine/spec target either
          (i) names a heading anchor that EXISTS (explicit <a id>/<a name> or a
          matching heading slug), or (ii) CITES the born-id on an Evidence/provenance
@@ -1508,13 +1591,21 @@ def classify_known_reason(cpr_id, cpr, project_dir, project_basename=None,
 
     if behavioral is not None:
         orig, resolved = behavioral
-        trace = _git_pickaxe_hits(project_dir, cpr_id)
+        # ANCHORED provenance evidence (bk-review-close-provenance-evidence-anchor,
+        # /review 723): {birth_commit, total_commits, recent_sample} — per-subject
+        # and churn-stable, never a bare newest-first --max-count window (which was
+        # a global churn cursor: byte-identical across depths 230/277/48 at tic 719).
+        trace = _git_provenance_anchor(project_dir, cpr_id)
         return REASON_BEHAVIORAL, {
             "behavioral_target": orig,
             "resolved_path": resolved,
             "provenance_trace_commits": trace,
             "note": "inscription is a code behavior, not quotable text; verified "
-                    "via target existence + cpr_id git lineage (pickaxe -S)",
+                    "via target existence + cpr_id git lineage (pickaxe -S). The "
+                    "trace is ANCHORED to the id's BIRTH commit plus its full "
+                    "pickaxe depth — total_commits > 0 is the non-phantom proof "
+                    "(the same predicate the pre-723 non-empty list carried); "
+                    "recent_sample is context only, never the evidence.",
         }
 
     if anchor_present is not None:
@@ -1754,6 +1845,10 @@ def run_check(project_dir, dry_run=False, obligation_tic=None, obligation_mandat
     project_dir = os.path.abspath(project_dir)
     # Rebuild the receipt-surface index fresh each run (tic 593 widened sweep).
     _RECEIPT_INDEX_CACHE.clear()
+    # Same freshness discipline for the provenance anchors (tic 723): memoized
+    # WITHIN a run (an id can be classified twice), never ACROSS runs — a stale
+    # birth_commit would be exactly the kind of frozen evidence this cure removes.
+    _PICKAXE_CACHE.clear()
     tz_config = load_ticzone(project_dir)
     al_path = audit_logs_path(project_dir, tz_config)
 

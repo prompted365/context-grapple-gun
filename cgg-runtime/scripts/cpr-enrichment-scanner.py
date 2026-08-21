@@ -554,6 +554,11 @@ def compute_enrichment_confidence(enrichment_list):
 # enrichment_evidence.key_agreements.lesson_class, which is built ONLY from
 # audit-logs/governance/enrichment/<id>.consolidated.json. Those files were
 # authored by the heavy Tier-1 lens-A/lens-B swarm, which last ran ~tic 207.
+# That swarm's prompt-authoring conventions (including the recommended-never-
+# required six-facet expression stated in this module's docstring) live at
+# audit-logs/governance/enrichment/LENS-PROMPT-CONVENTIONS.md — the durable
+# surface a future lens dispatch reads. The lens OUTPUT shape stays governed by
+# the LOCKED audit-logs/governance/enrichment/SCHEMA-tic208-v2.md.
 # Every CPR born since falls to bench-packet-prep's "uncovered" cluster, and
 # /review is then tempted to judge from ad hoc reasoning instead of the bench
 # packet — the exact failure the mandatory NAVIGATION review-intake lane was
