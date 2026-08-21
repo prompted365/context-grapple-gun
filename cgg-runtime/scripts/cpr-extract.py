@@ -948,7 +948,26 @@ def extract_cprs(project_dir, dry_run=False, plan_file=None, anomaly_threshold=0
             # Tier 3 must NOT infer recommended_scopes — preserve only what
             # the author supplied (which for tier 3 is typically empty).
             recommended_scopes = block.get("recommended_scopes", [])
-            if not isinstance(recommended_scopes, list):
+            if isinstance(recommended_scopes, str):
+                # A bracketed value is an author-supplied JSON array the block
+                # parser kept as a raw string; without decoding, the list-wrap
+                # below stores the literal '["..."]' text as a single scope and
+                # every downstream path/anchor check fails silently — the
+                # Gate-1 absorption signal becomes unreachable (A1-718).
+                raw = recommended_scopes.strip()
+                if raw.startswith("[") and raw.endswith("]"):
+                    try:
+                        decoded = json.loads(raw)
+                        recommended_scopes = (
+                            [str(s) for s in decoded]
+                            if isinstance(decoded, list)
+                            else [raw]
+                        )
+                    except (ValueError, TypeError):
+                        recommended_scopes = [raw]
+                else:
+                    recommended_scopes = [raw] if raw else []
+            elif not isinstance(recommended_scopes, list):
                 recommended_scopes = [recommended_scopes] if recommended_scopes else []
 
             # confidence_tier — tentative for tier2/tier3 unless declared

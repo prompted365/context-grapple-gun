@@ -380,8 +380,18 @@ def gather_target_absence(cpr, project_dir):
     snippet = lesson[:50]
     absent_targets = []
     present_targets = []
+    malformed_targets = []
 
     for scope in scopes:
+        # A scope that is ITSELF a bracketed array literal is a double-encoded
+        # recommended_scopes value (A1-718: extraction stored the raw '["..."]'
+        # string). Historical queue rows can never be edited, so fail LOUD as a
+        # typed finding instead of resolving it as a path — the old behavior
+        # fabricated 'target_absence_confirmed (file missing)' and biased the
+        # absorption signal toward NO for every lesson text.
+        if isinstance(scope, str) and scope.strip().startswith("[") and scope.strip().endswith("]"):
+            malformed_targets.append(scope)
+            continue
         # Strip parenthetical description from scope before path resolution.
         # Convention: recommended_scopes uses "path (description)" — the
         # parenthetical is human-facing context, not part of the path.
@@ -397,6 +407,18 @@ def gather_target_absence(cpr, project_dir):
         # every ledger-scoped CogPR (bk-enrichment-scanner-surface-anchor-target-
         # resolution, struck tic 692). An unresolvable alias falls through to the
         # literal-path branch so its honest '(file missing)' report is preserved.
+        # Full-path '#<anchor>' forms (path contains '/' before the '#'): the
+        # fragment is not part of the filesystem path. resolve_surface_anchor
+        # declines these by design (alias forms only) and the literal branch
+        # previously resolved the WHOLE string — which never exists — so every
+        # path#anchor scope fabricated '(file missing)' (A1-718 sibling shape).
+        # Strip the fragment for resolution; check the anchor in the file body.
+        path_anchor = None
+        if "#" in scope_path_str and "/" in scope_path_str.split("#", 1)[0]:
+            scope_path_str, path_anchor = (
+                part.strip() for part in scope_path_str.split("#", 1)
+            )
+
         anchor_ledger, anchor = resolve_surface_anchor(scope_path_str, project_dir)
         if anchor_ledger is not None:
             try:
@@ -442,10 +464,25 @@ def gather_target_absence(cpr, project_dir):
             content = scope_path.read_text(encoding="utf-8")
             if snippet in content:
                 present_targets.append(scope)
+            elif path_anchor is not None and not anchor_present(content, path_anchor):
+                absent_targets.append(f"{scope} (anchor missing)")
             else:
                 absent_targets.append(scope)
         except (OSError, UnicodeDecodeError):
             absent_targets.append(f"{scope} (unreadable)")
+
+    if malformed_targets:
+        # Loud, typed, and FIRST — an absorption signal computed over a
+        # double-encoded scope is not evaluable, and silence here is the
+        # directional bias A1-718 named (Gate-1 could only ever answer NO).
+        evidence.append({
+            "evidence_type": "malformed_scope_encoding",
+            "value": (
+                f"{len(malformed_targets)}/{len(scopes)} scopes are double-encoded "
+                "array literals (A1-718) — absorption signal NOT evaluable for them"
+            ),
+            "detail": malformed_targets[:5],
+        })
 
     if absent_targets:
         evidence.append({
