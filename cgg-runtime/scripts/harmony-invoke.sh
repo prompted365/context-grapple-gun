@@ -109,6 +109,12 @@ snr = (acoustic.get("snr")
 # additive voice object; braid_tic from the braid current-pointer (null if
 # either surface is absent — honest nulls, never fabricated).
 voice = d.get("voice") or {}
+# /review 725 (#threshold-raise-relocates-the-wall-ship-a-headroom-observable):
+# the counters key on CROSSING events, so they can only speak after the wall is
+# hit. The approach observable rides the pointer the same way the streak does
+# (/review 685) so glance-speed consumers (statusline, federation telemetry
+# spine) can eat it — honest nulls when the voice step didn't run.
+headroom = d.get("voice_headroom") or {}
 braid_tic = None
 try:
     braid_ptr = pathlib.Path("$REPO") / "audit-logs" / "braid" / "current-pointer.json"
@@ -133,6 +139,12 @@ current = {
     # can eat them — honest nulls when the voice step didn't run.
     "consecutive_fallbacks": voice.get("consecutive_fallbacks"),
     "fallback_escalation_fired": (voice.get("fallback_escalation") or {}).get("fired"),
+    "voice_budget_ms": headroom.get("budget_ms"),
+    "voice_pct_of_budget": headroom.get("pct_of_budget"),
+    "voice_recent_max_pct": headroom.get("recent_max_pct"),
+    "voice_approach_max_pct": headroom.get("approach_max_pct"),
+    "voice_share_recent_ge_90pct": headroom.get("share_of_recent_runs_ge_90pct"),
+    "voice_headroom_window": headroom.get("window_observed"),
     "braid_tic": braid_tic,
 }
 out = pathlib.Path("$HARMONY_DIR/disposition-current.json")

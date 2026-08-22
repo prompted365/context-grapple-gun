@@ -39,6 +39,33 @@ manifest, not aggregate raw emissions` (the projection IS the manifest
 for queue.jsonl) and CGG KI `Terminal-State Valve Pattern` (read-side
 projection complement). Read-only; never mutates queue.jsonl.
 
+Census-rate discrimination (added /review 725, ledger anchor
+`#breach-flag-at-saturation-is-a-census-rate-rides-at-flag-altitude`):
+`terminal_with_duplicates` fires on EVERY run by construction — it is
+entailed by the federation's own mandated copy-forward writeback
+discipline, and its count grew monotonically 280 -> 803 across the report
+history. A flag at ~100% base rate is a census wearing the word BREACH.
+Per the ratified cure the flag is NOT deleted; instead the governance-
+bearing quantity — the RATE — is raised to the flag's own altitude
+(top-level keys, never one level down in a detail object) and a severity
+word tracks that rate:
+
+    "terminal_with_duplicates_count":       <int>
+    "terminal_with_duplicates_delta":       <int|null>    # vs previous report
+    "terminal_with_duplicates_rate_per_tic":<float|null>
+    "terminal_with_duplicates_severity":    "expected_census"
+                                          | "anomalous_jump"
+                                          | "census_regression"
+                                          | "untimed_baseline"
+                                          | "no_baseline"
+    "census_baseline":       {...}   # provenance of the comparison
+    "breach_classification": {...}   # per-class census-vs-discriminating label
+
+Backward compatibility is preserved deliberately: the `breaches` list
+strings and the exit-code contract below are UNCHANGED, and the entailed
+class stays loudly visible — it gains a discriminating axis, it is never
+silently suppressed.
+
 Exit codes:
   0 — healthy (no breaches)
   1 — discipline breach (overdue_active > 0 OR terminal_with_duplicates > 0)
@@ -105,6 +132,38 @@ ACTIVE_STATUSES = {
 }
 
 DEFAULT_OVERDUE_THRESHOLD_TICS = 20
+
+# --- Census-rate discrimination (ledger anchor
+# `#breach-flag-at-saturation-is-a-census-rate-rides-at-flag-altitude`,
+# PROMOTE /review 725) -------------------------------------------------------
+#
+# Breach classes whose firing is ENTAILED by federation discipline rather than
+# discovered by observation. These saturate to always-true and stop
+# discriminating; they stay loud (never suppressed) but are labelled as census
+# so a reader's discount reflex never has to form.
+ENTAILED_CENSUS_CLASSES = {
+    "terminal_with_duplicates": (
+        "Entailed by the federation's mandated copy-forward writeback "
+        "discipline: review-execute appends a full-envelope row per verdict, "
+        "so every terminalized id necessarily acquires >=1 pre-projection row. "
+        "Base rate ~100% on every run since tic 280; count grew monotonically "
+        "280 -> 803 across the report history. The flag is a census — the "
+        "governance-bearing quantity is its RATE, not its truth value."
+    ),
+}
+
+# Observed per-tic growth band for `terminal_with_duplicates`, derived from the
+# civil-engineer cycle record (tic 490=446, 540=559, 550=563, 570=624,
+# ~722=803) => 0.40 to 3.05 ids/tic. The ceiling carries headroom over the
+# measured maximum; a rate above it is a genuine anomaly, not census drift.
+DEFAULT_CENSUS_RATE_BAND_PER_TIC = 5.0
+
+# Severity vocabulary — one word, and it tracks the RATE (not the flag).
+SEVERITY_NO_BASELINE = "no_baseline"           # nothing to compare against
+SEVERITY_UNTIMED_BASELINE = "untimed_baseline"  # baseline carries no usable tic
+SEVERITY_EXPECTED_CENSUS = "expected_census"    # in-band entailed growth
+SEVERITY_ANOMALOUS_JUMP = "anomalous_jump"      # rate above the band
+SEVERITY_CENSUS_REGRESSION = "census_regression"  # count fell (append-only says it shouldn't)
 
 
 def load_current_tic():
@@ -178,6 +237,97 @@ def project_terminal_state(rows):
         per_id_rows.setdefault(rid, []).append(row)
         latest[rid] = row
     return latest, per_id_rows
+
+
+def breach_class_count(report, breach_class):
+    """Read a breach class's count out of a report of EITHER schema generation.
+
+    Reports written before /review 725 carry no top-level count key, so fall
+    back to the `breaches` strings (`"<class>:<n>"`, present since tic 280) and
+    finally to counting `findings`. Returns None when the class is absent
+    entirely, which is distinct from a genuine zero.
+    """
+    if not isinstance(report, dict):
+        return None
+
+    val = report.get(f"{breach_class}_count")
+    if isinstance(val, int) and not isinstance(val, bool):
+        return val
+
+    for entry in report.get("breaches") or []:
+        if not isinstance(entry, str) or not entry.startswith(f"{breach_class}:"):
+            continue
+        try:
+            return int(entry.split(":", 1)[1])
+        except (ValueError, IndexError):
+            continue
+
+    findings = report.get("findings")
+    if isinstance(findings, list):
+        return sum(
+            1
+            for f in findings
+            if isinstance(f, dict) and f.get("breach_class") == breach_class
+        )
+    return None
+
+
+def load_previous_report(out_dir=None):
+    """Return (report_dict, filename) for the newest prior report, or (None, None).
+
+    Report filenames are `<iso-ish-timestamp>[-tic-N].json`, so lexicographic
+    order over the directory IS chronological order (the optional tic suffix
+    sorts after the timestamp it belongs to and cannot reorder distinct
+    timestamps).
+    """
+    directory = Path(out_dir) if out_dir is not None else OUT_DIR
+    try:
+        files = sorted(directory.glob("*.json"))
+    except OSError:
+        return None, None
+    for path in reversed(files):
+        try:
+            data = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            continue
+        if isinstance(data, dict):
+            return data, path.name
+    return None, None
+
+
+def classify_census_rate(
+    count,
+    previous_count,
+    tic_delta,
+    band_per_tic=DEFAULT_CENSUS_RATE_BAND_PER_TIC,
+):
+    """Classify an entailed-census class by its RATE of change.
+
+    Returns (severity, delta, rate_per_tic). The severity word tracks the rate,
+    never the flag's truth value — the flag is always true for these classes.
+    Refuses to invent a rate when the baseline carries no usable tic delta
+    (`untimed_baseline`) rather than dividing by an assumed cadence.
+    """
+    if not isinstance(previous_count, int) or isinstance(previous_count, bool):
+        return SEVERITY_NO_BASELINE, None, None
+
+    delta = count - previous_count
+    if delta < 0:
+        # Entailed by an append-only substrate to be monotonic; a fall means the
+        # queue was rewritten, pruned, or re-projected. Worth a human look.
+        return SEVERITY_CENSUS_REGRESSION, delta, None
+    if delta == 0:
+        # Zero growth is in-band under any cadence; no tic delta needed.
+        return SEVERITY_EXPECTED_CENSUS, delta, 0.0
+    if not isinstance(tic_delta, int) or isinstance(tic_delta, bool) or tic_delta <= 0:
+        # Growth is real but its rate is not derivable from this baseline.
+        return SEVERITY_UNTIMED_BASELINE, delta, None
+
+    rate = delta / tic_delta
+    severity = (
+        SEVERITY_EXPECTED_CENSUS if rate <= band_per_tic else SEVERITY_ANOMALOUS_JUMP
+    )
+    return severity, delta, rate
 
 
 def audit(overdue_threshold=DEFAULT_OVERDUE_THRESHOLD_TICS, current_tic=None):
@@ -259,6 +409,57 @@ def audit(overdue_threshold=DEFAULT_OVERDUE_THRESHOLD_TICS, current_tic=None):
     if terminal_with_duplicates:
         breaches.append(f"terminal_with_duplicates:{len(terminal_with_duplicates)}")
 
+    # --- Census-rate discrimination -----------------------------------------
+    # The flag stays exactly as-is above (backward compatible). What follows
+    # RAISES THE RATE TO THE FLAG'S ALTITUDE: top-level keys, not a detail
+    # object. Ledger: `#breach-flag-at-saturation-is-a-census-rate-rides-at-
+    # flag-altitude` (/review 725).
+    twd_count = len(terminal_with_duplicates)
+    prev_report, prev_name = load_previous_report()
+    prev_count = breach_class_count(prev_report, "terminal_with_duplicates")
+    prev_tic = prev_report.get("tic_at_audit") if isinstance(prev_report, dict) else None
+    if not isinstance(prev_tic, int) or isinstance(prev_tic, bool):
+        prev_tic = None
+    tic_delta = (
+        current_tic - prev_tic
+        if isinstance(current_tic, int)
+        and not isinstance(current_tic, bool)
+        and prev_tic is not None
+        else None
+    )
+    twd_severity, twd_delta, twd_rate = classify_census_rate(
+        twd_count, prev_count, tic_delta
+    )
+
+    census_baseline = None
+    if prev_report is not None:
+        census_baseline = {
+            "report": prev_name,
+            "tic_at_audit": prev_tic,
+            "terminal_with_duplicates_count": prev_count,
+            "timestamp_utc": prev_report.get("timestamp_utc"),
+            "tic_delta": tic_delta,
+            "rate_band_per_tic": DEFAULT_CENSUS_RATE_BAND_PER_TIC,
+        }
+
+    breach_classification = {}
+    for entry in breaches:
+        cls = entry.split(":", 1)[0]
+        if cls in ENTAILED_CENSUS_CLASSES:
+            breach_classification[cls] = {
+                "kind": "census",
+                "entailed": True,
+                "discriminating": False,
+                "rationale": ENTAILED_CENSUS_CLASSES[cls],
+            }
+        else:
+            breach_classification[cls] = {
+                "kind": "discriminating",
+                "entailed": False,
+                "discriminating": True,
+                "rationale": "Observed condition; not entailed by federation discipline.",
+            }
+
     report = {
         "tic_at_audit": current_tic,
         "timestamp_utc": datetime.now(timezone.utc).isoformat(),
@@ -279,6 +480,13 @@ def audit(overdue_threshold=DEFAULT_OVERDUE_THRESHOLD_TICS, current_tic=None):
                 max(0, len(r) - 1) for r in per_id_rows.values()
             ),
         },
+        # Rate at flag altitude — these four keys are deliberately TOP-LEVEL.
+        "terminal_with_duplicates_count": twd_count,
+        "terminal_with_duplicates_delta": twd_delta,
+        "terminal_with_duplicates_rate_per_tic": twd_rate,
+        "terminal_with_duplicates_severity": twd_severity,
+        "census_baseline": census_baseline,
+        "breach_classification": breach_classification,
         "findings": findings,
         "breaches": breaches,
         "healthy": len(breaches) == 0,
@@ -358,6 +566,22 @@ def main():
         )
         if report["breaches"]:
             print(f"  BREACHES: {', '.join(report['breaches'])}")
+            for cls, meta in report["breach_classification"].items():
+                if meta["kind"] == "census":
+                    print(f"    - {cls}: CENSUS (entailed, ~100% base rate)")
+        # Rate at flag altitude — printed beside the flag, never buried.
+        delta = report["terminal_with_duplicates_delta"]
+        rate = report["terminal_with_duplicates_rate_per_tic"]
+        delta_s = "n/a" if delta is None else f"{delta:+d}"
+        rate_s = "n/a" if rate is None else f"{rate:.2f}/tic"
+        base = report["census_baseline"]
+        base_s = "no baseline" if not base else f"vs {base['report']}"
+        print(
+            f"  census terminal_with_duplicates: "
+            f"{report['terminal_with_duplicates_count']} "
+            f"(delta {delta_s}, rate {rate_s}, {base_s}) "
+            f"-> {report['terminal_with_duplicates_severity']}"
+        )
         print(f"  report written: {out_file}")
 
     sys.exit(exit_code)

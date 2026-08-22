@@ -521,6 +521,200 @@ def apply_fallback_counter(voice: dict[str, Any], current_tic: int) -> dict[str,
 
 
 # ---------------------------------------------------------------------------
+# Headroom observable (ledger #threshold-raise-relocates-the-wall-ship-a-
+# headroom-observable, /review 725 Architect-ratified).
+#
+# The counters above are CROSSING-observers: they key on fallback/timeout
+# EVENTS, so they can only speak after the wall has already been hit. Raising
+# the budget 45s → 120s relocated the wall; it did not govern the APPROACH —
+# eight timeouts at 45s, then eight more at 120s within ~17 tics. The leading
+# indicator was already on disk the whole time: every disposition receipt has
+# carried `voice.duration_ms` since tic 570, unread.
+#
+# This is that reader. It derives an approach observable from the already-
+# written duration_ms history and stamps it at TOP LEVEL of the disposition
+# receipt (`voice_headroom`, sibling of `voice`) — never buried inside the
+# voice object, so a consumer sees the approach without parsing the receipt
+# of the thing that failed.
+#
+# WINDOW = 12 receipts (current + 11 prior), documented:
+#   - it is the window the ratifying verdict itself cited and reproduces its
+#     arithmetic exactly (window ending tic 721: 5/12 runs >= 90% of budget;
+#     max completed call 117196 ms = 97.7% of the 120 s budget);
+#   - the last threshold was crossed twice inside ~17 tics, so a window longer
+#     than ~12 cannot react inside one wall-relocation cycle;
+#   - at n=12 a single outlier moves the >=90% share by 1/12 (8.3 pp) — coarse
+#     enough not to twitch, fine enough to see a trend build over 3-4 tics.
+# Env-overridable (HARMONY_HEADROOM_WINDOW) so the Architect can retune the
+# aperture without a code change, exactly as the budget itself is tunable.
+#
+# CROSSINGS vs APPROACHES: a timed-out run sits at 100% of budget BY
+# CONSTRUCTION — it is a crossing, already counted by the counters above.
+# `recent_max_pct` / `share_of_recent_runs_ge_90pct` include them (ceiling +
+# the verdict's own arithmetic); `approach_max_pct` / `approach_mean_pct`
+# exclude them, and are the actual leading indicator — how close a COMPLETED
+# call is running to the wall.
+# ---------------------------------------------------------------------------
+
+_HEADROOM_WINDOW = 12
+_HEADROOM_NEAR_WALL_PCT = 0.90
+_TIMEOUT_REASON_RE = re.compile(r"^llm_timeout_(\d+)s$")
+
+
+def _headroom_window() -> int:
+    try:
+        n = int(os.environ.get("HARMONY_HEADROOM_WINDOW", str(_HEADROOM_WINDOW)))
+    except ValueError:
+        return _HEADROOM_WINDOW
+    return n if n >= 1 else _HEADROOM_WINDOW
+
+
+def _near_wall_pct() -> float:
+    try:
+        p = float(os.environ.get("HARMONY_HEADROOM_NEAR_WALL_PCT",
+                                 str(_HEADROOM_NEAR_WALL_PCT)))
+    except ValueError:
+        return _HEADROOM_NEAR_WALL_PCT
+    return p if 0.0 < p <= 1.0 else _HEADROOM_NEAR_WALL_PCT
+
+
+def _timeout_budget_ms(reason: Optional[str]) -> Optional[int]:
+    """The budget a prior run actually ran under, when it names it.
+
+    Only a TIMEOUT reason carries its own budget (`llm_timeout_<N>s`). A
+    completed run's receipt does not record the cap it ran under, so a
+    budget change inside the window is DECLARED (see `budget_change_in_window`)
+    rather than silently corrected — the pct math is honest about mixing eras
+    instead of pretending it did not.
+    """
+    if not reason:
+        return None
+    m = _TIMEOUT_REASON_RE.match(reason)
+    return int(m.group(1)) * 1000 if m else None
+
+
+def scan_recent_durations(current_tic: Optional[int], limit: int) -> list[dict[str, Any]]:
+    """Prior voice receipts STRICTLY BEFORE current_tic, newest-first.
+
+    Same honest-stop discipline as `scan_prior_fallback_families`: a prior
+    disposition with no voice object STOPS the walk (the pre-voice era never
+    retroactively contributes duration history). Receipts whose voice object
+    carries no numeric duration_ms are skipped without stopping the walk.
+    """
+    if current_tic is None or limit <= 0:
+        return []
+    tics: list[int] = []
+    try:
+        for p in HARMONY_DIR.glob("disposition-tic-*.json"):
+            m = _DISPOSITION_TIC_RE.search(p.name)
+            if m and int(m.group(1)) < current_tic:
+                tics.append(int(m.group(1)))
+    except Exception:
+        return []
+    out: list[dict[str, Any]] = []
+    for tic in sorted(tics, reverse=True)[:_FALLBACK_STREAK_SCAN_LIMIT]:
+        if len(out) >= limit:
+            break
+        try:
+            body = json.loads((HARMONY_DIR / f"disposition-tic-{tic}.json").read_text())
+        except Exception:
+            break
+        v = body.get("voice")
+        if not isinstance(v, dict):
+            break  # pre-voice era — honest stop
+        d = v.get("duration_ms")
+        if not isinstance(d, (int, float)) or isinstance(d, bool):
+            continue
+        out.append({
+            "tic": tic,
+            "duration_ms": int(d),
+            "voice_source": v.get("voice_source"),
+            "fallback_reason": v.get("fallback_reason"),
+        })
+    return out
+
+
+def compute_voice_headroom(
+    voice: dict[str, Any],
+    current_tic: Optional[int],
+    *,
+    window: Optional[int] = None,
+    budget_ms: Optional[int] = None,
+) -> dict[str, Any]:
+    """Approach observable over the last N duration_ms receipts.
+
+    Pure over (voice, on-disk prior receipts). Never raises; an unusable
+    window yields honest nulls with `window_observed: 0`, never fabricated
+    zeros (a 0 ms run and an unmeasured run are not the same claim).
+    """
+    window = window if window is not None else _headroom_window()
+    budget = budget_ms if budget_ms is not None else LLM_TIMEOUT_S * 1000
+    near = _near_wall_pct()
+
+    runs: list[dict[str, Any]] = []
+    cur = voice.get("duration_ms")
+    if isinstance(cur, (int, float)) and not isinstance(cur, bool):
+        runs.append({
+            "tic": current_tic,
+            "duration_ms": int(cur),
+            "voice_source": voice.get("voice_source"),
+            "fallback_reason": voice.get("fallback_reason"),
+        })
+    runs += scan_recent_durations(current_tic, max(window - len(runs), 0))
+
+    base = {
+        "budget_ms": budget,
+        "budget_source": "HARMONY_VOICE_TIMEOUT_S",
+        "near_wall_threshold_pct": near,
+        "window_requested": window,
+        "window_source": "HARMONY_HEADROOM_WINDOW",
+        "window_observed": len(runs),
+        "window_tics": [r["tic"] for r in runs],
+        "derived_from": "voice.duration_ms (already written on every receipt)",
+        "confidence_class": "exact",
+    }
+    if not runs or budget <= 0:
+        base.update({
+            "last_duration_ms": None, "headroom_ms": None, "pct_of_budget": None,
+            "recent_max_pct": None, "share_of_recent_runs_ge_90pct": None,
+            "approach_max_pct": None, "approach_mean_pct": None,
+            "crossings_in_window": 0, "approaches_in_window": 0,
+            "budget_eras_ms": [], "budget_change_in_window": False,
+        })
+        return base
+
+    def pct(ms: int) -> float:
+        return round(ms / budget, 5)
+
+    crossings = [r for r in runs if _timeout_budget_ms(r.get("fallback_reason")) is not None]
+    approaches = [r for r in runs if _timeout_budget_ms(r.get("fallback_reason")) is None]
+    near_ms = near * budget
+    eras = sorted({b for b in (_timeout_budget_ms(r.get("fallback_reason")) for r in runs)
+                   if b is not None} | {budget})
+
+    last_ms = runs[0]["duration_ms"]
+    base.update({
+        "last_duration_ms": last_ms,
+        "headroom_ms": budget - last_ms,
+        "pct_of_budget": pct(last_ms),
+        "recent_max_pct": pct(max(r["duration_ms"] for r in runs)),
+        "share_of_recent_runs_ge_90pct": round(
+            sum(1 for r in runs if r["duration_ms"] >= near_ms) / len(runs), 4),
+        "approach_max_pct": pct(max(r["duration_ms"] for r in approaches)) if approaches else None,
+        "approach_mean_pct": round(
+            sum(r["duration_ms"] for r in approaches) / len(approaches) / budget, 5
+        ) if approaches else None,
+        "crossings_in_window": len(crossings),
+        "approaches_in_window": len(approaches),
+        "budget_eras_ms": eras,
+        # A window spanning a budget change means the pct math mixes eras.
+        # Declared, never silently corrected (see _timeout_budget_ms).
+        "budget_change_in_window": len(eras) > 1,
+    })
+    return base
+
+
+# ---------------------------------------------------------------------------
 # Surfaces
 # ---------------------------------------------------------------------------
 
@@ -573,19 +767,38 @@ def main() -> int:
     # Consecutive-fallback counter (fail-soft: an unparsable tic leaves the
     # receipt without the counter — honest absence, never a guessed tic).
     tic_match = _DISPOSITION_TIC_RE.search(disp_path.name)
-    if tic_match:
-        voice = apply_fallback_counter(voice, int(tic_match.group(1)))
+    current_tic = int(tic_match.group(1)) if tic_match else None
+    if current_tic is not None:
+        voice = apply_fallback_counter(voice, current_tic)
     else:
         print(f"WARN harmony-voice: tic unparsable from {disp_path.name} — "
               f"fallback counter skipped", file=sys.stderr)
 
+    # Headroom observable (/review 725). Fail-soft like every other sub-step:
+    # a failure here leaves the receipt without `voice_headroom` (honest
+    # absence), never a fabricated one. With no parsable tic the window
+    # collapses to the current run alone — still an honest pct_of_budget.
+    try:
+        headroom = compute_voice_headroom(voice, current_tic)
+    except Exception as exc:
+        headroom = None
+        print(f"WARN harmony-voice: headroom computation failed ({exc}) — "
+              f"receipt stands without voice_headroom", file=sys.stderr)
+
     # Additive write INTO the disposition (harmony surface only).
+    # `voice_headroom` sits at TOP LEVEL, sibling of `voice` — the approach
+    # observable must not be buried inside the receipt of the thing that failed.
     try:
         disposition["voice"] = voice
+        if headroom is not None:
+            disposition["voice_headroom"] = headroom
         disp_path.write_text(json.dumps(disposition, indent=2))
     except Exception as exc:
         print(f"WARN harmony-voice: disposition writeback failed ({exc})", file=sys.stderr)
 
+    # stdout contract unchanged (the voice object): `voice_headroom` reaches
+    # consumers through the ARTIFACT + the disposition-current pointer, not by
+    # re-shaping a stream other readers may already parse.
     print(json.dumps(voice, indent=2))
     return 0
 

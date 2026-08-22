@@ -42,6 +42,25 @@ they are never the predicate.
 Ref: cgg-ledger#attestation-predicate-must-prove-execution-not-outcome (ray on
 cgg-ledger#wrapper-must-discriminate-instrument-exit-code-semantics-crash-vs-verdict).
 
+BREACH DWELL AT FLAG ALTITUDE (tic 725 — rider lane C)
+-------------------------------------------------------
+`breach_flags` is an ANY-OCCURRENCE boolean over the tic's 1000 internal ticks:
+it latches if even one tick breached. Aggregated over that population it
+saturates — the identical set ['trust_below_tau','mint_halted'] rode 162 of 164
+tics (98.8% base rate) — so the word BREACH stopped discriminating while the
+governance-bearing quantity, ticks-below-tau, swung 16→991 and sat one level
+down in detail.breach_flag_tick_counts. Live at tic 725: aggregate g_t 0.748988
+sat ABOVE tau 0.70 with only 107/1000 ticks below it, yet the flags still read
+as a full breach.
+The cure is NOT to delete the flag. `breach_dwell` joins `breach_flags` at the
+SAME altitude (snapshot, current-pointer, invocations row), carrying the dwell
+count + fraction for exactly the flags that fired, plus a severity word that
+tracks the rate — so the reader's discount reflex never has to form.
+STRICTLY ADDITIVE: it is derived from the SAME counters that already feed
+detail.breach_flag_tick_counts. No flag, threshold, cap, tau, mode, phase, or
+mint/burn behaviour changes; no existing field's name or value moves.
+Ref: ledger#breach-flag-at-saturation-is-a-census-rate-rides-at-flag-altitude.
+
 EXIT-CODE CONTRACT
 ------------------
 Nonzero is reserved for EXECUTION FAILURE (the cadence did not execute, or the
@@ -65,7 +84,8 @@ OUTPUTS (mirroring contagion's outputs, in the economy lane)
   audit-logs/economy/economy-tic-{N}.json          the tic snapshot (tic, supply,
                                                     reserves, reserve_ratio, rate,
                                                     mint_total, burn_total, g_t, phase,
-                                                    mode, breach_flags[], seed_stabilized)
+                                                    mode, breach_flags[], breach_dwell{},
+                                                    seed_stabilized)
   audit-logs/economy/current-pointer.json           compact latest pointer; tic == N
                                                     (the anti-freeze tooth)
   audit-logs/economy/invocations.jsonl              audit trail (append-only)
@@ -584,6 +604,79 @@ def stabilization_verdict(econ_trace: dict, fire: dict) -> dict:
 
 
 # ===========================================================================
+# BREACH DWELL — the rate, hoisted to the flag's own altitude.
+#
+# `breach_flags` latches on ANY of the tic's 1000 internal ticks, so over that
+# population it saturates and stops discriminating. This lifts the DWELL — the
+# ticks-below-threshold count and its fraction of the tic — out of
+# detail.breach_flag_tick_counts and stands it beside the flag it qualifies.
+#
+# READ-ONLY over the existing counters. It recomputes NO flag, moves NO
+# threshold, and touches nothing the Architect dials (tau, caps, mode, phase,
+# mint/burn). Keys are set-equal to `breach_flags` so the two fields read as one
+# pair: the flag says WHETHER, the dwell says HOW MUCH.
+# (ledger#breach-flag-at-saturation-is-a-census-rate-rides-at-flag-altitude)
+# ===========================================================================
+# Band edges on the dwell FRACTION. Emitted with the verdict so the severity
+# word is self-describing and a reader can re-derive it without this source.
+DWELL_SEVERITY_BANDS = ((0.25, "intermittent"), (0.75, "sustained"))
+DWELL_SEVERITY_EDGES = {"intermittent": [0.0, 0.25], "sustained": [0.25, 0.75],
+                        "saturated": [0.75, 1.0]}
+
+
+def breach_dwell(breach_flags, breach_flag_tick_counts, ticks_per_tic) -> dict:
+    """Dwell for the flags that FIRED, at the flag's altitude. Purely additive.
+
+    breach_flags          — the fired-flag list (verdict.breach_flags_fired_during_tic)
+    breach_flag_tick_counts — the per-flag internal-tick counters (the SAME dict
+                              that already lands at detail.breach_flag_tick_counts)
+    ticks_per_tic         — the denominator (cadence ticks run this tic)
+
+    Fail-soft: a missing counter or an unusable denominator yields an honest
+    None for that leg and severity "undetermined" — never an invented number.
+    """
+    counts = breach_flag_tick_counts or {}
+    fired = list(breach_flags or [])
+    denom = ticks_per_tic if (_is_number(ticks_per_tic) and ticks_per_tic > 0) else None
+
+    ticks: dict = {}
+    fraction: dict = {}
+    for name in fired:
+        c = counts.get(name)
+        ticks[name] = c if _is_number(c) else None
+        fraction[name] = (round(ticks[name] / denom, 6)
+                          if (denom is not None and ticks[name] is not None) else None)
+
+    known = [v for v in fraction.values() if v is not None]
+    max_fraction = max(known) if known else 0.0
+    if not fired:
+        severity = "none"
+    elif not known:
+        severity = "undetermined"
+    else:
+        severity = "saturated"
+        for edge, word in DWELL_SEVERITY_BANDS:
+            if max_fraction < edge:
+                severity = word
+                break
+
+    return {
+        "ticks_per_tic": ticks_per_tic if denom is not None else None,
+        "ticks": ticks,
+        "fraction": fraction,
+        "max_fraction": max_fraction,
+        "severity": severity,
+        "severity_bands": DWELL_SEVERITY_EDGES,
+        "basis": "detail.breach_flag_tick_counts",
+        "note": ("dwell for the flags in breach_flags, at the flag's own altitude — "
+                 "the flag says WHETHER, the dwell says HOW MUCH. ADDITIVE "
+                 "observability: no flag, threshold, tau, cap, mode, phase, or "
+                 "mint/burn behaviour is changed by this field. "
+                 "ledger#breach-flag-at-saturation-is-a-census-rate-rides-at-flag-altitude"),
+    }
+
+
+# ===========================================================================
 # POST-WRITE artifact verification — the second half of the execution proof.
 #
 # The attestation above proves the cycle RAN; this proves it LANDED. A missing
@@ -664,6 +757,10 @@ def write_outputs(tic: int, econ_trace: dict, fire: dict, verdict: dict,
     series = cad["series"]
     series_mode = series["mode"]
     breach_flags = verdict["breach_flags_fired_during_tic"]
+    # The dwell rides at the SAME altitude as the flag it qualifies, in every
+    # artifact the flag appears in (snapshot / pointer / invocations row).
+    dwell = breach_dwell(breach_flags, verdict["breach_flag_tick_counts"],
+                         cad["ticks_per_tic"])
     seed_stabilized = bool(verdict["seed_stabilized"])
     execution_attested = bool(evidence["cadence_executed"])
     mode = fire["mode"]
@@ -684,6 +781,9 @@ def write_outputs(tic: int, econ_trace: dict, fire: dict, verdict: dict,
         "phase": "SimOnly",
         "mode": mode,
         "breach_flags": breach_flags,
+        # The DWELL beside the FLAG (tic 725). Additive; derived from the same
+        # counters that land at detail.breach_flag_tick_counts below.
+        "breach_dwell": dwell,
         "seed_stabilized": seed_stabilized,
         # EXECUTION-lawfulness, decoupled from outcome-health. seed_stabilized is
         # the HEALTH verdict; execution_attested is the "did the cycle run and
@@ -725,6 +825,7 @@ def write_outputs(tic: int, econ_trace: dict, fire: dict, verdict: dict,
             "economy_tic_path": str(snap_path.relative_to(ROOT)),
             "generated_at": time.strftime("%Y-%m-%dT%H:%M:%S.000Z", time.gmtime()),
             "breach_flags": breach_flags,
+            "breach_dwell": dwell,
             "seed_stabilized": seed_stabilized,
             "execution_attested": execution_attested,
             "series_mode": series_mode,
@@ -741,6 +842,7 @@ def write_outputs(tic: int, econ_trace: dict, fire: dict, verdict: dict,
         "g_t": cad["swarm_final_aggregate_g_t"],
         "mint_total": cad["mint_accrued"],
         "breach_flags": breach_flags,
+        "breach_dwell": dwell,
         "seed_stabilized": seed_stabilized,
         "execution_attested": execution_attested,
         "execution_failed_checks": evidence["failed_checks"],
@@ -780,6 +882,9 @@ def main() -> int:
     execution_ok = bool(evidence["cadence_executed"]) and bool(av["ok"])
 
     cad = econ_trace["CADENCE"]
+    # Same altitude on the operator-facing line: the flag list alone saturates.
+    dwell = breach_dwell(verdict["breach_flags_fired_during_tic"],
+                         verdict["breach_flag_tick_counts"], cad["ticks_per_tic"])
     if args.print_path:
         print(str(paths["snapshot"]))
     else:
@@ -792,6 +897,8 @@ def main() -> int:
             f"mint={cad['mint_accrued']:.2f} burn={cad['burn_accrued']:.2f} "
             f"supply={cad['supply_after']:.2f} rr={cad['final_reserve_ratio']:.4f} "
             f"breach_flags={verdict['breach_flags_fired_during_tic']} "
+            f"breach_dwell={dwell['severity']}"
+            f"({dwell['max_fraction']:.3f} of {dwell['ticks_per_tic']}) "
             f"-> {paths['snapshot'].relative_to(ROOT)}",
             file=sys.stderr,
         )
