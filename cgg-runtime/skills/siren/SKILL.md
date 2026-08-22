@@ -9,7 +9,6 @@ description: |
   IS:
   - the place signals are emitted, ticked, updated, and triaged
   - the dashboard for active signal state and effective volume
-  - the snapshot/diff surface for conformation records
 
   IS NOT:
     collapse_zones:
@@ -29,10 +28,10 @@ description: |
   - when an actor needs to emit a new signal for a persistent condition
   - when tic has advanced and signals need volume accrual or decay
   - when a signal's state needs to change (acknowledged/working/resolved/dismissed)
-  - when a conformation snapshot is needed at a tic boundary
   - on explicit Architect invocation
 
   NOT WHEN:
+  - for conformation snapshots or diffs (verbs RETIRED /review 726 — the machine-driven cadence/mandate lane is the sole conformation writer; read audit-logs/conformations/ or governance_query conformations.status)
   - during /cadence (cadence writes tic events; the v2 manifest projection consumes them; same boundary cannot do both)
   - when the correct surface is /review (CogPR promotion or warrant judgment — route there)
   - mid-constitutional-modification (siren records condition; doctrine change belongs to /review)
@@ -56,8 +55,8 @@ description: |
       - "emit"               → create new signal (kind/band/subsystem/message)
       - "update"             → signal state transition (signal_id + status)
       - "history"            → resolved/dismissed view
-      - "conformation"       → tic-boundary snapshot
-      - "conformation diff"  → diff two snapshots
+      - "conformation"       → RETIRED at /review 726 — machine-driven cadence/mandate lane is the sole conformation writer (see Conformation retirement note)
+      - "conformation diff"  → RETIRED at /review 726 — read snapshots directly or via governance_query (see Conformation retirement note)
     secondary_modulation_axes:
       - scope: all | active | warrants-only
       - target_actor: interactive_orchestrator | <role>
@@ -287,136 +286,20 @@ SIREN HISTORY
 
 ---
 
-### `/siren conformation`
+### `/siren conformation` — RETIRED (/review 726)
 
-Snapshot the current system conformation — the total state at the latest tic boundary:
+**This verb was retired at /review 726** (Architect word GIVEN at tic 725: "Retire", verbatim; receipt: `audit-logs/governance/siren-conformation-verbs-retirement-tic726.md`; same terminal-essence class as the `tick` retirement at /review 572). Second-writer residue, the two-clocks shape: conformation snapshots are written MACHINE-DRIVEN by the cadence/mandate lane (cadence-ops emits `audit-logs/conformations/tic-<N>.json` at every tic boundary), so the skill-face verb was a redundant human-face writer on the same field.
 
-1. Compute physical tic count and latest entry:
-   ```bash
-   python3 -c "
-   import json, glob
-   entries = []
-   for f in sorted(glob.glob('audit-logs/tics/*.jsonl')):
-       for line in open(f):
-           d = json.loads(line)
-           if d.get('type') == 'tic':
-               entries.append(d)
-   print(f'{len(entries)}|{json.dumps(entries[-1]) if entries else \"{}\"}')"
-   ```
-   Parse the output: count before `|` is the physical tic count, JSON after `|` is the last tic entry for zone/timestamp metadata.
-2. Read all signals from `audit-logs/signals/*.jsonl` — latest entry per ID, filter `status` in (`active`, `acknowledged`, `working`)
-3. Read all warrants from `audit-logs/signals/*.jsonl` — latest entry per ID where `type: "warrant"`, filter `status` in (`active`, `acknowledged`)
-4. Scan for pending CogPR flags using the zone scan rule:
-   - Glob `**/CLAUDE.md` and `**/MEMORY.md` (not all .md files)
-   - Also check `~/.claude/projects/*/memory/MEMORY.md`
-   - Exclude paths matching `.ticignore` (default: vendor/, node_modules/,
-     .git/, .claude/skills/)
-   - Skip blocks with `status: "example"`
-5. Read `.ticzone` for zone configuration
-6. Compute rule fingerprints: read `CLAUDE.md` and `~/.claude/CLAUDE.md`, record file size and line count as change indicators
-7. Create `audit-logs/conformations/` directory if absent
-8. Write snapshot to `audit-logs/conformations/tic-<physical_count>.json`
-   where `physical_count` is from the inline Python above, NOT any `tic_count_project` field from a JSONL entry:
-
-```json
-{
-  "type": "conformation",
-  "tic_count_physical": 1,
-  "tic": "2026-02-25T03:33:00Z",
-  "tic_zone": "my-project",
-  "snapshot_at": "2026-02-25T04:00:00Z",
-  "active_signals": [
-    {"id": "sig_xxx", "kind": "BEACON", "band": "PRIMITIVE", "volume": 80, "status": "active", "subsystem": "ruvector"}
-  ],
-  "active_warrants": [
-    {"id": "wrn_xxx", "band": "PRIMITIVE", "priority": 1, "minting_condition": "volume_threshold", "status": "active"}
-  ],
-  "pending_cogprs": [
-    {"source": "CLAUDE.md:283", "lesson": "one-line summary", "band": "COGNITIVE", "subsystem": "cgg", "recommended_scopes": ["~/.claude/CLAUDE.md"]}
-  ],
-  "zone": {
-    "name": "my-project",
-    "bands": ["PRIMITIVE", "COGNITIVE", "SOCIAL", "PRESTIGE"],
-    "muffling_per_hop": 5,
-    "signal_governance": {
-      "warrant_eligible_kinds": ["BEACON", "TENSION"],
-      "decay_rate_per_tic": 2,
-      "primitive_audibility_mode": "threshold_floor"
-    }
-  },
-  "rules_in_force": {
-    "site": {"file": "CLAUDE.md", "lines": 450, "bytes": 28000},
-    "global": {"file": "~/.claude/CLAUDE.md", "lines": 120, "bytes": 8000}
-  },
-  "counts": {
-    "active_signals": 1,
-    "active_warrants": 0,
-    "pending_cogprs": 3,
-    "resolved_signals_since_last_tic": 1
-  }
-}
-```
-
-9. Report:
-
-```
-CONFORMATION at tic #1 (physical count)
-Zone: my-project
-Active signals: 1 | Active warrants: 0 | Pending CogPRs: 3
-Rules: project CLAUDE.md (450 lines) | global CLAUDE.md (120 lines)
-Snapshot written: audit-logs/conformations/tic-1.json
-```
+Semantics preserved (no signal goes dark):
+- **Snapshot production** → the cadence lane writes every tic-boundary conformation; nothing here needs to be run by hand.
+- **Snapshot reading** → read `audit-logs/conformations/tic-<N>.json` directly, or `governance_query.py conformations.status` (latest_only for the current posture).
+- **The snapshot schema** (type/tic_count_physical/active_signals/active_warrants/pending_cogprs/zone/rules_in_force/counts) is unchanged — it is the producer that moved, not the record shape.
 
 ---
 
-### `/siren conformation diff [tic_a] [tic_b]`
+### `/siren conformation diff [tic_a] [tic_b]` — RETIRED (/review 726)
 
-Diff two conformation snapshots:
-
-1. Read `audit-logs/conformations/tic-<a>.json` and `audit-logs/conformations/tic-<b>.json`
-   - If only one argument given, diff that tic against the latest snapshot
-   - If no arguments, diff the two most recent snapshots
-   - If a snapshot file is missing, report error
-2. Compare each section:
-
-**Signals:**
-- New signals (in B but not A)
-- Removed signals (in A but not B — resolved/dismissed)
-- Changed signals (same ID, different volume/status)
-
-**Warrants:**
-- Minted (in B but not A)
-- Dismissed (in A but not B)
-
-**CogPRs:**
-- New (in B but not A)
-- Promoted (in A with status pending, absent in B — moved to rules)
-- Rejected (in A with status pending, absent in B — removed)
-
-**Rules:**
-- Line count delta (indicates rule file was modified)
-
-3. Report:
-
-```
-CONFORMATION DIFF: tic #1 -> tic #2
-
-Signals:
-  + sig_new_xxx (COGNITIVE/LESSON, volume 30) — NEW
-  - sig_old_yyy (COGNITIVE/TENSION) — RESOLVED
-  ~ sig_existing (volume 25->45)
-
-Warrants:
-  + wrn_aaa (P1, volume_threshold) — MINTED
-
-CogPRs:
-  + "New lesson about X" (CLAUDE.md:100) — NEW
-  v "Old lesson about Y" — PROMOTED to ~/.claude/CLAUDE.md
-
-Rules:
-  ~ project CLAUDE.md: 430->450 lines (+20)
-  = global CLAUDE.md: unchanged
-```
+**Retired with its sibling above** (same receipt). Diff semantics preserved: compare any two `audit-logs/conformations/tic-<N>.json` snapshots directly (signals new/removed/changed; warrants minted/dismissed; CogPRs new/promoted/rejected; rules line-delta). The comparison is a read over durable records — it never needed a manifold-mutating verb; any session or script may perform it read-only.
 
 ---
 
