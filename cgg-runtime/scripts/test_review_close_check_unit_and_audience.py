@@ -611,5 +611,98 @@ class TestRider2ArtifactIdentityHoistIsSingleComputation(unittest.TestCase):
         self.assertGreater(_SRC.index("falling back to timestamp identity"), i_dryrun)
 
 
+class TestObligationScopeVerdictCountDelta(_ZoneRun):
+    """/review 728 obligation-scope ray (c209995ad848): a per-pass delta
+    obligation landed on one counter attaches to EVERY counter on the same
+    artifact surface — verdict_counts ships its own delta block, and the
+    cross-counter disclosure is a typed question, never an asserted invariant."""
+
+    def _queue(self, rows):
+        (self.zone / "audit-logs" / "cprs" / "queue.jsonl").write_text(
+            "".join(json.dumps(r) + "\n" for r in rows), encoding="utf-8")
+
+    def test_null_baseline_arm_emits_nulls_not_zeros(self):
+        self._claude_md("<!-- promoted from cpr_one_tic700 -->\n")
+        rep = self._run_at(700)
+        d = rep["verdict_counts_delta"]
+        self.assertTrue(d["delta_baseline_absent"])
+        self.assertEqual(d["delta"], {"promoted": None, "deferred": None, "skipped": None})
+        self.assertEqual(d["baseline"]["reason_absent"], "no_prior_pass_artifact")
+        # Current-side counts are still first-class, and every counter carries
+        # its declared unit (the /review-716 class-cure, now surface-wide).
+        self.assertEqual(d["current"], rep["verdict_counts"])
+        self.assertEqual(set(d["units"]), set(rep["verdict_counts"]))
+        # Non-comparable cross-counter read is None, never fabricated agreement.
+        x = rep["cross_counter_disclosure"]
+        self.assertFalse(x["comparable"])
+        self.assertIsNone(x["agree"])
+
+    def test_delta_computed_against_previous_pass_artifact(self):
+        self._claude_md("<!-- promoted from cpr_one_tic700 -->\n")
+        self._run_at(700)
+        self._queue([{"id": "cpr_two_tic701", "status": "promoted",
+                      "lesson": "x", "source": "s"}])
+        self._claude_md(
+            "<!-- promoted from cpr_one_tic700 -->\n"
+            "<!-- promoted from cpr_two_tic701 -->\n")
+        rep = self._run_at(701)
+        d = rep["verdict_counts_delta"]
+        self.assertFalse(d["delta_baseline_absent"])
+        self.assertEqual(d["baseline"]["artifact"], "tic-700-check.json")
+        self.assertEqual(d["delta"]["promoted"], 1)
+        # Promoted +1 and tokens +1 — the two independently derived counters
+        # agree, and the artifact now says so instead of leaving the hand-diff.
+        x = rep["cross_counter_disclosure"]
+        self.assertTrue(x["comparable"])
+        self.assertEqual(x["promoted_delta"], 1)
+        self.assertEqual(x["token_delta"], 1)
+        self.assertTrue(x["agree"])
+
+    def test_divergence_is_disclosed_not_asserted(self):
+        self._claude_md("<!-- promoted from cpr_one_tic700 -->\n")
+        self._run_at(700)
+        # A doctrine-surface edit adds a token with NO promotion behind it —
+        # one of the named divergence routes. agree=False is a question with
+        # routes attached, not a finding.
+        self._claude_md(
+            "<!-- promoted from cpr_one_tic700 -->\n"
+            "<!-- promoted from cpr_two_tic701 -->\n")
+        rep = self._run_at(701)
+        x = rep["cross_counter_disclosure"]
+        self.assertTrue(x["comparable"])
+        self.assertEqual(x["promoted_delta"], 0)
+        self.assertEqual(x["token_delta"], 1)
+        self.assertFalse(x["agree"])
+        self.assertIn("doctrine_edit_narrating_sibling_id_adds_token_without_promotion",
+                      x["divergence_routes"])
+        # Not a finding: divergence must not manufacture a hazard.
+        self.assertNotIn("cross_counter", json.dumps(rep["findings"]))
+
+    def test_prior_artifact_predating_fields_is_absent_not_zero(self):
+        rd = self._report_dir()
+        rd.mkdir(parents=True)
+        (rd / "tic-700-check.json").write_text(
+            json.dumps({"inscribed_index_size": 1,
+                        "inscribed_index_unit": {"matched_comment_count": 1}}),
+            encoding="utf-8")
+        self._claude_md("<!-- promoted from cpr_one_tic700 -->\n")
+        rep = self._run_at(701)
+        d = rep["verdict_counts_delta"]
+        self.assertTrue(d["delta_baseline_absent"])
+        self.assertEqual(d["baseline"]["reason_absent"],
+                         "prior_artifact_predates_these_fields")
+        self.assertEqual(d["delta"], {"promoted": None, "deferred": None, "skipped": None})
+
+    def test_delta_lands_in_the_written_artifact(self):
+        self._claude_md("<!-- promoted from cpr_one_tic700 -->\n")
+        self._run_at(700)
+        self._run_at(701)
+        on_disk = json.loads(
+            (self._report_dir() / "tic-701-check.json").read_text(encoding="utf-8"))
+        self.assertIn("verdict_counts_delta", on_disk)
+        self.assertIn("cross_counter_disclosure", on_disk)
+        self.assertEqual(on_disk["verdict_counts_delta"]["delta"]["promoted"], 0)
+
+
 if __name__ == "__main__":
     unittest.main()

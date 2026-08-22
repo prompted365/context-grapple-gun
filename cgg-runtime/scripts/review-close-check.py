@@ -2278,6 +2278,120 @@ def compute_unit_deltas(report_dir, current_filename, current_tic,
     return block
 
 
+_VERDICT_COUNT_UNITS = {
+    "promoted": "queue_latest_per_id_rows_with_status_promoted",
+    "deferred": "queue_latest_per_id_rows_status_deferred_or_enrichment_eligible_with_review_tic",
+    "skipped": "queue_latest_per_id_rows_with_status_skipped",
+}
+
+
+def compute_verdict_count_deltas(report_dir, current_filename, current_tic,
+                                 current_counts):
+    """Per-pass PER-KEY DELTA for the verdict counters (/review 728, c209995ad848).
+
+    The obligation-scope ray: a per-pass delta obligation landed on one counter
+    (inscribed_index_size, /review 724 RIDER 2) attaches to EVERY counter on the
+    same artifact surface. verdict_counts sat in the same report as bare scalars
+    — no unit declaration, no delta — leaving the consumer hand-diffing prior
+    artifacts for exactly the movement this report exists to disclose.
+
+    Same discipline as compute_unit_deltas: baseline is the previous PASS
+    artifact (this run's own artifact excluded via current_filename); absent or
+    older-schema baselines yield None deltas with delta_baseline_absent and the
+    reason disclosed — NO FABRICATED ZEROS.
+    """
+    block = {
+        "units": dict(_VERDICT_COUNT_UNITS),
+        "current": dict(current_counts),
+        "delta": {k: None for k in _VERDICT_COUNT_UNITS},
+        "delta_baseline_absent": True,
+        "baseline": {
+            "artifact": None,
+            "selector": None,
+            "counts": None,
+            "reason_absent": None,
+        },
+        "note": (
+            "per-pass delta for each verdict counter; baseline is the previous "
+            "PASS artifact, this run's own canonical artifact excluded. The "
+            "counters are whole-universe cumulative totals over queue "
+            "latest-per-id state, so a per-pass delta reads as this pass's "
+            "verdict movement plus any out-of-band queue state change."
+        ),
+    }
+
+    if not all(isinstance(current_counts.get(k), int) for k in _VERDICT_COUNT_UNITS):
+        block["baseline"]["reason_absent"] = "current_pass_counts_unmeasured"
+        return block
+
+    prior_path, selector = _find_prior_check_artifact(
+        report_dir, current_filename, current_tic)
+    block["baseline"]["selector"] = selector
+    if prior_path is None:
+        block["baseline"]["reason_absent"] = selector
+        return block
+
+    try:
+        prior = json.loads(Path(prior_path).read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError, UnicodeDecodeError):
+        block["baseline"]["reason_absent"] = "prior_artifact_unreadable"
+        return block
+
+    block["baseline"]["artifact"] = os.path.basename(prior_path)
+
+    prior_counts = prior.get("verdict_counts")
+    if not isinstance(prior_counts, dict) or not all(
+            isinstance(prior_counts.get(k), int) for k in _VERDICT_COUNT_UNITS):
+        block["baseline"]["reason_absent"] = "prior_artifact_predates_these_fields"
+        block["baseline"]["counts"] = prior_counts if isinstance(prior_counts, dict) else None
+        return block
+
+    block["baseline"]["counts"] = {k: prior_counts[k] for k in _VERDICT_COUNT_UNITS}
+    block["delta"] = {
+        k: current_counts[k] - prior_counts[k] for k in _VERDICT_COUNT_UNITS}
+    block["delta_baseline_absent"] = False
+    return block
+
+
+def compute_cross_counter_disclosure(verdict_delta_block, index_delta_block):
+    """Derived cross-counter DISCLOSURE (/review 728, c209995ad848) — a typed
+    question, NEVER an asserted invariant.
+
+    Two independently derived counters can agree on a /review pass's PROMOTE
+    count: verdict_counts.promoted delta (queue-side) and inscribed_index_size
+    delta_tokens (doctrine-surface-side). Nothing in the artifact compared
+    them; each /review recomputed the agreement by hand. This field emits the
+    comparison with its known divergence routes named — divergence is a
+    DISCLOSED question for the reader, not a finding and not a failure:
+      - a MODIFY-and-merge promotion into an existing anchor adds no new
+        provenance comment (promoted moves, tokens do not);
+      - a doctrine-surface edit narrating a sibling id adds a token with no
+        promotion behind it (tokens move, promoted does not);
+      - the t724 over-admission route (receipt filenames carrying cpr-shaped
+        tokens) inflates delta_tokens until the disposition-split patch lands
+        (bk-close-check-counter-disposition-split).
+    """
+    promoted_delta = (verdict_delta_block.get("delta") or {}).get("promoted")
+    token_delta = index_delta_block.get("delta_tokens")
+    comparable = isinstance(promoted_delta, int) and isinstance(token_delta, int)
+    return {
+        "promoted_delta": promoted_delta,
+        "token_delta": token_delta,
+        "comparable": comparable,
+        "agree": (promoted_delta == token_delta) if comparable else None,
+        "divergence_routes": [
+            "modify_and_merge_promotion_adds_no_provenance_comment",
+            "doctrine_edit_narrating_sibling_id_adds_token_without_promotion",
+            "t724_over_admission_receipt_filename_tokens",
+        ],
+        "note": (
+            "typed disclosure, never an invariant: agree=False is a question "
+            "with named routes, not a finding. Baselines absent on either side "
+            "=> comparable=False, agree=None — never fabricated agreement."
+        ),
+    }
+
+
 def run_check(project_dir, dry_run=False, obligation_tic=None, obligation_mandate_id=None):
     """Run the full review-close consistency check.
 
@@ -2430,6 +2544,14 @@ def run_check(project_dir, dry_run=False, obligation_tic=None, obligation_mandat
         len(inscribed_ids),
         inscribed_unit.get("matched_comment_count"),
     )
+    verdict_delta = compute_verdict_count_deltas(
+        report_dir,
+        output_filename,
+        mandate_tic,
+        {"promoted": promoted_count, "deferred": deferred_count,
+         "skipped": skipped_count},
+    )
+    cross_disclosure = compute_cross_counter_disclosure(verdict_delta, index_delta)
 
     report = {
         "check_type": "review_close_check",
@@ -2458,6 +2580,15 @@ def run_check(project_dir, dry_run=False, obligation_tic=None, obligation_mandat
             "deferred": deferred_count,
             "skipped": skipped_count,
         },
+        # Per-key DELTA beside the verdict counters (/review 728 obligation-scope
+        # ray, c209995ad848): a delta obligation landed on one counter attaches
+        # to every counter on the same artifact surface. Same baseline discipline
+        # as inscribed_index_delta — absent => nulls, never fabricated zeros.
+        "verdict_counts_delta": verdict_delta,
+        # Derived cross-counter DISCLOSURE (same ray): promoted-verdict delta vs
+        # provenance-token delta, with divergence routes named — a typed question
+        # for the reader, never an asserted invariant.
+        "cross_counter_disclosure": cross_disclosure,
         "findings": all_findings,
         "summary": {
             "total_findings": len(all_findings),
