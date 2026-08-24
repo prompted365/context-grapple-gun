@@ -32,7 +32,7 @@
       "last_validated_tic": 543,
       "validation_source": "audit-logs/governance/receipts/2026-07-02-tic543-boundary-surveillance-contract-port.md",
       "decision_required": null,
-      "notes": "Contract port of OT Mechanics 6+20 (harpoon-ingestion-matrix SS7 discriminator, n=4). 3-pass pipeline: passes 1-2 degraded-lawful (structural/banded), pass-3 conformation mode typed-rejects until archivist retrieval.mode ratification. No Write tool by design (cannot mint signals). Trigger-manifest wiring deferred by design \u2014 activation routing is a separate governed step; rides /review."
+      "notes": "Contract port of OT Mechanics 6+20 (harpoon-ingestion-matrix SS7 discriminator, n=4). 3-pass pipeline: passes 1-2 degraded-lawful (structural/banded), pass-3 conformation mode typed-rejects until archivist retrieval.mode ratification. No Write tool by design (cannot mint signals). Trigger-manifest wiring deferred by design — activation routing is a separate governed step; rides /review."
     },
     "cbux-steward": {
       "status": "current",
@@ -42,7 +42,7 @@
       "last_validated_tic": 222,
       "validation_source": "audit-logs/governance/cgg-review-tic222-decisions.md",
       "decision_required": null,
-      "notes": "Trigger-manifest cbux.feedback_ingress + cbux.experience_audit; mailbox carries 4 active WAIT routing entries. Bootstrapped tic 89; never operationally exercised. Activation probe candidate when useful (do NOT retire \u2014 Architect hard hold).",
+      "notes": "Trigger-manifest cbux.feedback_ingress + cbux.experience_audit; mailbox carries 4 active WAIT routing entries. Bootstrapped tic 89; never operationally exercised. Activation probe candidate when useful (do NOT retire — Architect hard hold).",
       "resolved_at_tic": 222,
       "resolution_artifact": "audit-logs/governance/cgg-review-tic222-decisions.md",
       "resolution_verdict": "APPROVE BOUNDED ACTIVATION PROBE; HARD HOLD on retirement"
@@ -59,7 +59,7 @@
       "resolved_at_tic": 220,
       "resolution_artifact": "audit-logs/governance/cgg-civil-cadence-restart-receipt-tic220.md",
       "resolution_verdict": "RESTART_ONE_CIVIL_STATUS_CHECK",
-      "notes": "Single invocation tic 51 (March 14, 2026); silent 169 tics. Bypass condition resolved at tic 220 \u2014 civil-engineer dispatched for one bounded `civil_status_check` (depth: standard); produced 2 novel findings Mogul + matrix + validation artifact missed (registry_audit: 3 unregistered specs `ent_arena_report_agent`, `ent_pattern_curator_direct`, `ent_pattern_curator_meta`; health_check: duplicate signal in tic-220 conformation explaining 3-vs-4 active-signals disagreement). Independent-audit-value test PASSED. Cadence restart recommended \u2014 bypass was a Mogul cycle-detection gap, not a civil-spec defect. Activity state advanced from `dormant_bypassed` to `episodic`. WAIT envelopes unrelated to trigger residue (see cgg-mailbox-hygiene-docket-tic220.md C2). Mailbox state held; 4 stale WAITs await Architect mailbox-hygiene authorization."
+      "notes": "Single invocation tic 51 (March 14, 2026); silent 169 tics. Bypass condition resolved at tic 220 — civil-engineer dispatched for one bounded `civil_status_check` (depth: standard); produced 2 novel findings Mogul + matrix + validation artifact missed (registry_audit: 3 unregistered specs `ent_arena_report_agent`, `ent_pattern_curator_direct`, `ent_pattern_curator_meta`; health_check: duplicate signal in tic-220 conformation explaining 3-vs-4 active-signals disagreement). Independent-audit-value test PASSED. Cadence restart recommended — bypass was a Mogul cycle-detection gap, not a civil-spec defect. Activity state advanced from `dormant_bypassed` to `episodic`. WAIT envelopes unrelated to trigger residue (see cgg-mailbox-hygiene-docket-tic220.md C2). Mailbox state held; 4 stale WAITs await Architect mailbox-hygiene authorization."
     },
     "containment-operator": {
       "status": "current",
@@ -79,8 +79,8 @@
       "last_validated_tic": 220,
       "validation_source": "audit-logs/agent-mailboxes/ent_breyden/inbound/cgg-runtime-agent-matrix-tic219.md",
       "decision_required": null,
-      "notes": "Model upgraded haiku \u2192 sonnet at tic 219 per federation KI tic 207 (spec-runtime alignment). /loop skill target. Append-only queue.jsonl semantics with latest-entry-per-id-wins read.",
-      "last_invoked_tic": 731
+      "notes": "Model upgraded haiku → sonnet at tic 219 per federation KI tic 207 (spec-runtime alignment). /loop skill target. Append-only queue.jsonl semantics with latest-entry-per-id-wins read.",
+      "last_invoked_tic": 732
     },
     "crisis-sentinel": {
       "status": "current",
@@ -200,7 +200,7 @@
       "last_validated_tic": 220,
       "validation_source": "audit-logs/agent-mailboxes/ent_breyden/inbound/cgg-runtime-agent-matrix-tic219.md",
       "decision_required": null,
-      "notes": "/review skill subagent dispatch. Sync evidence at tic 209 + tic 210. Properly upgraded haiku \u2192 sonnet per tic 207 federation alignment. Exemplar mechanical executor.",
+      "notes": "/review skill subagent dispatch. Sync evidence at tic 209 + tic 210. Properly upgraded haiku → sonnet per tic 207 federation alignment. Exemplar mechanical executor.",
       "last_invoked_tic": 717
     },
     "ripple-assessor": {
@@ -228,7 +228,18 @@
       "resolved_at_tic": 220,
       "resolution_artifact": "audit-logs/governance/cgg-videographer-mailbox-decision-tic220.md",
       "resolution_verdict": "INSCRIBE_OFFICE_HOLDER_SPLIT (Option B)",
-      "notes": "Bounded-delegation lesson inscribed at tic 219 per federation KI tic 198. Office/Holder mailbox split inscribed tic 220 \u2014 `ent_office_videographer` = office entity (persistent constitutional surface, governance/broadcast deliveries); `ent_videographer` = holder alias (operational dispatch target, runtime envelopes). Both mailboxes persist; no movement, deletion, or migration. First explicit Office/Holder mailbox inscription in the federation; pattern is a candidate for application to other constitutional offices."
+      "notes": "Bounded-delegation lesson inscribed at tic 219 per federation KI tic 198. Office/Holder mailbox split inscribed tic 220 — `ent_office_videographer` = office entity (persistent constitutional surface, governance/broadcast deliveries); `ent_videographer` = holder alias (operational dispatch target, runtime envelopes). Both mailboxes persist; no movement, deletion, or migration. First explicit Office/Holder mailbox inscription in the federation; pattern is a candidate for application to other constitutional offices."
+    },
+    "harpoon-drain-citizen": {
+      "status": "current",
+      "activity_state": "mechanical_worker_with_judgment",
+      "parity_state": "verified",
+      "routing_state": "delegated_only",
+      "last_validated_tic": 732,
+      "validation_source": "audit-logs/governance/harpoon-office/drain-receipts/bk-citizen-boot-dedup-fanout-keying.json (Probe E roster census + the t732 registration seat pass)",
+      "decision_required": null,
+      "notes": "Office-citizen driver for the Office of the Harpoonv2 §14 verbs (authored+installed t731, CGG 9f399cf+9d332f2). Manifest entry added t732 closing one of the 7 roster-vs-manifest misses measured by Probe E; federation registry seat ent_harpoon_drain_citizen minted the same pass (unregistered-seat silent-no-boot cure, 16 spawns/0 hook boots measured).",
+      "last_invoked_tic": 732
     }
   }
 }

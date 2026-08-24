@@ -640,7 +640,26 @@ def main() -> int:
         return 0
 
     if standing != "citizen":
-        return 0  # "none" — ad-hoc/unknown, not citizen-shaped, not a known worker type
+        # "none" — ad-hoc/unknown, not citizen-shaped, not a known worker type. ONE case
+        # deserves a loud line before the silence (M3, tic 732 — the mute branch caused
+        # measured false evidence: 16 spawns / 0 boots read as "keying defect" because
+        # no negative signal existed anywhere): the agent_type HAS a roster .md but NO
+        # registry entry — an installed driver whose seat was never registered. Sibling
+        # branches already log; this one alone was mute.
+        if standing == "none" and agent_type:
+            for roster_dir in (
+                zone_root / "canonical_developer" / "context-grapple-gun" / "cgg-runtime" / "agents",
+                Path.home() / ".claude" / "agents",
+            ):
+                if (roster_dir / f"{agent_type}.md").is_file():
+                    sys.stderr.write(
+                        f"[citizen-boot] SILENT-NO-BOOT: agent_type '{agent_type}' has a roster "
+                        f".md but no actor-registry entity "
+                        f"(expected ent_{str(agent_type).replace('-', '_')}) — register the seat "
+                        f"or every citizen of this type boots cold silently\n"
+                    )
+                    break
+        return 0
 
     # standing == "citizen": full recognized-citizen boot (inbox + worldview + pointers).
     scanner = resolve_inbox_envelope()
