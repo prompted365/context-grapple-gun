@@ -52,6 +52,27 @@ node --input-type=module -e "
   console.log('contagion:', out.meaningState, '|', 'nearest:', out.nearest.length, '|', 'epitaph:', out.nearest_epitaph?.kind ?? 'none');
 " || { echo "ERR: engine invocation failed" >&2; exit 1; }
 
+# 2.5 Discrimination-receipt step (bk-harmony-discrimination-receipt, ratified
+#     /review 733 as the discrimination-axis ray on
+#     ledger.md#can-it-eat-dataflow-liveness-predicate; fail-soft). Stamps the
+#     emitted packet with last_change_tic + consecutive_identical_count over the
+#     FULL retained history + the declared discriminating condition, so a
+#     per-tic-consumed output can no longer read as a per-tic READING without
+#     disclosing whether it has ever moved.
+#
+#     ⟜ RIDER — reproduced verbatim, /review 733 + the A3-732 standing rule ⟜
+#     (carried on unbroken lines so the verbatim rider survives grep, unwrapped)
+# RIDER: no harmony/contagion disposition may be READ as discriminating until built AND ruled — your build is the first half; the ruling comes later at /review
+# STANDING RULE: Standing rule carried forward: do not read harmony/contagion dispositions as discriminating until the receipt fields exist and the A3-732 cause is ruled.
+#     The block therefore carries ratified:false and NO consumer reads it. This
+#     step REPORTS constancy; it never diagnoses the cause (t589-frozen
+#     coordinates / no TTL is the A3-732 investigation, deliberately unruled).
+#     The write lives in the outer ring by kernel contract — the engine stays a
+#     pure function (meta.pure:true / meta.writes:false).
+echo "→ discrimination-receipt.py (receipt step, fail-soft; ratified:false, emit-side only)"
+python3 "$SCRIPT_DIR/discrimination-receipt.py" --lane contagion --disposition "$DISPOSITION_PATH" || \
+  echo "WARN contagion: discrimination receipt step failed — disposition stands without a receipt block (fail-soft)" >&2
+
 # 3. Update current-pointer.json (compact latest pointer)
 python3 <<PY
 import json, time, pathlib

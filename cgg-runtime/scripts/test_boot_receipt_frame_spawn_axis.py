@@ -7,9 +7,13 @@ WHAT LANDED AND WHAT DID NOT
   (+) subagent-citizen-boot.py threads the harness `agent_id` into BOTH lanes
   (M2-734, hard prerequisite, same atom) receipt-drops-sweep.py hashes spawn_id
 
-  NOT LANDED, deliberately: (a) hooks/boot-read-gate.py does NOT declare a spawn on its
-  PreToolUse gate-check. This suite therefore proves the WRITERS, never the cure. See
-  test_the_rider_holds — the not-cured claim is asserted, not merely written in prose.
+  (a) hooks/boot-read-gate.py — LANDED SEPARATELY AT TIC 735, after this suite was authored.
+  Receipt: audit-logs/governance/harpoon-office/cable-receipts/bk-boot-gate-per-spawn-axis-reader-tic735.json
+  This suite's rider class was written to FAIL the day that happened; it did, and it has been
+  INVERTED (TheRiderIsRETIRED) rather than deleted — the retired rider text is quoted there so
+  the retirement is auditable. The surviving half of the rider is the SOURCE-vs-INSTALLED
+  boundary: the cure is in canonical source, and the harness fires ~/.claude/hooks/, so the
+  live gate is cured only after the seat's commit + sync.
 
 THE TWO ARMS, AND WHY THERE ARE ONLY TWO. An agent cannot read its own harness `agent_id` from
 its environment (measured at tic 735: no agent/spawn variable is exported to the Bash lane), and
@@ -319,26 +323,86 @@ class TheAtomHoldsEndToEnd(unittest.TestCase):
 # ───────────────────────────────── the rider, asserted ─────────────────────────────────
 
 @unittest.skipIf(hk is None, "hook not present")
-class TheRiderHolds(unittest.TestCase):
-    """"This increment lands the WRITERS only. It does NOT close A2-733: the live PreToolUse gate
-    path still resolves on (entity, tic) — entity-grain — until the reader increment (M1-734 leg a)
-    lands separately. Naming this cured would be naming a gated thing live."
+class TheRiderIsRETIRED(unittest.TestCase):
+    """THE RIDER THIS CLASS USED TO HOLD, quoted so its retirement is auditable rather than a
+    silent deletion:
 
-    Asserted mechanically so the rider cannot rot into prose that outlives its truth."""
+        "This increment lands the WRITERS only. It does NOT close A2-733: the live PreToolUse
+         gate path still resolves on (entity, tic) — entity-grain — until the reader increment
+         (M1-734 leg a) lands separately. Naming this cured would be naming a gated thing live."
 
-    def test_boot_read_gate_does_NOT_declare_a_spawn(self):
-        gate = _HERE.parent / "hooks" / "boot-read-gate.py"
-        if not gate.is_file():
+    RETIRED AT TIC 735 BY THE LANDING OF LEG (a). Receipt:
+    audit-logs/governance/harpoon-office/cable-receipts/bk-boot-gate-per-spawn-axis-reader-tic735.json
+
+    The rider was authored to FAIL the day leg (a) landed — it asserted `--spawn-id` ABSENT from
+    boot-read-gate.py — and it did exactly that, which is why it is being inverted rather than
+    deleted. It is replaced by the assertion of the NEW truth, so this suite keeps saying
+    something falsifiable about the reader instead of going quiet on it. The scope boundary the
+    rider protected still stands and is asserted below: SOURCE-level cure is not INSTALLED-level
+    cure until the seat commits + syncs (~/.claude/hooks/ is what the harness actually fires)."""
+
+    _GATE = _HERE.parent / "hooks" / "boot-read-gate.py"
+
+    def test_boot_read_gate_NOW_declares_a_spawn(self):
+        """The inversion. Leg (a) landed: the reader declares."""
+        if not self._GATE.is_file():
             self.skipTest("boot-read-gate.py not present")
-        src = gate.read_text(encoding="utf-8")
-        self.assertNotIn("--spawn-id", src,
-                         "boot-read-gate.py now declares a spawn — leg (a) has landed, so this "
-                         "suite's rider is stale: update it deliberately, do not delete it")
+        src = self._GATE.read_text(encoding="utf-8")
+        self.assertIn("--spawn-id", src,
+                      "boot-read-gate.py no longer declares a spawn — leg (a) has been REVERTED, "
+                      "and A2-733 is re-opened at the source")
 
-    def test_the_writers_DO_declare_one(self):
-        """The other half of the same fact: writers landed, reader did not."""
+    def test_the_declaration_is_on_the_gate_check_argv_not_merely_in_a_comment(self):
+        """A rider retired by a MENTION would be worse than the rider. The token must reach the
+        subprocess argv — asserted structurally, not by prose match."""
+        if not self._GATE.is_file():
+            self.skipTest("boot-read-gate.py not present")
+        gate = _load(self._GATE, "boot_read_gate_rider_ro")
+        seen = {}
+
+        class _R:
+            returncode, stdout, stderr = 0, "", ""
+
+        def fake_run(cmd, *a, **kw):
+            seen["cmd"] = list(cmd)
+            return _R()
+
+        real = gate.subprocess.run
+        gate.subprocess.run = fake_run
+        try:
+            gate.decide(json.dumps({
+                "tool_name": "Edit",
+                "tool_input": {"file_path": "audit-logs/governance/constitution-ledger/ledger.md"},
+                "agent_id": "agent_stepper_1", "agent_type": "cpr-stepper",
+                "session_id": "sess-RIDER",
+            }))
+        finally:
+            gate.subprocess.run = real
+        cmd = seen.get("cmd", [])
+        self.assertIn("--spawn-id", cmd, f"gate-check argv carries no spawn declaration: {cmd}")
+        self.assertEqual(cmd[cmd.index("--spawn-id") + 1], "agent_stepper_1")
+
+    def test_the_writers_STILL_declare_one(self):
+        """Unchanged half: the writers landed at tic 735 and must not have regressed."""
         self.assertIn("--spawn-id", _OW_PATH.read_text(encoding="utf-8"))
         self.assertIn("spawn_id", _HOOK_PATH.read_text(encoding="utf-8"))
+
+    def test_the_SOURCE_vs_INSTALLED_boundary_is_still_real(self):
+        """THE RIDER'S SURVIVING HALF. The cure lands in canonical SOURCE; the harness fires the
+        INSTALLED copy under ~/.claude/hooks/. Until the seat commits and syncs, the live gate is
+        whatever the installed tree holds. This test does not demand parity (the citizen may not
+        commit) — it asserts the boundary is MEASURABLE, so 'source cured' can never be silently
+        read as 'gate cured'."""
+        installed = Path.home() / ".claude" / "hooks" / "boot-read-gate.py"
+        if not installed.is_file():
+            self.skipTest("no installed copy to compare against")
+        src_declares = "--spawn-id" in self._GATE.read_text(encoding="utf-8")
+        inst_declares = "--spawn-id" in installed.read_text(encoding="utf-8")
+        self.assertTrue(src_declares, "source must declare — leg (a) landed here")
+        if not inst_declares:
+            self.assertNotEqual(
+                src_declares, inst_declares,
+                "install parity is OWED and this asymmetry is the evidence of it")
 
 
 @unittest.skipIf(br is None, "boot-receipt.py not present")

@@ -18,6 +18,18 @@ POSTURE — NARROW + FAIL-CLOSED (Architect, tic 406):
     receipt for the current tic BLOCKS a governed mutation (PreToolUse exit 2). Perception
     debt cannot authorize governance mutation. The audited, non-silent escape is an
     OVERRIDE receipt (boot-receipt.py override).
+  * PER-SPAWN when — and only when — the acting entity was resolved FROM a spawn (tic 735,
+    M1-734 leg (a), closing A2-733 at the source). One entity fans out to N spawns in a wave;
+    keyed on (entity, tic) alone the FIRST sibling to prove perception proved it for ALL of
+    them, cold ones included. This hook now declares `--spawn-id` on its gate-check, so a
+    sibling's receipt can no longer authorize this spawn's writes. The UNDECLARED arm is
+    load-bearing PERMANENTLY, not transitionally: the primary orchestrator boots through
+    session-restore.sh's SessionStart seam, which holds no harness agent_id and never will,
+    and a task_scoped_worker's outputs are lead-owned by design. See _resolve_actor.
+    INSTALL BOUNDARY (read this before calling A2-733 closed): the harness fires the INSTALLED
+    copy under ~/.claude/hooks/, not this file. Source-cured is not gate-cured until the seat
+    commits and syncs — the citizen that landed this may not commit. Receipt:
+    audit-logs/governance/harpoon-office/cable-receipts/bk-boot-gate-per-spawn-axis-reader-tic735.json
   * FAIL-SOFT on the HOOK'S OWN errors — a bad envelope, an unresolved tic, a missing
     receipt SCRIPT, any internal exception → exit 0 (ALLOW). A gate bug must never wedge
     the system; only a clean determination of perception-debt blocks. (Distinguishes
@@ -338,10 +350,55 @@ def _resolve_from_map(agent_id: str, session_id: str, agent_type: str,
     return None
 
 
-def _entity(evt: dict) -> str:
-    """Resolve the ACTING entity for actor-keyed gating (tic 579). Precedence, per the
-    build authorization: SubagentStart map FIRST, then direct payload resolution, then the
-    lead default — clean-proof-first ordering with the audited override untouched downstream."""
+# ── per-spawn declaration (tic 735 · M1-734 leg (a) · A2-733) ────────────────────────────
+# THE DEFECT THIS CLOSES: the gate resolved per (entity, tic) with NO per-spawn axis, so one
+# entity fanning out to N spawns in a wave had its FIRST sibling's passing receipt silently
+# authorize EVERY sibling — including cold ones whose own receipts honestly said they read
+# nothing (A2-733, measured at tic 733). The engine-side axis landed tic 734; the emit
+# PRESCRIPTIONS (both receipt lanes) landed tic 735; this is the READER that finally declares.
+
+
+def _spawn_of(agent_id: str) -> str:
+    """The PER-SPAWN coordinate to declare, or '' for 'no spawn to declare'.
+
+    An `ent_`-prefixed agent_id is an ENTITY coordinate (the pre-tic-579 legacy shape honored
+    at step 2.5 below), NEVER a per-spawn one — declaring it would demand a receipt keyed with
+    an entity id, which no emit prescription ever produces (both frames render the HARNESS
+    agent_id). Empty degrades to UNDECLARED, never to `--spawn-id ''`: an unmatchable key
+    masquerading as a spawn is strictly worse than an honest absence."""
+    a = str(agent_id or "")
+    if not a or a.startswith("ent_"):
+        return ""
+    return a
+
+
+def _resolve_actor(evt: dict) -> tuple:
+    """(acting_entity, declared_spawn_id) — the tic-579 entity resolution, now returning the
+    spawn coordinate BESIDE it because the two are COUPLED and must not be resolved apart.
+
+    WHY THE SPAWN IS NOT SIMPLY `evt.agent_id` (the measured refinement, tic 735). The spawn
+    axis answers the SELECTION question "is this receipt MINE?", so it may be declared only
+    when the spawn is the coordinate that IDENTIFIED the actor. Every path that falls through
+    to the LEAD DEFAULT is authorized by the LEAD's receipt — and the lead's receipt is
+    UNKEYED PERMANENTLY, because the primary boots through session-restore.sh's SessionStart
+    seam, which holds no harness agent_id and never will (M1-735: "the undeclared arm is
+    load-bearing FOREVER, not transitionally"). Declaring a spawn against the lead's entity
+    demands a receipt that CANNOT EXIST, which is a guaranteed fail-closed.
+
+    A task_scoped_worker is EXACTLY that shape, and it is not hypothetical:
+      * subagent-citizen-boot.py records the actor map for `standing == "citizen"` ONLY
+        (line 678), so a worker has no map entry and lands on the lead default here;
+      * its worker branch returns (lines 693-733) BEFORE any receipt frame is rendered — it
+        gets a one-line prose acknowledgment, never a `boot-receipt.py emit` — so a worker can
+        never hold a spawn-keyed receipt at all;
+      * a worker's outputs are LEAD-OWNED BY DESIGN and stay authorized by the lead's receipt.
+    Measured at tic 735 on the real corpus:
+        gate-check --entity ent_homeskillet --tic 735 --spawn-id <a real worker spawn> -> exit 3
+    Declaring on non-empty agent_id ALONE would therefore fail-close every dispatched worker's
+    governed mutation on first fire — the false-RED mirror of the t732 faces-without-their-fence
+    booby-trap that this whole increment was serialized to avoid.
+
+    The rule, stated once: DECLARE IFF THE ENTITY WAS RESOLVED FROM THIS SPAWN."""
     agent_id = evt.get("agent_id") or evt.get("agentId") or ""
     agent_type = (
         evt.get("agent_type") or evt.get("agentType")
@@ -353,22 +410,34 @@ def _entity(evt: dict) -> str:
     # without agent_id/agent_type there is no subagent to thread. This guard is what keeps the
     # map-first ordering from ever mis-resolving the lead onto a sibling's mapping.
     if not agent_id and not agent_type:
-        return "ent_homeskillet"
+        return "ent_homeskillet", ""
     # (1) durable SubagentStart mapping FIRST — the acting entity the boot seam recorded.
     mapped = _resolve_from_map(str(agent_id), str(session_id), str(agent_type))
     if mapped:
-        return mapped
+        return mapped, _spawn_of(agent_id)
     # (2) direct payload resolution — agrees with the map by construction; the fail-soft net
     #     for a boot whose map write was lost but whose payload still resolves to a citizen.
     direct = _resolve_from_payload(str(agent_id), str(agent_type), _valid_entities())
     if direct:
-        return direct
+        return direct, _spawn_of(agent_id)
     # (2.5) legacy trust — an explicitly ent_*-prefixed agent_id is honored as-is even when
-    #       registry + map are both unavailable (preserves exact pre-tic-579 behavior).
+    #       registry + map are both unavailable (preserves exact pre-tic-579 behavior). The
+    #       id is an ENTITY coordinate here, so there is no spawn to declare.
     if str(agent_id).startswith("ent_"):
-        return str(agent_id)
-    # (3) lead default — task_scoped_worker / unregistered / unresolved: lead-owned outputs.
-    return "ent_homeskillet"
+        return str(agent_id), ""
+    # (3) lead default — task_scoped_worker / unregistered / unresolved: lead-owned outputs,
+    #     authorized by the LEAD's (permanently unkeyed) receipt. NEVER declare a spawn here.
+    return "ent_homeskillet", ""
+
+
+def _entity(evt: dict) -> str:
+    """Resolve the ACTING entity for actor-keyed gating (tic 579). Precedence, per the
+    build authorization: SubagentStart map FIRST, then direct payload resolution, then the
+    lead default — clean-proof-first ordering with the audited override untouched downstream.
+
+    Thin wrapper over _resolve_actor so the entity axis is UNCHANGED by the tic-735 spawn
+    axis: same inputs, same precedence, same string out."""
+    return _resolve_actor(evt)[0]
 
 
 def decide(raw: str) -> tuple:
@@ -388,7 +457,7 @@ def decide(raw: str) -> tuple:
         tic = _current_tic()
         if tic is None:
             return False, ""  # can't resolve tic → fail-soft OPEN (gate bug, not debt)
-        entity = _entity(evt)
+        entity, spawn = _resolve_actor(evt)
         target = fp or cmd
         # Operative tic = authoritative SESSION STATE (current_tic, resolved above). The ONLY
         # content-derived re-key is the born work-tic, and it keys on the WRITE TARGET (the born
@@ -402,10 +471,14 @@ def decide(raw: str) -> tuple:
             tic = _wt
         if not _BOOT_RECEIPT.exists():
             return False, ""  # receipt script absent → fail-soft OPEN
-        r = subprocess.run(
-            ["python3", str(_BOOT_RECEIPT), "gate-check",
-             "--entity", entity, "--tic", str(tic), "--path", target],
-            capture_output=True, text=True, timeout=10)
+        argv = ["python3", str(_BOOT_RECEIPT), "gate-check",
+                "--entity", entity, "--tic", str(tic), "--path", target]
+        # THE DECLARATION (tic 735 · leg (a)). Appended ONLY when the entity was resolved FROM
+        # this spawn; an UNDECLARED call is byte-identical to the pre-735 argv, so the primary
+        # orchestrator's seam and every lead-owned worker keep exactly today's behavior.
+        if spawn:
+            argv += ["--spawn-id", spawn]
+        r = subprocess.run(argv, capture_output=True, text=True, timeout=10)
         # exit 0 = allow, 3 = block; anything else = gate error → fail-soft OPEN
         if r.returncode == 0:
             return False, ""
@@ -416,16 +489,29 @@ def decide(raw: str) -> tuple:
             reason = json.loads(r.stdout).get("reason", "")
         except Exception:
             pass
+        # A fail-closed gate's remediation template must teach the COMPLETE pass-state
+        # (cgg-ledger#gate-example-template-must-teach-complete-pass-state). When the check was
+        # PER-SPAWN, an emit command without --spawn-id mints another unkeyed receipt that fails
+        # this same gate on retry — a self-DoS loop. Both additions render "" when UNDECLARED, so
+        # the legacy message is byte-identical.
+        spawn_note = (
+            f"\nThis check is PER-SPAWN (tic 735 · A2-733): it resolved YOUR spawn {spawn}, and a "
+            f"sibling's receipt cannot authorize it. Your emit MUST carry --spawn-id {spawn}.\n"
+            if spawn else ""
+        )
+        spawn_flag = f" \\\n    --spawn-id {spawn}" if spawn else ""
         msg = (
             "Perception debt cannot authorize governance mutation.\n\n"
             f"The boot packet was not receipted as fully read (surface-typed: prose gapless, "
             f"JSON/JSONL registries terminal-valve / latest-entry-per-id) for tic {tic} "
-            f"[{entity}].\nGate reason: {reason}\n\n"
+            f"[{entity}].\nGate reason: {reason}\n"
+            f"{spawn_note}\n"
             "Emit a complete boot-read receipt, then retry (the gate blocks ONLY on "
             "required_unread_ranges — declared apophatic negative space is not debt):\n"
             f"  python3 {_BOOT_RECEIPT} emit --entity {entity} --tic {tic} \\\n"
             "    --understood ... --constraint ... --abstention ... --first-action ... \\\n"
-            "    --full-boot-read --boot-read-mode full --chunking surface_typed\n"
+            "    --full-boot-read --boot-read-mode full --chunking surface_typed"
+            f"{spawn_flag}\n"
             "  (a ranged/partial read also owes --apophatic-bound + --pertinence-rationale)\n"
             "Or, if a full read is genuinely impossible, record an AUDITED override (non-silent):\n"
             f"  python3 {_BOOT_RECEIPT} override --actor {entity} --tic {tic} "
@@ -561,6 +647,12 @@ def _self_test() -> int:
     check("Write a non-born source file → no work-tic re-key",
           _born_write_target_tic("Write", "src/x.rs", "") is None)
 
+    # _spawn_of — the per-spawn coordinate filter (tic 735)
+    check("_spawn_of: a harness spawn id is declarable", _spawn_of("aa0ffaf0f00e35df6") == "aa0ffaf0f00e35df6")
+    check("_spawn_of: empty → '' (UNDECLARED, never --spawn-id '')", _spawn_of("") == "")
+    check("_spawn_of: None → '' (UNDECLARED)", _spawn_of(None) == "")
+    check("_spawn_of: an ent_* id is an ENTITY coordinate, not a spawn", _spawn_of("ent_cpr_stepper") == "")
+
     # acting-entity resolution — tic 579 (bk-identity-threading-subagent-toolcalls).
     # THE FIX: a dispatched citizen's tool call resolves the CITIZEN, not the session lead.
     import tempfile
@@ -603,6 +695,64 @@ def _self_test() -> int:
             check("_entity: task_scoped_worker (general-purpose, no map) → ent_homeskillet (lead-owned)",
                   _entity({"agent_id": "agent_w_3", "agent_type": "general-purpose",
                            "session_id": "sess-W"}) == "ent_homeskillet")
+            # ── per-spawn declaration — tic 735 (M1-734 leg (a) · A2-733). THE COUPLING:
+            # declare IFF the entity was resolved FROM this spawn. Every lead-default path
+            # declares NOTHING, because the lead's receipt is unkeyed permanently.
+            check("SPAWN: a mapped citizen DECLARES its spawn (the A2-733 cure)",
+                  _resolve_actor({"agent_id": "agent_stepper_1", "session_id": "sess-XYZ"})
+                  == ("ent_cpr_stepper", "agent_stepper_1"))
+            check("SPAWN: a citizen resolved by direct payload DECLARES its spawn",
+                  _resolve_actor({"agent_id": "agent_new_2", "agent_type": "cpr-stepper",
+                                  "session_id": "sess-OTHER"}) == ("ent_cpr_stepper", "agent_new_2"))
+            check("SPAWN: task_scoped_worker DECLARES NOTHING (lead-owned; the lead's receipt is "
+                  "unkeyed forever — declaring here is a guaranteed fail-closed)",
+                  _resolve_actor({"agent_id": "agent_w_3", "agent_type": "general-purpose",
+                                  "session_id": "sess-W"}) == ("ent_homeskillet", ""))
+            check("SPAWN: the PRIMARY's seam (no agent_id/type) DECLARES NOTHING — undeclared arm "
+                  "is load-bearing FOREVER (session-restore.sh can never resolve a spawn)",
+                  _resolve_actor({"session_id": "sess-XYZ"}) == ("ent_homeskillet", ""))
+            check("SPAWN: a legacy ent_*-prefixed agent_id is an ENTITY coordinate, never a spawn",
+                  _resolve_actor({"agent_id": "ent_ripple_assessor"})[1] == "")
+            check("SPAWN: _entity is UNCHANGED by the axis (same string as _resolve_actor[0])",
+                  all(_entity(e) == _resolve_actor(e)[0] for e in (
+                      {"session_id": "sess-XYZ"},
+                      {"agent_id": "agent_stepper_1", "session_id": "sess-XYZ"},
+                      {"agent_id": "agent_new_2", "agent_type": "cpr-stepper", "session_id": "s"},
+                      {"agent_id": "agent_w_3", "agent_type": "general-purpose", "session_id": "s"},
+                      {"agent_id": "ent_ripple_assessor"})))
+
+            # ── THE DECLARATION MUST REACH THE ARGV, not merely the source text ──
+            # MEASURED at tic 735: with the two-line declaration deleted from this file, every
+            # check above stayed GREEN — the resolver still returns the spawn, it just never
+            # reaches the subprocess. A selftest that cannot falsify its own cure is the shape
+            # this office exists to catch, so the wiring is asserted at the seam it actually
+            # crosses. subprocess.run is captured; nothing is executed.
+            _real_run, _seen = subprocess.run, {}
+
+            class _FakeCompleted:
+                returncode, stdout, stderr = 0, "", ""
+
+            def _capture(cmd, *a, **kw):
+                _seen["cmd"] = list(cmd)
+                return _FakeCompleted()
+
+            globals()["subprocess"].run = _capture
+            try:
+                _gov = {"file_path": "audit-logs/governance/constitution-ledger/ledger.md"}
+                decide(json.dumps({"tool_name": "Edit", "tool_input": _gov,
+                                   "agent_id": "agent_stepper_1", "session_id": "sess-XYZ"}))
+                _cit = _seen.get("cmd", [])
+                decide(json.dumps({"tool_name": "Edit", "tool_input": _gov,
+                                   "agent_id": "agent_w_3", "agent_type": "general-purpose",
+                                   "session_id": "sess-W"}))
+                _wrk = _seen.get("cmd", [])
+            finally:
+                globals()["subprocess"].run = _real_run
+            check("ARGV: a mapped citizen's gate-check CARRIES --spawn-id <its spawn>",
+                  "--spawn-id" in _cit and _cit[_cit.index("--spawn-id") + 1] == "agent_stepper_1")
+            check("ARGV: a task_scoped_worker's gate-check carries NO --spawn-id (byte-equal to "
+                  "pre-735 — declaring here would demand the lead's impossible keyed receipt)",
+                  "--spawn-id" not in _wrk)
         finally:
             if _prev is None:
                 os.environ.pop(_ACTOR_MAP_ENVVAR, None)
