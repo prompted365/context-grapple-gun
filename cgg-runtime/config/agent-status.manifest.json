@@ -239,7 +239,7 @@
       "validation_source": "audit-logs/governance/harpoon-office/drain-receipts/bk-citizen-boot-dedup-fanout-keying.json (Probe E roster census + the t732 registration seat pass)",
       "decision_required": null,
       "notes": "Office-citizen driver for the Office of the Harpoonv2 \u00a714 verbs (authored+installed t731, CGG 9f399cf+9d332f2). Manifest entry added t732 closing one of the 7 roster-vs-manifest misses measured by Probe E; federation registry seat ent_harpoon_drain_citizen minted the same pass (unregistered-seat silent-no-boot cure, 16 spawns/0 hook boots measured).",
-      "last_invoked_tic": 732
+      "last_invoked_tic": 733
     }
   }
 }

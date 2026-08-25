@@ -187,13 +187,7 @@ The human decides whether to proceed or absorb.
   "lesson_type": "subject|process|meta|pattern|invariant_refinement|classification_correction|doctrine_gap",
   "confidence_tier": "tentative|reinforced|convergent|measured|measured_single_locus",
   "origin_context": "session|scanner|hook|arena|external_signal",
-  "relations": {
-    "supports": [],
-    "contradicts": [],
-    "refines": [],
-    "supersedes": [],
-    "depends_on": []
-  },
+  "relations": ["refines:<anchor-or-id>", "sibling:<anchor-or-id>", "distinct_from:<anchor-or-id>"],
   "source": "file:line",
   "source_date": "YYYY-MM-DD",
   "band": "COGNITIVE",
@@ -224,7 +218,7 @@ The following fields are author-declared at capture time and must survive all st
 - `relations` — typed edges (supports, contradicts, refines, supersedes, depends_on)
 - `provenance_class` — construction_authoritative | friction_born (declared-never-inferred; keys the maturity gate above, nothing else)
 
-When advancing a CPR, copy these fields forward. If absent on older queue entries, default to: `lesson_type: null`, `confidence_tier: "tentative"`, `origin_context: "session"`, `relations: {}`, `provenance_class: "friction_born"` (treat-as-default — do not write the field onto legacy rows).
+When advancing a CPR, copy these fields forward. If absent on older queue entries, default to: `lesson_type: null`, `confidence_tier: "tentative"`, `origin_context: "session"`, `relations: []`, `provenance_class: "friction_born"` (treat-as-default — do not write the field onto legacy rows). SHAPE HISTORY (A1-732, bk-stepper-relations-passthrough-default-shape-drift): both mint sites birthed `relations` as a DICT of typed edge-lists through ~t509/t511 and as a flat LIST of `"edge:target"` strings from t723 onward — a clean tic cut, zero overlap. The live frontier is list-shaped; the documented default follows the current writer shape. Treat legacy dict rows as-found — copy forward verbatim, never migrate the shape.
 
 The enrichment scanner or ripple assessor may upgrade `confidence_tier` (tentative → reinforced → convergent) based on cross-session evidence. The stepper passes through the upgrade but does not compute it.
 
