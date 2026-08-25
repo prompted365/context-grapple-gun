@@ -878,6 +878,17 @@ def cmd_check(surfaces, zone_root, plugin_root, output_json=False, enrich=False)
                 "new_canonical": len(new_canonical),
                 "total": len(results),
             },
+            # Scope disclosure (ledger: authoritative-set-readers inverse ray,
+            # /review 733): the ratio's denominator is the sync manifest's
+            # install_targets — cgg-runtime surfaces ONLY. Federation-rung
+            # constitutional surfaces outside the manifest are unmeasured, not
+            # clean; they are enumerated so a consumer never reads N/N as
+            # whole-federation parity.
+            "scope_disclosure": {
+                "denominator": "sync-manifest install_targets (cgg-runtime surfaces only)",
+                "excluded_unmeasured": ["autonomous_kernel/", "ak_control_room/"],
+                "note": "a pass rate inherits the scope of its manifest; excluded surfaces are UNMEASURED, not verified",
+            },
             "last_sync": {
                 "timestamp": last_sync["timestamp"] if last_sync else None,
                 "commit_sha": last_sync.get("commit_sha") if last_sync else None,
@@ -916,6 +927,8 @@ def cmd_check(surfaces, zone_root, plugin_root, output_json=False, enrich=False)
 
     print()
     print(f"  Synced: {len(synced)}  |  Drifted: {len(drifted)}  |  New: {len(new_canonical)}  |  Total: {len(results)}")
+    print("  Scope: sync-manifest install_targets (cgg-runtime surfaces only) — "
+          "autonomous_kernel/ and ak_control_room/ are OUTSIDE this denominator: UNMEASURED, not verified")
 
     if off_reference:
         print(f"  ⚠ PARITY REFERENCE IS '{guard['branch']}', NOT THE SOLE-WRITER "

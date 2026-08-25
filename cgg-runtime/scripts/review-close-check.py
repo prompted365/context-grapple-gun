@@ -2370,6 +2370,23 @@ def compute_cross_counter_disclosure(verdict_delta_block, index_delta_block):
       - the t724 over-admission route (receipt filenames carrying cpr-shaped
         tokens) inflates delta_tokens until the disposition-split patch lands
         (bk-close-check-counter-disposition-split).
+
+    AUTHORING-SIDE RULE (the reading-side note above governs how this field is
+    READ; this governs how a prediction about it is BANKED — promoted here from
+    cpr_cross_counter_prediction_computed_in_target_units_not_sibling_delta_b730,
+    /review 733, Architect-ratified): a falsifiable prediction banked against
+    one counter must be COMPUTED in that counter's own declared units over the
+    content that will actually be written — never DERIVED from the sibling
+    counter's expected delta. Before banking a cross-counter prediction at a
+    /review close, COUNT the cpr-shaped tokens in the planned inscription
+    content (promotion ids + evidence citations + receipt filenames quoted in
+    doctrine prose) and bank the token-side number from that count. The t729
+    close banked "+1/+1" by deriving tokens from verdicts; the planned
+    inscription carried TWO cpr-shaped tokens (the id AND a receipt filename)
+    and the t730 fire read +1/+2. Evidence-citation discipline makes this MORE
+    likely to recur: the richer an inscription's same-tic evidence, the more
+    sibling tokens it carries. Practice-validated t732 (banked "tokens +1,
+    COUNT AT AUTHORING") -> t733 first fire read promoted +0 / tokens +1 EXACT.
     """
     promoted_delta = (verdict_delta_block.get("delta") or {}).get("promoted")
     token_delta = index_delta_block.get("delta_tokens")
