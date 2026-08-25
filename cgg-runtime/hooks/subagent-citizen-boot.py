@@ -468,20 +468,64 @@ def current_tic(zone_root: Path) -> int:
     return mx
 
 
-def already_seen(zone_root: Path, session_id: str, entity: str, brief: str) -> bool:
-    """Dedup-on-unchanged: True if this exact brief was already injected this
-    session for this entity. Perception-layer observability state, not a signal.
+# ── dedup-store bucket cap: the PAIRED FENCE for the per-spawn key (tic 734) ──
+# The per-spawn discriminator below multiplies key cardinality by the fan-out factor, so
+# this store OWES the same bound its in-file sibling record_actor_session_map() already
+# carries (_ACTOR_MAP_BUCKET_CAP). The cap is NOT a refinement to land later: a key change
+# shipped without it repeats the t732 booby-trap measured on the substrate faces — faces
+# without their fence read false-green.
+#
+# EVICTION ORDER IS INSERTION ORDER, NOT A `ts` FIELD — and that divergence from the
+# sibling pattern is deliberate. record_actor_session_map stores a dict-per-entry carrying
+# "ts" and sorts by it; THIS store's value is a BARE DIGEST STRING compared verbatim
+# (`state.get(key) == digest`). Adding a ts would be a value-schema migration on a live
+# store, and every pre-migration key would mis-compare and re-inject — a mass cold-boot
+# regression to fund a sort key. Python dicts preserve insertion order and json.load
+# preserves file order, so "keep the last N" IS newest-preserving with the value schema
+# untouched. A digest UPDATE pops-then-sets so the order is last-WRITTEN, not first-seen.
+# HONEST LIMIT: a key that keeps MATCHING is never rewritten (the early return is the
+# whole point of the dedup), so a hot-but-unchanged key ages by write order, not hit order.
+_CITIZEN_BOOT_SEEN_CAP = 256
+
+
+def already_seen(
+    zone_root: Path, session_id: str, entity: str, brief: str, spawn_id: str = ""
+) -> bool:
+    """Dedup-on-unchanged: True if this exact brief was already injected for THIS SPAWN
+    (session:entity:spawn_id). Perception-layer observability state, not a signal.
+
+    PER-SPAWN DISCRIMINATOR (tic 734 · bk-citizen-boot-dedup-fanout-keying, Arm A):
+    keying on session:entity ALONE made same-type wave siblings collide — the first
+    sibling of a fan-out minted the key and every later sibling read it as "already
+    injected" and booted COLD. Measured floor at tic 733: 11 cold siblings / 6 fan-out
+    waves / 4 agent types. agent_id is the harness's per-spawn identifier, so it is the
+    coordinate that makes wave siblings distinct. Under §5.1 the deduped CONDITION here
+    is "this spawn has already received this exact brief": agent_id is the condition's
+    ACTOR coordinate (not a nonce) and the payload digest below is its STATE coordinate.
+
+    THE EMPTY-spawn_id FALLBACK IS LOAD-BEARING (Volatile-Schema / Probe-Before-Bind —
+    the SubagentStart payload is externally versioned): if a harness version ever stops
+    shipping agent_id, the key degrades to EXACTLY today's formula — never worse, and
+    never to a per-call nonce (a nonce would defeat dedup outright and re-inject on
+    every spawn, which is the compactness contract's failure mode, not its cure).
     """
     seen_path = zone_root / "audit-logs" / "hooks" / "citizen-boot-seen.json"
-    key = f"{session_id}:{entity}"
+    key = f"{session_id}:{entity}:{spawn_id}" if spawn_id else f"{session_id}:{entity}"
     digest = hashlib.sha256(brief.encode("utf-8")).hexdigest()[:16]
     try:
         state = json.loads(seen_path.read_text(encoding="utf-8"))
+        if not isinstance(state, dict):
+            state = {}  # fail-soft: a non-dict store is unusable, not fatal
     except (OSError, ValueError):
         state = {}
     if state.get(key) == digest:
         return True
+    state.pop(key, None)  # pop-then-set: re-inserts at the end (last-written ordering)
     state[key] = digest
+    if len(state) > _CITIZEN_BOOT_SEEN_CAP:
+        # Newest-preserving eviction: keep the last CAP by insertion order. The key just
+        # written is at the end, so the current spawn's own entry always survives.
+        state = dict(list(state.items())[-_CITIZEN_BOOT_SEEN_CAP:])
     try:
         seen_path.parent.mkdir(parents=True, exist_ok=True)
         tmp = seen_path.with_suffix(".json.tmp")
@@ -623,7 +667,14 @@ def main() -> int:
             "boot loop — every standing closes it, scaled to its stakes."
         )
         combined = "\n".join(parts).strip()
-        if already_seen(zone_root, str(session_id), "task_scoped_worker:" + str(agent_type), combined):
+        # Per-spawn key (tic 734, Arm A). This SIBLING SITE composes its own entity
+        # surrogate and carries the IDENTICAL collision shape, so leaving it unpatched
+        # would be the named-footgun-guard-leaves-sibling-site-unfixed pattern live in
+        # this very file — fix-site and bug-sibling-site are a closed consumer set.
+        if already_seen(
+            zone_root, str(session_id), "task_scoped_worker:" + str(agent_type),
+            combined, str(agent_id),
+        ):
             return 0
         context = (
             f"[TASK-SCOPED-WORKER BOOT] (agent_type={agent_type}, tic {tic})\n" + combined
@@ -717,9 +768,43 @@ def main() -> int:
     if not brief and not inject and not world and not write_frame:
         return 0  # nothing to deliver — stay silent
 
-    # Dedup-on-unchanged over the COMBINED payload: same content, same session/entity -> quiet.
+    # Dedup-on-unchanged over the COMBINED payload: same content, same spawn -> quiet.
     combined_key = (world + "\n" + brief + "\n" + inject + "\n" + write_frame).strip()
-    if already_seen(zone_root, str(session_id), entity, combined_key):
+    if already_seen(zone_root, str(session_id), entity, combined_key, str(agent_id)):
+        # DECLARED COLD BOOT (tic 734, Arm C — companion to Arm A, never its substitute).
+        # With the per-spawn key landed this branch no longer fires for wave siblings; the
+        # residue is genuine same-spawn re-fires and the empty-agent_id fallback. That
+        # residue is EXACTLY why C ships beside A: a mute branch does not merely hide a
+        # cold boot, it manufactures a plausible wrong mechanism for whoever reads the
+        # residue later (the t732 born was written about the branch one over, lines 649-661).
+        # Bounded by spawn count, mints no signal, writes no state — the seen-store write
+        # already happened inside already_seen.
+        sys.stderr.write(
+            f"[citizen-boot] DECLARED COLD BOOT: {entity} (agent_type={agent_type}, "
+            f"tic={tic}, spawn={agent_id or '<none>'}) — dedup suppressed an identical "
+            f"brief; boot_read_mode='not_available' is this spawn's honest receipt value\n"
+        )
+        cold = (
+            f"[CITIZEN-BOOT: {entity}] DECLARED COLD BOOT (tic {tic}). You ARE a recognized "
+            f"federation citizen (standing: citizen) — but THIS spawn received no compiled "
+            f"civic orientation.\n"
+            f"CAUSE: boot dedup. An identical brief was already injected under this spawn's "
+            f"key, so the packet was SUPPRESSED, not absent — do not infer from this silence "
+            f"that you have no office, no inbox, or no standing.\n"
+            f"YOUR RECEIPT: boot_read_mode='not_available' is the honest value for this spawn "
+            f"(never 'full' — you did not read a packet here). Do not attest a gapless read "
+            f"you did not perform.\n"
+            f"COMPENSATING READ: your worldview is reproducible on demand — "
+            f"`office-worldview.py render --office {entity} --tic {tic}` (cgg-runtime/scripts/), "
+            f"or ask your lead for the packet — BEFORE acting on anything that needs civic "
+            f"orientation."
+        )
+        print(json.dumps({
+            "hookSpecificOutput": {
+                "hookEventName": "SubagentStart",
+                "additionalContext": cold,
+            }
+        }))
         return 0
 
     parts = []
@@ -783,6 +868,78 @@ def _selftest() -> int:
         ck(f"write frame carries owed field '{fld}'", f'"{fld}"' in wf)
     ck("write frame names the sweeper consumer", "sweeper" in wf.lower())
     ck("write frame states the no-Bash reason", "WITHOUT the Bash tool" in wf)
+
+    # ── Arm A: per-spawn dedup keying + the paired bucket-cap fence (tic 734) ──
+    # ROOT-PINNED under a tmpdir (Self-Locating Artifact Test Isolation): already_seen
+    # takes zone_root as a parameter, so the fixture never touches the live seen-store.
+    import tempfile
+
+    def _seen(root: Path) -> dict:
+        p = root / "audit-logs" / "hooks" / "citizen-boot-seen.json"
+        return json.loads(p.read_text(encoding="utf-8")) if p.is_file() else {}
+
+    with tempfile.TemporaryDirectory() as td:
+        zr = Path(td)
+        # THE CURE: two siblings of one wave (same session, same entity, same brief,
+        # DIFFERENT agent_id) must BOTH inject. This is the defect the covenant names.
+        a1 = already_seen(zr, "sess1", "ent_x", "BRIEF", "agentA")
+        a2 = already_seen(zr, "sess1", "ent_x", "BRIEF", "agentB")
+        ck("wave sibling #1 (spawn agentA) -> INJECT", a1 is False)
+        ck("wave sibling #2 (spawn agentB, same brief) -> INJECT not dedup", a2 is False)
+        ck("two siblings mint two distinct keys", len(_seen(zr)) == 2)
+        # REGRESSION CONTROL: a genuine re-fire of the SAME spawn with an UNCHANGED
+        # payload must STILL dedup — the §2 compactness contract is preserved.
+        ck("same spawn re-fire, unchanged brief -> DEDUP", already_seen(
+            zr, "sess1", "ent_x", "BRIEF", "agentA") is True)
+        ck("re-fire mints no new key", len(_seen(zr)) == 2)
+        # A changed payload for the same spawn re-injects (dedup is on-UNCHANGED).
+        ck("same spawn, CHANGED brief -> INJECT", already_seen(
+            zr, "sess1", "ent_x", "BRIEF-v2", "agentA") is False)
+
+    with tempfile.TemporaryDirectory() as td:
+        zr = Path(td)
+        # FALLBACK PROOF: absent agent_id degrades to EXACTLY the pre-734 formula
+        # ("{session}:{entity}", no trailing separator) — never to a per-call nonce.
+        already_seen(zr, "sess2", "ent_y", "BRIEF", "")
+        ck("empty spawn_id -> exact legacy key shape", list(_seen(zr)) == ["sess2:ent_y"])
+        ck("empty spawn_id is NOT a nonce (re-fire dedups)", already_seen(
+            zr, "sess2", "ent_y", "BRIEF", "") is True)
+        ck("empty spawn_id key count stays 1", len(_seen(zr)) == 1)
+
+    with tempfile.TemporaryDirectory() as td:
+        zr = Path(td)
+        # CAP PROOF: synthesise MORE than the cap and prove eviction is newest-preserving.
+        n = _CITIZEN_BOOT_SEEN_CAP + 44
+        for i in range(n):
+            already_seen(zr, "sessC", "ent_z", "BRIEF", f"spawn{i:04d}")
+        st = _seen(zr)
+        ck(f"cap holds store at {_CITIZEN_BOOT_SEEN_CAP} after {n} keys",
+           len(st) == _CITIZEN_BOOT_SEEN_CAP)
+        ck("eviction is NEWEST-preserving (last key survives)",
+           f"sessC:ent_z:spawn{n - 1:04d}" in st)
+        ck("eviction drops the OLDEST key", "sessC:ent_z:spawn0000" not in st)
+        ck("survivors are exactly the newest CAP, in order",
+           list(st) == [f"sessC:ent_z:spawn{i:04d}" for i in range(n - _CITIZEN_BOOT_SEEN_CAP, n)])
+
+    with tempfile.TemporaryDirectory() as td:
+        zr = Path(td)
+        # SIBLING SITE (task_scoped_worker branch, line ~626): the surrogate entity carries
+        # the same collision shape, so it gets the same fixture coverage.
+        e = "task_scoped_worker:general-purpose"
+        ck("worker sibling #1 -> INJECT", already_seen(zr, "sessW", e, "B", "wA") is False)
+        ck("worker sibling #2 (same type, diff spawn) -> INJECT", already_seen(
+            zr, "sessW", e, "B", "wB") is False)
+        ck("worker same-spawn re-fire -> DEDUP", already_seen(
+            zr, "sessW", e, "B", "wA") is True)
+
+    with tempfile.TemporaryDirectory() as td:
+        zr = Path(td)
+        # Fail-soft: a corrupt / non-dict store must not raise (the cap loop iterates it).
+        p = zr / "audit-logs" / "hooks"
+        p.mkdir(parents=True, exist_ok=True)
+        (p / "citizen-boot-seen.json").write_text('["not", "a", "dict"]', encoding="utf-8")
+        ck("non-dict seen-store degrades fail-soft (no raise)",
+           already_seen(zr, "sessD", "ent_d", "B", "sA") is False)
 
     failed = [n for n, ok in checks if not ok]
     print()

@@ -35,6 +35,12 @@ USAGE:
   boot-receipt.py list --tic 329
   boot-receipt.py compact          # collapse same-id duplicates (dedup-at-read pass)
 
+  # PER-SPAWN AXIS (tic 734, A2-733) — one entity fans out to N spawns in a wave; name the
+  # spawn on BOTH sides and a sibling's PASS can no longer authorize this spawn's writes.
+  # Both flags are OPTIONAL: omit them and every behaviour is byte-identical to pre-734.
+  boot-receipt.py emit --entity ent_x --tic 734 --spawn-id agent_abc123 ...
+  boot-receipt.py gate-check --entity ent_x --tic 734 --spawn-id agent_abc123
+
   # every subcommand takes --sink <path> to point the lane at a TEST/ISOLATION file
   # (flag-only, never an env var — see sink_path() for why the gate must not inherit it)
   boot-receipt.py emit --sink /tmp/fixture.jsonl --entity ent_x --tic 1 ...
@@ -167,6 +173,20 @@ def content_fingerprint(rec: dict) -> str:
             "reason": rec.get("ladder_declination_reason", ""),
             "standing": rec.get("ladder_declination_standing", ""),
         }
+    # PER-SPAWN AXIS (tic 734, A2-733 · bk-boot-gate-missing-per-spawn-axis) — presence-keyed
+    # and additive, the same shape as the three layers above. THIS LAYER IS NOT OPTIONAL ONCE
+    # THE GATE KEYS ON THE AXIS: two siblings of one fan-out wave emit the SAME civic body and
+    # the SAME attestation, so WITHOUT spawn_id in the fingerprint they mint an IDENTICAL
+    # receipt_id, the second dedups away, and the honest second spawn — whose receipt the gate
+    # would now demand — has no row to be found by. That is the tic-643 self-DoS defect exactly,
+    # re-opened on a new coordinate; the cure is the same cure.
+    # WHAT IT IS NOT: spawn_id is an IDENTITY coordinate (WHICH receipt is yours), never a
+    # boot-read ATTESTATION field (WHETHER a receipt is good). It is deliberately kept OUT of
+    # _FINGERPRINT_ATTESTATION_FIELDS / _BOOT_READ_FIELDS and boot_read_passes() cannot see it.
+    # Consequence, identical to every prior layer: a receipt WITHOUT spawn_id hashes
+    # byte-identically to the pre-734 algorithm, so every historical receipt_id stays valid.
+    if rec.get("spawn_id"):
+        sem["spawn_id"] = str(rec["spawn_id"])
     blob = json.dumps(sem, sort_keys=True, ensure_ascii=False)
     return hashlib.sha256(blob.encode("utf-8")).hexdigest()
 
@@ -362,11 +382,53 @@ def _read_records(path: Path) -> list:
     return out
 
 
-def gate_decision(root: Path, entity: str, tic: int, path: str = None, sink: str = None) -> dict:
+# ── THE PER-SPAWN AXIS (tic 734 · A2-733 · bk-boot-gate-missing-per-spawn-axis) ──────────
+# THE MEASURED DEFECT (harpoon first-drain receipt, tic 733, finding A2-733 HIGH), verbatim:
+#   "The boot-read mutation gate resolves per (entity, tic) with no per-spawn axis, so a WARM
+#    sibling's complete receipt authorized MY governed writes despite my own receipt honestly
+#    declaring boot_read_mode='not_available'."
+# and the probe that measured it, verbatim from the same receipt:
+#   "$ boot-receipt.py gate-check --entity ent_harpoon_drain_citizen --tic 733
+#    {"allow": true, "via": "boot_read_receipt", ..., "receipt_id": "c8c2e313e8ab7b34"}
+#    my own receipt id            : aa9a98a50b20f4f2  (boot_read_mode='not_available')
+#    the receipt the gate USED    : c8c2e313e8ab7b34  (a DIFFERENT spawn — the WARM sibling)
+#    -> no agent_id anywhere in the selector."
+# One entity fans out to N spawns in a wave; the (entity, tic) key cannot tell them apart, so
+# the FIRST sibling to prove perception silently proves it for every sibling — including the
+# cold ones whose own receipts honestly say they read nothing.
+#
+# SELECTION vs PASS-STATE — the distinction that keeps this increment narrow. boot_read_passes()
+# answers "is this receipt GOOD?" and is UNTOUCHED here (no new pass condition, no new owed
+# field, no civic-field change). The spawn axis answers the prior question "is this receipt
+# MINE?" — a SELECTION filter over the candidate set, applied before the pass-state is read.
+#
+# DECLARED vs UNDECLARED (Probe-Before-Bind; the empty-fallback is load-bearing, same discipline
+# as the ARM A spawn_id fallback in subagent-citizen-boot.already_seen):
+#   * UNDECLARED (spawn_id None/"") — the primary orchestrator's own session, a legacy caller,
+#     a harness version that stops shipping agent_id: behavior is EXACTLY today's, and the
+#     returned envelope is byte-identical (the spawn keys are presence-keyed, never emitted).
+#   * DECLARED (spawn_id non-empty) — the caller asserts it acts for ONE spawn, so only THAT
+#     spawn's own receipt may authorize it. A sibling's PASS, and a spawn-less legacy receipt,
+#     are both non-matches. No matching receipt => the clean-proof path DENIES.
+# Fail-closed applies to the NEW axis only where the caller opted into it. A caller that cannot
+# name its spawn is never punished for the harness's silence.
+_SPAWN_ID_FIELD = "spawn_id"
+
+
+def receipt_spawn(rec: dict) -> str:
+    """The per-spawn identity coordinate a receipt carries, or "" when it carries none.
+    "" is EVERY pre-tic-734 receipt and every emit that did not pass --spawn-id — it means
+    "unkeyed", never "wildcard": an unkeyed receipt does not match a DECLARED spawn."""
+    v = rec.get(_SPAWN_ID_FIELD)
+    return str(v) if v else ""
+
+
+def gate_decision(root: Path, entity: str, tic: int, path: str = None, sink: str = None,
+                  spawn_id: str = None) -> dict:
     """The boot-read mutation gate's CORE decision (one source; the hook is a thin shell).
 
     NARROW + FAIL-CLOSED: allow a governed mutation iff EITHER
-      (1) a valid boot-read receipt exists for (entity, tic) (boot_read_passes), OR
+      (1) a valid boot-read receipt exists for (entity, tic[, spawn]) (boot_read_passes), OR
       (2) a non-expired OVERRIDE receipt covers this (tic[, path]).
     PRECEDENCE (tic 407): a valid boot-read receipt is checked FIRST and OUTRANKS an
     override. The override is the fallback for when a clean full read cannot exist (clipped
@@ -377,16 +439,34 @@ def gate_decision(root: Path, entity: str, tic: int, path: str = None, sink: str
     wins; override only fills the gap when no clean proof is present.
     Else BLOCK. (This function only DECIDES; it never blocks the caller — the hook maps
     a non-allow decision to PreToolUse exit 2. Note: 'no receipt at all' => BLOCK, by
-    design — missing perception proof is perception debt.)"""
+    design — missing perception proof is perception debt.)
+
+    PER-SPAWN AXIS (tic 734) — `spawn_id` is OPTIONAL and OPT-IN (see the block above):
+    declared => only that spawn's own receipt can satisfy the clean-proof path; undeclared
+    => byte-identical to the pre-734 decision, envelope included. The OVERRIDE path is
+    deliberately left entity-scoped in BOTH modes (an audited escape is emitted by a lead
+    for an entity, typically before the spawn exists; narrowing it per-spawn would break the
+    bootstrap case it exists for) — declared calls get that fact DISCLOSED in `spawn_axis`
+    rather than silently assumed."""
+    declared = str(spawn_id) if spawn_id else ""
     recs = [r for r in _read_records(sink_path(root, sink)) if r.get("tic") == tic]
     # (1) valid boot-read receipt — checked FIRST so a clean proof outranks any override
     for r in recs:
         if entity not in (r.get("entity_id"), r.get("actor")):
             continue
+        # SELECTION filter (tic 734): a declared spawn reads its OWN receipt or none at all.
+        # This single `continue` is the A2-733 cure — the sibling row the t733 probe resolved
+        # to is skipped here before boot_read_passes ever sees it.
+        if declared and receipt_spawn(r) != declared:
+            continue
         ok, why = boot_read_passes(r)
         if ok:
-            return {"allow": True, "via": "boot_read_receipt", "reason": why,
-                    "receipt_id": r.get("receipt_id")}
+            d = {"allow": True, "via": "boot_read_receipt", "reason": why,
+                 "receipt_id": r.get("receipt_id")}
+            if declared:
+                d[_SPAWN_ID_FIELD] = declared
+                d["spawn_axis"] = "matched"
+            return d
     # (2) override path — explicit, audited, non-silent — only when NO clean receipt exists
     for r in recs:
         if r.get("override") is True and (r.get("entity_id") == entity or r.get("actor") == entity):
@@ -394,12 +474,39 @@ def gate_decision(root: Path, entity: str, tic: int, path: str = None, sink: str
             tp = r.get("touched_path")
             # scope 'tic' covers any path this tic; a path-scoped override must match the path tail
             if scope in (None, "", "tic", "all") or not path or not tp or tp in path or path in tp:
-                return {"allow": True, "via": "override", "reason": r.get("reason", ""),
-                        "receipt_id": r.get("receipt_id")}
+                d = {"allow": True, "via": "override", "reason": r.get("reason", ""),
+                     "receipt_id": r.get("receipt_id")}
+                if declared:
+                    d[_SPAWN_ID_FIELD] = declared
+                    d["spawn_axis"] = "override_entity_scoped"  # disclosed, not assumed
+                return d
     # fail-closed
+    # MY OWN nearest receipt's failure reason (the most precise cause), scoped to my spawn
+    # when one is declared. None => I have no receipt on this axis at all.
     near = next(((boot_read_passes(r)[1]) for r in recs
-                 if entity in (r.get("entity_id"), r.get("actor"))), "no receipt for this (entity,tic)")
-    return {"allow": False, "via": "none", "reason": near}
+                 if entity in (r.get("entity_id"), r.get("actor"))
+                 and (not declared or receipt_spawn(r) == declared)), None)
+    if near is None:
+        near = (f"no boot-read receipt for this (entity,tic,spawn={declared})" if declared
+                else "no receipt for this (entity,tic)")
+    if declared:
+        # SIBLING DISCLOSURE — appended in BOTH deny shapes (no receipt of my own, AND my own
+        # receipt honestly failing), because the t733 confusion arose precisely in the second
+        # shape: the cold citizen HELD an honest not_available receipt and still watched the
+        # gate allow. A DENY whose real cause is "someone else proved it" must SAY so, or the
+        # next agent re-derives that confusion cold.
+        sibs = [str(r.get("receipt_id")) for r in recs
+                if entity in (r.get("entity_id"), r.get("actor"))
+                and receipt_spawn(r) != declared and boot_read_passes(r)[0]]
+        if sibs:
+            near += (f" — {len(sibs)} same-(entity,tic) receipt(s) PASS but belong to another "
+                     f"spawn ({', '.join(sibs[:3])}): a sibling's proof cannot authorize this "
+                     f"spawn's writes")
+    d = {"allow": False, "via": "none", "reason": near}
+    if declared:
+        d[_SPAWN_ID_FIELD] = declared
+        d["spawn_axis"] = "declared_unmatched"
+    return d
 
 
 # Emitted into the agent's context the moment the receipt is turned in — a couple
@@ -484,6 +591,14 @@ def emit(args) -> int:
         }
     rec["entity_id"] = args.entity
     rec["tic"] = args.tic
+    # PER-SPAWN identity (tic 734) — OPTIONAL, defaulted-absent, so every existing caller is
+    # byte-untouched. Present only when the emitter names its spawn (the harness's per-spawn
+    # `agent_id`, the same coordinate subagent-citizen-boot.already_seen keys on — one spawn
+    # identity concept, two consumers). A --payload may carry `spawn_id` directly; the flag
+    # wins when both are given. Absent => the receipt is UNKEYED and a declared-spawn
+    # gate-check will not match it (see gate_decision).
+    if getattr(args, "spawn_id", None):
+        rec[_SPAWN_ID_FIELD] = str(args.spawn_id)
     rec.setdefault("booted_from", args.booted_from or "compiled_civic_orientation")
     rec.setdefault("model_of_record", args.model or os.environ.get("CGG_MODEL", "unknown"))
     # LADDER explain-back (tic 491): the baked-in drift-audit field. Recorded as-is; the canonical
@@ -762,7 +877,8 @@ def gate_check(args) -> int:
     if getattr(args, "sink", None):
         sys.stderr.write(f"⚠️  NON-DEFAULT SINK (test/isolation mode): "
                          f"{sink_path(root, args.sink)}\n")
-    d = gate_decision(root, args.entity, args.tic, args.path, getattr(args, "sink", None))
+    d = gate_decision(root, args.entity, args.tic, args.path, getattr(args, "sink", None),
+                      getattr(args, "spawn_id", None))
     d["sink_override"] = bool(getattr(args, "sink", None))
     print(json.dumps(d))
     return 0 if d.get("allow") else 3
@@ -792,6 +908,13 @@ def main():
     e.add_argument("--route")
     e.add_argument("--booted-from", dest="booted_from")
     e.add_argument("--model")
+    e.add_argument("--spawn-id", dest="spawn_id",
+                   help="the emitting SPAWN's per-spawn identifier (the harness `agent_id`). "
+                        "OPTIONAL: omit it and the receipt is UNKEYED and hashes exactly as "
+                        "pre-tic-734. Supply it and (a) the receipt lands beside a sibling's "
+                        "instead of dedup-colliding with it, and (b) a `gate-check --spawn-id "
+                        "<same>` can resolve THIS spawn's proof rather than a wave sibling's "
+                        "(A2-733 · bk-boot-gate-missing-per-spawn-axis).")
     # LADDER explain-back (tic 491) — the 5-sentence regenerated-from-boot crux re-statement;
     # the baked-in drift-audit field. Recorded as-is; never gate-blocking (observability lane).
     # The explain-back and its typed DECLINATION are mutually exclusive by construction: you
@@ -864,6 +987,12 @@ def main():
     g.add_argument("--entity", required=True)
     g.add_argument("--tic", type=int, required=True)
     g.add_argument("--path", help="the surface being mutated (for path-scoped overrides)")
+    g.add_argument("--spawn-id", dest="spawn_id",
+                   help="DECLARE the spawn this check acts for (the harness `agent_id`). "
+                        "Declared => only THIS spawn's own boot-read receipt can authorize; a "
+                        "wave sibling's PASS, and an unkeyed legacy receipt, are non-matches "
+                        "(fail-closed on the new axis). Omitted => byte-identical to the "
+                        "pre-tic-734 (entity,tic) decision, envelope included.")
     _add_sink(g)
     g.set_defaults(func=gate_check)
 

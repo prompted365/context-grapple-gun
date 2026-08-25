@@ -2387,6 +2387,24 @@ def compute_cross_counter_disclosure(verdict_delta_block, index_delta_block):
     likely to recur: the richer an inscription's same-tic evidence, the more
     sibling tokens it carries. Practice-validated t732 (banked "tokens +1,
     COUNT AT AUTHORING") -> t733 first fire read promoted +0 / tokens +1 EXACT.
+
+    PRIOR-SET CONDITION (amended /review 734 from
+    cpr_mogul_review_close_check_f6483a805358, Architect-ratified): counting
+    the cpr-shaped tokens in the planned inscription content is NECESSARY but
+    NOT sufficient — token_delta's unit is DISTINCT-MEMBERS-OF-A-SET, so the
+    delta is a function of (planned content tokens INTERSECT complement of the
+    PRIOR index set), never of content alone. Before banking, DIFF each planned
+    token against the prior index: a token already inside a provenance comment
+    on any scanned surface (grep the build_inscribed_index surfaces, or read
+    the prior tic's persisted check artifact) contributes +0 no matter how
+    many times the new inscription cites it. The failure this cures is MODAL,
+    not edge-case: a refinement ray routinely narrates the sibling guard it
+    sits beside, and a narrated already-indexed sibling moves the counter by
+    exactly zero (t731 lived: the GUARD-15 provenance comment carried two
+    cpr-shaped tokens yet moved the counter +1 — the narrated sibling was
+    already a member; index-set diff verified 368 -> 369, new set exactly one
+    id). Content-count without the prior-set diff would have banked +2 and
+    been confidently wrong on the commonest inscription shape.
     """
     promoted_delta = (verdict_delta_block.get("delta") or {}).get("promoted")
     token_delta = index_delta_block.get("delta_tokens")
