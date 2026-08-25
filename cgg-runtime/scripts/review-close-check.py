@@ -2793,7 +2793,16 @@ def run_check(project_dir, dry_run=False, obligation_tic=None, obligation_mandat
                 # ever reading review-close-check-log.jsonl. Same block, second
                 # audience; single computation, two sinks (the /review 715
                 # discipline). Excluded from the dedup comparison via
-                # _volatile above so identical-findings runs still skip.
+                # _volatile above so identical-CONTENT runs still skip.
+                # UNIT, stated exactly (bf492de6b23a, /review 735 PROMOTE-TO-
+                # PROCEDURAL-HOME): the skip-vs-replace predicate compares the
+                # WHOLE REPORT CONTENT minus the two volatile keys
+                # (`generated_at`, `superseded_receipt`) — NOT the findings set.
+                # A run whose findings are byte-stable still REPLACES when any
+                # other content moves (measured t732: verdict_counts.promoted
+                # 733 -> 734 drove the replace across two same-tic observations
+                # with an identical 14-finding set). Narrate the measured unit;
+                # a findings-only claim here would be falsifiable-and-false.
                 report["superseded_receipt"] = superseded_receipt
                 # Back-stamp beside the preserved copy as a SIDECAR — the
                 # preserved artifact's RAW BYTES stay byte-exact (the /review
@@ -2812,7 +2821,7 @@ def run_check(project_dir, dry_run=False, obligation_tic=None, obligation_mandat
                     if superseded_receipt else " prior unreadable — nothing to preserve"
                 )
                 print(
-                    f"INFO: review_close_check replaced existing report for {identity_label} (findings changed);{preserved_note}.",
+                    f"INFO: review_close_check replaced existing report for {identity_label} (report content changed);{preserved_note}.",
                     file=sys.stderr,
                 )
             else:

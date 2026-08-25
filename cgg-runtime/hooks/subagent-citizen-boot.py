@@ -122,7 +122,8 @@ def resolve_office_worldview() -> Path | None:
     return None
 
 
-def render_worldview(tic: int, entity: str, zone_root: Path, receipt_frame: bool = True) -> str:
+def render_worldview(tic: int, entity: str, zone_root: Path, receipt_frame: bool = True,
+                     spawn_id: str = "") -> str:
     """Compile this citizen's pertinence worldview (office-worldview.py). Read-only,
     mints no signals, fail-soft to empty. The compiled fragments give the booting
     citizen its typed pertinence map (YOURS/FIELD/SUBSTRATE/...) WITH authority badges,
@@ -135,7 +136,13 @@ def render_worldview(tic: int, entity: str, zone_root: Path, receipt_frame: bool
     boot-receipt.py emit prescription — used for a no-Bash citizen, whose Write-path
     receipt frame the hook appends instead (capability gate, tic 620). Only the receipt
     frame is suppressed; the worldview body and THE LADDER block are unaffected (office-
-    worldview gates the ladder on standing, the receipt frame separately)."""
+    worldview gates the ladder on standing, the receipt frame separately).
+
+    spawn_id (tic 735 · M1-734 leg (b)) is the harness `agent_id` for THIS spawn. SubagentStart
+    is the ONLY seam that holds it — an agent cannot read its own agent_id from its environment —
+    so if the hook does not thread it, office-worldview can only ever render an unservable
+    placeholder. Passed through so the Bash receipt prescription names the CONCRETE spawn; empty
+    string => the flag is not passed at all and the frame renders its omit-arm."""
     script = resolve_office_worldview()
     if script is None:
         return ""
@@ -144,6 +151,8 @@ def render_worldview(tic: int, entity: str, zone_root: Path, receipt_frame: bool
            "--max-chars", "2200"]
     if not receipt_frame:
         cmd.append("--no-receipt-frame")
+    if spawn_id:
+        cmd += ["--spawn-id", str(spawn_id)]
     try:
         proc = subprocess.run(cmd, capture_output=True, text=True, timeout=10)
         return (proc.stdout or "").strip()
@@ -252,14 +261,30 @@ def boot_receipt_lane(agent_type: str) -> str:
     return "bash" if agent_has_bash(tools) else "write"
 
 
-def render_write_path_receipt_frame(entity: str, tic: int) -> str:
+def render_write_path_receipt_frame(entity: str, tic: int, spawn_id: str = "") -> str:
     """The no-Bash substitute for the boot-receipt.py emit prescription. A no-Bash citizen honors
     the SAME boot-receipt obligation by WRITING a single JSON file to the receipt-drop lane,
     carrying the same owed fields; a canonical-side sweeper ingests the drops into the boot-receipt
     lane. Budget-exempt (appended after the worldview body, like the Bash frame it replaces).
     The ladder_explainback field is asked conditionally — office-worldview renders THE LADDER
     block only for `standing == citizen`, so the drop owes the explain-back iff that block is
-    present in this boot (keeps the two lanes consistent without re-deriving standing here)."""
+    present in this boot (keeps the two lanes consistent without re-deriving standing here).
+
+    THE PER-SPAWN AXIS (tic 735 · M1-734 leg (c) · A2-733). The Bash lane's prescription
+    (office-worldview.render_receipt_frame) gained the same axis in the same atom; the two lanes
+    must stay consistent or a no-Bash citizen's receipt is systematically less identifiable than
+    a Bash citizen's for no reason but its tool schema. Same RESOLVED-VALUE-OR-OMIT discipline:
+    a concrete `spawn_id` key when the boot context resolved one, an explicit omit-instruction
+    when it did not — never a fill-in-the-blank placeholder an agent would have to invent.
+
+    HARD PREREQUISITE, LANDED IN THIS SAME ATOM (M2-734): the moment this frame prescribes
+    spawn_id, receipt-drops-sweep.py::content_fingerprint MUST already hash it, or the two
+    writers split the dedup space and two siblings' drops collide exactly as the tic-643 self-DoS
+    did. The DropLaneMirrorLatency tripwire in scripts/test_boot_receipt_per_spawn_gate_axis.py
+    fires on precisely that half-atom.
+
+    STILL A WRITER, NOT THE READER: this does NOT cure A2-733 — the live PreToolUse gate path
+    resolves on (entity, tic) until M1-734 leg (a) lands separately."""
     drop_path = f"{RECEIPT_DROP_SUBPATH}/{entity}-tic{tic}-<8hex>.json"
     return (
         "\n━━━ BOOT RECEIPT · Write-path lane (capability-gated — you have NO Bash tool) "
@@ -273,7 +298,10 @@ def render_write_path_receipt_frame(entity: str, tic: int) -> str:
         "  {\n"
         f'    "entity_id": "{entity}",\n'
         f'    "tic": {tic},\n'
-        '    "understood_scope": "…",\n'
+        # PER-SPAWN AXIS (tic 735, leg c): the CONCRETE resolved value beside the other two
+        # identity axes, or no key at all. Never a placeholder.
+        + (f'    "spawn_id": "{spawn_id}",\n' if spawn_id else "")
+        + '    "understood_scope": "…",\n'
         '    "accepted_constraints": ["…"],\n'
         '    "abstentions": ["…"],\n'
         '    "first_action_or_escalation": "…",\n'
@@ -296,9 +324,23 @@ def render_write_path_receipt_frame(entity: str, tic: int) -> str:
         'goes in "required_unread_ranges" (THIS is the gate-blocking field); name declared negative '
         'space in "apophatic_range_bounds" with a "pertinence_rationale". Never attest a full '
         "gapless read you did not perform.\n"
-        "  owed: understood_scope · accepted_constraints · abstentions · first_action_or_escalation "
+        + ("  ⟜ SPAWN AXIS (tic 734 · A2-733): the \"spawn_id\" above is YOUR per-spawn identity, "
+           "already resolved by the boot context — keep it VERBATIM. It is what makes the drop "
+           "YOURS: one entity fans out to N spawns in a wave, and without it a sibling's passing "
+           "receipt can authorize your governed writes while your own honestly says you read "
+           "nothing. IDENTITY coordinate, never an attestation — it can never upgrade a failing "
+           "receipt.\n"
+           if spawn_id else
+           "  ⟜ SPAWN AXIS (tic 734 · A2-733): if — and only if — your boot context names a "
+           "per-spawn agent_id, add \"spawn_id\": \"<that exact id>\" as one more key beside "
+           "entity_id/tic. If it does not, OMIT the key entirely: an unkeyed drop is lawful and "
+           "hashes exactly as it did before the axis existed. NEVER invent one — a fabricated "
+           "spawn id is worse than none.\n")
+        + "  owed: understood_scope · accepted_constraints · abstentions · first_action_or_escalation "
         "· model_of_record · boot-read attestation (+ ladder_explainback iff the ladder block "
-        "appears above)\n"
+        "appears above)"
+        + (" · spawn_id" if spawn_id else "")
+        + "\n"
         "  CONSUMER: the drop dir is the lawful non-Bash receipt lane — a canonical-side sweeper "
         f"ingests {RECEIPT_DROP_SUBPATH}/*.json into audit-logs/boot-injections/boot-receipts.jsonl "
         "(the same lane boot-receipt.py emit writes). Writing the JSON drop IS your receipt.\n"
@@ -752,7 +794,8 @@ def main() -> int:
     # Phase-A boot-boundary widening authorized at the tic-332 gate. The Bash receipt frame
     # is suppressed for a no-Bash citizen (receipt_lane == "write"); the hook appends a
     # Write-path receipt frame below instead (capability gate, tic 620).
-    world = render_worldview(tic, entity, zone_root, receipt_frame=(receipt_lane == "bash"))
+    world = render_worldview(tic, entity, zone_root, receipt_frame=(receipt_lane == "bash"),
+                             spawn_id=str(agent_id))
 
     # Shared boot-injection lane (same registry session-restore.sh reads): tic-gated
     # broadcast pointers (e.g. GLOSSARY doctrine-surface navigation). Reaches the citizen
@@ -763,7 +806,8 @@ def main() -> int:
     # boot receipt, honored via the Write tool instead of boot-receipt.py (Bash). A citizen is
     # never silent purely because inbox/worldview/pointers are empty; the receipt frame stands
     # in either lane.
-    write_frame = render_write_path_receipt_frame(entity, tic) if receipt_lane == "write" else ""
+    write_frame = (render_write_path_receipt_frame(entity, tic, str(agent_id))
+                   if receipt_lane == "write" else "")
 
     if not brief and not inject and not world and not write_frame:
         return 0  # nothing to deliver — stay silent

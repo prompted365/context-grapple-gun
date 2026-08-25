@@ -422,14 +422,34 @@ def render_ladder_declination(standing: str) -> str:
 
 
 def render_receipt_frame(office: str, tic: int, disp: str, zone_root: Path, ladder: bool = False,
-                         declination: str = None) -> str:
+                         declination: str = None, spawn_id: str = "") -> str:
     """The receipt-REQUEST framing — explicit, warm, and DELIBERATELY budget-exempt.
 
     This is NOT the worldview body and is NOT counted against --max-chars. It is the
     first-response ritual that closes the Citizen-Boot Composite loop: prove you crossed
     the boot threshold consciously (did not collapse the badges) before touching
     governance. The sink (boot-receipt.py emit) verifies + greets back. The greeting sets
-    session tone; the ledger (boot-receipts.jsonl) populates the long-run receipt lane."""
+    session tone; the ledger (boot-receipts.jsonl) populates the long-run receipt lane.
+
+    THE PER-SPAWN AXIS (tic 735 · M1-734 leg (b) · A2-733 · bk-boot-gate-missing-per-spawn-axis).
+    boot-receipt.py gained an OPTIONAL `--spawn-id` at tic 734 so a wave sibling's passing receipt
+    can no longer authorize THIS spawn's governed writes. The gate can only ever be as spawn-aware
+    as the receipts citizens are TAUGHT to emit, and THIS template is what they follow verbatim —
+    cgg-ledger#gate-example-template-must-teach-complete-pass-state applies directly ("a template
+    teaching only X mints compliant-looking submissions that fail at first enforcement — fix at the
+    GENERATOR surface, not per-session recovery"; M4-734).
+
+    RESOLVED-VALUE-OR-OMIT, never a placeholder. `spawn_id` is the identity the BOOT CONTEXT
+    resolves (the harness `agent_id`, threaded in by subagent-citizen-boot.py) — an agent cannot
+    read its own agent_id from its environment, so a fill-in-the-blank `--spawn-id <agent_id>`
+    would be UNSERVABLE by its reader and would teach citizens to mint garbage-keyed receipts
+    (the emitter-row/reader-predicate mismatch the tic-620 capability gate exists to prevent).
+    Hence two arms and only two: a CONCRETE flag when the boot context named a spawn, and an
+    explicit OMIT instruction when it did not. Omission is lawful and costs nothing — an unkeyed
+    receipt hashes byte-identically to pre-734 and the undeclared gate ignores the field.
+
+    THIS PRESCRIPTION IS A WRITER, NOT THE READER. Landing it does NOT cure A2-733: the live
+    PreToolUse gate path still resolves on (entity, tic) until M1-734 leg (a) lands separately."""
     rp = _boot_receipt_path(zone_root)
     # BOOT-READ ATTESTATION FLAGS (tic 603): the BOOT READ INVARIANT names seven receipt
     # fields the mutation gate reads (full_boot_injection_read · boot_read_mode · chunking ·
@@ -447,7 +467,9 @@ def render_receipt_frame(office: str, tic: int, disp: str, zone_root: Path, ladd
         '    --understood "…" --constraint "…" --abstention "…" '
         '--first-action "…" --route "cadence/review" \\\n'
         '    --model "<your model id, e.g. claude-opus-4-8>" \\\n'
-        "    --full-boot-read --boot-read-mode full --chunking gapless"
+        # PER-SPAWN AXIS (tic 735, leg b): the CONCRETE resolved value or nothing at all.
+        + (f"    --spawn-id {spawn_id} \\\n" if spawn_id else "")
+        + "    --full-boot-read --boot-read-mode full --chunking gapless"
         + ('  \\\n    --ladder-explainback "<EXACTLY five sentences>"' if ladder
            else (f'  \\\n    --ladder-declination "{declination}"' if declination else ""))
         + "\n  ⚠ boot-read attestation (the mutation gate reads THESE; a receipt without them "
@@ -463,8 +485,20 @@ def render_receipt_frame(office: str, tic: int, disp: str, zone_root: Path, ladd
         + (" · ladder_explainback" if ladder
            else (" · ladder_declination" if declination else ""))
         + " · boot-read attestation"
+        + (" · spawn_id" if spawn_id else "")
         + "\n  (signer = --entity; model = --model — two distinct fields, never a "
         "conflated 'entity-modelcode' signature)"
+        # THE SPAWN AXIS LINE — one line, both arms, never a placeholder (see docstring).
+        + ("\n  ⟜ SPAWN AXIS (tic 734 · A2-733): --spawn-id above is YOUR per-spawn identity, "
+           "already resolved by the boot context — pass it VERBATIM. It is what makes the receipt "
+           "YOURS: one entity fans out to N spawns in a wave, and without it a sibling's passing "
+           "receipt can authorize your governed writes while your own receipt honestly says you "
+           "read nothing. It is an IDENTITY coordinate, never an attestation — it can never "
+           "upgrade a failing receipt."
+           if spawn_id else
+           "\n  ⟜ SPAWN AXIS (tic 734 · A2-733): your boot context named no per-spawn agent_id, so "
+           "OMIT --spawn-id entirely — an unkeyed receipt is lawful and hashes exactly as it did "
+           "before the axis existed. NEVER invent one: a fabricated spawn id is worse than none.")
     )
     if ladder:
         frame += (
@@ -1224,7 +1258,8 @@ def _render_bound_marker(omitted_frags: list, office: str, tic: int) -> str:
 
 
 def render_human(office: str, tic: int, base: dict, frags: list, max_chars: int,
-                 zone_root: Path = None, receipt_frame: bool = True) -> str:
+                 zone_root: Path = None, receipt_frame: bool = True,
+                 spawn_id: str = "") -> str:
     if not frags:
         return ""
     disp = base.get("display", office)
@@ -1340,7 +1375,8 @@ def render_human(office: str, tic: int, base: dict, frags: list, max_chars: int,
         body = body + "\n" + render_ladder_declination(standing or "unresolved")
     if receipt_frame:
         body = body + "\n" + render_receipt_frame(office, tic, disp, zone_root or Path("."),
-                                                  ladder=is_citizen, declination=declination)
+                                                  ladder=is_citizen, declination=declination,
+                                                  spawn_id=spawn_id)
     return body
 
 
@@ -1364,6 +1400,14 @@ def main() -> int:
     r.add_argument("--max-chars", type=int, default=DEFAULT_MAX_CHARS)
     r.add_argument("--no-receipt-frame", dest="receipt_frame", action="store_false",
                    default=True, help="suppress the budget-exempt boot-receipt request framing")
+    r.add_argument("--spawn-id", dest="spawn_id", default="",
+                   help="the booting SPAWN's per-spawn identifier (the harness `agent_id`, "
+                        "threaded in by subagent-citizen-boot.py). When supplied, the receipt "
+                        "frame prescribes `--spawn-id <this value>` CONCRETELY so the citizen's "
+                        "receipt is keyed to ITS OWN spawn (A2-733 · tic 734 per-spawn gate axis). "
+                        "OMITTED => the frame teaches the omit-arm instead; it never renders a "
+                        "fill-in-the-blank placeholder, because an agent cannot read its own "
+                        "agent_id and an invented spawn id is worse than an unkeyed receipt.")
     r.add_argument("--effective-view", default=None,
                    help="path to a hydration-view JSON the boot gate just built "
                         "(effective-record.py hydration-gate --emit-view); one index build "
@@ -1384,7 +1428,8 @@ def main() -> int:
         else:
             base = _office_baseline(zone_root, args.office, args.tic)
             text = render_human(args.office, args.tic, base, frags, args.max_chars,
-                                zone_root=zone_root, receipt_frame=args.receipt_frame)
+                                zone_root=zone_root, receipt_frame=args.receipt_frame,
+                                spawn_id=args.spawn_id or "")
     except Exception as e:
         sys.stderr.write(f"[office-worldview] compile error: {e}\n")
         return 0
