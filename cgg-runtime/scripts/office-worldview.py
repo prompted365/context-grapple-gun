@@ -1218,7 +1218,8 @@ def _cross_agent_mesh(zone_root: Path, tic: int) -> list:
 _CLASS_ORDER = ["SUBSTRATE", "YOURS", "OFFICE", "ESCALATE", "APOPHATIC", "PEER", "FIELD", "COUNTER", "ANCESTOR", "SEALED"]
 
 
-def _render_bound_marker(omitted_frags: list, office: str, tic: int) -> str:
+def _render_bound_marker(omitted_frags: list, office: str, tic: int,
+                         spawn_id: str = "") -> str:
     """The RENDER-BOUND aperture marker — a PERTINENCE MANIFEST of the budget-omitted rays
     (cgg-ledger#producer-seal-is-a-typed-field-aperture, /review 421).
 
@@ -1233,7 +1234,30 @@ def _render_bound_marker(omitted_frags: list, office: str, tic: int) -> str:
         = expandable-if-pertinent). The marker declares bounded omission; it never re-types the
         content to SEALED. (Hence the badge is ⟨RENDER-BOUND⟩, never ⟨SEALED⟩.)
       * RANK ≠ PERTINENCE — the manifest carries NO priority_range. What lets a consumer judge
-        expand-or-not is WHAT was omitted (the semantic id + class), not how the producer ranked it."""
+        expand-or-not is WHAT was omitted (the semantic id + class), not how the producer ranked it.
+
+    THE SPAWN AXIS ON THE FOLLOW-SURFACE (ratified /review 738 · bk-worldview-render-spawn-omit-
+    and-badge; A4-736 / A5-737 / A5-738 — the same defect reported verbatim three tics running).
+    THE DEFECT: this follow-surface command is the instruction a budget-sealed citizen ACTUALLY
+    RUNS to expand its own packet, and it was built without the spawn coordinate. So a citizen
+    that WAS handed a spawn id at boot re-rendered through the UNDECLARED arm, and the fresh
+    receipt frame then told it — in the imperative — to "OMIT --spawn-id entirely", stripping a
+    REAL supplied coordinate; the re-rendered `owed:` line dropped spawn_id to match. The omit
+    rule is CORRECT, but it belongs to the undeclared arm ALONE; reached by re-render it becomes
+    a flat "you have no spawn id" claim contradicting the boot that just resolved one.
+
+    THE IDENTITY-SOURCE LAW (the cure's shape, not merely its effect): the spawn-axis ray of the
+    re-render must derive from the SAME resolution that produced the boot identity — the value
+    threaded in from the SubagentStart seam — never from key availability, never from a flat
+    claim, and never re-derived here. Hence propagation, not detection: this function asserts
+    nothing about spawn identity; it CARRIES the one its caller was given. Both arms of the
+    receipt frame (render_receipt_frame) are already correct for the direct render, so curing
+    the propagation cures BOTH reported axes (the OMIT instruction and the `owed:` line) at once
+    — there is no second write.
+
+    UNKEYED STAYS BYTE-IDENTICAL. When no spawn id was resolved, the emitted command is exactly
+    what it was before this axis existed — the degrade-to-today invariant every arm of the
+    per-spawn work has held since tic 734 (an unkeyed re-render is lawful and complete)."""
     n = len(omitted_frags)
     ids = [f["id"] for f in omitted_frags]
     classes = sorted({f["pertinence"]["class"] for f in omitted_frags})
@@ -1247,13 +1271,18 @@ def _render_bound_marker(omitted_frags: list, office: str, tic: int) -> str:
     # absolute path of the copy that actually rendered this marker (emitter row must
     # match the reader predicate; same pattern as the receipt frame's boot-receipt.py).
     self_path = Path(__file__).resolve()
+    # RESOLVED-VALUE-OR-NOTHING, exactly as the receipt frame's own two arms (line ~471): a
+    # concrete flag iff the boot context resolved a spawn, and NO flag at all otherwise. Never
+    # a placeholder — a fill-in-the-blank on a command a citizen copy-pastes would teach the
+    # invented-key failure the whole axis exists to prevent.
+    spawn_arg = f" --spawn-id {spawn_id}" if spawn_id else ""
     return (
         f"  ⟨RENDER-BOUND·shape-only⟩ worldview render bounded at budget — {n} ray(s) omitted by "
         f"RENDER, not reclassified (each RETAINS its class): {id_str} [classes: {', '.join(classes)}]. "
         f"Budget-omitted content keeps its own pertinence — EXPAND if pertinent (do not infer their "
         f"contents; do not treat them as SEALED-foreclosed). follow-surface: re-render "
-        f"`python3 {self_path} render --office {office} --tic {tic} --max-chars 0` (read_discipline: "
-        f"unbounded re-render, or --format json for the typed fragments)."
+        f"`python3 {self_path} render --office {office} --tic {tic}{spawn_arg} --max-chars 0` "
+        f"(read_discipline: unbounded re-render, or --format json for the typed fragments)."
     )
 
 
@@ -1327,7 +1356,10 @@ def render_human(office: str, tic: int, base: dict, frags: list, max_chars: int,
         omitted_frags = [line_frags[i] for i in range(len(lines))
                          if i not in kept_idx and line_frags[i] is not None]
         if omitted_frags:
-            kept.append(_render_bound_marker(omitted_frags, office, tic))
+            # Thread THIS render's resolved spawn identity into the follow-surface command, so a
+            # citizen expanding its own seal re-renders as ITSELF (bk-worldview-render-spawn-omit-
+            # and-badge, /review 738). Same value, same resolution — never re-derived here.
+            kept.append(_render_bound_marker(omitted_frags, office, tic, spawn_id))
         body = "\n".join(kept)
     # THE LADDER + the receipt-request framing are DELIBERATELY budget-exempt — appended AFTER
     # the body is bounded, so the loop-closing ritual + the crux explainer are never truncated

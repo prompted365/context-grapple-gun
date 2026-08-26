@@ -804,10 +804,64 @@ def resurface_due_reminders(inbox_path: str, current_tic: int,
     return {"resurfaced": resurfaced, "resurfaced_count": len(resurfaced), "tic": current_tic}
 
 
+# Registry fields the FILESYSTEM STATE MACHINE owns. These are lifecycle truth,
+# not derived description: a WAIT->DONE flip, a rename, or a shape reclassification
+# must always land, so they are exempt from the no-clobber guard below.
+_RECONCILE_ALWAYS_WRITE = ("state", "filename", "kind")
+
+
+def _is_populated(value) -> bool:
+    """Populated == carries real content: non-None, and for strings non-blank.
+    NOTE 0 and False are POPULATED — a source_tic of 0 is a real tic, not an
+    absence — so this deliberately is NOT a truthiness test."""
+    if value is None:
+        return False
+    if isinstance(value, str) and not value.strip():
+        return False
+    return True
+
+
+def _merge_reconciled(existing: dict, derived: dict) -> dict:
+    """Merge DERIVED envelope metadata over a cached registry row WITHOUT ever
+    letting a derived None/empty erase an already-populated value.
+
+    (F-738-B1 HIGH cure; ruled /review 738 round 2 ->
+    bk-inbox-reconcile-none-overwrite-guard.)
+
+    The wave-8B fence-scoped sweep destroyed five hand-typed fields on the t737
+    estate-packet registry row — envelope_type -> null, subject/sender -> "",
+    source_tic + state_entered_at_tic -> null — because a NON-MAILBOX-SHAPED
+    packet derives None for every content field and the old unconditional
+    `{**old, **new}` merge let those Nones win. The SAME sweep preserved every
+    field on the adapter-shaped packet: the divergence was SHAPE, not luck, and
+    the adapter shape is this guard's proof-of-concept.
+
+    Lawful state-machine transitions are NOT derived values and stay untouched:
+    `state` / `filename` / `kind` come from filesystem truth and always write,
+    and the explicit lifecycle writes in `_transition()` never route through
+    here. Only DERIVED description fields are shielded, and only in the exact
+    case where the derived value is ABSENT and the cached value is POPULATED —
+    a derived value that is present always wins, so genuine content updates
+    (including a lawful state_entered_at_tic bump) still land.
+    """
+    merged = dict(existing)
+    for key, value in derived.items():
+        if (key not in _RECONCILE_ALWAYS_WRITE
+                and not _is_populated(value)
+                and _is_populated(existing.get(key))):
+            continue  # derived absence never erases a populated field
+        merged[key] = value
+    return merged
+
+
 def reconcile_registry(inbox_path: str, persist: bool = True) -> dict:
     """Rebuild registry messages{} from filesystem truth — adds any envelope
     physically present but missing from the registry (manual drops, directory
-    envelopes). Filesystem is authoritative; registry is the cache."""
+    envelopes). Filesystem is authoritative; registry is the cache.
+
+    Merge is guarded (tic 739): filesystem authority means the filesystem's
+    STATE wins, not that an unparseable packet's derived Nones may blank a
+    populated row — see `_merge_reconciled`."""
     registry = _load_registry(inbox_path)
     messages = registry.setdefault("messages", {})
     added, seen = [], set()
@@ -831,7 +885,7 @@ def reconcile_registry(inbox_path: str, persist: bool = True) -> dict:
             }
             if mid not in messages:
                 added.append(mid)
-            messages[mid] = {**messages.get(mid, {}), **meta}
+            messages[mid] = _merge_reconciled(messages.get(mid, {}), meta)
     if persist:
         _save_registry(inbox_path, registry)
     return {"reconciled": len(seen), "added": added, "added_count": len(added)}
