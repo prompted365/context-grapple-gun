@@ -745,22 +745,140 @@ _UNMATCHED_REMEDY_TEXT = {
     "wrong_object_class": ("EXCLUSION — not an inscription witness "
                            "(born block / metadata tag / pointer); verb "
                            "registration can never be the fix"),
-    "head_anchor_gap": ("HEAD-ANCHOR RELAXATION — admitted verb present but "
-                        "subject-prefixed off the head; build-lane increment "
-                        "(ruled /review 736), not a vocabulary addition"),
-    "vocabulary_gap": ("VERB REGISTRATION — no admitted verb anywhere; the "
-                       "one class where a new head entering the matcher is "
-                       "the true cure"),
+    "head_anchor_gap": ("HEAD-ANCHOR / BOUND QUESTION — an admitted verb sits "
+                        "inside the head subject-prefix window yet the comment "
+                        "was not admitted (post-relaxation this class is "
+                        "expected ~0; a nonzero here questions the prefix "
+                        "bound, never the vocabulary)"),
+    "vocabulary_gap": ("VERB REGISTRATION — no admitted verb within the head "
+                       "window; the witness HEAD is unregistered. A verb in "
+                       "body prose does not make a head-anchor problem "
+                       "(M1-736-HAR retype, /review-736 wave)"),
 }
 
 
 def _classify_unmatched_remedy(seg):
-    """Remedy class of one unmatched cpr-token-bearing comment (see above)."""
+    """Remedy class of one unmatched cpr-token-bearing comment (see above).
+
+    M1-736-HAR retype (F-736-B1): head_anchor_gap is decided by the
+    RELAXATION'S OWN predicate (_HEAD_SUBJECT_PREFIX_VERB_RE — verb within the
+    head subject-prefix window), never by a body-prose verb search. Before the
+    retype, a 'landed-from' pointer whose body prose said 'inscribed at …'
+    typed head_anchor_gap while the class text asserted 'no vocabulary
+    addition can EVER admit these' — prescribing a cure (the relaxation)
+    already applied and correctly declining it. A comment reaching this
+    classifier with a head-window verb is a bound question; one without is a
+    vocabulary question; the mid-comment body search prescribed neither cure
+    reachably. (_MIDCOMMENT_VERB_RE stays defined for the alternation-parity
+    test; it no longer classifies.)
+    """
     if _WRONG_OBJECT_HEAD_RE.match(seg):
         return "wrong_object_class"
-    if _MIDCOMMENT_VERB_RE.search(seg):
+    if _HEAD_SUBJECT_PREFIX_VERB_RE.match(seg):
         return "head_anchor_gap"
     return "vocabulary_gap"
+
+
+# --- HEAD-ANCHOR RELAXATION: the Class-B cure (/review 736 ruled this as a
+# build-lane increment; bk-close-check-head-anchor-relaxation; ratification
+# receipt audit-logs/governance/receipts/
+# 2026-08-25-tic736-review-docket-and-wave5-residue-ratification.json) ---
+#
+# _PROVENANCE_VERB_RE anchors an admitted inscription verb at the comment HEAD.
+# The house's own authoring style routinely puts the SUBJECT in the head slot and
+# the verb one or two words in — "tic-733 refinement appendix promoted from …",
+# "scope-fence ray promoted from …", "Non-derivability criterion promoted from
+# CogPR-110", "C5 REINFORCE: absorbed …". Those are genuine inscription
+# witnesses that the head-anchored predicate sheds, and NO vocabulary addition
+# can ever admit them: the verb is ALREADY admitted, only its POSITION fails.
+# That is why the remedy class is typed head_anchor_gap and cured here rather
+# than by registering another verb.
+#
+# THE BOUND IS MEASURED, NOT GUESSED (build tic 736, taken over
+# build_inscribed_index's own declared scan population): every Class-B witness in
+# the live corpus carries a subject prefix of 1-2 words (first admitted verb at
+# char offset 8 / 14 / 16 / 27), while the nearest NON-witness — a "landed-from"
+# pointer whose BODY PROSE merely says "doctrine inscribed at …" — carries 8
+# words (char offset 130 / 152). The token-bearing outcome is INVARIANT across
+# bounds 2..6, so 3 sits mid-plateau: observed max (2) + 1, with a five-word
+# margin to the nearest exclusion. A "landed-from" head is a VOCABULARY gap and
+# stays out BY DESIGN — its cure is verb registration in a different lane, and
+# admitting it here on the strength of a body-prose verb would collapse two
+# remedy classes with opposite cures into one.
+#
+# THREE EXCLUSIONS, all load-bearing, all fixture-pinned:
+#   1. SKIP heads (_SKIP_HEAD_RE) — a skip pointer is deliberately NOT an
+#      inscription witness (/review 719). The relaxation must never become the
+#      back door that admits what the head-anchored path correctly refuses.
+#   2. WRONG-OBJECT heads (_WRONG_OBJECT_HEAD_RE — born blocks, ledger-tags
+#      metadata, home-pointers): a birth record is a different OBJECT, not a
+#      failed inscription witness; admitting one would be exactly the category
+#      error the /review-735 disclosure-parity ray measured (15 of 28 at t732).
+#   3. INLINE STATUS-MARKER heads ("<!-- status: promoted | promoted_to: …") —
+#      the auto-memory writeback stamp on an inline CogPR block. Same object
+#      genus as ledger-tags (a metadata mirror, not a witness); measured at this
+#      build as the ONE token-less comment the relaxed predicate would otherwise
+#      newly admit. It is kept as its own named guard rather than folded into
+#      _WRONG_OBJECT_HEAD_RE because that constant belongs to the remedy-class
+#      TYPING half, which this increment does not touch.
+#
+# ADMISSION SPAN IS UNCHANGED: a relaxed match is ingested through the SAME
+# _ingest_provenance_comment path as a head-anchored one, so _CPR_REF_RE, the
+# reserved-prefix exclusion, and the /review-724 RIDER-1 route census all apply
+# byte-identically. The relaxation widens WHICH COMMENTS are read as witnesses;
+# it never widens WHICH TOKENS a read comment donates.
+_HEAD_SUBJECT_PREFIX_MAX_WORDS = 3
+_HEAD_SUBJECT_PREFIX_VERB_RE = re.compile(
+    r"<!--[ \t]*(?:(?!-->)\S+[ \t]+){1,%d}"
+    r"(?:conditional-promoted|promote-as-refinement|promoted-spec|promoted"
+    r"|absorbed|refinement|refined|reinforced|review-executed|inscribed"
+    r"|conformation|conformed|extended|merged|merge|superseded)\b"
+    % _HEAD_SUBJECT_PREFIX_MAX_WORDS,
+    re.IGNORECASE,
+)
+# Confined to the comment's FIRST LINE by construction: `\S+` cannot cross a
+# newline and the separator class is [ \t] only — so a multi-line YAML body can
+# never reach up and donate a verb to the head. The trailing `\b` is what keeps
+# a `promoted_tic=570` ledger-tag KEY from reading as the verb "promoted".
+_INLINE_STATUS_MARKER_HEAD_RE = re.compile(r"<!--\s*status:", re.IGNORECASE)
+
+# Verdict reasons emitted by _relaxation_verdict — tallied into diagnostics so
+# the relaxation's REFUSALS are as visible as its admissions (per-side disclosure
+# parity, cgg-ledger#emitter-rows-must-match-a-reader-predicate ray 5).
+RELAXED_ADMITTED = "admitted_head_subject_prefix"
+RELAXED_NO_VERB = "no_head_adjacent_verb"
+
+
+def _relaxation_verdict(seg):
+    """(admitted, reason) for a comment the head-anchored pass did NOT match.
+
+    Caller contract: `seg` is one HTML comment (its span ends at the first
+    `-->`), and head-anchored membership has ALREADY been decided elsewhere —
+    this answers only the relaxation question. A head-anchored comment
+    ("<!-- promoted from …", zero subject words) therefore returns
+    (False, no_head_adjacent_verb) here, which is correct-in-context, never a
+    claim that it is not a witness.
+
+    The head-adjacent-verb test runs FIRST so that an exclusion is only counted
+    when the relaxation would otherwise have admitted the comment — the tallies
+    read as "objects the relaxation DECLINED", not as a census of everything.
+    """
+    if not _HEAD_SUBJECT_PREFIX_VERB_RE.match(seg):
+        return False, RELAXED_NO_VERB
+    if _SKIP_HEAD_RE.match(seg):
+        return False, "excluded_skip_head"
+    if _WRONG_OBJECT_HEAD_RE.match(seg):
+        return False, "excluded_wrong_object_head"
+    if _INLINE_STATUS_MARKER_HEAD_RE.match(seg):
+        return False, "excluded_inline_status_marker"
+    return True, RELAXED_ADMITTED
+
+
+def _is_head_anchor_relaxed_witness(seg):
+    """Boolean face of _relaxation_verdict (see its caller contract)."""
+    return _relaxation_verdict(seg)[0]
+
+
 _CPR_REF_RE = re.compile(r"(cpr_[A-Za-z0-9_]+|CogPR-\d+)")
 # Reserved sibling namespaces under the cpr_ prefix that are NOT CogPR ids.
 # A namespace-prefix match is not identifier membership (/review 709,
@@ -914,8 +1032,15 @@ _ADMISSION_ROUTES_NOT_DISCRIMINABLE = [
 # Enumerated prose form of the same disclosure, carried in boundary_rule so a
 # consumer reading only the string still sees every route.
 _BOUNDARY_RULE = (
-    "ADMIT: any cpr_/CogPR-shaped token ANYWHERE inside a comment whose HEAD matches "
-    "_PROVENANCE_VERB_RE, up to that comment's first `-->`. EXCLUDE: reserved "
+    "ADMIT: any cpr_/CogPR-shaped token ANYWHERE inside a comment judged an "
+    "inscription witness, up to that comment's first `-->`. A comment is a witness "
+    "when its HEAD matches _PROVENANCE_VERB_RE, OR — per the /review-736 HEAD-ANCHOR "
+    "RELAXATION (bk-close-check-head-anchor-relaxation) — when an admitted verb is "
+    "subject-prefixed off the head by 1..3 words and the head is not a SKIP pointer, "
+    "a wrong-object head (born block / ledger-tags metadata / home-pointer), or an "
+    "inline status marker. The relaxation changes WHICH COMMENTS are read, never "
+    "WHICH TOKENS a read comment donates — every route below applies unchanged to "
+    "both paths. EXCLUDE: reserved "
     "sibling-namespace prefixes (disclosed separately). The boundary CANNOT "
     "discriminate these admission routes — enumerated from the mechanism "
     "(_PROVENANCE_VERB_RE head-anchored + `.*?-->` DOTALL span; _CPR_REF_RE with no "
@@ -981,6 +1106,18 @@ def build_inscribed_index(project_dir, queue_ids=None, diagnostics=None):
     verification axis — surviving the comment is sufficient evidence of
     inscription, regardless of whether the queue entry's `promoted_to` field
     points at the correct file.
+
+    Witness recognition is TWO paths, one ingest (/review 736 HEAD-ANCHOR
+    RELAXATION, bk-close-check-head-anchor-relaxation): a comment is read as an
+    inscription witness when its head matches _PROVENANCE_VERB_RE, OR when an
+    admitted verb is subject-prefixed off the head by 1..3 words
+    (_relaxation_verdict — "tic-733 refinement appendix promoted from …"). Both
+    paths funnel through _ingest_provenance_comment, so token admission, the
+    reserved-prefix exclusion, and the /review-724 RIDER-1 route census are
+    identical on both. Skip heads, wrong-object heads (born blocks, ledger-tags,
+    home-pointers) and inline status markers are never admitted by the relaxed
+    path; a head whose only admitted verb sits in body prose (the "landed-from"
+    vocabulary-gap class) stays out by design.
 
     Membership resolution (/review 709, f94b63ce931d): a candidate ref is
     admitted only by resolving against the id namespace this index claims to
@@ -1062,7 +1199,11 @@ def build_inscribed_index(project_dir, queue_ids=None, diagnostics=None):
     multi_token_comment_count = 0
     unmatched_shaped_count = 0
     unmatched_shaped_samples = []
-    unmatched_remedy_counts = {}
+    # All three classes pre-seeded at 0 so a zero is a DECLARED zero, never a
+    # missing key a consumer must distinguish from "class not evaluated"
+    # (M1-736-HAR; the post-retype expected steady state is head_anchor_gap=0).
+    unmatched_remedy_counts = {
+        "wrong_object_class": 0, "head_anchor_gap": 0, "vocabulary_gap": 0}
     # Route census (/review 724 RIDER 1 — disclosure parity). Counts TOKEN
     # OCCURRENCES inside matched comments, not distinct tokens (the index unit),
     # and is computed at runtime so the disclosure can never rot into a frozen
@@ -1078,6 +1219,74 @@ def build_inscribed_index(project_dir, queue_ids=None, diagnostics=None):
         "cogpr_numeric_form": 0,
     }
     substring_route_samples = []
+    # /review-736 HEAD-ANCHOR RELAXATION disclosure: what the relaxed predicate
+    # admitted AND what it declined, measured at runtime (never a frozen claim).
+    relaxation_admitted_comments = 0
+    relaxation_admitted_token_occurrences = 0
+    relaxation_declined = {
+        "excluded_skip_head": 0,
+        "excluded_wrong_object_head": 0,
+        "excluded_inline_status_marker": 0,
+    }
+    relaxation_samples = []
+
+    def _ingest_provenance_comment(seg, rel_path):
+        """Ingest ONE comment already judged an inscription witness.
+
+        SINGLE SOURCE for both admission paths — the head-anchored
+        _PROVENANCE_VERB_RE pass and the /review-736 head-anchor RELAXATION — so
+        a Class-B comment can never enter the index while bypassing the
+        /review-724 RIDER-1 route census that discloses HOW its tokens got in.
+        Returns the number of token OCCURRENCES the comment donated.
+        """
+        nonlocal matched_comment_count, multi_token_comment_count
+        matched_comment_count += 1
+        occurrences = 0
+        distinct_in_comment = set()
+        seen_any_in_comment = False
+        for ref_match in _CPR_REF_RE.finditer(seg):
+            token = ref_match.group(1)
+            if _is_reserved_ref(token):
+                reserved_excluded.setdefault(token, set()).add(rel_path)
+                continue
+            if queue_ids is not None and token not in queue_ids:
+                unresolved_against_queue.add(token)
+            inscribed.add(token)
+            distinct_in_comment.add(token)
+            occurrences += 1
+            # --- route census for this occurrence (disclosure only) ---
+            if seen_any_in_comment:
+                route_counts["body_scope_token"] += 1
+            else:
+                route_counts["head_subject_token"] += 1
+                seen_any_in_comment = True
+            if token.startswith("CogPR-"):
+                route_counts["cogpr_numeric_form"] += 1
+            t_start, t_end = ref_match.span(1)
+            left = seg[t_start - 1] if t_start > 0 else ""
+            if left and (left.isalnum() or left == "_"):
+                route_counts["substring_of_longer_identifier"] += 1
+                enclosing = _enclosing_pathish_run(seg, t_start, t_end)
+                if enclosing:
+                    route_counts["substring_of_cited_filename_or_path"] += 1
+                if len(substring_route_samples) < 10:
+                    substring_route_samples.append({
+                        "path": rel_path,
+                        "admitted_token": token,
+                        "enclosing_identifier": enclosing,
+                        "route": ("cpr_shaped_substring_of_a_cited_FILENAME_or_PATH"
+                                  if enclosing else
+                                  "cpr_shaped_substring_of_ANY_longer_identifier"),
+                        "context": " ".join(
+                            seg[max(0, t_start - 70):t_end + 30].split())[:180],
+                    })
+            if queue_ids and token not in queue_ids and any(
+                    token.startswith(q + "_") for q in queue_ids):
+                route_counts["greedy_right_extension"] += 1
+        if len(distinct_in_comment) > 1:
+            multi_token_comment_count += 1
+        return occurrences
+
     for path in candidate_paths:
         content = read_file_safe(path)
         if not content:
@@ -1088,60 +1297,43 @@ def build_inscribed_index(project_dir, queue_ids=None, diagnostics=None):
         # cpr_xxx / CogPR-N ref inside it. The compound case ("refined from A + B")
         # surfaces both refs from a single comment.
         for m in _PROVENANCE_VERB_RE.finditer(content):
-            matched_comment_count += 1
-            seg = m.group(0)
-            distinct_in_comment = set()
-            seen_any_in_comment = False
-            for ref_match in _CPR_REF_RE.finditer(seg):
-                token = ref_match.group(1)
-                if _is_reserved_ref(token):
-                    reserved_excluded.setdefault(token, set()).add(rel_path)
-                    continue
-                if queue_ids is not None and token not in queue_ids:
-                    unresolved_against_queue.add(token)
-                inscribed.add(token)
-                distinct_in_comment.add(token)
-                # --- route census for this occurrence (disclosure only) ---
-                if seen_any_in_comment:
-                    route_counts["body_scope_token"] += 1
-                else:
-                    route_counts["head_subject_token"] += 1
-                    seen_any_in_comment = True
-                if token.startswith("CogPR-"):
-                    route_counts["cogpr_numeric_form"] += 1
-                t_start, t_end = ref_match.span(1)
-                left = seg[t_start - 1] if t_start > 0 else ""
-                if left and (left.isalnum() or left == "_"):
-                    route_counts["substring_of_longer_identifier"] += 1
-                    enclosing = _enclosing_pathish_run(seg, t_start, t_end)
-                    if enclosing:
-                        route_counts["substring_of_cited_filename_or_path"] += 1
-                    if len(substring_route_samples) < 10:
-                        substring_route_samples.append({
-                            "path": rel_path,
-                            "admitted_token": token,
-                            "enclosing_identifier": enclosing,
-                            "route": ("cpr_shaped_substring_of_a_cited_FILENAME_or_PATH"
-                                      if enclosing else
-                                      "cpr_shaped_substring_of_ANY_longer_identifier"),
-                            "context": " ".join(
-                                seg[max(0, t_start - 70):t_end + 30].split())[:180],
-                        })
-                if queue_ids and token not in queue_ids and any(
-                        token.startswith(q + "_") for q in queue_ids):
-                    route_counts["greedy_right_extension"] += 1
-            if len(distinct_in_comment) > 1:
-                multi_token_comment_count += 1
+            _ingest_provenance_comment(m.group(0), rel_path)
         # Unmatched-provenance-shape loud counter (/review 719, 3a40ab346adb):
         # a cpr-token-bearing comment that fails the verb alternation is exactly
         # the shape that silently dropped out of the index while the inscription
         # stayed valid (measured live at tic 716: PROMOTE-AS-REFINEMENT, delta
         # read 0 against a landed inscription). Counted + sampled, never gating;
         # SKIP-* heads excluded by design; reserved-only comments not counted.
+        #
+        # /review-736 HEAD-ANCHOR RELAXATION rides HERE, between the head-anchored
+        # pass and the residue counter: a Class-B witness is INGESTED (through the
+        # shared path, route census included) instead of being counted as residue.
         for cm in _HTML_COMMENT_RE.finditer(content):
             seg = cm.group(0)
-            if _PROVENANCE_VERB_RE.match(seg) or _SKIP_HEAD_RE.match(seg):
+            if _PROVENANCE_VERB_RE.match(seg):
+                continue  # already ingested by the head-anchored pass above
+            if _SKIP_HEAD_RE.match(seg):
+                # Skip-head exclusion — UNCHANGED (/review 719). A skip pointer is
+                # neither indexed nor counted as residue. Recorded when it ALSO
+                # carries a head-adjacent verb, so the relaxation's refusal to
+                # become a back door is a measured number, not an assurance.
+                if _HEAD_SUBJECT_PREFIX_VERB_RE.match(seg):
+                    relaxation_declined["excluded_skip_head"] += 1
                 continue
+            relaxed_admitted, relaxed_reason = _relaxation_verdict(seg)
+            if relaxed_admitted:
+                donated = _ingest_provenance_comment(seg, rel_path)
+                relaxation_admitted_comments += 1
+                relaxation_admitted_token_occurrences += donated
+                if len(relaxation_samples) < 10:
+                    relaxation_samples.append({
+                        "path": rel_path,
+                        "head": " ".join(seg[:120].split()),
+                        "tokens_donated": donated,
+                    })
+                continue
+            if relaxed_reason != RELAXED_NO_VERB:
+                relaxation_declined[relaxed_reason] += 1
             tokens = [t.group(1) for t in _CPR_REF_RE.finditer(seg)
                       if not _is_reserved_ref(t.group(1))]
             if not tokens:
@@ -1189,6 +1381,41 @@ def build_inscribed_index(project_dir, queue_ids=None, diagnostics=None):
         diagnostics["unmatched_remedy_class_counts"] = dict(
             sorted(unmatched_remedy_counts.items()))
         diagnostics["unmatched_remedy_class_remedies"] = _UNMATCHED_REMEDY_TEXT
+        # /review-736 HEAD-ANCHOR RELAXATION (bk-close-check-head-anchor-
+        # relaxation), the Class-B cure. Per-side disclosure: what the relaxed
+        # predicate ADMITTED and what it DECLINED are both measured, so the
+        # relaxation cannot become a silent widening — and a zero in `declined`
+        # is a scope-welded zero (the guard ran), never an unmeasured absence.
+        diagnostics["head_anchor_relaxation"] = {
+            "max_subject_prefix_words": _HEAD_SUBJECT_PREFIX_MAX_WORDS,
+            "comments_admitted": relaxation_admitted_comments,
+            "token_occurrences_admitted": relaxation_admitted_token_occurrences,
+            "declined_by_exclusion": dict(sorted(relaxation_declined.items())),
+            "samples": relaxation_samples,
+            "admits": (
+                "an HTML comment whose ADMITTED inscription verb is present but "
+                "subject-prefixed off the head by 1..%d words "
+                "('tic-733 refinement appendix promoted from …', 'scope-fence ray "
+                "promoted from …', 'C5 REINFORCE: absorbed …'). The bound is "
+                "measured over this scan population, not assumed."
+                % _HEAD_SUBJECT_PREFIX_MAX_WORDS),
+            "never_admits": (
+                "SKIP heads (a skip pointer is not an inscription witness, "
+                "/review 719) · WRONG-OBJECT heads (born blocks, ledger-tags "
+                "metadata, home-pointers — a different object, not a failed "
+                "witness) · INLINE STATUS-MARKER heads ('<!-- status: promoted | "
+                "promoted_to: …', the auto-memory writeback stamp) · a "
+                "VOCABULARY-gap head such as 'landed-from' whose only admitted "
+                "verb sits deep in body prose — that class's cure is verb "
+                "registration in a different lane, and admitting it here would "
+                "collapse two remedy classes with opposite cures."),
+            "token_admission_unchanged": (
+                "a relaxed comment is ingested through the SAME path as a "
+                "head-anchored one, so _CPR_REF_RE, the reserved-prefix "
+                "exclusion, and the /review-724 RIDER-1 route census apply "
+                "byte-identically. This widens WHICH COMMENTS are read as "
+                "witnesses, never WHICH TOKENS a read comment donates."),
+        }
         # Class-cure (/review 716, 502236e96cf1 SKIP-with-routing, executed
         # same tic): the counter's POPULATION and UNIT are declared as fields
         # BESIDE the integer, so a consumer predicting against it must predict
@@ -1205,7 +1432,7 @@ def build_inscribed_index(project_dir, queue_ids=None, diagnostics=None):
         # not gating: admission is byte-for-byte unchanged.
         diagnostics["unit_declaration"] = {
             "unit": "distinct_cpr_shaped_tokens_inside_matched_provenance_comments",
-            "population": "provenance HTML-comments matched by _PROVENANCE_VERB_RE across the scanned surfaces declared in build_inscribed_index's docstring",
+            "population": "provenance HTML-comments judged inscription witnesses across the scanned surfaces declared in build_inscribed_index's docstring — head-anchored by _PROVENANCE_VERB_RE, OR admitted by the /review-736 HEAD-ANCHOR RELAXATION (verb subject-prefixed off the head by 1..%d words; skip / wrong-object / inline-status-marker heads excluded). Both paths ingest identically; see diagnostics.head_anchor_relaxation for the per-side admitted/declined split." % _HEAD_SUBJECT_PREFIX_MAX_WORDS,
             "boundary_rule": _BOUNDARY_RULE,
             "admission_routes_not_discriminable": _ADMISSION_ROUTES_NOT_DISCRIMINABLE,
             "route_occurrence_counts": route_counts,
