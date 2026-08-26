@@ -701,7 +701,20 @@ _PROVENANCE_VERB_RE = re.compile(
     # out of the index (cgg-ledger#emitter-rows-must-match-a-reader-
     # predicate, reciprocal direction — reader predicate over an OPEN
     # authoring vocabulary).
-    r"(?:conditional-promoted|promote-as-refinement|promoted-spec|promoted|absorbed|refinement|refined|reinforced|review-executed|inscribed|conformation|conformed|extended|merged|merge|superseded)"
+    # /review-737 M3-736-HAR (bk-landed-from-verb-registration, round-2 verdict
+    # n=5, Architect-ratified; receipt audit-logs/governance/receipts/
+    # 2026-08-26-tic737-review-docket-and-16d-adoption-ratification.json):
+    # "landed-from" is REGISTERED — n=3 of the tic-515 verb-alternation-gap
+    # class. It was the measured vocabulary_gap population at tics 736-737
+    # (5 comments, all head-anchored, cgg-runtime/skills/cadence/SKILL.md):
+    # no admitted verb anywhere in the head window, which is the ONE class the
+    # /review-736 remedy typing names VERB REGISTRATION as the reachable cure
+    # for, and which the head-anchor relaxation correctly DECLINED because the
+    # verb was absent rather than displaced. This is that cure landing in the
+    # lane the typing named. The 5 comments are NOT edited: they become
+    # inscription witnesses because the vocabulary now admits the verb they
+    # already carried at their heads.
+    r"(?:conditional-promoted|promote-as-refinement|promoted-spec|promoted|absorbed|refinement|refined|reinforced|review-executed|inscribed|landed-from|conformation|conformed|extended|merged|merge|superseded)"
     r"|CPR-ID:"
     r").*?-->",
     re.IGNORECASE | re.DOTALL,
@@ -738,7 +751,7 @@ _WRONG_OBJECT_HEAD_RE = re.compile(
 _MIDCOMMENT_VERB_RE = re.compile(
     r"\b(?:conditional-promoted|promote-as-refinement|promoted-spec|promoted"
     r"|absorbed|refinement|refined|reinforced|review-executed|inscribed"
-    r"|conformation|conformed|extended|merged|merge|superseded)\b",
+    r"|landed-from|conformation|conformed|extended|merged|merge|superseded)\b",
     re.IGNORECASE)
 
 _UNMATCHED_REMEDY_TEXT = {
@@ -771,6 +784,12 @@ def _classify_unmatched_remedy(seg):
     vocabulary question; the mid-comment body search prescribed neither cure
     reachably. (_MIDCOMMENT_VERB_RE stays defined for the alternation-parity
     test; it no longer classifies.)
+
+    The 'landed-from' narrative above is HISTORY, kept because it is what the
+    retype was measured against: since /review 737 (M3-736-HAR) 'landed-from'
+    is a REGISTERED verb, so such a comment is admitted at the head and never
+    reaches this classifier at all. The retype's REASONING is untouched — only
+    that example left the vocabulary_gap class by being cured.
     """
     if _WRONG_OBJECT_HEAD_RE.match(seg):
         return "wrong_object_class"
@@ -806,6 +825,19 @@ def _classify_unmatched_remedy(seg):
 # admitting it here on the strength of a body-prose verb would collapse two
 # remedy classes with opposite cures into one.
 #
+# [SUPERSEDED IN PART at /review 737, M3-736-HAR — the t736 measurement above is
+# preserved verbatim as history and was CORRECT when taken; only the status of
+# its exclusion EXAMPLE moved.] "landed-from" is now a REGISTERED verb
+# (bk-landed-from-verb-registration): the different lane the paragraph named is
+# the lane that fired, so those 5 comments are admitted by the HEAD-ANCHORED
+# path — never by this relaxation. The relaxation's own reasoning is UNCHANGED
+# and its bound is untouched at 3: it still refuses to admit a head on the
+# strength of a body-prose verb, and the two remedy classes still carry opposite
+# cures. What changed is only that "landed-from" is no longer an instance of the
+# vocabulary_gap class. The bound's DISCRIMINATING measurement (a body-prose
+# verb at 8 subject words must not reach the head) is unaffected and is now
+# pinned by fixtures that use a still-unregistered head instead of this one.
+#
 # THREE EXCLUSIONS, all load-bearing, all fixture-pinned:
 #   1. SKIP heads (_SKIP_HEAD_RE) — a skip pointer is deliberately NOT an
 #      inscription witness (/review 719). The relaxation must never become the
@@ -832,7 +864,7 @@ _HEAD_SUBJECT_PREFIX_VERB_RE = re.compile(
     r"<!--[ \t]*(?:(?!-->)\S+[ \t]+){1,%d}"
     r"(?:conditional-promoted|promote-as-refinement|promoted-spec|promoted"
     r"|absorbed|refinement|refined|reinforced|review-executed|inscribed"
-    r"|conformation|conformed|extended|merged|merge|superseded)\b"
+    r"|landed-from|conformation|conformed|extended|merged|merge|superseded)\b"
     % _HEAD_SUBJECT_PREFIX_MAX_WORDS,
     re.IGNORECASE,
 )
@@ -1116,8 +1148,12 @@ def build_inscribed_index(project_dir, queue_ids=None, diagnostics=None):
     reserved-prefix exclusion, and the /review-724 RIDER-1 route census are
     identical on both. Skip heads, wrong-object heads (born blocks, ledger-tags,
     home-pointers) and inline status markers are never admitted by the relaxed
-    path; a head whose only admitted verb sits in body prose (the "landed-from"
-    vocabulary-gap class) stays out by design.
+    path; a head carrying NO admitted verb inside the head window stays out by
+    design — a verb sitting only in body prose never reaches up to the head.
+    (Until /review 737 the standing EXAMPLE of that class was "landed-from";
+    M3-736-HAR REGISTERED that verb — bk-landed-from-verb-registration — so
+    those 5 cadence-SKILL comments are now admitted by the HEAD-ANCHORED path,
+    never by the relaxation. The class is unchanged; its example was cured.)
 
     Membership resolution (/review 709, f94b63ce931d): a candidate ref is
     admitted only by resolving against the id namespace this index claims to
@@ -1405,10 +1441,15 @@ def build_inscribed_index(project_dir, queue_ids=None, diagnostics=None):
                 "metadata, home-pointers — a different object, not a failed "
                 "witness) · INLINE STATUS-MARKER heads ('<!-- status: promoted | "
                 "promoted_to: …', the auto-memory writeback stamp) · a "
-                "VOCABULARY-gap head such as 'landed-from' whose only admitted "
-                "verb sits deep in body prose — that class's cure is verb "
-                "registration in a different lane, and admitting it here would "
-                "collapse two remedy classes with opposite cures."),
+                "VOCABULARY-gap head carrying NO admitted verb inside the head "
+                "window, whose only verb sits deep in body prose — that class's "
+                "cure is verb registration in a different lane, and admitting it "
+                "here would collapse two remedy classes with opposite cures. "
+                "('landed-from' was this field's standing example through tic "
+                "736; /review 737 M3-736-HAR REGISTERED it — bk-landed-from-verb-"
+                "registration — so it is now admitted by the HEAD-ANCHORED path "
+                "and is no longer an instance of this class. The exclusion class "
+                "itself is unchanged; only its example was cured.)"),
             "token_admission_unchanged": (
                 "a relaxed comment is ingested through the SAME path as a "
                 "head-anchored one, so _CPR_REF_RE, the reserved-prefix "

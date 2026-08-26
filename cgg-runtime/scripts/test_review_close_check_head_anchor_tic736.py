@@ -285,10 +285,19 @@ class TestNegativeControl(HermeticIndexCase):
         self.assertEqual(diag["unmatched_provenance_shaped_count"], 1)
         self.assertEqual(diag["head_anchor_relaxation"]["comments_admitted"], 0)
 
+    # --- RETYPED at /review 737 (M3-736-HAR, bk-landed-from-verb-registration) ---
+    # These two fixtures pinned the vocabulary_gap CLASS using `landed-from` as
+    # its live instance. That verb is now REGISTERED, so it is no longer an
+    # instance of the class — it is admitted at the head. The CLASS and the
+    # BOUND are unchanged and are still pinned here, now with a head verb that
+    # is genuinely unadmitted (`routed-from`). Nothing about the tic-736
+    # relaxation moved; only the example did. The landed-from admission itself
+    # is proven in test_review_close_check_landed_from_tic738.py.
+
     def test_vocabulary_gap_no_admitted_verb_anywhere_stays_in_the_counter(self):
-        """`landed-from` with NO admitted verb anywhere: still vocabulary_gap."""
+        """An UNREGISTERED head with NO admitted verb anywhere: still vocabulary_gap."""
         inscribed, diag = self.index(
-            "<!-- landed-from cpr_priority_is_calibrated_at_cadence_not_boot_tic421 "
+            "<!-- routed-from cpr_priority_is_calibrated_at_cadence_not_boot_tic421 "
             "(/review 421 -> cgg-ledger#priority-is-calibrated-at-cadence-not-boot; "
             "impl gate tic 422). Band: COGNITIVE. -->\n")
         self.assertEqual(inscribed, set())
@@ -300,14 +309,17 @@ class TestNegativeControl(HermeticIndexCase):
     def test_body_prose_verb_far_from_head_is_NOT_admitted(self):
         """The bound's discriminating case, measured live at 8 subject words.
 
-        `landed-from` is a VOCABULARY gap whose cure is verb registration in a
-        different lane. Admitting it here on the strength of `doctrine inscribed
-        at …` deep in body prose would collapse two remedy classes with opposite
-        cures into one — the exact failure the /review-735 disclosure-parity ray
-        names.
+        An unregistered head verb is a VOCABULARY gap whose cure is verb
+        registration in a different lane. Admitting it here on the strength of
+        `doctrine inscribed at …` deep in body prose would collapse two remedy
+        classes with opposite cures into one — the exact failure the
+        /review-735 disclosure-parity ray names. (Through tic 736 this fixture
+        read `landed-from`; /review 737 registered that verb, so the fixture now
+        carries a still-unadmitted head. The measurement it pins — a body-prose
+        verb 8 subject words in must never reach the head — is untouched.)
         """
         inscribed, diag = self.index(
-            "<!-- landed-from cpr_c47_generation_suffix_convention_tic274 "
+            "<!-- routed-from cpr_c47_generation_suffix_convention_tic274 "
             "(PROMOTE-SPEC at /review tic 278; doctrine inscribed at "
             "canonical_developer/context-grapple-gun/x.md). -->\n")
         self.assertEqual(inscribed, set())
@@ -413,6 +425,11 @@ class TestVerbAlternationParity(unittest.TestCase):
         "promoted", "absorbed", "refinement", "refined", "reinforced",
         "review-executed", "inscribed", "conformation", "conformed", "extended",
         "merged", "merge", "superseded",
+        # /review 737 M3-736-HAR (bk-landed-from-verb-registration): the
+        # tripwire's whole purpose is that a verb registration cannot land in
+        # two of three matchers — this row is the registration declaring itself
+        # to the tripwire.
+        "landed-from",
     }
 
     @staticmethod

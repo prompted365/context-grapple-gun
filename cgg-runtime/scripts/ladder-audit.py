@@ -591,6 +591,15 @@ def run_audit(zone_root, verbose=False):
         "membership_exclusion_count": len(membership_exclusions),
         "claude_md_count": len(md_paths),
         "rules_audited": len(rule_classifications),
+        # Guard 18 (ledger.md#presence-observation-fallacy-guard, /review 738): every
+        # narrowing predicate between two cardinalities rendered over one pass is a
+        # disclosure obligation carried BESIDE the number, not left in the source.
+        "rules_audited_predicate": (
+            "rules_audited excludes rule type=='section' (structural headings); "
+            "chain-map per-file rule counts include ALL types, so chain-map total "
+            "= rules_audited + section rows. The delta is a type filter, not a "
+            "coverage gap."
+        ),
         "chain_map": chain_map,
         "rule_classifications": rule_classifications,
         "findings": findings,
@@ -4586,7 +4595,7 @@ def format_human_readable(result):
     lines.append(f"  Zone root:       {result.get('zone_root', '?')}")
     lines.append(f"  Confidence:      {result.get('confidence', 'preliminary')}")
     lines.append(f"  CLAUDE.md files: {result.get('claude_md_count', 0)}")
-    lines.append(f"  Rules audited:   {result.get('rules_audited', 0)}")
+    lines.append(f"  Rules audited:   {result.get('rules_audited', 0)}  [excludes type=='section' rows; chain-map counts include them — delta is a type filter, not coverage]")
     lines.append(f"  Fenced (membership): {result.get('membership_exclusion_count', 0)}")
     lines.append("")
     lines.append("  NOTE: Parent/child inferred from path nesting, not explicit")

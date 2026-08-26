@@ -175,7 +175,7 @@ The human decides whether to proceed or absorb.
 
 ## DEDUP Hash
 
-`SHA256(f"{source}:{lesson}")[:16]` — colon-separated, matching the authoritative form in `cpr-extract.py` (its stamp sites) — same lesson from same source → same hash → skip (idempotent). The no-separator form `SHA256(source + lesson)` is WRONG: stamped hashes reproduce only under the colon form (empirically settled tic 652; doctrine-drift cured tic 653, stepper anomaly A4-653).
+`SHA256(f"{source}:{lesson}")[:16]` — colon-separated, matching the authoritative form in `cpr-extract.py` (its stamp sites) — same lesson from same source → same hash → skip (idempotent). The colon form is FORWARD-AUTHORITATIVE from tic 652 (empirically settled tic 652; doctrine-drift cured tic 653, stepper anomaly A4-653) and is the sole form for every row the stepper gates forward. ERA SCOPE (A1-737, measured n=318, ratified /review 738): the exclusivity claim is era-bounded, not corpus-universal — 6 pre-652 rows (max birth 620) reproduce under the no-separator form `SHA256(source + lesson)` (a lawful earlier era, not corruption), and the `pattern_miner:` mint site is a disjoint identifier-passthrough convention (dedup_hash = the pattern id's hex16, not a content hash; 25 rows, all terminal, last mint birth 716 — A2-737). Neither era/site is a live convention: new mints stamp colon-form only, and the no-separator form remains WRONG for any forward stamp.
 
 ## Queue Format
 

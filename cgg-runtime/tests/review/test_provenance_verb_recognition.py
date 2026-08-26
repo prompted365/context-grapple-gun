@@ -49,6 +49,11 @@ def test_regex_recognizes_all_inscription_verb_forms():
         "<!-- absorbed into cpr_merge_tic9 -->",
         "<!-- superseded by cpr_new_tic2 -->",
         "<!-- refined from cpr_a_tic3 + cpr_b_tic4 -->",
+        # /review 737 M3-736-HAR registration (bk-landed-from-verb-registration):
+        # the head form carried by the 5 cadence-SKILL comments, verbatim shape.
+        "<!-- landed-from cpr_born_authoring_requires_dryrun_reachability_verify_tic554 "
+        "(PROMOTE at /review tic 584). -->",
+        "<!-- LANDED-FROM cpr_case_insensitive_tic1 -->",          # case-insensitive
     ]
     for s in must_match:
         assert RE.search(s), f"provenance regex must match: {s}"
