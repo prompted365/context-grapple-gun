@@ -155,6 +155,13 @@ LIFECYCLE_MUTABLE_FIELDS = frozenset({
     #     by <id>" / stub-of-twin. Family was absent until t689 — all 220 prior
     #     absorbed rows predate this writer, so its first absorb refused fail-closed) ---
     "absorbed_reason", "absorbed_tic", "absorbed_date", "absorbed_by",
+    # --- the RULED terminal field set (/review 739 A1-739 minimal writeback field set,
+    #     forward-only; declared here /review 741 Q4 "apply same-pass" after two passes
+    #     [740, 739->740] through the --allow-field valve for a MANDATORY set):
+    #     adjudicated_at_tic = the verdict-side single-writer clock (review_tic is
+    #     never overloaded by verdicts); absorbed_into = the ray/anchor an absorb
+    #     lands on; landing_kind = reinforce_existing | refinement_ray | ... ---
+    "adjudicated_at_tic", "absorbed_into", "landing_kind",
     # --- advance / reconcile breadcrumbs ---
     "advanced_tic", "advanced_at", "advanced_by", "advance_reason", "current_tic",
     "gate_advanced_at_tic", "gate_advanced_by", "gate_advance_reason",

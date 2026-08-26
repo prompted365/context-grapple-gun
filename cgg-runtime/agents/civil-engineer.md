@@ -135,7 +135,11 @@ systematically misses bypass scripts that emit through none of them.
 
 **Bypass classification — a script is bypass IF ALL of the following hold:**
 
-- `writes_governance_state == yes` (script writes to signal manifold, mailbox, egress, vendor-state, or other capability-surface emission), AND
+- `writes_governance_state == yes` — and that predicate is **call-site-local and target-resolved**, never whole-file string co-occurrence. A script writes governance state IFF it contains a write CALL SITE whose target path expression **resolves** to a declared capability-surface emission target (signal manifold, mailbox, egress/router, vendor-state, CogPR queue). A *mention* of a capability path is not a write; a *write to a report lane* is not a capability emission. The predicate has exactly three positive arms and one honest-abstention arm, each carrying the false-positive class it answers:
+  - **ARM 1 — resolved capability call site.** A write verb (`open(mode=w|a|x)`, `.write_text/.write_bytes/.writelines`, `json.dump`, `os.replace`, `shutil.move/copy`, or a `lib.atomic_append` helper) whose target statically resolves into a declared capability surface. Answers FP-CLASS-A (report/receipt lane), B (telemetry/CPG plane), C (doctrine/source-surface inscription), D (out-of-federation target), E (test/scratch), F (local process state) in one move.
+  - **ARM 2 — subprocess to a validated writer CLI.** A `subprocess.run/Popen/check_call/...` **call site** whose resolved argument list names `inbox-envelope.py` / `cadence-ops.py` / `trigger-router.py`. Answers the false NEGATIVE the /review-710 amendment named on `ladder-feedback-push.py`, which has no local write verb at all. This arm is a CALL SITE, never a text mention — a comment naming `cadence-ops.py` is not a write.
+  - **ARM 3 — `indeterminate`, never a silent clear.** A real write verb whose target does NOT statically resolve, on a script that names a capability surface, is reported `indeterminate`: declared negative space for hand adjudication. It is counted in neither the numerator nor the denominator of any classification claim. This arm exists because v0 had no way to say *I do not know*, which is what let a 30% error rate look like a count.
+  AND
 - NONE of the six envelope-aware mechanisms above are present, AND
 - target_surface is a capability-surface emission, NOT a CPG-class telemetry materialization plane (CPG sub-layer scripts that legitimately use `dedup_signal_append` for telemetry compaction without envelope coupling are not bypass — they fall under mechanism 2 above OR are out of scope as telemetry-class, not capability-class).
 
@@ -143,9 +147,59 @@ systematically misses bypass scripts that emit through none of them.
 
 **Falsification gate**: if subsequent civil-engineer envelope-pattern audits with the multi-mechanism check produce >5% false-positive rate OR any false negative, the heuristic still requires refinement (possibly toward full per-script tactical-hydration classification as the canonical method). Surface the falsification finding to Mogul; do not silently widen.
 
-**Out of scope (this section)**: the per-script primitive that does the classification (the implementation of a `civil-audit` script or equivalent) is deferred per the PROMOTE-SPEC verdict-shape. This section is the agent-spec amendment only; the per-script classification primitive will be inscribed in its own tranche.
+**The classification primitive**: `canonical_developer/context-grapple-gun/cgg-runtime/scripts/civil-audit.py` — the per-script primitive deferred at tic 273 under the PROMOTE-SPEC verdict-shape, inscribed in its own tranche at tic 741. It enumerates a DECLARED scan scope (default `scripts/` + `scripts/lib/`, exclusions declared in the report), applies the six-mechanism OR-gate unchanged, applies the target-resolved `writes_governance_state` predicate above, and emits a per-script citation with the resolving line and target — never an aggregate-only count. It CARRIES THE FALSIFICATION GATE ITSELF against a labeled control set (each label carries its hand-verified evidence and the tic it was verified at) and reports `predicate_falsified: true` rather than widening. Read-only over the corpus; it writes only its own report under `audit-logs/governance/harpoon-office/probe-reports/`, or to stdout with `--stdout`. Selftests: `scripts/test_civil_audit_predicate_tic741.py`. Invocation: `python3 scripts/civil-audit.py --legacy-compare` (add `--fail-on-falsified` to exit 2 when the gate trips).
+
+**Civil is no longer required to withhold.** The withholding at tics 690–740 was correct while the predicate was known-broken. With the refined predicate and its executable gate, civil emits the classification WITH its measured FP/FN rates and its `indeterminate` aperture stated, or reports `predicate_falsified` — never a bare count.
 
 <!-- Amendment provenance (/review 710, Architect-ratified in-tic via AskUserQuestion question set, reviewer ent_homeskillet, boot receipt 336860c2502e862c): mechanisms 1+2 vocabulary widened per civil-engineer's OWN falsification-gate surfacing at tics 700 + 710 (envelope_mechanism_citation_reverification, three consecutive-pass mis-citations byte-verified this tic: cogpr-ingest.py + cpr-extract.py import dedup_queue_append — lib/atomic_append.py:107, sibling of dedup_signal_append:50; ladder-feedback-push.py routes via the inbox-envelope.py CLI by subprocess at line 194, the validated trigger surface itself — all three scripts compliant all along; the audit VOCABULARY lagged the physics-lib's growth). The widening is gate-ratified, NOT silent — exactly the disposition path the falsification clause demands ("Surface the falsification finding to Mogul; do not silently widen"). This dispositions the falsification gate's false-NEGATIVE axis; the false-POSITIVE axis (writes_governance_state predicate, 30% sampled false-positive rate at tic 690) remains OPEN, routed on backlog row bk-civil-envelope-citation-and-falsification-gate-recurrence. -->
+
+<!-- Amendment provenance (/review 741, staged by ent_harpoon_build_citizen wave-11B build increment,
+     boot receipt 52f3b9a57247851c, spawn a873ac9032d9f68d1; ratification basis: backlog row
+     bk-civil-envelope-citation-and-falsification-gate-recurrence raised to HIGH and named the wave-11
+     build at /review 740, Architect-ratified, recommended verbatim).
+
+     THIS DISPOSITIONS THE FALSE-POSITIVE AXIS. The false-NEGATIVE axis closed at /review 710 and has
+     held at tics 720/730/740. The false-POSITIVE axis — the writes_governance_state predicate, 30%
+     sampled at tic 690 — is dispositioned here by refining the predicate to call-site-local
+     target resolution and by building the deferred classification primitive.
+
+     PREMISE FALSIFIED AT BUILD, and the cure narrowed accordingly. The tic-690 report attributed its
+     false positives to "read-only auditors that merely READ those paths", and the tic-700 AST
+     diagnostic pointed at "does an AST walk find a real write call". BOTH ARE WRONG ABOUT THE CAUSE.
+     All three scripts tic 690 named as false positives contain REAL write call sites:
+     queue-drift-audit.py writes audit-logs/governance/queue-drift-audit/<ts>.json at L546;
+     ripple-assessor.py writes ~/.claude/grapple-proposals/latest.md at L784; review-promote-writeback.py
+     writes doctrine/source markdown in place at L616/L675/L805. A write-EXISTENCE predicate would have
+     cleared NONE of them. What makes them false positives is the TARGET SURFACE CLASS. The refinement
+     resolves the target; it does not test for the presence of a write.
+
+     MEASURED AT THIS DISPATCH (live corpus, cgg-runtime/scripts + scripts/lib, 152 files / 93
+     production / 59 test fixtures excluded):
+       - falsification gate: 0 asserted false positives (0.0% vs the 5% threshold), 0 false negatives,
+         predicate_falsified: FALSE, against a 17-script hand-verified labeled control set.
+       - strict reading published beside it: 5.88% (1 labeled negative — review-promote-writeback.py —
+         that the resolver DECLINES to assert on rather than clears; named, never dissolved).
+       - classification: 25 governance-state writers (18 envelope-aware, 7 bypass), 54 not-writers,
+         14 indeterminate (enumerated in the report, counted in no claim).
+       - legacy delta: the reconstructed v0 predicate flags 63 production scripts; the refined
+         predicate flags 25. 38 cleared, by measured cause — FP-CLASS-A x7, FP-CLASS-B x5,
+         FP-CLASS-C x1, FP-CLASS-D x1, and 20 that carry no resolved capability write at all.
+       - NEGATIVE CONTROL executed at this dispatch: reverting arm 1 to the v0 co-occurrence
+         reproduces the tic-690 shape live — 63 flagged / 37 bypass candidates, gate tripped at
+         17.65%, with all three tic-690 named false positives asserted `bypass` again. Restored
+         byte-identical (sha256 aef416c2...).
+
+     NOT WIDENED, SURFACED INSTEAD (the falsification clause's own instruction): 5 of the 7 bypass
+     findings emit through `atomic_append_jsonl` — the lib sibling of the two ratified dedup
+     primitives, at the same Physics-layer boundary but WITHOUT dedup-by-canonical-identity — and
+     queue-lifecycle-writeback.py prefers the `atomic-append.sh` SHELL sibling. Whether either is a
+     SEVENTH mechanism is a doctrine question for Mogul/review. This increment did not answer it and
+     did not widen mechanism 2 or 3 to cover them.
+
+     DOES-NOT-SATISFY RIDER (verbatim): this increment does NOT amend civil-engineer.md (staged only,
+     /review-gated), does NOT flip any ratified:false gate, and does NOT make civil's next
+     classification pass happen — it makes it POSSIBLE.
+-->
 
 ## Execution Protocol
 

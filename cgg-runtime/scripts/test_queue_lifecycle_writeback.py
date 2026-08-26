@@ -850,5 +850,34 @@ class TestRecompileClockDecoupledFromVerdict(_RecompileZone):
                           "a zero clock is not a clock")
 
 
+
+class RuledTerminalFieldSetDeclaredTic741(unittest.TestCase):
+    """/review 741 Q4 (Architect-ratified, recommended verbatim): the RULED terminal
+    field set (A1-739 minimal writeback set, forward-only) is DECLARED in
+    LIFECYCLE_MUTABLE_FIELDS — a mandatory set must not need the --allow-field
+    valve on every pass (t739->740->741 = two passes through the escape)."""
+
+    RULED = ("review_ratified_by", "adjudicated_at_tic", "absorbed_into",
+             "absorbed_reason", "landing_kind")
+
+    def test_ruled_set_classifies_ok_without_allow_field(self):
+        lifecycle = {k: "x" for k in self.RULED}
+        lifecycle["status"] = "promoted"
+        ok, protected, unknown = qlw.classify_lifecycle_fields(lifecycle)
+        self.assertEqual(unknown, [], "ruled field(s) still undeclared: %r" % unknown)
+        self.assertEqual(protected, [])
+        for field in self.RULED:
+            self.assertIn(field, qlw.LIFECYCLE_MUTABLE_FIELDS)
+
+    def test_unruled_field_still_refuses_without_allow_field(self):
+        ok, protected, unknown = qlw.classify_lifecycle_fields(
+            {"status": "promoted", "not_a_ruled_field_tic741": 1})
+        self.assertEqual(unknown, ["not_a_ruled_field_tic741"])
+
+    def test_envelope_identity_stays_protected(self):
+        ok, protected, unknown = qlw.classify_lifecycle_fields(
+            {"status": "promoted", "lesson": "retcon attempt"})
+        self.assertEqual(protected, ["lesson"])
+
 if __name__ == "__main__":
     unittest.main()

@@ -52,6 +52,20 @@ def dedup_signal_append(target: str, signal: dict, manifest_path: str = None) ->
     or the active manifest. Returns True if written, False if deduplicated.
 
     Signal ID is read from 'signal_id' or 'id' field.
+
+    DISCLOSURE (/review 741 first-consumer patch on the PRODUCER-half ray of
+    constitution-ledger#authoritative-set-readers-must-read-the-manifest-not-
+    aggregate-raw-emissions, from cpr_mogul_memory_mining_012d4d5a42c0):
+    `manifest_path` is a READ-ONLY DEDUP SOURCE. This helper NEVER writes to the
+    manifest — its sole write is `open(target, 'a')` on the daily signals file.
+    A caller that passes `manifest_path=` gets cross-day dedup against the
+    curated set; it does NOT get its signal INGESTED into that set, and no
+    ingestion path from a daily emission into active-manifest.jsonl exists
+    (manifest-prune.py is a projector/pruner, not an ingester). Producers that
+    need the authoritative reader (Mogul signal_scan) to SEE the signal must
+    reach the manifest by an explicit path until the ingestion-path build lands
+    (backlog bk-signal-manifest-producer-ingestion-path). The parameter name is
+    kept for signature stability; its meaning is exactly the sentence above.
     """
     sig_id = signal.get("signal_id", signal.get("id", ""))
     if not sig_id:
