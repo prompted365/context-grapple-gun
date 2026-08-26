@@ -1063,8 +1063,6 @@ def extract_cprs(project_dir, dry_run=False, plan_file=None, anomaly_threshold=0
             # Stamp at the generator instead: friction_born holds the standing
             # default (3); construction_authoritative's temporal hold is waived
             # (0). A declared value wins (copy-if-present, stamp-if-absent).
-            # review_tic is deliberately NOT minted here — that fence is
-            # cogpr-ingest's mint-site convention (A2-709), not the extractor's.
             _declared_window = block.get("maturity_window_tics", "")
             if _declared_window:
                 try:
@@ -1074,6 +1072,68 @@ def extract_cprs(project_dir, dry_run=False, plan_file=None, anomaly_threshold=0
             else:
                 entry["maturity_window_tics"] = (
                     0 if provenance_class == "construction_authoritative" else 3
+                )
+
+            # review_tic MINT — the PROSPECTIVE MINT FENCE
+            # (bk-cpr-extract-mint-review-tic-stamp; the A1-733/A1-734
+            # vocabulary-unification half, ratified /review 740).
+            #
+            # HISTORY, load-bearing — this stamp was BLOCKED, then unblocked:
+            # the prior code here read "review_tic is deliberately NOT minted
+            # here — that fence is cogpr-ingest's mint-site convention
+            # (A2-709), not the extractor's." That abstention was correct
+            # WHILE `review_tic` carried TWO writer semantics corpus-wide
+            # (A1-738 HIGH, /review 738): a PROSPECTIVE mint fence
+            # (birth+maturity, cogpr-ingest/pattern-miner) AND a RETROSPECTIVE
+            # verdict stamp (/review writing the tic it adjudicated at).
+            # Minting into a colliding field would have imported the collision
+            # onto a second mint site. /review 739 dissolved the collision
+            # FORWARD-ONLY: verdict-side stamps now write the distinct
+            # single-writer field `adjudicated_at_tic` through
+            # queue-lifecycle-writeback.py, and `review_tic` is never
+            # overloaded by a verdict going forward. So the field is now
+            # single-semantic at mint and this stamp is lawful.
+            #
+            # SEMANTICS: review_tic = birth_tic + maturity_window_tics — the
+            # tic this born becomes docket-eligible. This is the SAME A2-709
+            # convention cogpr-ingest mints, which is the point: the two mint
+            # sites carried disjoint envelope vocabularies (A1-733), so the
+            # cpr-stepper's docket fence had to DERIVE the value for the
+            # friction-born cohort (`effective_review_tic = review_tic OR
+            # (birth_tic + maturity_window_tics)`, /review 734). Minting it
+            # makes the explicit branch carry the value the derivation branch
+            # already computes — BY CONSTRUCTION IDENTICAL, so the stepper's
+            # fence is unchanged in value and its `status=extracted` scope
+            # restriction (A1-738) is untouched. queue_state_compile's
+            # _resolve_target_tic likewise derives birth+window and never
+            # reads review_tic, so scheduling is unmoved.
+            #
+            # FORWARD-ONLY: this stamps NEW extractions only. No existing row
+            # is back-stamped — the 115 historically-divergent ids stay exactly
+            # as they are (A1-739 minimal-writeback law; the promoted_tic
+            # non-convention precedent). A born that DECLARES its own
+            # review_tic is passed through untouched, never overwritten
+            # (declared-wins, mirroring the maturity_window stamp above).
+            _declared_review_tic = block.get("review_tic", "")
+            if _declared_review_tic != "" and _declared_review_tic is not None:
+                try:
+                    entry["review_tic"] = int(_declared_review_tic)
+                except (ValueError, TypeError):
+                    entry["review_tic"] = (
+                        entry["birth_tic"] + entry["maturity_window_tics"]
+                    )
+                    print(
+                        f"cpr-extract review_tic [{block_locator}]: declared "
+                        f"value {_declared_review_tic!r} is not an integer tic "
+                        f"— falling back to the minted fence "
+                        f"{entry['review_tic']} (birth_tic + "
+                        f"maturity_window_tics). See "
+                        f"bk-cpr-extract-mint-review-tic-stamp.",
+                        file=sys.stderr,
+                    )
+            else:
+                entry["review_tic"] = (
+                    entry["birth_tic"] + entry["maturity_window_tics"]
                 )
 
             new_entries.append(entry)
@@ -1167,6 +1227,16 @@ def extract_cprs(project_dir, dry_run=False, plan_file=None, anomaly_threshold=0
                     # friction_born schedule window too (see the block-form
                     # stamp above; prose can declare nothing, so the default).
                     "maturity_window_tics": 3,
+                    # review_tic mint — the prospective fence, paired with the
+                    # block-form stamp above (bk-cpr-extract-mint-review-tic-stamp,
+                    # /review 740). Both of this script's mint sites carry the
+                    # field or neither does: a half-landed mint would leave the
+                    # prose cohort on derivation-only while the block cohort
+                    # went explicit — exactly the disjoint-vocabulary defect
+                    # (A1-733) this cure exists to close. Prose carries no
+                    # structured fields, so nothing can be declared and the
+                    # fence is always derived (same as provenance_class above).
+                    "review_tic": _btic + 3,
                     "authoring_form": "prose_fallback",
                 }
                 _oc = _origin_context_for(gov_file)
