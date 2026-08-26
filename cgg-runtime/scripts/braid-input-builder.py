@@ -214,6 +214,53 @@ def build(inherit_tic=None):
     except Exception as e:
         honest_flags.append(f"trust_telemetry_absent:{e}")
 
+    # --- per-leg freshness (cgg-ledger#emitter-rows-must-match-a-reader-
+    # predicate, per-leg freshness ray, /review 736; from
+    # cpr_mogul_harmony_invoke_37ac2699f535) ---------------------------------
+    # clock_divergence above watches the ECONOMY leg only; an empty
+    # honest_flags must mean "all legs checked and current", never "the
+    # checked subset agreed". Every payload leg gets a freshness entry here,
+    # with the harmony leg's by-design lag-1 DECLARED (harmony-invoke runs
+    # the braid at step 0 and writes disposition-current.json at step 3, so
+    # the braid structurally cannot see the current tic's disposition) —
+    # declaration and alarm are different verbs: only lag > expected flags.
+    HARMONY_EXPECTED_LAG = 1
+    leg_freshness = {}
+    if tic is not None:
+        leg_freshness["economy_pointer"] = {
+            "leg_tic": pointer_tic,
+            "checked_by": "clock_divergence",
+            "divergent": clock_divergence is not None,
+        }
+        leg_freshness["conformation"] = {
+            "leg_tic": conf_tic,
+            "lag": (tic - conf_tic) if conf_tic is not None else None,
+        }
+        harmony_tic = harmony.get("tic") if isinstance(harmony, dict) else None
+        harmony_lag = (tic - harmony_tic) if harmony_tic is not None else None
+        leg_freshness["harmony_current"] = {
+            "leg_tic": harmony_tic,
+            "lag": harmony_lag,
+            "expected_lag": HARMONY_EXPECTED_LAG,
+            "by_design_note": ("lag<=1 is the declared scheduled position "
+                               "(braid runs pre-harmony-write); only a lag "
+                               "beyond expected flags as stale"),
+        }
+        if harmony_lag is not None and harmony_lag > HARMONY_EXPECTED_LAG:
+            honest_flags.append(
+                f"harmony_leg_stale:lag={harmony_lag},"
+                f"expected<={HARMONY_EXPECTED_LAG}")
+        elif harmony is not None and harmony_tic is None:
+            honest_flags.append("harmony_leg_tic_unreadable")
+    leg_freshness["trust_telemetry"] = {
+        "leg_tic": None,
+        "not_checkable": "surface carries no tic field (observed_at only); "
+                         "freshness structurally uncheckable — declared, "
+                         "not silently skipped",
+    }
+    freshness_checked_legs = [
+        k for k, v in leg_freshness.items() if "not_checkable" not in v]
+
     # --- substrate projection (C-OT4 proxy, computed builder-side) ---------
     substrate_projection = None
     if cb is not None and shape8 is not None:
@@ -253,6 +300,8 @@ def build(inherit_tic=None):
         "harmony_current": harmony,
         "trust_telemetry": trust,
         "substrate_projection": substrate_projection,
+        "leg_freshness": leg_freshness,
+        "freshness_checked_legs": freshness_checked_legs,
         "honest_flags": honest_flags,
         "_sources": sources,
     }

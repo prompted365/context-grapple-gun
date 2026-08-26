@@ -169,20 +169,23 @@ class RiderTravels(unittest.TestCase):
             (d / "disposition-tic-10.json").write_text(json.dumps({"meaningState": "resonant"}))
             return dr.build_receipt("contagion", root)
 
-    def test_ratified_bit_is_false(self):
-        self.assertIs(self._block()["ratified"], False)
+    def test_ratified_bit_is_true_read_half_ruled_736(self):
+        # /review 736 ruled the read half LIVE (Architect-ratified in-tic
+        # question set, recommended option verbatim). The flip IS the ruling.
+        b = self._block()
+        self.assertIs(b["ratified"], True)
+        self.assertIn("/review 736", b["ratified_by"])
 
     def test_rider_is_verbatim(self):
         b = self._block()
+        self.assertEqual(b["rider"], dr.RIDER_VERBATIM)
+        self.assertEqual(b["standing_rule"], dr.STANDING_RULE_VERBATIM)
+        # the pre-ruling rider stays banked verbatim for lineage — the ruling
+        # supersedes it, it never erases it.
         self.assertEqual(
-            b["rider"],
+            b["pre_ruling_rider"],
             "no harmony/contagion disposition may be READ as discriminating until built "
             "AND ruled — your build is the first half; the ruling comes later at /review",
-        )
-        self.assertEqual(
-            b["standing_rule"],
-            "Standing rule carried forward: do not read harmony/contagion dispositions "
-            "as discriminating until the receipt fields exist and the A3-732 cause is ruled.",
         )
 
     def test_block_disclaims_diagnosis_of_the_cause(self):
@@ -200,8 +203,12 @@ class RiderTravels(unittest.TestCase):
                           f"standing rule missing/wrapped in {path.name}")
 
     def test_rider_rides_the_module_constant(self):
-        self.assertIn("READ as discriminating until built", dr.RIDER_VERBATIM)
+        # the RULED rider: readable receipt, non-citable values, unruled cause.
+        self.assertIn("READABLE as constancy observability", dr.RIDER_VERBATIM)
+        self.assertIn("NON-CITABLE", dr.RIDER_VERBATIM)
+        self.assertIn("A3-732", dr.RIDER_VERBATIM)
         self.assertIn("A3-732", dr.STANDING_RULE_VERBATIM)
+        self.assertIn("READ as discriminating until built", dr.PRE_RULING_RIDER_VERBATIM)
 
 
 class DeclaredNotInvented(unittest.TestCase):

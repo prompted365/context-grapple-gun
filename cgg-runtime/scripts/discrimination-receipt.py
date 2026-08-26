@@ -23,19 +23,22 @@ lane, exactly where the kernels' KERNEL_REGISTRATION discipline puts writes:
 the engines stay pure (`meta.pure:true`, `meta.writes:false`); all I/O lives in
 the outer rings (harmony-invoke.sh / contagion-invoke.sh + their input builders).
 
-    ⟜ RIDER — reproduced verbatim, /review 733 + A3-732 standing rule ⟜
-    "no harmony/contagion disposition may be READ as discriminating until built
-     AND ruled — your build is the first half; the ruling comes later at
-     /review"
-    "Standing rule carried forward: do not read harmony/contagion dispositions
-     as discriminating until the receipt fields exist and the A3-732 cause is
-     ruled."
+    ⟜ RIDER — RULED at /review 736 (read half LIVE); pre-ruling rider banked ⟜
+    The /review-733 build rider ("no harmony/contagion disposition may be READ
+    as discriminating until built AND ruled") reached its second half at
+    /review 736: the read half is RULED LIVE (Architect-ratified in-tic
+    question set, recommended option verbatim). The receipt block now carries
+    `ratified: true` + `ratified_by`, and the glance-speed pointer surfaces
+    (audit-logs/harmony/disposition-current.json,
+    audit-logs/contagion/current-pointer.json) carry a compact discrimination
+    summary — wired in the invoke wrappers, fail-soft ("not computed", never
+    "nothing to report").
 
-    The receipt block therefore carries `ratified: false`. Its presence is the
-    BUILT half only. It does NOT authorize any consumer to read these
-    dispositions as discriminating, and this module deliberately changes NO
-    consumer (boot renderer, worldview, statusline, mogul readers, telemetry
-    spine): emit-side only.
+    UNCHANGED by the ruling, and still load-bearing: the disposition VALUES
+    themselves remain NON-CITABLE shaping (may_quote=false), and this receipt
+    never diagnoses the constancy — the A3-732 cause stays deliberately
+    unruled. The pre-ruling rider travels in every block as
+    `pre_ruling_rider` for lineage.
 
 WHAT THIS IS NOT
 ----------------
@@ -77,14 +80,24 @@ from pathlib import Path
 
 SCHEMA = "discrimination-receipt/v1"
 
-# ── The rider, verbatim. Travels into every emitted block. ───────────────────
-RIDER_VERBATIM = (
+# ── The riders. The PRE-RULING rider is banked verbatim for lineage; the
+# RULED rider is what travels live since /review 736 ruled the read half. ────
+PRE_RULING_RIDER_VERBATIM = (
     "no harmony/contagion disposition may be READ as discriminating until built "
     "AND ruled — your build is the first half; the ruling comes later at /review"
 )
+RIDER_VERBATIM = (
+    "the discrimination receipt is READABLE as constancy observability — the "
+    "read half RULED LIVE at /review 736 (Architect-ratified in-tic question "
+    "set, recommended option verbatim). UNCHANGED by that ruling: the "
+    "harmony/contagion disposition VALUES remain NON-CITABLE shaping "
+    "(may_quote=false), and this receipt does not diagnose the constancy — "
+    "the A3-732 cause stays deliberately unruled"
+)
 STANDING_RULE_VERBATIM = (
-    "Standing rule carried forward: do not read harmony/contagion dispositions "
-    "as discriminating until the receipt fields exist and the A3-732 cause is ruled."
+    "Standing rule since /review 736: the receipt FIELDS are readable and may "
+    "be consumed as constancy observability; the disposition VALUES stay "
+    "non-citable; the constancy CAUSE is not ruled — A3-732 rides separately."
 )
 DOES_NOT_DIAGNOSE = (
     "This receipt REPORTS constancy. It does NOT diagnose its cause: the A3-732 "
@@ -285,9 +298,15 @@ def build_receipt(lane: str, repo: Path, current_doc=None, as_of_tic=None):
         "schema": SCHEMA,
         "lane": lane,
         "emitted_at_tic": emitted_tic,
-        # ── the withheld thing, said out loud ────────────────────────────────
-        "ratified": False,
+        # ── the ruled thing, said out loud (read half LIVE /review 736) ──────
+        "ratified": True,
+        "ratified_by": (
+            "/review 736 — read half ruled LIVE: receipt readable as constancy "
+            "observability; pointer surfaces carry it; disposition VALUES stay "
+            "non-citable; A3-732 cause stays unruled"
+        ),
         "rider": RIDER_VERBATIM,
+        "pre_ruling_rider": PRE_RULING_RIDER_VERBATIM,
         "standing_rule": STANDING_RULE_VERBATIM,
         "does_not_diagnose": DOES_NOT_DIAGNOSE,
         "ruling": RULING,
@@ -439,10 +458,15 @@ def selftest() -> int:  # noqa: C901 — a flat table of arms reads better here
               b6["history_scanned"]["artifacts_scanned"] == 3,
               str(b6["history_scanned"]["artifacts_scanned"]))
 
-        # Arm 7 — the rider + ratified:false travel in the block itself.
-        check("A7 rider verbatim present in the block", b1["rider"] == RIDER_VERBATIM)
+        # Arm 7 — the ruled rider + ratified:true + banked pre-ruling rider
+        # travel in the block itself (read half RULED /review 736).
+        check("A7 ruled rider verbatim present in the block", b1["rider"] == RIDER_VERBATIM)
         check("A7 standing rule verbatim present in the block", b1["standing_rule"] == STANDING_RULE_VERBATIM)
-        check("A7 ratified is False", b1["ratified"] is False)
+        check("A7 ratified is True (read half ruled /review 736)", b1["ratified"] is True)
+        check("A7 pre-ruling rider banked verbatim for lineage",
+              b1["pre_ruling_rider"] == PRE_RULING_RIDER_VERBATIM)
+        check("A7 does_not_diagnose still travels (A3-732 unruled)",
+              b1["does_not_diagnose"] == DOES_NOT_DIAGNOSE)
 
         # Arm 8 — harmony's two-field tracking discriminates on EITHER field.
         r8 = root / "r8"
@@ -519,7 +543,7 @@ def main() -> int:
             f"last_change_tic={block['last_change_tic']} "
             f"(full history: {block['history_scanned']['artifacts_scanned']} artifacts, "
             f"tics {block['history_scanned']['first_tic']}..{block['history_scanned']['last_tic']}) "
-            f"ratified=false"
+            f"ratified=true (read half ruled /review 736; values stay non-citable)"
         )
         return 0
     except Exception as exc:  # noqa: BLE001 — the wrapper is fail-soft; be loud here

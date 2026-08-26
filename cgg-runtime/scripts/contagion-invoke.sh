@@ -62,14 +62,15 @@ node --input-type=module -e "
 #
 #     ⟜ RIDER — reproduced verbatim, /review 733 + the A3-732 standing rule ⟜
 #     (carried on unbroken lines so the verbatim rider survives grep, unwrapped)
-# RIDER: no harmony/contagion disposition may be READ as discriminating until built AND ruled — your build is the first half; the ruling comes later at /review
-# STANDING RULE: Standing rule carried forward: do not read harmony/contagion dispositions as discriminating until the receipt fields exist and the A3-732 cause is ruled.
+# RIDER (RULED /review 736): the discrimination receipt is READABLE as constancy observability — the read half RULED LIVE at /review 736 (Architect-ratified in-tic question set, recommended option verbatim). UNCHANGED by that ruling: the harmony/contagion disposition VALUES remain NON-CITABLE shaping (may_quote=false), and this receipt does not diagnose the constancy — the A3-732 cause stays deliberately unruled
+# PRE-RULING RIDER (banked for lineage): no harmony/contagion disposition may be READ as discriminating until built AND ruled — your build is the first half; the ruling comes later at /review
+# STANDING RULE: Standing rule since /review 736: the receipt FIELDS are readable and may be consumed as constancy observability; the disposition VALUES stay non-citable; the constancy CAUSE is not ruled — A3-732 rides separately.
 #     The block therefore carries ratified:false and NO consumer reads it. This
 #     step REPORTS constancy; it never diagnoses the cause (t589-frozen
 #     coordinates / no TTL is the A3-732 investigation, deliberately unruled).
 #     The write lives in the outer ring by kernel contract — the engine stays a
 #     pure function (meta.pure:true / meta.writes:false).
-echo "→ discrimination-receipt.py (receipt step, fail-soft; ratified:false, emit-side only)"
+echo "→ discrimination-receipt.py (receipt step, fail-soft; read half RULED LIVE /review 736; values stay non-citable)"
 python3 "$SCRIPT_DIR/discrimination-receipt.py" --lane contagion --disposition "$DISPOSITION_PATH" || \
   echo "WARN contagion: discrimination receipt step failed — disposition stands without a receipt block (fail-soft)" >&2
 
@@ -92,6 +93,22 @@ current = {
     "source_disposition": str(p.relative_to(pathlib.Path("$REPO"))),
     "posture": d.get("disposition", {}).get("posture", "${POSTURE:-}"),
 }
+# Discrimination summary on the glance-speed pointer (/review 736 — the read
+# half RULED LIVE). Fail-soft: "not computed", never silence.
+dsc = d.get("discrimination_receipt")
+if isinstance(dsc, dict):
+    current["discrimination"] = {
+        "ratified": dsc.get("ratified"),
+        "last_change_tic": dsc.get("last_change_tic"),
+        "consecutive_identical_count": dsc.get("consecutive_identical_count"),
+        "never_changed_in_retained_history": dsc.get("never_changed_in_retained_history"),
+        "ruling": "/review 736 read-half LIVE; disposition values stay non-citable; A3-732 cause unruled",
+    }
+else:
+    current["discrimination"] = {
+        "status": "not computed",
+        "note": "receipt step did not land on this emission (fail-soft) — absence of the block, not absence of constancy",
+    }
 out = pathlib.Path("$CONTAGION_DIR/current-pointer.json")
 out.write_text(json.dumps(current, indent=2) + "\n")
 print(f"current pointer: {out}")

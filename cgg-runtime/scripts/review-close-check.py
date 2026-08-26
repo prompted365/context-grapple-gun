@@ -714,6 +714,53 @@ _PROVENANCE_VERB_RE = re.compile(
 # is deliberately not an inscription witness, so its non-match is correct).
 _HTML_COMMENT_RE = re.compile(r"<!--.*?-->", re.DOTALL)
 _SKIP_HEAD_RE = re.compile(r"<!--\s*skip", re.IGNORECASE)
+
+# Remedy-class typing of the unmatched population (/review 736,
+# cpr_mogul_review_close_check_955e9009a2da PROMOTE-TO-PROCEDURAL-HOME): one
+# disclosure frame over structurally opposite classes prescribes the wrong
+# cure for part of its own population, and the counter cannot converge.
+# Three classes, three REACHABLE cures — disclosed per class, never gating:
+#   wrong_object_class -> cure EXCLUSION: a birth record (--agnostic-candidate
+#     block), a ledger-tags metadata comment, or a home-pointer is not a
+#     failed inscription witness at all; admitting it would be a category
+#     error, and no verb registration can ever be the fix.
+#   head_anchor_gap -> cure HEAD-ANCHOR RELAXATION: an admitted verb IS
+#     present but subject-prefixed off the head ("tic-733 refinement appendix
+#     promoted from ...", "scope-fence ray promoted from ..."); no vocabulary
+#     addition can EVER admit these. The relaxation itself is a ratified
+#     build increment riding the build lane (direction ruled /review 736).
+#   vocabulary_gap -> cure VERB REGISTRATION: no admitted verb anywhere in
+#     the comment — the only class the original single-frame sentence
+#     ("a new verdict head must enter the matcher") was ever true for.
+_WRONG_OBJECT_HEAD_RE = re.compile(
+    r"<!--\s*(?:--agnostic-candidate|ledger-tags:|home-pointer)",
+    re.IGNORECASE)
+_MIDCOMMENT_VERB_RE = re.compile(
+    r"\b(?:conditional-promoted|promote-as-refinement|promoted-spec|promoted"
+    r"|absorbed|refinement|refined|reinforced|review-executed|inscribed"
+    r"|conformation|conformed|extended|merged|merge|superseded)\b",
+    re.IGNORECASE)
+
+_UNMATCHED_REMEDY_TEXT = {
+    "wrong_object_class": ("EXCLUSION — not an inscription witness "
+                           "(born block / metadata tag / pointer); verb "
+                           "registration can never be the fix"),
+    "head_anchor_gap": ("HEAD-ANCHOR RELAXATION — admitted verb present but "
+                        "subject-prefixed off the head; build-lane increment "
+                        "(ruled /review 736), not a vocabulary addition"),
+    "vocabulary_gap": ("VERB REGISTRATION — no admitted verb anywhere; the "
+                       "one class where a new head entering the matcher is "
+                       "the true cure"),
+}
+
+
+def _classify_unmatched_remedy(seg):
+    """Remedy class of one unmatched cpr-token-bearing comment (see above)."""
+    if _WRONG_OBJECT_HEAD_RE.match(seg):
+        return "wrong_object_class"
+    if _MIDCOMMENT_VERB_RE.search(seg):
+        return "head_anchor_gap"
+    return "vocabulary_gap"
 _CPR_REF_RE = re.compile(r"(cpr_[A-Za-z0-9_]+|CogPR-\d+)")
 # Reserved sibling namespaces under the cpr_ prefix that are NOT CogPR ids.
 # A namespace-prefix match is not identifier membership (/review 709,
@@ -1015,6 +1062,7 @@ def build_inscribed_index(project_dir, queue_ids=None, diagnostics=None):
     multi_token_comment_count = 0
     unmatched_shaped_count = 0
     unmatched_shaped_samples = []
+    unmatched_remedy_counts = {}
     # Route census (/review 724 RIDER 1 — disclosure parity). Counts TOKEN
     # OCCURRENCES inside matched comments, not distinct tokens (the index unit),
     # and is computed at runtime so the disclosure can never rot into a frozen
@@ -1099,20 +1147,28 @@ def build_inscribed_index(project_dir, queue_ids=None, diagnostics=None):
             if not tokens:
                 continue
             unmatched_shaped_count += 1
+            remedy_class = _classify_unmatched_remedy(seg)
+            unmatched_remedy_counts[remedy_class] = (
+                unmatched_remedy_counts.get(remedy_class, 0) + 1)
             if len(unmatched_shaped_samples) < 10:
                 unmatched_shaped_samples.append({
                     "path": (os.path.relpath(path, project_dir)
                              if path.startswith(project_dir) else path),
                     "head": " ".join(seg[:120].split()),
                     "tokens": sorted(set(tokens))[:5],
+                    "remedy_class": remedy_class,
                 })
     if unmatched_shaped_count:
+        per_class = ", ".join(
+            f"{cls}={n}" for cls, n in sorted(unmatched_remedy_counts.items()))
         print(
             f"UNMATCHED-PROVENANCE-SHAPE: {unmatched_shaped_count} cpr-token-"
             f"bearing comment(s) fail the inscription-verb alternation and are "
-            f"NOT indexed (skip-heads excluded by design). A new verdict head "
-            f"must enter the matcher to enter the index — see "
-            f"inscribed_index_unresolved.unmatched_provenance_shaped_samples.",
+            f"NOT indexed (skip-heads excluded by design). Typed per remedy "
+            f"class ({per_class}) — each class has a DIFFERENT reachable cure "
+            f"(wrong_object_class: exclusion; head_anchor_gap: head-anchor "
+            f"relaxation, build lane; vocabulary_gap: verb registration). See "
+            f"inscribed_index_unresolved.unmatched_remedy_class_counts.",
             file=sys.stderr,
         )
     if diagnostics is not None:
@@ -1127,6 +1183,12 @@ def build_inscribed_index(project_dir, queue_ids=None, diagnostics=None):
         # visible beside the index it was invisible to. Non-gating.
         diagnostics["unmatched_provenance_shaped_count"] = unmatched_shaped_count
         diagnostics["unmatched_provenance_shaped_samples"] = unmatched_shaped_samples
+        # /review-736 remedy-class typing (955e9009a2da): per-class counts +
+        # the per-class REACHABLE remedy beside the integer, so the disclosure
+        # frame can never again prescribe one cure over opposite classes.
+        diagnostics["unmatched_remedy_class_counts"] = dict(
+            sorted(unmatched_remedy_counts.items()))
+        diagnostics["unmatched_remedy_class_remedies"] = _UNMATCHED_REMEDY_TEXT
         # Class-cure (/review 716, 502236e96cf1 SKIP-with-routing, executed
         # same tic): the counter's POPULATION and UNIT are declared as fields
         # BESIDE the integer, so a consumer predicting against it must predict

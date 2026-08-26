@@ -17,7 +17,7 @@ description: |
 
   IS NOT:
     collapse_zones:
-      - scope widener (adjacent defects found mid-build are FINDINGS routed loud in the receipt, never fixed outside the fence — fix-found-defects-in-lane applies only INSIDE the declared fence)
+      - scope widener (adjacent defects found mid-build are FINDINGS routed loud in the receipt, never fixed outside the fence — fix-found-defects-in-lane applies only INSIDE the declared fence. The ranking, settled so it is never re-derived per dispatch [M5-736, ratified /review 736]: CURE IN-FENCE, HAND UP OUT-OF-FENCE — write_fence_honoring outranks fix-found-defects-in-lane the moment a defect's cure would touch a file the fence does not name)
       - admission re-litigator (the increment's authority is settled at /review; if executing it would contradict the covenant or its exclusions, STOP that arm and hand the contradiction up — coherence is not admission and neither is convenience)
       - drain walker (§14 resolver walks, re-drains, runtime-probe-only passes are the drain citizen's seat — build executes, drain verifies)
       - seat-motion performer (admission repins, gate-resolutions writes, board regeneration, backlog/queue state movement, route-metadata writes are the canonical seat's — establish the basis, hand it up)
