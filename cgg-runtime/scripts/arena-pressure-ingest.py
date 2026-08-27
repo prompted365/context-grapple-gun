@@ -127,7 +127,11 @@ def emit_signal(report: dict, rid: str, audit_logs: Path, dry_run: bool) -> dict
         signal_file.parent.mkdir(parents=True, exist_ok=True)
         try:
             from lib.atomic_append import dedup_signal_append
-            dedup_signal_append(str(signal_file), signal, manifest_path=str(manifest_file))
+            # Opted in at tic 744 (ruled Q6-742; the THIRD trusting caller, F-742-C1):
+            # manifest_path alone is READ-ONLY dedup; ingest_manifest=True is the one
+            # lawful append path into the curated set (lib/atomic_append.py docstring).
+            dedup_signal_append(str(signal_file), signal, manifest_path=str(manifest_file),
+                                ingest_manifest=True)
         except ImportError:
             try:
                 from lib.atomic_append import atomic_append_jsonl
