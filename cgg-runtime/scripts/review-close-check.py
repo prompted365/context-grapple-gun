@@ -2748,7 +2748,19 @@ def compute_cross_counter_disclosure(verdict_delta_block, index_delta_block):
             "modify_and_merge_promotion_adds_no_provenance_comment",
             "doctrine_edit_narrating_sibling_id_adds_token_without_promotion",
             "t724_over_admission_receipt_filename_tokens",
+            # /review 743 Q6 (cpr_mogul_review_close_check_0ddacf1f8896, absorbed-as-reinforcement
+            # into the t732 DISCLOSURE-PARITY ray): the route operative at t739/t740/t742 — an
+            # ABSORB-as-reinforcement lands its seat-mandated `reinforced_by:` breadcrumb, which
+            # adds one token with NO promotion behind it (1 promote + 1 absorb = 2 tokens vs +1).
+            "absorbed_reinforcement_breadcrumb_adds_token_without_promotion",
         ],
+        # /review 743 Q6: a cross-counter disclosure DECLARES the population difference between
+        # the two counters it compares — they run over DIFFERENT populations by construction.
+        "populations": {
+            "promoted_delta": "queue.jsonl latest-per-id rows with status == 'promoted' (ONE of the eleven live statuses)",
+            "token_delta": "distinct cpr-shaped tokens inside matched provenance comments — a witness landed by ANY verdict class (promote, absorb-as-reinforcement breadcrumb, modify-and-merge, ...)",
+            "difference": "the index side admits witnesses from verdict classes the verdict side does not count; agree=False under an absorb-as-reinforcement is BY CONSTRUCTION, not a divergence to resolve",
+        },
         "note": (
             "typed disclosure, never an invariant: agree=False is a question "
             "with named routes, not a finding. Baselines absent on either side "

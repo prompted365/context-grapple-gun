@@ -175,7 +175,17 @@ If stale, annotate — do NOT silently drop:
 
 The human decides whether to proceed or absorb.
 
+## Falsifier Scope Law (A4-742 HIGH → /review 743 Q8, Architect-ratified)
+
+Every banked falsifier you FIRE declares its ERA/SCOPE beside its verdict: the tic range and the row population its `n` counts over (e.g. "read literally over the whole queue" vs "read forward from tic 741"), and WHY that reading applies. A falsifier fired without a declared scope is itself a finding, never a discharge — the A1-741 falsifier read n=27 literally and n=0 forward, and A1-743 found the A1-742 guard figure era-conflated (the guard did not exist before tic 716, so pre-guard rows it never saw were credited to it). Era-scope EVERY count against the tic the instrument it measures was born.
+
+**Walk ordinal.** The lawful-zero-advance ordinal (seventh, eighth, ...) is READ from the prior tic's receipt and incremented — never re-derived from memory or the commit record (the "ninth" is absent from the t740–t741 commit record; the receipts are the ledger of the count).
+
+**Gate-1 head-verbatim check reads the PARSED report (A2-743 HIGH).** Source-stability for a mogul-minted row compares the lesson head against the JSON-PARSED value of the source report, never against its raw text: reports are written `ensure_ascii=True`, so an em-dash in the lesson is `\u2014` on disk — a raw-text search reports MISS on a stable source (measured 2/9 MISS raw vs 9/9 parsed at t743). Declare the predicate (`parsed` | `raw`) in the receipt.
+
 ## DEDUP Hash
+
+**DEDUP keys on the REFERENT, not the expression (A8-742 → /review 743 Q8).** Two rows are twins when they point at the SAME candidate at the producer artifact (same report, same `candidate_cogprs` position, same referent), not when their lesson text or id is similar — a content-empty stub row whose "lesson" is a bare identifier is a twin of the full row it names (the t742 exhibit, absorbed as content_empty_stub_twin) and is NOT a twin of a distinct candidate that merely shares a producer (the t743 pair 37306acad222 / d9e2a59ba0c6 — genuinely distinct). Annotate referent-level twins for Gate-2; never terminalize them.
 
 `SHA256(f"{source}:{lesson}")[:16]` — colon-separated, matching the authoritative form in `cpr-extract.py` (its stamp sites) — same lesson from same source → same hash → skip (idempotent). The colon form is FORWARD-AUTHORITATIVE from tic 652 (empirically settled tic 652; doctrine-drift cured tic 653, stepper anomaly A4-653) and is the sole form for every row the stepper gates forward. ERA SCOPE (A1-737, measured n=318, ratified /review 738): the exclusivity claim is era-bounded, not corpus-universal — 6 pre-652 rows (max birth 620) reproduce under the no-separator form `SHA256(source + lesson)` (a lawful earlier era, not corruption), and the `pattern_miner:` mint site is a disjoint identifier-passthrough convention (dedup_hash = the pattern id's hex16, not a content hash; 25 rows, all terminal, last mint birth 716 — A2-737). Neither era/site is a live convention: new mints stamp colon-form only, and the no-separator form remains WRONG for any forward stamp.
 
