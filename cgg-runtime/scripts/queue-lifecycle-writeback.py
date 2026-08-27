@@ -419,6 +419,16 @@ def build_lifecycle_row(prior_row, lifecycle, review_tic=None, writer=None,
     row = dict(prior_row)
     before_keys = set(row)
     prior_status = row.get("status")
+    # F-742-L1 (n=2, /review 744): `mutated_fields` names the fields whose VALUE
+    # actually moved against the authoritative prior row; a field the caller
+    # passed with an unchanged value is a RESTATED field — recorded beside, never
+    # counted as a mutation (review_tic 743->743 on four t743 promotes read as
+    # "mutated" and forced a value-read at the stepper's Check B).
+    _MISSING = object()
+    value_changed_fields = sorted(
+        k for k in lifecycle if prior_row.get(k, _MISSING) != lifecycle[k])
+    restated_fields = sorted(
+        k for k in lifecycle if k in prior_row and prior_row.get(k) == lifecycle[k])
 
     # `prior_status` is the corpus convention for a transition breadcrumb (cpr-gate-
     # advance stamps it too). Only auto-stamp on a real status change and only when the
@@ -437,7 +447,8 @@ def build_lifecycle_row(prior_row, lifecycle, review_tic=None, writer=None,
         "at": stamp_time,
         "prior_status": prior_status,
         "copied_forward_fields": len(before_keys),
-        "mutated_fields": sorted(lifecycle),
+        "mutated_fields": value_changed_fields,
+        "restated_fields": restated_fields,
     }
     if (allow_terminal_transition and prior_status in HARD_TERMINAL_STATUSES
             and candidate_status is not None
@@ -458,7 +469,8 @@ def build_lifecycle_row(prior_row, lifecycle, review_tic=None, writer=None,
         "copied_forward_fields": len(before_keys),
         "field_count_before": len(before_keys),
         "field_count_after": len(row),
-        "mutated_fields": sorted(k for k in lifecycle if k in before_keys),
+        "mutated_fields": sorted(k for k in value_changed_fields if k in before_keys),
+        "restated_fields": restated_fields,
         "added_fields": sorted(set(row) - before_keys),
         "envelope_drops": [],
         "post_assert_no_envelope_drop": True,

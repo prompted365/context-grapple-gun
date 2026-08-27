@@ -6,7 +6,8 @@ status to detect crisis conditions. Outputs injection text for each
 triggered condition. Returns nothing if all clear.
 
 Conditions checked (from crisis-response/README.md):
-  1. Signal storm: >50 signal lines/tic or >3 duplicate IDs
+  1. Signal storm: >50 raw rows for one id in today's file (Check 1, signal_id-or-id)
+     + ACTIVE arrival predicate A1/A2/A3 (Check 2, ruled tic 744)
   2. Mandate pileup: >1 WAIT mandate per tic or >5 history entries per tic
   3. Inbox backlog: >20 pending messages per entity
   4. Source/runtime divergence: drifted hook-invoked scripts
@@ -77,18 +78,42 @@ def _active_manifest_ids(signal_dir: str) -> list[str]:
     return sorted(k for k, d in latest.items() if d.get("status") in active_states)
 
 
-ACTIVE_THRESHOLD = 10
+# ── Check 2 predicate (RULED tic 744 by the crisis-steward seat; ruling artifact
+# audit-logs/sentinel/crisis-threshold-ruling-tic744.{json,md}; boot 5b38c4eedfbf1ffa) ──
+# ACTIVE_THRESHOLD = 10 is RETIRED. It was an absolute test on the SIZE of a set that
+# grows monotonically and is almost never pruned (4 -> 58 across 484 manifest
+# revisions; 426/483 transitions added nothing): any fixed absolute threshold on that
+# surface is a countdown to a permanent false alarm — wrong by SHAPE, not by value.
+# The ruled predicate trips on ARRIVAL, composition-aware, with a state backstop:
+#   A1  >= ARRIVAL_NON_CAMPAIGN new active ids from NON-campaign lanes since the
+#       prior-tic observation (measured: 0/411 historical fires; all-time max 4)
+#   A2  >= ARRIVAL_ANY_LANE new active ids from ANY lane in one tic (2/411, both the
+#       C9 ladder-down campaign dumps of +34 and +35)
+#   A3  standing active set > ACTIVE_ABSOLUTE_CEILING (0/484; max ever 59)
+# The comparison base is the last shadow row from a PRIOR tic (per-tic, not per-boot).
+# When no base exists the delta arms are SKIPPED — never default-fire, never
+# synthesize a base. A3 rots if the standing corpus moves by >20 rows: re-derivation
+# is owed then (ruling §honest_limits).
+ARRIVAL_NON_CAMPAIGN = 5
+ARRIVAL_ANY_LANE = 12
+ACTIVE_ABSOLUTE_CEILING = 90
+CAMPAIGN_LANE_PREFIXES = ("sig_ladder_down_audit_finding_",)
+PREDICATE_VERSION = "tic744"
+RAW_ROW_EXPLOSION = 50
 SHADOW_SINK_REL = os.path.join("sentinel", "crisis-injection-shadow.jsonl")
 
 
 def _shadow_record(audit_logs: str | None, record: dict) -> None:
-    """DETECT+AUDIT SHADOW (ruled /review 742 Q5, Architect-ratified): the
-    active-count check was a DEAD detector (see _active_manifest_count); fixing the
-    read makes it a detector that would fire at EVERY boot (54 active at tic 742,
-    threshold 10) — a threshold never calibrated against a counted manifold. Until
-    the crisis-steward seat re-baselines the threshold, Check 2 records what it
-    WOULD inject here and injects nothing. Fail-soft: a shadow write must never
-    break the boot hook."""
+    """The shadow lane — PROMOTED FROM EVIDENCE TO MECHANISM at tic 744. Every
+    Check-2 evaluation appends one row, unconditionally, trip or no trip: the lane
+    is the arrival predicate's ONLY state store (55/58 manifest rows carry no
+    added_to_manifest_tic, so the manifold cannot say when its own rows arrived)
+    AND the calibration evidence every future re-baseline re-derives from. A
+    no-trip row is the negative control — a lane that only records fires cannot
+    tell "nothing happened" from "the detector is dead again" (F-742-C3's exact
+    ambiguity; ruling falsifier F4). Born /review 742 Q5 as detect+audit shadow
+    (record, inject nothing); the tic-744 build keeps the write unconditional
+    after the live flip. Fail-soft: a shadow write must never break the boot hook."""
     if not audit_logs:
         return
     try:
@@ -119,85 +144,174 @@ def _raw_emissions_today(signal_dir: str) -> int:
     return n
 
 
+def _prior_observation(audit_logs: str | None, current_tic: int) -> tuple[int | None, set[str]]:
+    """The arrival predicate's base: the LAST shadow row whose tic != current_tic and
+    which carries an active_ids list (rows of every schema vintage carry it). Returns
+    (prior_tic, prior_ids); (None, set()) when no base exists — the caller SKIPS the
+    delta arms. Fail-soft: an unreadable lane is no base, never a synthesized one."""
+    if not audit_logs:
+        return None, set()
+    path = os.path.join(audit_logs, SHADOW_SINK_REL)
+    if not os.path.isfile(path):
+        return None, set()
+    prior_tic, prior_ids = None, None
+    try:
+        with open(path, encoding="utf-8") as f:
+            for line in f:
+                try:
+                    d = json.loads(line)
+                except (json.JSONDecodeError, ValueError):
+                    continue
+                if not isinstance(d, dict) or d.get("check") != "active_signal_count":
+                    continue
+                t = d.get("tic")
+                ids = d.get("active_ids")
+                if not isinstance(t, int) or t == current_tic or not isinstance(ids, list):
+                    continue
+                prior_tic, prior_ids = t, set(ids)   # last matching row wins
+    except OSError:
+        return None, set()
+    if prior_tic is None:
+        return None, set()
+    return prior_tic, prior_ids
+
+
+def _row_signal_id(d: dict) -> str:
+    """F-744-CS1: daily rows carry `signal_id` (40/50 today) or `id` (10/50);
+    Check 1 keyed `id` only and saw ZERO rows at tics 743/744. Same cure shape as
+    F-742-C3 on the manifest read: signal_id primary, id fallback."""
+    return d.get("signal_id") or d.get("id", "")
+
+
 def check_signal_storm(signal_dir: str, current_tic: int,
                        audit_logs: str | None = None,
                        live_active_threshold: bool = False) -> str | None:
-    """Check for active signal storm.
-
-    Two structurally distinct checks, each reading the CORRECT surface:
-      1. Raw per-ID row explosion at the current tic (>50 rows for one ID) — this
-         is a genuine emission-runaway indicator and is read from the raw daily
-         file BY DESIGN; it is explicitly labeled as raw-row volume.
-      2. Authoritative ACTIVE-signal count (>10) — read from active-manifest.jsonl
-         (the curated truth), NOT from raw daily emissions. The raw daily volume is
-         attached only as a separately-labeled telemetry field, never as the
-         threshold input. (Fix tic 406 — bk-boot-crisis-check-manifest-parity:
-         the old Check 2 counted raw daily rows and cried "20 active / runaway"
-         while the manifest held 4.)
+    """Check for active signal storm. Two structurally distinct checks, each reading
+    the CORRECT surface, both COLLECTED (F-744-CS2: Check 1 no longer early-returns
+    and suppresses Check 2):
+      1. Raw per-ID row explosion in today's daily file (> RAW_ROW_EXPLOSION rows for
+         one id) — a genuine emission-runaway indicator, read from the raw daily file
+         BY DESIGN and labeled as raw-row volume. Keyed signal_id-or-id (F-744-CS1);
+         a row's tic is read when present, else the row is attributed to TODAY with
+         its tic UNRESOLVED (only 4/50 rows carried a tic field on 2026-08-27) — the
+         two populations are counted and disclosed separately, never merged silently.
+      2. Authoritative ACTIVE-signal ARRIVAL (the tic-744 predicate above) — read from
+         active-manifest.jsonl (the curated truth), compared against the prior-tic
+         shadow observation. Raw daily volume rides as separately-labeled telemetry,
+         never as a threshold input (tic 406, bk-boot-crisis-check-manifest-parity).
     """
     today = date.today().isoformat()
     signal_file = os.path.join(signal_dir, f"{today}.jsonl")
+    injections: list[str] = []
 
-    # Check 1: Raw per-ID row explosion at current tic (>50 rows for single ID).
-    # Read from the daily file by design — this IS raw-emission-volume detection.
+    # Check 1: raw per-ID row explosion — read from the daily file by design.
     if os.path.isfile(signal_file):
-        row_counts_current_tic = Counter()
+        rows_at_tic: Counter = Counter()
+        rows_untimed_today: Counter = Counter()
         with open(signal_file) as f:
             for line in f:
                 try:
                     d = json.loads(line)
-                    sid = d.get("id", "")
-                    if sid and d.get("tic", 0) == current_tic:
-                        row_counts_current_tic[sid] += 1
-                except (json.JSONDecodeError, KeyError):
-                    pass
-        explosions = {k: v for k, v in row_counts_current_tic.items() if v > 50}
+                except (json.JSONDecodeError, ValueError):
+                    continue
+                if not isinstance(d, dict):
+                    continue
+                sid = _row_signal_id(d)
+                if not sid:
+                    continue
+                t = d.get("tic")
+                if isinstance(t, int):
+                    if t == current_tic:
+                        rows_at_tic[sid] += 1
+                else:
+                    rows_untimed_today[sid] += 1
+        explosions = {k: (v, "rows_at_current_tic") for k, v in rows_at_tic.items()
+                      if v > RAW_ROW_EXPLOSION}
+        for k, v in rows_untimed_today.items():
+            if v > RAW_ROW_EXPLOSION and k not in explosions:
+                explosions[k] = (v, "rows_today_tic_unresolved")
         if explosions:
-            worst = max(explosions, key=explosions.get)
-            return (
-                f"[CRISIS SIGNAL: signal ID '{worst}' has {explosions[worst]} raw "
-                f"rows in today's file (threshold: 50). Emission runaway detected. "
-                f"Wire cutter available: touch ~/.claude/.wire-cut-signals to halt "
-                f"signal emission while you investigate. Check: (1) inbox-registry.json "
-                f"for phantom stale entries, (2) installed vs source inbox-envelope.py "
-                f"for dedup guard, (3) signal file for duplicate IDs. Do not assume "
-                f"which is needed — diagnose first.]"
+            worst = max(explosions, key=lambda k: explosions[k][0])
+            n, population = explosions[worst]
+            injections.append(
+                f"[CRISIS SIGNAL: signal ID '{worst}' has {n} raw rows in today's file "
+                f"(population: {population}; threshold: {RAW_ROW_EXPLOSION}). Emission "
+                f"runaway detected. Wire cutter available: touch ~/.claude/.wire-cut-signals "
+                f"to halt signal emission while you investigate. Check: (1) inbox-registry.json "
+                f"for phantom stale entries, (2) installed vs source inbox-envelope.py for dedup "
+                f"guard, (3) signal file for duplicate IDs. Do not assume which is needed — "
+                f"diagnose first.]"
             )
 
-    # Check 2: Authoritative ACTIVE-signal count — from the MANIFEST, not raw daily.
+    # Check 2: authoritative ACTIVE-signal ARRIVAL — from the MANIFEST, not raw daily.
     active_count = _active_manifest_count(signal_dir)
     if active_count is None:
         # No manifest => cannot assert active-state truth. Do NOT fall back to raw
-        # daily counting (that reintroduces the false-alarm bug). The raw-row
-        # explosion check above still guards genuine emission runaway.
-        return None
-    if active_count > ACTIVE_THRESHOLD:
-        raw_today = _raw_emissions_today(signal_dir)
-        if not live_active_threshold:
-            # SHADOW MODE (default; /review 742 Q5): record, do not inject.
-            _shadow_record(audit_logs, {
-                "type": "crisis_injection_shadow",
-                "check": "active_signal_count",
-                "tic": current_tic,
-                "active_count": active_count,
-                "threshold": ACTIVE_THRESHOLD,
-                "would_inject": True,
-                "raw_emissions_today": raw_today,
-                "active_ids": _active_manifest_ids(signal_dir),
-                "mode": "shadow",
-                "ruling": "/review 742 Q5 — live injection flips only on the crisis-steward threshold re-baseline",
-            })
-            return None
-        return (
-            f"[CRISIS SIGNAL: {active_count} active signals "
-            f"(authoritative active-manifest.jsonl, threshold: {ACTIVE_THRESHOLD}). "
-            f"Possible unresolved storm. ({raw_today} raw emissions in today's "
-            f"daily file — emission VOLUME, not active state; do not conflate.) "
-            f"Wire cutter available: touch ~/.claude/.wire-cut-signals to halt "
-            f"signal emission while you investigate.]"
+        # daily counting (that reintroduces the false-alarm bug).
+        return " ".join(injections) if injections else None
+
+    active_ids = _active_manifest_ids(signal_dir)
+    active_set = set(active_ids)
+    prior_tic, prior_ids = _prior_observation(audit_logs, current_tic)
+    if prior_tic is None:
+        new_ids: list[str] | None = None
+        non_campaign_new: list[str] = []
+    else:
+        new_ids = sorted(active_set - prior_ids)
+        non_campaign_new = [i for i in new_ids if not i.startswith(CAMPAIGN_LANE_PREFIXES)]
+
+    arm = None
+    if new_ids is not None and len(non_campaign_new) >= ARRIVAL_NON_CAMPAIGN:
+        arm = "A1_non_campaign_arrival"
+    elif new_ids is not None and len(new_ids) >= ARRIVAL_ANY_LANE:
+        arm = "A2_any_lane_burst"
+    elif active_count > ACTIVE_ABSOLUTE_CEILING:
+        arm = "A3_absolute_ceiling"
+    tripped = arm is not None
+    raw_today = _raw_emissions_today(signal_dir)
+
+    _shadow_record(audit_logs, {
+        "type": "crisis_injection_shadow",
+        "check": "active_signal_count",
+        "predicate_version": PREDICATE_VERSION,
+        "tic": current_tic,
+        "active_count": active_count,
+        "thresholds": {"A1_non_campaign_arrival": ARRIVAL_NON_CAMPAIGN,
+                       "A2_any_lane_burst": ARRIVAL_ANY_LANE,
+                       "A3_absolute_ceiling": ACTIVE_ABSOLUTE_CEILING},
+        "prior_observation_tic": prior_tic,
+        "delta_arms_evaluated": new_ids is not None,
+        "new_since_prior_tic": (len(new_ids) if new_ids is not None else None),
+        "new_ids": new_ids,
+        "non_campaign_new": non_campaign_new if new_ids is not None else None,
+        "tripped": tripped,
+        "arm": arm,
+        "would_inject": tripped,
+        "injected": bool(tripped and live_active_threshold),
+        "raw_emissions_today": raw_today,
+        "active_ids": active_ids,
+        "mode": "live" if live_active_threshold else "shadow",
+        "ruling": "crisis-threshold-ruling-tic744 — arrival predicate; the lane records every evaluation",
+    })
+
+    if tripped and live_active_threshold:
+        if arm == "A3_absolute_ceiling":
+            detail = (f"standing active set {active_count} > ceiling {ACTIVE_ABSOLUTE_CEILING} "
+                      f"(state backstop; base tic {prior_tic})")
+        else:
+            lanes = sorted({i.split("_")[0] if not i.startswith("sig_") else "_".join(i.split("_")[:3])
+                            for i in (non_campaign_new if arm.startswith("A1") else new_ids)})
+            detail = (f"{len(new_ids)} new active ids since tic {prior_tic} "
+                      f"({len(non_campaign_new)} non-campaign; lanes {lanes[:6]}); "
+                      f"standing base {active_count}")
+        injections.append(
+            f"[CRISIS SIGNAL: {arm} tripped — {detail} (authoritative active-manifest.jsonl; "
+            f"predicate {PREDICATE_VERSION}). ({raw_today} raw emissions in today's daily file — "
+            f"emission VOLUME, not active state; do not conflate.) Wire cutter available: "
+            f"touch ~/.claude/.wire-cut-signals to halt signal emission while you investigate.]"
         )
 
-    return None
+    return " ".join(injections) if injections else None
 
 
 def check_mandate_pileup(audit_logs: str, current_tic: int) -> str | None:

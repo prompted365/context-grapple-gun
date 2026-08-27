@@ -80,7 +80,7 @@
       "validation_source": "audit-logs/agent-mailboxes/ent_breyden/inbound/cgg-runtime-agent-matrix-tic219.md",
       "decision_required": null,
       "notes": "Model upgraded haiku \u2192 sonnet at tic 219 per federation KI tic 207 (spec-runtime alignment). /loop skill target. Append-only queue.jsonl semantics with latest-entry-per-id-wins read.",
-      "last_invoked_tic": 743
+      "last_invoked_tic": 744
     },
     "crisis-sentinel": {
       "status": "current",
@@ -101,7 +101,7 @@
       "validation_source": "audit-logs/agent-mailboxes/ent_breyden/inbound/cgg-runtime-agent-matrix-tic219.md",
       "decision_required": null,
       "notes": "Architect-gated; 84-tic zero-warrant streak reflects operational stability, not vestigiality. Office of Crisis Response holder.",
-      "last_invoked_tic": 701
+      "last_invoked_tic": 744
     },
     "ladder-auditor": {
       "status": "current",

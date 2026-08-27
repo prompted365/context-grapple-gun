@@ -881,3 +881,31 @@ class RuledTerminalFieldSetDeclaredTic741(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+# ── tic 744 (/review 744 Q2, A1-744 HIGH / F-742-L1 n=2): mutated_fields is a VALUE diff ──
+def test_restated_field_is_not_a_mutation_tic744():
+    """RED (the retired shape): mutated_fields = sorted(lifecycle) listed review_tic as
+    mutated when the caller passed the same value the row already carried (743->743 on
+    four t743 promotes), forcing a value-read at the stepper's Check B. GREEN: only
+    fields whose VALUE moved are mutated; the unchanged-but-passed field is RESTATED,
+    kept visible beside it. PAID at first live fire: the /review 744 Q1 writeback
+    stamped restated_fields=['review_tic'] with review_tic absent from mutated_fields."""
+    import importlib.util, pathlib
+    here = pathlib.Path(__file__).resolve().parent
+    spec = importlib.util.spec_from_file_location("qlw744", here / "queue-lifecycle-writeback.py")
+    qlw = importlib.util.module_from_spec(spec); spec.loader.exec_module(qlw)
+    prior = {"id": "cpr_x", "status": "extracted", "lesson": "L", "source": "s", "birth_tic": 741,
+             "review_tic": 744, "subsystem": "t"}
+    row, report = qlw.build_lifecycle_row(
+        prior, {"status": "promoted", "review_tic": 744, "adjudicated_at_tic": 744},
+        writer="test", now="2026-08-27T00:00:00+00:00")
+    lw = row["lifecycle_writeback"]
+    assert "review_tic" not in lw["mutated_fields"], lw
+    assert lw["restated_fields"] == ["review_tic"], lw
+    assert set(lw["mutated_fields"]) == {"status", "adjudicated_at_tic"}, lw
+    assert report["restated_fields"] == ["review_tic"]
+    assert report["mutated_fields"] == ["status"]              # among pre-existing keys
+    assert "adjudicated_at_tic" in report["added_fields"]
+    # RED reproduced inline: the retired stamp would have listed all three as mutated
+    assert sorted({"status", "review_tic", "adjudicated_at_tic"}) != lw["mutated_fields"]

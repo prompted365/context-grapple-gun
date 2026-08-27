@@ -1043,6 +1043,7 @@ if [ -n "$CRISIS_CHECKER" ] && [ "$TIC_COUNT" -gt 0 ]; then
     --zone-root "$ZONE_ROOT" \
     --audit-logs "$AUDIT_LOGS" \
     --current-tic "$TIC_COUNT" \
+    --live-active-threshold \
     2>/dev/null || true)
   if [ -n "$CRISIS_RAW" ]; then
     CRISIS_MSG="$CRISIS_RAW [CRISIS PROTOCOL v1: (1) Pause non-critical work. (2) Triage via /siren. (3) If mandate-related, check audit-logs/mogul/mandates/. (4) If signal-related, check audit-logs/signals/active-manifest.jsonl.]"

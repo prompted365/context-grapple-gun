@@ -71,30 +71,50 @@ class TestGreenCuredRead(unittest.TestCase):
 
 
 class TestShadowMode(unittest.TestCase):
-    def _many(self, tmp, n=12):
-        return _mk(tmp, [{"signal_id": f"s{i}", "status": "active"} for i in range(n)])
+    """Rewritten at tic 744 under the crisis-steward's arrival predicate (/review 744 Q4):
+    ACTIVE_THRESHOLD=10 is retired, so the size-based expectations here were replaced
+    by the same INTENT under the ruled shape — shadow records, live injects, fail-soft."""
+    def _many(self, tmp, n=12, prior=None):
+        sig = _mk(tmp, [{"signal_id": f"s{i}", "status": "active"} for i in range(n)])
+        if prior is not None:
+            os.makedirs(os.path.join(tmp, "sentinel"), exist_ok=True)
+            with open(os.path.join(tmp, "sentinel", "crisis-injection-shadow.jsonl"), "w") as f:
+                f.write(json.dumps({"type": "crisis_injection_shadow", "check": "active_signal_count",
+                                    "tic": 741, "active_count": len(prior), "threshold": 10,
+                                    "active_ids": sorted(prior), "mode": "shadow"}) + "\n")
+        return sig
     def test_default_is_shadow_no_injection_but_record(self):
         with tempfile.TemporaryDirectory() as tmp:
-            sig = self._many(tmp)
+            sig = self._many(tmp, prior=[])            # 12 new non-campaign arrivals => A1 would trip
             out = ci.check_signal_storm(sig, 742, audit_logs=tmp)
             self.assertIsNone(out)
             sink = os.path.join(tmp, "sentinel", "crisis-injection-shadow.jsonl")
             self.assertTrue(os.path.isfile(sink))
             rec = json.loads(open(sink).read().strip().splitlines()[-1])
-            self.assertEqual(rec["active_count"], 12); self.assertEqual(rec["threshold"], 10)
-            self.assertTrue(rec["would_inject"]); self.assertEqual(rec["mode"], "shadow")
+            self.assertEqual(rec["active_count"], 12)
+            self.assertEqual(rec["thresholds"]["A1_non_campaign_arrival"], ci.ARRIVAL_NON_CAMPAIGN)
+            self.assertTrue(rec["would_inject"]); self.assertFalse(rec["injected"])
+            self.assertEqual(rec["mode"], "shadow"); self.assertEqual(rec["arm"], "A1_non_campaign_arrival")
             self.assertEqual(len(rec["active_ids"]), 12)
-    def test_below_threshold_writes_nothing(self):
+    def test_no_trip_still_writes_a_row(self):
+        # tic 744: the lane records EVERY evaluation (it is the predicate's state store);
+        # the pre-744 expectation "below threshold writes nothing" is retired with the constant.
         with tempfile.TemporaryDirectory() as tmp:
-            sig = self._many(tmp, n=5)
+            sig = self._many(tmp, n=5)                 # no base => delta arms skipped; 5 < 90
             self.assertIsNone(ci.check_signal_storm(sig, 742, audit_logs=tmp))
-            self.assertFalse(os.path.exists(os.path.join(tmp, "sentinel", "crisis-injection-shadow.jsonl")))
+            sink = os.path.join(tmp, "sentinel", "crisis-injection-shadow.jsonl")
+            rec = json.loads(open(sink).read().strip().splitlines()[-1])
+            self.assertFalse(rec["tripped"]); self.assertFalse(rec["would_inject"])
+            self.assertIsNone(rec["prior_observation_tic"])
     def test_live_flag_injects(self):
         with tempfile.TemporaryDirectory() as tmp:
-            sig = self._many(tmp)
+            sig = self._many(tmp, prior=[])
             out = ci.check_signal_storm(sig, 742, audit_logs=tmp, live_active_threshold=True)
-            self.assertIsNotNone(out); self.assertIn("12 active signals", out)
-            self.assertFalse(os.path.exists(os.path.join(tmp, "sentinel", "crisis-injection-shadow.jsonl")))
+            self.assertIsNotNone(out); self.assertIn("A1_non_campaign_arrival", out)
+            self.assertIn("12 new active ids since tic 741", out)
+            sink = os.path.join(tmp, "sentinel", "crisis-injection-shadow.jsonl")
+            rec = json.loads(open(sink).read().strip().splitlines()[-1])
+            self.assertTrue(rec["injected"]); self.assertEqual(rec["mode"], "live")   # the lane keeps recording after the flip
     def test_shadow_is_fail_soft_without_audit_logs(self):
         with tempfile.TemporaryDirectory() as tmp:
             sig = self._many(tmp)
