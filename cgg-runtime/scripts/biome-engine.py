@@ -413,7 +413,8 @@ def emit_signal(band, signal_type, payload):
     }
     try:
         from lib.atomic_append import dedup_signal_append
-        written = dedup_signal_append(sig_file, signal, manifest_path=manifest_file)
+        written = dedup_signal_append(sig_file, signal, manifest_path=manifest_file,
+                                      ingest_manifest=True)
         if not written:
             return sig_id  # Already exists, skip silently
     except ImportError:
