@@ -48,10 +48,56 @@ def _active_manifest_count(signal_dir: str) -> int | None:
                 d = json.loads(line)
             except (json.JSONDecodeError, ValueError):
                 continue
-            sid = d.get("id", "")
+            # F-742-C3 (HIGH, /review 742 Q5): manifest rows carry `signal_id`
+            # (0/56 carried `id` at tic 742), so the old `d.get("id")` read counted
+            # ZERO active rows over 54 and this detector was dead since the manifold
+            # was born. `signal_id` is primary; `id` stays as the legacy fallback.
+            sid = d.get("signal_id") or d.get("id", "")
             if sid:
                 latest[sid] = d
     return sum(1 for d in latest.values() if d.get("status") in active_states)
+
+
+def _active_manifest_ids(signal_dir: str) -> list[str]:
+    """The ids behind _active_manifest_count — for the shadow record only."""
+    manifest = os.path.join(signal_dir, "active-manifest.jsonl")
+    if not os.path.isfile(manifest):
+        return []
+    active_states = {"active", "acknowledged", "working"}
+    latest = {}
+    with open(manifest) as f:
+        for line in f:
+            try:
+                d = json.loads(line)
+            except (json.JSONDecodeError, ValueError):
+                continue
+            sid = d.get("signal_id") or d.get("id", "")
+            if sid:
+                latest[sid] = d
+    return sorted(k for k, d in latest.items() if d.get("status") in active_states)
+
+
+ACTIVE_THRESHOLD = 10
+SHADOW_SINK_REL = os.path.join("sentinel", "crisis-injection-shadow.jsonl")
+
+
+def _shadow_record(audit_logs: str | None, record: dict) -> None:
+    """DETECT+AUDIT SHADOW (ruled /review 742 Q5, Architect-ratified): the
+    active-count check was a DEAD detector (see _active_manifest_count); fixing the
+    read makes it a detector that would fire at EVERY boot (54 active at tic 742,
+    threshold 10) — a threshold never calibrated against a counted manifold. Until
+    the crisis-steward seat re-baselines the threshold, Check 2 records what it
+    WOULD inject here and injects nothing. Fail-soft: a shadow write must never
+    break the boot hook."""
+    if not audit_logs:
+        return
+    try:
+        path = os.path.join(audit_logs, SHADOW_SINK_REL)
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        with open(path, "a", encoding="utf-8") as f:
+            f.write(json.dumps(record, separators=(",", ":")) + "\n")
+    except OSError:
+        pass
 
 
 def _raw_emissions_today(signal_dir: str) -> int:
@@ -73,7 +119,9 @@ def _raw_emissions_today(signal_dir: str) -> int:
     return n
 
 
-def check_signal_storm(signal_dir: str, current_tic: int) -> str | None:
+def check_signal_storm(signal_dir: str, current_tic: int,
+                       audit_logs: str | None = None,
+                       live_active_threshold: bool = False) -> str | None:
     """Check for active signal storm.
 
     Two structurally distinct checks, each reading the CORRECT surface:
@@ -123,11 +171,26 @@ def check_signal_storm(signal_dir: str, current_tic: int) -> str | None:
         # daily counting (that reintroduces the false-alarm bug). The raw-row
         # explosion check above still guards genuine emission runaway.
         return None
-    if active_count > 10:
+    if active_count > ACTIVE_THRESHOLD:
         raw_today = _raw_emissions_today(signal_dir)
+        if not live_active_threshold:
+            # SHADOW MODE (default; /review 742 Q5): record, do not inject.
+            _shadow_record(audit_logs, {
+                "type": "crisis_injection_shadow",
+                "check": "active_signal_count",
+                "tic": current_tic,
+                "active_count": active_count,
+                "threshold": ACTIVE_THRESHOLD,
+                "would_inject": True,
+                "raw_emissions_today": raw_today,
+                "active_ids": _active_manifest_ids(signal_dir),
+                "mode": "shadow",
+                "ruling": "/review 742 Q5 — live injection flips only on the crisis-steward threshold re-baseline",
+            })
+            return None
         return (
             f"[CRISIS SIGNAL: {active_count} active signals "
-            f"(authoritative active-manifest.jsonl, threshold: 10). "
+            f"(authoritative active-manifest.jsonl, threshold: {ACTIVE_THRESHOLD}). "
             f"Possible unresolved storm. ({raw_today} raw emissions in today's "
             f"daily file — emission VOLUME, not active state; do not conflate.) "
             f"Wire cutter available: touch ~/.claude/.wire-cut-signals to halt "
@@ -295,13 +358,19 @@ def main():
     parser.add_argument("--current-tic", type=int, required=True, help="Current tic number")
     parser.add_argument("--check-divergence", action="store_true",
                         help="Also check runtime divergence (slower)")
+    parser.add_argument("--live-active-threshold", action="store_true",
+                        help="Inject on the active-count check (default: SHADOW — record to "
+                             "audit-logs/sentinel/crisis-injection-shadow.jsonl, inject nothing; "
+                             "/review 742 Q5)")
     args = parser.parse_args()
 
     signal_dir = os.path.join(args.audit_logs, "signals")
     injections = []
 
     # Check each condition
-    result = check_signal_storm(signal_dir, args.current_tic)
+    result = check_signal_storm(signal_dir, args.current_tic,
+                                audit_logs=args.audit_logs,
+                                live_active_threshold=args.live_active_threshold)
     if result:
         injections.append(result)
 

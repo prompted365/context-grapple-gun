@@ -134,11 +134,171 @@ def _parse_manifest_keys(path: str) -> dict:
     return {"triggers": triggers}
 
 
-def validate_envelope_type(manifest: dict, envelope_type: str | None) -> tuple[bool, str]:
-    """Check envelope_type exists in trigger-manifest.yaml."""
+# ─────────────────────────────────────────────
+# Envelope Registry Loader (the OTHER namespace)
+# ─────────────────────────────────────────────
+
+def load_envelope_registry(zone_root: str) -> dict:
+    """Load ak_control_room/envelopes.yaml, return a NORMALIZED class map.
+
+    Shape (identical on both parse paths, so the fallback is testable against
+    PyYAML for exact agreement):
+
+        {"<class>": {"discriminator": str | None,
+                     "discriminator_values": tuple[str, ...]}, ...}
+
+    A class present in the registry but carrying NO discriminator_values gets an
+    empty tuple — present-but-undiscriminated is a real state, not an absence,
+    and the gate below falls through for it rather than refusing.
+
+    Empty dict on any failure (absent file, unparseable). Failure is NOT
+    fail-closed here: an unreadable registry leaves every `<class>:<type>`
+    envelope on the manifest trigger-key path, i.e. exactly today's behaviour.
+    """
+    path = os.path.join(zone_root, "ak_control_room", "envelopes.yaml")
+    if not os.path.isfile(path):
+        return {}
+    try:
+        text = Path(path).read_text(encoding="utf-8")
+    except OSError:
+        return {}
+    try:
+        import yaml
+        data = yaml.safe_load(text) or {}
+        envs = data.get("envelopes", data)
+        if not isinstance(envs, dict):
+            return {}
+        out = {}
+        for cls, node in envs.items():
+            if not isinstance(cls, str):
+                continue
+            dv = node.get("discriminator_values") if isinstance(node, dict) else None
+            disc = node.get("discriminator") if isinstance(node, dict) else None
+            out[cls] = {
+                "discriminator": disc if isinstance(disc, str) else None,
+                "discriminator_values": tuple(sorted(dv.keys())) if isinstance(dv, dict) else (),
+            }
+        return out
+    except ImportError:
+        # Fallback: minimal line parser, same two-tier shape load_trigger_manifest
+        # already uses. Deliberately NOT a fail-closed fallback to the manifest
+        # path: that would silently re-refuse every lawful estate envelope in a
+        # no-PyYAML runtime — the silent-degrade consumer this cure exists to end.
+        return _parse_envelope_registry(text)
+    except Exception:
+        return {}
+
+
+def _parse_envelope_registry(text: str) -> dict:
+    """Minimal envelopes.yaml parser — class keys + discriminator_values, no PyYAML.
+
+    Mirrors `_parse_manifest_keys`' discipline (and the estate-side precedent in
+    estate-seed/scripts/packet_validate.read_registry_enums): walk the
+    `envelopes:` block, take class keys at 2-space indent, and inside each class
+    take the keys one level under `discriminator_values:`.
+    """
+    out: dict = {}
+    lines = text.splitlines()
+    in_envelopes = False
+    cls = None
+    in_dv = False
+    for line in lines:
+        stripped = line.strip()
+        if not in_envelopes:
+            if stripped == "envelopes:" and not line.startswith(" "):
+                in_envelopes = True
+            continue
+        # A non-indented, non-comment, non-blank line ends the envelopes block.
+        if stripped and not line.startswith(" ") and not stripped.startswith("#"):
+            break
+        m_cls = re.match(r"^  ([A-Za-z_][A-Za-z0-9_.\-]*):\s*$", line)
+        if m_cls:
+            cls = m_cls.group(1)
+            out.setdefault(cls, {"discriminator": None, "discriminator_values": ()})
+            in_dv = False
+            continue
+        if cls is None:
+            continue
+        m_disc = re.match(r"^    discriminator:\s*(\S+)\s*$", line)
+        if m_disc:
+            out[cls]["discriminator"] = m_disc.group(1)
+            in_dv = False
+            continue
+        if re.match(r"^    discriminator_values:\s*$", line):
+            in_dv = True
+            continue
+        if in_dv:
+            m_val = re.match(r"^      ([A-Za-z_][A-Za-z0-9_.\-]*):\s*$", line)
+            if m_val:
+                vals = out[cls]["discriminator_values"]
+                out[cls]["discriminator_values"] = tuple(sorted(set(vals) | {m_val.group(1)}))
+                continue
+            # any line that is not one indent deeper leaves the block
+            if stripped and not line.startswith("      "):
+                in_dv = False
+    return out
+
+
+def validate_envelope_type(manifest: dict, envelope_type: str | None,
+                           registry: dict | None = None) -> tuple[bool, str]:
+    """Admit an envelope_type against the namespace that actually owns it.
+
+    TWO NAMESPACES, KEPT BOTH (ruled /review 740 on F-738-B3, re-ruled /review
+    741; the defect was measured live at wave 8B tic 738 and wave 11A tic 741):
+
+      • ak_control_room/envelopes.yaml#<class>.discriminator_values — the
+        ENVELOPE REGISTRY. It names a MESSAGE CLASS + TYPE (11 estate values:
+        estate_inbound 5, estate_outbound 6). It answers "what is this message?"
+      • autonomous_kernel/trigger-manifest.yaml#triggers — the ROUTING-POLICY
+        namespace. It carries exactly ONE estate key (`estate_inbound_packet`)
+        and none for estate_outbound. It answers "what handling policy applies?"
+
+    These are namespaces of DIFFERENT ARITY describing DIFFERENT OBJECTS, and a
+    rename in either direction is lossy — so /review 740 ruled KEEP BOTH and
+    ruled the live defect a CATEGORY ERROR IN THE GATE: this function used to
+    check a message-class discriminator for membership in a routing-key set, so
+    every lawful estate envelope was refused and the estate-side adapter crossed
+    on a `manifest=None` bypass.
+
+    The cure: a `<class>:<type>` envelope_type whose class is a registry class
+    carrying discriminator_values is admitted iff <type> is one of that class's
+    discriminator values. EVERYTHING ELSE — a non-`class:type` form, an unknown
+    class, a class with no discriminator_values, an absent registry — falls
+    through to the manifest trigger-key check UNCHANGED. The trigger key keeps
+    selecting the routing policy; nothing is renamed.
+
+    DOES NOT SATISFY (rider, verbatim, tic 742): "This increment does NOT resolve
+    the trigger-manifest TYPED-OPEN annotation (doctrine; staged for the lead),
+    does NOT switch the estate-seed adapter off its bypass (the lead's consumer
+    patch), and does NOT flip any ratified:false bit."  So: this gate being cured
+    is NOT the same as the estate lane being live-green. Every estate envelope on
+    disk today crossed on the `manifest=None` bypass, and both bypass call sites
+    (estate-seed/scripts/packet_lifecycle_adapter.py and
+    estate-seed/scripts/outbound_channel_watch.py) still pass manifest=None.
+    Receipt: audit-logs/governance/harpoon-office/cable-receipts/
+    bk-estate-packet-lane-live-green-tic742-b3-gate-cure.json
+    """
     if envelope_type is None:
         return True, "ok (no type specified)"
-    triggers = manifest.get("triggers", {})
+
+    # ── ENVELOPE-REGISTRY namespace (message class + type) ──
+    if registry and ":" in envelope_type:
+        cls, _sep, ptype = envelope_type.partition(":")
+        node = registry.get(cls)
+        if isinstance(node, dict):
+            values = node.get("discriminator_values") or ()
+            if values:
+                if ptype in values:
+                    disc = node.get("discriminator") or "discriminator"
+                    return True, (f"ok (envelope registry: "
+                                  f"ak_control_room/envelopes.yaml#{cls}.{disc}={ptype})")
+                return False, (f"Unknown packet_type '{ptype}' for envelope class "
+                               f"'{cls}' — not in ak_control_room/envelopes.yaml#"
+                               f"{cls}.discriminator_values")
+            # class present but undiscriminated -> fall through, deliberately
+
+    # ── TRIGGER-KEY namespace (routing policy) — unchanged ──
+    triggers = (manifest or {}).get("triggers", {})
     if envelope_type in triggers:
         return True, "ok"
     return False, f"Unknown envelope_type '{envelope_type}' — not in trigger-manifest.yaml"
@@ -386,17 +546,32 @@ def write_envelope(
     idempotency_key: str | None = None,
     dedupe_policy: str = "latest_wins",
     manifest: dict | None = None,
+    registry: dict | None = None,
 ) -> dict:
-    """Validate, dedupe, write atomically. Returns result dict."""
+    """Validate, dedupe, write atomically. Returns result dict.
+
+    `manifest` = trigger-manifest triggers (ROUTING-POLICY namespace).
+    `registry` = envelopes.yaml class map (MESSAGE-CLASS/TYPE namespace, via
+    load_envelope_registry). Supplying EITHER arms the type gate; each
+    envelope_type is then judged by the namespace that owns it. See
+    validate_envelope_type for the /review 740 KEEP-BOTH-NAMESPACES ruling.
+    """
     # 1. Validate envelope
     valid, reason = validate_envelope(envelope)
     if not valid:
         return {"status": "rejected", "reason": reason}
 
-    # 2. Validate envelope_type against manifest
-    if manifest:
+    # 2. Validate envelope_type against whichever namespace OWNS it.
+    #    TWO NAMESPACES, BOTH KEPT (/review 740, F-738-B3 ruled a CATEGORY ERROR
+    #    IN THE GATE, not a naming collision; re-ruled /review 741 as this
+    #    increment): ak_control_room/envelopes.yaml#<class>.discriminator_values
+    #    is authoritative for a `<class>:<type>` message discriminator, while
+    #    autonomous_kernel/trigger-manifest.yaml#triggers stays authoritative for
+    #    the routing-policy key. Nothing is renamed; a form the registry does not
+    #    own still takes the manifest path unchanged.
+    if manifest or registry:
         et = envelope.get("content", {}).get("envelope_type")
-        valid, reason = validate_envelope_type(manifest, et)
+        valid, reason = validate_envelope_type(manifest, et, registry=registry)
         if not valid:
             return {"status": "rejected", "reason": reason}
 
@@ -1214,18 +1389,24 @@ def _log_receipt(inbox_path: str, receipt: dict) -> None:
 # CLI
 # ─────────────────────────────────────────────
 
-def _resolve(args) -> tuple[str, str, dict, dict]:
-    """Common resolution: zone_root, audit_root, registry, manifest."""
+def _resolve(args) -> tuple[str, str, dict, dict, dict]:
+    """Common resolution: zone_root, audit_root, actor registry, trigger
+    manifest, envelope registry.
+
+    The envelope registry rides beside the manifest because the type gate needs
+    BOTH namespaces (/review 740 KEEP-BOTH ruling) — see validate_envelope_type.
+    """
     zr = args.zone_root or resolve_zone_root()
     tz = load_ticzone(zr)
     ar = audit_logs_path(zr, tz)
     reg = load_actor_registry(zr)
     man = load_trigger_manifest(zr)
-    return zr, ar, reg, man
+    envreg = load_envelope_registry(zr)
+    return zr, ar, reg, man, envreg
 
 
 def cmd_write(args):
-    zr, ar, reg, man = _resolve(args)
+    zr, ar, reg, man, envreg = _resolve(args)
 
     # Verify recipient
     ok, reason = verify_standing(reg, args.recipient)
@@ -1264,13 +1445,13 @@ def cmd_write(args):
     result = write_envelope(envelope, ibox,
                             idempotency_key=args.idempotency_key,
                             dedupe_policy=args.dedupe_policy or "latest_wins",
-                            manifest=man)
+                            manifest=man, registry=envreg)
     print(json.dumps(result, indent=2))
     sys.exit(0 if result["status"] == "delivered" else 1)
 
 
 def cmd_claim(args):
-    zr, ar, _, _ = _resolve(args)
+    zr, ar, _, _, _ = _resolve(args)
     ibox = inbox_root(ar, args.entity)
     result = claim_envelope(ibox, args.message_id, args.actor or args.entity, args.current_tic)
     print(json.dumps(result, indent=2))
@@ -1278,7 +1459,7 @@ def cmd_claim(args):
 
 
 def cmd_complete(args):
-    zr, ar, _, _ = _resolve(args)
+    zr, ar, _, _, _ = _resolve(args)
     ibox = inbox_root(ar, args.entity)
     result = complete_envelope(ibox, args.message_id, args.actor or args.entity,
                                args.current_tic, args.result_ref)
@@ -1287,7 +1468,7 @@ def cmd_complete(args):
 
 
 def cmd_defer(args):
-    zr, ar, _, _ = _resolve(args)
+    zr, ar, _, _, _ = _resolve(args)
     ibox = inbox_root(ar, args.entity)
     result = defer_envelope(ibox, args.message_id, args.actor or args.entity,
                             args.current_tic, args.reason, args.until_tic)
@@ -1296,7 +1477,7 @@ def cmd_defer(args):
 
 
 def cmd_nack(args):
-    zr, ar, _, _ = _resolve(args)
+    zr, ar, _, _, _ = _resolve(args)
     ibox = inbox_root(ar, args.entity)
     result = nack_envelope(ibox, args.message_id, args.actor or args.entity,
                            args.current_tic, args.reason or "Rejected")
@@ -1305,7 +1486,7 @@ def cmd_nack(args):
 
 
 def cmd_scan(args):
-    zr, ar, _, _ = _resolve(args)
+    zr, ar, _, _, _ = _resolve(args)
     ibox = inbox_root(ar, args.entity)
     result = scan_inbox(ibox)
     if args.format == "injection":
@@ -1317,7 +1498,7 @@ def cmd_scan(args):
 
 def cmd_stale_check(args):
     """Scan all entity inboxes for stale items and emit attention-debt signals."""
-    zr, ar, _, _ = _resolve(args)
+    zr, ar, _, _, _ = _resolve(args)
     if not args.current_tic:
         print(json.dumps({"status": "error", "reason": "--current-tic required"}))
         sys.exit(1)
@@ -1350,7 +1531,7 @@ def cmd_sweep(args):
     envelopes) AND resurface due deferred reminders. The authoritative
     missed-fire catch; wired into SessionStart boot + /cadence. Replaces the
     deprecated SQLite lane's enforce-ttl."""
-    zr, ar, _, _ = _resolve(args)
+    zr, ar, _, _, _ = _resolve(args)
     if args.entity:
         targets = [args.entity]
     else:
@@ -1371,7 +1552,7 @@ def cmd_sweep(args):
 
 def cmd_search(args):
     """Filesystem-native content search (replaces the deprecated SQLite FTS5)."""
-    zr, ar, _, _ = _resolve(args)
+    zr, ar, _, _, _ = _resolve(args)
     if args.entity:
         matches = search_inbox(inbox_root(ar, args.entity), args.query, args.include_terminal)
     else:
@@ -1395,7 +1576,12 @@ def main():
     w = sub.add_parser("write")
     w.add_argument("--sender", required=True)
     w.add_argument("--recipient", required=True)
-    w.add_argument("--type", default=None, help="Trigger type from manifest")
+    w.add_argument("--type", default=None,
+                   help="Trigger key from autonomous_kernel/trigger-manifest.yaml, "
+                        "OR a '<class>:<type>' message discriminator from "
+                        "ak_control_room/envelopes.yaml (e.g. "
+                        "estate_inbound:state_of_estate). Both namespaces are "
+                        "authoritative in their own registry (/review 740).")
     w.add_argument("--subject", required=True)
     w.add_argument("--body", default=None)
     w.add_argument("--body-file", default=None)

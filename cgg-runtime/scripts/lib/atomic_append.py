@@ -84,7 +84,10 @@ def manifest_row_from_signal(signal: dict, target: str, sig_id: str) -> dict:
                    band/volume/kind, harmony-input-builder.py:159 kind,
                    manifest-prune.project_signal:141 volume, /siren loudest).
       subsystem  — read by the per-downbeat conformation (cadence-ops.py:713).
-      source_tic — the ONLY age anchor this helper can honestly supply
+      source_tic — carried when the emitter has one; PLUS added_to_manifest_tic,
+                   stamped by this helper from the canonical tic ledger at ingest
+                   (/review 742 Q7 — the anchor the projector reads when the
+                   emitter carries no tic; ABSENT when the ledger is unreadable)
                    (manifest-prune._infer_last_reinforced_tic:94-119 reads
                    volume_history[-1].tic > added_to_manifest_tic > source_tic).
                    When the signal declares none the row is `age_unknown`,
@@ -141,6 +144,20 @@ def manifest_row_from_signal(signal: dict, target: str, sig_id: str) -> dict:
     if isinstance(signal.get("source_tic"), int):
         row["source_tic"] = signal["source_tic"]
 
+    # DATE ANCHOR (ruled /review 742 Q7, Architect-ratified — F-742-C5): an ingested
+    # row with no tic anchor projects as age_unknown -> structural_status live and
+    # NEVER decays. Neither trusting emitter carries a tic (biome-engine's
+    # federation_tic is 0 by design; visitor-economy-monitor has no tic context),
+    # so `source_tic` is usually absent. The tic this helper CAN honestly supply is
+    # the one it is writing at: added_to_manifest_tic — manifest-prune's
+    # priority-2 anchor (_infer_last_reinforced_tic: volume_history[-1].tic >
+    # added_to_manifest_tic > source_tic). Read from the canonical tic ledger beside
+    # the signals dir (mirrors manifest-prune.count_physical_tics); ABSENT when the
+    # ledger is unreadable — never a manufactured value.
+    added_tic = _current_canonical_tic(os.path.dirname(os.path.abspath(target)))
+    if isinstance(added_tic, int) and added_tic > 0:
+        row["added_to_manifest_tic"] = added_tic
+
     abs_target = os.path.abspath(target)
     row["source_file"] = os.path.join(
         os.path.basename(os.path.dirname(abs_target)), os.path.basename(abs_target)
@@ -155,6 +172,37 @@ def manifest_row_from_signal(signal: dict, target: str, sig_id: str) -> dict:
         row["summary"] = summary
 
     return row
+
+
+def _current_canonical_tic(signals_dir: str) -> int | None:
+    """Latest counted federation tic from <audit-logs>/tics/*.jsonl, where
+    <audit-logs> is the parent of the signals dir. Mirrors
+    manifest-prune.count_physical_tics (type=tic rows, count_mode != ignored,
+    max global_counter_after). None when the ledger is absent/unreadable."""
+    tic_dir = os.path.join(os.path.dirname(os.path.abspath(signals_dir)), "tics")
+    if not os.path.isdir(tic_dir):
+        return None
+    best = 0
+    try:
+        for name in sorted(os.listdir(tic_dir)):
+            if not name.endswith(".jsonl"):
+                continue
+            with open(os.path.join(tic_dir, name), "r", encoding="utf-8") as f:
+                for line in f:
+                    line = line.strip()
+                    if not line:
+                        continue
+                    try:
+                        d = json.loads(line)
+                    except (json.JSONDecodeError, ValueError):
+                        continue
+                    if d.get("type") == "tic" and d.get("count_mode") != "ignored":
+                        gc = d.get("global_counter_after", 0)
+                        if isinstance(gc, int) and gc > best:
+                            best = gc
+    except OSError:
+        return None
+    return best or None
 
 
 def dedup_signal_append(target: str, signal: dict, manifest_path: str = None,
