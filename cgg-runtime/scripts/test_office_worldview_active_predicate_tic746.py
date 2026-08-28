@@ -26,7 +26,8 @@ ROWS = [
     {"signal_id": "sig_a", "status": "active", "volume": 40, "band": "COGNITIVE"},
     {"signal_id": "sig_b", "status": "active", "volume": 12, "band": "PRIMITIVE"},
     {"signal_id": "sig_ack_cold", "status": "acknowledged", "volume": 0, "band": "COGNITIVE"},
-    {"signal_id": "sig_detected_drift_x", "status": "resolved", "volume": 45, "band": "COGNITIVE"},
+    # the tic-746 live shape: an earlier ACTIVE row and a later RESOLVED row for ONE id
+    {"signal_id": "sig_detected_drift_x", "status": "active", "volume": 45, "band": "COGNITIVE"},
     {"signal_id": "sig_detected_drift_x", "status": "resolved", "volume": 45, "band": "COGNITIVE"},
 ]
 
@@ -36,8 +37,10 @@ def test_counter_population_is_the_shared_active_predicate():
     active = m._active_signal_rows(ROWS)
     ids = sorted(r["signal_id"] for r in active)
     assert ids == ["sig_a", "sig_b"], ids
-    # the resolved duplicate drift rows (the tic-746 live instance) are OUT of the population
-    assert all(r["status"] != "resolved" for r in active)
+    # the since-resolved drift id (earlier active row, later resolved row) is OUT of the
+    # population — latest-per-id collapses BEFORE the predicate (the second clause; the
+    # live re-render at 746 read 59 over a 58 population without it)
+    assert all(r["signal_id"] != "sig_detected_drift_x" for r in active)
     # NEGATIVE CONTROL — the retired shape (raw len) disagrees with the predicate population
     assert len(ROWS) == 5 and len(active) == 2
 
@@ -57,4 +60,14 @@ def test_predicate_agrees_with_signal_active_module():
     import sys
     sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent / "lib"))
     from signal_active import active_rays
-    assert [r["signal_id"] for r in m._active_signal_rows(ROWS)] == [r["signal_id"] for r in active_rays(ROWS)]
+    from signal_active import latest_per_id
+    assert [r["signal_id"] for r in m._active_signal_rows(ROWS)] == [r["signal_id"] for r in active_rays(latest_per_id(ROWS))]
+
+
+def test_a_later_active_row_wins_over_an_earlier_resolved_one():
+    m = _load()
+    rows = [
+        {"signal_id": "sig_r", "status": "resolved", "volume": 10},
+        {"signal_id": "sig_r", "status": "active", "volume": 10},
+    ]
+    assert [r["signal_id"] for r in m._active_signal_rows(rows)] == ["sig_r"]

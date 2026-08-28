@@ -635,10 +635,16 @@ def _active_signal_rows(rows: list) -> list:
     rows are returned UNFILTERED and that is disclosed by the caller, never
     silently narrowed to zero."""
     try:
-        from signal_active import is_active_ray  # lib/ is on sys.path (fragment_contract block)
+        from signal_active import active_rays, latest_per_id  # lib/ is on sys.path (fragment_contract block)
     except Exception:
         return list(rows)
-    return [r for r in rows if isinstance(r, dict) and is_active_ray(r)]
+    # BOTH halves of the tic-686 banner cure (bk-boot-banner-latest-per-id-reader):
+    # the manifest is append-only between prune sweeps, so a resolve APPENDS a new
+    # row for the same id — collapse latest-per-id FIRST, then run the predicate on
+    # the projected rows, never the raw ones (the live re-render at 746 read 59 over
+    # a 58 population until this clause: an earlier 'active' row of a since-resolved
+    # drift id still counted).
+    return active_rays(latest_per_id([r for r in rows if isinstance(r, dict)]))
 
 
 def _jsonl_rows_effective(path: Path, zone_root: Path, eff) -> list:
