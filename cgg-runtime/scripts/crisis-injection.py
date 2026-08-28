@@ -20,7 +20,7 @@ import os
 import subprocess
 import sys
 from collections import Counter
-from datetime import date
+from datetime import date, datetime, timezone
 
 
 def _active_manifest_count(signal_dir: str) -> int | None:
@@ -125,11 +125,35 @@ def _shadow_record(audit_logs: str | None, record: dict) -> None:
         pass
 
 
-def _raw_emissions_today(signal_dir: str) -> int:
+def _utc_today(now: "datetime | None" = None) -> str:
+    """F-745 (two date clocks on one lane): every signal EMITTER in this corpus names the
+    daily file by the UTC calendar date (biome-engine, inbox-envelope, contamination-handler,
+    trust-progression-cycle, harpoon-orchestrator, border-stack, standing-engine,
+    rebru-cadence-emit — datetime.now(timezone.utc)). This reader keyed date.today() (LOCAL)
+    and therefore read a stale file for every hour between UTC midnight and local midnight
+    (at the tic-745 boot, 02:46Z / 22:46 EDT: 61 rows in the local-dated 08-27 file vs the
+    10 fresh rows — the four tic-745 rows among them — in the UTC-dated 08-28 file). A reader
+    follows its WRITER's clock. `now` is injectable for tests; naive input is treated as UTC."""
+    if now is None:
+        now = datetime.now(timezone.utc)
+    if now.tzinfo is not None:
+        now = now.astimezone(timezone.utc)
+    return now.date().isoformat()
+
+
+def _local_today() -> str:
+    """The mandate-history daily file is named by the LOCAL date by BOTH of its writers
+    (mandate-write.py:416 datetime.now(); session-restore.sh TODAY=$(date +%Y-%m-%d)), so its
+    reader stays on the local clock. Two clocks, each following its own writer — disclosed
+    here rather than silently unified on one side."""
+    return date.today().isoformat()
+
+
+def _raw_emissions_today(signal_dir: str, now: "datetime | None" = None) -> int:
     """Raw emission VOLUME in today's daily file (signal rows). This is emission
     telemetry, NEVER active-state — labeled explicitly so it can never be mistaken
     for the authoritative count again."""
-    today = date.today().isoformat()
+    today = _utc_today(now)  # F-745: the emitters date the file by UTC
     signal_file = os.path.join(signal_dir, f"{today}.jsonl")
     if not os.path.isfile(signal_file):
         return 0
@@ -185,7 +209,8 @@ def _row_signal_id(d: dict) -> str:
 
 def check_signal_storm(signal_dir: str, current_tic: int,
                        audit_logs: str | None = None,
-                       live_active_threshold: bool = False) -> str | None:
+                       live_active_threshold: bool = False,
+                       now: "datetime | None" = None) -> str | None:
     """Check for active signal storm. Two structurally distinct checks, each reading
     the CORRECT surface, both COLLECTED (F-744-CS2: Check 1 no longer early-returns
     and suppresses Check 2):
@@ -200,7 +225,7 @@ def check_signal_storm(signal_dir: str, current_tic: int,
          shadow observation. Raw daily volume rides as separately-labeled telemetry,
          never as a threshold input (tic 406, bk-boot-crisis-check-manifest-parity).
     """
-    today = date.today().isoformat()
+    today = _utc_today(now)  # F-745: the daily file is UTC-dated by every emitter
     signal_file = os.path.join(signal_dir, f"{today}.jsonl")
     injections: list[str] = []
 
@@ -268,7 +293,7 @@ def check_signal_storm(signal_dir: str, current_tic: int,
     elif active_count > ACTIVE_ABSOLUTE_CEILING:
         arm = "A3_absolute_ceiling"
     tripped = arm is not None
-    raw_today = _raw_emissions_today(signal_dir)
+    raw_today = _raw_emissions_today(signal_dir, now)
 
     _shadow_record(audit_logs, {
         "type": "crisis_injection_shadow",
@@ -343,8 +368,9 @@ def check_mandate_pileup(audit_logs: str, current_tic: int) -> str | None:
             f"Do not assume — investigate the lifecycle chain.]"
         )
 
-    # Check mandate history for excessive entries per tic
-    today = date.today().isoformat()
+    # Check mandate history for excessive entries per tic — LOCAL date by design: this
+    # file's writers (mandate-write.py, session-restore.sh) name it by the local calendar.
+    today = _local_today()
     history_file = os.path.join(audit_logs, "mogul", "mandates", "history", f"{today}.jsonl")
     if os.path.isfile(history_file):
         tic_counts = Counter()

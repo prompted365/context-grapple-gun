@@ -129,7 +129,10 @@ class TestShadowLaneIsMechanism(unittest.TestCase):
 
 class TestCheck1FieldCure(unittest.TestCase):
     def _daily(self, sig, rows):
-        today = datetime.date.today().isoformat()
+        # F-745: the daily file is named by the WRITER's clock (UTC, every emitter in the
+        # corpus) — the fixture keyed date.today() (local) and went RED at the 745 patch
+        # between UTC and local midnight (4/4 Check-1 cases returned None at 22:5x EDT).
+        today = ci._utc_today()
         with open(os.path.join(sig, f"{today}.jsonl"), "w") as f:
             for r in rows: f.write(json.dumps(r) + "\n")
     def test_signal_id_rows_without_tic_fire_as_tic_unresolved(self):
