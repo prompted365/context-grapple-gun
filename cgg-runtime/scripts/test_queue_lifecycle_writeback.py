@@ -903,9 +903,41 @@ def test_restated_field_is_not_a_mutation_tic744():
     lw = row["lifecycle_writeback"]
     assert "review_tic" not in lw["mutated_fields"], lw
     assert lw["restated_fields"] == ["review_tic"], lw
-    assert set(lw["mutated_fields"]) == {"status", "adjudicated_at_tic"}, lw
+    # amended /review 746 (A3-746): the ROW stamp now splits ADDED from MUTATED too
+    assert lw["mutated_fields"] == ["status"], lw
+    assert lw["added_fields"] == ["adjudicated_at_tic"], lw
     assert report["restated_fields"] == ["review_tic"]
     assert report["mutated_fields"] == ["status"]              # among pre-existing keys
     assert "adjudicated_at_tic" in report["added_fields"]
     # RED reproduced inline: the retired stamp would have listed all three as mutated
     assert sorted({"status", "review_tic", "adjudicated_at_tic"}) != lw["mutated_fields"]
+
+
+
+def test_row_stamp_splits_added_from_mutated_tic746():
+    """RED (the retired shape, A1-745 -> A3-746 at n=2): the ROW stamp listed every
+    value-changed field under mutated_fields, so a verdict writeback that ADDED 15
+    fields and CHANGED one read as 16 mutations (93.8% added) — while the writer's
+    SUMMARY already split them (mutated ∩ before_keys / added). GREEN: the row stamp
+    carries the same split — mutated_fields = value-changed AND pre-existing;
+    added_fields = value-changed AND new; restated beside both."""
+    import importlib.util, pathlib
+    here = pathlib.Path(__file__).resolve().parent
+    spec = importlib.util.spec_from_file_location("qlw746", here / "queue-lifecycle-writeback.py")
+    qlw = importlib.util.module_from_spec(spec); spec.loader.exec_module(qlw)
+    prior = {"id": "cpr_y", "status": "extracted", "lesson": "L", "source": "s", "birth_tic": 743,
+             "review_tic": 746, "subsystem": "t"}
+    lifecycle = {"status": "promoted", "review_tic": 746, "adjudicated_at_tic": 746,
+                 "review_verdict": "PROMOTE", "promoted_to": "ledger.md#x", "landing_kind": "refinement_ray"}
+    row, report = qlw.build_lifecycle_row(prior, lifecycle, writer="test", now="2026-08-28T00:00:00+00:00")
+    lw = row["lifecycle_writeback"]
+    assert lw["mutated_fields"] == ["status"], lw                       # the ONE genuine value change
+    assert lw["added_fields"] == sorted(["adjudicated_at_tic", "review_verdict", "promoted_to", "landing_kind"]), lw
+    assert lw["restated_fields"] == ["review_tic"], lw
+    # row stamp == summary split (the two names now compute one thing one way)
+    assert lw["mutated_fields"] == report["mutated_fields"]
+    # the SUMMARY's added_fields also counts the writer's OWN stamps — name them exactly
+    assert set(report["added_fields"]) - set(lw["added_fields"]) == {"lifecycle_writeback", "updated_at", "prior_status"}
+    assert set(lw["added_fields"]) <= set(report["added_fields"])
+    # NEGATIVE CONTROL — the retired conflation is NOT what the row carries
+    assert set(lw["mutated_fields"]) != {"status", "adjudicated_at_tic", "review_verdict", "promoted_to", "landing_kind"}

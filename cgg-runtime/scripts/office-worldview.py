@@ -620,6 +620,27 @@ def _effective_projection(zone_root: Path, view_path: str = None):
         return None
 
 
+def _active_signal_rows(rows: list) -> list:
+    """The manifest's ACTIVE population under the ONE shared predicate (F-746-L2).
+
+    lib/signal_active.is_active_ray is the read-side predicate every manifest
+    consumer resolves through (the t743 read-side ray: one shape-tolerant
+    predicate, many readers). Before this cure the COUNTER line counted every
+    projected row — at the tic-746 boot it rendered '60 active' over a 58-row
+    active population because two resolved-in-place duplicate drift rows were
+    still in the file (governance_query / the SIREN line / the crisis detector
+    all read 58 through the predicate). A consumer that bypasses the shared
+    predicate under-reads or over-reads silently; this helper is the fix and
+    the test names the retired shape. If the predicate is unimportable the
+    rows are returned UNFILTERED and that is disclosed by the caller, never
+    silently narrowed to zero."""
+    try:
+        from signal_active import is_active_ray  # lib/ is on sys.path (fragment_contract block)
+    except Exception:
+        return list(rows)
+    return [r for r in rows if isinstance(r, dict) and is_active_ray(r)]
+
+
 def _jsonl_rows_effective(path: Path, zone_root: Path, eff) -> list:
     """Load JSONL rows THROUGH the effective-record projection (b3).
 
@@ -1093,7 +1114,7 @@ def compile_fragments(zone_root: Path, office: str, tic: int,
         if man.is_file():
             # b3: rows load THROUGH the effective-record projection (corrected rows
             # overridden, blocked rows dropped, projection-unavailable -> withheld).
-            sigs = _jsonl_rows_effective(man, zone_root, eff)
+            sigs = _active_signal_rows(_jsonl_rows_effective(man, zone_root, eff))
             if sigs:
                 loud = max(sigs, key=lambda s: s.get("effective_volume", s.get("volume", 0)))
                 drift = "drift" in str(loud.get("signal_id", ""))

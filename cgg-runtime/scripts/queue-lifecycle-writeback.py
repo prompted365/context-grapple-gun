@@ -447,7 +447,12 @@ def build_lifecycle_row(prior_row, lifecycle, review_tic=None, writer=None,
         "at": stamp_time,
         "prior_status": prior_status,
         "copied_forward_fields": len(before_keys),
-        "mutated_fields": value_changed_fields,
+        # A1-745 / A3-746 (n=2, /review 746): the ROW stamp carries the same three-way
+        # split the SUMMARY already carries — a field the caller ADDED is not a field
+        # whose value MUTATED. Before this cure the row listed 16 "mutated" of which
+        # 15 were merely added (93.8%), and a reader of the row alone could not tell.
+        "mutated_fields": sorted(k for k in value_changed_fields if k in before_keys),
+        "added_fields": sorted(k for k in value_changed_fields if k not in before_keys),
         "restated_fields": restated_fields,
     }
     if (allow_terminal_transition and prior_status in HARD_TERMINAL_STATUSES
