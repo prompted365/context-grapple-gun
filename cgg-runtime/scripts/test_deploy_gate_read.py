@@ -157,3 +157,17 @@ def test_installed_copy_resolves_repo_by_cwd_walk_up(tmp_path):
     receipt = json.loads(r.stdout)
     assert receipt["repo_root"] == str(target.resolve()), receipt
     assert r.returncode == 0 and receipt["verdict"] == "GREEN"
+
+
+def test_in_progress_run_is_pending_exit_3_never_red_never_green(tmp_path):
+    repo, head = _mk_repo(tmp_path)
+    pending = [{"databaseId": 9, "conclusion": "", "status": "in_progress", "headSha": head,
+                "createdAt": "2026-08-28T00:00:00Z", "event": "push", "displayTitle": "t"}]
+    gh = _mk_fake_gh(tmp_path, {"a.yml": _run_row(head), "b.yml": pending})
+    code, receipt = _run(repo, gh)
+    assert code == 3 and receipt["verdict"] == "PENDING"
+    assert any(f.startswith("PENDING b.yml") for f in receipt["findings"]), receipt["findings"]
+    # a RED beside a PENDING is RED — pending never masks a failure
+    gh2 = _mk_fake_gh(tmp_path / "r2", {"a.yml": _run_row(head, conclusion="failure"), "b.yml": pending})
+    code2, receipt2 = _run(repo, gh2)
+    assert code2 == 1 and receipt2["verdict"] == "RED"

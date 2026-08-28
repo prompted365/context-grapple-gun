@@ -22,7 +22,10 @@ CONTRACT (a READ instrument — it never writes):
     - exit codes: 0 = every workflow read is success-or-no-runs (no-runs is flagged, never
       silent); 1 = at least one workflow's last conclusion is not success (or stale under
       --require-head); 2 = the reader itself could not read (gh missing / not authenticated /
-      no workflow dir / not a git repo) — a reader failure is LOUD, never a green.
+      no workflow dir / not a git repo) — a reader failure is LOUD, never a green;
+      3 = PENDING — a last run is queued/in_progress (no verdict yet; re-read before close).
+      A pending run is never RED and never GREEN (tic 748: the installed copy read the run on
+      1e63ee6 seconds before it completed and called it RED — the classifier now types it).
 
 USAGE:
     python3 deploy-gate-read.py                    # table on stdout, exit code = verdict
@@ -48,7 +51,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 FIELDS = "databaseId,conclusion,status,headSha,createdAt,event,displayTitle"
-EXIT_GREEN, EXIT_RED, EXIT_READER = 0, 1, 2
+EXIT_GREEN, EXIT_RED, EXIT_READER, EXIT_PENDING = 0, 1, 2, 3
 
 
 def _candidate_roots(explicit: str | None) -> list[Path]:
@@ -167,7 +170,8 @@ def read_last_run(gh: str, root: Path, workflow: str) -> dict:
         row["conclusion"] = "NO_RUNS"
         return row
     run = runs[0]
-    row.update({"conclusion": run.get("conclusion") or run.get("status"), "status": run.get("status"),
+    row.update({"conclusion": (run.get("conclusion") or None) if run.get("status") == "completed" else "PENDING",
+                "status": run.get("status"),
                 "head_sha": run.get("headSha"), "created_at": run.get("createdAt"),
                 "run_id": run.get("databaseId"), "event": run.get("event"),
                 "title": (run.get("displayTitle") or "")[:80]})
@@ -177,20 +181,28 @@ def read_last_run(gh: str, root: Path, workflow: str) -> dict:
 def classify(rows: list[dict], head: str | None, require_head: bool) -> tuple[int, list[str]]:
     findings: list[str] = []
     code = EXIT_GREEN
+    # precedence: READER_FAILURE(2) > RED(1) > PENDING(3) > GREEN(0) — PENDING never masks a RED
+    def _bump(cur: int, new: int) -> int:
+        rank = {EXIT_GREEN: 0, EXIT_PENDING: 1, EXIT_RED: 2, EXIT_READER: 3}
+        return new if rank[new] > rank[cur] else cur
     for row in rows:
         wf = row["workflow"]
         if not row["read"]:
             findings.append(f"READER FAILURE {wf}: {row['error']}")
-            code = max(code, EXIT_READER)
+            code = _bump(code, EXIT_READER)
             continue
         row["on_head"] = (head is not None and row["head_sha"] is not None and row["head_sha"] == head)
         row["stale"] = bool(head and row["head_sha"] and not row["on_head"])
         if row["conclusion"] == "NO_RUNS":
             findings.append(f"NO RUNS {wf}: the workflow has never produced a verdict (flagged, not green)")
             continue
+        if row["conclusion"] == "PENDING":
+            findings.append(f"PENDING {wf}: run {row['run_id']} is {row['status']} on {(row['head_sha'] or '')[:7]} — no verdict yet; re-read before close")
+            code = _bump(code, EXIT_PENDING)
+            continue
         if row["conclusion"] != "success":
             findings.append(f"RED {wf}: last conclusion={row['conclusion']} run={row['run_id']} sha={(row['head_sha'] or '')[:7]} at {row['created_at']}")
-            code = max(code, EXIT_RED)
+            code = _bump(code, EXIT_RED)
             continue
         if row["stale"]:
             if row.get("push_main") is False:
@@ -199,7 +211,7 @@ def classify(rows: list[dict], head: str | None, require_head: bool) -> tuple[in
             msg = f"STALE-GREEN {wf}: last success is on {(row['head_sha'] or '')[:7]}, HEAD is {(head or '')[:7]} — the workflow runs on push-to-main and has no verdict on the current publish"
             findings.append(msg)
             if require_head:
-                code = max(code, EXIT_RED)
+                code = _bump(code, EXIT_RED)
     return code, findings
 
 
@@ -242,7 +254,7 @@ def main(argv: list[str] | None = None) -> int:
     code, findings = classify(rows, head, args.require_head)
     receipt["workflows"] = rows
     receipt["findings"] = findings
-    receipt["verdict"] = {EXIT_GREEN: "GREEN", EXIT_RED: "RED", EXIT_READER: "READER_FAILURE"}[code]
+    receipt["verdict"] = {EXIT_GREEN: "GREEN", EXIT_RED: "RED", EXIT_READER: "READER_FAILURE", EXIT_PENDING: "PENDING"}[code]
     receipt["exit_code"] = code
     _emit(receipt, args.json)
     return code
