@@ -330,10 +330,33 @@ test('third-surface correction contract is packaged and wired to review plus hyd
   assert.match(session, /hydration-gate --format hook/);
   assert.match(session, /EFFECTIVE_RECORD_HYDRATION_BLOCKED/);
   assert.match(session, /EFFECTIVE_RECORD_RC" -eq 3.*EFFECTIVE_RECORD_HYDRATION_BLOCKED=1/s);
-  const sessionStop = session.indexOf('if [ "$EFFECTIVE_RECORD_HYDRATION_BLOCKED" -eq 1 ]');
+  // Stop-scope is DERIVED from the consumer set of the held truth (b2, tic 680,
+  // 5e22c08; doctrine vehicle cpr_fail_closed_boot_hold_must_scope_stop_to_
+  // held_truth_consumers_tic679). Two holds, two scopes — never one early exit:
+  //   CAPABILITY hold (resolver or python3 absent — the gate itself cannot run,
+  //   so running ungated readers would be gate-bypass): the boot exits
+  //   fail-closed BEFORE every raw governance reader.
+  //   TRUTH hold (rc=2 genuine-unresolved / resolver crash): only the
+  //   projection-dependent consumer — the raw worldview render — is suppressed,
+  //   DOWNSTREAM of the truth-independent mechanical lanes, which run.
+  // The pre-b2 shape (a TRUTH hold early-exiting the whole boot) produced three
+  // consecutive dark boots (t677–t679) and is asserted ABSENT below; this test
+  // indexed that retired shape from Aug 1 (a7f2477) to tic 747 and held the
+  // deploy gate red on every push to main since 5e22c08 without weakening it.
+  const capabilityStop = session.indexOf('if [ "$EFFECTIVE_RECORD_CAPABILITY_BLOCKED" -eq 1 ]');
   const queueReader = session.indexOf('# Queue.jsonl counting');
-  assert.ok(sessionStop >= 0, 'SessionStart must stop on an effective-record hold');
-  assert.ok(queueReader > sessionStop, 'the effective-record stop must precede raw queue readers');
+  assert.ok(capabilityStop >= 0, 'SessionStart must stop fail-closed on an effective-record CAPABILITY hold');
+  assert.ok(queueReader > capabilityStop, 'the capability stop must precede raw queue readers');
+  const capabilityBlock = session.slice(capabilityStop, session.indexOf('\nfi\n', capabilityStop));
+  assert.match(capabilityBlock, /^\s*exit 0$/m, 'the capability stop must exit the boot, not merely badge it');
+  const worldviewGate = session.indexOf('[ "$EFFECTIVE_RECORD_HYDRATION_BLOCKED" -eq 0 ]');
+  assert.ok(worldviewGate > queueReader, 'a TRUTH hold must gate the projection-dependent worldview render downstream of the mechanical readers');
+  assert.match(session, /\[ -n "\$WORLDVIEW_SCRIPT" \] && \[ "\$TIC_COUNT" -gt 0 \] && \[ "\$EFFECTIVE_RECORD_HYDRATION_BLOCKED" -eq 0 \]/);
+  assert.doesNotMatch(
+    session,
+    /if \[ "\$EFFECTIVE_RECORD_HYDRATION_BLOCKED" -eq 1 \]; then[\s\S]{0,600}?\n\s*exit 0\n/,
+    'a TRUTH hold must never early-exit the whole boot (the t677–t679 blackout shape)',
+  );
   assert.match(session, /SessionStart governance readers suppressed/);
   assert.match(session, /HANDOFF_MSG=""[\s\S]*CGG_MSG="\$\{CGG_MSG:\+\$CGG_MSG \}\$HANDOFF_MSG"/);
   assert.match(session, /command -v python3/);
