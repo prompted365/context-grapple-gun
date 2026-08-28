@@ -60,14 +60,29 @@ def _candidate_roots(explicit: str | None) -> list[Path]:
         out.append(Path(env))
     here = Path(__file__).resolve()
     out.append(here.parents[2] if len(here.parents) > 2 else here.parent)
+    # The INSTALLED copy lives at ~/.claude/cgg-runtime/scripts — script-relative is not a repo
+    # there. Fall back to the zone root (via zone_root.py, whichever resolver it exposes) and to
+    # a cwd walk-up, each pointed at <zone>/canonical_developer/context-grapple-gun.
     try:
         sys.path.insert(0, str(here.parent))
-        from zone_root import find_zone_root  # type: ignore
-        zr = find_zone_root()
-        if zr:
-            out.append(Path(zr) / "canonical_developer" / "context-grapple-gun")
+        import zone_root as _zr  # type: ignore
+        for fn in ("resolve_zone_root", "find_zone_root", "zone_root", "get_zone_root", "discover_zone_root"):
+            f = getattr(_zr, fn, None)
+            if callable(f):
+                try:
+                    zr = f()
+                except TypeError:
+                    zr = f(os.getcwd())
+                if zr:
+                    out.append(Path(str(zr)) / "canonical_developer" / "context-grapple-gun")
+                    break
     except Exception:
         pass
+    cwd = Path.cwd().resolve()
+    for d in (cwd, *cwd.parents):
+        out.append(d / "canonical_developer" / "context-grapple-gun")
+        if (d / ".ticzone").exists():
+            break
     return out
 
 

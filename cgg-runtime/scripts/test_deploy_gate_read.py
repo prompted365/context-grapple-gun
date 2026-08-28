@@ -131,3 +131,29 @@ def test_stale_green_on_pr_only_workflow_is_by_construction_never_red(tmp_path):
     repo2, head2 = _mk_repo(tmp_path / "r2")
     gh2 = _mk_fake_gh(tmp_path / "r2", {"a.yml": _run_row(head2), "b.yml": _run_row(old, run_id=2)})
     assert _run(repo2, gh2, "--require-head")[0] == 1
+
+
+def test_installed_copy_resolves_repo_by_cwd_walk_up(tmp_path):
+    """The installed copy (~/.claude/cgg-runtime/scripts) is not inside a repo: script-relative
+    fails and the reader must find <zone>/canonical_developer/context-grapple-gun by walking up
+    from cwd. Copy the script OUT of the repo so the fallback is the path actually exercised."""
+    import shutil
+    zone = tmp_path / "zone"
+    (zone / ".ticzone").mkdir(parents=True)
+    repo, head = _mk_repo(zone / "canonical_developer" / "context-grapple-gun-parent")
+    # _mk_repo made <parent>/repo; move it to the expected name
+    target = zone / "canonical_developer" / "context-grapple-gun"
+    shutil.move(str(repo), str(target))
+    installed = tmp_path / "installed" / "cgg-runtime" / "scripts"
+    installed.mkdir(parents=True)
+    shutil.copy(SCRIPT, installed / "deploy-gate-read.py")
+    gh = _mk_fake_gh(tmp_path, {"a.yml": _run_row(head), "b.yml": _run_row(head, run_id=2)})
+    env = dict(os.environ)
+    env["GH_BIN"] = str(gh)
+    env.pop("CGG_REPO_ROOT", None)
+    sub = zone / "audit-logs" / "deep"
+    sub.mkdir(parents=True)
+    r = subprocess.run([sys.executable, str(installed / "deploy-gate-read.py"), "--json"], cwd=sub, capture_output=True, text=True, env=env)
+    receipt = json.loads(r.stdout)
+    assert receipt["repo_root"] == str(target.resolve()), receipt
+    assert r.returncode == 0 and receipt["verdict"] == "GREEN"
