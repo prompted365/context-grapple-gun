@@ -523,6 +523,23 @@ def find_related_signals(cpr, signals):
     return related[:5]
 
 
+def dossier_lifecycle_fields(cpr):
+    """The lifecycle coordinates a dossier carries forward from its queue row.
+
+    birth_tic coalesces null -> 0 (the absent-sentinel; see the M1 valve note
+    at the call site). review_tic passes through VERBATIM — the fence the
+    /review docket is sequenced by (F-746-L3: the bench packet dropped it for
+    three tics while the queue row carried it, so every docket row read
+    review_tic=None at 746/748/749 and the fence had to be re-read from the
+    queue by hand). Absent stays None — never coalesced to 0, which would
+    read as "fenced at tic 0" and is a different lie.
+    """
+    return {
+        "birth_tic": cpr.get("birth_tic") or 0,
+        "review_tic": cpr.get("review_tic"),
+    }
+
+
 def cluster_pending_cogprs(pending_cogprs):
     """Cluster pending dossiers into review-cluster buckets.
 
@@ -756,7 +773,7 @@ def build_bench_packet(project_dir, dry_run=False):
         dossier = {
             "id": cpr_id,
             "lesson": cpr.get("lesson", ""),
-            "birth_tic": cpr.get("birth_tic") or 0,
+            **dossier_lifecycle_fields(cpr),
             "status": cpr.get("status", ""),
             "state_source": state_source,
             "reactivated_from_deferred": reactivated_from_deferred,
