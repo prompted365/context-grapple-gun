@@ -465,8 +465,8 @@ $MANDATE_CONTENT
    - cache_refresh: run $CGG_SCRIPTS/visitor-economy-monitor.py --full-cycle \$TIC (NOT --cache-refresh: that flag's producer measures cache_state ONLY, and the two other demanded keys would be filled by your inference reading as measurement — the t687/t692 defect, bk-mandate-cache-refresh-contract-producer-split). The full-cycle output MEASURES every demanded key: build results.cache_refresh from it as {\"cache_state\": <full_cycle.cache_refresh.cache_state>, \"standing_decay\": <full_cycle.standing_decay>, \"biome_health\": <full_cycle.biome_health>} — all three measured, never derived — EVEN WHEN THE CACHE IS EMPTY (e.g. cache_state {\"summary\": {\"total_entries\": 0}}). The extra full-cycle keys (census, economy_observation) are benign byproducts; do not promote them into results.cache_refresh. Do NOT report cache_refresh only in the prose summary; the structured results.cache_refresh key is the verified artifact. DURABLE ARTIFACT (t714 cure, the a4c8 no-path ray): the producer persists its full output to audit-logs/visitor-economy/full-cycle-tic-\$TIC.json — if your read of the stdout is clipped, RE-READ that artifact; never re-execute the signal-emitting cycle to recover a measurement. Verify the artifact landed (results.artifact_path non-null) and cite it in results.cache_refresh as {\"artifact_path\": <full_cycle.artifact_path>}; a null artifact_path with artifact_write_error is a finding to surface, not to absorb.
    - deep_audit: comprehensive multi-rung scan
    - review_close_check: run $CGG_SCRIPTS/review-close-check.py, verify post-review inscription consistency
-   - civil_status_check: DISPATCH the existing civil-engineer office steward — an entity at the appropriate state, via the lead harness's active dispatch surface (under Claude Code: subagent_type: civil-engineer) — harness- and sovereign-contract-mediated; do NOT route it to any external compute backend. It runs the routine infrastructure-maintenance audit (index/registry/sync/health checks per cgg-runtime/agents/civil-engineer.md) and writes its civil-report to audit-logs/mogul/civil-reports/<YYYY-MM-DD>-tic-\$CURRENT_TIC.json. Do NOT reimplement civil logic inline — civil-engineer already exists; you only dispatch it (find-before-create). Your results.civil_status_check object MUST summarize {\"findings_count\": N, \"drift_detected\": N, \"report_path\": \"audit-logs/mogul/civil-reports/...\"}.
-3. Write a DEDICATED structured JSON cycle report using Write tool to EXACTLY this path:
+   - civil_status_check: NOT YOURS TO DISPATCH (every backend — /review 750 Q8, F-750-M1). civil_status_check is handled OUT-OF-BAND by this runner's own carve-out AFTER you finish: a separate \`claude -p --agent civil-engineer\` invocation runs the civil-engineer office steward as its own session agent and the runner merges results.civil_status_check into your report before verification. Do NOT dispatch civil-engineer, do NOT spawn any subagent for it, do NOT add a results.civil_status_check key, and NEVER hold, wait, or end your turn expecting a callback — under print mode there is no next turn, and a held background subagent is killed at the harness ceiling (tic 750: the report was never written and the mandate failed with 10/11 cycles' artifacts real on disk). Run every OTHER cycle in cycle_request.run_now normally and list only those in cycles_executed.
+3. Write a DEDICATED structured JSON cycle report using Write tool to EXACTLY this path — and write it BEFORE any hold, wait, or dispatch of any kind (a report that exists is verifiable; a promise to write one after a callback is not, because in print mode the callback never comes):
    $STRUCTURED_REPORT
    This file is your governance evidence artifact. It MUST follow the schema below exactly.
 4. Do NOT modify CLAUDE.md, MEMORY.md, or any constitutional surface
@@ -670,22 +670,24 @@ else
 fi
 set -e
 
-# ---- Civil carve-out merge (codex lane + civil requested) -------------------
+# ---- Civil carve-out merge (EVERY backend + civil requested — /review 750 Q8) ---
 # The codex agent ran every cycle EXCEPT civil. Dispatch civil-engineer on Claude
 # Code, capture its summary, and merge results.civil_status_check into the
 # codex-written report BEFORE the per-cycle verification below (which iterates the
 # full $CYCLES and would otherwise flag civil as a missing results key). The fence
 # holds: civil-engineer never touches the external backend.
-if [ "$MOGUL_RUNNER_BACKEND" = "codex" ] && [ "$CIVIL_IN_CYCLES" = true ] && [ $CLAUDE_EXIT -eq 0 ]; then
-  echo "Civil carve-out: dispatching civil-engineer on Claude Code (fence: civil stays sovereign)..."
+if [ "$CIVIL_IN_CYCLES" = true ] && [ $CLAUDE_EXIT -eq 0 ]; then
+  echo "Civil carve-out: running civil-engineer as its own session agent (claude -p --agent civil-engineer; every backend — /review 750 Q8; fence: civil stays sovereign)..."
   CIVIL_FRAGMENT="$CYCLE_REPORTS_DIR/.${TIMESTAMP}-tic-${CURRENT_TIC}.civil-fragment.json"
-  CIVIL_PROMPT="You are the mogul-runner civil carve-out for tic $CURRENT_TIC. Working directory: $ZONE_ROOT.
-Dispatch the civil-engineer office steward via the lead harness's active dispatch surface (an entity at the appropriate state; under Claude Code: subagent_type: civil-engineer). It runs the routine infrastructure-maintenance audit (index/registry/sync/health per cgg-runtime/agents/civil-engineer.md) and writes its civil-report to audit-logs/mogul/civil-reports/<YYYY-MM-DD>-tic-$CURRENT_TIC.json.
+  CIVIL_PROMPT="You ARE the civil-engineer office steward — booted as the SESSION AGENT by the mogul-runner civil carve-out for tic $CURRENT_TIC (mandate $MANDATE_ID). Working directory: $ZONE_ROOT.
+Run your routine infrastructure-maintenance audit per your own spec (cgg-runtime/agents/civil-engineer.md: index/registry/sync/health checks) and write your civil-report to audit-logs/mogul/civil-reports/<YYYY-MM-DD>-tic-$CURRENT_TIC.json (the prior report for lineage: the most recent file in that directory).
+You are the seat: do NOT spawn any subagent and do NOT hold for any background task — print mode has no next turn.
 Then write EXACTLY this JSON file using the Write tool to: $CIVIL_FRAGMENT
 {\"findings_count\": <int>, \"drift_detected\": <int>, \"report_path\": \"audit-logs/mogul/civil-reports/...\", \"runtime\": \"claude_code\"}
 Do nothing else. Do NOT modify CLAUDE.md, MEMORY.md, queue.jsonl, or any governance surface."
   set +e
   env -u CLAUDECODE "$CLAUDE_BIN" -p "$CIVIL_PROMPT" \
+    --agent civil-engineer \
     --model "$MOGUL_RUNNER_MODEL" \
     --allowedTools "Read,Grep,Glob,Bash,Write,Agent" \
     --dangerously-skip-permissions \
