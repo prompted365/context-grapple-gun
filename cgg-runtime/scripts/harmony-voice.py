@@ -495,6 +495,18 @@ def apply_fallback_counter(voice: dict[str, Any], current_tic: int) -> dict[str,
     adm_fired = adm_count >= adm_threshold
     voice["admission_gate_watch"] = {
         "threshold": adm_threshold, "fired": adm_fired, "count": adm_count,
+        # /review 751 Q3 (cpr_mogul_harmony_invoke_17a1789f2ea4 -> the GEOMETRY clause of the
+        # re-derivability axis): a sliding-window count's one-step delta reports the WINDOW
+        # unless its membership set rides beside the count. The stderr line below already
+        # prints the refusal-tic list; the machine-facing packet now carries it too, so a
+        # 6->5 that is tic 697 aging off the trailing edge is re-derivable on THIS surface.
+        "refusal_tics": list(prior["admission_gate_tics"]),
+        # the two-emitter denominator drift (bk-harmony-admission-watch-field-name-drift):
+        # the stderr line says "last {window_scanned + 1} runs" (it counts the current run);
+        # fallback_families.window_scanned is the prior-window walk count. Both numbers are
+        # named here so a reader attributes the 50-vs-51 delta to the emitter, never the tic.
+        "window_scanned_prior": prior["window_scanned"],
+        "window_runs_including_current": prior["window_scanned"] + 1,
     }
     if fired:
         print(

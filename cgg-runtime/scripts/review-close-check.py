@@ -1568,16 +1568,35 @@ def check_skipped(cpr_id, cpr):
     return findings
 
 
+# /review 751 Q4 — per-run route disclosure for axis-3 orphan clears (route -> [{cpr_id, path}]).
+# Reset at the top of find_orphaned_promotions; consumed into summary.orphan_route_disclosure.
+ORPHAN_ROUTE_DISCLOSURE = {}
+
+
 def check_orphans(queue, project_dir, inscribed_ids=None):
-    """Find CPRs marked promoted in queue but missing from all governance files.
+    """Find CPRs marked promoted in queue but missing from the SCANNED governance set.
 
     Verification axes (any one resolves):
       1. Historical-artifact bypass (triaged legacy entries)
       2. cpr_id appears in inscribed_ids index
       3. cpr_id, CogPR-N alt, or lesson snippet appears in promoted_to /
-         recommended_scopes / common governance locations
+         recommended_scopes / the three fixed governance paths
+
+    MIRROR-FACE ray (cgg-ledger#emitter-rows-must-match-a-reader-predicate, /review 751 Q4,
+    cpr_mogul_review_close_check_7fb07b4e6323): axis 3 clears on a MENTION anywhere in a
+    BOUNDED set, not on the promotion's LANDING — so a sibling ray naming this id in a
+    `distinct_from:` edge retires the orphan for a reason the row never caused (lived t748:
+    the b730 units ray). The predicate is unchanged; the CLAIM is narrowed to the scanned
+    set, and every axis-3 clear is TYPED BY ROUTE and disclosed via
+    ORPHAN_ROUTE_DISCLOSURE (consumed into summary.orphan_route_disclosure):
+      declared_target_text  — matched inside a file the row's promoted_to names
+      scope_target_text     — matched inside a file a path-shaped recommended_scope names
+      third_party_mention   — matched only in a fixed governance path (a sibling's
+                              narration, a relation edge, a receipt quote): the orphan is
+                              RECLASSIFIED-BY-MENTION, not verified landed
     """
     findings = []
+    ORPHAN_ROUTE_DISCLOSURE.clear()
 
     for cpr_id, cpr in queue.items():
         if cpr.get("status") != "promoted":
@@ -1610,6 +1629,9 @@ def check_orphans(queue, project_dir, inscribed_ids=None):
             ),
             os.path.expanduser("~/.claude/CLAUDE.md"),
         ]
+        fixed_paths = set(check_paths)
+        declared_paths = set()
+        scope_paths = set()
 
         # Helper: append a target's project-dir resolution AND its auto-memory
         # resolution (tic 335). A bare `feedback_x.md` promoted_to lives in the
@@ -1626,19 +1648,25 @@ def check_orphans(queue, project_dir, inscribed_ids=None):
             check_paths.append(str(AUTO_MEMORY_DIR / os.path.basename(t)))
 
         promoted_to = cpr.get("promoted_to", "")
+        n_before = len(check_paths)
         if isinstance(promoted_to, str) and promoted_to:
             _append_target(promoted_to)
         elif isinstance(promoted_to, list):
             for p in promoted_to:
                 if isinstance(p, str) and p:
                     _append_target(p)
+        declared_paths.update(check_paths[n_before:])
 
+        n_before = len(check_paths)
         for scope in cpr.get("recommended_scopes", []):
             if not _looks_like_file_path(scope):
                 continue
             _append_target(scope)
+        scope_paths.update(check_paths[n_before:])
 
         found = False
+        found_route = None
+        found_path = None
         for path in check_paths:
             # Dehydration-aware read: a CLAUDE.md target folds in its sibling
             # ledger body (tic 335) so a promoted body relocated to the ledger
@@ -1646,15 +1674,35 @@ def check_orphans(queue, project_dir, inscribed_ids=None):
             content = _read_with_ledger(path)
             if content and (cpr_id in content or cpr_ref in content or snippet in content):
                 found = True
+                found_path = path
+                if path in declared_paths:
+                    found_route = "declared_target_text"
+                elif path in scope_paths:
+                    found_route = "scope_target_text"
+                else:
+                    found_route = "third_party_mention"
                 break
 
-        if not found:
+        if found:
+            # /review 751 Q4: a clear by mention is disclosed, never silently absorbed into
+            # "verified". The declared-target route is the promotion's own surface; the
+            # third-party route is a sibling's narration and RECLASSIFIES the orphan.
+            ORPHAN_ROUTE_DISCLOSURE.setdefault(found_route, []).append(
+                {"cpr_id": cpr_id, "path": os.path.relpath(found_path, project_dir)
+                 if found_path and found_path.startswith(project_dir) else found_path})
+        else:
             findings.append({
                 "type": "orphaned_promotion",
                 "severity": "error",
                 "cpr_id": cpr_id,
                 "cpr_ref": cpr_ref,
-                "message": f"{cpr_id} marked promoted in queue but text not found in any governance file",
+                "scanned_set": "CLAUDE.md + constitution-ledger/ledger.md + ~/.claude/CLAUDE.md "
+                               "+ the row's promoted_to + its path-shaped recommended_scopes "
+                               "(each resolved at project-dir and auto-memory)",
+                "message": (f"{cpr_id} marked promoted in queue but neither its id, its "
+                            f"CogPR-N ref, nor its lesson snippet was found in the SCANNED "
+                            f"governance set (three fixed paths + promoted_to + path-shaped "
+                            f"recommended_scopes) — not a claim about ANY governance file"),
             })
 
     return findings
@@ -2521,6 +2569,9 @@ def compute_unit_deltas(report_dir, current_filename, current_tic,
       delta_matched_comments   — change in the declared POPULATION
                                  (unit_declaration.matched_comment_count)
       units_collapsed_this_pass— True iff the two deltas are EQUAL
+      units_collapsed_vacuous  — True iff BOTH deltas are ZERO (GUARD-19: the equality is
+                                 then a tautology over an empty observation set);
+                                 units_collapsed_evidential_weight names the weight
 
     WHY THE COLLAPSE FLAG: when both units move by the same amount, every new
     matched comment carried exactly one new token — the token unit and the
@@ -2604,6 +2655,20 @@ def compute_unit_deltas(report_dir, current_filename, current_tic,
     block["delta_matched_comments"] = current_matched_comments - prior_comments
     block["units_collapsed_this_pass"] = (
         block["delta_tokens"] == block["delta_matched_comments"])
+    # GUARD-19 (constitution-ledger#presence-observation-fallacy-guard guard 19, /review 749,
+    # cpr_mogul_review_close_check_8124846fc16a; reinforced /review 751 Q1 by the sibling-field
+    # face cpr_mogul_review_close_check_45c12f41fc1e): an equality-of-deltas discriminator fires
+    # TRUE VACUOUSLY when both deltas are zero — a pass that produced no observation. Type it at
+    # the instrument so an entry-fire agreement is never read back as evidence-bearing.
+    block["units_collapsed_vacuous"] = (
+        block["delta_tokens"] == 0 and block["delta_matched_comments"] == 0)
+    block["units_collapsed_evidential_weight"] = (
+        "none — both deltas are zero: the agreement is a tautology over an empty "
+        "observation set (GUARD-19); it corroborates nothing"
+        if block["units_collapsed_vacuous"] else
+        ("evidence-bearing — both units moved by the same non-zero amount"
+         if block["units_collapsed_this_pass"] else
+         "n/a — the units diverged; see the delta blocks"))
     block["delta_baseline_absent"] = False
     return block
 
@@ -2744,6 +2809,18 @@ def compute_cross_counter_disclosure(verdict_delta_block, index_delta_block):
         "token_delta": token_delta,
         "comparable": comparable,
         "agree": (promoted_delta == token_delta) if comparable else None,
+        # GUARD-19 sibling-field face (/review 751 Q1, cpr_mogul_review_close_check_45c12f41fc1e
+        # absorbed-as-reinforcement): agree=True at 0==0 is VACUOUS — an entry fire against a
+        # baseline nothing moved between corroborates nothing; declare the weight beside the flag.
+        "vacuous": (promoted_delta == 0 and token_delta == 0) if comparable else None,
+        "evidential_weight": (
+            None if not comparable else
+            ("none — both deltas are zero: agree=True is a tautology over an empty observation "
+             "set (GUARD-19); not equal evidence to a close-fire agreement"
+             if (promoted_delta == 0 and token_delta == 0) else
+             ("evidence-bearing — two independent counters landed on the same non-zero movement"
+              if promoted_delta == token_delta else
+              "disagreement — a question with named routes, not a finding"))),
         "divergence_routes": [
             "modify_and_merge_promotion_adds_no_provenance_comment",
             "doctrine_edit_narrating_sibling_id_adds_token_without_promotion",
@@ -2980,6 +3057,15 @@ def run_check(project_dir, dry_run=False, obligation_tic=None, obligation_mandat
             "genuine_count": genuine_count,
             "known_count": known_count,
             "known_by_reason": known_by_reason,
+            # /review 751 Q4 (MIRROR-FACE ray): axis-3 orphan clears typed by ROUTE. The
+            # third_party_mention bucket names the promoted ids whose orphan finding is
+            # RECLASSIFIED-BY-MENTION (a sibling's narration / a relation edge), never
+            # verified landed — the orphan class drains monotonically through this route
+            # as relation-carrying rays accrete, and this field keeps that drain legible.
+            "orphan_route_disclosure": {
+                route: {"count": len(items), "ids": [i["cpr_id"] for i in items]}
+                for route, items in sorted(ORPHAN_ROUTE_DISCLOSURE.items())
+            },
             "genuine_consistent": genuine_count == 0,
             # tic 628 (Verifier-Split Chapter 3): the classification pass covers the
             # FULL finding universe, so genuine + known == total by construction.
