@@ -1406,6 +1406,14 @@ def build_inscribed_index(project_dir, queue_ids=None, diagnostics=None):
         diagnostics["reserved_excluded_count"] = len(reserved_excluded)
         diagnostics["unresolved_against_queue_count"] = len(unresolved_against_queue)
         diagnostics["unresolved_against_queue_sample"] = sorted(unresolved_against_queue)[:25]
+        # /review 753 Q2 (F-743-M1; bk-close-check-unresolved-membership-persisted):
+        # the FULL membership beside the sample. A count with a 25-item sample left
+        # every other member existing nowhere on disk, so the figure could not be
+        # re-derived from any artifact (the RE-DERIVABILITY axis, constitution-
+        # ledger#artifact-language-must-not-exceed-its-declared-confidence-
+        # classification). The sample stays for readers that page; the members
+        # ARE the set — persisted at the mint site, never reconstructed later.
+        diagnostics["unresolved_against_queue_members"] = sorted(unresolved_against_queue)
         # /review-719 loud counter (3a40ab346adb): the residue an anchored
         # closed alternation sheds from an open authoring vocabulary, made
         # visible beside the index it was invisible to. Non-gating.
@@ -2748,7 +2756,286 @@ def compute_verdict_count_deltas(report_dir, current_filename, current_tic,
     return block
 
 
-def compute_cross_counter_disclosure(verdict_delta_block, index_delta_block):
+# The divergence-route CATALOG the cross-counter disclosure publishes beside its
+# flag. ONE constant, two readers (the disclosure's `divergence_routes` list and
+# the attribution's per-member `catalog_route`), so the catalog can never drift
+# between the surface that prints it and the surface that binds a member to it.
+# Members and order are unchanged from the tic-728 list plus the /review 743 Q6
+# addition; the ATTRIBUTION clause (/review 753) adds no member — whether the
+# catalog must enumerate the route the tic-752 fire took (a promoted id whose
+# witness token pre-existed by an earlier narration) is disclosed per member via
+# `catalog_covers`, never ruled here.
+_DIVERGENCE_ROUTES = (
+    "modify_and_merge_promotion_adds_no_provenance_comment",
+    "doctrine_edit_narrating_sibling_id_adds_token_without_promotion",
+    "t724_over_admission_receipt_filename_tokens",
+    # /review 743 Q6 (cpr_mogul_review_close_check_0ddacf1f8896, absorbed-as-reinforcement
+    # into the t732 DISCLOSURE-PARITY ray): the route operative at t739/t740/t742 — an
+    # ABSORB-as-reinforcement lands its seat-mandated `reinforced_by:` breadcrumb, which
+    # adds one token with NO promotion behind it (1 promote + 1 absorb = 2 tokens vs +1).
+    "absorbed_reinforcement_breadcrumb_adds_token_without_promotion",
+)
+
+# Per-member attribution stays enumerable only while the delta is small; past
+# this many moved members the block declares UNRESOLVED with the sizes, never
+# the full candidate list (the clause's own rule: attribute, or say you could
+# not — never print the space and call it an explanation).
+_ATTRIBUTION_ENUMERATION_CAP = 200
+
+_ATTRIBUTION_UNIT = (
+    "SET DIFFERENCE of the persisted membership sets between this pass and the "
+    "previous PASS artifact — index tokens (distinct cpr-shaped tokens inside "
+    "matched provenance comments) and promoted ids (queue latest-per-id rows with "
+    "status == 'promoted') — each member of the symmetric difference typed and, "
+    "where the catalog covers it, bound to its divergence route"
+)
+
+
+def _membership_sets_of(report):
+    """(index_tokens, promoted_ids) as sets from a persisted artifact, or None
+    when the artifact predates membership_sets (the pre-753 schema)."""
+    ms = report.get("membership_sets") if isinstance(report, dict) else None
+    if not isinstance(ms, dict):
+        return None
+    toks = ms.get("index_tokens")
+    prom = ms.get("promoted_ids")
+    if not isinstance(toks, list) or not isinstance(prom, list):
+        return None
+    return set(toks), set(prom)
+
+
+def _attribution_not_computed(reason):
+    """The honest UNRESOLVED shape — every field present, nothing fabricated."""
+    return {
+        "unit": _ATTRIBUTION_UNIT,
+        "attribution_unresolved": True,
+        "unresolved_reason": reason,
+        "baseline": {"artifact": None, "selector": None},
+        "new_index_tokens": None,
+        "removed_index_tokens": None,
+        "new_promoted_ids": None,
+        "removed_promoted_ids": None,
+        "intersection_new_tokens_new_promoted": None,
+        "agree_by_membership": None,
+        "magnitude_agreement_is_coincidence": None,
+        "attributed_members": None,
+        "catalog": list(_DIVERGENCE_ROUTES),
+        "note": (
+            "ATTRIBUTION clause (/review 753, cpr_mogul_review_close_check_e193ae8e2af1): "
+            "a divergence disclosure that enumerates candidate routes owes the FIRED "
+            "member when the delta is enumerable. Attribution is a SET operation over "
+            "persisted membership sets; when the prior artifact carries none, the honest "
+            "state is UNRESOLVED with its reason — the sets are persisted from this pass "
+            "on, so the NEXT fire attributes."
+        ),
+    }
+
+
+def compute_cross_counter_attribution(report_dir, current_filename, current_tic,
+                                      current_tokens, current_promoted, queue=None):
+    """Bind each moved member of the two cross-counter populations to what it is
+    (/review 753, cpr_mogul_review_close_check_e193ae8e2af1 — the ATTRIBUTION
+    clause, fifth ray on constitution-ledger#artifact-language-must-not-exceed-
+    its-declared-confidence-classification; consumer landed the same tic).
+
+    WHY: `cross_counter_disclosure.agree` compares two COUNTS. A count agreement
+    is a claim about MAGNITUDE; only membership verifies it. Measured lived: the
+    tic-752 close fire read tokens +3 / promoted +3, `agree=True, evidence-bearing`,
+    while the two sets intersected in 2 of 3 members — a promoted id whose witness
+    token PRE-EXISTED (narrated at the 751 close) paired against a PHANTOM token
+    donated by a filename cited in a provenance comment. The four-route catalog
+    printed beside that flag was byte-identical across all seven persisted
+    artifacts 749–752 while the deltas ran 2/3 · 0/0 · 2/3 · 3/5 · 0/0 · 3/3 · 3/2:
+    a constant hypothesis space carries zero information about what happened.
+
+    WHAT: the previous PASS artifact's `membership_sets` (persisted by this same
+    script from tic 753 on) minus this pass's, both directions, both populations.
+    Every member of the symmetric difference is typed:
+      paired_promotion_and_witness_token — the inscription event (not a divergence)
+      promoted_without_new_token         — modify/merge (catalog route a) when the
+                                           row says so; token PRE-EXISTING in the
+                                           prior index (the tic-752 shape) is
+                                           disclosed as catalog_covers=False — the
+                                           catalog question is banked, not ruled here
+      token_without_promotion            — absorbed breadcrumb (route d), a narrated
+                                           sibling queue id (route b), or a non-queue
+                                           token whose route membership alone cannot
+                                           discriminate (candidate routes named;
+                                           catalog_covers=None)
+      index_token_removed / promoted_id_removed — the population shrank (a comment
+                                           edited, a surface dropped, a status moved
+                                           off promoted); disclosed, never a route
+    Beside the members: `agree_by_membership` (the SETS are equal) and
+    `magnitude_agreement_is_coincidence` (the COUNTS agree while the sets differ —
+    exactly the tic-752 reading).
+
+    HONEST LIMITS: baseline absent, unreadable, or pre-753 (no membership_sets)
+    => attribution_unresolved with the reason, nothing fabricated. A symmetric
+    difference larger than _ATTRIBUTION_ENUMERATION_CAP => UNRESOLVED with the
+    sizes — the full candidate list is never printed as an answer. This function
+    binds members to what the ARTIFACTS say; it reads no comment text, so it never
+    claims which comment donated a token (that is the route census's disclosure).
+    """
+    queue = queue or {}
+    block = _attribution_not_computed(None)
+    prior_path, selector = _find_prior_check_artifact(
+        report_dir, current_filename, current_tic)
+    block["baseline"]["selector"] = selector
+    if prior_path is None:
+        block["unresolved_reason"] = selector
+        return block
+    try:
+        prior = json.loads(Path(prior_path).read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError, UnicodeDecodeError):
+        block["unresolved_reason"] = "prior_artifact_unreadable"
+        return block
+    block["baseline"]["artifact"] = os.path.basename(prior_path)
+    sets = _membership_sets_of(prior)
+    if sets is None:
+        block["unresolved_reason"] = (
+            "prior_artifact_carries_no_membership_sets — the previous pass predates "
+            "the /review 753 persistence; this pass persists them, the next fire "
+            "attributes")
+        return block
+    prior_tokens, prior_promoted = sets
+    cur_tokens = set(current_tokens or ())
+    cur_promoted = set(current_promoted or ())
+    new_tokens = cur_tokens - prior_tokens
+    removed_tokens = prior_tokens - cur_tokens
+    new_promoted = cur_promoted - prior_promoted
+    removed_promoted = prior_promoted - cur_promoted
+    total = len(new_tokens) + len(removed_tokens) + len(new_promoted) + len(removed_promoted)
+    block["delta_sizes"] = {
+        "new_index_tokens": len(new_tokens),
+        "removed_index_tokens": len(removed_tokens),
+        "new_promoted_ids": len(new_promoted),
+        "removed_promoted_ids": len(removed_promoted),
+    }
+    if total > _ATTRIBUTION_ENUMERATION_CAP:
+        block["unresolved_reason"] = (
+            f"delta_too_large_to_attribute_per_member ({total} moved members > cap "
+            f"{_ATTRIBUTION_ENUMERATION_CAP}); sizes disclosed, members not enumerated")
+        return block
+
+    routes = _DIVERGENCE_ROUTES
+    members = []
+    for m in sorted(new_tokens | new_promoted):
+        row = queue.get(m) or {}
+        entry = {
+            "member": m,
+            "in_queue": m in queue,
+            "queue_status": row.get("status"),
+            "landing_kind": row.get("landing_kind"),
+        }
+        in_t = m in new_tokens
+        in_p = m in new_promoted
+        if in_t and in_p:
+            entry.update({
+                "class": "paired_promotion_and_witness_token",
+                "catalog_route": None,
+                "catalog_covers": True,
+                "note": "the inscription event — a promotion and its own witness token "
+                        "landed in one pass; not a divergence",
+            })
+        elif in_p:
+            entry["class"] = "promoted_without_new_token"
+            verdict_text = " ".join(
+                str(row.get(k) or "") for k in ("landing_kind", "review_verdict")).lower()
+            if m in prior_tokens:
+                entry.update({
+                    "catalog_route": None,
+                    "catalog_covers": False,
+                    "token_pre_existed_in_prior_index": True,
+                    "note": "its witness token was ALREADY a member of the prior index "
+                            "(narrated before it was promoted) — no enumerated route "
+                            "covers this member; the tic-752 live instance. Disclosed, "
+                            "not ruled: whether the catalog must enumerate it is the "
+                            "unit-compatible-catalog question, banked for its own docket",
+                })
+            elif "modify" in verdict_text or "merge" in verdict_text:
+                entry.update({
+                    "catalog_route": routes[0],
+                    "catalog_covers": True,
+                    "note": "a MODIFY/MERGE promotion into an existing anchor lands no "
+                            "new provenance comment (promoted moves, tokens do not)",
+                })
+            else:
+                entry.update({
+                    "catalog_route": None,
+                    "catalog_covers": False,
+                    "token_pre_existed_in_prior_index": False,
+                    "note": "promoted with no witness token in this pass and none "
+                            "before — the inscription witness is absent; the "
+                            "promoted_text_missing / orphan checks own this question",
+                })
+        else:
+            entry["class"] = "token_without_promotion"
+            status = row.get("status")
+            if m not in queue:
+                entry.update({
+                    "catalog_route": None,
+                    "catalog_covers": None,
+                    "candidate_routes": [
+                        routes[2],
+                        "cpr_shaped_substring_of_ANY_longer_identifier",
+                        "token_outside_the_queue_id_namespace",
+                    ],
+                    "note": "not a queue id — membership alone cannot discriminate a "
+                            "cited-filename, longer-identifier, or non-queue-namespace "
+                            "token; inscribed_index_unit.route_occurrence_counts "
+                            "discloses the occurrence routes",
+                })
+            elif status == "absorbed":
+                entry.update({
+                    "catalog_route": routes[3],
+                    "catalog_covers": True,
+                    "note": "an ABSORBED id whose reinforced_by breadcrumb landed a "
+                            "token with no promotion behind it",
+                })
+            else:
+                entry.update({
+                    "catalog_route": routes[1],
+                    "catalog_covers": True,
+                    "note": f"a queue id (status {status}) narrated inside a sibling's "
+                            "provenance comment — a token with no promotion in this pass",
+                })
+        members.append(entry)
+    for m in sorted(removed_tokens):
+        members.append({
+            "member": m, "class": "index_token_removed", "in_queue": m in queue,
+            "queue_status": (queue.get(m) or {}).get("status"),
+            "catalog_route": None, "catalog_covers": None,
+            "note": "the index shrank — a provenance comment was edited or a scanned "
+                    "surface dropped it (the tic-752 phantom-token cure had this shape); "
+                    "disclosed, not a route",
+        })
+    for m in sorted(removed_promoted):
+        members.append({
+            "member": m, "class": "promoted_id_removed", "in_queue": m in queue,
+            "queue_status": (queue.get(m) or {}).get("status"),
+            "catalog_route": None, "catalog_covers": None,
+            "note": "a row left status promoted (superseded / absorbed / corrected); "
+                    "disclosed, not a route",
+        })
+
+    block.update({
+        "attribution_unresolved": False,
+        "unresolved_reason": None,
+        "new_index_tokens": sorted(new_tokens),
+        "removed_index_tokens": sorted(removed_tokens),
+        "new_promoted_ids": sorted(new_promoted),
+        "removed_promoted_ids": sorted(removed_promoted),
+        "intersection_new_tokens_new_promoted": sorted(new_tokens & new_promoted),
+        "agree_by_membership": new_tokens == new_promoted,
+        "magnitude_agreement_is_coincidence": (
+            len(new_tokens) == len(new_promoted) and new_tokens != new_promoted),
+        "attributed_members": members,
+    })
+    return block
+
+
+def compute_cross_counter_disclosure(verdict_delta_block, index_delta_block,
+                                     attribution=None):
     """Derived cross-counter DISCLOSURE (/review 728, c209995ad848) — a typed
     question, NEVER an asserted invariant.
 
@@ -2821,16 +3108,9 @@ def compute_cross_counter_disclosure(verdict_delta_block, index_delta_block):
              ("evidence-bearing — two independent counters landed on the same non-zero movement"
               if promoted_delta == token_delta else
               "disagreement — a question with named routes, not a finding"))),
-        "divergence_routes": [
-            "modify_and_merge_promotion_adds_no_provenance_comment",
-            "doctrine_edit_narrating_sibling_id_adds_token_without_promotion",
-            "t724_over_admission_receipt_filename_tokens",
-            # /review 743 Q6 (cpr_mogul_review_close_check_0ddacf1f8896, absorbed-as-reinforcement
-            # into the t732 DISCLOSURE-PARITY ray): the route operative at t739/t740/t742 — an
-            # ABSORB-as-reinforcement lands its seat-mandated `reinforced_by:` breadcrumb, which
-            # adds one token with NO promotion behind it (1 promote + 1 absorb = 2 tokens vs +1).
-            "absorbed_reinforcement_breadcrumb_adds_token_without_promotion",
-        ],
+        # The catalog is ONE module constant (_DIVERGENCE_ROUTES) shared with the
+        # attribution's per-member binding — printed here, bound there, never two lists.
+        "divergence_routes": list(_DIVERGENCE_ROUTES),
         # /review 743 Q6: a cross-counter disclosure DECLARES the population difference between
         # the two counters it compares — they run over DIFFERENT populations by construction.
         "populations": {
@@ -2838,6 +3118,17 @@ def compute_cross_counter_disclosure(verdict_delta_block, index_delta_block):
             "token_delta": "distinct cpr-shaped tokens inside matched provenance comments — a witness landed by ANY verdict class (promote, absorb-as-reinforcement breadcrumb, modify-and-merge, ...)",
             "difference": "the index side admits witnesses from verdict classes the verdict side does not count; agree=False under an absorb-as-reinforcement is BY CONSTRUCTION, not a divergence to resolve",
         },
+        # ATTRIBUTION clause (/review 753, cpr_mogul_review_close_check_e193ae8e2af1 — the
+        # fifth ray on constitution-ledger#artifact-language-must-not-exceed-its-declared-
+        # confidence-classification): the flag above is a MAGNITUDE claim; the block below
+        # binds the fired MEMBERS by set difference over persisted membership sets, or says
+        # it could not (attribution_unresolved + reason). A caller that supplies no
+        # attribution (the two-argument form) gets the UNRESOLVED shape, never a fabricated
+        # binding.
+        "attribution": (
+            attribution if attribution is not None
+            else _attribution_not_computed(
+                "not_computed_by_caller — no membership sets were supplied")),
         "note": (
             "typed disclosure, never an invariant: agree=False is a question "
             "with named routes, not a finding. Baselines absent on either side "
@@ -3005,7 +3296,21 @@ def run_check(project_dir, dry_run=False, obligation_tic=None, obligation_mandat
         {"promoted": promoted_count, "deferred": deferred_count,
          "skipped": skipped_count},
     )
-    cross_disclosure = compute_cross_counter_disclosure(verdict_delta, index_delta)
+    # ATTRIBUTION clause (/review 753, cpr_mogul_review_close_check_e193ae8e2af1): the
+    # promoted-id SET this pass, beside the token SET, so the cross-counter flag can be
+    # attributed by membership — this pass against the previous pass's persisted sets.
+    promoted_ids = sorted(
+        cid for cid, c in queue.items() if c.get("status") == "promoted")
+    attribution = compute_cross_counter_attribution(
+        report_dir,
+        output_filename,
+        mandate_tic,
+        inscribed_ids,
+        promoted_ids,
+        queue,
+    )
+    cross_disclosure = compute_cross_counter_disclosure(
+        verdict_delta, index_delta, attribution)
 
     report = {
         "check_type": "review_close_check",
@@ -3043,6 +3348,21 @@ def run_check(project_dir, dry_run=False, obligation_tic=None, obligation_mandat
         # provenance-token delta, with divergence routes named — a typed question
         # for the reader, never an asserted invariant.
         "cross_counter_disclosure": cross_disclosure,
+        # MEMBERSHIP SETS persisted at the mint site (/review 753 Q1 — the ATTRIBUTION
+        # clause's persistence half; the RE-DERIVABILITY axis applied to this artifact's
+        # own headline counters): the two populations the cross-counter disclosure
+        # compares, as SETS, so the next pass attributes its delta by set difference
+        # instead of a hand-pass, and any reader can re-derive inscribed_index_size /
+        # verdict_counts.promoted from the artifact alone. The full unresolved-against-
+        # queue membership lives beside its sample in inscribed_index_unresolved
+        # (/review 753 Q2).
+        "membership_sets": {
+            "unit": "sorted distinct members; counts equal the headline integers by construction",
+            "index_tokens_count": len(inscribed_ids),
+            "index_tokens": sorted(inscribed_ids),
+            "promoted_ids_count": len(promoted_ids),
+            "promoted_ids": promoted_ids,
+        },
         "findings": all_findings,
         "summary": {
             "total_findings": len(all_findings),
