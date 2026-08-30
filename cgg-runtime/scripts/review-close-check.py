@@ -35,6 +35,7 @@ Usage:
 
 import argparse
 import glob as _glob
+import hashlib
 import json
 import os
 import re
@@ -102,6 +103,95 @@ def load_queue(queue_path):
         except json.JSONDecodeError:
             continue
     return entries
+
+
+_QUEUE_STATE_TUPLE_UNIT = (
+    "ONE byte read of queue.jsonl: sha256 of the bytes read, raw row count, parse "
+    "errors, latest-per-id unique count, and the status census — every member "
+    "measured AT the sha, in one pass"
+)
+
+
+def compute_queue_state_tuple(queue_path, total_cprs=None):
+    """A PINNED queue-state tuple, every member computed from ONE byte read
+    (/review 754 Q2, cpr_mogul_review_close_check_da948d00591d — the PIN clause,
+    sixth ray on constitution-ledger#internal-memory-entries-and-governance-
+    snapshots-must-carry-explicit-timestamps-; consumer landed the same tic).
+
+    WHY: a state tuple that carries a CONTENT HASH of its whole surface makes every
+    other member of the tuple falsifiable member-by-member AT that instant — a
+    member carried in from a different reading is PROVABLY WRONG, not merely stale.
+    Lived at the tic-751 close: '2,956 rows / 1,268 unique / sha b502326a' composed
+    a post-mint row count with a pre-mint unique count under one sha; the true
+    unique count at that sha was 1,269. The mechanism is structural: a checker that
+    mints its own close CogPR can never measure that mint — the id is born after
+    the read — so the minting fire is BLIND to it by construction and the NEXT fire
+    is the first instrument that can see it.
+
+    WHAT: sha256 of the bytes, raw rows, parse errors, unique ids (latest-per-id),
+    and the status census, all from the same bytes — so a close narrative cites a
+    pinned tuple from the artifact and a seat's bank re-derives AT this sha.
+    Lock line: a member quoted under a content hash is measured at that hash, or
+    prints UNMEASURED-AT-PIN. `matches_total_cprs` discloses whether the run's
+    separately-loaded queue (load_queue — a second read of the same file within
+    the run) agrees with this pass's unique count; a disagreement means a write
+    landed between the two reads and the tuple, not the loader, is the pinned one.
+    """
+    p = Path(queue_path)
+    if not p.exists():
+        return {
+            "unit": _QUEUE_STATE_TUPLE_UNIT,
+            "pinned": False,
+            "reason": "queue_absent",
+            "sha256_16": None,
+            "raw_rows": None,
+            "unique_ids": None,
+            "parse_errors": None,
+            "status_census": None,
+            "matches_total_cprs": None,
+        }
+    raw = p.read_bytes()
+    sha = hashlib.sha256(raw).hexdigest()
+    rows = 0
+    parse_errors = 0
+    latest = {}
+    for line in raw.decode("utf-8", errors="replace").split("\n"):
+        if not line.strip():
+            continue
+        rows += 1
+        try:
+            d = json.loads(line)
+        except json.JSONDecodeError:
+            parse_errors += 1
+            continue
+        eid = d.get("id", "") if isinstance(d, dict) else ""
+        if eid:
+            latest[eid] = d.get("status")
+    census = {}
+    for status in latest.values():
+        key = status if isinstance(status, str) and status else "<none>"
+        census[key] = census.get(key, 0) + 1
+    return {
+        "unit": _QUEUE_STATE_TUPLE_UNIT,
+        "pinned": True,
+        "read_at": datetime.now(timezone.utc).isoformat(),
+        "bytes": len(raw),
+        "sha256": sha,
+        "sha256_16": sha[:16],
+        "sha256_8": sha[:8],
+        "raw_rows": rows,
+        "parse_errors": parse_errors,
+        "unique_ids": len(latest),
+        "status_census": dict(sorted(census.items())),
+        "promoted": census.get("promoted", 0),
+        "absorbed": census.get("absorbed", 0),
+        "skipped": census.get("skipped", 0),
+        "extracted": census.get("extracted", 0),
+        "matches_total_cprs": (None if total_cprs is None else total_cprs == len(latest)),
+        "self_mint_blind_spot": (
+            "a CogPR this fire mints lands AFTER this read and is not in this tuple "
+            "by construction — the NEXT fire is the first instrument that can see it"),
+    }
 
 
 def load_lesson_fallbacks(queue_path):
@@ -2774,6 +2864,15 @@ _DIVERGENCE_ROUTES = (
     # ABSORB-as-reinforcement lands its seat-mandated `reinforced_by:` breadcrumb, which
     # adds one token with NO promotion behind it (1 promote + 1 absorb = 2 tokens vs +1).
     "absorbed_reinforcement_breadcrumb_adds_token_without_promotion",
+    # /review 754 Q1 (cpr_mogul_review_close_check_a8fc12928fe2, absorbed-as-reinforcement
+    # into the UNIT clause of the re-derivability axis — the catalog-unit face): the
+    # route the tic-752 terminal fire took — a PROMOTION whose witness token was already
+    # a member of the prior index (narrated earlier by a breadcrumb or a sibling's
+    # comment), so promoted moves +1 while tokens move +0. The mirror of route (d):
+    # (d) is the token arriving without its promotion; (e) is the promotion arriving
+    # after its token. Bound by MEMBERSHIP, never by prose — a promoted_without_new_token
+    # member whose id is in the PRIOR index set is this route by construction.
+    "promotion_of_id_whose_witness_token_pre_existed_in_prior_index",
 )
 
 # Per-member attribution stays enumerable only while the delta is small; past
@@ -2819,6 +2918,7 @@ def _attribution_not_computed(reason):
         "agree_by_membership": None,
         "magnitude_agreement_is_coincidence": None,
         "attributed_members": None,
+        "attributed_members_by_route": None,
         "catalog": list(_DIVERGENCE_ROUTES),
         "note": (
             "ATTRIBUTION clause (/review 753, cpr_mogul_review_close_check_e193ae8e2af1): "
@@ -2854,9 +2954,10 @@ def compute_cross_counter_attribution(report_dir, current_filename, current_tic,
       paired_promotion_and_witness_token — the inscription event (not a divergence)
       promoted_without_new_token         — modify/merge (catalog route a) when the
                                            row says so; token PRE-EXISTING in the
-                                           prior index (the tic-752 shape) is
-                                           disclosed as catalog_covers=False — the
-                                           catalog question is banked, not ruled here
+                                           prior index (the tic-752 shape) binds to
+                                           route (e), the catalog's fifth member,
+                                           by MEMBERSHIP (/review 754 Q1 ruled the
+                                           catalog owes it; catalog_covers=True)
       token_without_promotion            — absorbed breadcrumb (route d), a narrated
                                            sibling queue id (route b), or a non-queue
                                            token whose route membership alone cannot
@@ -2943,14 +3044,14 @@ def compute_cross_counter_attribution(report_dir, current_filename, current_tic,
                 str(row.get(k) or "") for k in ("landing_kind", "review_verdict")).lower()
             if m in prior_tokens:
                 entry.update({
-                    "catalog_route": None,
-                    "catalog_covers": False,
+                    "catalog_route": routes[4],
+                    "catalog_covers": True,
                     "token_pre_existed_in_prior_index": True,
                     "note": "its witness token was ALREADY a member of the prior index "
-                            "(narrated before it was promoted) — no enumerated route "
-                            "covers this member; the tic-752 live instance. Disclosed, "
-                            "not ruled: whether the catalog must enumerate it is the "
-                            "unit-compatible-catalog question, banked for its own docket",
+                            "(narrated before it was promoted) — the tic-752 live "
+                            "instance; route (e), the catalog's fifth member, bound by "
+                            "MEMBERSHIP (/review 754 Q1: the catalog-unit "
+                            "reinforcement ruled the catalog owes this route)",
                 })
             elif "modify" in verdict_text or "merge" in verdict_text:
                 entry.update({
@@ -3030,8 +3131,27 @@ def compute_cross_counter_attribution(report_dir, current_filename, current_tic,
         "magnitude_agreement_is_coincidence": (
             len(new_tokens) == len(new_promoted) and new_tokens != new_promoted),
         "attributed_members": members,
+        # Per-route DELTA in the HEADLINE's unit (/review 754 Q1, the catalog-unit
+        # reinforcement): count the attributed members per bound catalog route — or
+        # per class where no route binds — never the occurrence census, which counts
+        # in a unit the headline cannot be subtracted into (the tic-751 arithmetic:
+        # +9 occurrences offered to explain +5 distinct tokens).
+        "attributed_members_by_route_unit": (
+            "attributed members (distinct, the headline's unit) counted per bound "
+            "catalog_route, or per member class where no route binds"),
+        "attributed_members_by_route": _members_by_route(members),
     })
     return block
+
+
+def _members_by_route(members):
+    """Count attributed members per bound catalog route (or per class where no
+    route binds) — the per-route delta in the headline's own unit."""
+    counts = {}
+    for entry in members:
+        key = entry.get("catalog_route") or entry.get("class") or "untyped"
+        counts[key] = counts.get(key, 0) + 1
+    return dict(sorted(counts.items()))
 
 
 def compute_cross_counter_disclosure(verdict_delta_block, index_delta_block,
@@ -3155,6 +3275,9 @@ def run_check(project_dir, dry_run=False, obligation_tic=None, obligation_mandat
 
     queue_path = os.path.join(al_path, "cprs", "queue.jsonl")
     queue = load_queue(queue_path)
+    # The PIN clause (/review 754 Q2): the queue-state tuple this artifact cites is
+    # measured in ONE pass at this read, sha and all — never composed across reads.
+    queue_state_tuple = compute_queue_state_tuple(queue_path, total_cprs=len(queue))
     # Lesson fallbacks: recover lesson text from earlier (pre-writeback) queue rows
     # when the latest (promoted) entry is a minimal writeback with no lesson field.
     lesson_fallbacks = load_lesson_fallbacks(queue_path)
@@ -3317,6 +3440,11 @@ def run_check(project_dir, dry_run=False, obligation_tic=None, obligation_mandat
         "generated_at": datetime.now(timezone.utc).isoformat(),
         "queue_path": queue_path,
         "total_cprs": len(queue),
+        # PINNED queue-state tuple beside the integer (/review 754 Q2, the PIN
+        # clause): rows / unique / parse errors / status census measured AT the
+        # sha in one pass, so a close narrative cites this tuple and re-derives at
+        # its pin; the fire's own mint is NOT in it, by construction.
+        "queue_state_tuple": queue_state_tuple,
         "inscribed_index_size": len(inscribed_ids),
         # Unit declaration BESIDE the integer (/review 716 class-cure,
         # 502236e96cf1): what was scanned, what unit the integer counts, and

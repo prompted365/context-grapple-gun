@@ -61,9 +61,12 @@ class DisclosureBackCompat(unittest.TestCase):
         self.assertTrue(a["attribution_unresolved"])
         self.assertTrue(a["unresolved_reason"].startswith("not_computed_by_caller"))
         self.assertIsNone(a["attributed_members"])
-        # The catalog is unchanged: four members, order pinned, printed from ONE constant.
+        # The catalog: FIVE members from tic 754 (the fifth ruled /review 754 Q1 —
+        # the catalog-unit reinforcement), order pinned, printed from ONE constant.
         self.assertEqual(d["divergence_routes"], ROUTES)
-        self.assertEqual(len(ROUTES), 4)
+        self.assertEqual(len(ROUTES), 5)
+        self.assertEqual(ROUTES[4],
+                         "promotion_of_id_whose_witness_token_pre_existed_in_prior_index")
         self.assertEqual(ROUTES[3],
                          "absorbed_reinforcement_breadcrumb_adds_token_without_promotion")
         self.assertIn('"divergence_routes": list(_DIVERGENCE_ROUTES)', _SRC)
@@ -157,8 +160,10 @@ class AttributionByMembership(unittest.TestCase):
         m = self._members(a)
         self.assertEqual(m["cpr_x"]["class"], "promoted_without_new_token")
         self.assertTrue(m["cpr_x"]["token_pre_existed_in_prior_index"])
-        self.assertIs(m["cpr_x"]["catalog_covers"], False)
-        self.assertIsNone(m["cpr_x"]["catalog_route"])
+        # /review 754 Q1: the tic-752 shape is route (e), bound by membership —
+        # catalog_covers moved False -> True with the ruling (was disclosed-not-ruled).
+        self.assertIs(m["cpr_x"]["catalog_covers"], True)
+        self.assertEqual(m["cpr_x"]["catalog_route"], ROUTES[4])
         self.assertEqual(m["cpr_phantom_run"]["class"], "token_without_promotion")
         self.assertFalse(m["cpr_phantom_run"]["in_queue"])
         self.assertIsNone(m["cpr_phantom_run"]["catalog_covers"])
