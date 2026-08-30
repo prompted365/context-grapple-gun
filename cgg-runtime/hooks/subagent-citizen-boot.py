@@ -417,6 +417,72 @@ def valid_entities(zone_root: Path) -> set[str]:
     return out
 
 
+def entity_standing(zone_root: Path, entity: str) -> str:
+    """The registered entity's ONTOLOGY standing (entity-ontology.md axis: citizen /
+    resident / recognized_body / registered_artifact / guest / …) read from the actor
+    registry — NEVER the boot CLASS. Two vocabularies collide in this file (F-751-S11,
+    /review 752 D3): `classify_standing` returns "citizen" for ANY registered entity —
+    that is the boot CLASS (full inbox+worldview boot) — while the registry's `standing`
+    field is the ontology axis the worldview renders and the ladder gate reads. A render
+    that names the class as the standing manufactures a contradiction with the registry
+    it should be projecting (the t751 build citizen saw `standing=resident` from the
+    worldview and `standing: citizen` from the cold-boot notice in ONE spawn). Fail-closed
+    to "unresolved" — never fail-open to "citizen"."""
+    reg = zone_root / "autonomous_kernel" / "actor-registry.json"
+    try:
+        data = json.loads(reg.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return "unresolved"
+    actors = data.get("actors", data) if isinstance(data, dict) else data
+    for a in actors if isinstance(actors, list) else []:
+        if isinstance(a, dict) and (a.get("entity_id") or a.get("id")) == entity:
+            return str(a.get("standing") or "unresolved")
+    return "unresolved"
+
+
+def render_cold_boot_notice(entity: str, tic: int, standing: str, spawn_id: str) -> str:
+    """The DECLARED COLD BOOT notice for a dedup-suppressed re-fire (tic 734 Arm C),
+    corrected at /review 752 D3 (F-751-S11) + S12 (bk-boot-dedup-notice-hardcodes-not-available):
+
+      * STANDING is the registry's value, rendered verbatim — not a hard-coded "citizen".
+      * The RECEIPT instruction is conditional on the dedup KEY: with a per-spawn key the
+        suppressed brief was received by THIS spawn (that is what the key means), so its
+        earlier receipt stands and `not_available` is honest only if it emitted none;
+        without a spawn_id (the empty-key fallback) a sibling may have consumed the key,
+        and `not_available` stays the honest value.
+    Pure; no I/O — testable without a spawn."""
+    if spawn_id:
+        receipt = (
+            f"YOUR RECEIPT: this spawn ({spawn_id}) ALREADY received this brief under its own "
+            f"per-spawn key — the packet was suppressed as a RE-FIRE, not withheld. If you "
+            f"emitted a boot receipt under this spawn key, it STANDS: do not re-attest and do "
+            f"not downgrade it. If you emitted none, boot_read_mode='not_available' is the "
+            f"honest value (you did not read a packet HERE) — never 'full' for a read you did "
+            f"not perform.\n"
+        )
+    else:
+        receipt = (
+            f"YOUR RECEIPT: boot_read_mode='not_available' is the honest value for this spawn "
+            f"(no per-spawn key was shipped, so the suppressed brief may have been consumed by "
+            f"a sibling; never 'full' — you did not read a packet here). Do not attest a "
+            f"gapless read you did not perform.\n"
+        )
+    return (
+        f"[CITIZEN-BOOT: {entity}] DECLARED COLD BOOT (tic {tic}). You ARE a registered "
+        f"federation entity (standing: {standing} — the actor-registry value; 'citizen boot' "
+        f"names the boot CLASS every registered entity receives, the standing axis is the "
+        f"registry's) — but THIS spawn received no compiled civic orientation on this fire.\n"
+        f"CAUSE: boot dedup. An identical brief was already injected under this spawn's "
+        f"key, so the packet was SUPPRESSED, not absent — do not infer from this silence "
+        f"that you have no office, no inbox, or no standing.\n"
+        + receipt
+        + f"COMPENSATING READ: your worldview is reproducible on demand — "
+        f"`office-worldview.py render --office {entity} --tic {tic}` (cgg-runtime/scripts/), "
+        f"or ask your lead for the packet — BEFORE acting on anything that needs civic "
+        f"orientation."
+    )
+
+
 # Internal generic delegated worker types: spawned by a lead to execute a bounded
 # slice, never registered as citizens by design. These resolve to the `task_scoped_worker`
 # standing (entity-ontology.md) — a minimal rung/zone boot, NOT a citizen boot, NOT silence.
@@ -823,26 +889,18 @@ def main() -> int:
         # residue later (the t732 born was written about the branch one over, lines 649-661).
         # Bounded by spawn count, mints no signal, writes no state — the seen-store write
         # already happened inside already_seen.
+        standing_axis = entity_standing(zone_root, entity)
         sys.stderr.write(
             f"[citizen-boot] DECLARED COLD BOOT: {entity} (agent_type={agent_type}, "
-            f"tic={tic}, spawn={agent_id or '<none>'}) — dedup suppressed an identical "
-            f"brief; boot_read_mode='not_available' is this spawn's honest receipt value\n"
+            f"tic={tic}, spawn={agent_id or '<none>'}, standing={standing_axis}) — dedup "
+            f"suppressed an identical brief; receipt: "
+            + ("this spawn's earlier receipt stands (keyed re-fire); not_available only if none"
+               if agent_id else "boot_read_mode='not_available' (unkeyed fallback)")
+            + "\n"
         )
-        cold = (
-            f"[CITIZEN-BOOT: {entity}] DECLARED COLD BOOT (tic {tic}). You ARE a recognized "
-            f"federation citizen (standing: citizen) — but THIS spawn received no compiled "
-            f"civic orientation.\n"
-            f"CAUSE: boot dedup. An identical brief was already injected under this spawn's "
-            f"key, so the packet was SUPPRESSED, not absent — do not infer from this silence "
-            f"that you have no office, no inbox, or no standing.\n"
-            f"YOUR RECEIPT: boot_read_mode='not_available' is the honest value for this spawn "
-            f"(never 'full' — you did not read a packet here). Do not attest a gapless read "
-            f"you did not perform.\n"
-            f"COMPENSATING READ: your worldview is reproducible on demand — "
-            f"`office-worldview.py render --office {entity} --tic {tic}` (cgg-runtime/scripts/), "
-            f"or ask your lead for the packet — BEFORE acting on anything that needs civic "
-            f"orientation."
-        )
+        # /review 752 D3 (F-751-S11) + S12: the notice renders the REGISTRY standing (never a
+        # hard-coded class word) and a receipt instruction conditional on the dedup key.
+        cold = render_cold_boot_notice(entity, tic, standing_axis, str(agent_id))
         print(json.dumps({
             "hookSpecificOutput": {
                 "hookEventName": "SubagentStart",
