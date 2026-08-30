@@ -3220,12 +3220,26 @@ def compute_cross_counter_disclosure(verdict_delta_block, index_delta_block,
         # absorbed-as-reinforcement): agree=True at 0==0 is VACUOUS — an entry fire against a
         # baseline nothing moved between corroborates nothing; declare the weight beside the flag.
         "vacuous": (promoted_delta == 0 and token_delta == 0) if comparable else None,
+        # COINCIDENT-ARMS coupling (/review 755, cpr_mogul_review_close_check_1b8378e77bd7,
+        # absorbed into the ATTRIBUTION clause): an equal non-zero delta pair is
+        # "evidence-bearing" ONLY while the membership sets agree. When the
+        # attribution block beside this field reads magnitude_agreement_is_coincidence
+        # =True the magnitudes agree while the sets differ — two catalogued routes
+        # cancelling (lived at the tic-752 close: 3/3 "evidence-bearing" over an
+        # intersection of 2) — and the weight says so instead of overclaiming
+        # corroboration. The weight consults the SAME attribution block printed on
+        # this disclosure — one membership computation, never a second read.
         "evidential_weight": (
             None if not comparable else
             ("none — both deltas are zero: agree=True is a tautology over an empty observation "
              "set (GUARD-19); not equal evidence to a close-fire agreement"
              if (promoted_delta == 0 and token_delta == 0) else
-             ("evidence-bearing — two independent counters landed on the same non-zero movement"
+             ((("coincident-arms — the magnitudes agree while the membership sets differ "
+                "(intersection smaller than the deltas); an equal number is not a shared "
+                "observation — see attribution")
+               if (isinstance(attribution, dict)
+                   and attribution.get("magnitude_agreement_is_coincidence") is True)
+               else "evidence-bearing — two independent counters landed on the same non-zero movement")
               if promoted_delta == token_delta else
               "disagreement — a question with named routes, not a finding"))),
         # The catalog is ONE module constant (_DIVERGENCE_ROUTES) shared with the

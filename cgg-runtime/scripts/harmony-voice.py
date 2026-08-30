@@ -410,10 +410,18 @@ def scan_prior_fallback_families(current_tic: int) -> dict[str, Any]:
       admission_gate_count / admission_gate_tics — admission_gate occurrences
           across the WHOLE walked window, no consecutivity required (the t670+
           t686 recurrence is 16 tics apart — a streak can never see it);
+      infrastructure_count / infrastructure_tics — infrastructure occurrences
+          across the SAME whole window (the family-statistic ray, /review 755,
+          cpr_mogul_deep_audit_97339bfeeecb: the leading streak is blind to
+          intermittent recurrence BY CONSTRUCTION — the principle two bullets
+          up, now applied to BOTH families — so the windowed pair rides beside
+          the streak and the two families read against each other in one
+          statistic class);
       window_scanned — dispositions actually walked.
     """
     out = {"infrastructure_streak": 0, "admission_gate_count": 0,
-           "admission_gate_tics": [], "window_scanned": 0}
+           "admission_gate_tics": [], "infrastructure_count": 0,
+           "infrastructure_tics": [], "window_scanned": 0}
     tics: list[int] = []
     try:
         for p in HARMONY_DIR.glob("disposition-tic-*.json"):
@@ -438,6 +446,9 @@ def scan_prior_fallback_families(current_tic: int) -> dict[str, Any]:
                 out["infrastructure_streak"] += 1
             else:
                 infra_run_live = False
+            if family == "infrastructure":
+                out["infrastructure_count"] += 1
+                out["infrastructure_tics"].append(tic)
             if family == "admission_gate":
                 out["admission_gate_count"] += 1
                 out["admission_gate_tics"].append(tic)
@@ -472,6 +483,15 @@ def apply_fallback_counter(voice: dict[str, Any], current_tic: int) -> dict[str,
 
     infra_streak = (prior["infrastructure_streak"] + 1) if current_family == "infrastructure" else 0
     adm_count = prior["admission_gate_count"] + (1 if current_family == "admission_gate" else 0)
+    # Windowed infrastructure pair (the family-statistic ray, /review 755,
+    # cpr_mogul_deep_audit_97339bfeeecb): count includes the current run (the
+    # admission-watch convention), the tics list stays prior-only (the
+    # refusal_tics convention) — same statistic class as the admission watch,
+    # so the two families finally read against each other.
+    infra_count = prior.get("infrastructure_count", 0) + (1 if current_family == "infrastructure" else 0)
+    infra_prior_tics = list(prior.get("infrastructure_tics", []))
+    latest_infra_tic = (current_tic if current_family == "infrastructure"
+                        else (max(infra_prior_tics) if infra_prior_tics else None))
 
     fired = infra_streak >= threshold
     voice["consecutive_fallbacks"] = infra_streak
@@ -491,6 +511,31 @@ def apply_fallback_counter(voice: dict[str, Any], current_tic: int) -> dict[str,
         "infrastructure_streak": infra_streak,
         "admission_gate_window_count": adm_count,
         "window_scanned": prior["window_scanned"],
+        # The family-statistic ray (/review 755, cpr_mogul_deep_audit_97339bfeeecb,
+        # a ray on constitution-ledger#presence-observation-fallacy-guard): a
+        # family-split counter owes every family a comparable statistic, or each
+        # family's statistic class + blind spot ride beside the count — one
+        # family's history is never the lane's. ADDITIVE keys only; every
+        # pre-755 key above keeps its shape and semantics.
+        "infrastructure_window_count": infra_count,
+        "infrastructure_window_tics": infra_prior_tics,
+        "latest_infrastructure_tic": latest_infra_tic,
+        "statistic_classes": {
+            "infrastructure": {
+                "statistic_class": "leading_consecutive_streak",
+                "blind_spot": (
+                    "intermittent recurrence — any non-infrastructure run resets the "
+                    "streak to 0, so spaced failures never accumulate; read "
+                    "infrastructure_window_count / infrastructure_window_tics for the "
+                    "windowed history"),
+            },
+            "admission_gate": {
+                "statistic_class": "windowed_occurrence_count",
+                "blind_spot": (
+                    "consecutivity — a burst and a spread read identically in the "
+                    "count; refusal_tics ride beside it for the spacing"),
+            },
+        },
     }
     adm_fired = adm_count >= adm_threshold
     voice["admission_gate_watch"] = {
@@ -512,7 +557,8 @@ def apply_fallback_counter(voice: dict[str, Any], current_tic: int) -> dict[str,
         print(
             f"DECORATIVE-BAND-NOTICE harmony-voice-fallback-streak: {infra_streak} consecutive "
             f"infrastructure-family fallback runs at tic {current_tic} "
-            f"(threshold={threshold}, latest fallback_reason={voice.get('fallback_reason')}) "
+            f"(threshold={threshold}, latest fallback_reason={voice.get('fallback_reason')}; "
+            f"sibling family this window: admission_gate {adm_count} refusals) "
             f"— the fail-soft VOICE sub-step is dark across runs; the citable "
             f"disposition is unaffected. Banded decorative/Dashboard per the "
             f"artifact-owning layer; re-diagnose the invocation path "
@@ -524,7 +570,9 @@ def apply_fallback_counter(voice: dict[str, Any], current_tic: int) -> dict[str,
         print(
             f"QUALITY-WATCH harmony-voice-admission-gate-recurrence: {adm_count} "
             f"validator refusals in the last {prior['window_scanned'] + 1} runs "
-            f"(prior refusal tics: {prior_tics}; threshold={adm_threshold}) — the "
+            f"(prior refusal tics: {prior_tics}; threshold={adm_threshold}; sibling "
+            f"family this window: infrastructure {infra_count} occurrences"
+            f"{', latest tic ' + str(latest_infra_tic) if latest_infra_tic is not None else ''}) — the "
             f"admission gate is WORKING; this is a prompt-drift signal, NOT an "
             f"outage — review the voice prompt/validators, do not escalate the lane",
             file=sys.stderr,
