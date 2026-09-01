@@ -87,9 +87,25 @@ node --input-type=module -e "
 #     fallback. Writes the voice object INTO the disposition file (additive).
 #     HARMONY_VOICE=off skips the LLM inside the script. Any failure leaves
 #     the disposition standing without a voice object (legacy-equivalent).
+#     PRODUCER-LIVENESS MARKER (/review 756 Q1 — ledger.md#two-phase-fail-soft-
+#     artifact-absence-is-typed-by-producer-liveness-not-shape, the ruled producer
+#     half): stamp voice_step={running} INTO the disposition BEFORE the amender
+#     launches and {done|failed, exit_code} AFTER it returns, so a consumer that
+#     reads the packet mid-write types the absence from the artifact's own
+#     liveness fact, never from its shape. The marker is additive and fail-soft
+#     itself (a marker failure never takes the disposition down).
 echo "→ harmony-voice.py (voice step, fail-soft; stderr → $STDERR_LOG)"
-python3 "$SCRIPT_DIR/harmony-voice.py" --disposition "$DISPOSITION_PATH" 2>>"$STDERR_LOG" || \
+python3 "$SCRIPT_DIR/harmony-voice-marker.py" stamp --disposition "$DISPOSITION_PATH" --state running >/dev/null 2>>"$STDERR_LOG" || \
+  echo "WARN harmony: voice_step marker (running) could not be stamped (fail-soft; stderr at $STDERR_LOG)" >&2
+if python3 "$SCRIPT_DIR/harmony-voice.py" --disposition "$DISPOSITION_PATH" 2>>"$STDERR_LOG"; then
+  VOICE_RC=0
+else
+  VOICE_RC=$?
   echo "WARN harmony: voice step failed — disposition stands without voice (fail-soft; stderr at $STDERR_LOG)" >&2
+fi
+python3 "$SCRIPT_DIR/harmony-voice-marker.py" stamp --disposition "$DISPOSITION_PATH" \
+  --state "$([ "$VOICE_RC" -eq 0 ] && echo done || echo failed)" --exit-code "$VOICE_RC" >/dev/null 2>>"$STDERR_LOG" || \
+  echo "WARN harmony: voice_step marker (done/failed) could not be stamped (fail-soft; stderr at $STDERR_LOG)" >&2
 
 # 2.75 Discrimination-receipt step (bk-harmony-discrimination-receipt, ratified
 #     /review 733 as the discrimination-axis ray on

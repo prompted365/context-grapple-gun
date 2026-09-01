@@ -1322,6 +1322,13 @@ def build_inscribed_index(project_dir, queue_ids=None, diagnostics=None):
     reserved_excluded = {}
     unresolved_against_queue = set()
     matched_comment_count = 0
+    # /review 756 Q2 (cpr_mogul_review_close_check_6d648f9e39a9, the CURE-SCOPE face of
+    # the ATTRIBUTION clause): the matched-comment POPULATION is persisted as a
+    # MEMBERSHIP SET beside its count, so the tokens-vs-comments pair can be attributed
+    # by set difference on the next pass — the sibling pair the tic-753 cure left bare.
+    # Identity = relative path + sha256-12 of the comment segment: stable across passes
+    # while the comment is byte-identical, distinct when it is edited.
+    matched_comment_ids = set()
     multi_token_comment_count = 0
     unmatched_shaped_count = 0
     unmatched_shaped_samples = []
@@ -1367,6 +1374,8 @@ def build_inscribed_index(project_dir, queue_ids=None, diagnostics=None):
         """
         nonlocal matched_comment_count, multi_token_comment_count
         matched_comment_count += 1
+        matched_comment_ids.add(
+            f"{rel_path}#{hashlib.sha256(seg.encode('utf-8')).hexdigest()[:12]}")
         occurrences = 0
         distinct_in_comment = set()
         seen_any_in_comment = False
@@ -1588,6 +1597,8 @@ def build_inscribed_index(project_dir, queue_ids=None, diagnostics=None):
             "substring_route_samples": substring_route_samples,
             "not_the_unit": "inscription EVENTS — the strictly-narrower referent an observer may assume; predictions against this counter are lawful only in the token unit",
             "matched_comment_count": matched_comment_count,
+            "matched_comment_ids": sorted(matched_comment_ids),
+            "matched_comment_id_unit": "relative_path#sha256_12_of_comment_segment",
             "multi_token_comment_count": multi_token_comment_count,
         }
     return inscribed
@@ -2903,6 +2914,131 @@ def _membership_sets_of(report):
     return set(toks), set(prom)
 
 
+def _matched_comment_ids_of(report):
+    """The persisted matched-comment membership set of a prior artifact, or None
+    when the artifact predates it (pre-756 schema)."""
+    ms = report.get("membership_sets") if isinstance(report, dict) else None
+    if not isinstance(ms, dict):
+        return None
+    ids = ms.get("matched_comment_ids")
+    return set(ids) if isinstance(ids, list) else None
+
+
+def compute_sibling_pair_attribution(report_dir, current_filename, current_tic,
+                                     current_comment_ids):
+    """Attribute the tokens-vs-comments pair (inscribed_index_delta) by SET DIFFERENCE.
+
+    /review 756 Q2 — cpr_mogul_review_close_check_6d648f9e39a9 absorbed into the
+    ATTRIBUTION clause as its CURE-SCOPE face: the tic-753 cure attributed the pair
+    it was measured on (cross_counter: promoted_delta vs token_delta, over persisted
+    index_tokens / promoted_ids) and left this SIBLING pair — delta_tokens vs
+    delta_matched_comments — with no persisted membership to difference against, so
+    it was unattributable on that pass and on every future pass by construction.
+    From this pass on, matched_comment_ids is persisted in membership_sets and the
+    pair is attributed here: which comments ENTERED and which LEFT between passes.
+
+    HONEST LIMITS: with no prior artifact, or a prior artifact that predates
+    matched_comment_ids, the answer is UNRESOLVED with its reason — the set is
+    persisted from this pass on, so the NEXT fire attributes. Never fabricated.
+    """
+    block = {
+        "pair": "inscribed_index_delta (delta_tokens vs delta_matched_comments)",
+        "unit": "matched-comment identities (relative_path#sha256_12_of_comment_segment)",
+        "attribution_unresolved": True,
+        "unresolved_reason": None,
+        "baseline": {"artifact": None, "selector": None},
+        "new_matched_comments": None,
+        "removed_matched_comments": None,
+        "delta_by_membership": None,
+        "note": (
+            "the sibling pair of the cross-counter disclosure, attributed by set "
+            "difference over the persisted matched_comment_ids (/review 756 Q2, the "
+            "CURE-SCOPE face of the ATTRIBUTION clause). A comment that enters is a "
+            "matched provenance comment written since the prior pass; one that leaves "
+            "was edited (identity is content-hashed) or removed."
+        ),
+    }
+    if not isinstance(current_comment_ids, (list, set)):
+        block["unresolved_reason"] = "current_pass_matched_comment_ids_unmeasured"
+        return block
+    current = set(current_comment_ids)
+    prior_path, selector = _find_prior_check_artifact(
+        report_dir, current_filename, current_tic)
+    block["baseline"]["selector"] = selector
+    if prior_path is None:
+        block["unresolved_reason"] = selector
+        return block
+    try:
+        prior = json.loads(Path(prior_path).read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError, UnicodeDecodeError):
+        block["unresolved_reason"] = "prior_artifact_unreadable"
+        return block
+    block["baseline"]["artifact"] = os.path.basename(prior_path)
+    prior_ids = _matched_comment_ids_of(prior)
+    if prior_ids is None:
+        block["unresolved_reason"] = (
+            "prior_artifact_carries_no_matched_comment_ids — the previous pass predates "
+            "the persistence half of this cure; the set is persisted from this pass on, "
+            "so the NEXT fire attributes")
+        return block
+    new = sorted(current - prior_ids)
+    removed = sorted(prior_ids - current)
+    block.update({
+        "attribution_unresolved": False,
+        "unresolved_reason": None,
+        "new_matched_comments": new,
+        "removed_matched_comments": removed,
+        "delta_by_membership": len(new) - len(removed),
+    })
+    return block
+
+
+def pair_coverage_statement(sibling_attribution, cross_attribution):
+    """Per-pair COVERAGE over the instrument's divergence pairs (/review 756 Q2).
+
+    The consumer set of a cure INSIDE one instrument is the instrument's
+    divergence pairs (the closed-consumer-set obligation applied one level down).
+    Every pair this artifact publishes is named here with its attribution status:
+    attributed (a persisted membership set differences it), unresolved (the set is
+    persisted from this pass on), or unattributable WITH ITS REASON (no membership
+    is persisted for that population, by construction). A pair that is not named
+    here is a pair this cure has not reached — the exact gap the ruling closes.
+    """
+    def _status(attr):
+        if not isinstance(attr, dict):
+            return "unattributable — attribution block absent"
+        if attr.get("attribution_unresolved"):
+            return f"unresolved — {attr.get('unresolved_reason')}"
+        return "attributed — by set difference over persisted membership sets"
+    return {
+        "unit": "one entry per divergence pair this artifact publishes",
+        "pairs": [
+            {
+                "pair": "cross_counter_disclosure (promoted_delta vs token_delta)",
+                "membership_sets": ["promoted_ids", "index_tokens"],
+                "status": _status(cross_attribution),
+            },
+            {
+                "pair": "inscribed_index_delta (delta_tokens vs delta_matched_comments)",
+                "membership_sets": ["index_tokens", "matched_comment_ids"],
+                "status": _status(sibling_attribution),
+            },
+            {
+                "pair": "verdict_counts_delta (promoted / deferred / skipped)",
+                "membership_sets": ["promoted_ids"],
+                "status": (
+                    "partially attributable — promoted differences by membership; deferred "
+                    "and skipped populations are NOT persisted as sets (declared, not "
+                    "fabricated: a future ruling may add them)"),
+            },
+        ],
+        "note": (
+            "a cure applied to one measured pair obligates a coverage statement over "
+            "every pair the instrument publishes (/review 756 Q2, the CURE-SCOPE face; "
+            "composes #structural-transform-implies-closed-consumer-set-obligation)"),
+    }
+
+
 def _attribution_not_computed(reason):
     """The honest UNRESOLVED shape — every field present, nothing fabricated."""
     return {
@@ -3426,6 +3562,11 @@ def run_check(project_dir, dry_run=False, obligation_tic=None, obligation_mandat
         len(inscribed_ids),
         inscribed_unit.get("matched_comment_count"),
     )
+    # /review 756 Q2 (the CURE-SCOPE face): the sibling pair gets its own attribution,
+    # attached to the pair's own block, by set difference over matched_comment_ids.
+    matched_comment_ids = inscribed_unit.get("matched_comment_ids")
+    index_delta["attribution"] = compute_sibling_pair_attribution(
+        report_dir, output_filename, mandate_tic, matched_comment_ids)
     verdict_delta = compute_verdict_count_deltas(
         report_dir,
         output_filename,
@@ -3504,7 +3645,18 @@ def run_check(project_dir, dry_run=False, obligation_tic=None, obligation_mandat
             "index_tokens": sorted(inscribed_ids),
             "promoted_ids_count": len(promoted_ids),
             "promoted_ids": promoted_ids,
+            # /review 756 Q2 — the THIRD set: the matched-comment population, so the
+            # tokens-vs-comments pair is attributable by set difference from this pass on.
+            "matched_comment_ids_count": (
+                len(matched_comment_ids) if isinstance(matched_comment_ids, list) else None),
+            "matched_comment_ids": (
+                sorted(matched_comment_ids) if isinstance(matched_comment_ids, list) else None),
         },
+        # /review 756 Q2 — per-pair COVERAGE over every divergence pair this artifact
+        # publishes: attributed / unresolved / unattributable-with-reason.
+        "pair_coverage": pair_coverage_statement(
+            index_delta.get("attribution"),
+            (cross_disclosure or {}).get("attribution") if isinstance(cross_disclosure, dict) else None),
         "findings": all_findings,
         "summary": {
             "total_findings": len(all_findings),
