@@ -565,9 +565,40 @@ def run_audit(zone_root, verbose=False):
     for rc in rule_classifications:
         state_counts[rc["state"]] += 1
 
+    # TWO-ALTITUDES disclosure — RULED /review 758 Q1 (cpr_mogul_ladder_audit_18aea9c55cf5;
+    # ledger.md#a-shared-instrument-name-across-two-altitudes-discloses-its-altitude-and-its-siblings-standing-count):
+    # one token ("ladder_audit") names two instruments at different altitudes — THIS base chain
+    # scan (CLAUDE.md rule coherence) and the ladder DOWN-LANE audit (per-rung KI
+    # rehydration-in-spirit, this script's subcommand family). A clean base result read alone
+    # converts a scope-limited clean into a false all-clear (tic 755: 375/0 beside 53 open
+    # down-lane rays = 91.4% of the manifold). The result therefore names WHICH instrument ran
+    # and discloses the sibling's standing count from the manifold this scan already read
+    # (no extra read). Count = active rays whose subsystem is the down-lane's or whose id carries
+    # its prefix — declared, so a reader can re-derive it.
+    downlane_ids = sorted({eid for sub, ids in signals_by_sub.items() for eid in ids
+                           if sub == "ladder_downlane" or str(eid).startswith("sig_ladder_down_audit_finding_")})
+    active_total = sum(len(ids) for ids in signals_by_sub.values())
     result = {
         "audited_at": datetime.now(timezone.utc).isoformat(),
         "zone_root": zone_root,
+        "instrument": "ladder-audit.py BASE chain scan — CLAUDE.md chain coherence (no subcommand)",
+        "altitude": "base_chain_scan",
+        "altitude_disclosure": (
+            "THIS RESULT IS THE BASE CHAIN SCAN ONLY: its findings speak to CLAUDE.md rule "
+            "coherence across the discovered chain — NOT to ladder health generally. The ladder "
+            "DOWN-LANE audit (per-rung KI rehydration-in-spirit; subcommands list-findings / "
+            "stage-brief / staleness-scan of this same script) is a different instrument at a "
+            "different altitude; its standing count rides beside this result so a clean base scan "
+            "is never read as 'the ladder is clean' (ruled /review 758 Q1)."
+        ),
+        "sibling_instruments": {
+            "ladder_down_audit": {
+                "open_findings_on_manifold": len(downlane_ids),
+                "of_active_rays": active_total,
+                "predicate": "active rays with subsystem == 'ladder_downlane' or id prefix 'sig_ladder_down_audit_finding_' (latest-per-id over the signal lane; same read as signal_subsystems_active)",
+                "ids": downlane_ids,
+            }
+        },
         "confidence": "preliminary",
         "confidence_note": (
             "This is a heuristic scan based on path nesting and lexical "
