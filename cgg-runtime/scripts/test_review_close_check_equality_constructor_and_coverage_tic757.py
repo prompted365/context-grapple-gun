@@ -146,6 +146,21 @@ class AttributionTypingAndCoverageTests(unittest.TestCase):
         self.assertTrue(block["agree_by_membership"])
         self.assertFalse(block["agree_by_membership_vacuous"])
 
+    def test_audit_declares_its_observation_window(self):
+        # bfb2ebf77d70 (the close-fire citizen, tic 757): the audit gates on a NAME registry —
+        # it must say so, and name what it does NOT observe, beside its verdict.
+        out = rcc.audit_equality_flags_with_window({"a": {"agree": True, "vacuous": False,
+                                                          "evidential_weight": "x"}})
+        self.assertEqual(out["untyped"], [])
+        w = out["observation_window"]
+        self.assertEqual(w["registry"], list(rcc.EQUALITY_FLAG_NAMES))
+        self.assertIn("NOT OBSERVED", w["not_observed"])
+        self.assertIn("membership_sets.matched_comment_ids_unit_parity", w["known_unregistered_equality_shaped_flags"])
+        # an unregistered equality-shaped boolean is invisible to the audit — by declaration, not by omission
+        out2 = rcc.audit_equality_flags_with_window({"queue_state_tuple": {"matches_total_cprs": True}})
+        self.assertEqual(out2["checked"], [])
+        self.assertEqual(out2["untyped"], [])
+
     def test_unresolved_shape_carries_the_siblings(self):
         block = rcc._attribution_not_computed("no_prior_artifact")
         for k in ("agree_by_membership_vacuous", "agree_by_membership_evidential_weight",

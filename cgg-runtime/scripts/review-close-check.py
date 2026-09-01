@@ -2892,6 +2892,36 @@ def audit_equality_flags(node, path=""):
     return {"checked": checked, "untyped": untyped}
 
 
+def audit_equality_flags_with_window(node):
+    """The audit WITH ITS SCOPE DECLARED (cpr_mogul_review_close_check_bfb2ebf77d70, the
+    close-fire citizen at tic 757, minimum cure applied in-lane the same tic): the
+    constructor cured the EMISSION sites, but this audit discriminates by a hand-maintained
+    NAME REGISTRY (EQUALITY_FLAG_NAMES) — the enumeration MIGRATED to the audit, it did not
+    dissolve. An equality-shaped boolean outside the registry is not seen-and-failed; it is
+    NOT SEEN. So the audit publishes its observation window beside its verdict, with the
+    apophatic disclosure a watcher owes before it judges (the presence/observation guard's
+    own demand turned on the guard's instrument). The class question — whether the two
+    unregistered flags on this artifact (queue_state_tuple.matches_total_cprs,
+    membership_sets.matched_comment_ids_unit_parity) belong to the delta-agreement class
+    the constructor governs — is /review 760's; this function declares, it does not rule."""
+    out = audit_equality_flags(node)
+    out["observation_window"] = {
+        "registry": list(EQUALITY_FLAG_NAMES),
+        "registry_size": len(EQUALITY_FLAG_NAMES),
+        "discriminates_by": "flag NAME membership in EQUALITY_FLAG_NAMES, walked structurally over the whole artifact",
+        "not_observed": ("equality-shaped booleans whose key is NOT in the registry are NOT OBSERVED by "
+                         "this audit — untyped:[] is a claim about registered names, never about every "
+                         "comparison-derived boolean on the artifact"),
+        "known_unregistered_equality_shaped_flags": [
+            "queue_state_tuple.matches_total_cprs",
+            "membership_sets.matched_comment_ids_unit_parity",
+        ],
+        "class_question": ("whether the unregistered flags belong to the delta-agreement class the "
+                           "constructor governs is /review 760's (cpr_mogul_review_close_check_bfb2ebf77d70)"),
+    }
+    return out
+
+
 _VERDICT_COUNT_UNITS = {
     "promoted": "queue_latest_per_id_rows_with_status_promoted",
     "deferred": "queue_latest_per_id_rows_status_deferred_or_enrichment_eligible_with_review_tic",
@@ -3876,7 +3906,7 @@ def run_check(project_dir, dry_run=False, obligation_tic=None, obligation_mandat
     # artifact carries its two siblings; an untyped flag is the forward-decay failure the
     # constructor exists to prevent, and it is surfaced on the artifact itself, never
     # discovered by the next reader. `untyped` non-empty is a self-reported defect.
-    report["equality_flag_typing"] = audit_equality_flags(report)
+    report["equality_flag_typing"] = audit_equality_flags_with_window(report)
 
     if not dry_run:
         # T4c spec (W3-B1 tic 282 refinement): canonical artifact identity is
