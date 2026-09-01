@@ -3136,12 +3136,48 @@ def compute_sibling_pair_attribution(report_dir, current_filename, current_tic,
         return block
     new = sorted(current - prior_ids)
     removed = sorted(prior_ids - current)
+    # LAYOUT-CHURN DISCRIMINATOR — the minimum cure for cpr_mogul_review_close_check_3823e2916dd9
+    # (b758 → 761; minted by the close-fire citizen on this instrument's own tic-758 close artifact):
+    # the member identity carries a POSITION (occurrence_index), so inserting a comment mid-file
+    # re-identifies every later comment in that file and the positional difference reports
+    # layout churn as movement (tic 758: 237 new / 234 removed where the true movement was +3/-0;
+    # the scalar survived because insertion preserves count parity among the churned members).
+    # The discriminator is cheap and PRECEDES any member-level claim: intersect the two sides of
+    # the difference on the identity's CONTENT-BEARING component (relative_path#sha256_12); a
+    # non-empty overlap is churn, not movement, and the enumeration is re-derived over the
+    # content component. HONEST LIMIT: byte-identical comment segments in one file collapse in
+    # the content component (that is what occurrence_index disambiguates) — the collapse count
+    # is published, never hidden. The positional lists are KEPT (they are the unit that pairs
+    # with membership_sets.matched_comment_ids) and RE-LABELLED as positional. The class
+    # question (make the identity position-free vs keep both components) is /review 761's.
+    def _content(cid):
+        parts = str(cid).rsplit("#", 2)
+        return f"{parts[0]}#{parts[2]}" if len(parts) == 3 else str(cid)
+    new_c, removed_c = {_content(i) for i in new}, {_content(i) for i in removed}
+    churn = new_c & removed_c
+    content_new = sorted(new_c - removed_c)
+    content_removed = sorted(removed_c - new_c)
     block.update({
         "attribution_unresolved": False,
         "unresolved_reason": None,
+        "unit": MATCHED_COMMENT_ID_UNIT,  # reconciled with membership_sets.matched_comment_id_unit (the same-run EMITTER tell)
         "new_matched_comments": new,
         "removed_matched_comments": removed,
+        "positional_difference_note": (
+            "new_/removed_matched_comments are the POSITIONAL difference (the unit above carries "
+            "occurrence_index); a member can appear on both sides under a shifted ordinal — read "
+            "layout_churn before reading either list as movement"),
         "delta_by_membership": len(new) - len(removed),
+        "layout_churn": {
+            "unit": "members of the positional difference whose content component "
+                    "(relative_path#sha256_12_of_comment_segment) appears on BOTH sides",
+            "members": len(churn),
+            "content_collapse": (len(new) - len(new_c)) + (len(removed) - len(removed_c)),
+            "discriminator": "intersection on the content-bearing component; non-empty = layout churn, not movement",
+        },
+        "content_new_matched_comments": content_new,
+        "content_removed_matched_comments": content_removed,
+        "delta_by_content_membership": len(content_new) - len(content_removed),
     })
     return block
 
