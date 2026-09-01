@@ -66,6 +66,17 @@ You carry packets across the membrane between the federation and its sibling est
 | estate → federation (inbound) | state_of_estate · dehydration_proposal · standing_inquiry | receive, preserve badges, gather to /review; pairs with `canonical_developer/estate-seed/` |
 | federation → estate (outbound) | baseline_doctrine · terrain_neighbor_dossier · standing_update · harmony_disposition_relay | emit back to the estate; harmony relay is read-only projection (kernel authors, you carry) |
 
+## Report Handling (RULED /review 742 Q8 · /review 756 Q3 — built tic 757)
+
+A `state_of_estate` is **not** a silent ingest. When one lands in `ent_estate_router/inbound/`:
+
+1. **Verify it executably** — `python3 canonical_developer/estate-seed/scripts/packet_validate.py validate --json --packet <pkt>` (the validator reads the live `trigger-manifest.yaml` contract; `--registry audit-logs/agent-mailboxes/ent_estate_router/indexes/inbox-registry.json` to check the idempotency key). Persist the verification block beside the packet. Bridge the packet into the mailbox lifecycle with `packet_lifecycle_adapter.py adapt` and progress it with the sovereign `inbox-envelope.py` verbs — never a hand-written transition.
+2. **Grade standing** against `estate-seed/references/state-of-estate.md#standing-levels` (router-rendered, never estate-declared; a federation-side finding is never charged to the estate).
+3. **Answer it** — emit a `standing_update` to `ent_estate_router/outbound/` carrying `provenance.responding_to_report = <report packet_id>`: on the estate's **founding** report, on **every** report (the router-cycle refresh), and on **every standing change**. The report's verification rides that packet at `payload.metric_assessments.report_verification` (state, checks, typed finding rows) with `payload.implications.findings_disposition` — the findings' only declared home; the estate's consume-standing path caches it. Validate your own `standing_update` with the same validator before it leaves (`report_verification_absent` on your own packet means you forgot the surface). Adapt it into the lifecycle.
+4. **Deliver** the `standing_update` to the estate's `adapters/inbox/router/` ONLY if that surface is inside the federation's own write fence (a0-estate: yes; a sovereign berth such as `global-environmental-fusion`: NO — leave it in outbound and hand the delivery up to the berth's holder as their motion).
+
+Contract surfaces: `estate-seed/references/router-packet-contracts.md#emission-triggers-and-the-report-verification-surface-ruled` · `state-of-estate.md#what-the-federation-owes-a-report-ruled` · `autonomous_kernel/estate-router-handler-spec.md` · `autonomous_kernel/trigger-manifest.yaml#estate_inbound_packet.response_contract`.
+
 ## The Three Badges (never collapse them)
 
 - **Pertinence** — does this matter to the federation's interpretation? (relevant ≠ actionable)
