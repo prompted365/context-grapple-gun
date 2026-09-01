@@ -70,13 +70,14 @@ class CrossCounterVacuity(unittest.TestCase):
         self.assertIsNone(d["evidential_weight"])
 
     def test_units_block_vacuity_wired_in_source(self):
-        i = _SRC.index('block["units_collapsed_this_pass"] = (')
-        j = _SRC.index('block["units_collapsed_vacuous"] = (', i)
-        k = _SRC.index('block["units_collapsed_evidential_weight"] = (', j)
-        self.assertLess(i, j)
-        self.assertLess(j, k)
-        seg = _SRC[j:k + 600]
-        self.assertIn('block["delta_tokens"] == 0 and block["delta_matched_comments"] == 0', seg)
+        # /review 757 Q1 (the FORWARD-DECAY face, cpr_mogul_review_close_check_7db791b7707a):
+        # the site now wires vacuity THROUGH the constructor — the flag, its vacuity sibling
+        # and its weight leave as ONE unit; the persisted key names and texts are unchanged.
+        i = _SRC.index('"units_collapsed_this_pass", block["delta_tokens"], block["delta_matched_comments"]')
+        seg = _SRC[max(0, i - 200):i + 900]
+        self.assertIn("emit_equality_discriminator(", seg)
+        self.assertIn('observation_empty=(block["delta_tokens"] == 0 and block["delta_matched_comments"] == 0)', seg)
+        self.assertIn('stem="units_collapsed"', seg)
         self.assertIn("GUARD-19", seg)
 
 

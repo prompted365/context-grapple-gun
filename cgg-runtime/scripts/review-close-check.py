@@ -2773,24 +2773,123 @@ def compute_unit_deltas(report_dir, current_filename, current_tic,
     block["baseline"]["matched_comments"] = prior_comments
     block["delta_tokens"] = current_tokens - prior_tokens
     block["delta_matched_comments"] = current_matched_comments - prior_comments
-    block["units_collapsed_this_pass"] = (
-        block["delta_tokens"] == block["delta_matched_comments"])
     # GUARD-19 (constitution-ledger#presence-observation-fallacy-guard guard 19, /review 749,
     # cpr_mogul_review_close_check_8124846fc16a; reinforced /review 751 Q1 by the sibling-field
     # face cpr_mogul_review_close_check_45c12f41fc1e): an equality-of-deltas discriminator fires
-    # TRUE VACUOUSLY when both deltas are zero — a pass that produced no observation. Type it at
-    # the instrument so an entry-fire agreement is never read back as evidence-bearing.
-    block["units_collapsed_vacuous"] = (
-        block["delta_tokens"] == 0 and block["delta_matched_comments"] == 0)
-    block["units_collapsed_evidential_weight"] = (
-        "none — both deltas are zero: the agreement is a tautology over an empty "
-        "observation set (GUARD-19); it corroborates nothing"
-        if block["units_collapsed_vacuous"] else
-        ("evidence-bearing — both units moved by the same non-zero amount"
-         if block["units_collapsed_this_pass"] else
-         "n/a — the units diverged; see the delta blocks"))
+    # TRUE VACUOUSLY when both deltas are zero — a pass that produced no observation. Emitted
+    # through the CONSTRUCTOR (/review 757 Q1, the FORWARD-DECAY face) so the flag cannot
+    # leave without its weight; the persisted key names and weight texts are byte-stable.
+    block.update(emit_equality_discriminator(
+        "units_collapsed_this_pass", block["delta_tokens"], block["delta_matched_comments"],
+        observation_empty=(block["delta_tokens"] == 0 and block["delta_matched_comments"] == 0),
+        stem="units_collapsed",
+        weights={
+            "vacuous": ("none — both deltas are zero: the agreement is a tautology over an empty "
+                        "observation set (GUARD-19); it corroborates nothing"),
+            "evidence": "evidence-bearing — both units moved by the same non-zero amount",
+            "disagree": "n/a — the units diverged; see the delta blocks",
+        }))
     block["delta_baseline_absent"] = False
     return block
+
+
+# ---------------------------------------------------------------------------
+# THE CONSTRUCTOR (/review 757 Q1 — cpr_mogul_review_close_check_7db791b7707a PROMOTED as
+# the FORWARD-DECAY face of constitution-ledger#presence-observation-fallacy-guard:
+# ledger.md#a-cure-applied-by-enumeration-decays-forward-at-the-next-mint-site-convert-
+# to-a-constructor-at-the-second-site). A cure applied by ENUMERATION — GUARD-19 typed at
+# units_collapsed (/review 749) and at the cross-counter agree (/review 751) — binds only
+# the sites that existed when it was ruled; the third equality discriminator
+# (attribution.agree_by_membership, minted /review 753) fired UNTYPED at tic 754 beside a
+# correctly typed parent flag on the same pass. From this tic the constructor below is the
+# ONLY emitter of an equality-of-deltas flag on this instrument: a flag cannot leave without
+# its weight, so the fourth discriminator cannot be born untyped. `audit_equality_flags`
+# walks an artifact and names any flag that escaped the constructor — the forward clause
+# made executable, checked at emit time and in the tests.
+# ---------------------------------------------------------------------------
+
+EQUALITY_FLAG_NAMES = (
+    "units_collapsed_this_pass",     # inscribed_index_delta — stem units_collapsed
+    "agree",                         # cross_counter_disclosure — stem ""
+    "agree_by_membership",           # attribution
+    "magnitude_agreement_is_coincidence",  # attribution (predicate: counts agree, sets differ)
+)
+
+_DEFAULT_WEIGHTS = {
+    "vacuous": ("none — the observation set is empty: the agreement is a tautology over "
+                "nothing (GUARD-19); it corroborates nothing"),
+    "evidence": "evidence-bearing — the two sides agree over a non-empty observation set",
+    "coincident": ("coincident-arms — the magnitudes agree while the membership sets differ "
+                   "(intersection smaller than the deltas); an equal number is not a shared "
+                   "observation — see attribution"),
+    "disagree": "disagreement — a question with named routes, not a finding",
+}
+
+
+def _sibling_keys(name, stem):
+    if stem is None:
+        stem = name
+    prefix = f"{stem}_" if stem else ""
+    return f"{prefix}vacuous", f"{prefix}evidential_weight"
+
+
+def emit_equality_discriminator(name, left, right, *, observation_empty, coincident=False,
+                                comparable=True, predicate=None, weights=None, stem=None):
+    """Emit an equality-of-deltas discriminator WITH its vacuity sibling and its
+    evidential-weight sibling as ONE unit. `observation_empty` is the caller's own
+    declaration that the pass produced no observation (both deltas zero / both sets
+    empty) — the GUARD-19 vacuity condition; `coincident` is the caller's own reading
+    that magnitudes agree while membership differs (the coincident-arms coupling,
+    /review 755); `predicate` overrides `left == right` for flags whose truth is not
+    plain equality; `weights` overrides the four weight texts so a call site keeps
+    its persisted wording byte-stable (series diffability); `stem` names the sibling
+    prefix where the persisted keys predate this constructor."""
+    vac_key, weight_key = _sibling_keys(name, stem)
+    if not comparable:
+        return {name: None, vac_key: None, weight_key: None}
+    w = dict(_DEFAULT_WEIGHTS)
+    if weights:
+        w.update(weights)
+    flag = bool(predicate(left, right)) if predicate is not None else (left == right)
+    vacuous = bool(observation_empty)
+    if vacuous:
+        weight = w["vacuous"]
+    elif not flag:
+        weight = w["disagree"]
+    elif coincident:
+        weight = w["coincident"]
+    else:
+        weight = w["evidence"]
+    return {name: flag, vac_key: vacuous, weight_key: weight}
+
+
+_FLAG_STEMS = {"units_collapsed_this_pass": "units_collapsed", "agree": ""}
+
+
+def audit_equality_flags(node, path=""):
+    """Walk an artifact (or any block) and return {checked: [...], untyped: [...]} —
+    every dict carrying an equality-flag key must carry that flag's two siblings.
+    An UNTYPED entry is the forward-decay failure the constructor exists to prevent."""
+    checked, untyped = [], []
+    if isinstance(node, dict):
+        for flag in EQUALITY_FLAG_NAMES:
+            if flag in node:
+                vac_key, weight_key = _sibling_keys(flag, _FLAG_STEMS.get(flag))
+                where = f"{path}.{flag}" if path else flag
+                if vac_key in node and weight_key in node:
+                    checked.append(where)
+                else:
+                    untyped.append(where)
+        for k, v in node.items():
+            sub = audit_equality_flags(v, f"{path}.{k}" if path else str(k))
+            checked += sub["checked"]
+            untyped += sub["untyped"]
+    elif isinstance(node, list):
+        for i, v in enumerate(node):
+            sub = audit_equality_flags(v, f"{path}[{i}]")
+            checked += sub["checked"]
+            untyped += sub["untyped"]
+    return {"checked": checked, "untyped": untyped}
 
 
 _VERDICT_COUNT_UNITS = {
@@ -3076,7 +3175,11 @@ def _attribution_not_computed(reason):
         "removed_promoted_ids": None,
         "intersection_new_tokens_new_promoted": None,
         "agree_by_membership": None,
+        "agree_by_membership_vacuous": None,
+        "agree_by_membership_evidential_weight": None,
         "magnitude_agreement_is_coincidence": None,
+        "magnitude_agreement_is_coincidence_vacuous": None,
+        "magnitude_agreement_is_coincidence_evidential_weight": None,
         "attributed_members": None,
         "attributed_members_by_route": None,
         "catalog": list(_DIVERGENCE_ROUTES),
@@ -3194,9 +3297,15 @@ def compute_cross_counter_attribution(report_dir, current_filename, current_tic,
             entry.update({
                 "class": "paired_promotion_and_witness_token",
                 "catalog_route": None,
-                "catalog_covers": True,
+                # THE COVERAGE FACE (/review 757 Q2, cpr_mogul_review_close_check_a75f34bef299
+                # absorbed into the ATTRIBUTION clause): the catalog is a catalog of DIVERGENCE
+                # routes and this member was never put to it — a THIRD value, never a TRUE, so a
+                # reader aggregating catalog_covers no longer counts clean inscription events as
+                # coverage evidence (754/755/756 all read True here; the clean case is the COMMON case).
+                "catalog_covers": "not_applicable",
+                "divergence_occurred": False,
                 "note": "the inscription event — a promotion and its own witness token "
-                        "landed in one pass; not a divergence",
+                        "landed in one pass; not a divergence; the catalog was not asked",
             })
         elif in_p:
             entry["class"] = "promoted_without_new_token"
@@ -3279,17 +3388,44 @@ def compute_cross_counter_attribution(report_dir, current_filename, current_tic,
                     "disclosed, not a route",
         })
 
+    for entry in members:
+        entry.setdefault("divergence_occurred", True)
+
     block.update({
         "attribution_unresolved": False,
         "unresolved_reason": None,
+        "coverage_over_divergent_members": _coverage_over_divergent_members(members),
         "new_index_tokens": sorted(new_tokens),
         "removed_index_tokens": sorted(removed_tokens),
         "new_promoted_ids": sorted(new_promoted),
         "removed_promoted_ids": sorted(removed_promoted),
         "intersection_new_tokens_new_promoted": sorted(new_tokens & new_promoted),
-        "agree_by_membership": new_tokens == new_promoted,
-        "magnitude_agreement_is_coincidence": (
-            len(new_tokens) == len(new_promoted) and new_tokens != new_promoted),
+        # THE FORMERLY UNTYPED MINT SITE (/review 757 Q1, cpr_mogul_review_close_check_7db791b7707a):
+        # minted at /review 753 four tics after GUARD-19 was ruled at its two sibling sites, this
+        # pair fired TRUE / FALSE over two EMPTY sets at tic 754 with nothing beside it declaring
+        # the weight. Both flags now leave through the constructor with their siblings.
+        **emit_equality_discriminator(
+            "agree_by_membership", new_tokens, new_promoted,
+            observation_empty=(not new_tokens and not new_promoted),
+            weights={
+                "vacuous": ("none — both membership sets are empty: set equality over nothing is a "
+                            "tautology (GUARD-19); it attributes nothing"),
+                "evidence": "evidence-bearing — the two membership sets are identical and non-empty",
+                "disagree": ("disagreement — the sets differ; see attributed_members for the "
+                             "fired member of each symmetric difference"),
+            }),
+        **emit_equality_discriminator(
+            "magnitude_agreement_is_coincidence", new_tokens, new_promoted,
+            predicate=lambda l, r: len(l) == len(r) and l != r,
+            observation_empty=(not new_tokens and not new_promoted),
+            weights={
+                "vacuous": ("none — both membership sets are empty: 'not a coincidence' about nothing "
+                            "(GUARD-19); the flag is False by construction, not by evidence"),
+                "evidence": ("coincident-arms — the counts agree while the sets differ; an equal "
+                             "number is not a shared observation"),
+                "disagree": ("n/a — the counts differ or the sets are identical; no coincidence to "
+                             "declare"),
+            }),
         "attributed_members": members,
         # Per-route DELTA in the HEADLINE's unit (/review 754 Q1, the catalog-unit
         # reinforcement): count the attributed members per bound catalog route — or
@@ -3302,6 +3438,33 @@ def compute_cross_counter_attribution(report_dir, current_filename, current_tic,
         "attributed_members_by_route": _members_by_route(members),
     })
     return block
+
+
+def _coverage_over_divergent_members(members):
+    """The COVERAGE face (/review 757 Q2): 'the catalog covers what fired' is measured over
+    the members that DIVERGED; the never-asked member is counted as not_applicable and
+    excluded from the denominator, so 5-of-5 can never be inflated by clean inscriptions."""
+    divergent = [m for m in members if m.get("divergence_occurred") is True]
+    covered = sum(1 for m in divergent if m.get("catalog_covers") is True)
+    uncovered = sum(1 for m in divergent if m.get("catalog_covers") is False)
+    undiscriminated = sum(1 for m in divergent if m.get("catalog_covers") is None)
+    not_applicable = sum(1 for m in members if m.get("catalog_covers") == "not_applicable")
+    denominator = len(divergent)
+    return {
+        "unit": "attributed members whose divergence_occurred is True (the members the catalog was asked about)",
+        "denominator": denominator,
+        "covered": covered,
+        "uncovered": uncovered,
+        "undiscriminated_by_membership": undiscriminated,
+        "not_applicable_excluded": not_applicable,
+        "statement": (
+            "no divergent member this pass — the catalog was not asked; coverage is undefined, not 100%"
+            if denominator == 0 else
+            f"{covered}/{denominator} divergent members bound to a catalog route"
+            + (f"; {uncovered} promoted with no witness at all" if uncovered else "")
+            + (f"; {undiscriminated} undiscriminable by membership alone" if undiscriminated else "")
+            + (f"; {not_applicable} clean inscription event(s) excluded from the denominator" if not_applicable else "")),
+    }
 
 
 def _members_by_route(members):
@@ -3375,33 +3538,27 @@ def compute_cross_counter_disclosure(verdict_delta_block, index_delta_block,
         "promoted_delta": promoted_delta,
         "token_delta": token_delta,
         "comparable": comparable,
-        "agree": (promoted_delta == token_delta) if comparable else None,
         # GUARD-19 sibling-field face (/review 751 Q1, cpr_mogul_review_close_check_45c12f41fc1e
         # absorbed-as-reinforcement): agree=True at 0==0 is VACUOUS — an entry fire against a
         # baseline nothing moved between corroborates nothing; declare the weight beside the flag.
-        "vacuous": (promoted_delta == 0 and token_delta == 0) if comparable else None,
         # COINCIDENT-ARMS coupling (/review 755, cpr_mogul_review_close_check_1b8378e77bd7,
         # absorbed into the ATTRIBUTION clause): an equal non-zero delta pair is
-        # "evidence-bearing" ONLY while the membership sets agree. When the
-        # attribution block beside this field reads magnitude_agreement_is_coincidence
-        # =True the magnitudes agree while the sets differ — two catalogued routes
-        # cancelling (lived at the tic-752 close: 3/3 "evidence-bearing" over an
-        # intersection of 2) — and the weight says so instead of overclaiming
-        # corroboration. The weight consults the SAME attribution block printed on
-        # this disclosure — one membership computation, never a second read.
-        "evidential_weight": (
-            None if not comparable else
-            ("none — both deltas are zero: agree=True is a tautology over an empty observation "
-             "set (GUARD-19); not equal evidence to a close-fire agreement"
-             if (promoted_delta == 0 and token_delta == 0) else
-             ((("coincident-arms — the magnitudes agree while the membership sets differ "
-                "(intersection smaller than the deltas); an equal number is not a shared "
-                "observation — see attribution")
-               if (isinstance(attribution, dict)
-                   and attribution.get("magnitude_agreement_is_coincidence") is True)
-               else "evidence-bearing — two independent counters landed on the same non-zero movement")
-              if promoted_delta == token_delta else
-              "disagreement — a question with named routes, not a finding"))),
+        # "evidence-bearing" ONLY while the membership sets agree; the weight consults the SAME
+        # attribution block printed on this disclosure — one membership computation, never a
+        # second read. Emitted through the CONSTRUCTOR (/review 757 Q1, the FORWARD-DECAY face):
+        # the persisted keys `agree` / `vacuous` / `evidential_weight` and their texts are
+        # byte-stable; only the emitter moved.
+        **emit_equality_discriminator(
+            "agree", promoted_delta, token_delta,
+            observation_empty=(promoted_delta == 0 and token_delta == 0),
+            coincident=(isinstance(attribution, dict)
+                        and attribution.get("magnitude_agreement_is_coincidence") is True),
+            comparable=comparable, stem="",
+            weights={
+                "vacuous": ("none — both deltas are zero: agree=True is a tautology over an empty "
+                            "observation set (GUARD-19); not equal evidence to a close-fire agreement"),
+                "evidence": "evidence-bearing — two independent counters landed on the same non-zero movement",
+            }),
         # The catalog is ONE module constant (_DIVERGENCE_ROUTES) shared with the
         # attribution's per-member binding — printed here, bound there, never two lists.
         "divergence_routes": list(_DIVERGENCE_ROUTES),
@@ -3714,6 +3871,12 @@ def run_check(project_dir, dry_run=False, obligation_tic=None, obligation_mandat
             "universe_classified": (genuine_count + known_count) == len(all_findings),
         },
     }
+
+    # /review 757 Q1 — the forward clause made EXECUTABLE: every equality flag on this
+    # artifact carries its two siblings; an untyped flag is the forward-decay failure the
+    # constructor exists to prevent, and it is surfaced on the artifact itself, never
+    # discovered by the next reader. `untyped` non-empty is a self-reported defect.
+    report["equality_flag_typing"] = audit_equality_flags(report)
 
     if not dry_run:
         # T4c spec (W3-B1 tic 282 refinement): canonical artifact identity is
