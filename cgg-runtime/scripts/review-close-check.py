@@ -1329,6 +1329,12 @@ def build_inscribed_index(project_dir, queue_ids=None, diagnostics=None):
     # Identity = relative path + sha256-12 of the comment segment: stable across passes
     # while the comment is byte-identical, distinct when it is edited.
     matched_comment_ids = set()
+    # F-756-C1 (the third set's FIRST fire, tic 756 close: 804 ids vs 881 matched comments):
+    # a content-hashed identity COLLAPSES repeated comments, so the set was not in the
+    # delta's own unit (occurrences) — the a8fc UNIT clause, lived on this very cure.
+    # Identity is now OCCURRENCE-UNIQUE: relative path + per-file occurrence index +
+    # sha256-12, so |matched_comment_ids| == matched_comment_count by construction.
+    matched_comment_occurrence_by_path = {}
     multi_token_comment_count = 0
     unmatched_shaped_count = 0
     unmatched_shaped_samples = []
@@ -1374,8 +1380,10 @@ def build_inscribed_index(project_dir, queue_ids=None, diagnostics=None):
         """
         nonlocal matched_comment_count, multi_token_comment_count
         matched_comment_count += 1
+        occurrence = matched_comment_occurrence_by_path.get(rel_path, 0)
+        matched_comment_occurrence_by_path[rel_path] = occurrence + 1
         matched_comment_ids.add(
-            f"{rel_path}#{hashlib.sha256(seg.encode('utf-8')).hexdigest()[:12]}")
+            f"{rel_path}#{occurrence}#{hashlib.sha256(seg.encode('utf-8')).hexdigest()[:12]}")
         occurrences = 0
         distinct_in_comment = set()
         seen_any_in_comment = False
@@ -1598,7 +1606,10 @@ def build_inscribed_index(project_dir, queue_ids=None, diagnostics=None):
             "not_the_unit": "inscription EVENTS — the strictly-narrower referent an observer may assume; predictions against this counter are lawful only in the token unit",
             "matched_comment_count": matched_comment_count,
             "matched_comment_ids": sorted(matched_comment_ids),
-            "matched_comment_id_unit": "relative_path#sha256_12_of_comment_segment",
+            "matched_comment_id_unit": MATCHED_COMMENT_ID_UNIT,
+            # UNIT PARITY, measured not assumed: the set is in the delta's own unit iff
+            # its cardinality equals the occurrence count (F-756-C1).
+            "matched_comment_ids_unit_parity": len(matched_comment_ids) == matched_comment_count,
             "multi_token_comment_count": multi_token_comment_count,
         }
     return inscribed
@@ -2914,14 +2925,17 @@ def _membership_sets_of(report):
     return set(toks), set(prom)
 
 
+MATCHED_COMMENT_ID_UNIT = "relative_path#occurrence_index#sha256_12_of_comment_segment"
+
+
 def _matched_comment_ids_of(report):
     """The persisted matched-comment membership set of a prior artifact, or None
-    when the artifact predates it (pre-756 schema)."""
+    when the artifact predates it (pre-756 schema). Returns (ids, unit)."""
     ms = report.get("membership_sets") if isinstance(report, dict) else None
     if not isinstance(ms, dict):
-        return None
+        return None, None
     ids = ms.get("matched_comment_ids")
-    return set(ids) if isinstance(ids, list) else None
+    return (set(ids) if isinstance(ids, list) else None), ms.get("matched_comment_id_unit")
 
 
 def compute_sibling_pair_attribution(report_dir, current_filename, current_tic,
@@ -2974,12 +2988,22 @@ def compute_sibling_pair_attribution(report_dir, current_filename, current_tic,
         block["unresolved_reason"] = "prior_artifact_unreadable"
         return block
     block["baseline"]["artifact"] = os.path.basename(prior_path)
-    prior_ids = _matched_comment_ids_of(prior)
+    prior_ids, prior_unit = _matched_comment_ids_of(prior)
     if prior_ids is None:
         block["unresolved_reason"] = (
             "prior_artifact_carries_no_matched_comment_ids — the previous pass predates "
             "the persistence half of this cure; the set is persisted from this pass on, "
             "so the NEXT fire attributes")
+        return block
+    if prior_unit != MATCHED_COMMENT_ID_UNIT:
+        # A set in a different unit cannot be differenced against this one (F-756-C1:
+        # the tic-756 artifact's set was content-hashed, not occurrence-unique). Say so;
+        # never difference across units.
+        block["unresolved_reason"] = (
+            f"prior_artifact_matched_comment_id_unit_differs — prior {prior_unit!r} vs "
+            f"current {MATCHED_COMMENT_ID_UNIT!r}; sets in different units are not "
+            f"differenced; the NEXT fire attributes")
+        block["baseline"]["prior_unit"] = prior_unit
         return block
     new = sorted(current - prior_ids)
     removed = sorted(prior_ids - current)
@@ -3651,6 +3675,8 @@ def run_check(project_dir, dry_run=False, obligation_tic=None, obligation_mandat
                 len(matched_comment_ids) if isinstance(matched_comment_ids, list) else None),
             "matched_comment_ids": (
                 sorted(matched_comment_ids) if isinstance(matched_comment_ids, list) else None),
+            "matched_comment_id_unit": inscribed_unit.get("matched_comment_id_unit"),
+            "matched_comment_ids_unit_parity": inscribed_unit.get("matched_comment_ids_unit_parity"),
         },
         # /review 756 Q2 — per-pair COVERAGE over every divergence pair this artifact
         # publishes: attributed / unresolved / unattributable-with-reason.
