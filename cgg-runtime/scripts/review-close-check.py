@@ -2903,7 +2903,11 @@ def audit_equality_flags_with_window(node):
     own demand turned on the guard's instrument). The class question — whether the two
     unregistered flags on this artifact (queue_state_tuple.matches_total_cprs,
     membership_sets.matched_comment_ids_unit_parity) belong to the delta-agreement class
-    the constructor governs — is /review 760's; this function declares, it does not rule."""
+    the constructor governs — was RULED at /review 760 (bfb2ebf77d70 absorbed): they are NOT
+    delta-agreement class (a two-reads-of-one-file identity and a within-artifact unit identity
+    are not deltas over an observation window); the registry stays four. This function declares
+    its window; the ruling is recorded here because a disclosure naming a future forum by id is
+    self-invalidating once the forum sits (496b8fe3085b, measured at n=3 on this file)."""
     out = audit_equality_flags(node)
     out["observation_window"] = {
         "registry": list(EQUALITY_FLAG_NAMES),
@@ -2916,8 +2920,11 @@ def audit_equality_flags_with_window(node):
             "queue_state_tuple.matches_total_cprs",
             "membership_sets.matched_comment_ids_unit_parity",
         ],
-        "class_question": ("whether the unregistered flags belong to the delta-agreement class the "
-                           "constructor governs is /review 760's (cpr_mogul_review_close_check_bfb2ebf77d70)"),
+        "class_ruling": ("RULED /review 760 (cpr_mogul_review_close_check_bfb2ebf77d70 ABSORBED into the "
+                          "FORWARD-DECAY face): the two unregistered flags are NOT delta-agreement class — "
+                          "matches_total_cprs is two reads of one file within one run; "
+                          "matched_comment_ids_unit_parity is a within-artifact unit identity; "
+                          "the registry stays four and the stronger constructor-as-only-path cure is NOT owed"),
     }
     return out
 
@@ -3149,7 +3156,10 @@ def compute_sibling_pair_attribution(report_dir, current_filename, current_tic,
     # the content component (that is what occurrence_index disambiguates) — the collapse count
     # is published, never hidden. The positional lists are KEPT (they are the unit that pairs
     # with membership_sets.matched_comment_ids) and RE-LABELLED as positional. The class
-    # question (make the identity position-free vs keep both components) is /review 761's.
+    # question was RULED at /review 761 (3823e2916dd9 absorbed into the UNIT clause's
+    # LAYOUT-CHURN face): KEEP-BOTH-COMPONENTS stands — the positional identity pairs with
+    # membership_sets' occurrence-unique unit; member-level movement claims route through the
+    # content component; the byte-identical-segment collapse stays counted, never hidden.
     def _content(cid):
         parts = str(cid).rsplit("#", 2)
         return f"{parts[0]}#{parts[2]}" if len(parts) == 3 else str(cid)
