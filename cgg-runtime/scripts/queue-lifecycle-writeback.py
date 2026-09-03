@@ -344,6 +344,37 @@ def classify_lifecycle_fields(lifecycle, allow_fields=()):
     return sorted(ok), sorted(protected), sorted(unknown)
 
 
+_DUP_VERDICT_MIN_CHARS = 120
+
+def duplicate_verdict_text_scan(queue_path, cpr_id, lifecycle):
+    """A3-765 detector (stepper t765 precision 1.0, Architect-signed post-close 765):
+    the F-764-L1 class — one verdict's text carried VERBATIM onto an unrelated id —
+    is invisible to field-presence gates (A16-764) but mechanically catchable: an
+    incoming review_verdict >= 120 chars that exactly matches ANOTHER id's latest
+    verdict text is a copied narration, not an adjudication. Same-id restates are
+    lawful (a re-stamp restates its own verdict). Returns the colliding ids."""
+    text = lifecycle.get("review_verdict")
+    if not isinstance(text, str) or len(text) < _DUP_VERDICT_MIN_CHARS:
+        return []
+    latest = {}
+    try:
+        with open(queue_path, encoding="utf-8") as fh:
+            for line in fh:
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    row = json.loads(line)
+                except json.JSONDecodeError:
+                    continue
+                rid = row.get("id")
+                if rid:
+                    latest[rid] = row.get("review_verdict")
+    except OSError:
+        return []
+    return sorted(r for r, v in latest.items() if v == text and r != cpr_id)
+
+
 def build_lifecycle_row(prior_row, lifecycle, review_tic=None, writer=None,
                         allow_fields=(), now=None, allow_terminal_transition=False,
                         waive_required_fields=()):
@@ -488,7 +519,19 @@ def build_lifecycle_row(prior_row, lifecycle, review_tic=None, writer=None,
     row.update(lifecycle)
 
     stamp_time = now or datetime.now(timezone.utc).isoformat()
-    row.setdefault("updated_at", stamp_time)
+    # A1-765 cure (stepper t765, n=20 zero-variance): dict(prior_row) copies the
+    # PRIOR write's top-level updated_at/prior_status forward, so the old
+    # setdefault never fired and a corrective re-stamp was invisible to any
+    # top-level reader (row 3,016 carried the mis-write's instant and
+    # prior_status 'extracted' against lifecycle_writeback.prior_status
+    # 'promoted' — one row contradicting itself). The top level now MIRRORS the
+    # nested stamp unless the caller explicitly supplies either field:
+    # updated_at = THIS write's instant; prior_status = the status before THIS
+    # write (the nested-stamp semantics, applied consistently).
+    if "updated_at" not in lifecycle:
+        row["updated_at"] = stamp_time
+    if "prior_status" not in lifecycle and prior_status is not None:
+        row["prior_status"] = prior_status
     row["lifecycle_writeback"] = {
         "by": "queue-lifecycle-writeback",
         "writer": writer or "unspecified",
@@ -597,7 +640,7 @@ def append_row(queue_path, row):
 def lifecycle_writeback(cpr_id, lifecycle, queue_path=None, review_tic=None,
                         writer=None, allow_fields=(), dry_run=False, emit_only=False,
                         now=None, allow_terminal_transition=False,
-                        waive_required_fields=()):
+                        waive_required_fields=(), allow_duplicate_verdict_text=False):
     """Compose + guard + atomically append one lifecycle-class row for cpr_id."""
     qpath = Path(queue_path) if queue_path else default_queue_path()
     if qpath is None or not Path(qpath).is_file():
@@ -617,6 +660,23 @@ def lifecycle_writeback(cpr_id, lifecycle, queue_path=None, review_tic=None,
                        f"is an execution anomaly — surface it upward, do not hand-write "
                        f"a thin row.",
         }])
+
+    dup_ids = duplicate_verdict_text_scan(qpath, cpr_id, lifecycle)
+    if dup_ids:
+        if not allow_duplicate_verdict_text:
+            raise LifecycleWritebackRefused([{
+                "code": "duplicate_verdict_text",
+                "ids": dup_ids,
+                "message": f"the incoming review_verdict (>= {_DUP_VERDICT_MIN_CHARS} "
+                           f"chars) exactly matches the latest verdict text of "
+                           f"{len(dup_ids)} other id(s) {dup_ids} — the F-764-L1 "
+                           f"copied-narration class (A3-765, precision 1.0). Compose "
+                           f"the verdict per-row, or pass "
+                           f"--allow-duplicate-verdict-text (audited escape hatch).",
+            }])
+        print(f"DUPLICATE-VERDICT-WAIVE-NOTICE [{cpr_id}]: verdict text matches "
+              f"{dup_ids} — allowed by the caller (audited, visible — never silent)",
+              file=sys.stderr)
 
     row, report = build_lifecycle_row(
         prior, lifecycle, review_tic=review_tic, writer=writer,
@@ -895,6 +955,11 @@ def main(argv=None):
                     help="Waive one ruled mandatory terminal field on a verdict-class "
                          "write (audited escape hatch, disclosed on stderr); "
                          "repeatable. See VERDICT_REQUIRED_FIELDS.")
+    ap.add_argument("--allow-duplicate-verdict-text", action="store_true",
+                    dest="allow_duplicate_verdict_text",
+                    help="Permit a verdict-class write whose review_verdict text "
+                         "exactly matches another id's latest verdict (audited "
+                         "escape hatch, disclosed on stderr; A3-765).")
     ap.add_argument("--queue-path", default=None, help="Override the queue path (test hook)")
     ap.add_argument("--validate-row", default=None,
                     help="READ-ONLY: given a candidate single-line JSON row, report "
@@ -943,7 +1008,8 @@ def main(argv=None):
             allow_fields=args.allow_fields, dry_run=args.dry_run,
             emit_only=args.emit_only,
             allow_terminal_transition=args.allow_terminal_transition,
-            waive_required_fields=args.waive_required_fields)
+            waive_required_fields=args.waive_required_fields,
+            allow_duplicate_verdict_text=args.allow_duplicate_verdict_text)
     except LifecycleWritebackRefused as exc:
         if args.output_json:
             print(json.dumps({"mode": "lifecycle_writeback", "cpr_id": args.cpr_id,

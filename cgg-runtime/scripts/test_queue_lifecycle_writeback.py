@@ -298,6 +298,70 @@ class TestRefusals(_TmpQueue):
             waive_required_fields=("adjudicated_at_tic", "landing_kind"))
         self.assertEqual(report["row"]["status"], "promoted")
 
+    def test_top_level_stamp_mirrors_nested_on_repair_write(self):
+        """A1-765 cure: a writeback over an already-written row must not carry the
+        PRIOR write's top-level updated_at/prior_status while the nested stamp gets
+        fresh values — the top level mirrors the nested stamp. Reverting the cure
+        re-copies the stale instant and breaks this test."""
+        prior = envelope_row(status="promoted")
+        prior["updated_at"] = "2020-01-01T00:00:00+00:00"
+        prior["prior_status"] = "extracted"
+        write_queue(self.q, [prior])
+        report = qlw.lifecycle_writeback(
+            CPR_ID, {"landing_kind": "refinement_ray"},
+            queue_path=self.q, writer="review-execute", emit_only=True)
+        row = report["row"]
+        self.assertEqual(row["updated_at"], row["lifecycle_writeback"]["at"])
+        self.assertNotEqual(row["updated_at"], "2020-01-01T00:00:00+00:00")
+        self.assertEqual(row["prior_status"], row["lifecycle_writeback"]["prior_status"])
+        self.assertEqual(row["prior_status"], "promoted")
+
+    LONG_VERDICT = ("PROMOTE-as-refinement-ray — a deliberately long verdict text used "
+                    "as the duplicate-detection fixture; it must exceed one hundred and "
+                    "twenty characters to enter the detector's population.")
+
+    def test_duplicate_verdict_text_on_another_id_is_refused(self):
+        """A3-765: a verdict-class write copying ANOTHER id's latest verdict text
+        verbatim (>=120 chars) refuses with the typed code and names the collider.
+        Reverting the detector breaks this test."""
+        other = envelope_row(cpr_id="cpr_other_row_with_verdict")
+        other["review_verdict"] = self.LONG_VERDICT
+        write_queue(self.q, [other, envelope_row(status="promotable")])
+        with self.assertRaises(qlw.LifecycleWritebackRefused) as ctx:
+            qlw.lifecycle_writeback(
+                CPR_ID, {"status": "promoted", "review_verdict": self.LONG_VERDICT,
+                         "adjudicated_at_tic": 683, "landing_kind": "refinement_ray"},
+                queue_path=self.q, review_tic=683, emit_only=True)
+        codes = [r["code"] for r in ctx.exception.reasons]
+        self.assertIn("duplicate_verdict_text", codes)
+        self.assertEqual(
+            ctx.exception.reasons[codes.index("duplicate_verdict_text")]["ids"],
+            ["cpr_other_row_with_verdict"])
+
+    def test_same_id_verdict_restate_is_lawful(self):
+        """A re-stamp restating the row's OWN verdict text passes — same-id is
+        excluded by construction."""
+        prior = envelope_row(status="promoted")
+        prior["review_verdict"] = self.LONG_VERDICT
+        write_queue(self.q, [prior])
+        report = qlw.lifecycle_writeback(
+            CPR_ID, {"review_verdict": self.LONG_VERDICT,
+                     "landing_kind": "refinement_ray"},
+            queue_path=self.q, emit_only=True)
+        self.assertEqual(report["row"]["review_verdict"], self.LONG_VERDICT)
+
+    def test_duplicate_verdict_waive_flag_is_audited_escape(self):
+        """The waive valve passes the duplicate shape, visibly (stderr audit)."""
+        other = envelope_row(cpr_id="cpr_other_row_with_verdict")
+        other["review_verdict"] = self.LONG_VERDICT
+        write_queue(self.q, [other, envelope_row(status="promotable")])
+        report = qlw.lifecycle_writeback(
+            CPR_ID, {"status": "promoted", "review_verdict": self.LONG_VERDICT,
+                     "adjudicated_at_tic": 683, "landing_kind": "refinement_ray"},
+            queue_path=self.q, review_tic=683, emit_only=True,
+            allow_duplicate_verdict_text=True)
+        self.assertEqual(report["row"]["status"], "promoted")
+
     def test_prior_row_present_is_accepted(self):
         write_queue(self.q, [envelope_row()])
         report = qlw.lifecycle_writeback(CPR_ID, {"status": "skipped"},
@@ -384,12 +448,18 @@ class TestMergeSemantics(_TmpQueue):
                                     queue_path=self.q, emit_only=True)
         self.assertEqual(r["row"]["prior_status"], "tic_gated")
 
-    def test_prior_status_not_autostamped_when_status_unchanged(self):
+    def test_prior_status_mirrors_nested_when_status_unchanged(self):
+        """AMENDED A1-765 (Architect-signed post-close 765): the old contract carried
+        the ENVELOPE's stale prior_status forward on an annotation-only write, which
+        is exactly the top-level/nested self-contradiction the cure removes. The top
+        level now mirrors the nested stamp: prior_status = the status before THIS
+        write."""
         write_queue(self.q, [envelope_row(status="tic_gated")])
         r = qlw.lifecycle_writeback(CPR_ID, {"review_reasoning": "annotation only"},
                                     queue_path=self.q, emit_only=True)
-        # carried forward from the envelope, NOT re-stamped to the current status
-        self.assertEqual(r["row"]["prior_status"], "extracted")
+        self.assertEqual(r["row"]["prior_status"], "tic_gated")
+        self.assertEqual(r["row"]["prior_status"],
+                         r["row"]["lifecycle_writeback"]["prior_status"])
 
     def test_caller_prior_status_wins(self):
         write_queue(self.q, [envelope_row(status="tic_gated")])
