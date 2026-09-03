@@ -3176,7 +3176,8 @@ def compute_sibling_pair_attribution(report_dir, current_filename, current_tic,
         "positional_difference_note": (
             "new_/removed_matched_comments are the POSITIONAL difference (the unit above carries "
             "occurrence_index); a member can appear on both sides under a shifted ordinal — read "
-            "layout_churn before reading either list as movement"),
+            "attribution.layout_churn (full resolved path from report root: "
+            "inscribed_index_delta.attribution.layout_churn) before reading either list as movement"),
         "delta_by_membership": len(new) - len(removed),
         "layout_churn": {
             "unit": "members of the positional difference whose content component "

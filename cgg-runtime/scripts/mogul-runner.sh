@@ -662,11 +662,13 @@ cycles_executed."
 else
   # ---- Claude Code lane (default) ------------------------------------------
   # Unset CLAUDECODE to allow nested headless invocation (Claude Code blocks
-  # nesting by default; headless -p is safe). --allowedTools includes Agent so
-  # mogul can spawn the civil-engineer subagent for civil_status_check.
+  # nesting by default; headless -p is safe). Agent REMOVED from --allowedTools
+  # (F-765-W4R2/R3 cure, /review 766 signed: zero live cycles need it — civil
+  # runs out-of-band via the runner's own carve-out; the seat prompt forbids
+  # subagent spawning under print mode).
   env -u CLAUDECODE "$CLAUDE_BIN" -p "$MOGUL_PROMPT" \
     --model "$MOGUL_RUNNER_MODEL" \
-    --allowedTools "Read,Grep,Glob,Bash,Write,Agent" \
+    --allowedTools "Read,Grep,Glob,Bash,Write" \
     --dangerously-skip-permissions \
     --output-format json \
     > "$TRANSCRIPT_FILE" 2>&1
@@ -693,7 +695,7 @@ Do nothing else. Do NOT modify CLAUDE.md, MEMORY.md, queue.jsonl, or any governa
   env -u CLAUDECODE "$CLAUDE_BIN" -p "$CIVIL_PROMPT" \
     --agent civil-engineer \
     --model "$MOGUL_RUNNER_MODEL" \
-    --allowedTools "Read,Grep,Glob,Bash,Write,Agent" \
+    --allowedTools "Read,Grep,Glob,Bash,Write" \
     --dangerously-skip-permissions \
     --output-format json \
     >> "$TRANSCRIPT_FILE" 2>&1
