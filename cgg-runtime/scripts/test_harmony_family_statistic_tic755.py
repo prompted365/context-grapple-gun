@@ -70,7 +70,7 @@ class FamilyStatisticRay(unittest.TestCase):
 
     def test_windowed_infrastructure_pair_collected(self):
         # spaced infra occurrences accumulate in the windowed pair (descending
-        # walk order, the refusal_tics convention)
+        # walk order, the prior_refusal_tics convention — renamed /review 763 Q1)
         self._infra(700)
         self._healthy(701)
         self._infra(702)
@@ -108,7 +108,7 @@ class FamilyStatisticRay(unittest.TestCase):
 
     def test_current_infra_counts_and_latest_is_current(self):
         # count includes the current run (admission-watch convention); the
-        # tics list stays prior-only (refusal_tics convention).
+        # tics list stays prior-only (prior_refusal_tics convention — renamed /review 763 Q1).
         self._infra(720)
         self._healthy(721)
         v = self._apply(722, voice_source="template_fallback",

@@ -486,7 +486,9 @@ def apply_fallback_counter(voice: dict[str, Any], current_tic: int) -> dict[str,
     # Windowed infrastructure pair (the family-statistic ray, /review 755,
     # cpr_mogul_deep_audit_97339bfeeecb): count includes the current run (the
     # admission-watch convention), the tics list stays prior-only (the
-    # refusal_tics convention) — same statistic class as the admission watch,
+    # prior_refusal_tics convention; key renamed from bare refusal_tics at /review 763 Q1,
+    # the NAME-BOUNDARY ray — the list name carries its prior-only inclusion boundary) — same
+    # statistic class as the admission watch,
     # so the two families finally read against each other.
     infra_count = prior.get("infrastructure_count", 0) + (1 if current_family == "infrastructure" else 0)
     infra_prior_tics = list(prior.get("infrastructure_tics", []))
@@ -533,7 +535,7 @@ def apply_fallback_counter(voice: dict[str, Any], current_tic: int) -> dict[str,
                 "statistic_class": "windowed_occurrence_count",
                 "blind_spot": (
                     "consecutivity — a burst and a spread read identically in the "
-                    "count; refusal_tics ride beside it for the spacing"),
+                    "count; prior_refusal_tics ride beside it for the spacing"),
             },
         },
     }
@@ -545,7 +547,13 @@ def apply_fallback_counter(voice: dict[str, Any], current_tic: int) -> dict[str,
         # unless its membership set rides beside the count. The stderr line below already
         # prints the refusal-tic list; the machine-facing packet now carries it too, so a
         # 6->5 that is tic 697 aging off the trailing edge is re-derivable on THIS surface.
-        "refusal_tics": list(prior["admission_gate_tics"]),
+        # /review 763 Q1 (cpr_mogul_harmony_invoke_1d8b2a49f3ba -> the NAME-BOUNDARY ray on
+        # ledger#conductor-score-runtime-parity): the enumerating list's NAME carries its
+        # inclusion boundary — this list is PRIOR-ONLY while `count` is inclusive-of-current
+        # (t760 lived: count=5 beside len(list)=4). Renamed from bare `refusal_tics`; semantics
+        # unchanged (prior-only, the tic-755 family-statistic convention). Forward-only:
+        # historical disposition packets are never retconned.
+        "prior_refusal_tics": list(prior["admission_gate_tics"]),
         # the two-emitter denominator drift (bk-harmony-admission-watch-field-name-drift):
         # the stderr line says "last {window_scanned + 1} runs" (it counts the current run);
         # fallback_families.window_scanned is the prior-window walk count. Both numbers are

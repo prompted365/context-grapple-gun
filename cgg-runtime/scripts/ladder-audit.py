@@ -3695,6 +3695,27 @@ def _classify_staleness_candidate(signal, payload):
     return ("review", "unclassified staleness candidate — route to /review.")
 
 
+def _stamp_provenance(overdue):
+    """/review 763 Q2 (cpr_mogul_ladder_audit_d4d93df53d0e -> the GAUGE-PROVENANCE face on
+    ledger#can-it-eat-dataflow-liveness-predicate): a freshness field written by BULK STAMP
+    EVENTS reports the sweeper's history under the subject's name, and a 100%-trip population
+    has zero ranking power. This discloses the stamp-value concentration BESIDE the trip count
+    so a reader can see whether the gauge's writes are per-subject or campaign-shaped —
+    disclosure only; no threshold, route, or verdict changes."""
+    from collections import Counter
+    stamps = Counter(o.get("last_validated_tic") for o in overdue if o.get("last_validated_tic") is not None)
+    total = sum(stamps.values())
+    top2 = stamps.most_common(2)
+    return {
+        "distinct_stamp_values": len(stamps),
+        "stamped_population": total,
+        "top2_stamp_events": [{"last_validated_tic": t, "surfaces": n} for t, n in top2],
+        "top2_share": round(sum(n for _, n in top2) / total, 3) if total else None,
+        "note": ("campaign-shaped writes: a few bulk events carrying most stamps mean the gauge "
+                 "measures sweep cadence, not per-surface currency (GAUGE-PROVENANCE face, /review 763 Q2)"),
+    }
+
+
 def staleness_scan(zone_root, current_tic=None,
                    freshness_stale_tics=FRESHNESS_STALE_TICS,
                    coverage_stale_tics=DOWNAUDIT_COVERAGE_STALE_TICS,
@@ -3806,6 +3827,7 @@ def staleness_scan(zone_root, current_tic=None,
             "overridable, NEVER gates."
         ),
         "freshness_surfaces_scanned": fresh_scanned,
+        "freshness_stamp_provenance": _stamp_provenance(overdue),
         "freshness_surfaces_skipped_no_frontmatter": fresh_skipped,
         "candidate_count": len(candidates),
         "candidates_by_signal": dict(by_signal),
@@ -3859,6 +3881,12 @@ def format_staleness_scan(result):
     lines.append(f"  freshness_overdue: {by.get('freshness_overdue', 0)}    "
                  f"held_dissonance_stale: {by.get('held_dissonance_stale', 0)}    "
                  f"coverage_stale: {by.get('coverage_stale', 0)}")
+    sp = result.get("freshness_stamp_provenance") or {}
+    if sp.get("stamped_population"):
+        t2 = ", ".join(f"t{e['last_validated_tic']}->{e['surfaces']}" for e in sp.get("top2_stamp_events", []))
+        lines.append(f"  stamp provenance: {sp['distinct_stamp_values']} distinct values over "
+                     f"{sp['stamped_population']} surfaces; top-2 events [{t2}] carry "
+                     f"{(sp.get('top2_share') or 0)*100:.0f}% (GAUGE-PROVENANCE disclosure, /review 763 Q2)")
     lines.append("")
     for sig in ("freshness_overdue", "held_dissonance_stale", "coverage_stale"):
         items = [c for c in result.get("candidates", []) if c["signal"] == sig]

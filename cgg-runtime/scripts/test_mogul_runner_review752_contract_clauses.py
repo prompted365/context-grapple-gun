@@ -80,7 +80,7 @@ class HarmonyInvokeWindowVsPointClause(unittest.TestCase):
         self.assertIn("never let a fired watch stand as this tic's own event", self.line)
 
     def test_window_and_point_are_each_named_with_their_parts(self):
-        self.assertIn("refusal_tics", self.line)
+        self.assertIn("prior_refusal_tics", self.line)
         self.assertIn("denominator", self.line)
         self.assertIn("name its cause and family", self.line)
 
