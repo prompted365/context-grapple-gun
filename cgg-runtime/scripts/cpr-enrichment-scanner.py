@@ -945,18 +945,49 @@ def append_queue_rows(queue_path, rows):
         return "atomic-append.sh"
 
     import fcntl
-    lockfile = str(queue_path) + ".lock"
-    with open(lockfile, "w") as lf:
-        fcntl.flock(lf.fileno(), fcntl.LOCK_EX)
+    import time
+    # F-765-S2 cure (/review 767 Q5, Architect-signed): the shell writers lock via
+    # mkdir "<target>.lockdir" (lib/atomic-append.sh macOS fallback — flock(1) is
+    # ABSENT on the primary machine), while this in-process fallback locked fcntl
+    # on "<target>.lock" — two DIFFERENT lock objects, zero mutual exclusion in
+    # exactly the window this fallback exists for. Cure: acquire the SAME mkdir
+    # lockdir the shell writers use (the live common denominator) AROUND the
+    # fcntl section; fcntl is kept for in-process/other-fcntl-writer exclusion.
+    lock_dir = str(queue_path) + ".lockdir"
+    waited = 0.0
+    got_dir = False
+    while True:
         try:
-            prefix = "\n" if _needs_leading_newline(queue_path) else ""
-            with open(queue_path, "a", encoding="utf-8") as f:
-                f.write(prefix + "\n".join(lines) + "\n")
-                f.flush()
-                os.fsync(f.fileno())
-        finally:
-            fcntl.flock(lf.fileno(), fcntl.LOCK_UN)
-    return "flock-inprocess"
+            os.mkdir(lock_dir)
+            got_dir = True
+            break
+        except FileExistsError:
+            time.sleep(0.5)
+            waited += 0.5
+            if waited >= 10.0:
+                sys.stderr.write(
+                    f"[scanner] WARN: lockdir timeout on {queue_path}, "
+                    "proceeding with fcntl only\n")
+                break
+    try:
+        lockfile = str(queue_path) + ".lock"
+        with open(lockfile, "w") as lf:
+            fcntl.flock(lf.fileno(), fcntl.LOCK_EX)
+            try:
+                prefix = "\n" if _needs_leading_newline(queue_path) else ""
+                with open(queue_path, "a", encoding="utf-8") as f:
+                    f.write(prefix + "\n".join(lines) + "\n")
+                    f.flush()
+                    os.fsync(f.fileno())
+            finally:
+                fcntl.flock(lf.fileno(), fcntl.LOCK_UN)
+    finally:
+        if got_dir:
+            try:
+                os.rmdir(lock_dir)
+            except OSError:
+                pass
+    return "flock-inprocess+lockdir"
 
 
 # ---------------------------------------------------------------------------
