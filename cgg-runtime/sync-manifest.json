@@ -43,6 +43,13 @@
       "pattern": "*.json",
       "type": "DATA_SCHEMA",
       "_doc": "Trusted correction-receipt inventory read by INSTALLED effective_record.py (TRUSTED_MIGRATIONS_DIR is script-relative: scripts/lib \u2192 parents[2]/migrations). Without this target the installed resolver cannot verify truth-affecting corrections and fail-closed rejects them (unverified_authorization_receipt \u2192 hydration-gate rc=2 \u2192 session-restore.sh line-156 boot blackout). bk-boot-born-extraction-miss cure leg (a), tic 679."
+    },
+    "contracts": {
+      "canonical_subdir": "contracts",
+      "installed_subdir": ".claude/cgg-runtime/contracts",
+      "pattern": "*.json",
+      "type": "DATA_SCHEMA",
+      "_doc": "F-767-E1 cure (/review 767 wave-5, in-lane per the three-prong hold law): the installed queue-lifecycle-writeback.py had been import-dead since /review 708 because contracts/ was never an install target \u2014 enum-as-data contracts (confidence-tier, pending-class, landing-kind) must ride the sync or every installed consumer of them is dead code."
     }
   },
   "sync_exclude": [

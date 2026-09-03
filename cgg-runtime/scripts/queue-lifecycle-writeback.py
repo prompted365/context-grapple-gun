@@ -67,6 +67,34 @@ THE CONTRACT (what this script guarantees):
      enum is a data edit, never an engine change. Sibling birth surface:
      cogpr-ingest.py strips an off-enum candidate value to ABSENT with a typed
      `tier_refusal` marker (the lesson is never dropped).
+  7. ENUM VOCABULARY GUARD — pending_class + landing_kind (/review 767 Q4, B2
+     wave 5, row `bk-off-enum-drift-field-generic-writer-topology`; admission
+     receipt audit-logs/governance/backlog-gunslinger-hoist/B2-wave-5-tic767.json).
+     A4-709 measured the off-enum drift adjudicated at /review 708 as FIELD-
+     GENERIC while the physics shipped at 708 was AXIS-SPECIFIC: confidence_tier
+     guarded, `pending_class` (17 ids / 4 off-table values) and `landing_kind`
+     UNGUARDED, `lifecycle_state` the zero-drift control. This is guarantee 6's
+     shape applied to those two fields at this one boundary: a candidate that
+     would INTRODUCE an off-table value is REFUSED (`pending_class_off_enum` /
+     `landing_kind_off_enum`, rc=2), the typed reject names the CONTRACT FILE and
+     points at /review as the minting authority, and unchanged carry-forward of a
+     historical value stays lawful with a stderr ENUM-CARRY-NOTICE — HISTORICAL
+     ROWS ARE NEVER RE-TYPED. `--waive-enum-guard <field>` is the audited escape
+     hatch (stderr notice + `lifecycle_writeback.enum_guard_waived` stamped on the
+     row), mirroring --waive-required-field / --allow-duplicate-verdict-text. The
+     same predicate runs in `--validate-row` (rc=3). CONTENT lives in
+     contracts/pending-class-enum-v1.json (CLOSED at the three DEFER-generator
+     values) and contracts/landing-kind-enum-v1.json (OPEN-BY-/REVIEW — the guard
+     ROUTES an unlisted value to /review, it never closes the vocabulary by
+     schema). This is also the value-level detector A16-764 named as missing
+     beside VERDICT_REQUIRED_FIELDS: presence is that check's job, VALUE is this
+     one's — for landing_kind, at this boundary.
+     DOES NOT SATISFY (rider carried verbatim from the ruling): "per-field
+     rulings on the 17 historical off-table ids (that is /review's 768+ docket);
+     guards at any writer other than queue-lifecycle-writeback.py" — measured at
+     tic 767, cpr-extract.py (births evidence_scoped / schema_incomplete) and
+     queue_event_writer.py (HOLD/DEFER defaults architect_ruling /
+     maturity_window) also write pending_class to this queue and are NOT guarded.
 
 NOT THIS SCRIPT'S JOB:
   - Minting a BIRTH row (no prior row -> refuse; that is cpr-extract.py's surface).
@@ -99,7 +127,8 @@ Usage:
   python3 queue-lifecycle-writeback.py --validate-row '<single-line JSON row>'
 
 Exit codes: 0 ok · 1 append failure · 2 refused (contract violation) · 3 validate-row
-found envelope drops.
+REFUSED (envelope drops, terminal resurrection, or an off-enum/off-table
+vocabulary INTRODUCTION on confidence_tier / pending_class / landing_kind).
 """
 
 import argparse
@@ -217,6 +246,63 @@ HARD_TERMINAL_STATUSES = frozenset({
     "promoted", "absorbed", "superseded", "rejected",
     "dismissed", "resolved", "skipped",
 })
+
+# ENUM VOCABULARY GUARD CONTENT (/review 767 Q4, B2 wave 5; guarantee 7).
+# Engine-content separation, the /review 708 shape re-used: this table binds a
+# FIELD to its ratified-enum CONTRACT FILE, and the contract carries the values,
+# the accretion posture, the minting authority and the census. Extending a
+# vocabulary is a DATA EDIT in contracts/ (authorized by a /review verdict),
+# never a rewrite of the predicate below.
+#   pending_class -> CLOSED at the three DEFER-generator values (/review 663).
+#   landing_kind  -> OPEN-BY-/REVIEW (ruled 751 Q5, accreted 767 Q3). The guard
+#                    ROUTES an unlisted value to /review; it never closes the
+#                    vocabulary by schema.
+ENUM_GUARDED_FIELDS = {
+    "pending_class": "pending-class-enum-v1.json",
+    "landing_kind": "landing-kind-enum-v1.json",
+}
+
+_CONTRACTS_DIR = Path(os.path.abspath(__file__)).resolve().parent.parent / "contracts"
+
+
+def _load_enum_contract(filename):
+    """Deliberately NOT fail-soft (the confidence_tier discipline): a guard
+    surface whose governing contract is missing must crash loudly at import,
+    not run half-guarded."""
+    with open(_CONTRACTS_DIR / filename, encoding="utf-8") as fh:
+        return json.load(fh)
+
+
+ENUM_CONTRACTS = {field: _load_enum_contract(name)
+                  for field, name in ENUM_GUARDED_FIELDS.items()}
+FIELD_ENUMS = {field: frozenset(contract["enum"].keys())
+               for field, contract in ENUM_CONTRACTS.items()}
+
+
+def classify_enum_value(field, value):
+    """Classify a candidate value for a contract-guarded vocabulary field.
+
+    Returns "lawful" (enum member, or None/absent — the lawful no-value form),
+    "off_enum" (any other coinage, including a non-string), or "unguarded"
+    when the field carries no enum contract.
+    """
+    if field not in FIELD_ENUMS:
+        return "unguarded"
+    if value is None:
+        return "lawful"
+    if not isinstance(value, str):
+        return "off_enum"
+    return "lawful" if value in FIELD_ENUMS[field] else "off_enum"
+
+
+def enum_refusal_message(field, value):
+    """The typed reject text: names the value, the lawful set, the CONTRACT FILE,
+    and — load-bearing per the ruling — /review as the MINTING AUTHORITY."""
+    contract = ENUM_CONTRACTS[field]
+    return (f"{value!r} is not a ratified {field} value. Lawful values: "
+            f"{sorted(FIELD_ENUMS[field])} or absent. Governing artifact: "
+            f"contracts/{ENUM_GUARDED_FIELDS[field]} ({contract['ratified']}). "
+            f"MINTING AUTHORITY: {contract['minting_authority']}")
 
 
 class LifecycleWritebackRefused(Exception):
@@ -377,7 +463,7 @@ def duplicate_verdict_text_scan(queue_path, cpr_id, lifecycle):
 
 def build_lifecycle_row(prior_row, lifecycle, review_tic=None, writer=None,
                         allow_fields=(), now=None, allow_terminal_transition=False,
-                        waive_required_fields=()):
+                        waive_required_fields=(), waive_enum_guard=()):
     """Compose the copy-forward row. Raises LifecycleWritebackRefused on any violation.
 
     Order is load-bearing: classify FIRST (so a protected-field attempt never reaches
@@ -474,6 +560,50 @@ def build_lifecycle_row(prior_row, lifecycle, review_tic=None, writer=None,
                 })
                 raise LifecycleWritebackRefused(reasons)
 
+    # Enum vocabulary guard — guarantee 7 (/review 767 Q4, B2 wave 5,
+    # bk-off-enum-drift-field-generic-writer-topology). The guarantee-6 shape
+    # applied to pending_class + landing_kind: an INTRODUCTION of an off-table
+    # value is refused with a typed code naming the contract file and /review as
+    # the minting authority. Unchanged carry-forward is LAWFUL and disclosed —
+    # HISTORICAL ROWS ARE NEVER RE-TYPED (the 17 historical off-table
+    # pending_class ids measured at tic 767 advance without friction). The waive
+    # valve mirrors --waive-required-field: audited on stderr AND stamped on the
+    # row, never silent.
+    enum_guard_waived = {}
+    waived_enum_fields = set(waive_enum_guard or ())
+    for field in sorted(ENUM_GUARDED_FIELDS):
+        if field not in lifecycle:
+            continue
+        cand_value = lifecycle[field]
+        if classify_enum_value(field, cand_value) == "lawful":
+            continue
+        if cand_value == prior_row.get(field):
+            print(f"ENUM-CARRY-NOTICE [{prior_row.get('id')}]: off-table {field} "
+                  f"{cand_value!r} carried forward unchanged (historical row, "
+                  f"disclosed — historical rows are never re-typed; /review 767 Q4)",
+                  file=sys.stderr)
+            continue
+        if field in waived_enum_fields:
+            print(f"ENUM-GUARD-WAIVE-NOTICE [{prior_row.get('id')}]: off-table "
+                  f"{field} {cand_value!r} admitted by the caller (audited, "
+                  f"visible — never silent; stamped at "
+                  f"lifecycle_writeback.enum_guard_waived). If /review minted this "
+                  f"value, land the contract amendment in the same pass.",
+                  file=sys.stderr)
+            enum_guard_waived[field] = cand_value
+            continue
+        reasons.append({
+            "code": f"{field}_off_enum",
+            "fields": [field],
+            "value": cand_value,
+            "message": f"refusing to INTRODUCE an off-table {field}: "
+                       f"{enum_refusal_message(field, cand_value)} Pass "
+                       f"--waive-enum-guard {field} to admit it anyway (audited "
+                       f"escape hatch, stamped on the row).",
+        })
+    if reasons:
+        raise LifecycleWritebackRefused(reasons)
+
     ok, protected, unknown = classify_lifecycle_fields(lifecycle, allow_fields)
     if protected:
         reasons.append({
@@ -546,6 +676,11 @@ def build_lifecycle_row(prior_row, lifecycle, review_tic=None, writer=None,
         "added_fields": sorted(k for k in value_changed_fields if k not in before_keys),
         "restated_fields": restated_fields,
     }
+    if enum_guard_waived:
+        # the audited escape hatch actually fired — record WHICH field carried
+        # WHICH off-table value, on the row itself (a stderr notice scrolls away;
+        # the row is the durable audit)
+        row["lifecycle_writeback"]["enum_guard_waived"] = enum_guard_waived
     if (allow_terminal_transition and prior_status in HARD_TERMINAL_STATUSES
             and candidate_status is not None
             and candidate_status not in HARD_TERMINAL_STATUSES):
@@ -640,7 +775,8 @@ def append_row(queue_path, row):
 def lifecycle_writeback(cpr_id, lifecycle, queue_path=None, review_tic=None,
                         writer=None, allow_fields=(), dry_run=False, emit_only=False,
                         now=None, allow_terminal_transition=False,
-                        waive_required_fields=(), allow_duplicate_verdict_text=False):
+                        waive_required_fields=(), allow_duplicate_verdict_text=False,
+                        waive_enum_guard=()):
     """Compose + guard + atomically append one lifecycle-class row for cpr_id."""
     qpath = Path(queue_path) if queue_path else default_queue_path()
     if qpath is None or not Path(qpath).is_file():
@@ -682,7 +818,8 @@ def lifecycle_writeback(cpr_id, lifecycle, queue_path=None, review_tic=None,
         prior, lifecycle, review_tic=review_tic, writer=writer,
         allow_fields=allow_fields, now=now,
         allow_terminal_transition=allow_terminal_transition,
-        waive_required_fields=waive_required_fields)
+        waive_required_fields=waive_required_fields,
+        waive_enum_guard=waive_enum_guard)
 
     gap = history_field_gap(qpath, cpr_id)
     append_via = "none(dry-run)" if (dry_run or emit_only) else append_row(qpath, row)
@@ -727,6 +864,22 @@ def validate_row(candidate_row, queue_path=None):
     prior, prior_line, _ = latest_row_for_id(qpath, cpr_id)
     cand_tier = candidate_row.get("confidence_tier")
     cand_tier_kind = classify_tier_value(cand_tier)
+    # Guarantee 7 preflight: the same vocabulary predicate, for the writers that
+    # compose their own row and preflight it here (cpr-stepper.md:261 instructs
+    # exactly this). Carry-forward of a historical value is lawful; an
+    # INTRODUCTION (including on a birth row, which is an introduction by
+    # definition) is refused.
+    def _enum_introductions(prior_row):
+        found = {}
+        for field in sorted(ENUM_GUARDED_FIELDS):
+            value = candidate_row.get(field)
+            if classify_enum_value(field, value) == "lawful":
+                continue
+            if prior_row is not None and value == prior_row.get(field):
+                continue
+            found[field] = value
+        return found
+
     if prior is None:
         # Birth row: nothing to preserve, but the tier vocabulary guard still
         # applies — a fresh row is by definition an INTRODUCTION (/review 708
@@ -738,9 +891,18 @@ def validate_row(candidate_row, queue_path=None):
                               f"birth row: "
                               f"{refusal_message(cand_tier, cand_tier_kind)}",
                     "envelope_drops": []}
+        birth_enum = _enum_introductions(None)
+        if birth_enum:
+            field, value = sorted(birth_enum.items())[0]
+            return {"mode": "validate_row", "cpr_id": cpr_id, "verdict": "REFUSE",
+                    "enum_off_table": birth_enum,
+                    "reason": f"{field}_off_enum on a birth row (a fresh row is an "
+                              f"INTRODUCTION by definition): "
+                              f"{enum_refusal_message(field, value)}",
+                    "envelope_drops": []}
         return {"mode": "validate_row", "cpr_id": cpr_id, "verdict": "PASS",
                 "reason": "no prior row for this id (birth row — nothing to preserve)",
-                "envelope_drops": []}
+                "envelope_drops": [], "enum_off_table": {}}
     drops = envelope_drops(prior, candidate_row)
     prior_status = prior.get("status")
     cand_status = candidate_row.get("status")
@@ -750,6 +912,7 @@ def validate_row(candidate_row, queue_path=None):
                     and cand_status not in HARD_TERMINAL_STATUSES)
     tier_introduction = (cand_tier_kind != "lawful"
                          and cand_tier != prior.get("confidence_tier"))
+    enum_off_table = _enum_introductions(prior)
     if resurrection:
         reason = (f"terminal_state_resurrection: prior row is hard-terminal "
                   f"({prior_status!r}) and the candidate status {cand_status!r} is "
@@ -764,6 +927,11 @@ def validate_row(candidate_row, queue_path=None):
         reason = (f"confidence_tier_off_enum ({cand_tier_kind}): candidate "
                   f"INTRODUCES an off-enum value the prior row does not carry — "
                   f"{refusal_message(cand_tier, cand_tier_kind)}")
+    elif enum_off_table:
+        field, value = sorted(enum_off_table.items())[0]
+        reason = (f"{field}_off_enum: candidate INTRODUCES an off-table value the "
+                  f"prior row does not carry — "
+                  f"{enum_refusal_message(field, value)}")
     else:
         reason = "envelope preserved; no terminal resurrection"
         if cand_tier_kind != "lawful":
@@ -779,7 +947,9 @@ def validate_row(candidate_row, queue_path=None):
         "envelope_drops": drops,
         "terminal_state_resurrection": resurrection,
         "confidence_tier_off_enum": tier_introduction,
-        "verdict": "REFUSE" if (drops or resurrection or tier_introduction) else "PASS",
+        "enum_off_table": enum_off_table,
+        "verdict": "REFUSE" if (drops or resurrection or tier_introduction
+                                or enum_off_table) else "PASS",
         "reason": reason,
     }
 
@@ -955,6 +1125,15 @@ def main(argv=None):
                     help="Waive one ruled mandatory terminal field on a verdict-class "
                          "write (audited escape hatch, disclosed on stderr); "
                          "repeatable. See VERDICT_REQUIRED_FIELDS.")
+    ap.add_argument("--waive-enum-guard", action="append",
+                    dest="waive_enum_guard", default=[],
+                    help="Admit an off-table value for one contract-guarded "
+                         "vocabulary field (pending_class | landing_kind) on this "
+                         "write (audited escape hatch, disclosed on stderr AND "
+                         "stamped at lifecycle_writeback.enum_guard_waived); "
+                         "repeatable. The enums are RULED, not schema-closed — if "
+                         "/review minted the value, land the contracts/ amendment "
+                         "in the same pass. See ENUM_GUARDED_FIELDS.")
     ap.add_argument("--allow-duplicate-verdict-text", action="store_true",
                     dest="allow_duplicate_verdict_text",
                     help="Permit a verdict-class write whose review_verdict text "
@@ -1009,7 +1188,8 @@ def main(argv=None):
             emit_only=args.emit_only,
             allow_terminal_transition=args.allow_terminal_transition,
             waive_required_fields=args.waive_required_fields,
-            allow_duplicate_verdict_text=args.allow_duplicate_verdict_text)
+            allow_duplicate_verdict_text=args.allow_duplicate_verdict_text,
+            waive_enum_guard=args.waive_enum_guard)
     except LifecycleWritebackRefused as exc:
         if args.output_json:
             print(json.dumps({"mode": "lifecycle_writeback", "cpr_id": args.cpr_id,

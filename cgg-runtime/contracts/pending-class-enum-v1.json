@@ -1,0 +1,40 @@
+{
+  "schema_version": "pending-class-enum-v1",
+  "ratified": "the DEFER generator contract (skills/review/SKILL.md Step-7 'For each DEFER', amended per rider R3+A1-663 at /review 663) — 'the honest pending_class (feedback_required | stability_window | evidence_insufficient — not interchangeable)'. This CONTRACT FILE mints no value: it transcribes the three already-ruled ones and is landed at /review 767 Q4 (B2 wave 5, row bk-off-enum-drift-field-generic-writer-topology, admission receipt audit-logs/governance/backlog-gunslinger-hoist/B2-wave-5-tic767.json).",
+  "ruling_rows": [
+    "canonical_developer/context-grapple-gun/cgg-runtime/skills/review/SKILL.md:303 — the DEFER generator contract, amended /review 663 (rider R3+A1-663)",
+    "canonical_developer/context-grapple-gun/cgg-runtime/agents/cpr-stepper.md:111-119 — '## Pending Classes' table: 'These are NOT interchangeable. The stepper tracks which class applies and enforces the appropriate gate.'",
+    "canonical_developer/context-grapple-gun/cgg-ledger/ledger.md:3141 — #status-value-reader-disagreement-sticky-masks-reactivated-item (/review 521->522): the SPEC-CORRECT DEFER representation is status=enrichment_eligible + pending_class + maturity_window_tics",
+    "audit-logs/reviews/2026-07-28.jsonl — the /review 663 amendment pass"
+  ],
+  "brief": "audit-logs/governance/harpoon-office/cable-receipts/bk-off-enum-drift-field-generic-writer-topology-B2-wave5-tic767.json (the census that sized the drift and the writer-topology findings)",
+  "enum": {
+    "feedback_required": "reviewer gave conditional feedback — specific conditions must be addressed within the maturity window (cpr-stepper.md '## Pending Classes')",
+    "stability_window": "logic is sound; observing for stability — needs N tics with no contradictory evidence",
+    "evidence_insufficient": "needs more supporting evidence — the scanner gathers additional data; also the REGRESSION landing (cpr-stepper.md '### Regression Trigger': when the window elapses with conditions unmet, status -> enrichment_needed and pending_class -> evidence_insufficient)"
+  },
+  "accretion": "CLOSED at the ruled three by the DEFER generator contract — deliberately NOT open-by-accretion, and this is the standing contrast with its sibling landing-kind-enum-v1.json (which IS open-by-/review). A new pending_class value is minted ONLY by a /review verdict that AMENDS the DEFER generator contract in skills/review/SKILL.md; the amendment is then transcribed here as a data edit. Never minted by a writer, never coined at a write boundary, never invented schema-side. /review is the minting authority.",
+  "minting_authority": "The pending_class enum is CLOSED at the ruled three by the DEFER generator contract (/review 663). A new value requires a /review verdict amending that contract — /review is the minting authority, never the writer. Take the value to /review; do not coin it at the write boundary.",
+  "absence": "field absent (or null) = no pending class asserted. This is the lawful representation on any row that is not at status=enrichment_eligible; the DEFER generator contract requires the field only for the DEFER landing ('CogPRs at enrichment_eligible must declare a pending_class' — cpr-stepper.md:111).",
+  "refused_as_pending_class": {
+    "off_table_coinages_measured_in_corpus": [
+      "schema_incomplete", "evidence_scoped", "cross_tic_exercise_required",
+      "maturity_window", "architect_gate", "blocked_on_dependency",
+      "needs_evidence_repair", "maturity_gated", "architect_ruling", "maturity",
+      "evidence_required", "architect_decision_required", "targeted_enrichment",
+      "design_required", "architect_constitutional_review",
+      "architect_identity_decision", "proof_obligation_pending",
+      "implementation_fix", "evidence_pending_calibration"
+    ],
+    "reason": "CENSUS DATA, NOT ENUM MEMBERS. Each is a real value measured in queue.jsonl, and none carries a /review ruling admitting it to the pending_class vocabulary. Presence in the corpus is not admission (Presence/Observation Fallacy Guard). Introduction of any of them by a NEW write is refused; unchanged carry-forward of a historical value stays lawful and is disclosed — HISTORICAL ROWS ARE NEVER RE-TYPED by this contract or its guard.",
+    "not_the_same_field": "audit-logs/cpg/scripts/governance_query.py:93 defines PENDING_CLASS_STATUSES = {pending, extracted, tic_gated, enrichment_needed, enrichment_in_progress, enrichment_eligible, ...}. Despite the name, that is a set of STATUS values (which statuses count as 'pending-class' for the live-candidate filter), NOT the pending_class field's vocabulary. Do not read it as this enum."
+  },
+  "historical_disclosure": "Census measured at tic 767 over audit-logs/cprs/queue.jsonl (3,036 rows / 1,301 unique ids / 0 parse-or-id errors). LATEST-PER-ID (the authoritative projection): 43 carriers — on-table 26 (feedback_required 13, evidence_insufficient 12, stability_window 1); OFF-TABLE 17 ids across 4 values (schema_incomplete 14, design_required 1, needs_evidence_repair 1, maturity 1) — IDENTICAL to the A4-709 baseline read 58 tics earlier: zero new introductions AND zero repairs. All 43 carriers sit on TERMINAL rows (promoted 16, absorbed 6, skipped 11, rejected 2, promoted_spec 8); zero live enrichment_eligible rows carry the field in the current projection. ALL-ROWS (the apophatic complement, disclosed because latest-per-id masks it): 22 distinct values across 3,036 rows — 19 of them off-table, ~232 distinct ids, led by schema_incomplete (79 rows / 56 ids) and cross_tic_exercise_required (43 rows / 34 ids). The drift is ~5x wider in history than the authoritative projection shows.",
+  "writer_topology": "MEASURED at tic 767, and it QUALIFIES the A4-709 discriminator ('the drifting fields are all written free-hand at the verdict site'). For pending_class the dominant off-table population is written MECHANICALLY, not free-hand: scripts/cpr-extract.py:900/906 mints evidence_scoped (Tier-2 birth) and schema_incomplete (Tier-3 lesson-only birth) from its own closed tier vocabulary; scripts/queue_event_writer.py:107/113 hardcodes architect_ruling (HOLD) and maturity_window (DEFER) as its pending_class defaults and appends DIRECTLY through lib/atomic-append.sh. The axis is not free-hand coinage but MULTIPLE WRITERS WITH NO SHARED CONTRACT. Only queue-lifecycle-writeback.py is guarded by this contract at tic 767 — see does_not_satisfy.",
+  "write_surfaces": [
+    "queue-lifecycle-writeback.py (lifecycle writeback: off-table INTRODUCTION refused rc=2 pending_class_off_enum; unchanged carry-forward allowed + stderr ENUM-CARRY-NOTICE; --waive-enum-guard pending_class is the audited escape hatch, stamped on the row at lifecycle_writeback.enum_guard_waived; --validate-row runs the same predicate rc=3) — GUARDED at tic 767",
+    "cpr-extract.py (birth: mints evidence_scoped / schema_incomplete) — UNGUARDED at tic 767, out of the ruled fence",
+    "queue_event_writer.py (Repair-Covenant-B typed verdict writer: mints architect_ruling / maturity_window) — UNGUARDED at tic 767, out of the ruled fence"
+  ],
+  "does_not_satisfy": "per-field rulings on the 17 historical off-table ids (that is /review's 768+ docket); guards at any writer other than queue-lifecycle-writeback.py"
+}

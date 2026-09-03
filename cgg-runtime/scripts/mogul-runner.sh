@@ -420,7 +420,18 @@ TRANSCRIPT_DIR="$CYCLE_REPORTS_DIR/transcripts"
 REPORT_DIR="$CYCLE_REPORTS_DIR/reports"
 mkdir -p "$TRANSCRIPT_DIR" "$REPORT_DIR"
 
-TIMESTAMP=$(date +%Y-%m-%dT%H%M%S)
+# Artifact-naming timestamp on the ONE declared clock (UTC) — the shared
+# partition-key law, admitted /review 767 Q4 as row
+# bk-daily-partition-key-shared-clock-primitive (clock RULED /review 745 Q2);
+# the python expression of the same law is scripts/lib/partition_key.py.
+# WAS: date +%Y-%m-%dT%H%M%S — the LOCAL clock, which named a 05:54:11Z run
+# "T015411" (t750) while every lane artifact around it was UTC-dated. The
+# transcript/report pair is named ONCE here and nowhere else (sole writer),
+# and no consumer parses this prefix (slice-compile.py globs *-tic-N,
+# rollup.py reads d["tic"] or the tic-N regex, falsifier-run.py sorts by
+# mtime) — so the rename is forward-only and consumer-safe. Historical
+# locally-named artifacts are NEVER renamed.
+TIMESTAMP=$(date -u +%Y-%m-%dT%H%M%S)
 TRANSCRIPT_FILE="$TRANSCRIPT_DIR/${TIMESTAMP}-tic-${CURRENT_TIC}.json"
 STRUCTURED_REPORT="$REPORT_DIR/${TIMESTAMP}-tic-${CURRENT_TIC}.report.json"
 
