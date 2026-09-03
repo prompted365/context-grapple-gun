@@ -557,19 +557,23 @@ CRITICAL RULES:
 # fails the mandate — drop the override to recover. Registered in
 # ak_control_room/providers.yaml.
 #
-# Standing fence (carried verbatim from the prior single-backend comment + the
-# MOGUL_PROMPT civil_status_check instruction): civil_status_check spawns the
-# civil-engineer SUBAGENT, which is Claude-Code-mediated. It NEVER routes to an
-# external compute backend. When backend=codex AND civil_status_check is in the
-# cycle set, the runner CARVES civil out of the codex prompt and dispatches it
-# separately on Claude Code, then merges results.civil_status_check into the
-# codex-written report. (Per Architect tic 438: per-lane selector; civil stays
-# on Claude Code.)
+# Standing fence (comment RE-TAUGHT at t765, F-765-W4R1 — the prose below had
+# kept teaching the pre-Q8 codex-only world): civil_status_check is CARVED OUT
+# for EVERY backend (/review 750 Q8, landed 2e14067) — the runner dispatches it
+# on its own `claude -p --agent civil-engineer` lane and merges
+# results.civil_status_check into the main report. It NEVER routes to an
+# external compute backend, and the MAIN agent never dispatches it (its prompt
+# says so at the civil_status_check clause). (Per Architect tic 438: per-lane
+# selector; civil stays on Claude Code.)
 #
-# Agent added tic 404 (civil-cadence wiring tranche): the claude lane grants the
-# Agent tool so mogul can spawn the civil-engineer subagent (mogul.md declares
-# `Read, Grep, Glob, Agent, Bash, Write, Edit`; --allowedTools must include Agent
-# for civil_status_check). Edit kept out of mogul.md (already correct).
+# Agent grant history (tic 404, civil-cadence wiring tranche): the claude lane
+# was granted the Agent tool FOR the old spawn-civil route. That route is now
+# FORBIDDEN (/review 750 Q8 — civil is the runner's own carve-out; the main
+# agent's prompt says "NOT YOURS TO DISPATCH"). The grant itself is retained
+# UNMEASURED pending F-765-W4R2/R3 (/review candidate: does any live cycle need
+# Agent? cure the affordance and the sibling seat's grant together or neither).
+# Do NOT read this comment as authority for --allowedTools including Agent
+# "for civil_status_check" — that teaching was stale and is retired.
 
 MOGUL_RUNNER_BACKEND="${MOGUL_RUNNER_BACKEND:-claude}"
 
@@ -671,7 +675,7 @@ fi
 set -e
 
 # ---- Civil carve-out merge (EVERY backend + civil requested — /review 750 Q8) ---
-# The codex agent ran every cycle EXCEPT civil. Dispatch civil-engineer on Claude
+# The MAIN agent (any backend) ran every cycle EXCEPT civil. Dispatch civil-engineer on Claude
 # Code, capture its summary, and merge results.civil_status_check into the
 # codex-written report BEFORE the per-cycle verification below (which iterates the
 # full $CYCLES and would otherwise flag civil as a missing results key). The fence

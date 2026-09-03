@@ -4,7 +4,9 @@ CPR Enrichment Scanner — deterministic evidence gatherer for holding CPRs.
 
 Scans queue.jsonl for CPRs at enrichment_needed or enrichment_eligible,
 gathers evidence (git commits, test files, signal correlation, source stability,
-cross-references), updates enrichment entries in-place in queue.jsonl.
+cross-references), and lands the result as an APPENDED COPY-FORWARD ROW in
+queue.jsonl (append-only, latest-entry-per-id-wins — historical lines are
+never mutated; see append_queue_rows).
 
 No LLM. Background-safe. Designed to run at SessionStart from session-restore.sh.
 
@@ -876,6 +878,88 @@ def resolve_current_tic(al_path):
 
 
 # ---------------------------------------------------------------------------
+# Append-only queue write
+# (bk-cpr-enrichment-scanner-whole-file-rewrite-of-queue, /review 750 Q7)
+# ---------------------------------------------------------------------------
+
+_ATOMIC_APPEND_REL = os.path.join("lib", "atomic-append.sh")
+
+
+def _atomic_append_script():
+    p = Path(os.path.abspath(__file__)).parent / _ATOMIC_APPEND_REL
+    return p if p.is_file() else None
+
+
+def _needs_leading_newline(queue_path):
+    """True when the target's last byte is not a newline.
+
+    A bare append onto an unterminated final line would CONCATENATE onto it and
+    corrupt that row. The whole-file rewrite this replaced normalised the
+    terminator for free ("\n".join(...) + "\n"); an append has to check.
+    """
+    p = Path(queue_path)
+    if not p.is_file() or p.stat().st_size == 0:
+        return False
+    with p.open("rb") as f:
+        f.seek(-1, os.SEEK_END)
+        return f.read(1) != b"\n"
+
+
+def append_queue_rows(queue_path, rows):
+    """Append copy-forward rows to queue.jsonl. Returns the mechanism used.
+
+    SAME SHAPE AS THE RUNTIME'S RULED COPY-FORWARD WRITER
+    (queue-lifecycle-writeback.append_row) — deliberately, not incidentally:
+
+      * `lib/atomic-append.sh --append` is the PREFERRED path, and not merely
+        because it holds a flock. Two physics gates live AT THAT BOUNDARY and
+        nowhere else — the tic-481 promote-writeback gate and the /review-635
+        body-preservation gate — so a queue row appended by any other means
+        silently skips them.
+      * The in-process fcntl.flock fallback runs only when the shell primitive
+        is unavailable, or when the file lacks a trailing newline (which the
+        shell primitive does not repair).
+      * Serialisation is byte-identical to the write path this replaced:
+        json.dumps(..., separators=(",", ":"), default=str).
+
+    History rows are NEVER rewritten. Nothing is read back before writing, so
+    a row appended concurrently by another writer cannot be dropped.
+    """
+    if not rows:
+        return "none(empty)"
+    lines = [json.dumps(r, separators=(",", ":"), default=str) for r in rows]
+    os.makedirs(os.path.dirname(str(queue_path)) or ".", exist_ok=True)
+
+    script = _atomic_append_script()
+    if script is not None and not _needs_leading_newline(queue_path):
+        for line in lines:
+            proc = subprocess.run(
+                ["bash", str(script), "--append", str(queue_path), line],
+                capture_output=True, text=True,
+            )
+            if proc.returncode != 0:
+                raise RuntimeError(
+                    f"atomic-append.sh refused/failed (rc={proc.returncode}): "
+                    f"{(proc.stderr or '').strip()}"
+                )
+        return "atomic-append.sh"
+
+    import fcntl
+    lockfile = str(queue_path) + ".lock"
+    with open(lockfile, "w") as lf:
+        fcntl.flock(lf.fileno(), fcntl.LOCK_EX)
+        try:
+            prefix = "\n" if _needs_leading_newline(queue_path) else ""
+            with open(queue_path, "a", encoding="utf-8") as f:
+                f.write(prefix + "\n".join(lines) + "\n")
+                f.flush()
+                os.fsync(f.fileno())
+        finally:
+            fcntl.flock(lf.fileno(), fcntl.LOCK_UN)
+    return "flock-inprocess"
+
+
+# ---------------------------------------------------------------------------
 # Main pipeline
 # ---------------------------------------------------------------------------
 
@@ -1053,49 +1137,57 @@ def scan_and_enrich(project_dir, dry_run=False, quiet=False):
                 f"({', '.join(e['evidence_type'] for e in new_evidence)})"
             )
 
+    append_via = None
     if entries_to_append and not dry_run:
-        # Update-in-place bounded to the LATEST row per id: evidence folds into
-        # the live head row, but earlier rows for the same id are lifecycle
-        # history (extracted, tic_gated, …) under the append-only +
-        # latest-entry-per-id contract. Replacing EVERY id-matching line
-        # destroyed those history rows once ids carried multiple rows
-        # (stepper transition appends) — caught live at tic 550.
-        update_map = {e["id"]: e for e in entries_to_append}
-        p = Path(queue_path)
+        # APPEND-ONLY WRITE PATH — bk-cpr-enrichment-scanner-whole-file-rewrite-
+        # of-queue (HIGH), ruled /review 750 Q7, landed B2 wave 4 at tic 765.
+        #
+        # WHAT THIS REPLACED, AND WHY. The prior write read every line of
+        # queue.jsonl, REPLACED the latest line per enriched id IN PLACE
+        # (new_lines[i] = the updated entry), appended the ids it did not find,
+        # and p.write_text()-ed the WHOLE FILE under an flock on a sibling lock.
+        # Two defects rode in one block:
+        #
+        #   (a) IN-PLACE MUTATION of an append-only, latest-entry-per-id ledger.
+        #       The tic-550 narrowing (replace only the LATEST row per id, never
+        #       every id-matching line) shrank the blast radius but kept the
+        #       mutation itself — a historical line was still rewritten in place,
+        #       and the row it overwrote left no trace.
+        #
+        #   (b) LOSSY READ-MODIFY-WRITE. The snapshot written back was taken by
+        #       load_queue() at the TOP of this function, before the evidence
+        #       gathers (git log, recursive greps, file reads — seconds to tens
+        #       of seconds per scan). Any row appended by ANOTHER writer inside
+        #       that window — queue-lifecycle-writeback.py, cpr-extract.py, the
+        #       cpr-stepper, all of which append via lib/atomic-append.sh — was
+        #       absent from `lines` and therefore ERASED by the whole-file write.
+        #       The flock could not prevent it: it was acquired AFTER the stale
+        #       read, and the other writers hold that lock only for the duration
+        #       of their own append. A lock cannot protect a snapshot that went
+        #       stale before the lock was taken.
+        #
+        # THE CURE. Enrichment lands as an APPENDED COPY-FORWARD ROW. Every
+        # `updated_entry` built above is already `{**cpr, ...}` — the id's full
+        # prior envelope with only the enrichment fields changed — which is
+        # exactly the copy-forward contract queue-lifecycle-writeback.py
+        # guarantees for lifecycle rows. Under latest-entry-per-id-wins the
+        # appended row REPLACES the id's projection, while every historical line
+        # stays byte-intact and a concurrently appended row is just another
+        # line: nothing is read back, so nothing can be dropped. Enrichment
+        # semantics are unchanged — same fields, same eligibility, no schema
+        # widening; only the write mechanism moved.
         os.makedirs(os.path.dirname(queue_path), exist_ok=True)
-
-        import fcntl
-        lockfile = queue_path + ".lock"
-        with open(lockfile, "w") as lf:
-            fcntl.flock(lf.fileno(), fcntl.LOCK_EX)
-            try:
-                lines = p.read_text(encoding="utf-8").splitlines() if p.exists() else []
-                last_idx = {}
-                for i, line in enumerate(lines):
-                    line_s = line.strip()
-                    if not line_s:
-                        continue
-                    try:
-                        eid = json.loads(line_s).get("id", "")
-                    except json.JSONDecodeError:
-                        continue
-                    if eid in update_map:
-                        last_idx[eid] = i
-                new_lines = list(lines)
-                for eid, i in last_idx.items():
-                    new_lines[i] = json.dumps(update_map[eid], separators=(",", ":"), default=str)
-                # Append any entries whose IDs were not found in existing lines
-                for eid, entry in update_map.items():
-                    if eid not in last_idx:
-                        new_lines.append(json.dumps(entry, separators=(",", ":"), default=str))
-                p.write_text("\n".join(new_lines) + "\n", encoding="utf-8")
-            finally:
-                fcntl.flock(lf.fileno(), fcntl.LOCK_UN)
+        append_via = append_queue_rows(queue_path, entries_to_append)
 
     if not quiet:
         if consolidated_counts:
             summary = ", ".join(f"{k}={v}" for k, v in sorted(consolidated_counts.items()))
             print(f"  baseline consolidated: {summary}")
+        if append_via:
+            print(
+                f"  queue: {len(entries_to_append)} copy-forward row(s) "
+                f"appended via {append_via}"
+            )
         print(f"{updated_count}")
 
     return updated_count
