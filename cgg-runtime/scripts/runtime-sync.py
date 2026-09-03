@@ -318,6 +318,29 @@ def discover_surfaces(plugin_root, zone_root):
                         "type": spec["type"],
                         "category": category,
                     })
+        elif category == "contracts":
+            # Contracts: enum-as-data + guard contracts consumed by INSTALLED
+            # runtime scripts (confidence-tier / pending-class / landing-kind
+            # enum-v1). F-767-E1 engine half (/review 767 wave 5): the manifest
+            # gained a contracts target but this loop's categories are
+            # HARDCODED, so an unknown category fell through silently and the
+            # installed queue-lifecycle-writeback.py stayed import-dead — the
+            # engine-content-separation KI violated by the sync engine itself.
+            for entry in sorted(os.listdir(canonical_dir)):
+                if entry.endswith(".json"):
+                    if _excluded(entry):
+                        continue
+                    canonical_path = os.path.join(canonical_dir, entry)
+                    installed = os.path.join(
+                        home_dir, spec["installed_subdir"], entry
+                    )
+                    surfaces.append({
+                        "name": f"contract:{entry}",
+                        "canonical": canonical_path,
+                        "installed": installed,
+                        "type": spec["type"],
+                        "category": category,
+                    })
         elif category == "config":
             # Config: schema/data files consumed by INSTALLED runtime scripts
             # (e.g. mogul-mandate.schema.json, read by mandate-write.py via

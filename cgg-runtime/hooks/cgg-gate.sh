@@ -210,7 +210,12 @@ except: print('error|||')
 
         MOGUL_LOG_DIR="$ZONE_ROOT/$AUDIT_LOGS_REL/mogul/cycle-reports"
         mkdir -p "$MOGUL_LOG_DIR"
-        "$MOGUL_RUNNER" > "$MOGUL_LOG_DIR/$(date +%Y-%m-%dT%H%M%S)-runner-log.txt" 2>&1 &
+        # OM-3 (/review 767 round 3, signed): the runner-log shares the cycle-reports
+        # lane root with the transcripts/ and reports/ artifacts that mogul-runner.sh
+        # names on the UTC clock (:423, /review 767 Q4). On the local clock this was
+        # the sibling site left carrying the footgun — one lane, two clocks.
+        # Historical locally-named runner-logs are NEVER renamed; forward-only.
+        "$MOGUL_RUNNER" > "$MOGUL_LOG_DIR/$(date -u +%Y-%m-%dT%H%M%S)-runner-log.txt" 2>&1 &
         log_meta "{\"timestamp\":\"$TIMESTAMP\",\"action\":\"mogul_runner_spawned\",\"mandate_id\":\"$MANDATE_ID\",\"cycles\":\"$HEAVY_CYCLES\",\"pid\":$!}"
         MANDATE_OUTPUT="[MOGUL MANDATE: runner spawn] mogul-runner.sh executing governance cycles ($HEAVY_CYCLES) in background (PID $!). Non-blocking."
       else

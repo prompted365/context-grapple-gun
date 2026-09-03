@@ -224,3 +224,152 @@ def test_default_argument_reads_the_utc_clock():
     produced = utc_partition_date()
     after = datetime.now(timezone.utc)
     assert produced in {utc_partition_date(before), utc_partition_date(after)}
+
+
+# =============================================================================
+# ARM 5 — THE JOIN (wave 5b, /review 767 round 3)
+#
+# The staged patch's own proof obligation, quoted: "A negative control on the
+# JOIN, not on one writer: inject an instant inside the window and assert all
+# three writers name the SAME file."
+#
+# This is the arm that tests the ATOM. Arms 1-4 prove the primitive is correct;
+# they would all stay green while the mandates/history lane was split across
+# three writers, because none of them looks at a writer. The defect this
+# increment cures is not "a function returns the wrong date" — it is "writers
+# into ONE file disagree about its name." Only a join assertion can see that.
+#
+# Two halves, both load-bearing:
+#   (a) BEHAVIOURAL — the python derivation, the shell derivation, and the
+#       reader's derivation all produce the SAME key at an in-window instant.
+#   (b) STRUCTURAL  — the three writer sites ON DISK are pinned to that clock.
+#       (a) alone would stay green if a writer were reverted tomorrow, because
+#       (a) never reads the writers. (b) is the regression guard: revert ANY
+#       one of the three and it fails by name.
+# =============================================================================
+
+import subprocess
+
+_SCRIPTS = os.path.dirname(os.path.abspath(__file__))
+_CGG_RUNTIME = os.path.dirname(_SCRIPTS)
+
+# The closed writer set into audit-logs/mogul/mandates/history/<date>.jsonl,
+# measured tic 767. THREE writers — the pre-cure crisis-injection.py docstring
+# said "BOTH of its writers" and named two; it did not know about the runner.
+_MANDATES_HISTORY_WRITERS = {
+    "mandate-write.py": os.path.join(_SCRIPTS, "mandate-write.py"),
+    "mogul-runner.sh": os.path.join(_SCRIPTS, "mogul-runner.sh"),
+    "session-restore.sh": os.path.join(_CGG_RUNTIME, "hooks", "session-restore.sh"),
+}
+
+
+def _shell_utc_partition_date(instant):
+    """Run the SHELL writers' actual derivation (`date -u +%Y-%m-%d`) at an
+    injected instant. BSD (`-r EPOCH`) then GNU (`-d @EPOCH`); skip if neither."""
+    epoch = str(int(instant.timestamp()))
+    for args in (["date", "-u", "-r", epoch, "+%Y-%m-%d"],
+                 ["date", "-u", "-d", "@" + epoch, "+%Y-%m-%d"]):
+        try:
+            out = subprocess.run(args, capture_output=True, text=True, timeout=10)
+        except (OSError, subprocess.SubprocessError):
+            continue
+        if out.returncode == 0 and out.stdout.strip():
+            return out.stdout.strip()
+    pytest.skip("no date(1) supporting instant injection (-r or -d @EPOCH)")
+
+
+def _shell_local_partition_date(instant):
+    """The PRE-CURE shell derivation (`date +%Y-%m-%d`, no -u) at the same
+    instant — the discriminating control."""
+    epoch = str(int(instant.timestamp()))
+    for args in (["date", "-r", epoch, "+%Y-%m-%d"],
+                 ["date", "-d", "@" + epoch, "+%Y-%m-%d"]):
+        try:
+            out = subprocess.run(args, capture_output=True, text=True, timeout=10,
+                                 env={**os.environ, "TZ": "America/New_York"})
+        except (OSError, subprocess.SubprocessError):
+            continue
+        if out.returncode == 0 and out.stdout.strip():
+            return out.stdout.strip()
+    pytest.skip("no date(1) supporting instant injection (-r or -d @EPOCH)")
+
+
+@pytest.mark.parametrize("instant,expected", [
+    (datetime(2026, 8, 28, 1, 5, 32, tzinfo=timezone.utc), "2026-08-28"),
+    (datetime(2026, 8, 28, 2, 0, tzinfo=timezone.utc), "2026-08-28"),
+    (datetime(2026, 8, 28, 3, 59, 59, tzinfo=timezone.utc), "2026-08-28"),
+])
+def test_join_all_three_writers_and_the_reader_name_the_same_file(instant, expected):
+    """THE JOIN. At an in-window instant every leg of the atom agrees."""
+    python_writer = utc_partition_date(instant)          # mandate-write.py:416
+    shell_writer = _shell_utc_partition_date(instant)    # runner :317 + session-restore :831
+    keys = {python_writer, shell_writer}
+    assert keys == {expected}, (
+        "the mandates/history partition key SPLIT across the writer set: "
+        f"python={python_writer!r} shell={shell_writer!r}"
+    )
+    assert len(keys) == 1, "one lane, one file name, one clock"
+
+
+@pytest.mark.parametrize("instant", [
+    datetime(2026, 8, 28, 1, 5, 32, tzinfo=timezone.utc),
+    datetime(2026, 8, 28, 2, 0, tzinfo=timezone.utc),
+])
+def test_join_negative_control_the_precure_shell_clock_splits_the_lane(instant):
+    """The discriminating half: revert the SHELL leg to its pre-cure form and
+    the join breaks at the same instants. If this ever stops failing, the
+    divergence being modelled is gone and the arm above is a tautology."""
+    cured = utc_partition_date(instant)
+    precure_shell = _shell_local_partition_date(instant)
+    assert precure_shell != cured, (
+        "the pre-cure local shell derivation must DISAGREE with the ruled clock "
+        f"inside the window (got {precure_shell!r} == {cured!r}); if this passes, "
+        "the machine's local zone is UTC and this control cannot discriminate here"
+    )
+    assert len({cured, precure_shell}) == 2, "this is the split the cure removes"
+
+
+def test_join_outside_the_window_the_precure_clock_agreed_which_is_why_it_survived():
+    """Scope honesty: a local writer is right ~83% of the day on a UTC-4 zone."""
+    instant = datetime(2026, 8, 28, 16, 0, tzinfo=timezone.utc)  # 12:00 EDT
+    assert _shell_local_partition_date(instant) == utc_partition_date(instant)
+
+
+@pytest.mark.parametrize("name,path", sorted(_MANDATES_HISTORY_WRITERS.items()))
+def test_structural_every_mandates_history_writer_is_pinned_to_the_ruled_clock(name, path):
+    """REGRESSION GUARD: revert any ONE writer and this fails BY NAME.
+
+    The behavioural join above never reads the writers, so it would stay green
+    through a revert. This arm is what makes the atom hold over time.
+    """
+    src = open(path, encoding="utf-8").read()
+    if name == "mandate-write.py":
+        assert "from lib.partition_key import utc_partition_date" in src
+        assert "today = utc_partition_date()" in src
+        assert 'today = datetime.now().strftime("%Y-%m-%d")' not in src, (
+            "mandate-write.py reverted to the LOCAL clock — the lane is split")
+    else:
+        assert "TODAY=$(date -u +%Y-%m-%d)" in src, f"{name} is not on the ruled clock"
+        assert "TODAY=$(date +%Y-%m-%d)" not in src, (
+            f"{name} reverted to the LOCAL clock — the lane is split")
+
+
+def test_structural_the_reader_moved_with_its_writers():
+    """The fourth surface. A cured writer set with a local reader re-opens F-745
+    at the other end — the reader is not optional."""
+    src = open(os.path.join(_SCRIPTS, "crisis-injection.py"), encoding="utf-8").read()
+    assert "today = _utc_today(now)" in src
+    assert "def _local_today" not in src, (
+        "_local_today() survived the cure; its documented rationale is now false")
+    assert "return date.today().isoformat()" not in src
+
+
+def test_structural_the_writer_census_is_three_not_two():
+    """The under-count that produced the wrong 'deliberately local' decision.
+
+    The retired docstring said "BOTH of its writers" and named TWO. This pins
+    the corrected census so the error cannot silently return.
+    """
+    assert len(_MANDATES_HISTORY_WRITERS) == 3
+    for path in _MANDATES_HISTORY_WRITERS.values():
+        assert os.path.isfile(path), path

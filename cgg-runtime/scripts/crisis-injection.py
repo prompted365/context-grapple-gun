@@ -20,7 +20,7 @@ import os
 import subprocess
 import sys
 from collections import Counter
-from datetime import date, datetime, timezone
+from datetime import datetime, timezone
 
 
 def _active_manifest_count(signal_dir: str) -> int | None:
@@ -139,14 +139,6 @@ def _utc_today(now: "datetime | None" = None) -> str:
     if now.tzinfo is not None:
         now = now.astimezone(timezone.utc)
     return now.date().isoformat()
-
-
-def _local_today() -> str:
-    """The mandate-history daily file is named by the LOCAL date by BOTH of its writers
-    (mandate-write.py:416 datetime.now(); session-restore.sh TODAY=$(date +%Y-%m-%d)), so its
-    reader stays on the local clock. Two clocks, each following its own writer — disclosed
-    here rather than silently unified on one side."""
-    return date.today().isoformat()
 
 
 def _raw_emissions_today(signal_dir: str, now: "datetime | None" = None) -> int:
@@ -339,7 +331,8 @@ def check_signal_storm(signal_dir: str, current_tic: int,
     return " ".join(injections) if injections else None
 
 
-def check_mandate_pileup(audit_logs: str, current_tic: int) -> str | None:
+def check_mandate_pileup(audit_logs: str, current_tic: int,
+                        now: "datetime | None" = None) -> str | None:
     """Check for >1 WAIT mandate per tic or >5 history entries per tic."""
     # Check inbox for WAIT mandate files
     mailbox_dir = os.path.join(audit_logs, "agent-mailboxes")
@@ -368,9 +361,16 @@ def check_mandate_pileup(audit_logs: str, current_tic: int) -> str | None:
             f"Do not assume — investigate the lifecycle chain.]"
         )
 
-    # Check mandate history for excessive entries per tic — LOCAL date by design: this
-    # file's writers (mandate-write.py, session-restore.sh) name it by the local calendar.
-    today = _local_today()
+    # Check mandate history for excessive entries per tic. A reader follows its WRITER's
+    # clock. CORRECTED CENSUS (/review 767 round 3): the retired _local_today() docstring
+    # claimed "BOTH of its writers" and named TWO — the measured set is THREE:
+    #   mandate-write.py:416 (mandate rows, via lib/partition_key.utc_partition_date)
+    #   mogul-runner.sh:317  (transition rows, five append sites)
+    #   hooks/session-restore.sh:831 (mandate-compact rows)
+    # All three moved to the ONE declared clock (UTC) in a SINGLE atomic motion, so this
+    # reader moved WITH them. Reading local against UTC-named writers is exactly the F-745
+    # defect _utc_today() was built to cure on the signals lane.
+    today = _utc_today(now)
     history_file = os.path.join(audit_logs, "mogul", "mandates", "history", f"{today}.jsonl")
     if os.path.isfile(history_file):
         tic_counts = Counter()

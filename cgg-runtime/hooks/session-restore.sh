@@ -828,7 +828,14 @@ m['agent_id'] = os.environ.get('AGENT_ID') or ''
 m['agent_type'] = os.environ.get('AGENT_TYPE') or ''
 print(json.dumps(m, separators=(',',':')))
 " 2>/dev/null)
-        TODAY=$(date +%Y-%m-%d)
+        # Daily partition key on the ONE declared clock (UTC) — writer #3 of THREE
+        # into mandates/history/<date>.jsonl, moved atomically with
+        # mandate-write.py:416 (via lib/partition_key.py) and mogul-runner.sh:317.
+        # A partition key is a JOIN key: half-landing this atom would put the
+        # mandate-compact row and the mandate row in DIFFERENTLY-named files for the
+        # SAME mandate during the 20:00-24:00 EDT window.
+        # Historical locally-named files are NEVER renamed; forward-only.
+        TODAY=$(date -u +%Y-%m-%d)
         if [ -n "$MANDATE_COMPACT" ] && type atomic_append &>/dev/null; then
           atomic_append "$MANDATE_HISTORY_DIR/$TODAY.jsonl" "$MANDATE_COMPACT"
         elif [ -n "$MANDATE_COMPACT" ]; then

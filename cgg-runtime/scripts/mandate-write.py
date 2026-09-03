@@ -34,6 +34,10 @@ from pathlib import Path
 # Allow importing zone_root from same directory
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from zone_root import birth_topology
+# Shared UTC partition-key clock (bk-daily-partition-key-shared-clock-primitive,
+# /review 767 Q4; clock RULED /review 745 Q2). A daily-file partition key is a
+# cross-lane JOIN key — ONE declared clock, never per-writer.
+from lib.partition_key import utc_partition_date
 
 
 # Queue-truth review_due derivation (bk-cadence-ops-review-due-formula-off-by-one,
@@ -413,7 +417,12 @@ def write_mandate(mandate: dict, zone_root: Path, audit_logs_rel: str = "audit-l
     absorbed = read_existing_mandate(mandate_file)
     mandate_file.write_text(json.dumps(mandate, indent=2))
 
-    today = datetime.now().strftime("%Y-%m-%d")
+    # Writer #1 of THREE into mandates/history/<date>.jsonl (the others:
+    # mogul-runner.sh:317 transition rows, hooks/session-restore.sh:831
+    # mandate-compact rows). All three moved to the ONE declared clock in the
+    # SAME motion — a partition key is a JOIN key, so a split clock splits the
+    # lane. Historical dated files are NEVER renamed; forward-only.
+    today = utc_partition_date()
     history_file = history_dir / f"{today}.jsonl"
     # Ledger order: close the absorbed lane first, then the successor's row.
     _terminalize_absorbed_pending(mandate, absorbed, history_file)

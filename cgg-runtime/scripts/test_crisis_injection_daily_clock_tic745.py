@@ -4,8 +4,16 @@ UTC calendar date; crisis-injection.py READ it by the local date (date.today()),
 every hour between UTC midnight and local midnight Check 1 and raw_emissions_today read
 a stale file. Live instance at the tic-745 boot (02:46Z = 22:46 EDT, 2026-08-27 local /
 2026-08-28 UTC): 61 rows in the local-dated file vs the 10 fresh rows — the four tic-745
-rows among them — in the UTC-dated file. The mandate-history file stays LOCAL by design
-(both of its writers are local); the split is disclosed, not unified.
+rows among them — in the UTC-dated file.
+
+UPDATED /review 767 round 3 (wave 5b, bk-daily-partition-key-shared-clock-primitive): the
+mandate-history clause above is RETIRED. It read "the mandate-history file stays LOCAL by
+design (both of its writers are local); the split is disclosed, not unified." Both halves
+of that sentence were wrong by tic 767: the writer set is THREE, not two (mandate-write.py:416,
+mogul-runner.sh:317, hooks/session-restore.sh:831 — the two-writer census never knew about the
+runner), and all three have now moved to the ONE declared UTC clock in a SINGLE atomic motion,
+so the reader (check_mandate_pileup) moved WITH them and _local_today() is retired. There is no
+longer a disclosed split to preserve — there is one clock on both lanes.
 
 RED-THEN-GREEN + NEGATIVE CONTROL spine. Every case in its own TemporaryDirectory.
 """
@@ -50,8 +58,13 @@ class TestUtcToday(unittest.TestCase):
         self.assertEqual(ci._utc_today(datetime.datetime(2026, 8, 28, 2, 0)), "2026-08-28")
     def test_default_is_now_utc(self):
         self.assertEqual(ci._utc_today(), datetime.datetime.now(datetime.timezone.utc).date().isoformat())
-    def test_history_file_stays_local_by_design(self):
-        self.assertEqual(ci._local_today(), datetime.date.today().isoformat())
+    def test_local_today_is_retired(self):
+        # The helper existed ONLY to keep the mandates-history reader on the local clock.
+        # Its writers moved to UTC atomically, so the helper's documented rationale is dead.
+        # A present-but-uncalled helper whose docstring asserts a now-false invariant is
+        # worse than no helper: it reads as live doctrine.
+        self.assertFalse(hasattr(ci, "_local_today"),
+                         "_local_today() must not survive the three-writer UTC cure")
 
 
 class TestRawEmissionsFollowTheWritersClock(unittest.TestCase):
@@ -97,6 +110,60 @@ class TestCheck1BlindWindow(unittest.TestCase):
             ci.check_signal_storm(sig, 745, audit_logs=tmp, live_active_threshold=True, now=SPLIT)
             rows = [json.loads(l) for l in open(os.path.join(tmp, "sentinel", "crisis-injection-shadow.jsonl"))]
             self.assertEqual(rows[-1]["raw_emissions_today"], 10)
+
+
+class TestMandateHistoryReaderFollowsItsWriters(unittest.TestCase):
+    """wave 5b — the mandates/history lane's reader on the ruled UTC clock.
+
+    check_mandate_pileup used _local_today(). At the split instant it therefore read the
+    LOCAL-dated history file while (post-cure) all three writers name the UTC-dated one.
+    """
+
+    def _hist(self, tmp, day, rows):
+        d = os.path.join(tmp, "mogul", "mandates", "history")
+        os.makedirs(d, exist_ok=True)
+        with open(os.path.join(d, f"{day}.jsonl"), "w") as f:
+            for r in rows:
+                f.write(json.dumps(r) + "\n")
+
+    def test_reads_the_utc_dated_history_file_at_the_split_instant(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            os.makedirs(os.path.join(tmp, "agent-mailboxes"), exist_ok=True)
+            # A pileup written where the CURED writers put it (UTC-dated).
+            self._hist(tmp, "2026-08-28", [{"tic": 745}] * 6)
+            out = ci.check_mandate_pileup(tmp, 745, now=SPLIT)
+            self.assertIsNotNone(out, "the UTC-dated pileup must be SEEN at the split instant")
+            self.assertIn("6 mandate history entries", out)
+
+    def test_the_local_dated_file_is_the_stale_one_post_cure(self):
+        # Post-cure NO writer names this file at this instant; a reader that saw it would be
+        # reading yesterday — the exact F-745 shape, now closed on the mandates lane too.
+        with tempfile.TemporaryDirectory() as tmp:
+            os.makedirs(os.path.join(tmp, "agent-mailboxes"), exist_ok=True)
+            self._hist(tmp, "2026-08-27", [{"tic": 745}] * 6)
+            self.assertIsNone(ci.check_mandate_pileup(tmp, 745, now=SPLIT))
+
+    def test_negative_control_reverting_the_reader_to_local_reads_the_stale_file(self):
+        # Discriminating arm: restore the pre-cure LOCAL read and the assertions above invert.
+        with tempfile.TemporaryDirectory() as tmp:
+            os.makedirs(os.path.join(tmp, "agent-mailboxes"), exist_ok=True)
+            self._hist(tmp, "2026-08-27", [{"tic": 745}] * 6)   # local-dated only
+            orig = ci._utc_today
+            ci._utc_today = lambda now=None: (now or SPLIT).date().isoformat()  # pre-cure read
+            try:
+                reverted = ci.check_mandate_pileup(tmp, 745, now=SPLIT)
+            finally:
+                ci._utc_today = orig
+            self.assertIsNotNone(reverted, "the reverted LOCAL reader sees the stale file")
+            self.assertIsNone(ci.check_mandate_pileup(tmp, 745, now=SPLIT),
+                              "restored UTC reader must NOT see the stale local-dated file")
+
+    def test_outside_the_window_both_clocks_name_the_same_history_file(self):
+        # Scope honesty: the divergence is window-confined, which is why it survived.
+        with tempfile.TemporaryDirectory() as tmp:
+            os.makedirs(os.path.join(tmp, "agent-mailboxes"), exist_ok=True)
+            self._hist(tmp, "2026-08-27", [{"tic": 745}] * 6)
+            self.assertIsNotNone(ci.check_mandate_pileup(tmp, 745, now=SAME))
 
 
 if __name__ == "__main__":

@@ -314,7 +314,15 @@ json.dump(m, open('$MANDATE_FILE', 'w'), indent=2)
 " 2>/dev/null
 
 # Record transition in history
-TODAY=$(date +%Y-%m-%d)
+# Daily partition key on the ONE declared clock (UTC) — the shell expression of
+# scripts/lib/partition_key.py. Writer #2 of THREE into mandates/history/<date>.jsonl
+# (mandate-write.py:416 writes the mandate row; hooks/session-restore.sh:831 writes the
+# mandate-compact row). $TODAY is consumed by FIVE append sites in this file
+# (:324/:1026/:1096/:1159/:1181 pre-edit) — one derivation, five rows, one file.
+# A partition key is a JOIN key: all three writers moved in the SAME motion, because a
+# one-writer cure splits the lane during the 20:00-24:00 EDT window.
+# Historical locally-named files are NEVER renamed; forward-only.
+TODAY=$(date -u +%Y-%m-%d)
 mkdir -p "$MANDATE_HISTORY_DIR"
 python3 -c "
 import json
@@ -824,7 +832,12 @@ else:
   for cycle in "${CYCLE_ARRAY[@]}"; do
     case "$cycle" in
       pattern_mining)
-        TODAY_PATTERNS="$AUDIT_LOGS/patterns/$(date +%Y-%m-%d).jsonl"
+        # OM-2 (/review 767 round 3, signed): this VERIFIER reads the patterns daily
+        # file whose WRITER (pattern_miner.py:417-419) already names it by the UTC
+        # date. A reader follows its WRITER's clock — on the local clock this probed
+        # a file the miner never wrote during the 20:00-24:00 EDT window. ALIGNS the
+        # pair (writer already UTC); it does not split a lane.
+        TODAY_PATTERNS="$AUDIT_LOGS/patterns/$(date -u +%Y-%m-%d).jsonl"
         # Pattern file is optional (no new patterns is valid), but check
         # that the structured report mentions pattern_mining in results
         if [ -f "$STRUCTURED_REPORT" ]; then
