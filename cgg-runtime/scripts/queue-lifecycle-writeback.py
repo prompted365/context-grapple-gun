@@ -170,6 +170,24 @@ LIFECYCLE_MUTABLE_FIELDS = frozenset({
     "updated_at", "lifecycle_writeback",
 })
 
+# The RULED terminal field set made PHYSICS (/review 765 Q2,
+# cpr_mogul_review_close_check_284cdbf58189 -> cgg-ledger
+# #mandatory-in-doctrine-permitted-at-write-decays-silently): a field-set
+# mandatory in doctrine but merely PERMITTED here reads ZERO at the first tic
+# nobody hand-carries it (measured: adjudication tic 761 carries zero stamped
+# rows). A VERDICT-CLASS write (one that carries review_verdict) landing a
+# terminal status owes the ruled set per status class. `skipped`/`rejected`
+# require the clock only — no skip-class landing_kind vocabulary exists in the
+# corpus (typed from what is read, never invented; the A2-764 discipline).
+# Presence is necessary, not sufficient (A16-764): this check cannot catch a
+# value-level mis-write; that class needs its own detector.
+VERDICT_REQUIRED_FIELDS = {
+    "promoted": ("adjudicated_at_tic", "landing_kind"),
+    "absorbed": ("adjudicated_at_tic", "landing_kind", "absorbed_into"),
+    "skipped": ("adjudicated_at_tic",),
+    "rejected": ("adjudicated_at_tic",),
+}
+
 # Envelope fields whose mutation by a LIFECYCLE writeback is a category error: identity,
 # the CogPR's content, and its birth provenance. Refused with a named error so the
 # operator sees WHY (rather than a generic "unknown field"). These are exactly the
@@ -327,7 +345,8 @@ def classify_lifecycle_fields(lifecycle, allow_fields=()):
 
 
 def build_lifecycle_row(prior_row, lifecycle, review_tic=None, writer=None,
-                        allow_fields=(), now=None, allow_terminal_transition=False):
+                        allow_fields=(), now=None, allow_terminal_transition=False,
+                        waive_required_fields=()):
     """Compose the copy-forward row. Raises LifecycleWritebackRefused on any violation.
 
     Order is load-bearing: classify FIRST (so a protected-field attempt never reaches
@@ -368,6 +387,35 @@ def build_lifecycle_row(prior_row, lifecycle, review_tic=None, writer=None,
                        f"--allow-terminal-transition (audited).",
         })
         raise LifecycleWritebackRefused(reasons)
+
+    # Required-set check — the mandatory-at-doctrine set enforced at the write
+    # boundary (/review 765 Q2; VERDICT_REQUIRED_FIELDS above). Fires only on a
+    # verdict-class write (review_verdict present) that sets a terminal status
+    # THIS call; a field already populated on the prior row satisfies it (a
+    # repair may restate rather than re-supply).
+    if "review_verdict" in lifecycle:
+        v_status = lifecycle.get("status")
+        required = VERDICT_REQUIRED_FIELDS.get(v_status, ())
+        waived = set(waive_required_fields or ())
+        for f in sorted(waived & set(required)):
+            if f not in lifecycle and prior_row.get(f) is None:
+                print(f"REQUIRED-FIELD-WAIVE-NOTICE [{prior_row.get('id')}]: mandatory "
+                      f"terminal field {f!r} waived by the caller (audited, visible — "
+                      f"never silent)", file=sys.stderr)
+        missing = [f for f in required
+                   if f not in lifecycle and prior_row.get(f) is None
+                   and f not in waived]
+        if missing:
+            reasons.append({
+                "code": "mandatory_terminal_field_missing",
+                "fields": missing,
+                "message": f"verdict-class write to status {v_status!r} is missing ruled "
+                           f"terminal field(s) {missing} (A1-739 minimal set; cgg-ledger"
+                           f"#mandatory-in-doctrine-permitted-at-write-decays-silently). "
+                           f"Supply them in --lifecycle-json, or pass "
+                           f"--waive-required-field <name> (audited escape hatch).",
+            })
+            raise LifecycleWritebackRefused(reasons)
 
     # Tier vocabulary guard — guarantee 6 (/review 708 ruling 4, write-boundary
     # physics; A6-707: the vocabulary must not depend on producer restraint).
@@ -548,7 +596,8 @@ def append_row(queue_path, row):
 
 def lifecycle_writeback(cpr_id, lifecycle, queue_path=None, review_tic=None,
                         writer=None, allow_fields=(), dry_run=False, emit_only=False,
-                        now=None, allow_terminal_transition=False):
+                        now=None, allow_terminal_transition=False,
+                        waive_required_fields=()):
     """Compose + guard + atomically append one lifecycle-class row for cpr_id."""
     qpath = Path(queue_path) if queue_path else default_queue_path()
     if qpath is None or not Path(qpath).is_file():
@@ -572,7 +621,8 @@ def lifecycle_writeback(cpr_id, lifecycle, queue_path=None, review_tic=None,
     row, report = build_lifecycle_row(
         prior, lifecycle, review_tic=review_tic, writer=writer,
         allow_fields=allow_fields, now=now,
-        allow_terminal_transition=allow_terminal_transition)
+        allow_terminal_transition=allow_terminal_transition,
+        waive_required_fields=waive_required_fields)
 
     gap = history_field_gap(qpath, cpr_id)
     append_via = "none(dry-run)" if (dry_run or emit_only) else append_row(qpath, row)
@@ -840,6 +890,11 @@ def main(argv=None):
                          "transition (a reviewed reactivation lane; audited on the "
                          "row). Without it such a row is refused as "
                          "terminal_state_resurrection.")
+    ap.add_argument("--waive-required-field", action="append",
+                    dest="waive_required_fields", default=[],
+                    help="Waive one ruled mandatory terminal field on a verdict-class "
+                         "write (audited escape hatch, disclosed on stderr); "
+                         "repeatable. See VERDICT_REQUIRED_FIELDS.")
     ap.add_argument("--queue-path", default=None, help="Override the queue path (test hook)")
     ap.add_argument("--validate-row", default=None,
                     help="READ-ONLY: given a candidate single-line JSON row, report "
@@ -887,7 +942,8 @@ def main(argv=None):
             review_tic=args.review_tic, writer=args.writer,
             allow_fields=args.allow_fields, dry_run=args.dry_run,
             emit_only=args.emit_only,
-            allow_terminal_transition=args.allow_terminal_transition)
+            allow_terminal_transition=args.allow_terminal_transition,
+            waive_required_fields=args.waive_required_fields)
     except LifecycleWritebackRefused as exc:
         if args.output_json:
             print(json.dumps({"mode": "lifecycle_writeback", "cpr_id": args.cpr_id,

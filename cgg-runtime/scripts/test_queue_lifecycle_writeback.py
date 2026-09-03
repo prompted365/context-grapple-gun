@@ -251,7 +251,9 @@ class TestDeferWritebackPreservesEnvelope(_TmpQueue):
         report = qlw.lifecycle_writeback(
             CPR_ID, {"status": "promoted", "promoted_to": "cgg-ledger/ledger.md#slug",
                      "promoted_date": "2026-08-06", "review_verdict": "PROMOTE",
-                     "review_confidence": 0.85},
+                     "review_confidence": 0.85,
+                     # ruled terminal set (/review 765 Q2 — VERDICT_REQUIRED_FIELDS)
+                     "adjudicated_at_tic": 683, "landing_kind": "refinement_ray"},
             queue_path=self.q, review_tic=683, writer="review-execute", emit_only=True)
         row = report["row"]
         self.assertEqual(qlw.envelope_drops(prior, row), [])
@@ -272,6 +274,29 @@ class TestRefusals(_TmpQueue):
             qlw.lifecycle_writeback("cpr_absent", {"status": "skipped"},
                                     queue_path=self.q)
         self.assertEqual(ctx.exception.reasons[0]["code"], "no_prior_row")
+
+    def test_verdict_write_missing_ruled_terminal_fields_is_refused(self):
+        """Negative control for the /review 765 Q2 required-set check: a verdict-class
+        promote write missing the ruled set must refuse with a typed reason. Reverting
+        the check breaks this test."""
+        write_queue(self.q, [envelope_row(status="promotable")])
+        with self.assertRaises(qlw.LifecycleWritebackRefused) as ctx:
+            qlw.lifecycle_writeback(
+                CPR_ID, {"status": "promoted", "review_verdict": "PROMOTE"},
+                queue_path=self.q, review_tic=683, emit_only=True)
+        codes = [r["code"] for r in ctx.exception.reasons]
+        self.assertIn("mandatory_terminal_field_missing", codes)
+        fields = ctx.exception.reasons[codes.index("mandatory_terminal_field_missing")]["fields"]
+        self.assertEqual(fields, ["adjudicated_at_tic", "landing_kind"])
+
+    def test_verdict_write_waive_flag_is_audited_escape(self):
+        """The waive valve passes the same shape, visibly (stderr notice is the audit)."""
+        write_queue(self.q, [envelope_row(status="promotable")])
+        report = qlw.lifecycle_writeback(
+            CPR_ID, {"status": "promoted", "review_verdict": "PROMOTE"},
+            queue_path=self.q, review_tic=683, emit_only=True,
+            waive_required_fields=("adjudicated_at_tic", "landing_kind"))
+        self.assertEqual(report["row"]["status"], "promoted")
 
     def test_prior_row_present_is_accepted(self):
         write_queue(self.q, [envelope_row()])
@@ -759,13 +784,16 @@ class TestRecompileClockDecoupledFromVerdict(_RecompileZone):
                          "--current-tic is a clock, not a row write")
 
     def test_legacy_review_tic_only_call_recompiles_identically(self):
-        """(b) Every existing review-execute call site is byte-for-byte unchanged: the
-        verdict tic is still the clock AND still merges onto the row as `review_tic`."""
+        """(b) The verdict tic is still the clock AND still merges onto the row as
+        `review_tic`. AMENDED /review 765 Q2: a verdict-class write now owes the ruled
+        terminal set (VERDICT_REQUIRED_FIELDS) — skipped requires adjudicated_at_tic —
+        so the legacy bare shape is intentionally no longer byte-identical."""
         write_queue(self.q, [envelope_row(status="promotable")])
         self.write_tic_log(999)
         rc, out, err = self.run_cli(
             "--cpr-id", CPR_ID, "--queue-path", str(self.q),
             "--writer", "review-execute", "--review-tic", "683",
+            "--lifecycle-json", '{"adjudicated_at_tic": 683}',
             "--set", "status=skipped", "--set", "review_verdict=SKIP")
 
         self.assertEqual(rc, 0)

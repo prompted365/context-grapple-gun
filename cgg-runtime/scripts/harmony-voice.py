@@ -421,7 +421,10 @@ def scan_prior_fallback_families(current_tic: int) -> dict[str, Any]:
     """
     out = {"infrastructure_streak": 0, "admission_gate_count": 0,
            "admission_gate_tics": [], "infrastructure_count": 0,
-           "infrastructure_tics": [], "window_scanned": 0}
+           "infrastructure_tics": [], "window_scanned": 0,
+           # distinct-tic unit tracked explicitly beside the walk count
+           # (RATE-COHERENCE clause, /review 765 Q1 — cpr_mogul_harmony_invoke_0d09b749ba9a)
+           "window_distinct_tics": 0}
     tics: list[int] = []
     try:
         for p in HARMONY_DIR.glob("disposition-tic-*.json"):
@@ -440,6 +443,11 @@ def scan_prior_fallback_families(current_tic: int) -> dict[str, Any]:
         if not isinstance(v, dict):
             break  # pre-voice era — honest stop
         out["window_scanned"] += 1
+        # one disposition file per tic in this walk, so the increment coincides
+        # with window_scanned TODAY — the key exists so the TIC unit is a
+        # declared, separately-published term, never inferred from the run count
+        # (RATE-COHERENCE clause, /review 765 Q1)
+        out["window_distinct_tics"] += 1
         if v.get("voice_source") == "template_fallback":
             family = fallback_reason_family(v.get("fallback_reason"))
             if family == "infrastructure" and infra_run_live:
@@ -560,6 +568,17 @@ def apply_fallback_counter(voice: dict[str, Any], current_tic: int) -> dict[str,
         # named here so a reader attributes the 50-vs-51 delta to the emitter, never the tic.
         "window_scanned_prior": prior["window_scanned"],
         "window_runs_including_current": prior["window_scanned"] + 1,
+        # /review 765 Q1 (cpr_mogul_harmony_invoke_0d09b749ba9a -> the RATE-COHERENCE
+        # clause of the re-derivability axis on #artifact-language): a ratio's two terms
+        # must share ONE declared unit, or both terms ride in both units as SEPARATE
+        # keys, never pre-divided. prior_refusal_tics is DISTINCT TICS while the
+        # window_* pair above counts RUNS — the distinct-tic window terms now ride
+        # beside the run counts so a consumer can form tics/tics or runs/runs and can
+        # never form the mixed '5/51'. Additive keys only; the genuine_zero_streak
+        # cure shape copied, not invented. current_tic is strictly greater than every
+        # walked prior tic, so including-current is exactly prior + 1.
+        "window_distinct_tics_prior": prior.get("window_distinct_tics", 0),
+        "window_distinct_tics_including_current": prior.get("window_distinct_tics", 0) + 1,
     }
     if fired:
         print(
