@@ -203,7 +203,7 @@ Present the docket as an **in-tic ratification question set** via AskUserQuestio
 Mechanics:
 - One question per docket item, grouped in rounds of ≤4 (Section A/B triage first when present, then Section C CogPRs, then any decision items).
 - Each question carries the strike recommendation FIRST (label suffixed "(Recommended)"), with the standard verdict options (PROMOTE | SKIP | MODIFY | MERGE | DEFER | SUPERSEDE; ACKNOWLEDGE | DISMISS | ESCALATE for warrants). Strike-before-recommend: give a real verdict with confidence — never a crouched option list.
-- Items with no verdict owed (held-to-schedule, no-action holds) are REPORTED in the docket text, not asked.
+- Items with no verdict owed (held-to-schedule, no-action holds) are REPORTED in the docket text, not asked — and every reported hold must NAME its prong under the three-prong HOLD law (1 unapproved real-world effect | 2 human signature required | 3 non-engineering-rectifiable dependency; exhaustive — Architect-directed t765, reasserted t767; law: `audit-logs/governance/hold-definition-redefinition-tic765.md`). A "hold" with no prong is not a hold — it is WORK: fix in-lane, or stage it as a signable question in THIS round (prong-2 items are staged for signature NOW; prong-3 items carry a TYPED predicate and fire the instant it turns true).
 - The three-section structure below is the CONTENT shape the questions draw from:
 
 ```markdown

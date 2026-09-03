@@ -1187,7 +1187,12 @@ def compile_fragments(zone_root: Path, office: str, tic: int,
                 f"/review {review_due} {due_word} — extract+adjudicate born candidates{hold_txt}",
                 "YOURS",
                 "your active /review obligation — act on it, but the named holds are constraints "
-                "you may not collapse", gated=True))
+                "you may not collapse. A hold is lawful ONLY under the three-prong HOLD law "
+                "(1 unapproved real-world effect | 2 human signature | 3 non-engineering-rectifiable "
+                "dependency — exhaustive; Architect t765, reasserted t767; law: "
+                "audit-logs/governance/hold-definition-redefinition-tic765.md): an engineering-solvable "
+                "dependency is never a hold — fix in-lane or stage for signature NOW; prong-3 carries "
+                "a typed predicate", gated=True))
     except Exception:
         pass
 

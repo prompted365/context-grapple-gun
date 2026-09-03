@@ -513,7 +513,7 @@ The Session Projection is the primary activation payload of the handoff. It answ
 **Authoring rules:**
 - Active Roadmap Goals persist across handoffs until explicitly completed or deferred. They are NOT dropped when a session ends without touching them.
 - Production Next Actions are the session's real work queue. Governance chores (mandate consumption, signal scans) go in the separate Governance Next Actions section.
-- Deferred Goals carry a re-evaluation tic. When `current_tic >= re_eval_tic`, the goal resurfaces to Active.
+- Deferred Goals carry a re-evaluation tic. When `current_tic >= re_eval_tic`, the goal resurfaces to Active. A deferral (and ANY "held/parked/standing hold" written into a handoff) must NAME its prong under the three-prong HOLD law (1 unapproved real-world effect | 2 human signature required | 3 non-engineering-rectifiable dependency; exhaustive — Architect t765, reasserted t767; law: `audit-logs/governance/hold-definition-redefinition-tic765.md`). An engineering-solvable dependency is NEVER deferred as a hold — it stays Active/strike-ready; prong-2 items are staged for signature NOW, prong-3 items carry a TYPED predicate. The handoff CARRIES the law; it is not its home — the governed sources above rule.
 - The projection section is positioned BEFORE governance sections in the handoff to establish priority — the grapple fires first, the sidecar follows.
 - When the prior handoff included a Session Projection, carry forward its Active Roadmap Goals verbatim unless status changed. Do not silently drop goals.
 
