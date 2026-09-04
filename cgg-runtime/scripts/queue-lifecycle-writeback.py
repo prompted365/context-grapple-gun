@@ -525,13 +525,27 @@ def build_lifecycle_row(prior_row, lifecycle, review_tic=None, writer=None,
         raise LifecycleWritebackRefused(reasons)
 
     # Required-set check — the mandatory-at-doctrine set enforced at the write
-    # boundary (/review 765 Q2; VERDICT_REQUIRED_FIELDS above). Fires only on a
-    # verdict-class write (review_verdict present) that sets a terminal status
-    # THIS call; a field already populated on the prior row satisfies it (a
-    # repair may restate rather than re-supply).
-    if "review_verdict" in lifecycle:
-        v_status = lifecycle.get("status")
+    # boundary (/review 765 Q2; VERDICT_REQUIRED_FIELDS above). Arms on EITHER
+    # trigger: a verdict-class write (review_verdict present), OR a write that
+    # SETS a verdict-class terminal status this call — the A1-772 cure (/review
+    # 772 round 2 Q7): arming on review_verdict's presence alone let a caller
+    # disarm the guard by omitting a member of the very set it guards (NC-pair
+    # proven at the t772 stepper walk; the /review-771 writebacks dropped six
+    # previously-stamped fields 9/9→0/3). A status-transition arm additionally
+    # requires review_verdict itself. A field already populated on the prior
+    # row satisfies it (a repair may restate rather than re-supply).
+    # `absorbed` is deliberately EXCLUDED from the transition arm: the
+    # verify-twin / stub-absorb family (t689, absorbed_reason/absorbed_tic/
+    # absorbed_by, no escape hatch) is a RULED non-verdict landing shape, so
+    # absorbed arms only via review_verdict presence as before.
+    v_status = lifecycle.get("status")
+    verdict_status_set_this_call = (
+        v_status in ("promoted", "skipped", "rejected")
+        and v_status != prior_status_now)
+    if "review_verdict" in lifecycle or verdict_status_set_this_call:
         required = VERDICT_REQUIRED_FIELDS.get(v_status, ())
+        if verdict_status_set_this_call:
+            required = tuple(required) + ("review_verdict",)
         waived = set(waive_required_fields or ())
         for f in sorted(waived & set(required)):
             if f not in lifecycle and prior_row.get(f) is None:

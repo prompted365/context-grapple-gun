@@ -298,6 +298,45 @@ class TestRefusals(_TmpQueue):
             waive_required_fields=("adjudicated_at_tic", "landing_kind"))
         self.assertEqual(report["row"]["status"], "promoted")
 
+    def test_promote_status_without_review_verdict_is_refused(self):
+        """A1-772 NC pair, probe A (/review 772 round 2 Q7): before the cure, a write
+        SETTING a verdict-class terminal status while OMITTING review_verdict slipped
+        the required-set check entirely — the guard was disarmed by omitting a member
+        of the very set it guards (proven rc=0 at the t772 stepper walk; the
+        /review-771 writebacks dropped six previously-stamped fields 9/9→0/3 this
+        way). The cure arms on the status transition itself and additionally
+        requires review_verdict. Reverting the cure breaks this test."""
+        write_queue(self.q, [envelope_row(status="promotable")])
+        with self.assertRaises(qlw.LifecycleWritebackRefused) as ctx:
+            qlw.lifecycle_writeback(
+                CPR_ID, {"status": "promoted"},
+                queue_path=self.q, review_tic=772, emit_only=True)
+        codes = [r["code"] for r in ctx.exception.reasons]
+        self.assertIn("mandatory_terminal_field_missing", codes)
+        fields = ctx.exception.reasons[codes.index("mandatory_terminal_field_missing")]["fields"]
+        self.assertEqual(fields,
+                         ["adjudicated_at_tic", "landing_kind", "review_verdict"])
+
+    def test_non_status_write_on_terminal_row_does_not_arm_required_set(self):
+        """A1-772 no-false-arming control: a lifecycle write that does NOT set status
+        (e.g. a pending_class retirement on a terminal row, the /review-772 Q3 shape)
+        must not trip the verdict required-set check."""
+        write_queue(self.q, [envelope_row(status="promoted")])
+        report = qlw.lifecycle_writeback(
+            CPR_ID, {"pending_class": None},
+            queue_path=self.q, review_tic=772, emit_only=True)
+        self.assertEqual(report["row"]["status"], "promoted")
+
+    def test_terminal_status_restatement_does_not_arm_required_set(self):
+        """A1-772 no-false-arming control: restating an UNCHANGED verdict-class
+        terminal status without review_verdict is a repair-class write, not a verdict
+        landing — the transition arm must not fire (v_status == prior status)."""
+        write_queue(self.q, [envelope_row(status="promoted")])
+        report = qlw.lifecycle_writeback(
+            CPR_ID, {"status": "promoted", "review_confidence": 0.9},
+            queue_path=self.q, review_tic=772, emit_only=True)
+        self.assertEqual(report["row"]["status"], "promoted")
+
     def test_top_level_stamp_mirrors_nested_on_repair_write(self):
         """A1-765 cure: a writeback over an already-written row must not carry the
         PRIOR write's top-level updated_at/prior_status while the nested stamp gets
@@ -364,7 +403,7 @@ class TestRefusals(_TmpQueue):
 
     def test_prior_row_present_is_accepted(self):
         write_queue(self.q, [envelope_row()])
-        report = qlw.lifecycle_writeback(CPR_ID, {"status": "skipped"},
+        report = qlw.lifecycle_writeback(CPR_ID, {"status": "skipped", "review_verdict": "SKIP", "adjudicated_at_tic": 1},
                                          queue_path=self.q, emit_only=True)
         self.assertEqual(report["row"]["status"], "skipped")
 
@@ -380,7 +419,7 @@ class TestRefusals(_TmpQueue):
         write_queue(self.q, [envelope_row()])
         with self.assertRaises(qlw.LifecycleWritebackRefused) as ctx:
             qlw.lifecycle_writeback(
-                CPR_ID, {"status": "skipped", "lesson": "rewritten"}, queue_path=self.q)
+                CPR_ID, {"status": "skipped", "lesson": "rewritten", "review_verdict": "SKIP", "adjudicated_at_tic": 1}, queue_path=self.q)
         codes = {r["code"] for r in ctx.exception.reasons}
         self.assertIn("envelope_protected_field", codes)
         self.assertEqual(len(self.rows()), 1, "refusal must not write")
@@ -388,13 +427,13 @@ class TestRefusals(_TmpQueue):
     def test_undeclared_field_is_refused_then_allowed_with_flag(self):
         write_queue(self.q, [envelope_row()])
         with self.assertRaises(qlw.LifecycleWritebackRefused) as ctx:
-            qlw.lifecycle_writeback(CPR_ID, {"status": "skipped", "wat": 1},
+            qlw.lifecycle_writeback(CPR_ID, {"status": "skipped", "wat": 1, "review_verdict": "SKIP", "adjudicated_at_tic": 1},
                                     queue_path=self.q)
         self.assertIn("undeclared_lifecycle_field",
                       {r["code"] for r in ctx.exception.reasons})
         # other arm: the audited escape hatch admits it
         report = qlw.lifecycle_writeback(
-            CPR_ID, {"status": "skipped", "wat": 1}, queue_path=self.q,
+            CPR_ID, {"status": "skipped", "wat": 1, "review_verdict": "SKIP", "adjudicated_at_tic": 1}, queue_path=self.q,
             allow_fields=["wat"], emit_only=True)
         self.assertEqual(report["row"]["wat"], 1)
 
@@ -419,13 +458,13 @@ class TestRefusals(_TmpQueue):
         write_queue(self.q, [envelope_row()])
         with self.assertRaises(qlw.LifecycleWritebackRefused) as ctx:
             qlw.lifecycle_writeback(
-                CPR_ID, {"status": "skipped", "lesson": "x", "wat": 1},
+                CPR_ID, {"status": "skipped", "lesson": "x", "wat": 1, "review_verdict": "SKIP", "adjudicated_at_tic": 1},
                 queue_path=self.q)
         self.assertEqual(len(ctx.exception.reasons), 2)
 
     def test_unresolvable_queue_is_refused(self):
         with self.assertRaises(qlw.LifecycleWritebackRefused) as ctx:
-            qlw.lifecycle_writeback(CPR_ID, {"status": "skipped"},
+            qlw.lifecycle_writeback(CPR_ID, {"status": "skipped", "review_verdict": "SKIP", "adjudicated_at_tic": 1},
                                     queue_path=self.dir / "absent.jsonl")
         self.assertEqual(ctx.exception.reasons[0]["code"], "queue_unresolved")
 
@@ -464,26 +503,26 @@ class TestMergeSemantics(_TmpQueue):
     def test_caller_prior_status_wins(self):
         write_queue(self.q, [envelope_row(status="tic_gated")])
         r = qlw.lifecycle_writeback(
-            CPR_ID, {"status": "skipped", "prior_status": "explicit"},
+            CPR_ID, {"status": "skipped", "prior_status": "explicit", "review_verdict": "SKIP", "adjudicated_at_tic": 1},
             queue_path=self.q, emit_only=True)
         self.assertEqual(r["row"]["prior_status"], "explicit")
 
     def test_review_tic_merged_when_absent(self):
         write_queue(self.q, [envelope_row()])
-        r = qlw.lifecycle_writeback(CPR_ID, {"status": "skipped"}, queue_path=self.q,
+        r = qlw.lifecycle_writeback(CPR_ID, {"status": "skipped", "review_verdict": "SKIP", "adjudicated_at_tic": 1}, queue_path=self.q,
                                     review_tic=683, emit_only=True)
         self.assertEqual(r["row"]["review_tic"], 683)
 
     def test_caller_review_tic_in_payload_wins(self):
         write_queue(self.q, [envelope_row()])
-        r = qlw.lifecycle_writeback(CPR_ID, {"status": "skipped", "review_tic": 999},
+        r = qlw.lifecycle_writeback(CPR_ID, {"status": "skipped", "review_tic": 999, "review_verdict": "SKIP", "adjudicated_at_tic": 1},
                                     queue_path=self.q, review_tic=683, emit_only=True)
         self.assertEqual(r["row"]["review_tic"], 999)
 
     def test_dry_run_writes_nothing(self):
         write_queue(self.q, [envelope_row()])
         before = self.q.read_text(encoding="utf-8")
-        qlw.lifecycle_writeback(CPR_ID, {"status": "skipped"}, queue_path=self.q,
+        qlw.lifecycle_writeback(CPR_ID, {"status": "skipped", "review_verdict": "SKIP", "adjudicated_at_tic": 1}, queue_path=self.q,
                                 dry_run=True)
         self.assertEqual(self.q.read_text(encoding="utf-8"), before)
 
@@ -523,13 +562,13 @@ class TestQueueReading(_TmpQueue):
         gap = qlw.history_field_gap(self.q, CPR_ID)
         for field in DROPPED_AT_682:
             self.assertIn(field, gap)
-        report = qlw.lifecycle_writeback(CPR_ID, {"status": "skipped"},
+        report = qlw.lifecycle_writeback(CPR_ID, {"status": "skipped", "review_verdict": "SKIP", "adjudicated_at_tic": 1},
                                          queue_path=self.q, emit_only=True)
         self.assertTrue(report["summary"]["history_field_gap"])
 
     def test_append_uses_atomic_append_script(self):
         write_queue(self.q, [envelope_row()])
-        r = qlw.lifecycle_writeback(CPR_ID, {"status": "skipped"}, queue_path=self.q)
+        r = qlw.lifecycle_writeback(CPR_ID, {"status": "skipped", "review_verdict": "SKIP", "adjudicated_at_tic": 1}, queue_path=self.q)
         self.assertEqual(r["summary"]["append_via"], "atomic-append.sh")
         self.assertEqual(len(self.rows()), 2)
 
@@ -538,7 +577,7 @@ class TestQueueReading(_TmpQueue):
         does. Both arms must produce a parseable JSONL file."""
         self.q.write_text(json.dumps(envelope_row(), separators=(",", ":")),
                           encoding="utf-8")  # NO trailing newline
-        r = qlw.lifecycle_writeback(CPR_ID, {"status": "skipped"}, queue_path=self.q)
+        r = qlw.lifecycle_writeback(CPR_ID, {"status": "skipped", "review_verdict": "SKIP", "adjudicated_at_tic": 1}, queue_path=self.q)
         self.assertEqual(r["summary"]["append_via"], "flock-inprocess")
         rows = self.rows()
         self.assertEqual(len(rows), 2)
@@ -996,14 +1035,15 @@ def test_restated_field_is_not_a_mutation_tic744():
     prior = {"id": "cpr_x", "status": "extracted", "lesson": "L", "source": "s", "birth_tic": 741,
              "review_tic": 744, "subsystem": "t"}
     row, report = qlw.build_lifecycle_row(
-        prior, {"status": "promoted", "review_tic": 744, "adjudicated_at_tic": 744},
+        prior, {"status": "promoted", "review_tic": 744, "adjudicated_at_tic": 744,
+         "review_verdict": "PROMOTE", "landing_kind": "refinement_ray"},
         writer="test", now="2026-08-27T00:00:00+00:00")
     lw = row["lifecycle_writeback"]
     assert "review_tic" not in lw["mutated_fields"], lw
     assert lw["restated_fields"] == ["review_tic"], lw
     # amended /review 746 (A3-746): the ROW stamp now splits ADDED from MUTATED too
     assert lw["mutated_fields"] == ["status"], lw
-    assert lw["added_fields"] == ["adjudicated_at_tic"], lw
+    assert lw["added_fields"] == sorted(["adjudicated_at_tic", "landing_kind", "review_verdict"]), lw
     assert report["restated_fields"] == ["review_tic"]
     assert report["mutated_fields"] == ["status"]              # among pre-existing keys
     assert "adjudicated_at_tic" in report["added_fields"]

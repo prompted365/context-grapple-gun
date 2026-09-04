@@ -254,7 +254,8 @@ class TestArm1OffTableIntroductionRefused(_TmpQueue):
         write_queue(self.q, [envelope_row(status="promotable")])
         with self.assertRaises(qlw.LifecycleWritebackRefused) as ctx:
             qlw.lifecycle_writeback(
-                CPR_ID, {"status": "promoted",
+                CPR_ID, {"status": "promoted", "review_verdict": "PROMOTE",
+                         "adjudicated_at_tic": 1,
                          "pending_class": OFF_TABLE_PENDING_CLASS,
                          "landing_kind": OFF_TABLE_LANDING_KIND},
                 queue_path=self.q, writer="test", emit_only=True)
@@ -324,7 +325,8 @@ class TestArm2WaiveAdmitsWithAuditStamp(_TmpQueue):
         write_queue(self.q, [envelope_row(status="promotable")])
         with self.assertRaises(qlw.LifecycleWritebackRefused) as ctx:
             qlw.lifecycle_writeback(
-                CPR_ID, {"status": "promoted",
+                CPR_ID, {"status": "promoted", "review_verdict": "PROMOTE",
+                         "adjudicated_at_tic": 1,
                          "pending_class": OFF_TABLE_PENDING_CLASS,
                          "landing_kind": OFF_TABLE_LANDING_KIND},
                 queue_path=self.q, writer="test", emit_only=True,
