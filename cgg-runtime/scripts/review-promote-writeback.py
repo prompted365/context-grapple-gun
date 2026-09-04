@@ -810,16 +810,255 @@ def stamp_reinforced_by(ledger_path, target_anchor, reinforced_by, source, tic,
             "breadcrumb": breadcrumb.strip()}
 
 
+# ---------------------------------------------------------------------------
+# LANDING-KIND-KEYED REINFORCE TRIGGER (bk-reinforced-by-stamper-trigger-never-keyed,
+# B2 wave 7 row B, /review 768 re-scope → /review 769 signature).
+#
+# `stamp_reinforced_by` above has been BUILT and LIVE since tic 377, but its only
+# TRIGGER was a hand-typed CLI flag (`--reinforce-target-anchor`): nothing in the
+# runtime ever read `landing_kind` and armed it. A `reinforce_existing` landing
+# therefore depended on a human remembering the flag — discipline, not mechanism.
+# That is the conductor-score-runtime parity shape: the doctrine (cpr-stepper.md
+# "Reinforcement must be VISIBLE", Drift-1 tic 377) mandates the stamp; the runtime
+# required a person to type it.
+#
+# THE KEYING: resolve the row's `landing_kind` from the queue (latest-per-id) and arm
+# the stamper when that value is in the REINFORCE FAMILY.
+#
+# ENGINE-CONTENT SEPARATION (federation KI): family MEMBERSHIP is not hardcoded here.
+# It is READ from `contracts/landing-kind-enum-v1.json` — the enum values whose own
+# contract text mandates a `reinforced_by` breadcrumb. `landing_kind` is OPEN-BY-/review
+# (a value is minted by a VERDICT, never by a writer), so this trigger READS the
+# vocabulary and MINTS nothing: when /review accretes a ninth value that mandates the
+# stamp, the family grows with the contract and this engine is unchanged.
+#
+# FAIL-CLOSED at every unresolved edge — an unreadable contract, an absent landing_kind,
+# an off-family value, an `absorbed_into` naming another CogPR rather than a doctrine
+# anchor, or an unresolvable ledger surface all leave the trigger DISARMED with a typed
+# reason. A doctrine-surface write is never armed by a guess.
+#
+# ⚠ DOES-NOT-SATISFY RIDER (reproduced verbatim in the test suite and the cable receipt):
+#   This keying does NOT by itself make a live reinforce landing fire the stamper
+#   end-to-end: the tic-481 physics boundary (`lib/atomic-append.sh:43-45`) requires a
+#   TRUTHY `promoted_to` before it invokes this script, and 0 of the 14 latest-per-id
+#   `reinforce_existing` rows carry one (all 14 carry `absorbed_into`; measured tic 769).
+#   Reaching that boundary is an OWED MOTION outside this increment's fence. Nor does
+#   this keying retro-stamp: NO backfill sweep ran (a separate later receipted motion).
+# ---------------------------------------------------------------------------
+
+_LANDING_KIND_CONTRACT_REL = os.path.join("contracts", "landing-kind-enum-v1.json")
+
+# The family predicate: an enum value belongs to the REINFORCE FAMILY when the
+# contract's own description of it mandates stamping a reinforced_by breadcrumb.
+# Read from the content surface, never enumerated in this engine.
+_REINFORCE_MANDATE_RE = re.compile(
+    r"stamp\s+a\s+`?reinforced_by`?\s+breadcrumb", re.IGNORECASE)
+
+
+def _default_landing_kind_contract():
+    """Walk up from this script to the cgg-runtime root and return
+    contracts/landing-kind-enum-v1.json, or None. Mirrors _default_queue's walk-up so
+    the forge copy and the installed copy both resolve."""
+    here = Path(os.path.abspath(__file__)).parent
+    for d in [here, *here.parents]:
+        cand = d / _LANDING_KIND_CONTRACT_REL
+        if cand.is_file():
+            return cand
+    return None
+
+
+def resolve_reinforce_landing_kinds(contract_path=None):
+    """Return (frozenset_of_landing_kind_values, provenance_dict) for the REINFORCE FAMILY.
+
+    READS `landing-kind-enum-v1.json`; MINTS nothing. Membership = the enum entries whose
+    contract description mandates a `reinforced_by` breadcrumb. FAIL-CLOSED: a missing,
+    unreadable, or malformed contract returns an EMPTY set (the trigger then never arms —
+    an unreadable vocabulary may not authorize a doctrine-surface write)."""
+    cpath = Path(contract_path) if contract_path else _default_landing_kind_contract()
+    prov = {"contract": str(cpath) if cpath else None, "schema_version": None,
+            "resolved": False, "reason": None}
+    if cpath is None or not Path(cpath).is_file():
+        prov["reason"] = "landing_kind_contract_not_found"
+        return frozenset(), prov
+    try:
+        doc = json.loads(Path(cpath).read_text(encoding="utf-8"))
+    except (OSError, UnicodeDecodeError, json.JSONDecodeError) as exc:
+        prov["reason"] = f"landing_kind_contract_unreadable: {exc}"
+        return frozenset(), prov
+    enum = doc.get("enum")
+    if not isinstance(enum, dict):
+        prov["reason"] = "landing_kind_contract_has_no_enum_map"
+        return frozenset(), prov
+    prov["schema_version"] = doc.get("schema_version")
+    fam = frozenset(
+        k for k, v in enum.items()
+        if isinstance(v, str) and _REINFORCE_MANDATE_RE.search(v)
+    )
+    prov["resolved"] = True
+    if not fam:
+        prov["reason"] = "no_enum_value_mandates_a_reinforced_by_stamp"
+    return fam, prov
+
+
+def resolve_landing_row(cpr_id, queue_path=None):
+    """Return the LATEST queue row for cpr_id, or None.
+
+    Latest-per-id is the queue's declared read law (terminal-valve projection): a row's
+    landing_kind can be RE-TYPED by a later verdict (the A1-767 refinement_tail ->
+    refinement_ray re-type is the live precedent), so the trigger must read the current
+    row, never the first or an arbitrary historical one."""
+    qpath = Path(queue_path) if queue_path else _default_queue()
+    if qpath is None or not Path(qpath).is_file():
+        return None
+    latest = None
+    try:
+        for line in Path(qpath).read_text(encoding="utf-8").splitlines():
+            line = line.strip()
+            if not line or cpr_id not in line:  # cheap pre-filter on the large queue
+                continue
+            try:
+                row = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            if row.get("id") == cpr_id:
+                latest = row
+    except OSError:
+        return None
+    return latest
+
+
+def resolve_reinforce_target(absorbed_into, project_dir=None, ledger_override=None):
+    """Resolve an absorbed row's `absorbed_into` to a (ledger_path, anchor) stamp target.
+
+    Returns (ledger_path_or_None, anchor_or_None, typed_reason). FAIL-CLOSED — every
+    shape that does not unambiguously name a doctrine entry disarms the trigger:
+      - absent/blank                      -> absorbed_into_missing
+      - a bare `cpr_…` id (absorbed into  -> absorbed_into_names_cogpr_not_doctrine_anchor
+        ANOTHER CogPR, not doctrine)
+      - no `#anchor` fragment             -> absorbed_into_names_no_anchor
+      - a surface that does not resolve   -> reinforce_target_surface_unresolved
+    A bare `ledger.md#anchor` (no directory) resolves to the default federation
+    constitution-ledger; `stamp_reinforced_by` then fails LOUD if the anchor is not there.
+    """
+    if not absorbed_into or not str(absorbed_into).strip():
+        return None, None, "absorbed_into_missing"
+    s = str(absorbed_into).strip()
+    if "#" not in s:
+        if s.startswith("cpr"):
+            return None, None, "absorbed_into_names_cogpr_not_doctrine_anchor"
+        return None, None, "absorbed_into_names_no_anchor"
+    surface, _, anchor = s.partition("#")
+    surface, anchor = surface.strip(), anchor.strip()
+    if not anchor:
+        return None, None, "absorbed_into_names_no_anchor"
+
+    if ledger_override:
+        return str(ledger_override), anchor, "resolved_by_override"
+    if (not surface) or (os.path.basename(surface) == "ledger.md"
+                         and "/" not in surface):
+        default = _default_federation_ledger()
+        if not default:
+            return None, anchor, "reinforce_target_surface_unresolved"
+        return default, anchor, "resolved_to_default_federation_ledger"
+
+    cand = None
+    if surface.startswith("~"):
+        cand = Path(os.path.expanduser(surface))
+    elif os.path.isabs(surface):
+        cand = Path(surface)
+    else:
+        root = _resolve_zone_root_for_specs(project_dir)
+        if root is not None:
+            p = root / surface
+            if p.is_file():
+                cand = p
+            else:
+                parts = surface.replace("\\", "/").split("/")
+                if parts and parts[0] == root.name:
+                    p2 = root / "/".join(parts[1:])
+                    if p2.is_file():
+                        cand = p2
+    if cand is None or not Path(cand).is_file():
+        return None, anchor, "reinforce_target_surface_unresolved"
+    return str(cand), anchor, "resolved_from_absorbed_into_surface"
+
+
+def resolve_reinforce_trigger(cpr_id, queue_path=None, contract_path=None, row=None,
+                              project_dir=None, ledger_override=None):
+    """THE KEYING. Decide whether cpr_id's landing arms the reinforced_by stamper.
+
+    Reads the row's `landing_kind` (latest-per-id) and the REINFORCE FAMILY (from the
+    landing-kind contract), and arms ONLY when the value is in the family AND the row's
+    `absorbed_into` resolves to a real doctrine (ledger, anchor) pair. Returns a typed
+    dict; `armed` is never True without a resolved ledger AND anchor."""
+    family, prov = resolve_reinforce_landing_kinds(contract_path=contract_path)
+    out = {
+        "armed": False, "cpr_id": cpr_id, "landing_kind": None,
+        "reinforce_family": sorted(family), "family_provenance": prov,
+        "ledger": None, "target_anchor": None, "reason": None,
+    }
+    if not family:
+        out["reason"] = f"reinforce_family_unresolved_fail_closed ({prov.get('reason')})"
+        return out
+    if row is None:
+        row = resolve_landing_row(cpr_id, queue_path=queue_path)
+    if row is None:
+        out["reason"] = "queue_row_not_resolved"
+        return out
+    lk = row.get("landing_kind")
+    out["landing_kind"] = lk
+    if not lk:
+        out["reason"] = "no_landing_kind_on_row"
+        return out
+    if lk not in family:
+        out["reason"] = "landing_kind_not_in_reinforce_family"
+        return out
+    ledger, anchor, why = resolve_reinforce_target(
+        row.get("absorbed_into"), project_dir=project_dir,
+        ledger_override=ledger_override)
+    out["ledger"], out["target_anchor"], out["reason"] = ledger, anchor, why
+    out["armed"] = bool(ledger and anchor)
+    return out
+
+
+def fire_reinforce_trigger(cpr_id, review_tic, queue_path=None, contract_path=None,
+                           row=None, project_dir=None, ledger_override=None,
+                           source=None, dry_run=False):
+    """Resolve the keyed trigger and, when armed, fire `stamp_reinforced_by`.
+
+    Returns {"trigger": <typed trigger dict>, "stamp": <stamp action or None>}. The stamp
+    itself stays idempotent (a re-fire on an already-stamped entry is a no-op), so this is
+    safe to call on every writeback."""
+    trigger = resolve_reinforce_trigger(
+        cpr_id, queue_path=queue_path, contract_path=contract_path, row=row,
+        project_dir=project_dir, ledger_override=ledger_override)
+    if not trigger["armed"]:
+        return {"trigger": trigger, "stamp": None}
+    src = source or f"up-lane landing_kind={trigger['landing_kind']}"
+    action = stamp_reinforced_by(
+        trigger["ledger"], trigger["target_anchor"], cpr_id, src, review_tic,
+        dry_run=dry_run)
+    return {"trigger": trigger, "stamp": action}
+
+
 def writeback(cpr_id, promoted_to, review_tic, status="promoted",
               birth_tic=None, source=None, dry_run=False, search_dir=None,
               queue_path=None, resolve_aliases=None, scan_borns=None, borns_dir=None,
-              project_dir=None):
-    """Run both writeback halves for one promoted CogPR. Returns a report dict.
+              project_dir=None, reinforce_trigger=None, contract_path=None,
+              reinforce_ledger=None):
+    """Run the writeback halves for one promoted CogPR. Returns a report dict.
 
     Resolves a tolerant id-set + content-identity hash from the queue before the inline
     flip so an id-form-divergent / id-less block is still found. Hermetic-test default:
     when a `search_dir` override is in play and no `queue_path` is given, queue resolution
-    is skipped (id_set = {cpr_id}); production (search_dir=None) resolves the default queue."""
+    is skipped (id_set = {cpr_id}); production (search_dir=None) resolves the default queue.
+
+    THIRD HALF (bk-reinforced-by-stamper-trigger-never-keyed): the LANDING-KIND-KEYED
+    reinforce trigger. When the row's `landing_kind` is in the REINFORCE FAMILY read from
+    the landing-kind contract, `stamp_reinforced_by` fires WITHOUT a hand-typed flag.
+    `reinforce_trigger=False` disarms it; None inherits the keying. It shares the queue
+    resolution gate above — with no queue reachable there is no landing_kind to read, so
+    the trigger stays fail-closed (and every pre-existing hermetic caller is unaffected)."""
     birth_tic = _parse_birth_tic(cpr_id, birth_tic)
     if resolve_aliases is None:
         resolve_aliases = not (search_dir is not None and queue_path is None)
@@ -835,6 +1074,23 @@ def writeback(cpr_id, promoted_to, review_tic, status="promoted",
     breadcrumb = stamp_breadcrumb(cpr_id, promoted_to, birth_tic, review_tic,
                                   source, dry_run=dry_run, am_dir=search_dir,
                                   project_dir=project_dir)
+
+    # --- THE LANDING-KIND-KEYED REINFORCE TRIGGER (third half) ---
+    trigger_enabled = True if reinforce_trigger is None else bool(reinforce_trigger)
+    if not trigger_enabled:
+        reinforce = {"trigger": {"armed": False, "cpr_id": cpr_id,
+                                 "reason": "reinforce_trigger_disabled_by_caller"},
+                     "stamp": None}
+    elif not resolve_aliases:
+        # No queue reachable (hermetic default) -> no landing_kind to read. Fail-closed.
+        reinforce = {"trigger": {"armed": False, "cpr_id": cpr_id,
+                                 "reason": "queue_not_resolved_trigger_fail_closed"},
+                     "stamp": None}
+    else:
+        reinforce = fire_reinforce_trigger(
+            cpr_id, review_tic, queue_path=queue_path, contract_path=contract_path,
+            project_dir=project_dir, ledger_override=reinforce_ledger,
+            dry_run=dry_run)
 
     flipped = sum(1 for a in inline if a.get("action") == "flip")
     # Born-home legibility: which surface a match landed on, and the effective gate state.
@@ -856,6 +1112,7 @@ def writeback(cpr_id, promoted_to, review_tic, status="promoted",
         "dry_run": dry_run,
         "inline_status_flip": inline,
         "breadcrumb_stamp": breadcrumb,
+        "reinforced_by_trigger": reinforce,
         "resolution": {
             "id_set": sorted(id_set),
             "dedup_hash": dedup_hash,
@@ -871,6 +1128,9 @@ def writeback(cpr_id, promoted_to, review_tic, status="promoted",
             "post_assert_flipped_eq_expected": flipped == expected,
             "expected_flips": expected,
             "id_divergence_bridged": matched_by_content > 0,
+            "reinforce_trigger_armed": bool(reinforce["trigger"].get("armed")),
+            "reinforce_trigger_reason": reinforce["trigger"].get("reason"),
+            "reinforce_stamp_action": (reinforce["stamp"] or {}).get("action"),
         },
     }
 
@@ -922,6 +1182,16 @@ def main():
                              "until /review ratifies cpr_borns_governance_home).")
     parser.add_argument("--borns-dir", default=None, dest="borns_dir",
                         help="Override the born home dir (test hook).")
+    # --- LANDING-KIND-KEYED reinforce trigger (bk-reinforced-by-stamper-trigger-never-keyed) ---
+    parser.add_argument("--no-reinforce-trigger", action="store_true",
+                        dest="no_reinforce_trigger",
+                        help="Disarm the landing_kind-keyed reinforce trigger. Absent -> "
+                             "the trigger is KEYED: a row whose landing_kind is in the "
+                             "REINFORCE FAMILY (read from contracts/landing-kind-enum-v1.json) "
+                             "fires stamp_reinforced_by without a hand-typed anchor flag.")
+    parser.add_argument("--landing-kind-contract", default=None, dest="contract_path",
+                        help="Override the landing-kind enum contract path (test hook). "
+                             "The trigger READS this vocabulary and mints no value.")
     parser.add_argument("--dry-run", action="store_true")
     parser.add_argument("--json", action="store_true", dest="output_json")
     args = parser.parse_args()
@@ -953,6 +1223,40 @@ def main():
                 print(f"  ({action.get('reason')})")
         return 0
 
+    # --- KEYED reinforced-by mode: no hand-typed anchor, no --promoted-to.
+    # An ABSORBED reinforce landing carries `absorbed_into`, never `promoted_to`, so a
+    # missing --promoted-to must NOT be a bare usage error before the keying is consulted:
+    # that argparse guard is precisely what kept an absorb-side landing from ever reaching
+    # the stamper. Resolve the trigger from the row's landing_kind first; fire when armed.
+    # When it does not arm, the usage error now carries the TYPED reason (never a silent
+    # exit and never a bare "--promoted-to is required"). ---
+    if not args.promoted_to and not args.no_reinforce_trigger:
+        fired = fire_reinforce_trigger(
+            args.cpr_id, args.review_tic, queue_path=args.queue_path,
+            contract_path=args.contract_path, project_dir=args.project_dir,
+            ledger_override=args.reinforce_ledger, source=args.reinforce_source,
+            dry_run=args.dry_run)
+        trig, action = fired["trigger"], fired["stamp"]
+        if trig.get("armed"):
+            if args.output_json:
+                print(json.dumps(fired, indent=2))
+            else:
+                tag = " (dry-run)" if args.dry_run else ""
+                print(f"reinforced_by stamp{tag} [KEYED on landing_kind="
+                      f"{trig['landing_kind']}]: {action.get('action')} "
+                      f"→ {action.get('target_anchor')}")
+                if action.get("action") == "stamp":
+                    print(f"  {action['ledger']}:{action['insert_line']}")
+                    print(f"  {action['breadcrumb']}")
+                elif action.get("action") in ("noop", "error"):
+                    print(f"  ({action.get('reason')})")
+            return 0
+        parser.error(
+            "--promoted-to is required in promote mode; the landing_kind-keyed "
+            f"reinforce trigger did not arm for {args.cpr_id} "
+            f"(reason: {trig.get('reason')}; landing_kind={trig.get('landing_kind')!r}; "
+            f"reinforce_family={trig.get('reinforce_family')})")
+
     if not args.promoted_to:
         parser.error("--promoted-to is required in promote mode")
 
@@ -963,6 +1267,9 @@ def main():
         queue_path=args.queue_path,
         scan_borns=args.scan_borns, borns_dir=args.borns_dir,
         project_dir=args.project_dir,
+        reinforce_trigger=(False if args.no_reinforce_trigger else None),
+        contract_path=args.contract_path,
+        reinforce_ledger=args.reinforce_ledger,
     )
 
     s = report["summary"]
@@ -993,6 +1300,15 @@ def main():
         if s.get("id_divergence_bridged"):
             print(f"  ⚑ id-form divergence BRIDGED via content-hash "
                   f"({res['matched_by_content_hash']} block(s))")
+        # Keyed reinforce trigger trace — armed OR not, always legible (a silently
+        # un-armed trigger is the defect this row exists to close).
+        rtrig = report["reinforced_by_trigger"]["trigger"]
+        if s.get("reinforce_trigger_armed"):
+            print(f"  ⚑ reinforce trigger ARMED on landing_kind="
+                  f"{rtrig['landing_kind']} -> {s['reinforce_stamp_action']} "
+                  f"@ {rtrig['target_anchor']}")
+        else:
+            print(f"  reinforce trigger: not armed ({s['reinforce_trigger_reason']})")
 
     # Loud, non-silent guards (the handoff-named `flipped == expected` post-assert +
     # the resolution trace). A clean exit on 0-flip was the original silent no-op.

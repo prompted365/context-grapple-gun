@@ -2929,6 +2929,114 @@ def _find_prior_check_artifact(report_dir, current_filename, current_tic):
     return os.path.join(report_dir, newest), "newest_by_mtime"
 
 
+_SAME_TIC_OBS_NOTE = (
+    "ADDITIVE DECOMPOSITION of this block's own delta (/review 747 round 1 Q4, "
+    "cpr_mogul_review_close_check_9646fae378af, the SAME-TIC RE-OBSERVATION face; "
+    "built at /review 769 wave 7 row A, bk-close-check-same-tic-reobservation-delta-"
+    "decomposition). The baseline above is the previous PASS artifact from an EARLIER "
+    "TIC, because this run's own canonical artifact is deliberately excluded from "
+    "baseline selection. On a tic that fires twice (an entry fire and a close fire) "
+    "the delta above is therefore (earlier fire's movement + this fire's movement). "
+    "That earlier fire is a KNOWN, typed, same-artifact-lineage observation — not "
+    "unattributable drift — so it is NAMED here with its own delta: read "
+    "delta_*_since_prior_same_tic for THIS fire's movement alone. present=false means "
+    "this is the tic's FIRST fire and the delta above needs no decomposition. "
+    "STRICTLY ADDITIVE: no counter semantics move, no baseline is re-selected, and "
+    "every delta / flag / selector this block already published is unchanged."
+)
+
+
+def _read_same_tic_prior_observation(report_dir, current_filename):
+    """THIS TIC'S EARLIER FIRE, read for the additive decomposition field.
+
+    Returns (prior_report_or_None, block) where `block` is the
+    `prior_same_tic_observation` skeleton BOTH delta blocks carry; the caller
+    fills in its own per-unit numbers.
+
+    WHY IT EXISTS (/review 747 round 1 Q4, PROMOTE-as-refinement-ray on
+    cgg-ledger#reason-coded-genuine-vs-known-verifier-split's lane;
+    cpr_mogul_review_close_check_9646fae378af): `_find_prior_check_artifact`
+    deliberately EXCLUDES this run's own canonical artifact, so on a two-fire tic
+    the close artifact re-measures against the PRIOR TIC rather than against the
+    earlier fire. Re-derived at /review 747 from the artifacts: baseline tic-737
+    promoted 754 / index 786; the 738 ENTRY fire 757 (+3) / 789 (+3); the 738
+    CLOSE fire 759 (+5) / 792 (+6) — a reader reconciling the /review 738 docket
+    row count against `delta.promoted = 5` over-attributes by 3, and the two
+    counters split differently (+3/+3 on +6), so the decomposition is NOT
+    derivable from one counter's totals. The disclosure has to ride IN the block
+    that can go tic-cumulative; being recoverable from a sibling block is a
+    disclosure a single-block reader never receives.
+
+    THE RULING'S OWN FENCE, honored exactly: no counter semantics move and no
+    baseline is re-selected. `_find_prior_check_artifact` is neither called nor
+    changed here; this reads a DIFFERENT artifact for a DIFFERENT purpose. The
+    published deltas, collapse flags and baseline selector are byte-identical to
+    what they were before this field existed.
+
+    THE SOURCE IS THE LIVE ARTIFACT, not a prediction: both delta blocks are
+    computed BEFORE the write block's replace branch preserves and overwrites
+    `report_dir/current_filename`, so the earlier fire's bytes are still there to
+    be read. Fires of this tic ALREADY moved to superseded/ are named too — an
+    observation of what is on disk now. This run's own preservation has not
+    happened yet at this point, so NO preserved_path is claimed for the live
+    artifact (the /review 747 APO holds: this is not a superseded_receipt defect,
+    and the receipt stays the write block's to emit).
+    """
+    block = {
+        "present": False,
+        "artifact": None,
+        "selector": None,
+        "decomposition_absent": True,
+        "reason_absent": None,
+        "prior_generated_at": None,
+        "earlier_preserved_same_tic_artifacts": [],
+        "note": _SAME_TIC_OBS_NOTE,
+    }
+    if not report_dir or not current_filename:
+        block["reason_absent"] = "same_tic_identity_unresolved"
+        return None, block
+    if not os.path.isdir(report_dir):
+        block["reason_absent"] = "no_same_tic_prior_observation"
+        return None, block
+
+    stem = os.path.splitext(current_filename)[0]
+    try:
+        # The write block's own naming: superseded/<stem>.superseded-<seq>.json,
+        # with a <...>.superseded-by.json SIDECAR beside each. The sidecar is a
+        # back-stamp, not an observation — excluded by name.
+        block["earlier_preserved_same_tic_artifacts"] = sorted(
+            fn for fn in os.listdir(os.path.join(report_dir, "superseded"))
+            if fn.startswith(f"{stem}.superseded-")
+            and fn.endswith(".json")
+            and not fn.endswith(".superseded-by.json")
+        )
+    except OSError:
+        block["earlier_preserved_same_tic_artifacts"] = []
+
+    path = os.path.join(report_dir, current_filename)
+    if not os.path.isfile(path):
+        # The tic's FIRST fire. Absent, and said so — never a fabricated zero
+        # delta, which would assert a measured no-movement from no measurement.
+        block["reason_absent"] = "no_same_tic_prior_observation"
+        return None, block
+    try:
+        prior = json.loads(Path(path).read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError, UnicodeDecodeError):
+        block["artifact"] = current_filename
+        block["reason_absent"] = "same_tic_artifact_unreadable"
+        return None, block
+    if not isinstance(prior, dict):
+        block["artifact"] = current_filename
+        block["reason_absent"] = "same_tic_artifact_unreadable"
+        return None, block
+
+    block["present"] = True
+    block["artifact"] = current_filename
+    block["selector"] = "same_tic_live_artifact_pre_overwrite"
+    block["prior_generated_at"] = prior.get("generated_at")
+    return prior, block
+
+
 def compute_unit_deltas(report_dir, current_filename, current_tic,
                         current_tokens, current_matched_comments):
     """Per-pass PER-UNIT DELTA for the inscribed-index counter (/review 724 RIDER 2).
@@ -2984,6 +3092,37 @@ def compute_unit_deltas(report_dir, current_filename, current_tic,
             "collapse CANDIDATE (equal deltas are necessary, not sufficient)."
         ),
     }
+
+    # THE SAME-TIC RE-OBSERVATION face (/review 747 round 1 Q4,
+    # cpr_mogul_review_close_check_9646fae378af) — ADDITIVE decomposition of the
+    # delta this block already publishes. Computed BEFORE the early returns so the
+    # field's shape is the same on every path: an absent decomposition is disclosed
+    # with its reason, never dropped and never a fabricated zero.
+    prior_same_tic, same_tic = _read_same_tic_prior_observation(
+        report_dir, current_filename)
+    same_tic["prior_tokens"] = None
+    same_tic["prior_matched_comments"] = None
+    same_tic["delta_tokens_since_prior_same_tic"] = None
+    same_tic["delta_matched_comments_since_prior_same_tic"] = None
+    if prior_same_tic is not None:
+        _st_tokens = prior_same_tic.get("inscribed_index_size")
+        _st_unit = prior_same_tic.get("inscribed_index_unit") or {}
+        _st_comments = _st_unit.get("matched_comment_count")
+        if not isinstance(_st_tokens, int) or not isinstance(_st_comments, int):
+            same_tic["reason_absent"] = "same_tic_artifact_predates_these_fields"
+        elif not isinstance(current_tokens, int) or not isinstance(
+                current_matched_comments, int):
+            same_tic["prior_tokens"] = _st_tokens
+            same_tic["prior_matched_comments"] = _st_comments
+            same_tic["reason_absent"] = "current_pass_units_unmeasured"
+        else:
+            same_tic["prior_tokens"] = _st_tokens
+            same_tic["prior_matched_comments"] = _st_comments
+            same_tic["delta_tokens_since_prior_same_tic"] = current_tokens - _st_tokens
+            same_tic["delta_matched_comments_since_prior_same_tic"] = (
+                current_matched_comments - _st_comments)
+            same_tic["decomposition_absent"] = False
+    block["prior_same_tic_observation"] = same_tic
 
     if not isinstance(current_tokens, int) or not isinstance(current_matched_comments, int):
         # Nothing measured on this side either — an absent minuend cannot yield
@@ -3220,9 +3359,46 @@ def compute_verdict_count_deltas(report_dir, current_filename, current_tic,
             "PASS artifact, this run's own canonical artifact excluded. The "
             "counters are whole-universe cumulative totals over queue "
             "latest-per-id state, so a per-pass delta reads as this pass's "
-            "verdict movement plus any out-of-band queue state change."
+            "verdict movement plus a RESIDUAL — and that residual is REASON-CODED, "
+            "not blanket drift (/review 747 round 1 Q4, the SAME-TIC RE-OBSERVATION "
+            "face; the split discipline of cgg-ledger#reason-coded-genuine-vs-known-"
+            "verifier-split applied to a delta's residual: what is pre-classifiable "
+            "as KNOWN carries a reason code and is not a hazard, and only what "
+            "survives that classification is GENUINE). KNOWN reason, typed and named: "
+            "same_tic_prior_observation — an EARLIER FIRE OF THIS TIC, same artifact "
+            "lineage, named with its own delta in prior_same_tic_observation; when "
+            "that block reports present=true, read delta_since_prior_same_tic for "
+            "THIS fire's movement and the residual is attributed, not drift. GENUINE "
+            "residual: only queue state that moved out of band of any named prior "
+            "observation. SUPERSEDED WORDING, kept for lineage: this note previously "
+            "bucketed the entire residual as 'any out-of-band queue state change', "
+            "which framed a known, typed, same-artifact-lineage prior observation as "
+            "unattributable drift."
         ),
     }
+
+    # THE SAME-TIC RE-OBSERVATION face (/review 747 round 1 Q4,
+    # cpr_mogul_review_close_check_9646fae378af) — ADDITIVE. This is the KNOWN
+    # reason the amended note above names. Computed BEFORE the early returns so
+    # the field's shape is identical on every path.
+    prior_same_tic, same_tic = _read_same_tic_prior_observation(
+        report_dir, current_filename)
+    same_tic["prior_counts"] = None
+    same_tic["delta_since_prior_same_tic"] = {k: None for k in _VERDICT_COUNT_UNITS}
+    if prior_same_tic is not None:
+        _st_counts = prior_same_tic.get("verdict_counts")
+        if not isinstance(_st_counts, dict) or not all(
+                isinstance(_st_counts.get(k), int) for k in _VERDICT_COUNT_UNITS):
+            same_tic["reason_absent"] = "same_tic_artifact_predates_these_fields"
+        elif not all(isinstance(current_counts.get(k), int) for k in _VERDICT_COUNT_UNITS):
+            same_tic["prior_counts"] = {k: _st_counts[k] for k in _VERDICT_COUNT_UNITS}
+            same_tic["reason_absent"] = "current_pass_counts_unmeasured"
+        else:
+            same_tic["prior_counts"] = {k: _st_counts[k] for k in _VERDICT_COUNT_UNITS}
+            same_tic["delta_since_prior_same_tic"] = {
+                k: current_counts[k] - _st_counts[k] for k in _VERDICT_COUNT_UNITS}
+            same_tic["decomposition_absent"] = False
+    block["prior_same_tic_observation"] = same_tic
 
     if not all(isinstance(current_counts.get(k), int) for k in _VERDICT_COUNT_UNITS):
         block["baseline"]["reason_absent"] = "current_pass_counts_unmeasured"

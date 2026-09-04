@@ -511,7 +511,17 @@ class TestRider2PerUnitDelta(_ZoneRun):
             "<!-- promoted from cpr_two_tic701 -->\n")
         first = self._run_at(701)["inscribed_index_delta"]
         second = self._run_at(701)["inscribed_index_delta"]
-        self.assertEqual(first, second)
+        # /review 769 wave-7 row A: prior_same_tic_observation is ADDITIVE and
+        # lawfully differs between same-tic fires (the second names the first's
+        # preserved artifact). The invariant THIS test owns — baseline reuse,
+        # no silent 0/0 reset — is asserted on the block MINUS that field and
+        # directly on the baseline keys below. The field's own semantics are
+        # owned by test_review_close_check_prior_same_tic_tic769.py.
+        self.assertIn("prior_same_tic_observation", first)
+        self.assertIn("prior_same_tic_observation", second)
+        f2 = {k: v for k, v in first.items() if k != "prior_same_tic_observation"}
+        s2 = {k: v for k, v in second.items() if k != "prior_same_tic_observation"}
+        self.assertEqual(f2, s2)
         self.assertEqual(second["delta_tokens"], 1)
         self.assertEqual(second["baseline"]["artifact"], "tic-700-check.json")
 
@@ -524,7 +534,13 @@ class TestRider2PerUnitDelta(_ZoneRun):
         self._claude_md("<!-- promoted from cpr_one_tic700 -->\n")
         first = self._run_at(700)["inscribed_index_delta"]
         second = self._run_at(700)["inscribed_index_delta"]
-        self.assertEqual(first, second)
+        # /review 769 wave-7 row A: additive field excluded (see sibling note);
+        # the no-baseline state identity this test owns is asserted below.
+        self.assertIn("prior_same_tic_observation", first)
+        self.assertIn("prior_same_tic_observation", second)
+        f2 = {k: v for k, v in first.items() if k != "prior_same_tic_observation"}
+        s2 = {k: v for k, v in second.items() if k != "prior_same_tic_observation"}
+        self.assertEqual(f2, s2)
         self.assertEqual(second["baseline"]["reason_absent"], "no_prior_pass_artifact")
 
     def test_prior_artifact_predating_the_fields_is_absent_not_zero(self):
