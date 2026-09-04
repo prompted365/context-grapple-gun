@@ -46,7 +46,6 @@ import json
 import math
 import os
 import sys
-import tempfile
 from pathlib import Path
 
 # P1 projection split — structural_status drives keep/archive (replaces
@@ -64,6 +63,27 @@ try:
     from signal_active import REESC_QUIET_TICS, REESC_VOLUME, HEAT_FLOOR  # type: ignore
 except Exception:  # pragma: no cover - defensive
     REESC_QUIET_TICS, REESC_VOLUME, HEAT_FLOOR = 3, 20.0, 0.01
+
+# The one shared umask-honoring atomic writer (bk-atomic-write-mkstemp-replace-
+# drops-mode-to-0600, /review 768 wave 6). Unlike the fail-SOFT knob import
+# above, this one is FAIL-CLOSED: if the helper cannot be imported we refuse the
+# manifest rewrite rather than fall back to an inline mkstemp, because that
+# fallback IS the defect — a silent 0600 downgrade of the active manifest every
+# /cadence. A loud refusal is recoverable; a silent permission drop is not.
+try:
+    from lib.atomic_write import atomic_write_text  # type: ignore
+except Exception:  # pragma: no cover - defensive
+    try:
+        from atomic_write import atomic_write_text  # type: ignore
+    except Exception as _atomic_write_exc:  # pragma: no cover - defensive
+        _ATOMIC_WRITE_ERR = f"{type(_atomic_write_exc).__name__}: {_atomic_write_exc}"
+
+        def atomic_write_text(*_args, **_kwargs):  # type: ignore[misc]
+            raise RuntimeError(
+                f"lib.atomic_write unavailable ({_ATOMIC_WRITE_ERR}); refusing "
+                "to rewrite the active manifest through a mode-dropping "
+                "fallback (bk-atomic-write-mkstemp-replace-drops-mode-to-0600)"
+            )
 
 
 def count_physical_tics(audit_logs_path: Path) -> int:
@@ -428,20 +448,15 @@ def main() -> int:
     # visible_volume/heat each tic as quiet age accumulates, so the manifest
     # is a dynamic projected view, not a static carry-forward.
     if keep:
-        tmp_fd, tmp_path = tempfile.mkstemp(
-            prefix=".manifest-prune-", suffix=".jsonl", dir=str(manifest.parent)
+        # Shared atomic writer: same-directory temp + os.replace, and the
+        # manifest KEEPS its permission bits across the rewrite. The inline
+        # mkstemp this replaced re-clamped active-manifest.jsonl to 0600 on
+        # every /cadence prune (bk-atomic-write-mkstemp-replace-drops-mode-
+        # to-0600, /review 768 wave 6). Body bytes are unchanged; the write is
+        # now additionally fsync'ed before the replace.
+        atomic_write_text(
+            str(manifest), "".join(json.dumps(rec) + "\n" for rec in keep)
         )
-        try:
-            with os.fdopen(tmp_fd, "w", encoding="utf-8") as f:
-                for rec in keep:
-                    f.write(json.dumps(rec) + "\n")
-            os.replace(tmp_path, manifest)
-        except Exception:
-            try:
-                os.unlink(tmp_path)
-            except OSError:
-                pass
-            raise
     elif archived:
         # All entries archived; truncate manifest to empty.
         manifest.write_text("", encoding="utf-8")

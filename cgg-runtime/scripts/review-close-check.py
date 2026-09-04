@@ -860,6 +860,116 @@ _UNMATCHED_REMEDY_TEXT = {
 }
 
 
+# --- DISPOSITION SPLIT (/review 768, bk-close-check-counter-disposition-split;
+# ruled by the /review-726 refinement ray cgg-ledger#loud-counter-mirror-
+# overadmission-split-by-disposition, cpr_mogul_review_close_check_8698d4d1b9bc;
+# Architect-ratified admission B2-wave-6-tic768.json, self-sha fde2800d7566382a) ---
+#
+# The /review-719 loud counter admits ANY cpr-token-bearing comment that fails
+# the verb alternation, while its DESIGN-EXCLUSION list held exactly ONE class
+# (SKIP heads). Measured at tic 723 over the full scanned surface set: 18 of the
+# 28 counted comments (64%) were NON-WITNESSES — 15 born-CANDIDATE declaration
+# blocks + 3 ledger-tags metadata blocks — correctly non-matching and simply
+# never design-excluded, while the single remediation string routed the reader
+# at the other 36% and offered no disposition at all for the 64%.
+#
+# TWO ORTHOGONAL AXES, DIFFERENT POPULATIONS — the distinction is the cure:
+#   * REMEDY CLASS (/review 736, _classify_unmatched_remedy) answers WHICH CURE
+#     a residue comment would need. It runs over the FULL token-bearing residue
+#     population and is UNCHANGED by this patch, design-excluded members
+#     included.
+#   * DISPOSITION (this axis) answers WHETHER THERE IS ANYTHING TO CURE. Only
+#     `index_loss` and `unclassified` members reach the loud headline counter;
+#     `design_excludable` members are excluded from it BY DESIGN, exactly as a
+#     SKIP pointer is — but they are MEASURED and PUBLISHED per class rather
+#     than going dark, so the exclusion stays auditable.
+#
+# ANTI-ROT (the ray's first tooth — "negative-space lists authored at cure-time
+# rot like positive ones"): the design-exclusion set below is a CLOSED list
+# against an OPEN authoring vocabulary, which is the same sin the parent law
+# named in the positive direction. The structural answer is that it is closed
+# ONLY over what it positively names: every other token-bearing residue comment
+# falls to `unclassified` and stays LOUD. A non-witness class that appears
+# tomorrow cannot be silently absorbed by this exclusion — it can only show up
+# as unclassified residue demanding an adjudication.
+#
+# WHY wrong_object_class MAPS TO `unclassified`, NOT to `design_excludable`:
+# the ruled exclusion set names exactly TWO head classes (born-CANDIDATE
+# declaration blocks, ledger-tags metadata blocks). _WRONG_OBJECT_HEAD_RE also
+# carries `home-pointer`, which the /review-723 measurement THIS RULING CITES
+# counted among the 10 REAL index-loss witnesses (its "6 vocabulary-class heads"
+# include `home-pointer from` x1), while the later /review-736 remedy typing
+# calls a home-pointer "not a failed inscription witness at all". Those two
+# rulings disagree, and a build increment may not settle a cross-ruling
+# question by silently widening its own exclusion set. So a wrong-object head
+# that is NOT one of the two ruled classes stays LOUD as `unclassified` and is
+# routed up — the third disposition doing exactly the job it exists for.
+_DISPOSITION_INDEX_LOSS = "index_loss"
+_DISPOSITION_DESIGN_EXCLUDABLE = "design_excludable"
+_DISPOSITION_UNCLASSIFIED = "unclassified"
+
+# The RULED design-exclusion set — two head classes, named one per key so the
+# published split can attribute every exclusion to the class that caused it.
+# Each pattern MUST stay a subset of _WRONG_OBJECT_HEAD_RE: a head this counter
+# design-excludes must also be one the head-anchor relaxation refuses, or a
+# comment could be dropped from the residue report AND admitted to the index.
+# That parity is pinned by fixture, not asserted here.
+_DESIGN_EXCLUDED_HEAD_CLASSES = {
+    "born_candidate_declaration_block": re.compile(
+        r"<!--\s*--agnostic-candidate", re.IGNORECASE),
+    "ledger_tags_metadata_block": re.compile(
+        r"<!--\s*ledger-tags:", re.IGNORECASE),
+}
+
+# Remedy class -> default disposition. head_anchor_gap and vocabulary_gap are
+# by construction REAL witnesses lost from the index (an admitted verb sits in
+# the head window, or a head verb is unregistered) — both are index_loss.
+_REMEDY_CLASS_DISPOSITION = {
+    "head_anchor_gap": _DISPOSITION_INDEX_LOSS,
+    "vocabulary_gap": _DISPOSITION_INDEX_LOSS,
+    "wrong_object_class": _DISPOSITION_UNCLASSIFIED,
+}
+
+_DISPOSITION_TEXT = {
+    "index_loss": (
+        "A REAL inscription witness shed by the matcher and MISSING from the "
+        "index — the population the /review-719 counter was minted for. "
+        "Reachable cures, per remedy class: head_anchor_gap -> the head-anchor "
+        "relaxation bound (build lane); vocabulary_gap -> verb registration."),
+    "design_excludable": (
+        "NOT an inscription witness at all — a born-CANDIDATE declaration block "
+        "or a ledger-tags metadata block. A candidate is not an inscription, "
+        "exactly as a SKIP pointer is not. EXCLUDED from the headline counter "
+        "by design (/review 768); no matcher change can ever be the fix, and "
+        "admitting one would be a category error. Counted and published here "
+        "so the exclusion is auditable rather than dark."),
+    "unclassified": (
+        "Token-bearing residue this counter does NOT dispose. LOUD BY "
+        "CONSTRUCTION: the design-exclusion set is closed only over what it "
+        "positively names, so any residue outside it — a non-witness class not "
+        "yet ruled, or a head whose disposition two rulings disagree about "
+        "(the home-pointer case) — surfaces here instead of being silently "
+        "absorbed. Route it to /review for adjudication; do not cure it in the "
+        "build lane."),
+}
+
+
+def _classify_unmatched_disposition(seg, remedy_class):
+    """(disposition, design_exclusion_class or None) for one residue comment.
+
+    The design-exclusion test runs FIRST and is keyed on the HEAD, so the
+    returned class names the exact ruled pattern that fired. A comment matching
+    no ruled exclusion falls through to the remedy-class mapping, and anything
+    the mapping does not know falls to `unclassified` — never to silence.
+    """
+    for class_name, pattern in _DESIGN_EXCLUDED_HEAD_CLASSES.items():
+        if pattern.match(seg):
+            return _DISPOSITION_DESIGN_EXCLUDABLE, class_name
+    return (_REMEDY_CLASS_DISPOSITION.get(remedy_class,
+                                          _DISPOSITION_UNCLASSIFIED),
+            None)
+
+
 def _classify_unmatched_remedy(seg):
     """Remedy class of one unmatched cpr-token-bearing comment (see above).
 
@@ -1343,6 +1453,25 @@ def build_inscribed_index(project_dir, queue_ids=None, diagnostics=None):
     # (M1-736-HAR; the post-retype expected steady state is head_anchor_gap=0).
     unmatched_remedy_counts = {
         "wrong_object_class": 0, "head_anchor_gap": 0, "vocabulary_gap": 0}
+    # /review-768 DISPOSITION SPLIT. All three dispositions and both ruled
+    # exclusion classes pre-seeded at 0 by the same declared-zero discipline:
+    # a zero here means the classifier RAN and found none, never "not measured".
+    unmatched_disposition_counts = {
+        _DISPOSITION_INDEX_LOSS: 0,
+        _DISPOSITION_DESIGN_EXCLUDABLE: 0,
+        _DISPOSITION_UNCLASSIFIED: 0,
+    }
+    design_excluded_by_class = {k: 0 for k in _DESIGN_EXCLUDED_HEAD_CLASSES}
+    # STRATIFIED samples — the ray's second tooth: a capped, unstratified
+    # head-of-list sample over a heterogeneous population hides the population's
+    # structure (the t723 slice read "mostly a vocabulary problem" while the
+    # population was 64% category error). Per-disposition caps make every
+    # disposition visible to a consumer that reads only the samples.
+    unmatched_samples_by_disposition = {
+        _DISPOSITION_INDEX_LOSS: [],
+        _DISPOSITION_DESIGN_EXCLUDABLE: [],
+        _DISPOSITION_UNCLASSIFIED: [],
+    }
     # Route census (/review 724 RIDER 1 — disclosure parity). Counts TOKEN
     # OCCURRENCES inside matched comments, not distinct tokens (the index unit),
     # and is computed at runtime so the disclosure can never rot into a frozen
@@ -1481,29 +1610,70 @@ def build_inscribed_index(project_dir, queue_ids=None, diagnostics=None):
                       if not _is_reserved_ref(t.group(1))]
             if not tokens:
                 continue
-            unmatched_shaped_count += 1
             remedy_class = _classify_unmatched_remedy(seg)
+            # REMEDY-CLASS AXIS (/review 736) — UNCHANGED by the disposition
+            # split: it runs over the FULL token-bearing residue population,
+            # design-excluded members included, so its published counts stay
+            # comparable across the patch boundary.
             unmatched_remedy_counts[remedy_class] = (
                 unmatched_remedy_counts.get(remedy_class, 0) + 1)
+            # DISPOSITION AXIS (/review 768) — decides headline membership.
+            disposition, design_exclusion_class = _classify_unmatched_disposition(
+                seg, remedy_class)
+            unmatched_disposition_counts[disposition] = (
+                unmatched_disposition_counts.get(disposition, 0) + 1)
+            sample = {
+                "path": rel_path,
+                "head": " ".join(seg[:120].split()),
+                "tokens": sorted(set(tokens))[:5],
+                "remedy_class": remedy_class,
+                "disposition": disposition,
+            }
+            if design_exclusion_class:
+                sample["design_exclusion_class"] = design_exclusion_class
+                design_excluded_by_class[design_exclusion_class] += 1
+            if len(unmatched_samples_by_disposition[disposition]) < 5:
+                unmatched_samples_by_disposition[disposition].append(sample)
+            if disposition == _DISPOSITION_DESIGN_EXCLUDABLE:
+                # Excluded from the LOUD counter by design — measured above,
+                # published in unmatched_disposition_split, never counted here.
+                continue
+            unmatched_shaped_count += 1
             if len(unmatched_shaped_samples) < 10:
-                unmatched_shaped_samples.append({
-                    "path": (os.path.relpath(path, project_dir)
-                             if path.startswith(project_dir) else path),
-                    "head": " ".join(seg[:120].split()),
-                    "tokens": sorted(set(tokens))[:5],
-                    "remedy_class": remedy_class,
-                })
-    if unmatched_shaped_count:
+                unmatched_shaped_samples.append(sample)
+    residue_total = sum(unmatched_disposition_counts.values())
+    if residue_total:
+        # /review-768 remediation: a string attached to a HETEROGENEOUS counter
+        # must name EVERY disposition its population contains, or it misroutes
+        # the reader it exists to inform. Fires on the whole residue population
+        # (not on the headline alone) so a fully design-excluded population is
+        # disclosed rather than going dark.
         per_class = ", ".join(
             f"{cls}={n}" for cls, n in sorted(unmatched_remedy_counts.items()))
+        by_disposition = ", ".join(
+            f"{d}={n}" for d, n in sorted(unmatched_disposition_counts.items()))
+        excluded_detail = ", ".join(
+            f"{k}={v}" for k, v in sorted(design_excluded_by_class.items()))
         print(
-            f"UNMATCHED-PROVENANCE-SHAPE: {unmatched_shaped_count} cpr-token-"
-            f"bearing comment(s) fail the inscription-verb alternation and are "
-            f"NOT indexed (skip-heads excluded by design). Typed per remedy "
-            f"class ({per_class}) — each class has a DIFFERENT reachable cure "
-            f"(wrong_object_class: exclusion; head_anchor_gap: head-anchor "
-            f"relaxation, build lane; vocabulary_gap: verb registration). See "
-            f"inscribed_index_unresolved.unmatched_remedy_class_counts.",
+            f"UNMATCHED-PROVENANCE-SHAPE: {unmatched_shaped_count} of "
+            f"{residue_total} cpr-token-bearing residue comment(s) fail the "
+            f"inscription-verb alternation, are NOT indexed, and are COUNTED "
+            f"by this loud counter (skip-heads excluded upstream by design). "
+            f"POPULATION SPLIT BY DISPOSITION ({by_disposition}) — each "
+            f"disposition routes DIFFERENTLY: index_loss = a real witness lost "
+            f"from the index, cure it (head_anchor_gap -> the head-anchor "
+            f"relaxation bound, build lane; vocabulary_gap -> verb "
+            f"registration); design_excludable = NOT a witness at all "
+            f"({excluded_detail}), excluded from the count above BY DESIGN and "
+            f"no matcher change can ever be the fix; unclassified = residue "
+            f"this counter does not dispose (LOUD by construction — the "
+            f"exclusion set is closed only over what it names), route it to "
+            f"/review, do not cure it in the build lane. Remedy classes "
+            f"({per_class}) type WHICH cure and run over the FULL residue "
+            f"population INCLUDING design-excluded members — the two axes are "
+            f"orthogonal, so these tallies are not expected to match. See "
+            f"inscribed_index_unresolved.unmatched_disposition_split and "
+            f".unmatched_remedy_class_counts.",
             file=sys.stderr,
         )
     if diagnostics is not None:
@@ -1526,6 +1696,77 @@ def build_inscribed_index(project_dir, queue_ids=None, diagnostics=None):
         # visible beside the index it was invisible to. Non-gating.
         diagnostics["unmatched_provenance_shaped_count"] = unmatched_shaped_count
         diagnostics["unmatched_provenance_shaped_samples"] = unmatched_shaped_samples
+        # /review-768 POPULATION DECLARATION on the headline itself: its value
+        # CHANGED at this patch (design-excluded members left it), so a
+        # consumer predicting against the bare integer must re-baseline — the
+        # ray's own cost_of_action, made readable at the mint site.
+        diagnostics["unmatched_provenance_shaped_population"] = (
+            "token-bearing residue comments with disposition index_loss OR "
+            "unclassified — design_excludable members (born-CANDIDATE "
+            "declaration blocks, ledger-tags metadata blocks) are NOT counted "
+            "here as of /review 768 (bk-close-check-counter-disposition-split). "
+            "The samples list is scoped to this same population; the "
+            "design-excluded ones are published under "
+            "unmatched_disposition_split.samples_by_disposition. PRE-768 "
+            "READERS: this integer counted the full residue population.")
+        # /review-768 DISPOSITION SPLIT (ruled by the /review-726 ray
+        # #loud-counter-mirror-overadmission-split-by-disposition): the
+        # population published SPLIT BY DISPOSITION, never a single integer
+        # plus a head-of-list sample.
+        diagnostics["unmatched_disposition_split"] = {
+            "counts": dict(sorted(unmatched_disposition_counts.items())),
+            "token_bearing_residue_total": sum(
+                unmatched_disposition_counts.values()),
+            "headline_counter_value": unmatched_shaped_count,
+            "headline_counter_population": (
+                "index_loss + unclassified (design_excludable removed BY "
+                "DESIGN) — the three counts sum to "
+                "token_bearing_residue_total, never to the headline"),
+            "dispositions": _DISPOSITION_TEXT,
+            "design_excluded_by_class": dict(
+                sorted(design_excluded_by_class.items())),
+            "design_exclusion_set": sorted(_DESIGN_EXCLUDED_HEAD_CLASSES),
+            "design_exclusion_authority": (
+                "/review 726 ray cgg-ledger#loud-counter-mirror-overadmission-"
+                "split-by-disposition (cpr_mogul_review_close_check_"
+                "8698d4d1b9bc), executed /review 768 under admission "
+                "B2-wave-6-tic768.json — exactly the two head classes the "
+                "ruling names; nothing else was added to the set at build "
+                "altitude"),
+            "exclusion_set_rot_disclosure": (
+                "This is a CLOSED negative list against an OPEN authoring "
+                "vocabulary — the ray's first tooth names that shape as the "
+                "same sin as a closed positive list. It is survivable ONLY "
+                "because the list is closed over what it POSITIVELY names: "
+                "every residue comment outside it falls to `unclassified` and "
+                "stays LOUD. A new non-witness class can never be silently "
+                "absorbed by this exclusion; it can only appear as "
+                "unclassified residue demanding adjudication."),
+            "unclassified_open_question": (
+                "home-pointer heads: typed wrong_object_class by the "
+                "/review-736 remedy constant, yet counted among the 10 REAL "
+                "index-loss witnesses by the /review-723 measurement this "
+                "row's ruling cites. Two rulings disagree; a build increment "
+                "does not settle that, so such heads stay LOUD as unclassified "
+                "and are routed to /review. Measured live at tic 768: 1 such "
+                "comment (cgg-ledger/ledger.md)."),
+            "samples_by_disposition": {
+                d: list(v) for d, v in sorted(
+                    unmatched_samples_by_disposition.items())},
+            "sample_discipline": (
+                "STRATIFIED, capped per disposition (5 each) — the ray's "
+                "second tooth: a capped UNSTRATIFIED head-of-list sample over "
+                "a heterogeneous population hides the population's structure "
+                "(the t723 slice read as 'mostly a vocabulary problem' while "
+                "the population was 64% category error)"),
+            "axis_relation": (
+                "ORTHOGONAL to unmatched_remedy_class_counts and over a "
+                "DIFFERENT population: remedy class answers WHICH CURE and is "
+                "computed over the FULL residue (design-excluded included, "
+                "unchanged since /review 736); disposition answers WHETHER "
+                "THERE IS ANYTHING TO CURE and gates the headline. The two "
+                "tallies are not expected to agree."),
+        }
         # /review-736 remedy-class typing (955e9009a2da): per-class counts +
         # the per-class REACHABLE remedy beside the integer, so the disclosure
         # frame can never again prescribe one cure over opposite classes.
@@ -3570,8 +3811,17 @@ def compute_cross_counter_disclosure(verdict_delta_block, index_delta_block,
       - a doctrine-surface edit narrating a sibling id adds a token with no
         promotion behind it (tokens move, promoted does not);
       - the t724 over-admission route (receipt filenames carrying cpr-shaped
-        tokens) inflates delta_tokens until the disposition-split patch lands
-        (bk-close-check-counter-disposition-split).
+        tokens) inflates delta_tokens. DOES-NOT-SATISFY RIDER (/review 768 —
+        bk-close-check-counter-disposition-split LANDED and does NOT cure this
+        route): that patch splits the UNMATCHED (never-indexed) residue counter
+        by disposition and design-excludes born-CANDIDATE / ledger-tags blocks.
+        Index ADMISSION is byte-for-byte unchanged — the /review-724 RIDER-1
+        scope is DISCLOSURE PARITY, NOT GATING — so a receipt filename cited
+        inside a MATCHED provenance comment still donates its embedded
+        cpr-shaped run to delta_tokens exactly as before. The pre-768 clause
+        "until the disposition-split patch lands" was a mis-routed forward
+        reference: this route remains OPEN, disclosed and uncured, and a reader
+        must not read the landed patch as having closed it.
 
     AUTHORING-SIDE RULE (the reading-side note above governs how this field is
     READ; this governs how a prediction about it is BANKED — promoted here from

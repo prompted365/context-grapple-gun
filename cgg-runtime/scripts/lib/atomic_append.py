@@ -9,7 +9,14 @@ Usage:
 import fcntl
 import json
 import os
-import tempfile
+
+# The one shared umask-honoring atomic writer. lib/ is imported BOTH as a
+# package (`from lib.atomic_append import ...`) and flat (`from atomic_append
+# import ...` with lib/ on sys.path), so both forms are tried.
+try:  # pragma: no cover - exercised by whichever import form the caller used
+    from .atomic_write import atomic_write_text
+except ImportError:  # pragma: no cover - flat sys.path import of lib/
+    from atomic_write import atomic_write_text  # type: ignore
 
 
 def atomic_append_jsonl(target: str, data: dict) -> None:
@@ -30,21 +37,22 @@ def atomic_append_jsonl(target: str, data: dict) -> None:
 
 
 def atomic_write_json(target: str, data: dict) -> None:
-    """Atomically write a JSON file (temp + rename)."""
-    os.makedirs(os.path.dirname(target), exist_ok=True)
-    fd, tmppath = tempfile.mkstemp(
-        dir=os.path.dirname(target), suffix=".tmp"
-    )
-    try:
-        with os.fdopen(fd, "w", encoding="utf-8") as f:
-            json.dump(data, f, indent=2)
-            f.write("\n")
-            f.flush()
-            os.fsync(f.fileno())
-        os.rename(tmppath, target)
-    except Exception:
-        os.unlink(tmppath)
-        raise
+    """Atomically write a JSON file, PRESERVING the destination's mode.
+
+    Migrated to the shared lib.atomic_write helper at /review 768 wave 6
+    (bk-atomic-write-mkstemp-replace-drops-mode-to-0600). The previous
+    mkstemp + os.rename pair inherited mkstemp's 0600, so every rewrite of an
+    inbox envelope, cache entry, biome state file, harpoon queue-state or
+    economy snapshot silently downgraded that artifact to owner-only.
+
+    SIGNATURE, JSON FORM AND ATOMICITY UNCHANGED: same `(target, data)` call,
+    same `indent=2` body plus one trailing newline, same parent-mkdir, same
+    fsync-before-replace, same unlink-on-failure. The only behavioural
+    differences are (1) the destination keeps its permission bits instead of
+    being clamped to 0600, and (2) a target with no directory component now
+    resolves to the cwd rather than raising from `os.makedirs("")`.
+    """
+    atomic_write_text(target, json.dumps(data, indent=2) + "\n")
 
 
 def manifest_row_from_signal(signal: dict, target: str, sig_id: str) -> dict:

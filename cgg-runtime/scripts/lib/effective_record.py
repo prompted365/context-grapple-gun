@@ -20,11 +20,18 @@ import hashlib
 import json
 import os
 import subprocess
-import tempfile
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Iterable
 from urllib.parse import urlparse
+
+# The one shared umask-honoring atomic writer. lib/ is imported BOTH as a
+# package (`from lib.effective_record import ...`) and flat (`from
+# effective_record import ...` with lib/ on sys.path), so both forms are tried.
+try:  # pragma: no cover - exercised by whichever import form the caller used
+    from .atomic_write import atomic_write_bytes
+except ImportError:  # pragma: no cover - flat sys.path import of lib/
+    from atomic_write import atomic_write_bytes  # type: ignore
 
 
 SCHEMA_VERSION = 1
@@ -1028,17 +1035,16 @@ def _json_bytes(value: Any) -> bytes:
 
 
 def _atomic_write(path: Path, data: bytes) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    descriptor, temporary = tempfile.mkstemp(prefix=f".{path.name}.", dir=path.parent)
-    try:
-        with os.fdopen(descriptor, "wb") as handle:
-            handle.write(data)
-            handle.flush()
-            os.fsync(handle.fileno())
-        os.replace(temporary, path)
-    finally:
-        if os.path.exists(temporary):
-            os.unlink(temporary)
+    """Atomic replace that PRESERVES the destination's permission bits.
+
+    Migrated to the shared lib.atomic_write helper at /review 768 wave 6
+    (bk-atomic-write-mkstemp-replace-drops-mode-to-0600). The previous
+    mkstemp + os.replace pair inherited mkstemp's 0600, so every rebuild of
+    effective-record-index.json and effective-record-backrefs.jsonl silently
+    downgraded them to owner-only. Signature, atomicity, parent-mkdir and
+    fsync behaviour are unchanged; only the mode outcome differs.
+    """
+    atomic_write_bytes(path, data)
 
 
 def build_backrefs(index: dict[str, Any]) -> bytes:

@@ -57,11 +57,14 @@ _SPEC.loader.exec_module(qlw)
 
 CPR_ID = "cpr_off_enum_guard_fixture_tic767"
 
-# Off-table fixtures drawn from the MEASURED corpus (tic-767 census), never invented:
-# `schema_incomplete` is the 14-id leader of the pending_class off-table population
-# (birth-minted at cpr-extract.py:906); `rejected_scope` is the landing_kind value
-# RETIRED by /review 751 Q5 after measuring ZERO instances in the whole queue.
-OFF_TABLE_PENDING_CLASS = "schema_incomplete"
+# Off-table fixtures drawn from the MEASURED corpus, never invented:
+# `architect_ruling` is measured x7 in the reviews-lane decision rows (the t767 E4
+# census) and RULED at /review 768 round 2 to be a DIFFERENT QUANTITY sharing the
+# pending_class token (rename owed at that writer) — it therefore NEVER enters this
+# enum, making it the stable off-table exemplar after schema_incomplete was ACCRETED
+# lawful at the same round. `rejected_scope` is the landing_kind value RETIRED by
+# /review 751 Q5 after measuring ZERO instances in the whole queue.
+OFF_TABLE_PENDING_CLASS = "architect_ruling"
 OFF_TABLE_LANDING_KIND = "rejected_scope"
 
 
@@ -116,13 +119,16 @@ class TestContractsAreTheContent(unittest.TestCase):
             self.assertTrue(path.is_file(), f"{field} contract missing: {path}")
             self.assertTrue(qlw.FIELD_ENUMS[field], f"{field} enum is empty")
 
-    def test_pending_class_carries_exactly_the_three_ruled_values(self):
-        """The DEFER generator contract (/review 663, SKILL.md Step-7) — CLOSED at
-        three. An off-table historical is census data, never an enum member."""
+    def test_pending_class_carries_exactly_the_five_ruled_values(self):
+        """RULED /review 663 at three (the DEFER generators); ACCRETED to five at
+        /review 768 round 2 (evidence_scoped + schema_incomplete — the BIRTH-minted
+        classes, 'Admit + rename'). A stale three-value expectation reads a FALSE
+        off-table anomaly — the same currency rider the landing_kind arm carries."""
         self.assertEqual(
             qlw.FIELD_ENUMS["pending_class"],
             frozenset({"feedback_required", "stability_window",
-                       "evidence_insufficient"}))
+                       "evidence_insufficient", "evidence_scoped",
+                       "schema_incomplete"}))
         self.assertNotIn(OFF_TABLE_PENDING_CLASS, qlw.FIELD_ENUMS["pending_class"])
 
     def test_landing_kind_carries_the_eight_accreted_values(self):

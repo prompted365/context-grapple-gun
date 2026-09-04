@@ -5,26 +5,44 @@
     "canonical_developer/context-grapple-gun/cgg-runtime/skills/review/SKILL.md:303 — the DEFER generator contract, amended /review 663 (rider R3+A1-663)",
     "canonical_developer/context-grapple-gun/cgg-runtime/agents/cpr-stepper.md:111-119 — '## Pending Classes' table: 'These are NOT interchangeable. The stepper tracks which class applies and enforces the appropriate gate.'",
     "canonical_developer/context-grapple-gun/cgg-ledger/ledger.md:3141 — #status-value-reader-disagreement-sticky-masks-reactivated-item (/review 521->522): the SPEC-CORRECT DEFER representation is status=enrichment_eligible + pending_class + maturity_window_tics",
-    "audit-logs/reviews/2026-07-28.jsonl — the /review 663 amendment pass"
+    "audit-logs/reviews/2026-07-28.jsonl — the /review 663 amendment pass",
+    "/review 768 round 2 — Admit + rename (AskUserQuestion, recommended verbatim)"
   ],
   "brief": "audit-logs/governance/harpoon-office/cable-receipts/bk-off-enum-drift-field-generic-writer-topology-B2-wave5-tic767.json (the census that sized the drift and the writer-topology findings)",
   "enum": {
     "feedback_required": "reviewer gave conditional feedback — specific conditions must be addressed within the maturity window (cpr-stepper.md '## Pending Classes')",
     "stability_window": "logic is sound; observing for stability — needs N tics with no contradictory evidence",
-    "evidence_insufficient": "needs more supporting evidence — the scanner gathers additional data; also the REGRESSION landing (cpr-stepper.md '### Regression Trigger': when the window elapses with conditions unmet, status -> enrichment_needed and pending_class -> evidence_insufficient)"
+    "evidence_insufficient": "needs more supporting evidence — the scanner gathers additional data; also the REGRESSION landing (cpr-stepper.md '### Regression Trigger': when the window elapses with conditions unmet, status -> enrichment_needed and pending_class -> evidence_insufficient)",
+    "evidence_scoped": "ACCRETED /review 768 round 2 ('Admit + rename', Architect-ratified): birth-minted mechanically by cpr-extract at scope-limited evidence declaration — a lawful BIRTH class, not a DEFER-generator output; admitted because the measured corpus mints it at 82%-class volume and the writers are being guarded, not because the value was ever a stepper/review product.",
+    "schema_incomplete": "ACCRETED /review 768 round 2 ('Admit + rename', Architect-ratified): birth-minted mechanically by cpr-extract (the 14-id off-table leader at the t767 census, cpr-extract.py:906) when a born arrives schema-partial; a lawful BIRTH class beside the three DEFER-generator values."
   },
-  "accretion": "CLOSED at the ruled three by the DEFER generator contract — deliberately NOT open-by-accretion, and this is the standing contrast with its sibling landing-kind-enum-v1.json (which IS open-by-/review). A new pending_class value is minted ONLY by a /review verdict that AMENDS the DEFER generator contract in skills/review/SKILL.md; the amendment is then transcribed here as a data edit. Never minted by a writer, never coined at a write boundary, never invented schema-side. /review is the minting authority.",
+  "accretion": [
+    "CLOSED at the ruled three by the DEFER generator contract — deliberately NOT open-by-accretion, and this is the standing contrast with its sibling landing-kind-enum-v1.json (which IS open-by-/review). A new pending_class value is minted ONLY by a /review verdict that AMENDS the DEFER generator contract in skills/review/SKILL.md; the amendment is then transcribed here as a data edit. Never minted by a writer, never coined at a write boundary, never invented schema-side. /review is the minting authority.",
+    "ACCRETION /review 768 round 2: CLOSED-at-three RE-RULED to CLOSED-at-five — the three DEFER-generator values + two BIRTH-minted classes (evidence_scoped, schema_incomplete). The reviews-lane decision-row field sharing this token was ruled a DIFFERENT QUANTITY (rename owed at its next writer touch — e.g. decision_class); architect_ruling and n/a-as-value therefore NEVER enter this enum. Guard extension to the birth writers rides bk-off-enum-drift-field-generic-writer-topology."
+  ],
   "minting_authority": "The pending_class enum is CLOSED at the ruled three by the DEFER generator contract (/review 663). A new value requires a /review verdict amending that contract — /review is the minting authority, never the writer. Take the value to /review; do not coin it at the write boundary.",
   "absence": "field absent (or null) = no pending class asserted. This is the lawful representation on any row that is not at status=enrichment_eligible; the DEFER generator contract requires the field only for the DEFER landing ('CogPRs at enrichment_eligible must declare a pending_class' — cpr-stepper.md:111).",
   "refused_as_pending_class": {
     "off_table_coinages_measured_in_corpus": [
-      "schema_incomplete", "evidence_scoped", "cross_tic_exercise_required",
-      "maturity_window", "architect_gate", "blocked_on_dependency",
-      "needs_evidence_repair", "maturity_gated", "architect_ruling", "maturity",
-      "evidence_required", "architect_decision_required", "targeted_enrichment",
-      "design_required", "architect_constitutional_review",
-      "architect_identity_decision", "proof_obligation_pending",
-      "implementation_fix", "evidence_pending_calibration"
+      "schema_incomplete",
+      "evidence_scoped",
+      "cross_tic_exercise_required",
+      "maturity_window",
+      "architect_gate",
+      "blocked_on_dependency",
+      "needs_evidence_repair",
+      "maturity_gated",
+      "architect_ruling",
+      "maturity",
+      "evidence_required",
+      "architect_decision_required",
+      "targeted_enrichment",
+      "design_required",
+      "architect_constitutional_review",
+      "architect_identity_decision",
+      "proof_obligation_pending",
+      "implementation_fix",
+      "evidence_pending_calibration"
     ],
     "reason": "CENSUS DATA, NOT ENUM MEMBERS. Each is a real value measured in queue.jsonl, and none carries a /review ruling admitting it to the pending_class vocabulary. Presence in the corpus is not admission (Presence/Observation Fallacy Guard). Introduction of any of them by a NEW write is refused; unchanged carry-forward of a historical value stays lawful and is disclosed — HISTORICAL ROWS ARE NEVER RE-TYPED by this contract or its guard.",
     "not_the_same_field": "audit-logs/cpg/scripts/governance_query.py:93 defines PENDING_CLASS_STATUSES = {pending, extracted, tic_gated, enrichment_needed, enrichment_in_progress, enrichment_eligible, ...}. Despite the name, that is a set of STATUS values (which statuses count as 'pending-class' for the live-candidate filter), NOT the pending_class field's vocabulary. Do not read it as this enum."
