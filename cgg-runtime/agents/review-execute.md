@@ -216,7 +216,20 @@ python3 <CGG_ROOT>/cgg-runtime/scripts/review-promote-writeback.py \
   --cpr-id "<cpr_id>" \
   --promoted-to "<the SAME promoted_to string written to queue.jsonl in Step 4>" \
   --review-tic <R> \
-  --status promoted        # or promoted_spec for PROMOTE-SPEC, absorbed for an absorb verdict
+  --status promoted        # or promoted_spec for PROMOTE-SPEC
+```
+
+**Absorb-landing invocation (F-769-B3 cure, documented tic 770):** an absorb verdict carries
+`absorbed_into` and NO `promoted_to` — `--promoted-to` is optional in the helper and is
+OMITTED here; the reinforce stamp target resolves from the row's own `absorbed_into` via the
+landing_kind-keyed trigger (wave 7):
+
+```bash
+python3 <CGG_ROOT>/cgg-runtime/scripts/review-promote-writeback.py \
+  --cpr-id "<cpr_id>" \
+  --review-tic <R> \
+  --status absorbed        # reinforce trigger fires from the row's landing_kind;
+                           # --no-reinforce-trigger is the audited opt-out
 ```
 
 What it does, idempotently (a re-run is a no-op):
