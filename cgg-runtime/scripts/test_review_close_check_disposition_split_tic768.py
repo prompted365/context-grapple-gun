@@ -176,11 +176,14 @@ class TestDesignExclusion(HermeticIndexCase):
         self.assertEqual(len(heads), 1)
         self.assertTrue(heads[0].startswith("<!-- routed-from"))
 
-    def test_exclusion_set_is_EXACTLY_the_two_ruled_classes(self):
-        """No third class was added at build altitude."""
+    def test_exclusion_set_is_EXACTLY_the_three_ruled_classes(self):
+        """No UNRULED class was added at build altitude — the third class
+        (home_pointer_block) was widened by the /review-769 ruling itself
+        (F-768-A1, LATER-GOVERNS), never by a build increment."""
         self.assertEqual(
             sorted(rcc._DESIGN_EXCLUDED_HEAD_CLASSES),
-            ["born_candidate_declaration_block", "ledger_tags_metadata_block"])
+            ["born_candidate_declaration_block", "home_pointer_block",
+             "ledger_tags_metadata_block"])
 
     def test_exclusion_patterns_are_a_SUBSET_of_the_wrong_object_guard(self):
         """PARITY INVARIANT — the sharpest boundary claim of this increment.
@@ -241,27 +244,26 @@ class TestExclusionDoesNotOverreach(HermeticIndexCase):
             split["samples_by_disposition"]["index_loss"][0]["remedy_class"],
             "head_anchor_gap")
 
-    def test_home_pointer_is_UNCLASSIFIED_never_silently_excluded(self):
-        """The cross-ruling question this increment refuses to settle.
+    def test_home_pointer_is_DESIGN_EXCLUDED_by_the_review_769_ruling(self):
+        """The cross-ruling question — RULED at /review 769 (F-768-A1).
 
-        /review 723 (the measurement THIS ruling cites) counted `home-pointer
-        from` x1 among the 10 REAL index-loss witnesses; /review 736's
-        _WRONG_OBJECT_HEAD_RE types a home-pointer as "not a failed inscription
-        witness at all". Two rulings disagree. A build increment may not settle
-        that by widening its own exclusion set, so the head stays LOUD in the
-        third disposition and routes to /review.
+        /review 723 counted `home-pointer from` x1 among the REAL index-loss
+        witnesses; /review 736 typed a home-pointer "not a failed inscription
+        witness at all". The fence settled it LATER-GOVERNS: the /review-736
+        typing rules the member (the /review-723 typing on it is superseded-
+        with-lineage), so a home-pointer head is design-excluded under its own
+        named class — widened by the fence itself, never by a build increment.
         """
         inscribed, diag = self.index(HOME_POINTER + "\n")
         self.assertEqual(inscribed, set())
         self.assertEqual(
-            diag["unmatched_provenance_shaped_count"], 1,
-            "home-pointer must stay in the LOUD counter, not be design-excluded")
+            diag["unmatched_provenance_shaped_count"], 0,
+            "home-pointer leaves the LOUD counter under the /review-769 ruling")
         split = diag["unmatched_disposition_split"]
-        self.assertEqual(split["counts"]["unclassified"], 1)
-        self.assertEqual(split["counts"]["design_excludable"], 0)
-        sample = split["samples_by_disposition"]["unclassified"][0]
-        self.assertEqual(sample["remedy_class"], "wrong_object_class")
-        self.assertNotIn("design_exclusion_class", sample)
+        self.assertEqual(split["counts"]["unclassified"], 0)
+        self.assertEqual(split["counts"]["design_excludable"], 1)
+        sample = split["samples_by_disposition"]["design_excludable"][0]
+        self.assertEqual(sample["design_exclusion_class"], "home_pointer_block")
 
     def test_unknown_remedy_class_falls_to_unclassified_never_to_silence(self):
         """ANTI-ROT, at the predicate. A class the mapping does not know is
@@ -308,7 +310,7 @@ class TestPopulationSplitPublished(HermeticIndexCase):
         split = diag["unmatched_disposition_split"]
         self.assertEqual(
             split["counts"],
-            {"design_excludable": 3, "index_loss": 1, "unclassified": 1})
+            {"design_excludable": 4, "index_loss": 1, "unclassified": 0})
         self.assertEqual(split["token_bearing_residue_total"], 5)
         self.assertEqual(
             sum(split["counts"].values()), split["token_bearing_residue_total"])
@@ -333,7 +335,8 @@ class TestPopulationSplitPublished(HermeticIndexCase):
             ["design_excludable", "index_loss", "unclassified"])
         self.assertEqual(
             sorted(split["design_excluded_by_class"]),
-            ["born_candidate_declaration_block", "ledger_tags_metadata_block"])
+            ["born_candidate_declaration_block", "home_pointer_block",
+             "ledger_tags_metadata_block"])
 
     def test_samples_are_STRATIFIED_not_head_of_list(self):
         """The ray's second tooth: a capped UNSTRATIFIED sample hid the t723
@@ -401,13 +404,14 @@ class TestPopulationSplitPublished(HermeticIndexCase):
 
 class TestRemediationStringNamesEveryDisposition(HermeticIndexCase):
 
-    def test_every_disposition_and_both_exclusion_classes_are_named(self):
+    def test_every_disposition_and_all_exclusion_classes_are_named(self):
         body = "\n".join(
             [BORN_BLOCK, LEDGER_TAGS_BLOCK, VOCABULARY_GAP_HEAD, HOME_POINTER]) + "\n"
         _, _, err = self.index(body, capture_stderr=True)
         for token in ("index_loss", "design_excludable", "unclassified",
                       "born_candidate_declaration_block",
                       "ledger_tags_metadata_block",
+                      "home_pointer_block",
                       "POPULATION SPLIT BY DISPOSITION",
                       "verb registration", "head-anchor",
                       "no matcher change can ever be the fix",
@@ -419,9 +423,9 @@ class TestRemediationStringNamesEveryDisposition(HermeticIndexCase):
         body = "\n".join(
             [BORN_BLOCK, LEDGER_TAGS_BLOCK, VOCABULARY_GAP_HEAD, HOME_POINTER]) + "\n"
         _, diag, err = self.index(body, capture_stderr=True)
-        self.assertIn("UNMATCHED-PROVENANCE-SHAPE: 2 of 4", err)
-        self.assertEqual(diag["unmatched_provenance_shaped_count"], 2)
-        self.assertIn("design_excludable=2, index_loss=1, unclassified=1", err)
+        self.assertIn("UNMATCHED-PROVENANCE-SHAPE: 1 of 4", err)
+        self.assertEqual(diag["unmatched_provenance_shaped_count"], 1)
+        self.assertIn("design_excludable=3, index_loss=1, unclassified=0", err)
 
     def test_a_fully_design_excluded_population_still_DISCLOSES(self):
         """Both arms of the print gate. If the line fired only on a non-zero
@@ -458,7 +462,7 @@ class TestOrthogonalAxesUnmoved(HermeticIndexCase):
         self.assertEqual(
             diag["unmatched_remedy_class_counts"],
             {"wrong_object_class": 3, "head_anchor_gap": 0, "vocabulary_gap": 1})
-        self.assertEqual(diag["unmatched_provenance_shaped_count"], 2)
+        self.assertEqual(diag["unmatched_provenance_shaped_count"], 1)
 
     def test_index_admission_is_byte_for_byte_unchanged(self):
         """This increment touches WHICH RESIDUE IS COUNTED, never WHICH TOKENS
@@ -534,12 +538,12 @@ class TestNegativeControl(HermeticIndexCase):
         body = "\n".join(
             [BORN_BLOCK, LEDGER_TAGS_BLOCK, HOME_POINTER, VOCABULARY_GAP_HEAD]) + "\n"
 
-        # cured state
+        # cured state (post-/review-769: home-pointer design-excluded)
         _, diag = self.index(body)
-        self.assertEqual(diag["unmatched_provenance_shaped_count"], 2)
+        self.assertEqual(diag["unmatched_provenance_shaped_count"], 1)
         self.assertEqual(
             diag["unmatched_disposition_split"]["counts"],
-            {"design_excludable": 2, "index_loss": 1, "unclassified": 1})
+            {"design_excludable": 3, "index_loss": 1, "unclassified": 0})
 
         original = rcc._DESIGN_EXCLUDED_HEAD_CLASSES
         try:
@@ -557,7 +561,7 @@ class TestNegativeControl(HermeticIndexCase):
 
         # restored state — identical to the cured state above
         _, diag_res = self.index(body)
-        self.assertEqual(diag_res["unmatched_provenance_shaped_count"], 2)
+        self.assertEqual(diag_res["unmatched_provenance_shaped_count"], 1)
         self.assertEqual(
             diag_res["unmatched_disposition_split"]["counts"],
             diag["unmatched_disposition_split"]["counts"])

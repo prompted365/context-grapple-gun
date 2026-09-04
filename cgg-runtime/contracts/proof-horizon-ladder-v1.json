@@ -1,0 +1,82 @@
+{
+  "schema_version": "proof-horizon-ladder-v1",
+  "ratified": "/review 769 (in-tic Architect-ratified question set) signed the HORIZON QUIVER build set H1-H4 staged-lock. This file is the CONTENT half of H1, the load-bearing node: the ordered ladder of proof horizons as DATA. The values below are CONTENT — ruled at /review, amendable there by a data edit — and are never hardcoded in the engine that reads them (scripts/lib/proof_horizon.py). ENGINE-CONTENT SEPARATION is the whole point: extending, reordering, or renaming a horizon is an amendment to THIS FILE under a /review verdict, never a rewrite of the comparator.",
+  "ruling_rows": [
+    "audit-logs/governance/harpoon-office/staging/horizon-quiver-admission-and-dag-tic768.md section 3 — the COVENANT + DAG table, row H1: 'Typed proof-horizon contract: content = a horizon ladder file (proof-horizon-ladder-v1.json: source_admitted < pushed < remote_readback < detached_reproduced < installed_verified < deployed < outcome_observed — values are CONTENT, ruled not hardcoded); engine = one comparator in cgg-runtime lib + tests'. DIGEST, DUAL-STATE (the file changed mid-build and both states are named rather than one silently replacing the other): as ADMITTED at tic 768 and as READ IN FULL by this build, 11,432 B / sha256-16 0fe23c722fe3233b — the digest pinned at the tic-768 close; as ADJUDICATED, after the seat appended section 6, 12,923 B / sha256-16 ab69feb78ed4600d. Sections 1-5, the ruled scope this file was built from, are byte-identical across both states; the delta is exactly the appended section 6.",
+    "the same file section 4 ask 2 — 'Sign, trim, or hold the H1-H4 build set (H1 is the load-bearing node; H2/H3/H4 are its consumers)'",
+    "the same file section 3 row H0 — 'THIS admission adjudicated ... /review 769 signature (prong-2: staged NOW)'; H1 depends on H0",
+    "the same file section 6 (appended by the seat at /review 769, read in full by this build before this citation was written) — 'H1-H4 SIGNED, staged-lock (HIDALGO): H1 dispatched same-pass to a harpoon build citizen (opus) — typed proof-horizon contract (proof-horizon-ladder-v1.json content + comparator engine + tests, fail-closed, NC discriminating); H2 || H3 || H4 tension only after H1's cable receipt lands'; and 'H0 RATIFIED as struck ... native naming confirmed (the HORIZON QUIVER / horizon axis); sibling vocabulary and schemas stay excluded from doctrine surfaces; the object remains FIELD/no-cite, admitted-not-adopted'",
+    "audit-logs/reviews/2026-09-04.jsonl (review_tic 769, action=rule, item='H1-H6 build set') — target: 'H1 dispatched (harpoon build citizen, opus, staged-lock); H2||H3||H4 gated on H1 receipt; H5 SKIP-with-home (bank-predictions working aid note); H6 NON-DERIVABLE -> born cpr_receipt_horizon_claim_discipline_b769 fence 772'; review_ratified_by ent_breyden; ratification_basis 'in-tic AskUserQuestion ratified question set, /review 769, 2026-09-04 — recommended options verbatim'",
+    "CITATION-CURRENCY DISCLOSURE, CORRECTED IN-BUILD (and left standing because the correction is the evidence): when this file was first written, audit-logs/reviews/2026-09-04.jsonl DID NOT EXIST — a direct existence probe printed False — so the first draft cited NO reviews-lane row and said so. The seat's /review 769 batch landed those rows at 2026-09-04T04:30:01Z, roughly a minute later, and the two rows above are cited only because they were then re-read from disk. The first reading was true at its instant and the instant passed. This is the axis the file types, lived by the file itself: a citation is lawful at the moment its referent becomes observable, and not before."
+  ],
+  "brief": "audit-logs/governance/harpoon-office/cable-receipts/H1-proof-horizon-ladder-tic769.json (the H1 build receipt: executed proof, negative control, honest limits). DOES NOT SATISFY (rider carried verbatim from the ruling): \"H1 does NOT satisfy H2 (receipt-intake refusal), H3 (remote-parity close predicate), or H4 (detached-reproduction twin); it types the ladder those consumers will read. No intake boundary refuses anything as of this increment.\"",
+  "naming": "The native name is the PROOF-HORIZON LADDER (the horizon axis). The sibling-estate object this admission derives from is FIELD - no-cite - not law; none of its vocabulary, schemas, or closure names enter this file or its engine (staging section 1 APO; section 2 row 16, verdict EXCLUDED — 'naming law; sole-writer; engine-content separation'). Mechanics may be metabolized; names are re-authored natively.",
+  "ordering_semantics": "THE LADDER ORDERS EARLIEST-LAWFUL-OBSERVATION INSTANTS OF CLAIMS. A horizon is not a workflow stage, not a quality tier, and not a confidence level — it is the earliest instant at which a claim of that class becomes lawfully observable at all. Rank N is strictly earlier-lawful than rank N+1: a fact that only becomes observable at rank N+1 CANNOT be truthfully asserted by an artifact whose own observation stopped at rank N, no matter how likely it is to be true. The total order is over HORIZONS, not over artifacts: an artifact is not required to traverse every rung (a canonical-side governance receipt may never reach `deployed`), and skipping a rung is lawful. What is NOT lawful is CLAIMING a rung whose observation has not occurred for that artifact.",
+  "artifact_lawful_horizon": "An artifact's LAWFUL HORIZON is the highest-rank horizon whose observation has actually been performed FOR THAT ARTIFACT and can be pointed at. It is a measured property of the artifact's evidence, never a property of the author's intent or of the workflow's nominal stage.",
+  "refusal_target_of_the_h2_consumer": "TYPED NOTE (the consumer this ladder is built for, NOT BUILT IN THIS INCREMENT): a receipt claim typed ABOVE its artifact's lawful horizon — claim rank > artifact rank — is the refusal target of H2, the receipt-intake horizon check (staging section 3, row H2: 'a receipt claim typed ABOVE its artifact's lawful horizon REFUSES with a typed error'). H2 is UNBUILT as of this file's landing: NO intake boundary consults this ladder, and NOTHING is refused anywhere in the federation because of it. This file plus its comparator are the vocabulary and the predicate H2 will read — they are not H2.",
+  "ladder": [
+    {
+      "rank": 0,
+      "horizon": "source_admitted",
+      "earliest_lawful_observation": "the instant the bytes exist in the authoring tree and have been READ BACK from disk by the claimant. Authoring is not observation: a write whose result was never reopened has not reached even this rung.",
+      "does_not_entail": "that any other machine, tree, or surface has ever seen the bytes."
+    },
+    {
+      "rank": 1,
+      "horizon": "pushed",
+      "earliest_lawful_observation": "the instant the local emission to a remote returns success. This asserts the LOCAL side of a transfer completed.",
+      "does_not_entail": "that the remote will serve those bytes to a reader — a push is EMISSION, and emission is not retrieval."
+    },
+    {
+      "rank": 2,
+      "horizon": "remote_readback",
+      "earliest_lawful_observation": "the instant a READ addressed TO the remote resolves the exact declared subject (the exact sha / the exact ref), performed after the emission and returning the subject itself.",
+      "does_not_entail": "that any independent machine can rebuild the artifact from what the remote served."
+    },
+    {
+      "rank": 3,
+      "horizon": "detached_reproduced",
+      "earliest_lawful_observation": "the instant a machine carrying NONE of the authoring tree's state obtains the subject fresh and reproduces the declared artifact from it. The authoring machine cannot occupy this rung on its own behalf at any effort — the rung's content is the detachment.",
+      "does_not_entail": "that the reproduced artifact has been placed into any installed or serving tree."
+    },
+    {
+      "rank": 4,
+      "horizon": "installed_verified",
+      "earliest_lawful_observation": "the instant the installed tree's bytes are COMPARED, byte-for-byte, against the sole-writer lane's bytes, with the comparison's own output read.",
+      "does_not_entail": "that the delivery surface is serving the artifact — parity of trees is not delivery."
+    },
+    {
+      "rank": 5,
+      "horizon": "deployed",
+      "earliest_lawful_observation": "the instant the delivery surface itself reports the exact declared subject live under its own contract, read from that surface.",
+      "does_not_entail": "that anything downstream of delivery has changed — delivery is not effect."
+    },
+    {
+      "rank": 6,
+      "horizon": "outcome_observed",
+      "earliest_lawful_observation": "the instant the deployed artifact's EFFECT is measured on the surface the claim is about, by an instrument that could have reported the effect's absence.",
+      "does_not_entail": "anything beyond the measured window and the measured population — an outcome read is indexed to its own slice."
+    }
+  ],
+  "accretion": "OPEN-BY-/REVIEW at the ladder's ENDS AND INTERIOR, and CLOSED to writers. A new horizon, a removed horizon, or a re-ordering is minted ONLY by a /review verdict, transcribed here as a data edit; the comparator then reads the amended file with no code change. This is the deliberate posture of its sibling landing-kind-enum-v1.json (open-by-/review), NOT the closed-at-N posture of pending-class-enum-v1.json. A value is NEVER coined at a write boundary and NEVER invented engine-side. THIS FILE IS NOT A CLOSURE OF THE HORIZON VOCABULARY; it is the current transcription of a ruled ordered set.",
+  "minting_authority": "/review. The engine refuses an off-ladder value to ROUTE it to /review, never to declare the vocabulary complete. Take the horizon to /review; do not coin it at the call site, and never add a fallback order in code.",
+  "absence": "A claim with NO horizon asserted is lawful and is NOT rank 0 — absence asserts nothing and must not be silently defaulted to any rung. The engine raises a typed refusal on an off-ladder value; it does not substitute a default. Fail-closed is the ruled posture: a missing or malformed ladder file is a typed refusal, never a fallback ordering, because a comparator that keeps working without its content has silently become a hardcoded engine.",
+  "engine": {
+    "module": "canonical_developer/context-grapple-gun/cgg-runtime/scripts/lib/proof_horizon.py",
+    "api": [
+      "load_ladder() — reads THIS FILE and returns the validated ordered ladder; typed refusal if missing or malformed",
+      "horizon_rank(name) — the rank of a horizon as declared HERE; typed refusal on an off-ladder value",
+      "claim_within_horizon(claim_horizon, artifact_horizon) — True iff rank(claim) <= rank(artifact); typed refusal if either value is off-ladder"
+    ],
+    "typed_refusal_codes": [
+      "ladder_file_missing",
+      "ladder_file_malformed_json",
+      "ladder_schema_invalid",
+      "off_ladder_horizon"
+    ],
+    "hardcoded_order_prohibition": "The engine carries NO ordering of its own — not as a constant, not as a fallback, not as a default on read failure. Every rank it returns is read from this file at call time. Its committed suite proves this by pointing the engine at a PERMUTED ladder and asserting the ranks permute with it (scripts/test_proof_horizon_ladder_tic769.py, the reverted-cure control)."
+  },
+  "write_surfaces": [],
+  "consumers": "NONE at tic 769. No intake boundary, close instrument, guard, or writer consults this ladder as of this file's landing. Its declared future consumers are H2 (receipt-intake refusal), H3 (remote-parity close predicate), and H4 (detached-reproduction twin) — all UNBUILT. Presence is not wiring (Presence/Observation Fallacy Guard); this file's liveness claim is exactly zero downstream motion, stated so no reader mistakes it for a live gate.",
+  "does_not_satisfy": "H1 does NOT satisfy H2 (receipt-intake refusal), H3 (remote-parity close predicate), or H4 (detached-reproduction twin); it types the ladder those consumers will read. No intake boundary refuses anything as of this increment."
+}

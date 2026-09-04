@@ -893,23 +893,26 @@ _UNMATCHED_REMEDY_TEXT = {
 # tomorrow cannot be silently absorbed by this exclusion — it can only show up
 # as unclassified residue demanding an adjudication.
 #
-# WHY wrong_object_class MAPS TO `unclassified`, NOT to `design_excludable`:
-# the ruled exclusion set names exactly TWO head classes (born-CANDIDATE
-# declaration blocks, ledger-tags metadata blocks). _WRONG_OBJECT_HEAD_RE also
-# carries `home-pointer`, which the /review-723 measurement THIS RULING CITES
-# counted among the 10 REAL index-loss witnesses (its "6 vocabulary-class heads"
-# include `home-pointer from` x1), while the later /review-736 remedy typing
-# calls a home-pointer "not a failed inscription witness at all". Those two
-# rulings disagree, and a build increment may not settle a cross-ruling
-# question by silently widening its own exclusion set. So a wrong-object head
-# that is NOT one of the two ruled classes stays LOUD as `unclassified` and is
-# routed up — the third disposition doing exactly the job it exists for.
+# THE HOME-POINTER QUESTION — RULED at /review 769 (F-768-A1 adjudicated,
+# Architect-ratified in-tic AskUserQuestion round 2 Q1, recommended option
+# verbatim): the two rulings that disagreed — /review-723 counting
+# `home-pointer from` among the REAL index-loss witnesses vs the later
+# /review-736 remedy typing calling a home-pointer "not a failed inscription
+# witness at all" — are settled LATER-GOVERNS: the /review-736 typing rules
+# the member; the /review-723 index-loss typing on it is superseded-with-
+# lineage (its own receipt is never rewritten). home-pointer is therefore the
+# THIRD ruled design-exclusion class below. A wrong-object head that is NOT
+# one of the three ruled classes still falls to `unclassified` and stays LOUD
+# — the anti-rot posture is unchanged: the exclusion set is closed over what
+# it positively names, and a build increment still may not widen it; THIS
+# widening was performed by the fence itself, not by a build increment.
 _DISPOSITION_INDEX_LOSS = "index_loss"
 _DISPOSITION_DESIGN_EXCLUDABLE = "design_excludable"
 _DISPOSITION_UNCLASSIFIED = "unclassified"
 
-# The RULED design-exclusion set — two head classes, named one per key so the
-# published split can attribute every exclusion to the class that caused it.
+# The RULED design-exclusion set — three head classes (home-pointer added by
+# the /review-769 ruling above), named one per key so the published split can
+# attribute every exclusion to the class that caused it.
 # Each pattern MUST stay a subset of _WRONG_OBJECT_HEAD_RE: a head this counter
 # design-excludes must also be one the head-anchor relaxation refuses, or a
 # comment could be dropped from the residue report AND admitted to the index.
@@ -919,6 +922,10 @@ _DESIGN_EXCLUDED_HEAD_CLASSES = {
         r"<!--\s*--agnostic-candidate", re.IGNORECASE),
     "ledger_tags_metadata_block": re.compile(
         r"<!--\s*ledger-tags:", re.IGNORECASE),
+    # /review 769 (F-768-A1 LATER-GOVERNS): the /review-736 typing rules —
+    # a home-pointer is not a failed inscription witness at all.
+    "home_pointer_block": re.compile(
+        r"<!--\s*home-pointer", re.IGNORECASE),
 }
 
 # Remedy class -> default disposition. head_anchor_gap and vocabulary_gap are
@@ -937,18 +944,22 @@ _DISPOSITION_TEXT = {
         "Reachable cures, per remedy class: head_anchor_gap -> the head-anchor "
         "relaxation bound (build lane); vocabulary_gap -> verb registration."),
     "design_excludable": (
-        "NOT an inscription witness at all — a born-CANDIDATE declaration block "
-        "or a ledger-tags metadata block. A candidate is not an inscription, "
-        "exactly as a SKIP pointer is not. EXCLUDED from the headline counter "
-        "by design (/review 768); no matcher change can ever be the fix, and "
-        "admitting one would be a category error. Counted and published here "
-        "so the exclusion is auditable rather than dark."),
+        "NOT an inscription witness at all — a born-CANDIDATE declaration "
+        "block, a ledger-tags metadata block, or a home-pointer (/review 769: "
+        "the /review-736 typing governs; the /review-723 index-loss typing on "
+        "that member is superseded-with-lineage). A candidate is not an "
+        "inscription, exactly as a SKIP pointer is not. EXCLUDED from the "
+        "headline counter by design (/review 768 + 769); no matcher change "
+        "can ever be the fix, and admitting one would be a category error. "
+        "Counted and published here so the exclusion is auditable rather "
+        "than dark."),
     "unclassified": (
         "Token-bearing residue this counter does NOT dispose. LOUD BY "
         "CONSTRUCTION: the design-exclusion set is closed only over what it "
         "positively names, so any residue outside it — a non-witness class not "
         "yet ruled, or a head whose disposition two rulings disagree about "
-        "(the home-pointer case) — surfaces here instead of being silently "
+        "(the home-pointer case was this, until /review 769 ruled it into the "
+        "design-excluded classes above) — surfaces here instead of being silently "
         "absorbed. Route it to /review for adjudication; do not cure it in the "
         "build lane."),
 }
@@ -1730,9 +1741,10 @@ def build_inscribed_index(project_dir, queue_ids=None, diagnostics=None):
                 "/review 726 ray cgg-ledger#loud-counter-mirror-overadmission-"
                 "split-by-disposition (cpr_mogul_review_close_check_"
                 "8698d4d1b9bc), executed /review 768 under admission "
-                "B2-wave-6-tic768.json — exactly the two head classes the "
-                "ruling names; nothing else was added to the set at build "
-                "altitude"),
+                "B2-wave-6-tic768.json — the two head classes that ruling "
+                "names; home_pointer_block added by the /review 769 F-768-A1 "
+                "LATER-GOVERNS ruling — widened by the fence itself, never at "
+                "build altitude"),
             "exclusion_set_rot_disclosure": (
                 "This is a CLOSED negative list against an OPEN authoring "
                 "vocabulary — the ray's first tooth names that shape as the "
@@ -1743,13 +1755,13 @@ def build_inscribed_index(project_dir, queue_ids=None, diagnostics=None):
                 "absorbed by this exclusion; it can only appear as "
                 "unclassified residue demanding adjudication."),
             "unclassified_open_question": (
-                "home-pointer heads: typed wrong_object_class by the "
-                "/review-736 remedy constant, yet counted among the 10 REAL "
-                "index-loss witnesses by the /review-723 measurement this "
-                "row's ruling cites. Two rulings disagree; a build increment "
-                "does not settle that, so such heads stay LOUD as unclassified "
-                "and are routed to /review. Measured live at tic 768: 1 such "
-                "comment (cgg-ledger/ledger.md)."),
+                "home-pointer heads: the /review-723-vs-736 disagreement was "
+                "RULED at /review 769 (F-768-A1, LATER-GOVERNS) — the "
+                "/review-736 typing governs, home-pointer is the third ruled "
+                "design-exclusion class and no longer reaches this bucket; "
+                "the /review-723 index-loss typing on that member is "
+                "superseded-with-lineage. Members appearing here now are NEW "
+                "unruled classes only — route each to /review."),
             "samples_by_disposition": {
                 d: list(v) for d, v in sorted(
                     unmatched_samples_by_disposition.items())},
@@ -3426,6 +3438,13 @@ def compute_sibling_pair_attribution(report_dir, current_filename, current_tic,
             "members": len(churn),
             "content_collapse": (len(new) - len(new_c)) + (len(removed) - len(removed_c)),
             "discriminator": "intersection on the content-bearing component; non-empty = layout churn, not movement",
+            "vacuous_antecedent": (len(new) == 0 and len(removed) == 0),
+            "vacuous_antecedent_note": (
+                "True when the positional difference is EMPTY: a members=0 read over an empty "
+                "observation set is a VACUOUS ZERO, not a magnitude antecedent — it licenses no "
+                "delta at the next fire; report that magnitude KIND-only (/review 769, "
+                "cpr_mogul_review_close_check_df2e773ddc91 — the NON-VACUITY precondition of the "
+                "MAGNITUDE-ANTECEDENT clause; mirrors the sibling counters' vacuity typing)"),
         },
         "content_new_matched_comments": content_new,
         "content_removed_matched_comments": content_removed,

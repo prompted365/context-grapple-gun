@@ -1179,6 +1179,11 @@ def main(argv=None):
             return 2
         lifecycle.update(parsed)
     lifecycle.update(_parse_set(args.set_pairs))
+    if "ratified_by" in lifecycle and "review_ratified_by" not in lifecycle:
+        print("queue-lifecycle-writeback: WARNING — payload sets 'ratified_by' without "
+              "'review_ratified_by'. The ruled dominant ratifier key is 'review_ratified_by' "
+              "(/review 769, F-768-S3 + A3-769: n=109 dominant corpus vs n=15 legacy); "
+              "'ratified_by' is legacy-read-only. Set the dominant key.", file=sys.stderr)
 
     try:
         report = lifecycle_writeback(

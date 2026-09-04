@@ -228,6 +228,12 @@ WRITE_METHODS = {"write_text", "write_bytes", "writelines"}
 WRITE_HELPERS = {
     "atomic_append_jsonl": None,
     "atomic_write_json": None,
+    # lib.atomic_write helper pair — REGISTERED /review 769 (F-768-W6-1: the
+    # wave-6 helper was invisible to this audit until named here; six migrated
+    # call sites now inside the audited population). Path-first-positional,
+    # no surface semantics in the name.
+    "atomic_write_bytes": None,
+    "atomic_write_text": None,
     "dedup_signal_append": "signal_manifold",
     "dedup_queue_append": "cogpr_queue",
 }
