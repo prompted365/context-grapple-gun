@@ -47,6 +47,11 @@ from pathlib import Path
 # Allow importing siblings from same directory
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from zone_root import resolve_zone_root, load_ticzone, audit_logs_path, birth_topology
+# Shared UTC partition-key clock (bk-daily-partition-key-shared-clock-primitive,
+# /review 767 Q4; clock RULED /review 745 Q2). A daily-file partition key is a
+# cross-lane JOIN key — ONE declared clock, never per-writer. The tics/ lane
+# joined the atom at B2 wave 8 (OM-4, /review 770 round 2 Q5).
+from lib.partition_key import utc_partition_date
 import importlib
 _mandate_mod = importlib.import_module("mandate-write")
 compute_due_markers = _mandate_mod.compute_due_markers
@@ -325,7 +330,14 @@ def _emit_tic_locked(zone_root: str, tic_dir: str, mode: str, count_mode: str,
 
     now = datetime.now(timezone.utc)
     now_iso = now.strftime("%Y-%m-%dT%H:%M:%SZ")
-    today = now_iso[:10]
+    # THE tics/ LANE'S DAILY PARTITION KEY — derived through the ONE declared
+    # clock, never inline (OM-4, B2 wave 8). PREVENTIVE, not restorative: the
+    # retired `now_iso[:10]` slice was already UTC, so no emission changes; what
+    # the merge kills is the LATENT one-emission-two-dated-files class the t745
+    # scar named. `now` is passed EXPLICITLY so this file name and the row's own
+    # `tic` timestamp come from a SINGLE instant — a second wall-clock read here
+    # could straddle midnight and re-open the t745 shape INSIDE one emission.
+    today = utc_partition_date(now)
 
     before = count_physical_tics(tic_dir)
     after = before + 1 if count_mode == "counted" else before

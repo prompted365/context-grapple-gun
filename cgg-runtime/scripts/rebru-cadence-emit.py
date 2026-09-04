@@ -36,6 +36,14 @@ import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
+# Allow importing siblings from same directory (mirrors mandate-write.py:35).
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+# Shared UTC partition-key clock (bk-daily-partition-key-shared-clock-primitive,
+# /review 767 Q4; clock RULED /review 745 Q2). This script is the tics/ lane's
+# consumer-AND-composer: it names audit-logs/tics/<date>.jsonl itself, so it is
+# the one reader that had to move with the writers (OM-4, B2 wave 8).
+from lib.partition_key import utc_partition_date
+
 try:
     import yaml
 except ImportError:
@@ -119,7 +127,14 @@ def build_block(zone: Path, tic: int) -> dict:
     plan_path = latest_plan(plans_dir)
     posture = declared_posture_from_plan(plan_path)
 
-    today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    # THE tics/ LANE'S DAILY PARTITION KEY, through the shared clock (OM-4, B2
+    # wave 8). PREVENTIVE, not restorative: the retired inline derivation was
+    # already UTC. `today` composes audit-logs/tics/{today}.jsonl below (the
+    # @Tic.0 provenance_id AND its hydrate source) — a partition key, so it is
+    # a JOIN key, so it is never derived per-writer.
+    today = utc_partition_date()
+    # NOT a partition key — an emission TIMESTAMP. Stays inline by ruling: only
+    # derivations that name a DATED PARTITION FILENAME join the atom.
     emit_iso = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
     head = git_head(zone)
 

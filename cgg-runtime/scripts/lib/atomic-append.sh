@@ -19,6 +19,47 @@
 # JSONL append is byte-for-byte unchanged — the case in atomic_append never matches them);
 # fires AFTER the row is durably appended (cannot corrupt the write); idempotent (re-fire
 # is a no-op); fully fail-soft (always returns 0; never affects the append's result).
+#
+# ── REACHABILITY CURE (bk-reinforced-by-stamper-trigger-never-keyed, B2 wave 8 row B,
+#    /review 770 round 2 Q5; cures F-769-B1 / OM-B1, filed HIGH by the wave-7 citizen) ──
+# This gate ORIGINALLY required a TRUTHY `promoted_to` before it would invoke the
+# writeback. That predicate is correct for a PROMOTE landing and WRONG as the sole
+# admission test: an ABSORB-side `reinforce_existing` landing carries `absorbed_into`,
+# never `promoted_to` (0 of 14 latest-per-id reinforce rows carry one — measured tic 769,
+# RE-MEASURED 0/14 at tic 770). So the wave-7 landing_kind-keyed reinforce trigger inside
+# review-promote-writeback.py — built, tested, and live — was UNREACHABLE from its ONLY
+# automatic caller: this boundary. Mechanism present, dataflow dead ("can it eat?").
+#
+# THE CURE: `promoted_to` stops being an admission requirement and becomes a MODE
+# SELECTOR.
+#   • PROMOTE path (unchanged): id + promoted_to + review_tic -> argv carries --promoted-to.
+#   • KEYED path (new): id + review_tic + NO promoted_to + a `landing_kind` on the row
+#     -> argv OMITS --promoted-to, which is exactly the shape review-promote-writeback.py
+#     already documents as KEYED reinforced-by mode (`--promoted-to` is `required=False`;
+#     the missing value routes to `fire_reinforce_trigger` before any usage error).
+#
+# ENGINE-CONTENT SEPARATION (federation KI) — WHY THE PREDICATE HERE IS `landing_kind`
+# PRESENT AND NOT `landing_kind == reinforce_existing`: the REINFORCE FAMILY is OPEN-BY-
+# /review and lives in contracts/landing-kind-enum-v1.json, read by the consumer. If this
+# bash boundary re-implemented family membership it would become a SECOND reader of that
+# vocabulary and would silently re-open this very unreachability class the next time
+# /review accretes a stamp-mandating value. So the boundary's test is STRUCTURAL ("this
+# row took a landing, so a keyed trigger may apply") and the vocabulary decision stays
+# with the one consumer that reads the contract. The consumer is FAIL-CLOSED: an
+# off-family landing_kind, an unresolvable `absorbed_into`, or an unreadable contract all
+# leave the stamper DISARMED with a typed reason and write nothing.
+#
+# NOT WIDENED: the */cprs/queue.jsonl scope containment and the promote-class `status`
+# pre-filter are BOTH untouched — a non-queue append and a non-promote-class row are
+# refused exactly as before. A row with neither `promoted_to` nor `landing_kind` is still
+# declined here (nothing to promote to, nothing to key on).
+#
+# ⚠ DOES-NOT-SATISFY RIDER (verbatim, carried from the wave-7 receipt and the signed wave):
+#   This cure does NOT retroactively stamp anything — the backfill population measured 0
+#   twice, OM-B2 adjudicated already-discharged this fence.
+#   It also does NOT prove a LIVE natural firing: reachability is proven end-to-end
+#   hermetically (scripts/lib/test_promote_gate.sh arms E1-E6), and no naturally-occurring
+#   reinforce landing has yet traversed this boundary in production.
 _cgg_fire_promote_writeback() {
   local row="$1"
   # cheap bash pre-filter: only promote-class rows are candidates (no python spawn for
@@ -41,13 +82,20 @@ except Exception:
 if d.get("status") not in ("promoted", "promoted_spec", "absorbed"):
     sys.exit(0)
 cpr_id, promoted_to, review_tic = d.get("id"), d.get("promoted_to"), d.get("review_tic")
-if not (cpr_id and promoted_to and review_tic is not None):
-    sys.exit(0)  # incomplete promote row — the explicit review-execute call covers it
-subprocess.run(
-    ["python3", rpw, "--cpr-id", str(cpr_id), "--promoted-to", str(promoted_to),
-     "--review-tic", str(review_tic), "--status", str(d["status"])],
-    check=False,
-)
+if not (cpr_id and review_tic is not None):
+    sys.exit(0)  # incomplete row — the explicit review-execute call covers it
+argv = ["python3", rpw, "--cpr-id", str(cpr_id),
+        "--review-tic", str(review_tic), "--status", str(d["status"])]
+if promoted_to:
+    argv += ["--promoted-to", str(promoted_to)]           # PROMOTE path (unchanged)
+elif not d.get("landing_kind"):
+    # No promotion target AND no landing to key on -> nothing this boundary can dispatch.
+    sys.exit(0)
+# else: KEYED path — omit --promoted-to so review-promote-writeback.py resolves the
+# reinforce trigger from the row's landing_kind against the landing-kind contract.
+# Family membership is NEVER decided here (engine-content separation); the consumer is
+# fail-closed and writes nothing when it does not arm.
+subprocess.run(argv, check=False)
 PY
   return 0
 }

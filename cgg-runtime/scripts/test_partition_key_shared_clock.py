@@ -373,3 +373,201 @@ def test_structural_the_writer_census_is_three_not_two():
     assert len(_MANDATES_HISTORY_WRITERS) == 3
     for path in _MANDATES_HISTORY_WRITERS.values():
         assert os.path.isfile(path), path
+
+
+# =============================================================================
+# ARM 6 — THE tics/ LANE (OM-4, B2 wave 8, /review 770 round 2 Q5)
+#
+# Arm 5 pinned the mandates/history lane. This arm pins the OTHER half of the
+# t745 pair — the audit-logs/tics/<date>.jsonl lane — the same way, because the
+# t745 defect was a BROKEN JOIN BETWEEN THE TWO: one emission, one instant, two
+# differently-dated files. Pinning one side and not the other leaves the join
+# provable from only one end.
+#
+# PREVENTIVE, NOT RESTORATIVE — stated at composition, not discovered later:
+# BOTH tics/ partition sites were ALREADY on the UTC clock before this wave, so
+# ZERO emissions change date and no historical file is affected. What the merge
+# removes is the LATENT re-opening: an inline derivation is one careless edit
+# away from the local clock, and nothing on disk would have caught it. That is
+# also why the structural half below is the load-bearing half here — the
+# behavioural half cannot fail today even if a writer is reverted, because the
+# reverted form is still UTC. Only a source-level pin can see this regression.
+#
+# CENSUS CORRECTION (F-770-W8A-1, measured at build): the wave-8 evidence brief
+# tabled THREE tics/ derivations and named cadence-ops.py ~:663 as the second.
+# Read at HEAD de53d8c, that site's `now` has exactly ONE consumer —
+# `"snapshot_at": now.isoformat()` — and its function writes
+# conformations/tic-<N>.json, a TIC-NUMBERED path. It derives no dated
+# partition filename, so under the ruling's own discriminator ("only the sites
+# that derive a DATED PARTITION FILENAME for audit-logs/tics/ move; a timestamp
+# derivation that is not a partition key stays") it STAYS. The partition-writer
+# set is TWO. Both the corrected census and the excluded timestamp sites are
+# pinned below so the over-count cannot silently return — and so no future
+# citizen "completes" the merge by migrating a timestamp.
+# =============================================================================
+
+# The closed PARTITION-writer set into audit-logs/tics/<date>.jsonl, measured
+# tic 770 at CGG HEAD de53d8c. TWO sites — see the census correction above.
+_TICS_LANE_PARTITION_WRITERS = {
+    "cadence-ops.py": os.path.join(_SCRIPTS, "cadence-ops.py"),
+    "rebru-cadence-emit.py": os.path.join(_SCRIPTS, "rebru-cadence-emit.py"),
+}
+
+# Sites in the SAME two files that derive a TIMESTAMP, not a partition key, and
+# are therefore DELIBERATELY out of the merge. Each entry is
+# (file, must-still-contain, why-it-is-not-a-partition-key).
+_TICS_LANE_EXCLUDED_TIMESTAMP_SITES = [
+    (
+        "cadence-ops.py",
+        '"snapshot_at": now.isoformat(),',
+        "write_conformation's snapshot instant; its artifact is "
+        "conformations/tic-<N>.json — tic-numbered, never dated",
+    ),
+    (
+        "cadence-ops.py",
+        'now_iso = now.strftime("%Y-%m-%dT%H:%M:%SZ")',
+        "the tic event row's own ISO-8601 `tic` field — a full timestamp, "
+        "not a daily key",
+    ),
+    (
+        "rebru-cadence-emit.py",
+        'emit_iso = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")',
+        "the cadence block's emission_at timestamp — not a filename",
+    ),
+]
+
+
+# --- ARM 6a: BEHAVIOURAL — the tics/ lane joins mandates/history -------------
+
+@pytest.mark.parametrize("instant,expected_utc,expected_local", DIVERGENCE_WINDOW)
+def test_tics_lane_and_mandates_history_name_the_same_date(instant, expected_utc,
+                                                           expected_local):
+    """THE t745 JOIN, both ends now derived through the one helper.
+
+    On disk at t745 this instant produced tics/2026-08-28.jsonl AND
+    mandates/history/2026-08-27.jsonl. Through the shared clock both lanes
+    name ONE date, so a consumer joining tics/<date> against
+    mandates/history/<date> cannot lose the boundary.
+    """
+    tics_lane = utc_partition_date(instant)            # cadence-ops.py emit_tic
+    rebru_pointer = utc_partition_date(instant)        # rebru-cadence-emit @Tic.0
+    mandates_history = utc_partition_date(instant)     # mandate-write.py
+
+    assert {tics_lane, rebru_pointer, mandates_history} == {expected_utc}, (
+        "the t745 JOIN split across the lanes: "
+        f"tics={tics_lane!r} rebru={rebru_pointer!r} "
+        f"mandates_history={mandates_history!r}"
+    )
+    # And the pre-cure local clock still names the OTHER file — the control
+    # that keeps this assertion from being a tautology.
+    assert local_clock_partition_date(instant) == expected_local
+    assert local_clock_partition_date(instant) != tics_lane
+
+
+@pytest.mark.parametrize("instant,expected_utc,expected_local", DIVERGENCE_WINDOW)
+def test_retired_inline_slice_is_byte_equal_to_the_helper(instant, expected_utc,
+                                                          expected_local):
+    """PREVENTIVE-NOT-RESTORATIVE, proven rather than asserted in prose.
+
+    cadence-ops.py derived its key as `now.strftime("%Y-%m-%dT%H:%M:%SZ")[:10]`
+    and rebru-cadence-emit.py as `.strftime("%Y-%m-%d")`. Both were ALREADY
+    UTC. This pins that the migration changes ZERO output on every instant in
+    the divergence window — so "no behaviour change" is a measurement, not a
+    claim, and any future drift in the helper is caught against the exact form
+    the tics/ lane used to emit.
+    """
+    retired_cadence_ops = instant.strftime("%Y-%m-%dT%H:%M:%SZ")[:10]
+    retired_rebru = instant.strftime("%Y-%m-%d")
+    cured = utc_partition_date(instant)
+
+    assert retired_cadence_ops == cured, (
+        "the cadence-ops migration CHANGED the emitted partition key — this "
+        "increment was ruled preventive-not-restorative and must not move a date"
+    )
+    assert retired_rebru == cured, (
+        "the rebru-cadence-emit migration CHANGED the emitted partition key"
+    )
+    assert cured == expected_utc
+
+
+# --- ARM 6b: STRUCTURAL — the load-bearing half for THIS lane ----------------
+
+@pytest.mark.parametrize("name,path", sorted(_TICS_LANE_PARTITION_WRITERS.items()))
+def test_structural_every_tics_lane_writer_is_pinned_to_the_ruled_clock(name, path):
+    """REGRESSION GUARD: revert either tics/ writer and this fails BY NAME.
+
+    THE load-bearing arm for this lane. Because both sites were already UTC, a
+    revert to the inline form is BEHAVIOURALLY INVISIBLE — arm 6a would stay
+    green through it. Only this source-level pin can see the lane fragmenting
+    again, which is precisely the latent class the merge was ruled to close.
+    """
+    src = open(path, encoding="utf-8").read()
+    assert "from lib.partition_key import utc_partition_date" in src, (
+        f"{name} does not import the shared clock — the tics/ lane is split")
+
+    if name == "cadence-ops.py":
+        assert "today = utc_partition_date(now)" in src, (
+            "cadence-ops.py no longer derives the tics/ partition key through "
+            "the shared clock")
+        assert "today = now_iso[:10]" not in src, (
+            "cadence-ops.py reverted to the INLINE slice derivation — the "
+            "tics/ lane is one careless edit from the local clock again")
+        # The key must still be what NAMES the file, or the pin above is
+        # pinning a variable nothing reads.
+        assert 'tic_file = os.path.join(tic_dir, f"{today}.jsonl")' in src, (
+            "cadence-ops.py no longer composes the tics/ filename from `today` "
+            "— this pin has gone vacuous and must be re-aimed")
+        # The instant must be passed EXPLICITLY: a bare utc_partition_date()
+        # here would read the wall clock a SECOND time, and an emission that
+        # straddles midnight would name a file whose date disagrees with the
+        # `tic` timestamp in the row it holds — the t745 shape, inside one
+        # emission.
+        assert "today = utc_partition_date()" not in src, (
+            "cadence-ops.py dropped the explicit instant — the file name and "
+            "the row's own timestamp can now be derived from two reads")
+    else:
+        assert "today = utc_partition_date()" in src, (
+            "rebru-cadence-emit.py no longer derives its tics/ pointer through "
+            "the shared clock")
+        assert 'today = datetime.now(timezone.utc).strftime("%Y-%m-%d")' not in src, (
+            "rebru-cadence-emit.py reverted to the INLINE derivation")
+        assert 'f"audit-logs/tics/{today}.jsonl"' in src, (
+            "rebru-cadence-emit.py no longer names the tics/ partition from "
+            "`today` — this pin has gone vacuous and must be re-aimed")
+
+
+@pytest.mark.parametrize("name,needle,why", _TICS_LANE_EXCLUDED_TIMESTAMP_SITES)
+def test_structural_excluded_timestamp_sites_stay_inline(name, needle, why):
+    """The RIDER, enforced: a timestamp derivation is NOT a partition key.
+
+    The merge was fenced to derivations that name a DATED PARTITION FILENAME.
+    These three sites derive timestamps and were deliberately left inline; a
+    future citizen "finishing the job" by routing them through the daily-key
+    helper would be truncating a timestamp to a date, which is a behaviour
+    change this ruling did not authorize. Failing here means the fence moved.
+    """
+    src = open(_TICS_LANE_PARTITION_WRITERS[name], encoding="utf-8").read()
+    assert needle in src, (
+        f"{name}: an EXCLUDED timestamp site changed — {why}. The wave-8 fence "
+        "covered partition keys only; moving this needs its own ruling.")
+
+
+def test_structural_the_tics_partition_writer_census_is_two_not_three():
+    """F-770-W8A-1 pinned: the over-count that would re-enter as a 'gap'.
+
+    The evidence brief tabled THREE tics/ derivations; the third
+    (cadence-ops.py ~:663) derives `snapshot_at` for a TIC-NUMBERED artifact
+    and is not a partition key at all. Pinning the corrected census — and the
+    tic-numbered conformation path that proves it — stops the over-count from
+    returning as a future 'unmerged site' finding.
+    """
+    assert len(_TICS_LANE_PARTITION_WRITERS) == 2
+    for path in _TICS_LANE_PARTITION_WRITERS.values():
+        assert os.path.isfile(path), path
+
+    cadence_ops = open(_TICS_LANE_PARTITION_WRITERS["cadence-ops.py"],
+                       encoding="utf-8").read()
+    # The evidence: write_conformation's artifact is tic-numbered, not dated.
+    assert 'conf_path = os.path.join(conf_dir, f"tic-{tic_count}.json")' in cadence_ops, (
+        "the conformation path is no longer tic-numbered — if it became dated, "
+        "it BECAME a partition writer and owes this atom a migration")
