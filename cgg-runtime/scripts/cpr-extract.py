@@ -251,6 +251,92 @@ LIFECYCLE_SETTLED_STATES = frozenset({
 })
 
 
+# ---------------------------------------------------------------------------
+# PENDING_CLASS ENUM VOCABULARY GUARD at the BIRTH write boundary
+# (B2 wave 10; RULED /review 772 round 3 Q9, Architect-signed "SIGN"; basis
+# /review 772 round 2 Q6; row `bk-off-enum-drift-field-generic-writer-topology`;
+# staged artifact audit-logs/governance/backlog-gunslinger-hoist/
+# B2-wave-10-STAGED-tic772.json, signed B2-wave-10-SIGNED-tic772.json).
+#
+# WHY HERE. /review 767 Q4 guarded pending_class + landing_kind at
+# queue-lifecycle-writeback.py ONLY. The writer-topology measurement in the
+# contract's own `writer_topology` key names the open half: the axis is not
+# free-hand coinage but MULTIPLE WRITERS WITH NO SHARED CONTRACT. This script
+# is one of the two BIRTH writers. Its current mints are ON-TABLE
+# (evidence_scoped Tier-2, schema_incomplete Tier-3, both accreted /review 768
+# round 2), so the risk this guard closes is DRIFT, not present off-table
+# minting: a future edit to `_classify_tier`'s vocabulary could mint an
+# off-table value with nothing at the boundary to catch it.
+#
+# ENGINE-CONTENT SEPARATION (federation KI): the enum stays contract DATA. The
+# values are NEVER inlined here — extending the vocabulary is a data edit in
+# contracts/ authorized by a /review verdict, never a rewrite of the predicate
+# below. This mirrors queue-lifecycle-writeback.py's ENUM_GUARDED_FIELDS table.
+#
+# NOT FAIL-SOFT, deliberately (the confidence_tier discipline): a guard surface
+# whose governing contract is missing must crash loudly at import rather than
+# run half-guarded. contracts/ rides the sync manifest (F-767-E1 cure), so the
+# installed runtime copy resolves this path too.
+_CONTRACTS_DIR = Path(os.path.abspath(__file__)).resolve().parent.parent / "contracts"
+PENDING_CLASS_CONTRACT_FILE = "pending-class-enum-v1.json"
+
+
+def _load_pending_class_contract():
+    with open(_CONTRACTS_DIR / PENDING_CLASS_CONTRACT_FILE, encoding="utf-8") as fh:
+        return json.load(fh)
+
+
+PENDING_CLASS_CONTRACT = _load_pending_class_contract()
+PENDING_CLASS_ENUM = frozenset(PENDING_CLASS_CONTRACT["enum"].keys())
+
+
+def classify_pending_class(value):
+    """Classify a candidate pending_class for the birth boundary.
+
+    "lawful"   — an enum member, or the lawful no-value forms (None / "").
+                 The contract's `absence` key: field absent (or null) = no
+                 pending class asserted.
+    "off_enum" — any other coinage, including a non-string.
+    """
+    if value is None or value == "":
+        return "lawful"
+    if not isinstance(value, str):
+        return "off_enum"
+    return "lawful" if value in PENDING_CLASS_ENUM else "off_enum"
+
+
+def pending_class_refusal_message(value, locator):
+    """The typed reject text: names the value, the RATIFIED FIVE, the CONTRACT
+    FILE, and — load-bearing per the ruling — /review as the MINTING AUTHORITY.
+    Interpolated from the contract so a data edit updates the message too."""
+    return (
+        f"{value!r} is not a ratified pending_class value. Lawful values: "
+        f"{sorted(PENDING_CLASS_ENUM)} or absent. Governing artifact: "
+        f"contracts/{PENDING_CLASS_CONTRACT_FILE} "
+        f"({PENDING_CLASS_CONTRACT['ratified']}). "
+        f"MINTING AUTHORITY: {PENDING_CLASS_CONTRACT['minting_authority']} "
+        f"Refused at {locator}."
+    )
+
+
+class PendingClassOffEnum(Exception):
+    """Raised when this BIRTH writer would MINT an off-table pending_class.
+
+    Carries the typed code so the CLI can report it the way
+    queue-lifecycle-writeback.py reports `pending_class_off_enum` (rc=2).
+    Every write at this site is an INTRODUCTION — cpr-extract mints birth rows
+    and never carries a prior row's value forward — so the lifecycle writer's
+    ENUM-CARRY-NOTICE exemption has no counterpart here, by construction.
+    """
+
+    code = "pending_class_off_enum"
+
+    def __init__(self, value, locator):
+        self.value = value
+        self.locator = locator
+        super().__init__(pending_class_refusal_message(value, locator))
+
+
 def load_existing_state(queue_file):
     """Load dedup hashes AND terminal ids from existing queue.jsonl.
 
@@ -691,7 +777,7 @@ def _resolve_provenance_class(block, block_locator):
 
 def extract_cprs(project_dir, dry_run=False, plan_file=None, anomaly_threshold=0.5,
                  session_lessons_window=SESSION_LESSONS_RECENCY_WINDOW,
-                 borns_window=BORNS_RECENCY_WINDOW):
+                 borns_window=BORNS_RECENCY_WINDOW, waive_enum_guard=()):
     """Main extraction: scan governance files, classify by tier, dedup, append.
 
     Patch E (tic 188) widens the accepted schema with tiered capture. The
@@ -728,6 +814,7 @@ def extract_cprs(project_dir, dry_run=False, plan_file=None, anomaly_threshold=0
     project_dir = os.path.abspath(project_dir)
     tz_config = load_ticzone(project_dir)
     al_path = audit_logs_path(project_dir, tz_config)
+    waived_enum_fields = set(waive_enum_guard or ())
 
     # --plan-file membrane arming (bk-cpr-extract-declared-emitter-allowlist,
     # tic 696, arm B): typed reject AT INTAKE, before any read/write side
@@ -1016,8 +1103,32 @@ def extract_cprs(project_dir, dry_run=False, plan_file=None, anomaly_threshold=0
                 entry["title"] = block.get("title", "")
                 entry["evidence"] = block.get("evidence", "")
 
-            # Tier 2/3 metadata
+            # Tier 2/3 metadata — through the ENUM VOCABULARY GUARD (B2 wave
+            # 10, /review 772 Q9). An off-table INTRODUCTION is REFUSED with
+            # the typed code before ANY row is appended (the queue write block
+            # runs after this loop), so a refusal leaves the queue untouched —
+            # the same "nothing is appended" contract the lifecycle writer's
+            # rc=2 refusal carries. `--waive-enum-guard pending_class` is the
+            # audited escape hatch: stderr notice AND a stamp on the row, never
+            # silent (mirrors --waive-enum-guard at queue-lifecycle-writeback).
             if pending_class:
+                if classify_pending_class(pending_class) != "lawful":
+                    if "pending_class" in waived_enum_fields:
+                        print(
+                            f"ENUM-GUARD-WAIVE-NOTICE [{entry_id}]: off-table "
+                            f"pending_class {pending_class!r} minted by "
+                            f"cpr-extract and admitted by the caller (audited, "
+                            f"visible — never silent; stamped at "
+                            f"cpr_extract.enum_guard_waived). If /review minted "
+                            f"this value, land the contract amendment in the "
+                            f"same pass.",
+                            file=sys.stderr,
+                        )
+                        entry["cpr_extract"] = {
+                            "enum_guard_waived": {"pending_class": pending_class}
+                        }
+                    else:
+                        raise PendingClassOffEnum(pending_class, block_locator)
                 entry["pending_class"] = pending_class
             if no_evidence_reason:
                 entry["no_evidence_reason"] = no_evidence_reason
@@ -1353,16 +1464,43 @@ def main():
              "<0 disables; a large value (>= the tic span) intentionally sweeps the "
              "historical born backlog (gated, explicit, dedup-safe — never the default).",
     )
+    parser.add_argument(
+        "--waive-enum-guard",
+        action="append",
+        dest="waive_enum_guard",
+        default=[],
+        metavar="FIELD",
+        help="Audited escape hatch for the enum vocabulary guard (currently "
+             "`pending_class`). Admits an off-table value this writer would "
+             "otherwise REFUSE (rc=2), with a stderr ENUM-GUARD-WAIVE-NOTICE "
+             "and a stamp at cpr_extract.enum_guard_waived on the row — never "
+             "silent. Mirrors --waive-enum-guard at queue-lifecycle-writeback.py. "
+             "/review is the minting authority for the vocabulary itself "
+             "(contracts/pending-class-enum-v1.json); the hatch admits a value, "
+             "it does not ratify one.",
+    )
     args = parser.parse_args()
 
     project_dir = args.project_dir or resolve_zone_root()
-    new_entries, counters = extract_cprs(
-        project_dir,
-        dry_run=args.dry_run,
-        plan_file=args.plan_file,
-        session_lessons_window=args.session_lessons_window,
-        borns_window=args.borns_window,
-    )
+    try:
+        new_entries, counters = extract_cprs(
+            project_dir,
+            dry_run=args.dry_run,
+            plan_file=args.plan_file,
+            session_lessons_window=args.session_lessons_window,
+            borns_window=args.borns_window,
+            waive_enum_guard=args.waive_enum_guard,
+        )
+    except PendingClassOffEnum as exc:
+        print(
+            f"cpr-extract REFUSED [{exc.code}]: refusing to MINT an off-table "
+            f"pending_class at the birth boundary. {exc} Pass "
+            f"--waive-enum-guard pending_class to admit it anyway (audited "
+            f"escape hatch, stamped on the row). NOTHING was appended to the "
+            f"queue.",
+            file=sys.stderr,
+        )
+        return 2
 
     if args.verbose:
         for e in new_entries:
