@@ -352,7 +352,8 @@ def _append_history_jsonl(history_file: Path, row: dict) -> None:
                 fcntl.flock(lf.fileno(), fcntl.LOCK_UN)
 
 
-def _terminalize_absorbed_pending(mandate: dict, absorbed: dict | None, history_file: Path) -> None:
+def _terminalize_absorbed_pending(mandate: dict, absorbed: dict | None, history_file: Path,
+                                  now: datetime = None) -> None:
     """Close the absorbed lane at the merge site (bk-mandate-merge-terminalize-absorbed,
     /review-691 ratified: A MERGE MUST TERMINALIZE WHAT IT CONSUMES).
 
@@ -384,7 +385,7 @@ def _terminalize_absorbed_pending(mandate: dict, absorbed: dict | None, history_
         _append_history_jsonl(history_file, {
             "transition": "pending_to_merged",
             "mandate_id": absorbed_id,
-            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "timestamp": (now or datetime.now(timezone.utc)).isoformat(),
             "merged_into": mandate["mandate_id"],
             "emitted_by": "mandate-write",
         })
@@ -422,10 +423,16 @@ def write_mandate(mandate: dict, zone_root: Path, audit_logs_rel: str = "audit-l
     # mandate-compact rows). All three moved to the ONE declared clock in the
     # SAME motion — a partition key is a JOIN key, so a split clock splits the
     # lane. Historical dated files are NEVER renamed; forward-only.
-    today = utc_partition_date()
+    # /review 771 Q7 (the OM-W8A-4 cure — the rowA discipline applied to THIS
+    # lane): ONE clock read at this write boundary. The partition key and the
+    # transition-row timestamp derive from the SAME instant, so a call that
+    # straddles midnight cannot name a file whose date disagrees with the row
+    # it holds (the t745 shape, inside one write).
+    now = datetime.now(timezone.utc)
+    today = utc_partition_date(now)
     history_file = history_dir / f"{today}.jsonl"
     # Ledger order: close the absorbed lane first, then the successor's row.
-    _terminalize_absorbed_pending(mandate, absorbed, history_file)
+    _terminalize_absorbed_pending(mandate, absorbed, history_file, now=now)
     _append_history_jsonl(history_file, mandate)
 
     return mandate_file

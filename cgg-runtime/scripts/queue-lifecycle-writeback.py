@@ -177,8 +177,12 @@ LIFECYCLE_MUTABLE_FIELDS = frozenset({
     "pending_class", "maturity_window_tics", "re_eval_condition",
     "window_anchor_tic", "partial_falsification_pending", "blocked_on",
     # --- PROMOTE landing ---
+    # /review 771 Q4 writeback-vocabulary RULING: LAW keys for a promote are
+    # {promoted_to, promoted_tic (INTEGER tic), review_ratified_by,
+    # ratification_basis}; promoted_date and ratified_by are LINEAGE-ONLY
+    # (kept on old rows, never written new — see LINEAGE_ONLY_FIELDS below).
     "promoted_to", "promoted_tic", "promoted_date", "promoted_at",
-    "inscription_form", "compact_root_status",
+    "ratification_basis", "inscription_form", "compact_root_status",
     # --- ABSORB landing (MERGE / SUPERSEDE / absorb-as-stub; the /review Step-7
     #     shape: status=absorbed + absorbed_reason "merged into <id>" / "superseded
     #     by <id>" / stub-of-twin. Family was absent until t689 — all 220 prior
@@ -416,6 +420,11 @@ def envelope_drops(prior_row, candidate_row):
     return sorted(set(prior_row) - set(candidate_row))
 
 
+# /review 771 Q4: superseded-with-lineage promote keys — writable (old shapes keep
+# working) but deprecated at write time; the warning fires beside the write.
+LINEAGE_ONLY_FIELDS = frozenset({"promoted_date", "ratified_by"})
+
+
 def classify_lifecycle_fields(lifecycle, allow_fields=()):
     """Split requested mutations into (ok, protected, unknown) by declared class."""
     allow = set(allow_fields or ())
@@ -605,6 +614,14 @@ def build_lifecycle_row(prior_row, lifecycle, review_tic=None, writer=None,
         raise LifecycleWritebackRefused(reasons)
 
     ok, protected, unknown = classify_lifecycle_fields(lifecycle, allow_fields)
+    lineage_only = sorted(set(lifecycle) & LINEAGE_ONLY_FIELDS)
+    if lineage_only:
+        print(
+            f"  DEPRECATION (/review 771 Q4 writeback-vocabulary ruling): field(s) "
+            f"{lineage_only} are LINEAGE-ONLY — kept on old rows, never written new. "
+            f"The LAW keys for a promote are promoted_to + promoted_tic (INTEGER tic) "
+            f"+ review_ratified_by + ratification_basis.",
+            file=sys.stderr)
     if protected:
         reasons.append({
             "code": "envelope_protected_field",

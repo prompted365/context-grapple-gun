@@ -345,7 +345,13 @@ def test_structural_every_mandates_history_writer_is_pinned_to_the_ruled_clock(n
     src = open(path, encoding="utf-8").read()
     if name == "mandate-write.py":
         assert "from lib.partition_key import utc_partition_date" in src
-        assert "today = utc_partition_date()" in src
+        # /review 771 Q7 (OM-W8A-4 cure): the pin moved WITH the cure — the
+        # site now derives the key from ONE explicit instant, so the bare
+        # wall-clock form is the regression, not the law.
+        assert "today = utc_partition_date(now)" in src
+        assert "today = utc_partition_date()" not in src, (
+            "mandate-write.py reverted to a bare second clock read — the "
+            "two-reads shape (OM-W8A-4) is back")
         assert 'today = datetime.now().strftime("%Y-%m-%d")' not in src, (
             "mandate-write.py reverted to the LOCAL clock — the lane is split")
     else:
@@ -534,6 +540,29 @@ def test_structural_every_tics_lane_writer_is_pinned_to_the_ruled_clock(name, pa
         assert 'f"audit-logs/tics/{today}.jsonl"' in src, (
             "rebru-cadence-emit.py no longer names the tics/ partition from "
             "`today` — this pin has gone vacuous and must be re-aimed")
+
+
+def test_structural_mandate_write_history_lane_pinned_to_one_clock_read():
+    """/review 771 Q7 (OM-W8A-4): mandate-write.py derives the mandates/history
+    partition key and the transition-row timestamp from ONE explicit instant.
+
+    Behaviourally invisible outside the midnight straddle (both reads are UTC),
+    so — as with the tics/ lane — only a source-level pin can see this lane
+    fragmenting back into two clock reads.
+    """
+    path = os.path.join(_SCRIPTS, "mandate-write.py")
+    src = open(path, encoding="utf-8").read()
+    assert "from lib.partition_key import utc_partition_date" in src, (
+        "mandate-write.py does not import the shared clock")
+    assert "today = utc_partition_date(now)" in src, (
+        "mandate-write.py no longer passes the explicit instant to the shared "
+        "clock — the two-reads shape (OM-W8A-4) is back")
+    assert "today = utc_partition_date()" not in src, (
+        "mandate-write.py reverted to a bare wall-clock read for the "
+        "mandates/history partition key")
+    assert '_terminalize_absorbed_pending(mandate, absorbed, history_file, now=now)' in src, (
+        "the transition-row timestamp no longer shares the partition key's "
+        "instant — one write, two clocks again")
 
 
 @pytest.mark.parametrize("name,needle,why", _TICS_LANE_EXCLUDED_TIMESTAMP_SITES)
