@@ -83,8 +83,11 @@ THE CONTRACT (what this script guarantees):
      hatch (stderr notice + `lifecycle_writeback.enum_guard_waived` stamped on the
      row), mirroring --waive-required-field / --allow-duplicate-verdict-text. The
      same predicate runs in `--validate-row` (rc=3). CONTENT lives in
-     contracts/pending-class-enum-v1.json (CLOSED at the three DEFER-generator
-     values) and contracts/landing-kind-enum-v1.json (OPEN-BY-/REVIEW — the guard
+     contracts/pending-class-enum-v1.json (CLOSED — ruled at THREE DEFER-generator
+     values /review 663, RE-RULED to FIVE at /review 768 round 2 'Admit + rename'
+     when the birth-minted evidence_scoped + schema_incomplete were admitted;
+     closed-at-five is the CURRENT ruled table) and
+     contracts/landing-kind-enum-v1.json (OPEN-BY-/REVIEW — the guard
      ROUTES an unlisted value to /review, it never closes the vocabulary by
      schema). This is also the value-level detector A16-764 named as missing
      beside VERDICT_REQUIRED_FIELDS: presence is that check's job, VALUE is this
@@ -257,7 +260,14 @@ HARD_TERMINAL_STATUSES = frozenset({
 # the accretion posture, the minting authority and the census. Extending a
 # vocabulary is a DATA EDIT in contracts/ (authorized by a /review verdict),
 # never a rewrite of the predicate below.
-#   pending_class -> CLOSED at the three DEFER-generator values (/review 663).
+#   pending_class -> CLOSED at FIVE (/review 663 ruled the three DEFER-generator
+#                    values; /review 768 round 2 'Admit + rename' RE-RULED it to
+#                    closed-at-five by admitting the birth-minted evidence_scoped
+#                    + schema_incomplete). CURRENCY RIDER: a stale THREE-value
+#                    reading of this table reports a FALSE off-table population —
+#                    17 ids instead of the 3 residual ones — because the 14
+#                    schema_incomplete carriers are ON-table since 768. Read the
+#                    contract file, never a remembered count.
 #   landing_kind  -> OPEN-BY-/REVIEW (ruled 751 Q5, accreted 767 Q3). The guard
 #                    ROUTES an unlisted value to /review; it never closes the
 #                    vocabulary by schema.

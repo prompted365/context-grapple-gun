@@ -151,6 +151,17 @@ class TestContractsAreTheContent(unittest.TestCase):
         self.assertIn("/review", contract["minting_authority"])
         self.assertIn("NEVER CLOSED BY SCHEMA", contract["minting_authority"])
 
+    def test_pending_class_contract_carries_no_stale_three_claim(self):
+        """/review 771 Q15a (F-771-W9A-4 second half): the guard's most-read surface
+        — its typed refusal, interpolated verbatim from this contract — must not
+        assert 'CLOSED at the ruled three' while listing five lawful values. The
+        stale-three prose generated the falsified wave-9 rowA premise; this arm
+        pins the cure so the contradiction cannot silently return."""
+        contract = qlw.ENUM_CONTRACTS["pending_class"]
+        blob = json.dumps(contract)
+        self.assertNotIn("the ruled three", blob)
+        self.assertIn("FIVE", blob)
+
     def test_pending_class_contract_declares_its_closed_posture_and_authority(self):
         contract = qlw.ENUM_CONTRACTS["pending_class"]
         self.assertIn("CLOSED", contract["accretion"])
@@ -538,6 +549,196 @@ class TestCoexistenceWithExistingPhysics(_TmpQueue):
                 queue_path=self.q, allow_fields=["confidence_tier"])
         self.assertIn("confidence_tier_off_enum",
                       [r["code"] for r in ctx.exception.reasons])
+
+
+# ===========================================================================
+# WAVE 9 rowA (/review 771 round 4 Q12, B2-wave-9-SIGNED-tic771.json) — the
+# CURRENCY arm. The wave-9 dispatch arrived carrying the pending_class table as
+# the RULED THREE {feedback_required, stability_window, evidence_insufficient}.
+# That is a STALE reading: /review 768 round 2 ('Admit + rename', Architect-
+# ratified) RE-RULED the table to CLOSED-AT-FIVE by admitting the birth-minted
+# evidence_scoped + schema_incomplete, and /review 769 A1 struck those two from
+# the contract's refused-census list precisely BECAUSE they had been admitted.
+#
+# The measured cost of the stale reading, latest-per-id at tic 771: the
+# off-table population reads 17 ids against the three, and 3 ids against the
+# ratified five — the 14 schema_incomplete carriers are ON-table since 768. The
+# arms below pin the CURRENT ruled table by NAME (never by iterating
+# FIELD_ENUMS, which a silent enum shrink would satisfy vacuously) and pin the
+# stale-three revert as the discriminating negative control.
+#
+# DOES NOT SATISFY (rider carried verbatim from the ruling): "per-field rulings
+# on the 17 historical off-table ids (that is /review's 768+ docket); guards at
+# any writer other than queue-lifecycle-writeback.py"
+# ===========================================================================
+
+# The dispatch's own probe value — a NEVER-IN-CORPUS coinage, distinct from
+# OFF_TABLE_PENDING_CLASS (`architect_ruling`, which IS measured in the corpus).
+# The distinction is load-bearing: the contract's minting_authority clause says a
+# value is "never coined at a write boundary", and a fresh coinage is the purest
+# instance of that class.
+NOVEL_COINAGE = "probe_novel_value"
+
+# The CURRENT ruled table, named literally. If /review mints a sixth value, this
+# tuple is amended in the same pass as the contract file — that is the point.
+RULED_PENDING_CLASSES_AT_771 = (
+    "evidence_insufficient", "evidence_scoped", "feedback_required",
+    "schema_incomplete", "stability_window",
+)
+# The two admitted at /review 768 round 2 — the exact members a stale-three
+# reading drops on the floor.
+ACCRETED_AT_768 = ("evidence_scoped", "schema_incomplete")
+# The values still off-table against the RATIFIED five, measured latest-per-id
+# at tic 771 (1 id each). Fixture data, not a live-queue read.
+RESIDUAL_OFF_TABLE_AT_771 = ("design_required", "maturity", "needs_evidence_repair")
+
+
+class TestWave9CurrencyOfTheRuledPendingClassTable(_TmpQueue):
+    def test_the_five_ruled_values_are_named_not_derived(self):
+        """Named literally so a silent enum SHRINK cannot pass vacuously — the
+        failure mode an iterate-FIELD_ENUMS assertion cannot see."""
+        self.assertEqual(sorted(qlw.FIELD_ENUMS["pending_class"]),
+                         sorted(RULED_PENDING_CLASSES_AT_771))
+        for value in ACCRETED_AT_768:
+            self.assertIn(value, qlw.FIELD_ENUMS["pending_class"])
+            self.assertEqual(qlw.classify_enum_value("pending_class", value),
+                             "lawful")
+
+    def test_all_five_ruled_values_write_through(self):
+        """NC arm (b), against the RATIFIED table rather than the stale three."""
+        for value in RULED_PENDING_CLASSES_AT_771:
+            write_queue(self.q, [envelope_row()])
+            report = qlw.lifecycle_writeback(
+                CPR_ID, {"status": "enrichment_eligible", "pending_class": value},
+                queue_path=self.q, writer="test")
+            self.assertEqual(report["row"]["pending_class"], value)
+
+    def test_a_never_in_corpus_coinage_is_refused_typed(self):
+        """NC arm (a), writeback face: a fresh coinage the corpus has never
+        carried is refused with the typed code, and nothing is appended."""
+        write_queue(self.q, [envelope_row()])
+        with self.assertRaises(qlw.LifecycleWritebackRefused) as ctx:
+            qlw.lifecycle_writeback(
+                CPR_ID, {"status": "enrichment_eligible",
+                         "pending_class": NOVEL_COINAGE},
+                queue_path=self.q, writer="test")
+        reason = next(r for r in ctx.exception.reasons
+                      if r["code"] == "pending_class_off_enum")
+        self.assertEqual(reason["value"], NOVEL_COINAGE)
+        self.assertIn("contracts/pending-class-enum-v1.json", reason["message"])
+        self.assertIn("MINTING AUTHORITY", reason["message"])
+        self.assertEqual(len(self.rows()), 1)
+
+    def test_a_never_in_corpus_coinage_is_refused_at_validate_row(self):
+        """NC arm (a), preflight face — the same predicate, rc=3 surface."""
+        write_queue(self.q, [envelope_row()])
+        res = qlw.validate_row(envelope_row(pending_class=NOVEL_COINAGE),
+                               queue_path=self.q)
+        self.assertEqual(res["verdict"], "REFUSE")
+        self.assertEqual(res["enum_off_table"], {"pending_class": NOVEL_COINAGE})
+
+    def test_a_never_in_corpus_coinage_cli_exits_2_and_appends_nothing(self):
+        """NC arm (a), CLI face."""
+        write_queue(self.q, [envelope_row()])
+        buf = io.StringIO()
+        with contextlib.redirect_stderr(buf):
+            rc = qlw.main(["--cpr-id", CPR_ID, "--queue-path", str(self.q),
+                           "--set", f"pending_class={NOVEL_COINAGE}"])
+        self.assertEqual(rc, 2)
+        self.assertIn("pending_class_off_enum", buf.getvalue())
+        self.assertEqual(len(self.rows()), 1)
+
+    def test_the_audited_valve_still_admits_the_novel_coinage(self):
+        """NC arm (d): the escape hatch is UNTOUCHED by this increment — it still
+        admits, still stamps, still discloses. A guard whose valve broke would be
+        a regression dressed as rigour."""
+        write_queue(self.q, [envelope_row()])
+        buf = io.StringIO()
+        with contextlib.redirect_stderr(buf):
+            qlw.lifecycle_writeback(
+                CPR_ID, {"status": "enrichment_eligible",
+                         "pending_class": NOVEL_COINAGE},
+                queue_path=self.q, writer="test",
+                waive_enum_guard=("pending_class",))
+        landed = self.rows()[-1]
+        self.assertEqual(landed["pending_class"], NOVEL_COINAGE)
+        self.assertEqual(landed["lifecycle_writeback"]["enum_guard_waived"],
+                         {"pending_class": NOVEL_COINAGE})
+        self.assertIn("ENUM-GUARD-WAIVE-NOTICE", buf.getvalue())
+
+    def test_stale_three_revert_flips_exactly_the_two_accreted_members(self):
+        """THE NEGATIVE CONTROL, member-exact and declared before observation.
+
+        Revert the ruled table to the dispatch's stale THREE and watch the exact
+        predicted breakage: precisely the two /review-768 accretions flip
+        lawful -> off_enum, the other three are unmoved, and a write carrying
+        schema_incomplete — the 14-id majority carrier — starts REFUSING. Restore
+        and the refusal disappears. This is what makes the currency arm mean
+        something: it fails for the table's content, not for the fixture.
+        """
+        saved = qlw.FIELD_ENUMS["pending_class"]
+        stale_three = frozenset({"feedback_required", "stability_window",
+                                 "evidence_insufficient"})
+        qlw.FIELD_ENUMS["pending_class"] = stale_three
+        try:
+            flipped = sorted(v for v in RULED_PENDING_CLASSES_AT_771
+                             if qlw.classify_enum_value("pending_class", v)
+                             != "lawful")
+            self.assertEqual(flipped, sorted(ACCRETED_AT_768))
+            write_queue(self.q, [envelope_row()])
+            with self.assertRaises(qlw.LifecycleWritebackRefused):
+                qlw.lifecycle_writeback(
+                    CPR_ID, {"status": "enrichment_eligible",
+                             "pending_class": "schema_incomplete"},
+                    queue_path=self.q, writer="test")
+        finally:
+            qlw.FIELD_ENUMS["pending_class"] = saved
+        # restored: the same write is lawful again
+        write_queue(self.q, [envelope_row()])
+        report = qlw.lifecycle_writeback(
+            CPR_ID, {"status": "enrichment_eligible",
+                     "pending_class": "schema_incomplete"},
+            queue_path=self.q, writer="test")
+        self.assertEqual(report["row"]["pending_class"], "schema_incomplete")
+
+    def test_off_table_population_partitions_at_three_not_seventeen(self):
+        """The population discriminator, on a FIXTURE (never the live queue).
+
+        Four ids carry the four values the wave-9 staging called 'off-table'.
+        Against the RATIFIED five only three of them are off-table; the
+        schema_incomplete carrier is ON-table. This is the 17-vs-3 arithmetic in
+        miniature — the reason a stale table reports a false anomaly.
+        """
+        carriers = {
+            "cpr_fixture_schema_incomplete": "schema_incomplete",
+            "cpr_fixture_design_required": "design_required",
+            "cpr_fixture_needs_evidence_repair": "needs_evidence_repair",
+            "cpr_fixture_maturity": "maturity",
+        }
+        write_queue(self.q, [envelope_row(cpr_id=i, pending_class=v)
+                             for i, v in carriers.items()])
+        off_table = sorted(
+            v for v in carriers.values()
+            if qlw.classify_enum_value("pending_class", v) == "off_enum")
+        self.assertEqual(off_table, sorted(RESIDUAL_OFF_TABLE_AT_771))
+        self.assertEqual(
+            qlw.classify_enum_value("pending_class", "schema_incomplete"),
+            "lawful")
+
+    def test_the_fixture_lane_never_resolves_to_the_federation_queue(self):
+        """Isolation pin (NC arm (c) at the unit rung): the explicit queue_path
+        hook wins, so no fixture in this file can reach audit-logs/cprs/queue.jsonl.
+        The byte-identity of the live queue is proven at the receipt rung by a
+        before/after sha256; this is the structural half."""
+        federation = qlw.default_queue_path()
+        self.assertIsNotNone(federation)
+        self.assertNotEqual(Path(federation).resolve(), self.q.resolve())
+        write_queue(self.q, [envelope_row()])
+        report = qlw.lifecycle_writeback(
+            CPR_ID, {"status": "enrichment_eligible",
+                     "pending_class": "feedback_required"},
+            queue_path=self.q, writer="test")
+        self.assertEqual(Path(report["queue_path"]).resolve(), self.q.resolve())
 
 
 if __name__ == "__main__":  # pragma: no cover
