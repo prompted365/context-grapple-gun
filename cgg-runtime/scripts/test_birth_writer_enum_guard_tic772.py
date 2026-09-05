@@ -190,13 +190,18 @@ class TestContractIsTheContent(unittest.TestCase):
             self.assertIn("import enum_vocabulary_guard", src,
                           f"{filename} must consume the shared guard lib")
 
-    def test_the_empty_string_asymmetry_is_carried_not_collapsed(self):
-        """F-773-W11-1, pinned so a future DRY pass cannot quietly resolve it.
+    def test_the_empty_string_per_boundary_semantics_are_ruled_law(self):
+        """F-773-W11-1 → OM-W11-2, RULED /review 774 round 1 Q4 (PER-BOUNDARY).
 
-        The two guard families genuinely disagree about `""`: an absence form at
-        the birth writers, a non-member at the lifecycle writer. The extraction
-        PRESERVED both — silently unifying them would have re-typed a value at a
-        governed write boundary, which is a /review call, not a refactor's."""
+        The divergence is no longer a preserved asymmetry awaiting unification —
+        it is ruled law: `""` NORMALIZES to absence at the birth boundaries
+        (inbound from sources that never chose a value) and is REFUSED off_enum
+        at the lifecycle boundary (an explicit-only composer writes null or
+        omits, never ""; the /review 773 NO-DEFAULT + ABSENCE ruling's edge).
+        The assertions below are unchanged from the pre-ruling pin — they assert
+        exactly the ruled semantics; a DRY pass that unifies them now breaks LAW,
+        not merely a carried divergence. Contract: pending-class-enum-v1.json
+        `absence` key, EMPTY-STRING clause."""
         qlw = _load("qlw_empty_probe", "queue-lifecycle-writeback.py")
         self.assertEqual(ce.classify_pending_class(""), "lawful")
         self.assertEqual(qew.classify_pending_class(""), "lawful")
