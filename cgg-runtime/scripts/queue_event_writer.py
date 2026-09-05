@@ -25,13 +25,16 @@ Usage:
      [--waive-enum-guard pending_class]
 
 Enum vocabulary guard (B2 wave 10, /review 772 Q9): a DEFER/HOLD write whose
-resolved `pending_class` is not one of the ratified values in
+`pending_class` is not one of the ratified values in
 contracts/pending-class-enum-v1.json is REFUSED rc=2 (`pending_class_off_enum`)
-and NOTHING is appended. This writer's OWN hardcoded defaults are off-table, so
-a bare DEFER/HOLD now requires an explicit lawful --pending-class or the audited
---waive-enum-guard. What the defaults should become is /review 773's map-vs-admit
-fork (proposal: audit-logs/governance/backlog-gunslinger-hoist/
-om-w10-pending-class-default-map-vs-admit-fork-tic772.md) — NOT this writer's call.
+and NOTHING is appended.
+
+NO DEFAULT + ABSENCE (B2 wave 11, /review 773 round 1 Q3): this writer holds NO
+hardcoded pending_class defaults. A bare DEFER is REFUSED rc=2
+(`pending_class_required_for_DEFER`) — the class is the caller's to supply, by
+an explicit lawful value or by an off-table value carried on the audited
+--waive-enum-guard; the omission is never laundered. A bare HOLD writes the
+contract's lawful ABSENCE key (explicit null) and is not refused.
 """
 from __future__ import annotations
 import argparse, json, hashlib, subprocess, sys
@@ -39,7 +42,9 @@ from pathlib import Path
 
 _HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(_HERE))
+sys.path.insert(0, str(_HERE / "lib"))
 import queue_event_materializer as M   # shadow_project, load_migration, _rows_for, _sha
+import enum_vocabulary_guard           # the shared loader/classify/refusal triple
 
 ATOMIC_APPEND = _HERE / "lib" / "atomic-append.sh"
 SCHEMA_VERSION = 1
@@ -53,20 +58,28 @@ REPAIR_B_EVENT_TYPES = {"birth", "formulation_update", "lifecycle_patch",
 # staged audit-logs/governance/backlog-gunslinger-hoist/B2-wave-10-STAGED-tic772.json,
 # signed B2-wave-10-SIGNED-tic772.json).
 #
-# WHY HERE, AND WHY IT BITES IMMEDIATELY. /review 767 Q4 guarded pending_class
-# at queue-lifecycle-writeback.py ONLY. The contract's own `writer_topology`
-# key names this script as the second unguarded birth writer, and — unlike
-# cpr-extract, whose mints are on-table — THIS writer's hardcoded DEFER/HOLD
-# defaults are THEMSELVES off-table against the ratified five:
-#     HOLD  -> "architect_ruling"   (ruled a DIFFERENT QUANTITY at /review 768
-#                                    round 2; it therefore NEVER enters the enum)
-#     DEFER -> "maturity_window"
-# So the guard refuses this writer's own defaults. That is the ruled effect,
-# not an accident: a DEFER/HOLD write must now either pass an explicit LAWFUL
-# --pending-class, or pass the audited --waive-enum-guard pending_class. What
-# the defaults SHOULD become is the map-vs-admit fork, and that is /review
-# 773's to adjudicate — this increment PROPOSES it (arm B) and never rules it.
-# The defaults below are therefore left EXACTLY as they were.
+# WHY HERE. /review 767 Q4 guarded pending_class at queue-lifecycle-writeback.py
+# ONLY. The contract's own `writer_topology` key names this script as the second
+# unguarded birth writer, and — unlike cpr-extract, whose mints are on-table —
+# THIS writer's two hardcoded DEFER/HOLD defaults were THEMSELVES off-table
+# against the ratified five, so the guard refused this writer's own defaults
+# from the moment it landed. That was the ruled wave-10 effect, not an accident.
+#
+# THE DEFAULTS ARE NOW GONE (B2 wave 11, /review 773 round 1 Q3 — see the
+# DEFER/HOLD branch in build_event for the ruling's own terms). Wave 10 left
+# them byte-unchanged ON PURPOSE and handed the question up as the map-vs-admit
+# fork (audit-logs/governance/backlog-gunslinger-hoist/
+# om-w10-pending-class-default-map-vs-admit-fork-tic772.md); /review 773 took
+# NEITHER branch of that fork and ruled NO-DEFAULT + ABSENCE instead, adopting
+# the proposal's own §5 falsifier. Neither removed value is reachable from this
+# file any more — not as a default, not as a literal.
+#
+# DOES NOT SATISFY (rider carried verbatim from the wave-11 ruling,
+# B2-wave-11-SIGNED-tic773.json): "this increment does NOT author a HOLD
+# generator contract (future work, unruled); does NOT touch the office_map
+# (standing fence per /review 772 Q5); does NOT re-truth the contract JSON
+# (seat-owned data surface); does NOT claim the all-rows historical complement
+# cured"
 #
 # ENGINE-CONTENT SEPARATION (federation KI): the enum stays contract DATA,
 # never inlined here. Extending it is a data edit in contracts/ authorized by
@@ -74,16 +87,24 @@ REPAIR_B_EVENT_TYPES = {"birth", "formulation_update", "lifecycle_patch",
 # contract crashes loudly at import rather than running half-guarded.
 #
 # NO CARRY-FORWARD ARM, by construction: build_event resolves pending_class
-# from the CLI arg or the default and never reads the prior row's value, so
-# every write at this site is an INTRODUCTION. The lifecycle writer's
-# ENUM-CARRY-NOTICE exemption has no counterpart here — nothing to carry.
+# from the CLI arg ALONE (post-wave-11 there is no default to fall back to) and
+# never reads the prior row's value, so every write at this site is an
+# INTRODUCTION. The lifecycle writer's ENUM-CARRY-NOTICE exemption has no
+# counterpart here — nothing to carry.
+# SHARED ENGINE (B2 wave 11, OM-W10-4): the loader + classify + refusal-message
+# triple lives ONCE in lib/enum_vocabulary_guard.py and is consumed by all three
+# contract-guarded writers. Before this, "one contract, three writers" was true
+# by CONVENTION — three faithful copies maintained by diligence. It is now
+# STRUCTURAL. The module-level bindings below stay HERE and are read at CALL
+# time: the vocabulary is this writer's content, and the guard fixtures
+# monkeypatch these very names to simulate drift.
 _CONTRACTS_DIR = _HERE.parent / "contracts"
 PENDING_CLASS_CONTRACT_FILE = "pending-class-enum-v1.json"
 
 
 def _load_pending_class_contract():
-    with open(_CONTRACTS_DIR / PENDING_CLASS_CONTRACT_FILE, encoding="utf-8") as fh:
-        return json.load(fh)
+    return enum_vocabulary_guard.load_contract(_CONTRACTS_DIR,
+                                               PENDING_CLASS_CONTRACT_FILE)
 
 
 PENDING_CLASS_CONTRACT = _load_pending_class_contract()
@@ -92,25 +113,21 @@ PENDING_CLASS_ENUM = frozenset(PENDING_CLASS_CONTRACT["enum"].keys())
 
 def classify_pending_class(value):
     """"lawful" for an enum member or the lawful no-value forms (None / "");
-    "off_enum" for any other coinage, including a non-string."""
-    if value is None or value == "":
-        return "lawful"
-    if not isinstance(value, str):
-        return "off_enum"
-    return "lawful" if value in PENDING_CLASS_ENUM else "off_enum"
+    "off_enum" for any other coinage, including a non-string.
+
+    `empty_string_is_absence=True` is THIS boundary's declared semantics and is
+    passed explicitly — the lifecycle writer's is different (F-773-W11-1), and
+    the shared engine carries the difference rather than picking a winner."""
+    return enum_vocabulary_guard.classify(value, PENDING_CLASS_ENUM,
+                                          empty_string_is_absence=True)
 
 
 def pending_class_refusal_message(value, locator):
     """Typed reject text: names the value, the RATIFIED FIVE, the CONTRACT FILE,
     and — load-bearing per the ruling — /review as the MINTING AUTHORITY."""
-    return (
-        f"{value!r} is not a ratified pending_class value. Lawful values: "
-        f"{sorted(PENDING_CLASS_ENUM)} or absent. Governing artifact: "
-        f"contracts/{PENDING_CLASS_CONTRACT_FILE} "
-        f"({PENDING_CLASS_CONTRACT['ratified']}). "
-        f"MINTING AUTHORITY: {PENDING_CLASS_CONTRACT['minting_authority']} "
-        f"Refused at {locator}."
-    )
+    return enum_vocabulary_guard.refusal_message(
+        "pending_class", value, PENDING_CLASS_ENUM, PENDING_CLASS_CONTRACT,
+        PENDING_CLASS_CONTRACT_FILE, locator=locator)
 
 
 class PendingClassOffEnum(Exception):
@@ -122,6 +139,50 @@ class PendingClassOffEnum(Exception):
         self.value = value
         self.locator = locator
         super().__init__(pending_class_refusal_message(value, locator))
+
+
+def pending_class_required_message(locator):
+    """Typed reject text for a BARE DEFER (B2 wave 11, /review 773 round 1 Q3).
+
+    Mirrors pending_class_refusal_message's discipline — names the RATIFIED
+    FIVE, the CONTRACT FILE and /review as the MINTING AUTHORITY — and adds the
+    thing a missing-input refusal owes that a bad-value refusal does not: BOTH
+    lawful routes back, stated explicitly, so the caller is never left guessing
+    which door to use.
+    """
+    return (
+        f"a DEFER carries no pending_class and this writer holds NO default "
+        f"(/review 773 round 1 Q3 — NO-DEFAULT + ABSENCE). The class is a DEFER "
+        f"generator product, so an omission is a MISSING INPUT, never a value "
+        f"this writer may choose. Two lawful routes: (1) pass --pending-class "
+        f"with one of the ratified values {sorted(PENDING_CLASS_ENUM)}; or "
+        f"(2) pass --pending-class with an off-table value AND the audited "
+        f"--waive-enum-guard pending_class, which admits it VISIBLY (stderr "
+        f"ENUM-GUARD-WAIVE-NOTICE + a stamp at "
+        f"queue_event_writer.enum_guard_waived on the row). Omitting the field "
+        f"is NEITHER route — the omission is never laundered into a class "
+        f"nobody chose. Governing artifact: "
+        f"contracts/{PENDING_CLASS_CONTRACT_FILE} "
+        f"({PENDING_CLASS_CONTRACT['ratified']}). "
+        f"MINTING AUTHORITY: {PENDING_CLASS_CONTRACT['minting_authority']} "
+        f"Refused at {locator}."
+    )
+
+
+class PendingClassRequired(Exception):
+    """Raised when a DEFER would be written with no caller-supplied pending_class.
+
+    Distinct from PendingClassOffEnum by design: that one refuses a value the
+    caller CHOSE and the contract rejects; this one refuses a value the caller
+    NEVER CHOSE. Collapsing them would hide which of the two failures occurred
+    at exactly the boundary the ruling exists to keep honest.
+    """
+
+    code = "pending_class_required_for_DEFER"
+
+    def __init__(self, locator):
+        self.locator = locator
+        super().__init__(pending_class_required_message(locator))
 
 def _sha(s: str) -> str:
     return hashlib.sha256((s or "").encode("utf-8")).hexdigest()
@@ -191,14 +252,44 @@ def build_event(object_id, verdict, review_tic, authority, queue: Path,
     elif verdict in ("DEFER", "HOLD"):
         # spec-correct DEFER/HOLD — NEVER status=deferred
         #
-        # RESOLVED ONCE (B2 wave 10). The prior code computed the same default
-        # expression TWICE — once for the row, once for the `patch` mirror. Two
-        # independently-evaluated copies of one value are a latent drift site
-        # (edit one, miss the other, and the row disagrees with its own patch);
-        # the guard needs a single value to classify anyway, so the duplication
-        # is collapsed here rather than guarded twice.
-        resolved_pending_class = pending_class or (
-            "architect_ruling" if verdict == "HOLD" else "maturity_window")
+        # NO DEFAULT + ABSENCE — the ruled shape (B2 wave 11; /review 773 round
+        # 1 Q3, Architect-ratified "NO-DEFAULT + ABSENCE (Recommended)" verbatim;
+        # signed artifact audit-logs/governance/backlog-gunslinger-hoist/
+        # B2-wave-11-SIGNED-tic773.json, self-sha 3c46db86c0580d4e over STAGED
+        # c456ba46492885c5). Both hardcoded defaults this branch used to resolve
+        # are REMOVED. In the ruling's own terms:
+        #
+        #   DEFER -> TYPED-REFUSED when the caller names no class. The value is
+        #     a DEFER *generator* product — the honest class the reviewer chose
+        #     (skills/review/SKILL.md Step-7, rider R3+A1-663: the three are
+        #     "NOT interchangeable") — so this writer may not choose one. The
+        #     omission is never laundered.
+        #   HOLD  -> writes the contract's lawful ABSENCE key, an EXPLICIT null
+        #     (contracts/pending-class-enum-v1.json `absence`: "field absent (or
+        #     null) = no pending class asserted"). The un-generated-field
+        #     reading was ADOPTED: HOLD has NO generator contract at all, so the
+        #     field was never this writer's to mint for it. Authoring a HOLD
+        #     generator contract is FUTURE work and is NOT ruled here — until it
+        #     exists, a HOLD asserts no class rather than a wrong one.
+        #
+        # NEITHER default was mapped onto a ratified value and NEITHER was
+        # admitted to the enum: /review 768 round 2 was HELD (no reversal), so
+        # the HOLD default's token — ruled a DIFFERENT QUANTITY in the reviews
+        # lane — still NEVER enters this vocabulary, and the enum stays
+        # CLOSED-at-five.
+        #
+        # RESOLVED ONCE (B2 wave 10, F-772-W10-3) — PRESERVED. The row and its
+        # `patch` mirror read ONE variable, so they cannot drift apart; that
+        # property is exactly why the removal is a one-line change here rather
+        # than two edits that could half-land.
+        resolved_pending_class = pending_class
+        if resolved_pending_class == "":
+            # "" is a lawful ABSENCE form at this boundary (see
+            # classify_pending_class) — normalize it to the contract's canonical
+            # null so the row asserts absence rather than an empty coinage.
+            resolved_pending_class = None
+        if verdict == "DEFER" and resolved_pending_class is None:
+            raise PendingClassRequired(f"{object_id} (DEFER)")
         # ENUM VOCABULARY GUARD — refuse an off-table INTRODUCTION with the
         # typed code, BEFORE any append (build_event runs ahead of
         # append_event, and --dry-run goes through here too, so a refused value
@@ -299,6 +390,11 @@ def main() -> int:
               f"off-table pending_class. {exc} Pass --waive-enum-guard "
               f"pending_class to admit it anyway (audited escape hatch, stamped "
               f"on the row). NOTHING was appended to the queue.", file=sys.stderr)
+        return 2
+    except PendingClassRequired as exc:
+        print(f"queue_event_writer REFUSED [{exc.code}]: refusing to write a "
+              f"DEFER with no pending_class. {exc} NOTHING was appended to the "
+              f"queue.", file=sys.stderr)
         return 2
     if a.dry_run:
         print(json.dumps(ev, indent=2, ensure_ascii=False)); return 0

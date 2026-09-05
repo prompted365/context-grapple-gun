@@ -108,7 +108,7 @@ Regression preserves all enrichment evidence. A fresh proposal cycle can referen
 
 ## Pending Classes
 
-CogPRs at `enrichment_eligible` must declare a `pending_class`:
+CogPRs at `enrichment_eligible` **by a DEFER** must declare a `pending_class` (the DEFER generator contract's product — see the table below). A **HOLD**-born row at `enrichment_eligible` lawfully carries `pending_class: null` — the contract's absence key — because HOLD has no generator contract to produce a class; that absence is the ruled state, not a schema gap, and it stands until a HOLD generator contract is authored *(scoped at /review 773 round 1 Q3, "NO-DEFAULT + ABSENCE", Architect-ratified; the writer-side cure is `queue_event_writer.py`'s DEFER/HOLD branch, B2 wave 11 — a bare DEFER there is typed-refused `pending_class_required_for_DEFER` rather than defaulted)*:
 
 | Class | Meaning | Window Behavior |
 |-------|---------|-----------------|

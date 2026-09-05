@@ -94,10 +94,28 @@ THE CONTRACT (what this script guarantees):
      one's — for landing_kind, at this boundary.
      DOES NOT SATISFY (rider carried verbatim from the ruling): "per-field
      rulings on the 17 historical off-table ids (that is /review's 768+ docket);
-     guards at any writer other than queue-lifecycle-writeback.py" — measured at
-     tic 767, cpr-extract.py (births evidence_scoped / schema_incomplete) and
-     queue_event_writer.py (HOLD/DEFER defaults architect_ruling /
-     maturity_window) also write pending_class to this queue and are NOT guarded.
+     guards at any writer other than queue-lifecycle-writeback.py"
+     RE-TRUTHED at tic 773 (B2 wave 11 arm C; the second clause above is
+     SUPERSEDED and is kept only as the verbatim text of the tic-767 ruling).
+     What it said was true when measured at tic 767: cpr-extract.py (births
+     evidence_scoped / schema_incomplete) and queue_event_writer.py (its
+     hardcoded HOLD/DEFER pending_class defaults) also wrote pending_class to
+     this queue and were NOT guarded. BOTH ARE GUARDED SINCE TIC 772 — B2 wave
+     10 landed the same typed refusal (`pending_class_off_enum`, rc=2) plus the
+     audited waive at both birth writers (/review 772 round 3 Q9; citizen
+     receipt bk-off-enum-drift-field-generic-writer-topology-B2-wave10-tic772
+     .json), and /review 773 (OM-W10-1) retired that clause from the CONTRACT's
+     own rider with lineage. At tic 773 the queue_event_writer half moved again:
+     /review 773 round 1 Q3 ruled NO-DEFAULT + ABSENCE, so that writer now holds
+     no pending_class defaults at all (bare DEFER typed-refused
+     `pending_class_required_for_DEFER`; bare HOLD asserts the contract's lawful
+     null). The FIRST clause of the rider — the 17 historical ids — still
+     STANDS: this increment ruled no historical row, and history is never
+     re-typed here.
+       (Contract lineage note: the write_surfaces re-truth of
+       "the code cure rides the wave-11 build increment" is a SEAT motion on
+       contracts/pending-class-enum-v1.json — a data surface this build treats
+       as read-only — handed up as an owed motion, not taken here.)
 
 NOT THIS SCRIPT'S JOB:
   - Minting a BIRTH row (no prior row -> refuse; that is cpr-extract.py's surface).
@@ -152,6 +170,9 @@ except Exception:  # pragma: no cover - zone_root always present in runtime
 # fail-soft: a guard surface whose governing contract is missing must crash
 # loudly at import, not run half-guarded.
 from confidence_tier import classify_tier_value, refusal_message  # noqa: E402
+# The shared enum-guard engine (B2 wave 11, OM-W10-4) — the loader + classify +
+# refusal-message triple, consumed by all three contract-guarded writers.
+import enum_vocabulary_guard  # noqa: E402
 
 _QUEUE_REL = os.path.join("audit-logs", "cprs", "queue.jsonl")
 _ATOMIC_APPEND_REL = os.path.join("lib", "atomic-append.sh")
@@ -282,9 +303,9 @@ _CONTRACTS_DIR = Path(os.path.abspath(__file__)).resolve().parent.parent / "cont
 def _load_enum_contract(filename):
     """Deliberately NOT fail-soft (the confidence_tier discipline): a guard
     surface whose governing contract is missing must crash loudly at import,
-    not run half-guarded."""
-    with open(_CONTRACTS_DIR / filename, encoding="utf-8") as fh:
-        return json.load(fh)
+    not run half-guarded. Delegates to the SHARED engine (B2 wave 11, OM-W10-4)
+    so all three guarded writers load their contracts one way."""
+    return enum_vocabulary_guard.load_contract(_CONTRACTS_DIR, filename)
 
 
 ENUM_CONTRACTS = {field: _load_enum_contract(name)
@@ -299,24 +320,27 @@ def classify_enum_value(field, value):
     Returns "lawful" (enum member, or None/absent — the lawful no-value form),
     "off_enum" (any other coinage, including a non-string), or "unguarded"
     when the field carries no enum contract.
+
+    The field->contract binding is resolved HERE (content); the predicate is the
+    shared engine (B2 wave 11). Both dicts are read at CALL time so the guard
+    fixtures that unbind a field or shrink an enum still steer this function.
+    NOTE the declared absence semantics: at THIS boundary `""` is NOT an absence
+    form (it is simply not a member), unlike the two birth writers — see
+    F-773-W11-1 and enum_vocabulary_guard's module docstring. Preserved
+    deliberately; unifying it is a /review call, not a refactor's.
     """
     if field not in FIELD_ENUMS:
         return "unguarded"
-    if value is None:
-        return "lawful"
-    if not isinstance(value, str):
-        return "off_enum"
-    return "lawful" if value in FIELD_ENUMS[field] else "off_enum"
+    return enum_vocabulary_guard.classify(value, FIELD_ENUMS[field],
+                                          empty_string_is_absence=False)
 
 
 def enum_refusal_message(field, value):
     """The typed reject text: names the value, the lawful set, the CONTRACT FILE,
     and — load-bearing per the ruling — /review as the MINTING AUTHORITY."""
-    contract = ENUM_CONTRACTS[field]
-    return (f"{value!r} is not a ratified {field} value. Lawful values: "
-            f"{sorted(FIELD_ENUMS[field])} or absent. Governing artifact: "
-            f"contracts/{ENUM_GUARDED_FIELDS[field]} ({contract['ratified']}). "
-            f"MINTING AUTHORITY: {contract['minting_authority']}")
+    return enum_vocabulary_guard.refusal_message(
+        field, value, FIELD_ENUMS[field], ENUM_CONTRACTS[field],
+        ENUM_GUARDED_FIELDS[field])
 
 
 class LifecycleWritebackRefused(Exception):

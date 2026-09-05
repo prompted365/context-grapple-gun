@@ -18,20 +18,44 @@ This is a real append->read round-trip, NOT a constructed-dict check.
 B2 WAVE 10 AMENDMENT (/review 772 round 3 Q9, row
 `bk-off-enum-drift-field-generic-writer-topology`). queue_event_writer now
 carries the pending_class ENUM VOCABULARY GUARD, and this writer's OWN
-hardcoded DEFER/HOLD defaults (`maturity_window` / `architect_ruling`) are
-OFF-TABLE against contracts/pending-class-enum-v1.json — so a bare DEFER/HOLD
-is now REFUSED rc=2. Every DEFER/HOLD row below therefore passes the AUDITED
-`--waive-enum-guard pending_class`.
+hardcoded DEFER/HOLD defaults were OFF-TABLE against
+contracts/pending-class-enum-v1.json — so a bare DEFER/HOLD was REFUSED rc=2
+and every DEFER/HOLD row below passed the AUDITED `--waive-enum-guard
+pending_class`.
 
-Why the waive and NOT an explicit lawful value: this driver exercises verdict
-SHAPE coverage, not vocabulary POLICY. Substituting a ruled value here would
-silently pre-decide the map-vs-admit fork that /review 773 owns (proposal:
-audit-logs/governance/backlog-gunslinger-hoist/
-om-w10-pending-class-default-map-vs-admit-fork-tic772.md). The waive keeps the
-shape green, keeps the off-table value VISIBLE and stamped, and adjudicates
-nothing. Two new checks below pin the guard through the real CLI: a bare DEFER
-is refused rc=2 and appends nothing, and every waived row carries the audit
-stamp at `queue_event_writer.enum_guard_waived`.
+B2 WAVE 11 AMENDMENT (/review 773 round 1 Q3 — NO-DEFAULT + ABSENCE, ratified
+verbatim; signed artifact B2-wave-11-SIGNED-tic773.json, self-sha
+3c46db86c0580d4e). The writer holds NO defaults now, so the two verdicts part
+ways here and the rows below follow the ruling:
+
+  HOLD rows — the waive is DROPPED. A bare HOLD writes the contract's lawful
+    ABSENCE key (explicit null) and is not refused, so there is nothing left to
+    admit. Asserting the stamp on these rows would now pin a hatch that no
+    longer fires.
+  DEFER rows — the waive STAYS, and the off-table value is now passed
+    EXPLICITLY by this driver (`--pending-class`) instead of being resolved
+    inside the writer. The rows are byte-unchanged; what moved is WHO chose the
+    value. That is the whole ruling: the class is the caller's to supply, and
+    an omission is refused rather than defaulted.
+
+Why still the waive and NOT a ruled lawful value on the DEFER rows: this driver
+exercises verdict SHAPE coverage, not vocabulary POLICY. Substituting a ratified
+class here would assert an honest-class MAPPING for these CogPRs — and /review
+773 took neither MAP nor ADMIT (proposal: audit-logs/governance/
+backlog-gunslinger-hoist/om-w10-pending-class-default-map-vs-admit-fork-tic772.md,
+§4). The audited hatch keeps the shape green, keeps the off-table value VISIBLE
+and stamped, and adjudicates nothing. Checks below pin BOTH halves of the ruling
+through the real CLI: a bare DEFER is refused rc=2 with the typed
+`pending_class_required_for_DEFER` and appends nothing, a bare HOLD lands an
+explicit null whose row and `patch` mirror agree, and every waived DEFER row
+carries the audit stamp at `queue_event_writer.enum_guard_waived`.
+
+DOES NOT SATISFY (rider carried verbatim from the wave-11 ruling,
+B2-wave-11-SIGNED-tic773.json): "this increment does NOT author a HOLD
+generator contract (future work, unruled); does NOT touch the office_map
+(standing fence per /review 772 Q5); does NOT re-truth the contract JSON
+(seat-owned data surface); does NOT claim the all-rows historical complement
+cured"
 """
 from __future__ import annotations
 import json, hashlib, shutil, subprocess, sys, os
@@ -59,8 +83,15 @@ MODIFY_14 = ("Every adjudication office must expose observable drift basins and 
 MODIFY_16 = ("Telos is an engineered prerequisite: governance must construct the prerequisites under "
              "which meaning is defended by the system's operation, not merely asserted after the fact.")
 
-# B2 wave 10: the audited hatch every DEFER/HOLD row rides (see module docstring).
+# B2 wave 10: the audited hatch. B2 wave 11: ridden by the DEFER rows ONLY, and
+# now paired with an EXPLICIT caller-supplied value — the writer holds no
+# default to admit. HOLD rows carry neither (they land the lawful null).
 WAIVE = "pending_class"
+# The historical off-table value these DEFER rows have always carried. Passed
+# explicitly so the ROWS are byte-unchanged across the wave-11 cure while the
+# CHOICE moves from the writer to the caller. Naming it here asserts nothing
+# about the vocabulary — that is precisely what the audited hatch is for.
+DEFER_OFF_TABLE = "maturity_window"
 
 # (id, verdict, kwargs, note) — real verdict where Lane-A doctrine; SHAPE-coverage flagged otherwise
 PLAN = [
@@ -69,16 +100,16 @@ PLAN = [
     ("cpr_two_axis_status_encoding_status_class_x_invocation_policy_tic293", "REFINEMENT_RAY", {}, "real"),
     ("cpr_runtime_pertinence_fidelity_is_the_meaning_fidelity_target_tic329", "REFINEMENT_RAY", {}, "real"),
     ("cpr_push_load_bearing_in_intelligent_commits_cadence_sweeps_exhaust_tic421", "REFINEMENT_RAY", {}, "real[11] override"),
-    ("cpr_promotion_success_rate_after_floor_n_trust_mechanic_tic244", "DEFER", {"maturity_window": 8, "waive_enum_guard": WAIVE}, "real[9a]"),
+    ("cpr_promotion_success_rate_after_floor_n_trust_mechanic_tic244", "DEFER", {"maturity_window": 8, "pending_class": DEFER_OFF_TABLE, "waive_enum_guard": WAIVE}, "real[9a]"),
     ("cpr_adjudication_office_drift_audit_basins_tic358", "MODIFY_PROMOTE", {"new_formulation": MODIFY_14}, "real[14]"),
-    ("cpr_cockpit_intent_gate_latency_bounds_provisional_tic256", "DEFER", {"maturity_window": None, "waive_enum_guard": WAIVE}, "shape[3] object-2 lifecycle"),
-    ("cpr_phase_beta1_rapier_admission_advance_tic285", "HOLD", {"waive_enum_guard": WAIVE}, "shape[7] object-2 lifecycle"),
-    ("cpr_plate_council_live_pressure_actuation_tic285", "HOLD", {"waive_enum_guard": WAIVE}, "shape[10] object-2 lifecycle"),
-    ("cpr_boot_receipt_fingerprint_excludes_boot_read_fields_tic422", "DEFER", {"waive_enum_guard": WAIVE}, "shape[15] object-2 lifecycle"),
+    ("cpr_cockpit_intent_gate_latency_bounds_provisional_tic256", "DEFER", {"maturity_window": None, "pending_class": DEFER_OFF_TABLE, "waive_enum_guard": WAIVE}, "shape[3] object-2 lifecycle"),
+    ("cpr_phase_beta1_rapier_admission_advance_tic285", "HOLD", {}, "shape[7] object-2 lifecycle"),
+    ("cpr_plate_council_live_pressure_actuation_tic285", "HOLD", {}, "shape[10] object-2 lifecycle"),
+    ("cpr_boot_receipt_fingerprint_excludes_boot_read_fields_tic422", "DEFER", {"pending_class": DEFER_OFF_TABLE, "waive_enum_guard": WAIVE}, "shape[15] object-2 lifecycle"),
     # migrated (Defect B)
     ("cpr_consumer_set_audit_yield_proportional_to_transform_unambiguity_tic333", "REFINEMENT_RAY", {}, "real[2] migrated"),
     ("cpr_1c547dc137974836", "REFINEMENT_RAY", {}, "real[4] migrated"),
-    ("cpr_relational_meaning_pinning_fidelity_preserving_decoupling_tic327", "HOLD", {"waive_enum_guard": WAIVE}, "real[6a] migrated"),
+    ("cpr_relational_meaning_pinning_fidelity_preserving_decoupling_tic327", "HOLD", {}, "real[6a] migrated"),
     ("cpr_00c5f4571317f11a", "SKIP_WITH_HOME", {"home": "harpoon-office/HT_cable-lattice (assessment lane)"}, "shape[8] migrated relation"),
     ("cpr_governance_as_gravity_well_telos_as_engineered_prerequisite_tic327", "MODIFY_PROMOTE", {"new_formulation": MODIFY_16}, "real[16] migrated apex"),
 ]
@@ -143,13 +174,27 @@ def main() -> int:
           got=post.get("status"), want=expected_status)
         if verdict == "DEFER":
             C(f"{note}:defer_not_status_deferred", row.get("status") == "enrichment_eligible", id=oid[:36])
-        if verdict in ("DEFER", "HOLD"):
-            # B2 wave 10: the waived row carries the AUDIT STAMP — the hatch
-            # fired visibly, and the off-table value stays legible for /review 773.
+        if verdict == "DEFER":
+            # B2 wave 10/11: the waived row carries the AUDIT STAMP — the hatch
+            # fired visibly, and the caller-supplied off-table value stays legible.
             C(f"{note}:enum_guard_waive_stamped",
               row.get("queue_event_writer", {}).get("enum_guard_waived", {}).get("pending_class")
               == row.get("pending_class"),
               id=oid[:36], pending_class=row.get("pending_class"))
+        if verdict == "HOLD":
+            # B2 wave 11 (/review 773 Q3, the ABSENCE half): a bare HOLD asserts
+            # the contract's lawful absence key — the field is PRESENT and null
+            # (never omitted, never a substituted class), the `patch` mirror
+            # agrees, and no hatch fired because none was needed.
+            C(f"{note}:hold_asserts_explicit_null",
+              "pending_class" in row and row.get("pending_class") is None,
+              id=oid[:36], pending_class=row.get("pending_class"),
+              key_present="pending_class" in row)
+            C(f"{note}:hold_row_patch_mirror_agrees",
+              row.get("patch", {}).get("pending_class") is None
+              and "pending_class" in row.get("patch", {}), id=oid[:36])
+            C(f"{note}:hold_carries_no_waive_stamp",
+              "queue_event_writer" not in row, id=oid[:36])
         if verdict == "MODIFY_PROMOTE":
             C(f"{note}:predecessor_hash", row.get("predecessor_hash") == sha(pre_current or ""), id=oid[:36])
             C(f"{note}:version_monotonic", isinstance(row.get("formulation_version"), int), id=oid[:36])
@@ -170,21 +215,56 @@ def main() -> int:
     C("shape:SUPERSEDE_refuses_blank_body", rs.returncode != 0,
       note="fresh id has no formulation -> unconditional blank refusal", rc=rs.returncode)
 
-    # B2 wave 10 enum guard, through the REAL CLI: a bare DEFER (no waive, no
-    # explicit lawful --pending-class) resolves this writer's OFF-TABLE default
-    # and must be REFUSED rc=2 with the typed code, appending NOTHING.
+    # B2 wave 11 ruling, through the REAL CLI — BOTH halves.
+    #
+    # HALF 1 (NO-DEFAULT): a bare DEFER names no class, and the writer holds no
+    # default to fall back on, so it is REFUSED rc=2 with the typed code and
+    # appends NOTHING. The refusal must hand the caller BOTH routes back.
     rows_before = len(TMP_QUEUE.read_text(encoding="utf-8").splitlines())
     rg = writer("cpr_boot_receipt_fingerprint_excludes_boot_read_fields_tic422",
                 "DEFER", TMP_QUEUE)
     rows_after = len(TMP_QUEUE.read_text(encoding="utf-8").splitlines())
     C("enum_guard:bare_defer_refused_rc2", rg.returncode == 2, rc=rg.returncode)
     C("enum_guard:refusal_is_typed",
-      "pending_class_off_enum" in rg.stderr, stderr=rg.stderr.strip()[:200])
+      "pending_class_required_for_DEFER" in rg.stderr, stderr=rg.stderr.strip()[:200])
     C("enum_guard:refusal_names_contract_and_authority",
       "contracts/pending-class-enum-v1.json" in rg.stderr
       and "MINTING AUTHORITY" in rg.stderr)
+    C("enum_guard:refusal_names_both_routes",
+      "--pending-class" in rg.stderr and "--waive-enum-guard" in rg.stderr,
+      note="a missing-input refusal owes the caller both doors back")
     C("enum_guard:refusal_appended_nothing", rows_after == rows_before,
       before=rows_before, after=rows_after)
+    # An explicitly-named OFF-TABLE value with no waive is still the wave-10
+    # refusal — a DIFFERENT typed code, because it is a different failure (a
+    # value the caller chose vs a value the caller never chose).
+    rgv = writer("cpr_boot_receipt_fingerprint_excludes_boot_read_fields_tic422",
+                 "DEFER", TMP_QUEUE, pending_class=DEFER_OFF_TABLE)
+    C("enum_guard:explicit_off_table_without_waive_refused_rc2",
+      rgv.returncode == 2, rc=rgv.returncode)
+    C("enum_guard:off_enum_and_required_are_distinct_codes",
+      "pending_class_off_enum" in rgv.stderr
+      and "pending_class_required_for_DEFER" not in rgv.stderr,
+      stderr=rgv.stderr.strip()[:160])
+    #
+    # HALF 2 (ABSENCE): a bare HOLD is NOT refused — it lands the contract's
+    # lawful absence key as an explicit null, and the row grows by exactly one.
+    rows_before = len(TMP_QUEUE.read_text(encoding="utf-8").splitlines())
+    rh = writer("cpr_phase_beta1_rapier_admission_advance_tic285", "HOLD", TMP_QUEUE)
+    rows_after = len(TMP_QUEUE.read_text(encoding="utf-8").splitlines())
+    C("absence:bare_hold_accepted_rc0", rh.returncode == 0,
+      rc=rh.returncode, stderr=rh.stderr.strip()[:200])
+    C("absence:bare_hold_appended_exactly_one", rows_after == rows_before + 1,
+      before=rows_before, after=rows_after)
+    hrow = last_row_for("cpr_phase_beta1_rapier_admission_advance_tic285", TMP_QUEUE)
+    C("absence:bare_hold_row_carries_explicit_null",
+      "pending_class" in hrow and hrow.get("pending_class") is None,
+      pending_class=hrow.get("pending_class"))
+    C("absence:bare_hold_status_is_enrichment_eligible",
+      hrow.get("status") == "enrichment_eligible", got=hrow.get("status"))
+    C("absence:bare_hold_no_waive_notice",
+      "ENUM-GUARD-WAIVE-NOTICE" not in rh.stderr,
+      note="nothing was admitted, so no hatch may have fired")
 
     # physics guard: a blank-body compat row is refused at the boundary
     blank = json.dumps({"id": "cpr_x", "event_type": "lifecycle_patch", "status": "promoted",

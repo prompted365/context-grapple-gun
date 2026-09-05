@@ -21,7 +21,9 @@ from pathlib import Path
 
 # Allow importing zone_root from same directory
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "lib"))
 from zone_root import resolve_zone_root, load_ticzone, audit_logs_path, birth_topology
+import enum_vocabulary_guard  # the shared loader/classify/refusal triple (OM-W10-4)
 
 
 BLOCK_RE = re.compile(
@@ -273,6 +275,13 @@ LIFECYCLE_SETTLED_STATES = frozenset({
 # contracts/ authorized by a /review verdict, never a rewrite of the predicate
 # below. This mirrors queue-lifecycle-writeback.py's ENUM_GUARDED_FIELDS table.
 #
+# SHARED ENGINE (B2 wave 11, OM-W10-4): the loader + classify + refusal-message
+# triple lives ONCE in lib/enum_vocabulary_guard.py, consumed by all three
+# contract-guarded writers, so "one contract, N writers" is structural rather
+# than three faithful copies held together by diligence. The bindings below stay
+# HERE and are read at CALL time — the vocabulary is this writer's content, and
+# the drift fixtures monkeypatch these very names.
+#
 # NOT FAIL-SOFT, deliberately (the confidence_tier discipline): a guard surface
 # whose governing contract is missing must crash loudly at import rather than
 # run half-guarded. contracts/ rides the sync manifest (F-767-E1 cure), so the
@@ -282,8 +291,8 @@ PENDING_CLASS_CONTRACT_FILE = "pending-class-enum-v1.json"
 
 
 def _load_pending_class_contract():
-    with open(_CONTRACTS_DIR / PENDING_CLASS_CONTRACT_FILE, encoding="utf-8") as fh:
-        return json.load(fh)
+    return enum_vocabulary_guard.load_contract(_CONTRACTS_DIR,
+                                               PENDING_CLASS_CONTRACT_FILE)
 
 
 PENDING_CLASS_CONTRACT = _load_pending_class_contract()
@@ -297,26 +306,22 @@ def classify_pending_class(value):
                  The contract's `absence` key: field absent (or null) = no
                  pending class asserted.
     "off_enum" — any other coinage, including a non-string.
+
+    `empty_string_is_absence=True` is THIS boundary's declared semantics, passed
+    explicitly — the lifecycle writer's differs (F-773-W11-1) and the shared
+    engine carries the difference rather than picking a winner.
     """
-    if value is None or value == "":
-        return "lawful"
-    if not isinstance(value, str):
-        return "off_enum"
-    return "lawful" if value in PENDING_CLASS_ENUM else "off_enum"
+    return enum_vocabulary_guard.classify(value, PENDING_CLASS_ENUM,
+                                          empty_string_is_absence=True)
 
 
 def pending_class_refusal_message(value, locator):
     """The typed reject text: names the value, the RATIFIED FIVE, the CONTRACT
     FILE, and — load-bearing per the ruling — /review as the MINTING AUTHORITY.
     Interpolated from the contract so a data edit updates the message too."""
-    return (
-        f"{value!r} is not a ratified pending_class value. Lawful values: "
-        f"{sorted(PENDING_CLASS_ENUM)} or absent. Governing artifact: "
-        f"contracts/{PENDING_CLASS_CONTRACT_FILE} "
-        f"({PENDING_CLASS_CONTRACT['ratified']}). "
-        f"MINTING AUTHORITY: {PENDING_CLASS_CONTRACT['minting_authority']} "
-        f"Refused at {locator}."
-    )
+    return enum_vocabulary_guard.refusal_message(
+        "pending_class", value, PENDING_CLASS_ENUM, PENDING_CLASS_CONTRACT,
+        PENDING_CLASS_CONTRACT_FILE, locator=locator)
 
 
 class PendingClassOffEnum(Exception):

@@ -22,17 +22,35 @@ THE TWO WRITERS ARE NOT SYMMETRIC, and the asymmetry is the finding:
                          ON-TABLE since /review 768 round 2. The risk the guard
                          closes here is DRIFT (a future tier-vocabulary edit
                          minting off-table), not present off-table minting.
-  queue_event_writer.py — hardcodes `architect_ruling` (HOLD) and
-                         `maturity_window` (DEFER) as pending_class defaults.
-                         BOTH are OFF-TABLE. The guard therefore REFUSES this
-                         writer's own defaults from the moment it lands.
+  queue_event_writer.py — hardcoded two OFF-TABLE pending_class defaults (one
+                         for HOLD, one for DEFER), so the guard REFUSED this
+                         writer's own defaults from the moment it landed.
 
-WHAT THIS FILE DOES NOT DECIDE: what those two defaults SHOULD become. That is
-the map-vs-admit fork, and it is /review 773's — proposed at
-audit-logs/governance/backlog-gunslinger-hoist/
-om-w10-pending-class-default-map-vs-admit-fork-tic772.md. The defaults in the
-writer are left exactly as they were; the arms below pin the REFUSAL and the
-audited hatch, never a substitute value.
+B2 WAVE 11 AMENDMENT (/review 773 round 1 Q3 — "NO-DEFAULT + ABSENCE",
+Architect-ratified verbatim; signed artifact
+audit-logs/governance/backlog-gunslinger-hoist/B2-wave-11-SIGNED-tic773.json,
+self-sha 3c46db86c0580d4e over STAGED c456ba46492885c5). The fork this file
+declined to decide was RULED, and NEITHER of its two branches was taken — not
+MAP (lossy for HOLD) and not ADMIT (a /review 768 reversal). Both defaults are
+REMOVED:
+  bare DEFER -> typed-refused `pending_class_required_for_DEFER` (rc=2). The
+    class is a DEFER generator product; the omission is never laundered.
+  bare HOLD  -> writes the contract's lawful ABSENCE key, an explicit null.
+    HOLD has no generator contract, so no class was ever this writer's to mint.
+The enum stays CLOSED-at-five and /review 768 round 2 is HELD (the HOLD
+default's token NEVER enters the vocabulary). The arms below now pin the RULED
+shape — and the arm-5 control reverts THAT cure, not the wave-10 one.
+
+WHAT THIS FILE STILL DOES NOT DECIDE: the honest pending_class for any specific
+DEFER. The arms pass explicit values or ride the audited hatch; none asserts a
+mapping.
+
+DOES NOT SATISFY (rider carried verbatim from the wave-11 ruling,
+B2-wave-11-SIGNED-tic773.json): "this increment does NOT author a HOLD
+generator contract (future work, unruled); does NOT touch the office_map
+(standing fence per /review 772 Q5); does NOT re-truth the contract JSON
+(seat-owned data surface); does NOT claim the all-rows historical complement
+cured"
 
 THE ARMS (the revert control is what makes the rest mean anything):
   1. CONTRACT-IS-THE-CONTENT — both writers load the enum from
@@ -107,10 +125,12 @@ RULED_PENDING_CLASSES_AT_772 = (
 # The two BIRTH-minted classes accreted at /review 768 round 2 — exactly the
 # members a stale-three reading drops on the floor.
 ACCRETED_AT_768 = ("evidence_scoped", "schema_incomplete")
-# queue_event_writer's OWN hardcoded defaults, both off-table. NOT fixtures —
-# these are read off the writer's DEFER/HOLD branch.
-QEW_HOLD_DEFAULT = "architect_ruling"
-QEW_DEFER_DEFAULT = "maturity_window"
+# queue_event_writer's two REMOVED defaults (B2 wave 11 / /review 773 Q3). They
+# were off-table then and are off-table now; what changed is that the writer no
+# longer holds them — these literals live HERE, in the fixtures, and nowhere in
+# the writer's source. TestTheDefaultsAreGone pins that structurally.
+QEW_REMOVED_HOLD_DEFAULT = "architect_ruling"
+QEW_REMOVED_DEFER_DEFAULT = "maturity_window"
 # A never-in-corpus coinage — the purest instance of the class the contract's
 # minting_authority clause forbids ("never coined at a write boundary").
 NOVEL_COINAGE = "probe_novel_value_tic772"
@@ -133,6 +153,61 @@ class TestContractIsTheContent(unittest.TestCase):
         qlw = _load("qlw_parity_probe", "queue-lifecycle-writeback.py")
         self.assertEqual(ce.PENDING_CLASS_ENUM, qew.PENDING_CLASS_ENUM)
         self.assertEqual(ce.PENDING_CLASS_ENUM, qlw.FIELD_ENUMS["pending_class"])
+
+    def test_all_three_writers_consume_THE_SAME_guard_lib(self):
+        """B2 wave 11 (OM-W10-4) — the STRUCTURAL half of "one contract, N
+        writers".
+
+        The vocabulary agreement above is a CONVENTIONAL check: three writers
+        that happen to read the same file. It stays green even when the guard
+        itself is three faithful copies drifting apart edit by edit. This arm
+        asserts the ENGINE is one object — same module identity at all three
+        call sites, resolved from cgg-runtime/scripts/lib/ — so a change to the
+        predicate cannot reach two writers and miss the third.
+        """
+        qlw = _load("qlw_lib_probe", "queue-lifecycle-writeback.py")
+        libs = {"cpr-extract.py": ce.enum_vocabulary_guard,
+                "queue_event_writer.py": qew.enum_vocabulary_guard,
+                "queue-lifecycle-writeback.py": qlw.enum_vocabulary_guard}
+        first = libs["cpr-extract.py"]
+        for name, mod in libs.items():
+            self.assertIs(mod, first,
+                          f"{name} consumes a DIFFERENT guard module object")
+        self.assertEqual(
+            Path(first.__file__).resolve(),
+            Path(_HERE, "lib", "enum_vocabulary_guard.py").resolve())
+        for fn in ("load_contract", "classify", "refusal_message"):
+            self.assertTrue(callable(getattr(first, fn)),
+                            f"the shared triple is missing {fn}")
+
+    def test_each_writer_names_the_lib_in_its_source(self):
+        """Identity alone could be satisfied by an attribute a future edit
+        leaves behind after re-inlining the predicate. The import is the
+        structural fact; both are asserted."""
+        for filename in ("cpr-extract.py", "queue_event_writer.py",
+                         "queue-lifecycle-writeback.py"):
+            src = Path(_HERE, filename).read_text(encoding="utf-8")
+            self.assertIn("import enum_vocabulary_guard", src,
+                          f"{filename} must consume the shared guard lib")
+
+    def test_the_empty_string_asymmetry_is_carried_not_collapsed(self):
+        """F-773-W11-1, pinned so a future DRY pass cannot quietly resolve it.
+
+        The two guard families genuinely disagree about `""`: an absence form at
+        the birth writers, a non-member at the lifecycle writer. The extraction
+        PRESERVED both — silently unifying them would have re-typed a value at a
+        governed write boundary, which is a /review call, not a refactor's."""
+        qlw = _load("qlw_empty_probe", "queue-lifecycle-writeback.py")
+        self.assertEqual(ce.classify_pending_class(""), "lawful")
+        self.assertEqual(qew.classify_pending_class(""), "lawful")
+        self.assertEqual(qlw.classify_enum_value("pending_class", ""), "off_enum")
+        # ...and the shared engine carries the difference as a declared flag,
+        # never as an inlined assumption.
+        lib = ce.enum_vocabulary_guard
+        self.assertEqual(lib.classify("", frozenset(), empty_string_is_absence=True),
+                         "lawful")
+        self.assertEqual(lib.classify("", frozenset(), empty_string_is_absence=False),
+                         "off_enum")
 
     def test_the_five_ruled_values_are_named_not_derived(self):
         """Named literally so a silent enum SHRINK cannot pass vacuously — the
@@ -186,11 +261,11 @@ class TestPredicateAtBothWriters(unittest.TestCase):
             self.assertEqual(mod.classify_pending_class(["feedback_required"]),
                              "off_enum")
 
-    def test_the_qew_hardcoded_defaults_are_off_table(self):
-        """The measured premise, re-pinned as a test: this writer's own DEFER
-        and HOLD defaults are NOT ratified values. Curing that is /review 773's
-        map-vs-admit fork; refusing them is this increment's."""
-        for value in (QEW_HOLD_DEFAULT, QEW_DEFER_DEFAULT):
+    def test_the_two_removed_defaults_are_still_off_table_values(self):
+        """The wave-10 premise, still true and still load-bearing: both removed
+        values remain OFF-TABLE, so a caller who names one explicitly is refused
+        unless they ride the audited hatch. Removing a default did not admit it."""
+        for value in (QEW_REMOVED_HOLD_DEFAULT, QEW_REMOVED_DEFER_DEFAULT):
             self.assertEqual(qew.classify_pending_class(value), "off_enum")
             self.assertNotIn(value, RULED_PENDING_CLASSES_AT_772)
 
@@ -224,16 +299,56 @@ class TestQueueEventWriterGuard(_TmpQueue):
                                "audit-logs/governance/backlog-gunslinger-hoist/"
                                "B2-wave-10-SIGNED-tic772.json", self.q, **kw)
 
-    def test_bare_hold_is_refused_typed(self):
-        with self.assertRaises(qew.PendingClassOffEnum) as ctx:
-            self._build("HOLD")
-        self.assertEqual(ctx.exception.code, "pending_class_off_enum")
-        self.assertEqual(ctx.exception.value, QEW_HOLD_DEFAULT)
+    def test_bare_hold_asserts_the_lawful_absence_key(self):
+        """THE ABSENCE HALF (/review 773 Q3). A bare HOLD is NOT refused: it
+        writes the contract's `absence` form — the field PRESENT and null, never
+        omitted and never a substituted class — and the patch mirror agrees."""
+        ev = self._build("HOLD")
+        self.assertIn("pending_class", ev, "absence is EXPLICIT null, not omission")
+        self.assertIsNone(ev["pending_class"])
+        self.assertIn("pending_class", ev["patch"])
+        self.assertIsNone(ev["patch"]["pending_class"])
+        self.assertEqual(ev["status"], "enrichment_eligible")
+        self.assertNotIn("queue_event_writer", ev, "no hatch fired; none was needed")
 
-    def test_bare_defer_is_refused_typed(self):
-        with self.assertRaises(qew.PendingClassOffEnum) as ctx:
+    def test_bare_hold_with_an_empty_string_normalizes_to_null(self):
+        """"" is a lawful absence form at this boundary; the row must carry the
+        contract's canonical null rather than an empty coinage."""
+        ev = self._build("HOLD", pending_class="")
+        self.assertIsNone(ev["pending_class"])
+        self.assertIsNone(ev["patch"]["pending_class"])
+
+    def test_bare_defer_is_refused_typed_as_a_MISSING_INPUT(self):
+        """THE NO-DEFAULT HALF. The refusal names the missing input, not a bad
+        value — a distinct typed code, because it is a distinct failure."""
+        with self.assertRaises(qew.PendingClassRequired) as ctx:
             self._build("DEFER")
-        self.assertEqual(ctx.exception.value, QEW_DEFER_DEFAULT)
+        self.assertEqual(ctx.exception.code, "pending_class_required_for_DEFER")
+
+    def test_an_empty_string_defer_is_refused_as_a_missing_input_too(self):
+        """The lawful-absence form is still an OMISSION for a DEFER — the
+        laundering route a `not value` check would have left open."""
+        with self.assertRaises(qew.PendingClassRequired):
+            self._build("DEFER", pending_class="")
+
+    def test_the_defer_refusal_hands_back_both_lawful_routes(self):
+        """A missing-input refusal owes what a bad-value refusal does not: the
+        two doors back, plus the contract and the minting authority."""
+        msg = qew.pending_class_required_message("LOC")
+        self.assertIn("--pending-class", msg)
+        self.assertIn("--waive-enum-guard", msg)
+        self.assertIn("contracts/pending-class-enum-v1.json", msg)
+        self.assertIn("MINTING AUTHORITY", msg)
+        for value in RULED_PENDING_CLASSES_AT_772:
+            self.assertIn(value, msg, "the refusal must name the ratified five")
+
+    def test_the_two_refusal_codes_are_distinct(self):
+        """Collapsing them would hide WHICH failure occurred at exactly the
+        boundary the ruling exists to keep honest."""
+        self.assertNotEqual(qew.PendingClassRequired.code,
+                            qew.PendingClassOffEnum.code)
+        with self.assertRaises(qew.PendingClassOffEnum):
+            self._build("DEFER", pending_class=QEW_REMOVED_DEFER_DEFAULT)
 
     def test_an_explicit_novel_coinage_is_refused(self):
         """The corpus proves this path is real: `evidence_pending_calibration`
@@ -252,18 +367,30 @@ class TestQueueEventWriterGuard(_TmpQueue):
                              "a lawful write carries NO waive stamp")
 
     def test_the_waive_admits_and_stamps_and_discloses(self):
+        """Post-wave-11 the hatch admits a value the CALLER named — there is no
+        default left for it to admit. Route (2) of the refusal's own message."""
         buf = io.StringIO()
         with contextlib.redirect_stderr(buf):
-            ev = self._build("HOLD", waive_enum_guard=("pending_class",))
-        self.assertEqual(ev["pending_class"], QEW_HOLD_DEFAULT)
+            ev = self._build("DEFER", pending_class=QEW_REMOVED_DEFER_DEFAULT,
+                             waive_enum_guard=("pending_class",))
+        self.assertEqual(ev["pending_class"], QEW_REMOVED_DEFER_DEFAULT)
         self.assertEqual(ev["queue_event_writer"]["enum_guard_waived"],
-                         {"pending_class": QEW_HOLD_DEFAULT})
+                         {"pending_class": QEW_REMOVED_DEFER_DEFAULT})
         self.assertIn("ENUM-GUARD-WAIVE-NOTICE", buf.getvalue())
+
+    def test_the_waive_cannot_manufacture_a_missing_value(self):
+        """The hatch admits a VALUE; it is not an omission-laundering route. A
+        bare DEFER carrying the waive and nothing else is still refused — this
+        is the arm that keeps route (2) from becoming a silent default."""
+        with self.assertRaises(qew.PendingClassRequired):
+            self._build("DEFER", waive_enum_guard=("pending_class",))
 
     def test_a_refusal_appends_nothing(self):
         before = self.q.read_bytes()
-        with self.assertRaises(qew.PendingClassOffEnum):
+        with self.assertRaises(qew.PendingClassRequired):
             self._build("DEFER")
+        with self.assertRaises(qew.PendingClassOffEnum):
+            self._build("DEFER", pending_class=NOVEL_COINAGE)
         self.assertEqual(self.q.read_bytes(), before)
 
     def test_non_defer_verdicts_are_untouched_by_this_increment(self):
@@ -294,30 +421,50 @@ class TestQueueEventWriterCLI(_TmpQueue):
              "--review-tic", "772", "--authority", "B2-wave-10-SIGNED-tic772.json"]
             + argv, capture_output=True, text=True)
 
-    def test_cli_refusal_exits_2_and_appends_nothing(self):
+    def test_cli_bare_defer_exits_2_and_appends_nothing(self):
         before = self.q.read_bytes()
         r = self._cli(["--verdict", "DEFER"])
         self.assertEqual(r.returncode, 2, r.stderr)
-        self.assertIn("pending_class_off_enum", r.stderr)
+        self.assertIn("pending_class_required_for_DEFER", r.stderr)
         self.assertIn("contracts/pending-class-enum-v1.json", r.stderr)
         self.assertIn("MINTING AUTHORITY", r.stderr)
         self.assertEqual(self.q.read_bytes(), before)
 
-    def test_cli_dry_run_is_refused_too(self):
-        """A --dry-run that PRINTED an off-table row would be a lawful-looking
-        preview of an unlawful write."""
-        r = self._cli(["--verdict", "HOLD", "--dry-run"])
+    def test_cli_explicit_off_table_exits_2_with_the_OTHER_code(self):
+        before = self.q.read_bytes()
+        r = self._cli(["--verdict", "DEFER", "--pending-class", NOVEL_COINAGE])
         self.assertEqual(r.returncode, 2, r.stderr)
+        self.assertIn("pending_class_off_enum", r.stderr)
+        self.assertNotIn("pending_class_required_for_DEFER", r.stderr)
+        self.assertEqual(self.q.read_bytes(), before)
 
-    def test_cli_waive_flag_admits(self):
+    def test_cli_dry_run_is_refused_too(self):
+        """A --dry-run that PRINTED a defaulted row would be a lawful-looking
+        preview of a write nobody authorized."""
+        r = self._cli(["--verdict", "DEFER", "--dry-run"])
+        self.assertEqual(r.returncode, 2, r.stderr)
+        self.assertIn("pending_class_required_for_DEFER", r.stderr)
+
+    def test_cli_bare_hold_dry_run_previews_the_explicit_null(self):
+        """The ABSENCE half through the real CLI — accepted, not refused."""
+        r = self._cli(["--verdict", "HOLD", "--dry-run"])
+        self.assertEqual(r.returncode, 0, r.stderr)
+        ev = json.loads(r.stdout)
+        self.assertIn("pending_class", ev)
+        self.assertIsNone(ev["pending_class"])
+        self.assertIsNone(ev["patch"]["pending_class"])
+        self.assertNotIn("ENUM-GUARD-WAIVE-NOTICE", r.stderr)
+
+    def test_cli_waive_flag_admits_an_explicit_value(self):
         r = self._cli(["--verdict", "HOLD", "--dry-run",
+                       "--pending-class", QEW_REMOVED_HOLD_DEFAULT,
                        "--waive-enum-guard", "pending_class"])
         self.assertEqual(r.returncode, 0, r.stderr)
         self.assertIn("ENUM-GUARD-WAIVE-NOTICE", r.stderr)
         ev = json.loads(r.stdout)
-        self.assertEqual(ev["pending_class"], QEW_HOLD_DEFAULT)
+        self.assertEqual(ev["pending_class"], QEW_REMOVED_HOLD_DEFAULT)
         self.assertEqual(ev["queue_event_writer"]["enum_guard_waived"],
-                         {"pending_class": QEW_HOLD_DEFAULT})
+                         {"pending_class": QEW_REMOVED_HOLD_DEFAULT})
 
 
 # ===========================================================================
@@ -472,13 +619,14 @@ class TestRevertedGuardControl(_TmpQueue):
         finally:
             mod.classify_pending_class = saved
 
-    def test_reverted_guard_lets_the_qew_default_through(self):
+    def test_reverted_guard_lets_an_explicit_off_table_value_through(self):
         with self._guard_reverted(qew):
-            ev = qew.build_event("cpr_w10_fixture", "HOLD", 772, "auth", self.q)
-        self.assertEqual(ev["pending_class"], QEW_HOLD_DEFAULT)
+            ev = qew.build_event("cpr_w10_fixture", "HOLD", 772, "auth", self.q,
+                                 pending_class=QEW_REMOVED_HOLD_DEFAULT)
+        self.assertEqual(ev["pending_class"], QEW_REMOVED_HOLD_DEFAULT)
         self.assertNotIn("queue_event_writer", ev,
                          "unguarded minting is SILENT — no stamp, no notice; "
-                         "that is the defect this increment closes")
+                         "that is the defect the wave-10 increment closes")
 
     def test_reverted_guard_lets_a_novel_coinage_through(self):
         with self._guard_reverted(qew):
@@ -491,7 +639,68 @@ class TestRevertedGuardControl(_TmpQueue):
         with self._guard_reverted(qew):
             pass
         with self.assertRaises(qew.PendingClassOffEnum):
-            qew.build_event("cpr_w10_fixture", "HOLD", 772, "auth", self.q)
+            qew.build_event("cpr_w10_fixture", "HOLD", 772, "auth", self.q,
+                            pending_class=QEW_REMOVED_HOLD_DEFAULT)
+
+
+class TestWave11DefaultRestoredControl(_TmpQueue):
+    """THE WAVE-11 NEGATIVE CONTROL — revert THIS cure, watch the exact
+    predicted breakage, restore.
+
+    The cure is a REMOVAL, so the control restores what was removed: a shim that
+    supplies the pre-773 default whenever the caller named no class. With it in
+    place BOTH ruled behaviours regress, and they regress DIFFERENTLY — which is
+    what makes the arms above discriminating rather than merely green:
+
+      bare HOLD  — stops asserting the lawful null and mints the off-table value
+                   again (then refused by the wave-10 guard: exactly the tic-772
+                   state this increment was dispatched to move).
+      bare DEFER — stops being a MISSING-INPUT refusal and becomes a BAD-VALUE
+                   refusal. The omission is laundered into a default FIRST and
+                   only then rejected — the precise laundering the ruling names.
+
+    If either arm below ever stops breaking, the ruled shapes above are passing
+    for some reason other than this cure.
+    """
+
+    @contextlib.contextmanager
+    def _pre_773_defaults_restored(self):
+        original = qew.build_event
+
+        def shim(object_id, verdict, *a, **kw):
+            if verdict.upper() in ("DEFER", "HOLD") and not kw.get("pending_class"):
+                kw["pending_class"] = (QEW_REMOVED_HOLD_DEFAULT
+                                       if verdict.upper() == "HOLD"
+                                       else QEW_REMOVED_DEFER_DEFAULT)
+            return original(object_id, verdict, *a, **kw)
+
+        qew.build_event = shim
+        try:
+            yield
+        finally:
+            qew.build_event = original
+
+    def test_reverted_bare_hold_mints_the_off_table_default_again(self):
+        with self._pre_773_defaults_restored():
+            with self.assertRaises(qew.PendingClassOffEnum) as ctx:
+                qew.build_event("cpr_w10_fixture", "HOLD", 773, "auth", self.q)
+        self.assertEqual(ctx.exception.value, QEW_REMOVED_HOLD_DEFAULT)
+
+    def test_reverted_bare_defer_flips_from_missing_input_to_bad_value(self):
+        with self._pre_773_defaults_restored():
+            with self.assertRaises(qew.PendingClassOffEnum) as ctx:
+                qew.build_event("cpr_w10_fixture", "DEFER", 773, "auth", self.q)
+        self.assertEqual(ctx.exception.value, QEW_REMOVED_DEFER_DEFAULT)
+        self.assertEqual(ctx.exception.code, "pending_class_off_enum")
+
+    def test_the_ruled_shapes_return_after_the_control(self):
+        """Restore: the null comes back, and so does the missing-input code."""
+        with self._pre_773_defaults_restored():
+            pass
+        ev = qew.build_event("cpr_w10_fixture", "HOLD", 773, "auth", self.q)
+        self.assertIsNone(ev["pending_class"])
+        with self.assertRaises(qew.PendingClassRequired):
+            qew.build_event("cpr_w10_fixture", "DEFER", 773, "auth", self.q)
 
 
 class TestRevertedGuardControlAtExtract(_TmpZone):
