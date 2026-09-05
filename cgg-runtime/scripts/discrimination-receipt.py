@@ -329,6 +329,16 @@ def build_receipt(lane: str, repo: Path, current_doc=None, as_of_tic=None):
             "or capped window. Tic gaps inside the run are counted as artifacts, not tics."
         ),
         "identical_run_tic_span": [run[0][0], run[-1][0]],
+        "identical_run_density": round(len(run) / (run[-1][0] - run[0][0] + 1), 3),
+        "identical_run_density_basis": (
+            "artifacts_in_run / span_tics — consecutive_identical_count divided by "
+            "(span end - span start + 1), 3 dp. Emitted so a CROSS-INSTRUMENT comparison "
+            "of the shared counter name carries its sampling-coverage denominator beside "
+            "it: the two lanes' corpora differ in density over the spans their counts "
+            "implicitly claim, so a per-lane caveat defends each lane's own count and "
+            "never licenses the cross-lane read (/review 773 — the SAMPLING-COVERAGE "
+            "face of guard 19, from cpr_mogul_contagion_heartbeat_45ecb6bb053c)."
+        ),
         # ── (c) the declared discriminating condition ───────────────────────
         "declared_discriminating_condition": {
             "condition": spec["condition"],
@@ -406,6 +416,8 @@ def selftest() -> int:  # noqa: C901 — a flat table of arms reads better here
               b1["last_change_tic"] is None)
         check("A1 constant corpus: count == 10 (full corpus)",
               b1["consecutive_identical_count"] == 10, str(b1["consecutive_identical_count"]))
+        check("A1 gapless run: identical_run_density == 1.0 (10 artifacts / 10-tic span)",
+              b1["identical_run_density"] == 1.0, str(b1["identical_run_density"]))
 
         # Arm 2 — NEGATIVE CONTROL: a changed value resets the counter.
         r2 = root / "r2"
@@ -444,6 +456,9 @@ def selftest() -> int:  # noqa: C901 — a flat table of arms reads better here
         check("A5 tic gaps: count == 3 artifacts across span 10..13",
               b5["consecutive_identical_count"] == 3 and b5["identical_run_tic_span"] == [10, 13],
               f'{b5["consecutive_identical_count"]} span={b5["identical_run_tic_span"]}')
+        check("A5 gapped run: identical_run_density == 0.75 (3 artifacts / 4-tic span) — "
+              "the sampling-coverage denominator stated, not left derivable",
+              b5["identical_run_density"] == 0.75, str(b5["identical_run_density"]))
 
         # Arm 6 — an unreadable artifact is DECLARED, never silently dropped.
         r6 = root / "r6"

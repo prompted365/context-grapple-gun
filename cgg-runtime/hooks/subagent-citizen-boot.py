@@ -926,7 +926,9 @@ def main() -> int:
         f"(tic {tic}). Your STANDING and its boundary are stamped in the worldview below — "
         f"a citizen carries full authority; a resident/guest/recognized_body/registered_artifact "
         f"carries a capped, shape-only worldview with an ⟨APOPHATIC⟩ boundary naming what it is "
-        f"NOT. Honor your badge.\n" + "\n".join(parts)
+        f"NOT. Honor your badge. (The CITIZEN-BOOT banner names the boot HOOK, never a standing "
+        f"grant — the compiled worldview badge below is AUTHORITATIVE; a banner/badge conflict "
+        f"resolves NARROWER, always. Ruled /review 773 on F-772-W10-7 n=3.)\n" + "\n".join(parts)
     )
     print(json.dumps({
         "hookSpecificOutput": {

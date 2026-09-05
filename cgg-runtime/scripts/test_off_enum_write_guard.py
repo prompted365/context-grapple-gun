@@ -178,11 +178,26 @@ class TestContractsAreTheContent(unittest.TestCase):
         self.assertIn("/review", msg)
 
     def test_both_contracts_carry_the_ruling_rider_verbatim(self):
-        rider = ("per-field rulings on the 17 historical off-table ids (that is "
-                 "/review's 768+ docket); guards at any writer other than "
-                 "queue-lifecycle-writeback.py")
-        for field in qlw.ENUM_GUARDED_FIELDS:
-            self.assertEqual(qlw.ENUM_CONTRACTS[field]["does_not_satisfy"], rider)
+        # The two riders lawfully DIVERGED at /review 773 Q4 (OM-W10-1 re-truth,
+        # Architect-ratified): the pending_class contract's other-writers clause was
+        # SATISFIED by wave 10 (both birth writers guarded at tic 772) and is retired
+        # from that rider WITH LINEAGE; landing_kind's only writer remains the
+        # lifecycle valve, so its original rider stays true verbatim. This pin
+        # asserts each contract's ruled rider — a shared-verbatim assertion would
+        # re-collapse the divergence the ruling made.
+        legacy_rider = ("per-field rulings on the 17 historical off-table ids (that is "
+                        "/review's 768+ docket); guards at any writer other than "
+                        "queue-lifecycle-writeback.py")
+        self.assertEqual(
+            qlw.ENUM_CONTRACTS["landing_kind"]["does_not_satisfy"], legacy_rider)
+        pc_rider = qlw.ENUM_CONTRACTS["pending_class"]["does_not_satisfy"]
+        # load-bearing markers of the ruled re-truth, pinned:
+        self.assertIn("per-field rulings on the 17 historical off-table ids", pc_rider)
+        self.assertIn("RE-TRUTHED at /review 773 (OM-W10-1", pc_rider)
+        self.assertIn("SATISFIED by wave 10 at tic 772", pc_rider)
+        self.assertIn("retired from this rider with lineage", pc_rider)
+        # the retired clause must NOT stand un-lineaged as a live withholding:
+        self.assertNotEqual(pc_rider, legacy_rider)
 
 
 class TestClassifyPredicate(unittest.TestCase):

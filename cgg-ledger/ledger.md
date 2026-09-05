@@ -3917,6 +3917,10 @@ Lock line: *Fence the cure's admission predicate as carefully as the matcher it 
 
 <!-- consumer-carry note from cpr_mogul_review_close_check_1d0125de5ee3 (birth_tic 769, review_tic 772 → /review 772 round 1 Q2, second recommended scope landed same-pass; doctrine home: canonical constitution-ledger guard 19 JURISDICTION-ZERO face). signer ent_homeskillet-f5 (claude-fable-5), boot receipt 3d10fd09aafcf256. -->
 
+**Refinement — the STILL-COUNT consumer-carry note (tic 770 → /review 773, `cpr_mogul_review_close_check_02f72d433ee9`; Architect-ratified in-tic round 1 Q2; the doctrine home is the federation ledger's STILL-COUNT clause on #artifact-language — this note records the CONSUMER-side reading rule on this lane's own surface).** The queue_state_tuple's census buckets publish PINNED CARDINALITIES: 8 of the 11 live statuses carry neither a delta nor a persisted member set, so a bucket equality across two fires (extracted 6 = 6 at the tic-770 entry/close pair, while one id left and one entered) is a cardinality claim only. A CONSUMER of the tuple (report row, receipt, handoff sentence) may cite bucket equality only at the cardinality altitude it was measured at; any movement-through-the-bucket claim requires membership, and where the bucket persists none the honest report is "movement through this bucket was not measured" — never "this bucket did not move". Open build half: the census-bucket member sets are an ELECTIVE emitter change, unruled; this note is the ruled reading record, not the mechanism.
+
+<!-- consumer-carry note from cpr_mogul_review_close_check_02f72d433ee9 (birth_tic 770, review_tic 773 → /review 773 round 1 Q2, second recommended scope landed same-pass; doctrine home: canonical constitution-ledger #artifact-language STILL-COUNT clause). signer ent_homeskillet-f5 (claude-fable-5), boot receipt ed44b1c8df09c4e6. -->
+
 ---
 
 ## An Observability Embed and an Artifact-Level Dedup Cannot Share a Surface Unless the Dedup's Comparison Projection Excludes the Embed
