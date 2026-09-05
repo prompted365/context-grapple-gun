@@ -3684,10 +3684,20 @@ def compute_sibling_pair_attribution(report_dir, current_filename, current_tic,
             "inscribed_index_delta.attribution.layout_churn) before reading either list as movement"),
         "delta_by_membership": len(new) - len(removed),
         "layout_churn": {
-            "unit": "members of the positional difference whose content component "
-                    "(relative_path#sha256_12_of_comment_segment) appears on BOTH sides",
+            # UNIT-RECOMPUTABILITY clause (/review 776, cpr_mogul_review_close_check_57096af5a389):
+            # the unit sentence must recompute `members` from the persisted lists. The prior
+            # sentence ("members of the positional difference whose content component appears on
+            # BOTH sides") licensed the per-positional-ENTRY population (514 at tic 773) while
+            # `members` publishes the per-distinct-CONTENT count (256 at tic 773) — both exact,
+            # different populations. The collapse decomposes PER SIDE and says so.
+            "unit": "distinct content components (relative_path#sha256_12_of_comment_segment) "
+                    "appearing on BOTH sides of the positional difference",
             "members": len(churn),
             "content_collapse": (len(new) - len(new_c)) + (len(removed) - len(removed_c)),
+            "content_collapse_by_side": {
+                "added": len(new) - len(new_c),
+                "removed": len(removed) - len(removed_c),
+            },
             "discriminator": "intersection on the content-bearing component; non-empty = layout churn, not movement",
             "vacuous_antecedent": (len(new) == 0 and len(removed) == 0),
             "vacuous_antecedent_note": (
