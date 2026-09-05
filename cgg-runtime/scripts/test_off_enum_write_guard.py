@@ -251,6 +251,8 @@ class TestArm1OffTableIntroductionRefused(_TmpQueue):
                          # guard, not the required-set check, is what fires
                          "review_confidence": 0.9, "review_pass": True,
                          "review_reasoning": "fixture reasoning",
+                         # A12-776 (/review 777): ratification_basis required
+                         "ratification_basis": None,
                          "landing_kind": OFF_TABLE_LANDING_KIND},
                 queue_path=self.q, writer="test", emit_only=True)
         codes = [r["code"] for r in ctx.exception.reasons]
@@ -278,6 +280,8 @@ class TestArm1OffTableIntroductionRefused(_TmpQueue):
                          # A1-774 triple (/review 775)
                          "review_confidence": 0.9, "review_pass": True,
                          "review_reasoning": "fixture reasoning",
+                         # A12-776 (/review 777): ratification_basis required
+                         "ratification_basis": None,
                          "pending_class": OFF_TABLE_PENDING_CLASS,
                          "landing_kind": OFF_TABLE_LANDING_KIND},
                 queue_path=self.q, writer="test", emit_only=True)
@@ -309,7 +313,9 @@ class TestArm1OffTableIntroductionRefused(_TmpQueue):
                          "adjudicated_at_tic": 767, "landing_kind": value,
                          # A1-774 triple (/review 775)
                          "review_confidence": 0.9, "review_pass": True,
-                         "review_reasoning": "fixture reasoning"},
+                         "review_reasoning": "fixture reasoning",
+                         # A12-776 (/review 777): ratification_basis required
+                         "ratification_basis": None},
                 queue_path=self.q, writer="test", emit_only=True)
             self.assertEqual(report["row"]["landing_kind"], value)
 
@@ -355,6 +361,8 @@ class TestArm2WaiveAdmitsWithAuditStamp(_TmpQueue):
                          # A1-774 triple (/review 775)
                          "review_confidence": 0.9, "review_pass": True,
                          "review_reasoning": "fixture reasoning",
+                         # A12-776 (/review 777): ratification_basis required
+                         "ratification_basis": None,
                          "pending_class": OFF_TABLE_PENDING_CLASS,
                          "landing_kind": OFF_TABLE_LANDING_KIND},
                 queue_path=self.q, writer="test", emit_only=True,
@@ -434,6 +442,8 @@ class TestArm3RevertedGuardControl(_TmpQueue):
                          # A1-774 triple (/review 775)
                          "review_confidence": 0.9, "review_pass": True,
                          "review_reasoning": "fixture reasoning",
+                         # A12-776 (/review 777): ratification_basis required
+                         "ratification_basis": None,
                          "landing_kind": OFF_TABLE_LANDING_KIND},
                 queue_path=self.q, writer="test", emit_only=True)
         self.assertEqual(report["row"]["landing_kind"], OFF_TABLE_LANDING_KIND)

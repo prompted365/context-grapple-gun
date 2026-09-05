@@ -254,8 +254,16 @@ LIFECYCLE_MUTABLE_FIELDS = frozenset({
 # non-verdict landing shape; skipped/rejected keep the clock-only floor. The
 # t773 review-execute rows stand as history with a dated disclosure — never
 # back-stamped. The audited --waive-required-field escape hatch is unchanged.
+# A12-776 extension (/review 777): ratification_basis RULED required
+# presence-explicit for promotes — it was 15/15 convention across 769-775
+# under six writers, dropped 0/1 at the 776 promote (hazard kkk n+1, repaired
+# same-tic at queue line 3,084), and the /review-771-Q4 deprecation message
+# below ALREADY named it a LAW key while this set did not require it (a
+# conductor-score-runtime parity gap inside one file). review_ratified_by
+# stays conventional (census 3/3, zero measured drops) under the routine
+# watch — ruled deliberately narrower than the message's full LAW-key list.
 VERDICT_REQUIRED_FIELDS = {
-    "promoted": ("adjudicated_at_tic", "landing_kind",
+    "promoted": ("adjudicated_at_tic", "landing_kind", "ratification_basis",
                  "review_confidence", "review_pass", "review_reasoning"),
     "absorbed": ("adjudicated_at_tic", "landing_kind", "absorbed_into"),
     "skipped": ("adjudicated_at_tic",),
