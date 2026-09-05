@@ -39,9 +39,12 @@ WHAT MOVED AND WHAT DID NOT — the boundary is load-bearing:
                      this caller's text. Engine-content separation: the engine
                      decides membership, the caller owns its vocabulary's
                      meaning. (The shared refusal_message is deliberately NOT
-                     consumed — it interpolates `contract['minting_authority']`,
-                     a key this contract does not carry, and its wording is a
-                     different ruled text.)
+                     consumed — its wording is a different ruled text than this
+                     family's four-kind refusals. The contract DOES carry
+                     `minting_authority` since /review 778 (OM-W12-4 parity
+                     edit), so the composer no longer KeyErrors here; adopting
+                     the shared message anyway remains a separate /review
+                     motion, not a side effect of that data edit.)
   STAYED (state)   — TIER_ENUM / CONFIDENCE_CLASS_VALUES / NON_TIER_MARKERS /
                      GOVERNING / _CONTRACT remain MODULE-LEVEL, and the public
                      predicates read them at CALL time. A lib-cached copy would

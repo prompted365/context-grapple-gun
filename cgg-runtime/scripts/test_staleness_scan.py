@@ -313,5 +313,55 @@ class TestCadenceAutoFire(unittest.TestCase):
         self.assertEqual(sigs, [])  # cadence step emits NO signal (orthogonal flag)
 
 
+class TestSaturationDisclosure(unittest.TestCase):
+    """/review 778 — the SATURATED-DETECTOR face of guard 19: the scan must
+    publish positives/population as a RATE beside the candidate count and TYPE a
+    saturated rate (1.0 or 0.0) non_discriminating_at_threshold, so a consumer can
+    tell a selection from a population census. These tests ARE the revert control:
+    removing the disclosure fails every one of them."""
+
+    def test_saturated_full_rate_typed_non_discriminating(self):
+        rate, disc = la._rate_discrimination(95, 95)
+        self.assertEqual(rate, 1.0)
+        self.assertEqual(disc, "non_discriminating_at_threshold")
+        # the other end of the range types identically (the row's own prescription)
+        rate0, disc0 = la._rate_discrimination(0, 95)
+        self.assertEqual(rate0, 0.0)
+        self.assertEqual(disc0, "non_discriminating_at_threshold")
+
+    def test_proper_subset_rate_typed_discriminating(self):
+        rate, disc = la._rate_discrimination(3, 95)
+        self.assertAlmostEqual(rate, 3 / 95)
+        self.assertEqual(disc, "discriminating")
+
+    def test_zero_population_has_no_rate(self):
+        rate, disc = la._rate_discrimination(0, 0)
+        self.assertIsNone(rate)
+        self.assertEqual(disc, "no_population_scanned")
+
+    def test_scan_result_carries_freshness_rate_with_measured_population(self):
+        with tempfile.TemporaryDirectory() as root:
+            _write(root, "autonomous_kernel/a.md", _spec("active", 1))
+            _write(root, "autonomous_kernel/b.md", _spec("active", 1))
+            res = la.staleness_scan(root, current_tic=500)
+            sat = res["saturation_disclosure"]["freshness_overdue"]
+            self.assertEqual(sat["population"], res["freshness_surfaces_scanned"])
+            self.assertEqual(sat["positives"],
+                             res["candidates_by_signal"].get("freshness_overdue", 0))
+            # both surfaces overdue at tic 500 -> saturated and typed as such
+            self.assertEqual(sat["rate"], 1.0)
+            self.assertEqual(sat["discrimination"], "non_discriminating_at_threshold")
+
+    def test_unmeasured_populations_declared_never_invented(self):
+        with tempfile.TemporaryDirectory() as root:
+            res = la.staleness_scan(root, current_tic=500)
+            sd = res["saturation_disclosure"]
+            for sig in ("held_dissonance_stale", "coverage_stale"):
+                self.assertIsNone(sd[sig]["population"])
+                self.assertIsNone(sd[sig]["rate"])
+                self.assertIn("population_not_measured_by_this_emitter",
+                              sd[sig]["discrimination"])
+
+
 if __name__ == "__main__":
     unittest.main()

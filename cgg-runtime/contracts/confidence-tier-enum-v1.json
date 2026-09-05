@@ -1,6 +1,7 @@
 {
   "schema_version": "confidence-tier-enum-v1",
   "ratified": "/review 708 (off-enum rulings 1-4, Architect-ratified in-tic via AskUserQuestion question set)",
+  "minting_authority": "The confidence_tier enum is OPEN-BY-/REVIEW: a new tier is minted by a /review VERDICT — never by a writer at birth, never introduced at a verdict writeback (ruling 4 refuses INTRODUCTION; unchanged historical carry-forward stays disclosed). This refusal is a routing instruction, not a vocabulary ceiling: take the candidate tier to /review, do not coin it at the write boundary. Key added by /review 778 verdict (OM-W12-4 / F-775-W12-3): parity with the landing-kind / pending-class / proof-horizon sibling contracts so the shared refusal composer cannot KeyError on this contract — a DATA edit only; the tier family's own four-kind refusal wording remains its callers' ruled text and shared-message adoption stays a separate future motion.",
   "ruling_rows": "audit-logs/reviews/2026-08-12.jsonl (decision_id off-enum-ruling-1..4, tic 708)",
   "brief": "audit-logs/governance/off-enum-confidence-tier-decision-brief-tic708.md",
   "enum": {

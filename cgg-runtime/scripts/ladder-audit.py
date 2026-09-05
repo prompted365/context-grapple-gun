@@ -3716,6 +3716,28 @@ def _stamp_provenance(overdue):
     }
 
 
+def _rate_discrimination(positives, population):
+    """/review 778 (the SATURATED-DETECTOR face of guard 19, on
+    ledger#presence-observation-fallacy-guard): a detector reporting positives on 100%
+    (or 0%) of its scanned population has two disjoint causes — every member genuinely
+    tripped an independently-varying predicate, or the threshold sits outside the
+    population's entire range so the predicate is vacuously true (false) for all and
+    the candidate list is the population census wearing a finding-set's clothes. A
+    saturated detector is simultaneously correct and uninformative; this types the
+    second thing out loud. Returns (rate, discrimination) where rate is
+    positives/population and discrimination is a typed enum:
+      no_population_scanned              — population 0; no rate exists
+      non_discriminating_at_threshold    — rate exactly 1.0 or 0.0 (saturated)
+      discriminating                     — the threshold selects a proper subset
+    Disclosure only: no threshold, route, fence, or verdict changes."""
+    if not population:
+        return (None, "no_population_scanned")
+    rate = positives / population
+    if rate in (0.0, 1.0):
+        return (rate, "non_discriminating_at_threshold")
+    return (rate, "discriminating")
+
+
 def staleness_scan(zone_root, current_tic=None,
                    freshness_stale_tics=FRESHNESS_STALE_TICS,
                    coverage_stale_tics=DOWNAUDIT_COVERAGE_STALE_TICS,
@@ -3831,6 +3853,38 @@ def staleness_scan(zone_root, current_tic=None,
         "freshness_surfaces_skipped_no_frontmatter": fresh_skipped,
         "candidate_count": len(candidates),
         "candidates_by_signal": dict(by_signal),
+        "saturation_disclosure": {
+            "_law": ("A rate rides beside every candidate count whose population this "
+                     "emitter measures in-hand; a saturated rate (1.0 or 0.0) is typed "
+                     "non_discriminating_at_threshold — the candidate list is then the "
+                     "population census, not a selection. A population this emitter does "
+                     "not measure is DECLARED unmeasured, never invented (the SATURATED-"
+                     "DETECTOR face of guard 19, /review 778)."),
+            "freshness_overdue": {
+                "positives": by_signal.get("freshness_overdue", 0),
+                "population": fresh_scanned,
+                "rate": _rate_discrimination(
+                    by_signal.get("freshness_overdue", 0), fresh_scanned)[0],
+                "discrimination": _rate_discrimination(
+                    by_signal.get("freshness_overdue", 0), fresh_scanned)[1],
+            },
+            "held_dissonance_stale": {
+                "positives": by_signal.get("held_dissonance_stale", 0),
+                "population": None, "rate": None,
+                "discrimination": ("population_not_measured_by_this_emitter — "
+                                   "stale_held_for_retest arrives pre-filtered from "
+                                   "list_downaudit_findings; a rate needs the full "
+                                   "held-dissonance census, which is not read here"),
+            },
+            "coverage_stale": {
+                "positives": by_signal.get("coverage_stale", 0),
+                "population": None, "rate": None,
+                "discrimination": ("population_not_measured_by_this_emitter — "
+                                   "due_now[reason=stale] arrives pre-filtered from the "
+                                   "C9 coverage manifold; a rate needs the full "
+                                   "(rung,KI) pair census, which is not read here"),
+            },
+        },
         "candidates": candidates,
         "forward_residues": {
             "supersession_orphan_detection": (
@@ -3881,6 +3935,12 @@ def format_staleness_scan(result):
     lines.append(f"  freshness_overdue: {by.get('freshness_overdue', 0)}    "
                  f"held_dissonance_stale: {by.get('held_dissonance_stale', 0)}    "
                  f"coverage_stale: {by.get('coverage_stale', 0)}")
+    sat = (result.get("saturation_disclosure") or {}).get("freshness_overdue") or {}
+    if sat.get("rate") is not None:
+        lines.append(f"  freshness rate: {sat['positives']}/{sat['population']} = "
+                     f"{sat['rate']:.4f} — {sat['discrimination']} "
+                     "(SATURATED-DETECTOR face, /review 778: a saturated rate means the "
+                     "list is a census, not a selection)")
     sp = result.get("freshness_stamp_provenance") or {}
     if sp.get("stamped_population"):
         t2 = ", ".join(f"t{e['last_validated_tic']}->{e['surfaces']}" for e in sp.get("top2_stamp_events", []))
