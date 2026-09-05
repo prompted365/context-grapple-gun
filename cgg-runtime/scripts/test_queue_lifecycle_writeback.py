@@ -252,7 +252,9 @@ class TestDeferWritebackPreservesEnvelope(_TmpQueue):
             CPR_ID, {"status": "promoted", "promoted_to": "cgg-ledger/ledger.md#slug",
                      "promoted_date": "2026-08-06", "review_verdict": "PROMOTE",
                      "review_confidence": 0.85,
-                     # ruled terminal set (/review 765 Q2 — VERDICT_REQUIRED_FIELDS)
+                     # ruled terminal set (/review 765 Q2; extended /review 775
+                     # A1-774 — the judgment triple is required presence-explicit)
+                     "review_pass": True, "review_reasoning": "fixture reasoning",
                      "adjudicated_at_tic": 683, "landing_kind": "refinement_ray"},
             queue_path=self.q, review_tic=683, writer="review-execute", emit_only=True)
         row = report["row"]
@@ -276,9 +278,10 @@ class TestRefusals(_TmpQueue):
         self.assertEqual(ctx.exception.reasons[0]["code"], "no_prior_row")
 
     def test_verdict_write_missing_ruled_terminal_fields_is_refused(self):
-        """Negative control for the /review 765 Q2 required-set check: a verdict-class
-        promote write missing the ruled set must refuse with a typed reason. Reverting
-        the check breaks this test."""
+        """Negative control for the /review 765 Q2 required-set check (field list
+        extended /review 775 A1-774): a verdict-class promote write missing the ruled
+        set must refuse with a typed reason naming every member. Reverting either
+        the check or the A1-774 extension breaks this test."""
         write_queue(self.q, [envelope_row(status="promotable")])
         with self.assertRaises(qlw.LifecycleWritebackRefused) as ctx:
             qlw.lifecycle_writeback(
@@ -287,13 +290,19 @@ class TestRefusals(_TmpQueue):
         codes = [r["code"] for r in ctx.exception.reasons]
         self.assertIn("mandatory_terminal_field_missing", codes)
         fields = ctx.exception.reasons[codes.index("mandatory_terminal_field_missing")]["fields"]
-        self.assertEqual(fields, ["adjudicated_at_tic", "landing_kind"])
+        self.assertEqual(fields, ["adjudicated_at_tic", "landing_kind",
+                                  "review_confidence", "review_pass",
+                                  "review_reasoning"])
 
     def test_verdict_write_waive_flag_is_audited_escape(self):
-        """The waive valve passes the same shape, visibly (stderr notice is the audit)."""
+        """The waive valve passes the same shape, visibly (stderr notice is the audit).
+        The A1-774 triple is supplied as EXPLICIT nulls here — the presence-explicit
+        arm: a key written null is present and lawful (/review 775)."""
         write_queue(self.q, [envelope_row(status="promotable")])
         report = qlw.lifecycle_writeback(
-            CPR_ID, {"status": "promoted", "review_verdict": "PROMOTE"},
+            CPR_ID, {"status": "promoted", "review_verdict": "PROMOTE",
+                     "review_confidence": None, "review_pass": None,
+                     "review_reasoning": None},
             queue_path=self.q, review_tic=683, emit_only=True,
             waive_required_fields=("adjudicated_at_tic", "landing_kind"))
         self.assertEqual(report["row"]["status"], "promoted")
@@ -315,7 +324,46 @@ class TestRefusals(_TmpQueue):
         self.assertIn("mandatory_terminal_field_missing", codes)
         fields = ctx.exception.reasons[codes.index("mandatory_terminal_field_missing")]["fields"]
         self.assertEqual(fields,
-                         ["adjudicated_at_tic", "landing_kind", "review_verdict"])
+                         ["adjudicated_at_tic", "landing_kind",
+                          "review_confidence", "review_pass", "review_reasoning",
+                          "review_verdict"])
+
+    def test_the_t773_review_execute_shape_is_refused_naming_the_triple(self):
+        """A1-774 NC (/review 775, EXTEND presence-explicit): the EXACT shape the
+        review-execute path wrote at the t773 writebacks — status, review_verdict,
+        adjudicated_at_tic, landing_kind, and NO judgment triple — was accepted
+        rc=0 then (NC-3 at the t774 stepper walk proved it), which is how the
+        A1-772 cure's coverage stayed a proper subset of its defect. Under the
+        extension the same shape refuses, naming exactly the missing triple.
+        Reverting the A1-774 extension breaks this test."""
+        write_queue(self.q, [envelope_row(status="promotable")])
+        with self.assertRaises(qlw.LifecycleWritebackRefused) as ctx:
+            qlw.lifecycle_writeback(
+                CPR_ID, {"status": "promoted", "review_verdict": "PROMOTE",
+                         "adjudicated_at_tic": 773, "landing_kind": "refinement_ray"},
+                queue_path=self.q, review_tic=773, emit_only=True)
+        codes = [r["code"] for r in ctx.exception.reasons]
+        self.assertIn("mandatory_terminal_field_missing", codes)
+        fields = ctx.exception.reasons[codes.index("mandatory_terminal_field_missing")]["fields"]
+        self.assertEqual(fields,
+                         ["review_confidence", "review_pass", "review_reasoning"])
+
+    def test_explicit_null_triple_is_present_and_lawful(self):
+        """A1-774 presence-explicit control (/review 775): a key written with an
+        EXPLICIT null is present — the judge produced none, declared (the
+        NO-DEFAULT+ABSENCE pattern). Silent omission refuses (the NC above);
+        declared absence lands."""
+        write_queue(self.q, [envelope_row(status="promotable")])
+        report = qlw.lifecycle_writeback(
+            CPR_ID, {"status": "promoted", "review_verdict": "PROMOTE",
+                     "adjudicated_at_tic": 775, "landing_kind": "refinement_ray",
+                     "review_confidence": None, "review_pass": None,
+                     "review_reasoning": None},
+            queue_path=self.q, review_tic=775, emit_only=True)
+        self.assertEqual(report["row"]["status"], "promoted")
+        for f in ("review_confidence", "review_pass", "review_reasoning"):
+            self.assertIn(f, report["row"])
+            self.assertIsNone(report["row"][f])
 
     def test_non_status_write_on_terminal_row_does_not_arm_required_set(self):
         """A1-772 no-false-arming control: a lifecycle write that does NOT set status
@@ -396,6 +444,8 @@ class TestRefusals(_TmpQueue):
         write_queue(self.q, [other, envelope_row(status="promotable")])
         report = qlw.lifecycle_writeback(
             CPR_ID, {"status": "promoted", "review_verdict": self.LONG_VERDICT,
+                     "review_confidence": 0.8, "review_pass": True,
+                     "review_reasoning": "fixture reasoning",
                      "adjudicated_at_tic": 683, "landing_kind": "refinement_ray"},
             queue_path=self.q, review_tic=683, emit_only=True,
             allow_duplicate_verdict_text=True)
@@ -1036,14 +1086,18 @@ def test_restated_field_is_not_a_mutation_tic744():
              "review_tic": 744, "subsystem": "t"}
     row, report = qlw.build_lifecycle_row(
         prior, {"status": "promoted", "review_tic": 744, "adjudicated_at_tic": 744,
-         "review_verdict": "PROMOTE", "landing_kind": "refinement_ray"},
+         "review_verdict": "PROMOTE", "landing_kind": "refinement_ray",
+         # A1-774 extension (/review 775): the judgment triple is required
+         "review_confidence": 0.9, "review_pass": True,
+         "review_reasoning": "fixture reasoning"},
         writer="test", now="2026-08-27T00:00:00+00:00")
     lw = row["lifecycle_writeback"]
     assert "review_tic" not in lw["mutated_fields"], lw
     assert lw["restated_fields"] == ["review_tic"], lw
     # amended /review 746 (A3-746): the ROW stamp now splits ADDED from MUTATED too
     assert lw["mutated_fields"] == ["status"], lw
-    assert lw["added_fields"] == sorted(["adjudicated_at_tic", "landing_kind", "review_verdict"]), lw
+    assert lw["added_fields"] == sorted(["adjudicated_at_tic", "landing_kind", "review_verdict",
+                                         "review_confidence", "review_pass", "review_reasoning"]), lw
     assert report["restated_fields"] == ["review_tic"]
     assert report["mutated_fields"] == ["status"]              # among pre-existing keys
     assert "adjudicated_at_tic" in report["added_fields"]
@@ -1066,11 +1120,15 @@ def test_row_stamp_splits_added_from_mutated_tic746():
     prior = {"id": "cpr_y", "status": "extracted", "lesson": "L", "source": "s", "birth_tic": 743,
              "review_tic": 746, "subsystem": "t"}
     lifecycle = {"status": "promoted", "review_tic": 746, "adjudicated_at_tic": 746,
-                 "review_verdict": "PROMOTE", "promoted_to": "ledger.md#x", "landing_kind": "refinement_ray"}
+                 "review_verdict": "PROMOTE", "promoted_to": "ledger.md#x", "landing_kind": "refinement_ray",
+                 # A1-774 extension (/review 775): the judgment triple is required
+                 "review_confidence": 0.9, "review_pass": True,
+                 "review_reasoning": "fixture reasoning"}
     row, report = qlw.build_lifecycle_row(prior, lifecycle, writer="test", now="2026-08-28T00:00:00+00:00")
     lw = row["lifecycle_writeback"]
     assert lw["mutated_fields"] == ["status"], lw                       # the ONE genuine value change
-    assert lw["added_fields"] == sorted(["adjudicated_at_tic", "review_verdict", "promoted_to", "landing_kind"]), lw
+    assert lw["added_fields"] == sorted(["adjudicated_at_tic", "review_verdict", "promoted_to", "landing_kind",
+                                         "review_confidence", "review_pass", "review_reasoning"]), lw
     assert lw["restated_fields"] == ["review_tic"], lw
     # row stamp == summary split (the two names now compute one thing one way)
     assert lw["mutated_fields"] == report["mutated_fields"]

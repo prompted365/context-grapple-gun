@@ -238,8 +238,25 @@ LIFECYCLE_MUTABLE_FIELDS = frozenset({
 # corpus (typed from what is read, never invented; the A2-764 discipline).
 # Presence is necessary, not sufficient (A16-764): this check cannot catch a
 # value-level mis-write; that class needs its own detector.
+# A1-774 EXTENSION, RULED /review 775 (EXTEND presence-explicit, Architect-
+# ratified in-tic): `promoted` additionally requires the judgment triple
+# review_confidence / review_pass / review_reasoning. The defect this closes:
+# the A1-772 cure's coverage was a PROPER SUBSET of the defect it was minted
+# from — the /review-773 review-execute writebacks dropped the triple (0/2,
+# NC-proven this valve accepted that shape rc=0) while the seat's /review-774
+# writebacks carried all six deliberately (2/2); the stepper's t775 walk
+# measured the drop as CALLER-specific (every 6/6 pass carries an
+# ent_homeskillet* writer; the sole 0/2 pass carries review-execute).
+# PRESENCE-EXPLICIT semantics are the existing check's own (`f not in
+# lifecycle`): a key written with an EXPLICIT null is present and lawful (the
+# judge produced none — the NO-DEFAULT+ABSENCE pattern); silent omission is
+# the typed refusal. Scope: `promoted` ONLY — absorbed keeps its ruled
+# non-verdict landing shape; skipped/rejected keep the clock-only floor. The
+# t773 review-execute rows stand as history with a dated disclosure — never
+# back-stamped. The audited --waive-required-field escape hatch is unchanged.
 VERDICT_REQUIRED_FIELDS = {
-    "promoted": ("adjudicated_at_tic", "landing_kind"),
+    "promoted": ("adjudicated_at_tic", "landing_kind",
+                 "review_confidence", "review_pass", "review_reasoning"),
     "absorbed": ("adjudicated_at_tic", "landing_kind", "absorbed_into"),
     "skipped": ("adjudicated_at_tic",),
     "rejected": ("adjudicated_at_tic",),

@@ -241,7 +241,14 @@ class TestAudienceHandleCureWiring(unittest.TestCase):
         self.assertIn("Path(preserved_abs).write_bytes(prior_raw)", _SRC)
 
     def test_superseded_receipt_is_comparison_volatile(self):
-        self.assertIn('_volatile = ("generated_at", "superseded_receipt")', _SRC)
+        # Pin ADAPTED at /review 775 (a5391802154e): the inline `_volatile`
+        # tuple became the module constant _COMPARE_VOLATILE_KEYS when the
+        # comparison normalizer moved to module scope. The assertion's INTENT
+        # is unchanged — superseded_receipt stays comparison-volatile.
+        self.assertIn(
+            '_COMPARE_VOLATILE_KEYS = ("generated_at", "superseded_receipt")',
+            _SRC)
+        self.assertIn("normalize_report_for_content_compare(prior)", _SRC)
 
     def test_log_row_still_carries_receipt_producer_lane_intact(self):
         # The cure ADDS an audience; it never removes the producer-lane sink.

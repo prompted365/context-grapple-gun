@@ -247,6 +247,10 @@ class TestArm1OffTableIntroductionRefused(_TmpQueue):
             qlw.lifecycle_writeback(
                 CPR_ID, {"status": "promoted", "review_verdict": "PROMOTE",
                          "adjudicated_at_tic": 767,
+                         # A1-774 triple (/review 775) — supplied so the enum
+                         # guard, not the required-set check, is what fires
+                         "review_confidence": 0.9, "review_pass": True,
+                         "review_reasoning": "fixture reasoning",
                          "landing_kind": OFF_TABLE_LANDING_KIND},
                 queue_path=self.q, writer="test", emit_only=True)
         codes = [r["code"] for r in ctx.exception.reasons]
@@ -271,6 +275,9 @@ class TestArm1OffTableIntroductionRefused(_TmpQueue):
             qlw.lifecycle_writeback(
                 CPR_ID, {"status": "promoted", "review_verdict": "PROMOTE",
                          "adjudicated_at_tic": 1,
+                         # A1-774 triple (/review 775)
+                         "review_confidence": 0.9, "review_pass": True,
+                         "review_reasoning": "fixture reasoning",
                          "pending_class": OFF_TABLE_PENDING_CLASS,
                          "landing_kind": OFF_TABLE_LANDING_KIND},
                 queue_path=self.q, writer="test", emit_only=True)
@@ -299,7 +306,10 @@ class TestArm1OffTableIntroductionRefused(_TmpQueue):
             write_queue(self.q, [envelope_row(status="promotable")])
             report = qlw.lifecycle_writeback(
                 CPR_ID, {"status": "promoted", "review_verdict": "PROMOTE",
-                         "adjudicated_at_tic": 767, "landing_kind": value},
+                         "adjudicated_at_tic": 767, "landing_kind": value,
+                         # A1-774 triple (/review 775)
+                         "review_confidence": 0.9, "review_pass": True,
+                         "review_reasoning": "fixture reasoning"},
                 queue_path=self.q, writer="test", emit_only=True)
             self.assertEqual(report["row"]["landing_kind"], value)
 
@@ -342,6 +352,9 @@ class TestArm2WaiveAdmitsWithAuditStamp(_TmpQueue):
             qlw.lifecycle_writeback(
                 CPR_ID, {"status": "promoted", "review_verdict": "PROMOTE",
                          "adjudicated_at_tic": 1,
+                         # A1-774 triple (/review 775)
+                         "review_confidence": 0.9, "review_pass": True,
+                         "review_reasoning": "fixture reasoning",
                          "pending_class": OFF_TABLE_PENDING_CLASS,
                          "landing_kind": OFF_TABLE_LANDING_KIND},
                 queue_path=self.q, writer="test", emit_only=True,
@@ -418,6 +431,9 @@ class TestArm3RevertedGuardControl(_TmpQueue):
             report = qlw.lifecycle_writeback(
                 CPR_ID, {"status": "promoted", "review_verdict": "PROMOTE",
                          "adjudicated_at_tic": 767,
+                         # A1-774 triple (/review 775)
+                         "review_confidence": 0.9, "review_pass": True,
+                         "review_reasoning": "fixture reasoning",
                          "landing_kind": OFF_TABLE_LANDING_KIND},
                 queue_path=self.q, writer="test", emit_only=True)
         self.assertEqual(report["row"]["landing_kind"], OFF_TABLE_LANDING_KIND)

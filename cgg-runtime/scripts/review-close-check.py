@@ -939,10 +939,16 @@ _REMEDY_CLASS_DISPOSITION = {
 
 _DISPOSITION_TEXT = {
     "index_loss": (
-        "A REAL inscription witness shed by the matcher and MISSING from the "
-        "index — the population the /review-719 counter was minted for. "
-        "Reachable cures, per remedy class: head_anchor_gap -> the head-anchor "
-        "relaxation bound (build lane); vocabulary_gap -> verb registration."),
+        "An inscription witness COMMENT shed by the matcher — sub-typed by "
+        "INDEX CONSEQUENCE at /review 775 (3007b217a33d): "
+        "`index_loss_id_absent` = at least one of its tokens is MISSING from "
+        "the index (a real hole — the population the /review-719 counter was "
+        "minted for); `index_loss_comment_only` = every token is already in "
+        "the index via another admitted comment (a genuine vocabulary gap "
+        "worth registering, ZERO index consequence). Both stay in the LOUD "
+        "headline; see index_loss_subtype_counts. Reachable cures, per remedy "
+        "class: head_anchor_gap -> the head-anchor relaxation bound (build "
+        "lane); vocabulary_gap -> verb registration."),
     "design_excludable": (
         "NOT an inscription witness at all — a born-CANDIDATE declaration "
         "block, a ledger-tags metadata block, or a home-pointer (/review 769: "
@@ -963,6 +969,35 @@ _DISPOSITION_TEXT = {
         "absorbed. Route it to /review for adjudication; do not cure it in the "
         "build lane."),
 }
+
+
+# /review 775 (a5391802154e, MEASUREMENT-vs-OCCURRENCE rule — ray on
+# constitution-ledger#terminal-state-change-requires-receipt-and-no-signal-
+# goes-dark): the skip-vs-replace change-discriminator computes over fields
+# carrying information FROM the measurement, never fields recording its
+# OCCURRENCE — otherwise re-observing manufactures the evidence that the
+# re-observation was warranted (lived t772: a supersession whose only deltas
+# were row_count_within_streak 130->131, same_tic_reobservation_tics gaining
+# '772', and queue_state_tuple.read_at, while every governance-bearing
+# measure was identical).
+_COMPARE_VOLATILE_KEYS = ("generated_at", "superseded_receipt")
+_OCCURRENCE_RECORDING_FIELDS = {
+    "genuine_zero_streak": (
+        "row_count_within_streak", "same_tic_reobservation_tics"),
+    "queue_state_tuple": ("read_at",),
+}
+
+
+def normalize_report_for_content_compare(d):
+    """Report dict -> comparison view: volatile keys and occurrence-recording
+    fields removed; information-bearing fields (streak span/distinct-tics/
+    gaps/broken_at_tic, the queue sha/rows/census) remain compared."""
+    out = {k: v for k, v in d.items() if k not in _COMPARE_VOLATILE_KEYS}
+    for blk, occ_keys in _OCCURRENCE_RECORDING_FIELDS.items():
+        v = out.get(blk)
+        if isinstance(v, dict):
+            out[blk] = {k: x for k, x in v.items() if k not in occ_keys}
+    return out
 
 
 def _classify_unmatched_disposition(seg, remedy_class):
@@ -1483,6 +1518,11 @@ def build_inscribed_index(project_dir, queue_ids=None, diagnostics=None):
         _DISPOSITION_DESIGN_EXCLUDABLE: [],
         _DISPOSITION_UNCLASSIFIED: [],
     }
+    # /review 775 (3007b217a33d, INDEX-CONSEQUENCE split): every index_loss
+    # member is collected here WITH its token set, and sub-typed AFTER the walk
+    # against the COMPLETE index — mid-walk membership would be order-dependent
+    # (a comment shed before the comment that admits its token would mis-type).
+    index_loss_members = []
     # Route census (/review 724 RIDER 1 — disclosure parity). Counts TOKEN
     # OCCURRENCES inside matched comments, not distinct tokens (the index unit),
     # and is computed at runtime so the disclosure can never rot into a frozen
@@ -1643,6 +1683,12 @@ def build_inscribed_index(project_dir, queue_ids=None, diagnostics=None):
             if design_exclusion_class:
                 sample["design_exclusion_class"] = design_exclusion_class
                 design_excluded_by_class[design_exclusion_class] += 1
+            if disposition == _DISPOSITION_INDEX_LOSS:
+                # Sub-typed post-walk (/review 775, 3007b217a33d) — the sample
+                # dict is shared by reference so the published sample gains the
+                # index_consequence field when the sub-typing runs.
+                index_loss_members.append(
+                    {"tokens": set(tokens), "sample": sample})
             if len(unmatched_samples_by_disposition[disposition]) < 5:
                 unmatched_samples_by_disposition[disposition].append(sample)
             if disposition == _DISPOSITION_DESIGN_EXCLUDABLE:
@@ -1652,6 +1698,29 @@ def build_inscribed_index(project_dir, queue_ids=None, diagnostics=None):
             unmatched_shaped_count += 1
             if len(unmatched_shaped_samples) < 10:
                 unmatched_shaped_samples.append(sample)
+    # /review 775 INDEX-CONSEQUENCE sub-typing (3007b217a33d — a loud residue
+    # counter's non-zero must be typed by its INDEX CONSEQUENCE, not by the
+    # shedding event alone; lived t772: a shed consumer-carry comment typed
+    # `index_loss` while its token was IN the index via another admitted
+    # comment — the witness COMMENT was shed, the ID was never missing, and
+    # the headline reported a loss the index did not suffer). Runs against the
+    # COMPLETE index (post-walk) for order-independence:
+    #   index_loss_comment_only — EVERY token already in the index via another
+    #     admitted comment: a genuine vocabulary gap worth registering, with
+    #     ZERO index consequence.
+    #   index_loss_id_absent — at least one token absent from the index: a
+    #     real hole, the population the /review-719 counter was minted for
+    #     (partial presence types id_absent — a missing token IS a hole).
+    # The headline counter stays LOUD in both cases; what changes is that its
+    # number stops meaning two different things at once.
+    index_loss_subtype_counts = {
+        "index_loss_id_absent": 0, "index_loss_comment_only": 0}
+    for _m in index_loss_members:
+        _subtype = ("index_loss_comment_only"
+                    if _m["tokens"] and _m["tokens"] <= inscribed
+                    else "index_loss_id_absent")
+        index_loss_subtype_counts[_subtype] += 1
+        _m["sample"]["index_consequence"] = _subtype
     residue_total = sum(unmatched_disposition_counts.values())
     if residue_total:
         # /review-768 remediation: a string attached to a HETEROGENEOUS counter
@@ -1726,6 +1795,12 @@ def build_inscribed_index(project_dir, queue_ids=None, diagnostics=None):
         # plus a head-of-list sample.
         diagnostics["unmatched_disposition_split"] = {
             "counts": dict(sorted(unmatched_disposition_counts.items())),
+            # /review 775 (3007b217a33d): index_loss sub-typed by INDEX
+            # CONSEQUENCE, computed post-walk against the complete index.
+            # The two sub-counts sum to counts.index_loss; only id_absent is
+            # a loss the index actually suffered.
+            "index_loss_subtype_counts": dict(
+                sorted(index_loss_subtype_counts.items())),
             "token_bearing_residue_total": sum(
                 unmatched_disposition_counts.values()),
             "headline_counter_value": unmatched_shaped_count,
@@ -4445,9 +4520,15 @@ def run_check(project_dir, dry_run=False, obligation_tic=None, obligation_mandat
         # streak the machine computes belongs in the artifact the cycle names
         # as its evidence, not only in the service-log audit trail — a durable
         # birth in the wrong lane still forces consumers to hand-project.
-        # Computed ONCE here (before the dedup comparison, so a same-tic
-        # re-observation that changes the streak is a REAL content change and
-        # routes through the superseded-receipt branch), reused for the log row.
+        # Computed ONCE here (before the dedup comparison), reused for the log
+        # row. The original parenthetical here — "a same-tic re-observation
+        # that changes the streak is a REAL content change" — was FALSIFIED at
+        # tic 772 and RULED at /review 775 (a5391802154e): two of the streak's
+        # fields record the OCCURRENCE of the measurement, not information FROM
+        # it, so counting them as content let the act of re-observing
+        # manufacture its own supersession evidence. The comparison below now
+        # normalizes those fields out; information-bearing streak fields
+        # (span, distinct tics, gaps, broken_at_tic) remain compared.
         report["genuine_zero_streak"] = compute_genuine_zero_streak(
             os.path.join(al_path, "services", "review-close-check-log.jsonl"),
             mandate_tic,
@@ -4472,9 +4553,8 @@ def run_check(project_dir, dry_run=False, obligation_tic=None, obligation_mandat
                 # replace on every run after a supersession even when findings
                 # are identical — the exact skip-branch the receipt must not
                 # break.
-                _volatile = ("generated_at", "superseded_receipt")
-                prior_norm = {k: v for k, v in prior.items() if k not in _volatile}
-                report_norm = {k: v for k, v in report.items() if k not in _volatile}
+                prior_norm = normalize_report_for_content_compare(prior)
+                report_norm = normalize_report_for_content_compare(report)
                 if prior_norm == report_norm:
                     decision = "skip"
                 else:
@@ -4546,11 +4626,13 @@ def run_check(project_dir, dry_run=False, obligation_tic=None, obligation_mandat
                 # ever reading review-close-check-log.jsonl. Same block, second
                 # audience; single computation, two sinks (the /review 715
                 # discipline). Excluded from the dedup comparison via
-                # _volatile above so identical-CONTENT runs still skip.
+                # _COMPARE_VOLATILE_KEYS so identical-CONTENT runs still skip.
                 # UNIT, stated exactly (bf492de6b23a, /review 735 PROMOTE-TO-
-                # PROCEDURAL-HOME): the skip-vs-replace predicate compares the
-                # WHOLE REPORT CONTENT minus the two volatile keys
-                # (`generated_at`, `superseded_receipt`) — NOT the findings set.
+                # PROCEDURAL-HOME; amended /review 775 a5391802154e): the
+                # skip-vs-replace predicate compares the WHOLE REPORT CONTENT
+                # minus the two volatile keys (`generated_at`,
+                # `superseded_receipt`) AND minus the occurrence-recording
+                # fields (_occurrence_recording above) — NOT the findings set.
                 # A run whose findings are byte-stable still REPLACES when any
                 # other content moves (measured t732: verdict_counts.promoted
                 # 733 -> 734 drove the replace across two same-tic observations
