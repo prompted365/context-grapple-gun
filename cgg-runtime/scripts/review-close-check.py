@@ -980,12 +980,39 @@ _DISPOSITION_TEXT = {
 # were row_count_within_streak 130->131, same_tic_reobservation_tics gaining
 # '772', and queue_state_tuple.read_at, while every governance-bearing
 # measure was identical).
-_COMPARE_VOLATILE_KEYS = ("generated_at", "superseded_receipt")
+# producer_identity is occurrence-class under the same discriminator: it
+# records which INSTRUMENT took the measurement (this script's own path +
+# content hash at run time), never what the measurement said — so it rides
+# the volatile set and cannot flip skip-vs-replace (the INSTRUMENT-IDENTITY
+# face, constitution-ledger#terminal-state-change-requires-receipt-and-no-
+# signal-goes-dark: a same-tic supersession receipt must discriminate
+# re-observation-by-the-same-instrument from re-observation-across-an-
+# instrument-change; lived t776 — a /review-ratified cure to this writer
+# landed between two same-tic fires and the receipt typed the pair as one
+# instrument's later reading).
+_COMPARE_VOLATILE_KEYS = (
+    "generated_at", "superseded_receipt", "producer_identity")
 _OCCURRENCE_RECORDING_FIELDS = {
     "genuine_zero_streak": (
         "row_count_within_streak", "same_tic_reobservation_tics"),
     "queue_state_tuple": ("read_at",),
 }
+
+
+def compute_producer_identity():
+    """Typed producer identity stamped on every emitted report: the writer's
+    own filename + sha256-16 of its bytes at run time. Two same-tic artifacts
+    with equal hashes are one instrument re-observing; differing hashes are a
+    typed instrument boundary. A pre-cure artifact carries no such field —
+    consumers treat its identity as unmeasured, never inferred."""
+    try:
+        digest = hashlib.sha256(Path(__file__).read_bytes()).hexdigest()[:16]
+    except OSError:
+        digest = None
+    return {
+        "writer_path": os.path.basename(__file__),
+        "writer_sha256_16": digest,
+    }
 
 
 def normalize_report_for_content_compare(d):
@@ -4381,6 +4408,7 @@ def run_check(project_dir, dry_run=False, obligation_tic=None, obligation_mandat
     report = {
         "check_type": "review_close_check",
         "generated_at": datetime.now(timezone.utc).isoformat(),
+        "producer_identity": compute_producer_identity(),
         "queue_path": queue_path,
         "total_cprs": len(queue),
         # PINNED queue-state tuple beside the integer (/review 754 Q2, the PIN
@@ -4548,11 +4576,15 @@ def run_check(project_dir, dry_run=False, obligation_tic=None, obligation_mandat
         decision = "write"
         prior_raw = None
         prior_generated_at = None
+        # Honest null for a pre-cure prior that never stamped its producer —
+        # declared unmeasured, never invented (INSTRUMENT-IDENTITY face).
+        prior_producer_identity = None
         if (mandate_tic is not None or mandate_id) and os.path.exists(output_path):
             try:
                 prior_raw = Path(output_path).read_bytes()
                 prior = json.loads(prior_raw.decode("utf-8"))
                 prior_generated_at = prior.get("generated_at")
+                prior_producer_identity = prior.get("producer_identity")
                 # Compare full report content minus the volatile timestamp —
                 # findings-only comparison let a stale verdict_counts survive a
                 # counter repair (tic 554: on-disk deferred=35 vs runtime 36).
@@ -4626,6 +4658,14 @@ def run_check(project_dir, dry_run=False, obligation_tic=None, obligation_mandat
                         if prior_generated_at is not None
                         else "corrupt_prior_replaced"),
                     "prior_generated_at": prior_generated_at,
+                    # INSTRUMENT-IDENTITY face: the receipt types the
+                    # INSTRUMENT beside the re-observation. Equal hashes =
+                    # the same instrument reading again; differing hashes =
+                    # a typed instrument boundary the additive decomposition
+                    # crosses; null prior = pre-cure artifact, identity
+                    # unmeasured (never inferred).
+                    "producer_identity": report.get("producer_identity"),
+                    "prior_producer_identity": prior_producer_identity,
                 }
                 # AUDIENCE/HANDLE ray cure (/review 716, 07c597566b16 PROMOTE-
                 # as-refinement-ray): made_known discharges at the CONSUMER'S
@@ -4658,6 +4698,8 @@ def run_check(project_dir, dry_run=False, obligation_tic=None, obligation_mandat
                         "superseded_by_live_path": output_path,
                         "superseded_at": datetime.now(timezone.utc).isoformat(),
                         "justification_class": superseded_receipt["justification_class"],
+                        "producer_identity": superseded_receipt["producer_identity"],
+                        "prior_producer_identity": prior_producer_identity,
                     }, indent=2), encoding="utf-8")
             Path(output_path).write_text(json.dumps(report, indent=2), encoding="utf-8")
             if decision == "replace":

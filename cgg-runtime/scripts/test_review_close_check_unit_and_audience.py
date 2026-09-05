@@ -243,11 +243,13 @@ class TestAudienceHandleCureWiring(unittest.TestCase):
     def test_superseded_receipt_is_comparison_volatile(self):
         # Pin ADAPTED at /review 775 (a5391802154e): the inline `_volatile`
         # tuple became the module constant _COMPARE_VOLATILE_KEYS when the
-        # comparison normalizer moved to module scope. The assertion's INTENT
-        # is unchanged — superseded_receipt stays comparison-volatile.
-        self.assertIn(
-            '_COMPARE_VOLATILE_KEYS = ("generated_at", "superseded_receipt")',
-            _SRC)
+        # comparison normalizer moved to module scope. Pin ADAPTED AGAIN at
+        # /review 779 (the INSTRUMENT-IDENTITY cure): the tuple gained
+        # producer_identity, so the exact-literal pin moved to a membership
+        # assertion on the module constant. The assertion's INTENT is
+        # unchanged — superseded_receipt stays comparison-volatile.
+        self.assertIn("superseded_receipt", rcc._COMPARE_VOLATILE_KEYS)
+        self.assertIn("generated_at", rcc._COMPARE_VOLATILE_KEYS)
         self.assertIn("normalize_report_for_content_compare(prior)", _SRC)
 
     def test_log_row_still_carries_receipt_producer_lane_intact(self):
