@@ -60,11 +60,17 @@ def _members(a):
 
 
 class CatalogFifthMember(unittest.TestCase):
-    def test_catalog_has_five_members_order_pinned_from_one_constant(self):
-        self.assertEqual(len(ROUTES), 5)
+    def test_catalog_members_order_pinned_from_one_constant(self):
+        # Pin adapted at /review 780 Q2 per its own documented intent (the
+        # catalog carries the RULED members in stable append-only order): the
+        # SIXTH member promotion_witness_comment_shed_by_matcher was ruled at
+        # /review 780 (4cb469459489, the COVERAGE-IS-BINDING face). The
+        # /review-775 pin-adaptation precedent, applied at composition time.
+        self.assertEqual(len(ROUTES), 6)
         self.assertEqual(ROUTES[3],
                          "absorbed_reinforcement_breadcrumb_adds_token_without_promotion")
         self.assertEqual(ROUTES[4], ROUTE_E)
+        self.assertEqual(ROUTES[5], "promotion_witness_comment_shed_by_matcher")
         # printed from ONE constant everywhere the catalog is disclosed
         self.assertIn('"divergence_routes": list(_DIVERGENCE_ROUTES)', _SRC)
         self.assertIn('"catalog": list(_DIVERGENCE_ROUTES)', _SRC)

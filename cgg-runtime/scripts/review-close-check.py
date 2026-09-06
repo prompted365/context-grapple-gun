@@ -1828,6 +1828,17 @@ def build_inscribed_index(project_dir, queue_ids=None, diagnostics=None):
             # a loss the index actually suffered.
             "index_loss_subtype_counts": dict(
                 sorted(index_loss_subtype_counts.items())),
+            # /review 780 Q2 (4cb469459489, the COVERAGE-IS-BINDING face): the
+            # COMPLETE token membership of shed (index_loss) residue comments —
+            # a capped sample is not a membership set (the /review-753
+            # persistence discipline applied to this population). This is the
+            # sibling measurement the attribution's precedence gate consults
+            # before binding any negative-fact catalog route: a member whose
+            # token appears here had a witness comment WRITTEN and SHED, which
+            # falsifies "adds no provenance comment" for that member.
+            "index_loss_member_tokens": sorted(
+                set().union(*(m["tokens"] for m in index_loss_members))
+                if index_loss_members else set()),
             "token_bearing_residue_total": sum(
                 unmatched_disposition_counts.values()),
             "headline_counter_value": unmatched_shaped_count,
@@ -3562,6 +3573,18 @@ _DIVERGENCE_ROUTES = (
     # after its token. Bound by MEMBERSHIP, never by prose — a promoted_without_new_token
     # member whose id is in the PRIOR index set is this route by construction.
     "promotion_of_id_whose_witness_token_pre_existed_in_prior_index",
+    # /review 780 Q2 (cpr_mogul_review_close_check_4cb469459489 — the COVERAGE-IS-
+    # BINDING face; the t778 entry fire's self-catch, lived at tic 777 on member
+    # d53f1bf19ee0): a promotion whose witness comment WAS written but was SHED by
+    # the matcher (vocabulary gap / head-anchor gap), so promoted moves +1 while
+    # tokens move +0 — NOT because no comment landed, but because the index lost
+    # its witness. The falsifying measurement already exists on the SAME artifact
+    # (the residue counter's index_loss typing); route (a) asserts the NEGATIVE
+    # fact "adds no provenance comment", and the sibling counter's index_loss
+    # typing OUTRANKS that assertion for any member whose token appears in a shed
+    # residue comment. Bound by the precedence gate in
+    # compute_cross_counter_attribution, never by prose.
+    "promotion_witness_comment_shed_by_matcher",
 )
 
 # Per-member attribution stays enumerable only while the delta is small; past
@@ -3820,7 +3843,8 @@ def _attribution_not_computed(reason):
 
 
 def compute_cross_counter_attribution(report_dir, current_filename, current_tic,
-                                      current_tokens, current_promoted, queue=None):
+                                      current_tokens, current_promoted, queue=None,
+                                      shed_witness_tokens=None):
     """Bind each moved member of the two cross-counter populations to what it is
     (/review 753, cpr_mogul_review_close_check_e193ae8e2af1 — the ATTRIBUTION
     clause, fifth ray on constitution-ledger#artifact-language-must-not-exceed-
@@ -3866,6 +3890,16 @@ def compute_cross_counter_attribution(report_dir, current_filename, current_tic,
     claims which comment donated a token (that is the route census's disclosure).
     """
     queue = queue or {}
+    # /review 780 Q2 (4cb469459489, the COVERAGE-IS-BINDING face): the residue
+    # counter's shed-comment token membership, measured on the SAME artifact by
+    # build_inscribed_index. A coverage statement measures BINDING, never
+    # CORRECTNESS — before a route asserting a NEGATIVE fact ("adds no
+    # provenance comment") may bind, the sibling counter that measures that
+    # same fact is consulted; an index_loss typing OUTRANKS the negative-fact
+    # assertion for the member it carries. Absent (None) means the caller did
+    # not thread the measurement — the gate then never fires, which preserves
+    # the pre-cure binding rather than inventing a falsifier.
+    shed_witness_tokens = set(shed_witness_tokens or ())
     block = _attribution_not_computed(None)
     prior_path, selector = _find_prior_check_artifact(
         report_dir, current_filename, current_tic)
@@ -3947,12 +3981,37 @@ def compute_cross_counter_attribution(report_dir, current_filename, current_tic,
                             "MEMBERSHIP (/review 754 Q1: the catalog-unit "
                             "reinforcement ruled the catalog owes this route)",
                 })
+            elif m in shed_witness_tokens:
+                # THE PRECEDENCE GATE (/review 780 Q2, 4cb469459489 — the
+                # COVERAGE-IS-BINDING face; lived at tic 777 on d53f1bf19ee0):
+                # the residue counter measured a provenance comment carrying
+                # this member's token, WRITTEN and SHED by the matcher — the
+                # negative-fact route "adds no provenance comment" is FALSIFIED
+                # for this member by the sibling counter on the SAME artifact.
+                # index_loss OUTRANKS any negative-fact catalog binding; a
+                # nearest-neighbor binding onto a falsified route is WORSE than
+                # an honest uncovered, because coverage renders the member as
+                # RESOLVED while the residue lane is shouting.
+                entry.update({
+                    "catalog_route": routes[5],
+                    "catalog_covers": True,
+                    "witness_comment_shed": True,
+                    "note": "its witness comment WAS written and was SHED by the "
+                            "matcher (the residue counter's index_loss typing "
+                            "carries this member's token) — the index lost the "
+                            "witness; the promotion did NOT land comment-less. "
+                            "Route (f), bound by the precedence gate: the "
+                            "sibling measurement outranks the negative-fact "
+                            "modify/merge assertion",
+                })
             elif "modify" in verdict_text or "merge" in verdict_text:
                 entry.update({
                     "catalog_route": routes[0],
                     "catalog_covers": True,
                     "note": "a MODIFY/MERGE promotion into an existing anchor lands no "
-                            "new provenance comment (promoted moves, tokens do not)",
+                            "new provenance comment (promoted moves, tokens do not) — "
+                            "bound only after the shed-witness gate found no "
+                            "falsifying sibling measurement for this member",
                 })
             else:
                 entry.update({
@@ -4394,6 +4453,13 @@ def run_check(project_dir, dry_run=False, obligation_tic=None, obligation_mandat
     # attributed by membership — this pass against the previous pass's persisted sets.
     promoted_ids = sorted(
         cid for cid, c in queue.items() if c.get("status") == "promoted")
+    # /review 780 Q2 (4cb469459489): the residue counter's shed-comment token
+    # membership, threaded from the SAME build_inscribed_index pass — one
+    # measurement, two consumers; the precedence gate consults it before any
+    # negative-fact catalog binding.
+    shed_witness_tokens = set(
+        (inscribed_diagnostics.get("unmatched_disposition_split") or {})
+        .get("index_loss_member_tokens") or ())
     attribution = compute_cross_counter_attribution(
         report_dir,
         output_filename,
@@ -4401,6 +4467,7 @@ def run_check(project_dir, dry_run=False, obligation_tic=None, obligation_mandat
         inscribed_ids,
         promoted_ids,
         queue,
+        shed_witness_tokens=shed_witness_tokens,
     )
     cross_disclosure = compute_cross_counter_disclosure(
         verdict_delta, index_delta, attribution)

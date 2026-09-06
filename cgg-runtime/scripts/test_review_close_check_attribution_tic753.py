@@ -61,10 +61,17 @@ class DisclosureBackCompat(unittest.TestCase):
         self.assertTrue(a["attribution_unresolved"])
         self.assertTrue(a["unresolved_reason"].startswith("not_computed_by_caller"))
         self.assertIsNone(a["attributed_members"])
-        # The catalog: FIVE members from tic 754 (the fifth ruled /review 754 Q1 —
-        # the catalog-unit reinforcement), order pinned, printed from ONE constant.
+        # The catalog: SIX members from tic 780 (the fifth ruled /review 754 Q1 —
+        # the catalog-unit reinforcement; the sixth ruled /review 780 Q2 —
+        # promotion_witness_comment_shed_by_matcher, the COVERAGE-IS-BINDING
+        # face), order pinned append-only, printed from ONE constant. Pin
+        # adapted per its own documented intent (the catalog carries the RULED
+        # members in stable order; a new /review-ruled member lawfully grows
+        # it) — the /review-775 pin-adaptation precedent.
         self.assertEqual(d["divergence_routes"], ROUTES)
-        self.assertEqual(len(ROUTES), 5)
+        self.assertEqual(len(ROUTES), 6)
+        self.assertEqual(ROUTES[5],
+                         "promotion_witness_comment_shed_by_matcher")
         self.assertEqual(ROUTES[4],
                          "promotion_of_id_whose_witness_token_pre_existed_in_prior_index")
         self.assertEqual(ROUTES[3],
