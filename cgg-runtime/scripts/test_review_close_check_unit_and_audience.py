@@ -530,7 +530,11 @@ class TestRider2PerUnitDelta(_ZoneRun):
         self.assertIn("prior_same_tic_observation", second)
         f2 = {k: v for k, v in first.items() if k != "prior_same_tic_observation"}
         s2 = {k: v for k, v in second.items() if k != "prior_same_tic_observation"}
-        self.assertEqual(f2, s2)
+        # /review 781 (the READ-INSTANT face): per-block read_at is
+        # occurrence-class and lawfully differs between fires; compared through
+        # the cure's own strip, the skip-vs-replace predicate's view.
+        self.assertEqual(rcc._strip_read_instants(f2),
+                         rcc._strip_read_instants(s2))
         self.assertEqual(second["delta_tokens"], 1)
         self.assertEqual(second["baseline"]["artifact"], "tic-700-check.json")
 
@@ -549,7 +553,10 @@ class TestRider2PerUnitDelta(_ZoneRun):
         self.assertIn("prior_same_tic_observation", second)
         f2 = {k: v for k, v in first.items() if k != "prior_same_tic_observation"}
         s2 = {k: v for k, v in second.items() if k != "prior_same_tic_observation"}
-        self.assertEqual(f2, s2)
+        # /review 781 (the READ-INSTANT face): same occurrence-class exclusion
+        # as the sibling test above — content identity via the cure's strip.
+        self.assertEqual(rcc._strip_read_instants(f2),
+                         rcc._strip_read_instants(s2))
         self.assertEqual(second["baseline"]["reason_absent"], "no_prior_pass_artifact")
 
     def test_prior_artifact_predating_the_fields_is_absent_not_zero(self):

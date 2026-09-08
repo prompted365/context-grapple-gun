@@ -331,7 +331,12 @@ class PriorSameTicObservationTests(unittest.TestCase):
         log.write_text("".join(json.dumps({"tic": 738, "genuine_count": 3}) + "\n"
                                for _ in range(2)), encoding="utf-8")
         second_b = rcc.compute_genuine_zero_streak(str(log), 738, 3)
-        self.assertEqual(first_b, second_b)
+        # /review 781 (the READ-INSTANT face): read_at is occurrence-class and
+        # lawfully differs between the two computations; the content identity
+        # this test owns is compared through the cure's own strip — the same
+        # view the skip-vs-replace predicate reads.
+        self.assertEqual(rcc._strip_read_instants(first_b),
+                         rcc._strip_read_instants(second_b))
         self.assertEqual(first_b["broken_at_tic"], 738)
         self.assertEqual(first_b["row_count_within_streak"], 0)
 

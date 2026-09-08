@@ -1015,16 +1015,54 @@ def compute_producer_identity():
     }
 
 
+def _block_read_instant():
+    """Per-block read-instant — THE READ-INSTANT face (/review 781 Q2,
+    cpr_mogul_review_close_check_c509ebc8101d, ratified same-pass cure): within
+    one run, blocks measured at DIFFERENT INSTANTS each publish their own
+    read-instant INTO the artifact — an artifact-level `generated_at` cannot
+    keep a self-contradiction from looking like one (lived at tic 778:
+    prior_same_tic_observation.earlier_preserved_same_tic_artifacts [] beside a
+    superseded_receipt naming exactly such a file, both true at their own
+    write-times). queue_state_tuple modeled the pattern first; this helper is
+    the shared mint for every other own-read block. Occurrence-class BY TYPE
+    under the /review-775 MEASUREMENT-vs-OCCURRENCE discriminator: it records
+    WHEN the block was measured, never what the measurement said — stripped
+    recursively from the skip-vs-replace comparison view by
+    _strip_read_instants, so re-observing can never manufacture its own
+    supersession evidence."""
+    return datetime.now(timezone.utc).isoformat()
+
+
+def _strip_read_instants(node):
+    """Recursively remove `read_at` keys from a comparison view. A read-instant
+    is occurrence-class BY TYPE (/review 775: a change-discriminator compares
+    what the measurement SAID, never the fact that it was TAKEN), so the
+    READ-INSTANT face's per-block instants (/review 781) are excluded from the
+    skip-vs-replace predicate wholesale rather than by per-block registration —
+    a per-block list would rot forward at the next block that gains an instant
+    (the /review-757 FORWARD-DECAY lesson applied to this exclusion). The
+    registered _OCCURRENCE_RECORDING_FIELDS stay byte-identical for lineage;
+    this strip subsumes queue_state_tuple.read_at without unregistering it."""
+    if isinstance(node, dict):
+        return {k: _strip_read_instants(v) for k, v in node.items()
+                if k != "read_at"}
+    if isinstance(node, list):
+        return [_strip_read_instants(v) for v in node]
+    return node
+
+
 def normalize_report_for_content_compare(d):
     """Report dict -> comparison view: volatile keys and occurrence-recording
     fields removed; information-bearing fields (streak span/distinct-tics/
-    gaps/broken_at_tic, the queue sha/rows/census) remain compared."""
+    gaps/broken_at_tic, the queue sha/rows/census) remain compared.
+    /review 781 (the READ-INSTANT face): per-block `read_at` instants are
+    occurrence-class and are stripped recursively — see _strip_read_instants."""
     out = {k: v for k, v in d.items() if k not in _COMPARE_VOLATILE_KEYS}
     for blk, occ_keys in _OCCURRENCE_RECORDING_FIELDS.items():
         v = out.get(blk)
         if isinstance(v, dict):
             out[blk] = {k: x for k, x in v.items() if k not in occ_keys}
-    return out
+    return _strip_read_instants(out)
 
 
 def _classify_unmatched_disposition(seg, remedy_class):
@@ -1953,6 +1991,10 @@ def build_inscribed_index(project_dir, queue_ids=None, diagnostics=None):
         # countable ones are MEASURED at runtime beside it. Disclosure parity,
         # not gating: admission is byte-for-byte unchanged.
         diagnostics["unit_declaration"] = {
+            # THE READ-INSTANT face (/review 781): the index WALK's completion
+            # instant — this block's numbers were measured by the multi-file
+            # scan that ended here, not at the artifact's generated_at.
+            "read_at": _block_read_instant(),
             "unit": "distinct_cpr_shaped_tokens_inside_matched_provenance_comments",
             "population": "provenance HTML-comments judged inscription witnesses across the scanned surfaces declared in build_inscribed_index's docstring — head-anchored by _PROVENANCE_VERB_RE, OR admitted by the /review-736 HEAD-ANCHOR RELAXATION (verb subject-prefixed off the head by 1..%d words; skip / wrong-object / inline-status-marker heads excluded). Both paths ingest identically; see diagnostics.head_anchor_relaxation for the per-side admitted/declined split." % _HEAD_SUBJECT_PREFIX_MAX_WORDS,
             "boundary_rule": _BOUNDARY_RULE,
@@ -2919,6 +2961,10 @@ def compute_genuine_zero_streak(log_path, current_tic, current_genuine_count):
         by_tic.setdefault(current_tic, []).append(current_genuine_count)
 
     result = {
+        # THE READ-INSTANT face (/review 781): the streak's log-read instant —
+        # this block is computed in the WRITE path, after the artifact's
+        # generated_at was stamped; its own instant says so.
+        "read_at": _block_read_instant(),
         "unit": "distinct_check_bearing_tics",
         "computed_by": "review-close-check.py:compute_genuine_zero_streak",
         "distinct_check_bearing_tics": 0,
@@ -3055,7 +3101,18 @@ _SAME_TIC_OBS_NOTE = (
     "delta_*_since_prior_same_tic for THIS fire's movement alone. present=false means "
     "this is the tic's FIRST fire and the delta above needs no decomposition. "
     "STRICTLY ADDITIVE: no counter semantics move, no baseline is re-selected, and "
-    "every delta / flag / selector this block already published is unchanged."
+    "every delta / flag / selector this block already published is unchanged. "
+    "READ-INSTANT (/review 781, cpr_mogul_review_close_check_c509ebc8101d — the "
+    "READ-INSTANT face): this block is measured at its own `read_at`, BEFORE this "
+    "run's write block performs any preservation — earlier_preserved_same_tic_"
+    "artifacts lists what is on disk AT that instant, so a superseded_receipt this "
+    "same run later emits names a preservation that happened AFTER this list was "
+    "computed. The two fields are each true at their own write-time; they are NOT "
+    "simultaneous, and reading them as simultaneous manufactures a false "
+    "contradiction. (This ordering was previously disclosed only in the function "
+    "docstring — a disclosure to a reader of the CODE; the consumer of this JSON "
+    "artifact has no call site, so the disclosure now rides here, at the block's "
+    "own altitude.)"
 )
 
 
@@ -3097,6 +3154,10 @@ def _read_same_tic_prior_observation(report_dir, current_filename):
     """
     block = {
         "present": False,
+        # THE READ-INSTANT face (/review 781, c509ebc8101d): the instant THIS
+        # block was measured — before the write block's preservation; the
+        # note's READ-INSTANT clause is the ordering disclosure it anchors.
+        "read_at": _block_read_instant(),
         "artifact": None,
         "selector": None,
         "decomposition_absent": True,
@@ -3182,6 +3243,8 @@ def compute_unit_deltas(report_dir, current_filename, current_tic,
     an absent measurement.
     """
     block = {
+        # THE READ-INSTANT face (/review 781): this block's own measurement instant.
+        "read_at": _block_read_instant(),
         "unit_tokens": "distinct_cpr_shaped_tokens_inside_matched_provenance_comments",
         "unit_matched_comments": "provenance_comments_matched_by_PROVENANCE_VERB_RE",
         "current_tokens": current_tokens,
@@ -3457,6 +3520,8 @@ def compute_verdict_count_deltas(report_dir, current_filename, current_tic,
     reason disclosed — NO FABRICATED ZEROS.
     """
     block = {
+        # THE READ-INSTANT face (/review 781): this block's own measurement instant.
+        "read_at": _block_read_instant(),
         "units": dict(_VERDICT_COUNT_UNITS),
         "current": dict(current_counts),
         "delta": {k: None for k in _VERDICT_COUNT_UNITS},
@@ -3646,6 +3711,8 @@ def compute_sibling_pair_attribution(report_dir, current_filename, current_tic,
     persisted from this pass on, so the NEXT fire attributes. Never fabricated.
     """
     block = {
+        # THE READ-INSTANT face (/review 781): this block's own measurement instant.
+        "read_at": _block_read_instant(),
         "pair": "inscribed_index_delta (delta_tokens vs delta_matched_comments)",
         "unit": "matched-comment identities (relative_path#sha256_12_of_comment_segment)",
         "attribution_unresolved": True,
@@ -3813,6 +3880,9 @@ def pair_coverage_statement(sibling_attribution, cross_attribution):
 def _attribution_not_computed(reason):
     """The honest UNRESOLVED shape — every field present, nothing fabricated."""
     return {
+        # THE READ-INSTANT face (/review 781): stamped in the shared skeleton so
+        # every path of compute_cross_counter_attribution carries the instant.
+        "read_at": _block_read_instant(),
         "unit": _ATTRIBUTION_UNIT,
         "attribution_unresolved": True,
         "unresolved_reason": reason,
