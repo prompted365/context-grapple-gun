@@ -471,6 +471,70 @@ def count_prior_fallback_streak(current_tic: int) -> int:
     return scan_prior_fallback_families(current_tic)["infrastructure_streak"]
 
 
+def compute_admission_expiry_forecast(prior_refusal_tics, current_is_refusal,
+                                      current_tic, threshold,
+                                      window_files: int = _FALLBACK_STREAK_SCAN_LIMIT) -> dict:
+    """THE EXPIRY-FORECAST face (/review 783, cpr_mogul_harmony_invoke_d6d1809cc61d —
+    guard 19's eighth face, the TEMPORAL sibling of the SATURATED-DETECTOR face on
+    constitution-ledger#presence-observation-fallacy-guard): a trailing-window
+    watch has two structurally different routes to going quiet — remediation (the
+    condition stopped recurring) and EXPIRY (qualifying members aged past the
+    window's trailing edge with zero behaviour change) — and the rendered flag is
+    IDENTICAL under both. This forecast is emitted BESIDE the flag so the
+    true->false transition arrives pre-typed as expiry rather than narrated as
+    recovery by whoever reads it first (lived at t780: fired=true on 88/88
+    packets, count decaying 5->4->3 by pure aging, flip due at t788).
+
+    ASSUMPTION, declared never silent: the walk is FILE-bounded (the most recent
+    `window_files` prior dispositions), so the projection assumes one disposition
+    per tic forward; skipped tics push every expiry LATER — forecast tics are
+    EARLIEST-POSSIBLE. A member at tic R exits the walked window at tic
+    R + window_files + 1. The projection invariant is absent_further_refusals: a
+    new refusal re-arms the count and moves the flip later; the forecast never
+    claims otherwise. No flag, threshold, count, or gate semantics move here —
+    the block is strictly additive.
+
+    Pure over its arguments; never raises. Members = prior refusal tics plus the
+    current tic when the current run is itself a refusal (it becomes a prior
+    member on the next run's walk). Empty members => honest nulls, never
+    fabricated zeros.
+    """
+    members = sorted({int(t) for t in (prior_refusal_tics or [])})
+    if current_is_refusal and current_tic is not None:
+        members = sorted(set(members) | {int(current_tic)})
+    out = {
+        "assumption": ("one_disposition_per_tic_forward — the walk is file-bounded "
+                       f"({window_files} most-recent priors); skipped tics push "
+                       "every expiry LATER; forecast tics are earliest-possible"),
+        "projection_invariant": "absent_further_refusals",
+        "window_files": window_files,
+        "members": members,
+        "count_projected_from": len(members),
+        "next_expiry": None,
+        "fired_flips_false_at_tic": None,
+        "already_below_threshold": len(members) < threshold,
+        "note": ("expiry forecast beside the flag (THE EXPIRY-FORECAST face, "
+                 "/review 783): a true->false transition at the forecast tic is "
+                 "EXPIRY, not remediation — read it as aging, never as recovery"),
+    }
+    if not members:
+        return out
+    oldest = members[0]
+    out["next_expiry"] = {
+        "member_tic": oldest,
+        "expires_at_tic": oldest + window_files + 1,
+        "count_after": len(members) - 1,
+    }
+    if len(members) >= threshold:
+        remaining = len(members)
+        for m in members:  # ascending — the oldest member expires first
+            remaining -= 1
+            if remaining < threshold:
+                out["fired_flips_false_at_tic"] = m + window_files + 1
+                break
+    return out
+
+
 def apply_fallback_counter(voice: dict[str, Any], current_tic: int) -> dict[str, Any]:
     """Stamp family-keyed counters into the receipt; escalate LOUD per family.
 
@@ -579,6 +643,13 @@ def apply_fallback_counter(voice: dict[str, Any], current_tic: int) -> dict[str,
         # walked prior tic, so including-current is exactly prior + 1.
         "window_distinct_tics_prior": prior.get("window_distinct_tics", 0),
         "window_distinct_tics_including_current": prior.get("window_distinct_tics", 0) + 1,
+        # THE EXPIRY-FORECAST face (/review 783, cpr_mogul_harmony_invoke_d6d1809cc61d,
+        # ratified same-pass cure): the aging boundary forecast BESIDE the flag, so the
+        # count's decay and the flag's eventual flip arrive pre-typed as EXPIRY rather
+        # than narrated as remediation. Strictly additive — see the compute function.
+        "expiry_forecast": compute_admission_expiry_forecast(
+            prior["admission_gate_tics"], current_family == "admission_gate",
+            current_tic, adm_threshold),
     }
     if fired:
         print(

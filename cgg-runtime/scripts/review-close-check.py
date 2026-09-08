@@ -3112,7 +3112,17 @@ _SAME_TIC_OBS_NOTE = (
     "contradiction. (This ordering was previously disclosed only in the function "
     "docstring — a disclosure to a reader of the CODE; the consumer of this JSON "
     "artifact has no call site, so the disclosure now rides here, at the block's "
-    "own altitude.)"
+    "own altitude.) "
+    "MUTABLE-ADDRESS (/review 783, cpr_mogul_review_close_check_55eb70c0a49b — "
+    "THE MUTABLE-ADDRESS face): the `artifact` handle above is the LIVE tic-keyed "
+    "path, which THIS SAME RUN may overwrite — an antecedent named only by that "
+    "address is not named. Read antecedent_durable_address for the address the "
+    "publishing run cannot invalidate: the antecedent's content sha256-16 + its "
+    "generated_at, and the preserved path this run's write block WILL create if "
+    "it supersedes (projected at composition under the write block's own "
+    "first-free-seq naming; a skip-branch fire leaves the live path valid and "
+    "the projection unconsumed — the projection is an address reservation, never "
+    "a preservation claim)."
 )
 
 
@@ -3194,7 +3204,8 @@ def _read_same_tic_prior_observation(report_dir, current_filename):
         block["reason_absent"] = "no_same_tic_prior_observation"
         return None, block
     try:
-        prior = json.loads(Path(path).read_text(encoding="utf-8"))
+        prior_bytes = Path(path).read_bytes()
+        prior = json.loads(prior_bytes.decode("utf-8"))
     except (OSError, json.JSONDecodeError, UnicodeDecodeError):
         block["artifact"] = current_filename
         block["reason_absent"] = "same_tic_artifact_unreadable"
@@ -3208,6 +3219,40 @@ def _read_same_tic_prior_observation(report_dir, current_filename):
     block["artifact"] = current_filename
     block["selector"] = "same_tic_live_artifact_pre_overwrite"
     block["prior_generated_at"] = prior.get("generated_at")
+    # THE MUTABLE-ADDRESS face (/review 783, cpr_mogul_review_close_check_
+    # 55eb70c0a49b, ratified same-pass cure — the half the /review-781
+    # READ-INSTANT cure explicitly fenced out to this docket): the `artifact`
+    # handle above is the LIVE tic-keyed path this same run's write block may
+    # overwrite, so the antecedent is ALSO addressed here by an address the
+    # publishing run cannot invalidate — its content hash + generated_at (the
+    # unconditional durable address), plus the preserved path the write block
+    # WILL create if it takes the replace branch, projected under that block's
+    # own naming (superseded/<stem>.superseded-<seq>.json, first free seq at
+    # composition; only this run can preserve into this stem before its own
+    # write, so the projection equals the write-time seq). Condition DECLARED:
+    # a skip-branch fire performs no preservation and leaves the live path
+    # valid — the projection is an address reservation, never a preservation
+    # claim. Strictly additive: no counter semantics move, no baseline is
+    # re-selected, and the skip-vs-replace comparison view is untouched.
+    _seq = 1
+    _superseded_dir = os.path.join(report_dir, "superseded")
+    while os.path.exists(os.path.join(
+            _superseded_dir, f"{stem}.superseded-{_seq}.json")):
+        _seq += 1
+    block["antecedent_durable_address"] = {
+        "content_sha256_16": hashlib.sha256(prior_bytes).hexdigest()[:16],
+        "generated_at": prior.get("generated_at"),
+        "will_be_preserved_as_if_superseded": os.path.join(
+            "superseded", f"{stem}.superseded-{_seq}.json"),
+        "condition": ("resolves only if THIS run's write block takes the "
+                      "replace branch; a skip-branch fire leaves the live "
+                      "path valid and this projection unconsumed"),
+        "note": ("the antecedent's durable address, computed at COMPOSITION "
+                 "(THE MUTABLE-ADDRESS face, /review 783): content hash + "
+                 "generated_at identify the observation regardless of where "
+                 "its bytes live; the projected preserved path names where "
+                 "they land if superseded"),
+    }
     return prior, block
 
 
