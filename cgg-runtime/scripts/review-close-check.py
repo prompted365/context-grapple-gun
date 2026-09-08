@@ -3827,6 +3827,37 @@ def compute_sibling_pair_attribution(report_dir, current_filename, current_tic,
         "content_new_matched_comments": content_new,
         "content_removed_matched_comments": content_removed,
         "delta_by_content_membership": len(content_new) - len(content_removed),
+        # THE RELOCATION face (/review 782, cpr_mogul_review_close_check_e1365f4a14b3,
+        # ratified same-pass cure): ADDRESS and IDENTITY separated at the attribution
+        # verdict itself. The member identity above embeds occurrence_index — a
+        # positional ordinal that is a function of the entity's NEIGHBORS, not the
+        # entity: any non-tail insertion re-indexes the tail, and the positional set
+        # difference then reports relocated-but-unchanged entries as removal+addition
+        # pairs (measured t779: 265/263 positional vs 2/0 content-level — 264x
+        # inflation, 6/6 consecutive tic-pairs, zero true removals). The attribution
+        # VERDICT therefore runs on the stable (path, content_hash) projection;
+        # occurrence_index stays the ADDRESS (locating an occurrence in a file — the
+        # role whose meaning IS its position). Strictly ADDITIVE per the /review-761
+        # KEEP-BOTH-COMPONENTS ruling: every previously published field keeps its
+        # semantics; these fields ROUTE the reader, they do not re-mint the lists.
+        "attribution_basis": {
+            "identity_components": ("relative_path + sha256_12_of_comment_segment "
+                                    "(stable under entity-preserving operations)"),
+            "address_components": ("occurrence_index (positional — a function of the "
+                                   "entity's neighbors; ADDRESS, never identity)"),
+            "attribution_runs_on": "content_projection",
+            "note": ("an identity used for cross-observation attribution is composed "
+                     "ONLY of components stable under operations that do not change "
+                     "the entity; the positional lists are ADDRESSING, not evidence "
+                     "of movement"),
+        },
+        "attribution_fields": {
+            "attribution": ["content_new_matched_comments",
+                            "content_removed_matched_comments",
+                            "delta_by_content_membership"],
+            "addressing": ["new_matched_comments", "removed_matched_comments",
+                           "delta_by_membership"],
+        },
     })
     return block
 
@@ -3848,6 +3879,26 @@ def pair_coverage_statement(sibling_attribution, cross_attribution):
         if attr.get("attribution_unresolved"):
             return f"unresolved — {attr.get('unresolved_reason')}"
         return "attributed — by set difference over persisted membership sets"
+
+    def _sibling_status(attr):
+        # THE RELOCATION face (/review 782, e1365f4a14b3 — the coverage
+        # restatement half of the ratified cure): this pair's membership
+        # identity embeds a positional ordinal, so an unqualified "attributed
+        # — by set difference over persisted membership sets" actively
+        # instructed consumers to read positional relocation floods as
+        # evidence (t779: 265/263 published as attributed against a 2/0
+        # content-level truth). The attributed status now names the STABLE
+        # projection the attribution actually holds under; the prefix the
+        # t756 pins require is unchanged.
+        base = _status(attr)
+        if not base.startswith("attributed"):
+            return base
+        return ("attributed — by set difference over the (path, content_hash) "
+                "STABLE projection (THE RELOCATION face, /review 782): read "
+                "content_new/content_removed_matched_comments and "
+                "delta_by_content_membership as the movement; the positional "
+                "occurrence-indexed lists are ADDRESSING, not evidence of "
+                "movement")
     return {
         "unit": "one entry per divergence pair this artifact publishes",
         "pairs": [
@@ -3859,7 +3910,7 @@ def pair_coverage_statement(sibling_attribution, cross_attribution):
             {
                 "pair": "inscribed_index_delta (delta_tokens vs delta_matched_comments)",
                 "membership_sets": ["index_tokens", "matched_comment_ids"],
-                "status": _status(sibling_attribution),
+                "status": _sibling_status(sibling_attribution),
             },
             {
                 "pair": "verdict_counts_delta (promoted / deferred / skipped)",
