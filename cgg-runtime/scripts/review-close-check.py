@@ -991,7 +991,14 @@ _DISPOSITION_TEXT = {
 # landed between two same-tic fires and the receipt typed the pair as one
 # instrument's later reading).
 _COMPARE_VOLATILE_KEYS = (
-    "generated_at", "superseded_receipt", "producer_identity")
+    "generated_at", "superseded_receipt", "producer_identity",
+    # THE PRODUCER-IDENTITY BASELINE face (/review 784,
+    # cpr_mogul_review_close_check_0feb4176272e, ratified same-pass cure):
+    # the delta block is occurrence-class by the same discriminator as the
+    # point value it baselines — it records WHICH INSTRUMENT took the prior
+    # and current measurements, never what either measurement said — so it
+    # rides the volatile set and cannot flip skip-vs-replace.
+    "producer_identity_delta")
 _OCCURRENCE_RECORDING_FIELDS = {
     "genuine_zero_streak": (
         "row_count_within_streak", "same_tic_reobservation_tics"),
@@ -3532,6 +3539,12 @@ def audit_equality_flags_with_window(node):
         "known_unregistered_equality_shaped_flags": [
             "queue_state_tuple.matches_total_cprs",
             "membership_sets.matched_comment_ids_unit_parity",
+            # THE PRODUCER-IDENTITY BASELINE face (/review 784, 0feb4176272e):
+            # an instrument-identity comparison across passes, not a
+            # delta-agreement discriminator — its class question is UNRULED
+            # (route to /review if ever load-bearing); disclosed here so the
+            # window's not_observed claim stays current, registry held at four.
+            "producer_identity_delta.producer_identity_changed",
         ],
         "class_ruling": ("RULED /review 760 (cpr_mogul_review_close_check_bfb2ebf77d70 ABSORBED into the "
                           "FORWARD-DECAY face): the two unregistered flags are NOT delta-agreement class — "
@@ -3652,6 +3665,90 @@ def compute_verdict_count_deltas(report_dir, current_filename, current_tic,
     block["baseline"]["counts"] = {k: prior_counts[k] for k in _VERDICT_COUNT_UNITS}
     block["delta"] = {
         k: current_counts[k] - prior_counts[k] for k in _VERDICT_COUNT_UNITS}
+    block["delta_baseline_absent"] = False
+    return block
+
+
+def compute_producer_identity_delta(report_dir, current_filename, current_tic,
+                                    current_identity):
+    """Per-pass IDENTITY DELTA for the producer stamp — THE PRODUCER-IDENTITY
+    BASELINE face (/review 784, cpr_mogul_review_close_check_0feb4176272e,
+    ratified same-pass cure).
+
+    WHY: every other measured arm on this artifact (tokens, matched_comments,
+    promoted/deferred/skipped) carries {baseline artifact, named selector,
+    delta}; producer_identity alone was a bare point value — so a ratified
+    writer cure landing between two passes was disclosed to NOBODY at the fire
+    that first ran the changed writer, and any cross-pass comparison reverted
+    to hand-carry (lived t781: a /review-781 same-pass cure edited this writer
+    between a bank's composition and its fire; the artifact was honest, the
+    bank was overtaken, and no field on the artifact could have warned the
+    banker). The supersession lane already types the instrument
+    (prior_producer_identity on the superseded receipt); this is the SAME
+    disclosure landed in the PASS-SERIES lane, via the SAME baseline selector
+    the other arms resolve.
+
+    OCCURRENCE-CLASS BY TYPE (/review 775 discriminator): this block records
+    which INSTRUMENT took the prior and current measurements, never what
+    either measurement said — it rides _COMPARE_VOLATILE_KEYS and cannot flip
+    skip-vs-replace. producer_identity_changed is an equality-shaped boolean
+    OUTSIDE EQUALITY_FLAG_NAMES: the registry stays four per the /review-760
+    ruling (not widened at build altitude); the flag is disclosed in the audit
+    window's known-unregistered list, and its class question routes to /review
+    if it ever becomes load-bearing.
+
+    HONEST NULLS: no prior artifact, an unreadable prior, or a pre-cure prior
+    that never stamped producer_identity all yield changed=None with the
+    reason disclosed — identity unmeasured, never inferred (the same null
+    discipline the supersession lane already carries).
+    """
+    block = {
+        # THE READ-INSTANT face (/review 781): this block's own measurement instant.
+        "read_at": _block_read_instant(),
+        "unit": ("writer_sha256_16 of this script's bytes at run time, compared "
+                 "against the previous PASS artifact's stamped producer_identity "
+                 "— an instrument-identity comparison, not a measurement delta"),
+        "current_writer_sha256_16": (current_identity or {}).get("writer_sha256_16"),
+        "prior_writer_sha256_16": None,
+        "producer_identity_changed": None,
+        "delta_baseline_absent": True,
+        "baseline": {
+            "artifact": None,
+            "selector": None,
+            "reason_absent": None,
+        },
+        "note": (
+            "the instrument's own identity, baselined against the previous PASS "
+            "artifact via the same selector the measured arms resolve — a writer "
+            "change is disclosed at the FIRST fire that runs the changed writer, "
+            "in the pass series, exactly as the supersession lane already "
+            "discloses it within a tic. changed=true is a typed instrument "
+            "boundary, not a finding; changed=None is unmeasured, never inferred."
+        ),
+    }
+    prior_path, selector = _find_prior_check_artifact(
+        report_dir, current_filename, current_tic)
+    block["baseline"]["selector"] = selector
+    if prior_path is None:
+        block["baseline"]["reason_absent"] = selector
+        return block
+    try:
+        prior = json.loads(Path(prior_path).read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError, UnicodeDecodeError):
+        block["baseline"]["reason_absent"] = "prior_artifact_unreadable"
+        return block
+    block["baseline"]["artifact"] = os.path.basename(prior_path)
+    pid = prior.get("producer_identity")
+    prior_sha = pid.get("writer_sha256_16") if isinstance(pid, dict) else None
+    if not prior_sha:
+        # A pre-cure artifact carries no stamped identity — declared unmeasured,
+        # never inferred (the INSTRUMENT-IDENTITY face's null discipline).
+        block["baseline"]["reason_absent"] = "prior_artifact_predates_producer_identity"
+        return block
+    block["prior_writer_sha256_16"] = prior_sha
+    current_sha = block["current_writer_sha256_16"]
+    block["producer_identity_changed"] = (
+        None if current_sha is None else (prior_sha != current_sha))
     block["delta_baseline_absent"] = False
     return block
 
@@ -4637,11 +4734,23 @@ def run_check(project_dir, dry_run=False, obligation_tic=None, obligation_mandat
     )
     cross_disclosure = compute_cross_counter_disclosure(
         verdict_delta, index_delta, attribution)
+    # THE PRODUCER-IDENTITY BASELINE face (/review 784, 0feb4176272e): the
+    # identity is baselined against the previous pass via the shared selector,
+    # so a writer change is disclosed at the first fire that runs the changed
+    # writer. compute_producer_identity() is called at both consumers (the
+    # stamp literal below is pinned by the t779 fixture; the file's bytes are
+    # stable within a run, so the two reads agree by construction).
+    producer_identity_delta = compute_producer_identity_delta(
+        report_dir, output_filename, mandate_tic, compute_producer_identity())
 
     report = {
         "check_type": "review_close_check",
         "generated_at": datetime.now(timezone.utc).isoformat(),
         "producer_identity": compute_producer_identity(),
+        # Per-pass identity delta beside the stamp (/review 784 — the one
+        # cross-pass quantity that had no baseline block; occurrence-class,
+        # rides _COMPARE_VOLATILE_KEYS, cannot flip skip-vs-replace).
+        "producer_identity_delta": producer_identity_delta,
         "queue_path": queue_path,
         "total_cprs": len(queue),
         # PINNED queue-state tuple beside the integer (/review 754 Q2, the PIN
