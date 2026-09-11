@@ -3765,6 +3765,153 @@ def compute_verdict_count_deltas(report_dir, current_filename, current_tic,
     return block
 
 
+_QUEUE_TUPLE_DELTA_UNITS = {
+    "raw_rows": "raw_newline_delimited_rows_read_at_the_pinned_sha",
+    "unique_ids": "latest_per_id_unique_ids_at_the_pinned_sha",
+    "promoted": "status_census_promoted_count_at_the_pinned_sha",
+    "bytes": "bytes_read_at_the_pinned_sha",
+}
+
+
+def compute_queue_state_tuple_delta(report_dir, current_filename, current_tic,
+                                    current_tuple, current_identity=None):
+    """Per-pass PER-KEY DELTA for the pinned queue-state tuple — THE
+    PARTIAL-DELTA face (/review 786, cpr_mogul_review_close_check_6dfe67fd3573,
+    ratified same-pass cure).
+
+    WHY: a tic-keyed artifact that publishes delta blocks (baseline + selector
+    + membership attribution) for SOME of its counters and bare point-values
+    for others silently licenses recency-attribution on the undisciplined ones
+    — a consumer diffing two artifacts in the series cannot tell whether a
+    missing delta means NOT-COMPARABLE or NOT-YET-BUILT, and both readings are
+    simultaneously available from the artifact alone (lived t783:
+    queue_state_tuple moved raw_rows 3106->3111 / unique_ids 1330->1333
+    against the prior artifact with no delta, no selector, no declaration,
+    BESIDE a member-exact two-id attribution in the same artifact).
+
+    Same discipline as compute_verdict_count_deltas: baseline is the previous
+    PASS artifact (this run's own artifact excluded via current_filename);
+    absent or older-schema baselines yield None deltas with
+    delta_baseline_absent and the reason disclosed — NO FABRICATED ZEROS.
+    Membership is DECLARED ABSENT, never silently omitted: row-level
+    membership for the tuple's movement is not enumerated by this block (the
+    pair_coverage declared-not-fabricated shape extended from published pairs
+    to a lone point-value counter); member-exact attribution lives on the
+    membership_sets arms. Measurement-class under the /review-775
+    MEASUREMENT-vs-OCCURRENCE discriminator (the deltas say what the queue
+    DID); its read_at and nested per-arm producer_identity declarations are
+    occurrence-class BY TYPE and stripped from the skip-vs-replace comparison
+    view by the existing recursive strips — no volatile-set registration
+    needed, no skip/replace effect from re-observation alone.
+    """
+    keys = tuple(_QUEUE_TUPLE_DELTA_UNITS)
+    cur = current_tuple if isinstance(current_tuple, dict) else {}
+    block = {
+        # THE READ-INSTANT face (/review 781): this block's own measurement instant.
+        "read_at": _block_read_instant(),
+        "units": dict(_QUEUE_TUPLE_DELTA_UNITS),
+        "current": {k: cur.get(k) for k in keys},
+        "current_sha256_16": cur.get("sha256_16"),
+        "delta": {k: None for k in keys},
+        "delta_baseline_absent": True,
+        "baseline": {
+            "artifact": None,
+            "selector": None,
+            "values": None,
+            "sha256_16": None,
+            "reason_absent": None,
+            # THE PER-ARM BASELINE-STABILITY face (/review 785): filled when
+            # the arm artifact loads; None = arm never resolved, shape-stable.
+            "producer_identity": None,
+        },
+        "membership": {
+            "declared_absent": True,
+            "reason": (
+                "row-level membership for raw_rows/unique_ids/bytes movement "
+                "is not enumerated by this block; member-exact attribution "
+                "lives on the membership_sets arms (promoted_ids / "
+                "index_tokens / matched_comment_ids) — declared, never "
+                "fabricated (/review 786, the PARTIAL-DELTA face)"),
+        },
+        "note": (
+            "per-pass delta for each pinned queue-tuple counter; baseline is "
+            "the previous PASS artifact, this run's own canonical artifact "
+            "excluded. Every counter published as a point-value in a "
+            "tic-keyed series owes EITHER a delta block carrying its own "
+            "baseline and selector OR an explicit declared-absent entry — "
+            "this block supplies both halves for the tuple: per-key deltas "
+            "under the shared tic-keyed selector, and a declared-absent "
+            "membership entry naming that no membership set backs the "
+            "row-level movement (THE PARTIAL-DELTA face, /review 786, "
+            "cpr_mogul_review_close_check_6dfe67fd3573)."
+        ),
+    }
+
+    # THE SAME-TIC RE-OBSERVATION face (/review 747), applied to this block on
+    # arrival: computed BEFORE the early returns so the field's shape is
+    # identical on every path.
+    prior_same_tic, same_tic = _read_same_tic_prior_observation(
+        report_dir, current_filename)
+    # THE PER-ARM BASELINE-STABILITY face (/review 785): the same-tic prior
+    # arm's instrument identity, declared at the arm.
+    same_tic["producer_identity"] = (
+        _arm_producer_identity(prior_same_tic, current_identity)
+        if prior_same_tic is not None else None)
+    same_tic["prior_values"] = None
+    same_tic["delta_since_prior_same_tic"] = {k: None for k in keys}
+    if prior_same_tic is not None:
+        _st = prior_same_tic.get("queue_state_tuple")
+        if not isinstance(_st, dict) or not all(
+                isinstance(_st.get(k), int) for k in keys):
+            same_tic["reason_absent"] = "same_tic_artifact_predates_these_fields"
+        elif not all(isinstance(cur.get(k), int) for k in keys):
+            same_tic["prior_values"] = {k: _st[k] for k in keys}
+            same_tic["reason_absent"] = "current_pass_tuple_unmeasured"
+        else:
+            same_tic["prior_values"] = {k: _st[k] for k in keys}
+            same_tic["delta_since_prior_same_tic"] = {
+                k: cur[k] - _st[k] for k in keys}
+            same_tic["decomposition_absent"] = False
+    block["prior_same_tic_observation"] = same_tic
+
+    if not all(isinstance(cur.get(k), int) for k in keys):
+        block["baseline"]["reason_absent"] = "current_pass_tuple_unmeasured"
+        return block
+
+    prior_path, selector = _find_prior_check_artifact(
+        report_dir, current_filename, current_tic)
+    block["baseline"]["selector"] = selector
+    if prior_path is None:
+        block["baseline"]["reason_absent"] = selector
+        return block
+
+    try:
+        prior = json.loads(Path(prior_path).read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError, UnicodeDecodeError):
+        block["baseline"]["reason_absent"] = "prior_artifact_unreadable"
+        return block
+
+    block["baseline"]["artifact"] = os.path.basename(prior_path)
+    # THE PER-ARM BASELINE-STABILITY face (/review 785): the cross-tic
+    # baseline arm's instrument identity, declared before the schema check.
+    block["baseline"]["producer_identity"] = _arm_producer_identity(
+        prior, current_identity)
+
+    prior_tuple = prior.get("queue_state_tuple")
+    if not isinstance(prior_tuple, dict) or not all(
+            isinstance(prior_tuple.get(k), int) for k in keys):
+        block["baseline"]["reason_absent"] = "prior_artifact_predates_these_fields"
+        block["baseline"]["values"] = (
+            prior_tuple if isinstance(prior_tuple, dict) else None)
+        return block
+
+    block["baseline"]["values"] = {k: prior_tuple[k] for k in keys}
+    block["baseline"]["sha256_16"] = prior_tuple.get("sha256_16")
+    block["delta"] = {k: cur[k] - prior_tuple[k] for k in keys}
+    block["delta_baseline_absent"] = False
+    return block
+
+
 def compute_producer_identity_delta(report_dir, current_filename, current_tic,
                                     current_identity):
     """Per-pass IDENTITY DELTA for the producer stamp — THE PRODUCER-IDENTITY
@@ -4812,6 +4959,16 @@ def run_check(project_dir, dry_run=False, obligation_tic=None, obligation_mandat
         # THE PER-ARM BASELINE-STABILITY face (/review 785).
         current_identity=compute_producer_identity(),
     )
+    # THE PARTIAL-DELTA face (/review 786, 6dfe67fd3573): the pinned queue
+    # tuple's own delta block — every lone point-value counter owes a delta
+    # block or a declared-absent entry; this supplies both halves.
+    queue_tuple_delta = compute_queue_state_tuple_delta(
+        report_dir,
+        output_filename,
+        mandate_tic,
+        queue_state_tuple,
+        current_identity=compute_producer_identity(),
+    )
     # ATTRIBUTION clause (/review 753, cpr_mogul_review_close_check_e193ae8e2af1): the
     # promoted-id SET this pass, beside the token SET, so the cross-counter flag can be
     # attributed by membership — this pass against the previous pass's persisted sets.
@@ -4859,6 +5016,11 @@ def run_check(project_dir, dry_run=False, obligation_tic=None, obligation_mandat
         # sha in one pass, so a close narrative cites this tuple and re-derives at
         # its pin; the fire's own mint is NOT in it, by construction.
         "queue_state_tuple": queue_state_tuple,
+        # Per-key DELTA beside the pinned tuple (/review 786, THE PARTIAL-DELTA
+        # face, 6dfe67fd3573): a counter published as a point-value in a
+        # tic-keyed series owes a delta block w/ its own baseline+selector or a
+        # declared-absent entry; membership is declared absent, never omitted.
+        "queue_state_tuple_delta": queue_tuple_delta,
         "inscribed_index_size": len(inscribed_ids),
         # Unit declaration BESIDE the integer (/review 716 class-cure,
         # 502236e96cf1): what was scanned, what unit the integer counts, and
