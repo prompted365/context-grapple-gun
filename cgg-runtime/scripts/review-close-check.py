@@ -1050,9 +1050,17 @@ def _strip_read_instants(node):
     (the /review-757 FORWARD-DECAY lesson applied to this exclusion). The
     registered _OCCURRENCE_RECORDING_FIELDS stay byte-identical for lineage;
     this strip subsumes queue_state_tuple.read_at without unregistering it."""
+    # THE PER-ARM BASELINE-STABILITY face (/review 785, 9c38ebdd0b9c): the
+    # per-arm `producer_identity` declarations are occurrence-class BY TYPE
+    # exactly as read-instants are — they record WHICH instrument wrote an
+    # arm, never what it measured — so the same recursive, forward-decay-proof
+    # strip excludes them wholesale (a per-block list would rot at the next
+    # arm that gains a declaration). The top-level _COMPARE_VOLATILE_KEYS
+    # entry stays byte-identical for lineage; this strip subsumes it for
+    # nested occurrences without unregistering it.
     if isinstance(node, dict):
         return {k: _strip_read_instants(v) for k, v in node.items()
-                if k != "read_at"}
+                if k not in ("read_at", "producer_identity")}
     if isinstance(node, list):
         return [_strip_read_instants(v) for v in node]
     return node
@@ -3263,8 +3271,62 @@ def _read_same_tic_prior_observation(report_dir, current_filename):
     return prior, block
 
 
+def _arm_producer_identity(arm_report, current_identity):
+    """Per-arm baseline-instrument declaration — THE PER-ARM BASELINE-STABILITY
+    face (/review 785, cpr_mogul_review_close_check_9c38ebdd0b9c, ratified
+    same-pass cure).
+
+    WHY: a cross-observation delta's attribution to state stands only when
+    baseline-instrument stability is declared AT THE DELTA'S OWN ALTITUDE, on
+    EVERY arm the delta compares (lived t782: both of a two-fire tic's
+    baselines — the cross-tic artifact AND the same-tic prior — were written
+    by the OLD writer across a /review same-pass cure boundary, and
+    verdict_counts_delta + prior_same_tic_observation published attributed
+    movement with zero producer-identity declaration on those arms; the t784
+    producer_identity_delta block discloses the CHECKER's own identity
+    boundary but rides at top level, not on the arms). This helper is the
+    SAME disclosure the supersession and pass-series lanes already carry,
+    landed per-arm.
+
+    DECLARATION, NEVER VERIFICATION (the born's distinct_from edge to the
+    frame-protocol hash-verified state registry): the arm's stamped
+    producer_identity is read and declared beside the current writer's —
+    no cross-run state check, no gate, no skip/replace effect (the arm
+    blocks are occurrence-class and stripped from the comparison view).
+
+    HONEST NULLS: an arm artifact that predates producer_identity yields
+    arm_producer_identity_changed=None with reason_absent disclosed —
+    unmeasured, never inferred. arm_producer_identity_changed is
+    equality-shaped and OUTSIDE EQUALITY_FLAG_NAMES: the registry stays four
+    per the /review-760 ruling; the flag is disclosed in the audit window's
+    known-unregistered list and its class question routes to /review if it
+    ever becomes load-bearing."""
+    cur = (current_identity or {}).get("writer_sha256_16")
+    out = {
+        "arm_writer_sha256_16": None,
+        "current_writer_sha256_16": cur,
+        "arm_producer_identity_changed": None,
+        "reason_absent": None,
+        "note": ("the ARM artifact's stamped writer identity beside the "
+                 "current writer's, declared at the delta block's own "
+                 "altitude (THE PER-ARM BASELINE-STABILITY face, /review "
+                 "785) — a declaration, never a verified cross-run state "
+                 "check; changed=None is unmeasured, never inferred"),
+    }
+    pid = (arm_report or {}).get("producer_identity")
+    arm_sha = pid.get("writer_sha256_16") if isinstance(pid, dict) else None
+    if not arm_sha:
+        out["reason_absent"] = "arm_artifact_predates_producer_identity"
+        return out
+    out["arm_writer_sha256_16"] = arm_sha
+    out["arm_producer_identity_changed"] = (
+        None if cur is None else (arm_sha != cur))
+    return out
+
+
 def compute_unit_deltas(report_dir, current_filename, current_tic,
-                        current_tokens, current_matched_comments):
+                        current_tokens, current_matched_comments,
+                        current_identity=None):
     """Per-pass PER-UNIT DELTA for the inscribed-index counter (/review 724 RIDER 2).
 
     The /review-716 class-cure declared the counter's UNIT beside the integer.
@@ -3311,6 +3373,9 @@ def compute_unit_deltas(report_dir, current_filename, current_tic,
             "tokens": None,
             "matched_comments": None,
             "reason_absent": None,
+            # THE PER-ARM BASELINE-STABILITY face (/review 785): filled when
+            # the arm artifact loads; None = arm never resolved, shape-stable.
+            "producer_identity": None,
         },
         "note": (
             "per-pass delta in the counter's OWN declared units; the baseline is "
@@ -3328,6 +3393,13 @@ def compute_unit_deltas(report_dir, current_filename, current_tic,
     # with its reason, never dropped and never a fabricated zero.
     prior_same_tic, same_tic = _read_same_tic_prior_observation(
         report_dir, current_filename)
+    # THE PER-ARM BASELINE-STABILITY face (/review 785, 9c38ebdd0b9c): the
+    # same-tic prior is an ARM this block's decomposition compares — its
+    # instrument identity is declared here, at the arm, shape-stable on
+    # every path (None when the arm artifact never resolved).
+    same_tic["producer_identity"] = (
+        _arm_producer_identity(prior_same_tic, current_identity)
+        if prior_same_tic is not None else None)
     same_tic["prior_tokens"] = None
     same_tic["prior_matched_comments"] = None
     same_tic["delta_tokens_since_prior_same_tic"] = None
@@ -3375,6 +3447,11 @@ def compute_unit_deltas(report_dir, current_filename, current_tic,
     # report_path in the log row; an absolute path here would make the report
     # machine-dependent and would churn the dedup comparison across zones.
     block["baseline"]["artifact"] = os.path.basename(prior_path)
+    # THE PER-ARM BASELINE-STABILITY face (/review 785): the cross-tic
+    # baseline arm's instrument identity, declared BEFORE the schema early
+    # return so an older-schema arm still carries its declaration.
+    block["baseline"]["producer_identity"] = _arm_producer_identity(
+        prior, current_identity)
 
     prior_tokens = prior.get("inscribed_index_size")
     prior_unit = prior.get("inscribed_index_unit") or {}
@@ -3545,6 +3622,13 @@ def audit_equality_flags_with_window(node):
             # (route to /review if ever load-bearing); disclosed here so the
             # window's not_observed claim stays current, registry held at four.
             "producer_identity_delta.producer_identity_changed",
+            # THE PER-ARM BASELINE-STABILITY face (/review 785, 9c38ebdd0b9c):
+            # the per-arm declaration's equality-shaped boolean, appearing on
+            # FOUR arms (cross-tic baseline + same-tic prior, on both delta
+            # blocks) — an instrument-identity comparison per arm, not a
+            # delta-agreement discriminator; registry stays four, class
+            # question routes to /review if ever load-bearing.
+            "*.producer_identity.arm_producer_identity_changed",
         ],
         "class_ruling": ("RULED /review 760 (cpr_mogul_review_close_check_bfb2ebf77d70 ABSORBED into the "
                           "FORWARD-DECAY face): the two unregistered flags are NOT delta-agreement class — "
@@ -3563,7 +3647,7 @@ _VERDICT_COUNT_UNITS = {
 
 
 def compute_verdict_count_deltas(report_dir, current_filename, current_tic,
-                                 current_counts):
+                                 current_counts, current_identity=None):
     """Per-pass PER-KEY DELTA for the verdict counters (/review 728, c209995ad848).
 
     The obligation-scope ray: a per-pass delta obligation landed on one counter
@@ -3589,6 +3673,9 @@ def compute_verdict_count_deltas(report_dir, current_filename, current_tic,
             "selector": None,
             "counts": None,
             "reason_absent": None,
+            # THE PER-ARM BASELINE-STABILITY face (/review 785): filled when
+            # the arm artifact loads; None = arm never resolved, shape-stable.
+            "producer_identity": None,
         },
         "note": (
             "per-pass delta for each verdict counter; baseline is the previous "
@@ -3619,6 +3706,11 @@ def compute_verdict_count_deltas(report_dir, current_filename, current_tic,
     # the field's shape is identical on every path.
     prior_same_tic, same_tic = _read_same_tic_prior_observation(
         report_dir, current_filename)
+    # THE PER-ARM BASELINE-STABILITY face (/review 785, 9c38ebdd0b9c): the
+    # same-tic prior arm's instrument identity, declared at the arm.
+    same_tic["producer_identity"] = (
+        _arm_producer_identity(prior_same_tic, current_identity)
+        if prior_same_tic is not None else None)
     same_tic["prior_counts"] = None
     same_tic["delta_since_prior_same_tic"] = {k: None for k in _VERDICT_COUNT_UNITS}
     if prior_same_tic is not None:
@@ -3654,6 +3746,10 @@ def compute_verdict_count_deltas(report_dir, current_filename, current_tic,
         return block
 
     block["baseline"]["artifact"] = os.path.basename(prior_path)
+    # THE PER-ARM BASELINE-STABILITY face (/review 785): the cross-tic
+    # baseline arm's instrument identity, declared before the schema check.
+    block["baseline"]["producer_identity"] = _arm_producer_identity(
+        prior, current_identity)
 
     prior_counts = prior.get("verdict_counts")
     if not isinstance(prior_counts, dict) or not all(
@@ -4698,6 +4794,9 @@ def run_check(project_dir, dry_run=False, obligation_tic=None, obligation_mandat
         mandate_tic,
         len(inscribed_ids),
         inscribed_unit.get("matched_comment_count"),
+        # THE PER-ARM BASELINE-STABILITY face (/review 785): the current
+        # writer identity handed to the per-arm declarations.
+        current_identity=compute_producer_identity(),
     )
     # /review 756 Q2 (the CURE-SCOPE face): the sibling pair gets its own attribution,
     # attached to the pair's own block, by set difference over matched_comment_ids.
@@ -4710,6 +4809,8 @@ def run_check(project_dir, dry_run=False, obligation_tic=None, obligation_mandat
         mandate_tic,
         {"promoted": promoted_count, "deferred": deferred_count,
          "skipped": skipped_count},
+        # THE PER-ARM BASELINE-STABILITY face (/review 785).
+        current_identity=compute_producer_identity(),
     )
     # ATTRIBUTION clause (/review 753, cpr_mogul_review_close_check_e193ae8e2af1): the
     # promoted-id SET this pass, beside the token SET, so the cross-counter flag can be

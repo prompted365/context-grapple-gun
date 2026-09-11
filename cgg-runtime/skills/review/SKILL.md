@@ -127,6 +127,22 @@ managed migration inventory. Lifecycle, authority, `authorization_ref`, and
 an unverified receipt produces a typed hold and cannot rewrite an effective
 view.
 
+**ONE-INVOCATION law for the effective-record chain (/review 785,
+cpr_effective_record_chain_single_invocation_tic782 — refinement ray on
+recursive-self-observation, measured live t782):** whenever this step (or a
+close pass) runs the chain `rebuild --authority` → `check-index` →
+`review-gate`, all three verbs MUST share ONE shell invocation. The index's
+`source_digest` spans every audit-logs JSONL, and the harness's own
+PostToolUse hooks append governance rows BETWEEN separate Bash calls — so a
+`check-index` issued in its own call reads `hold/source_digest_changed` at
+0/0 unresolved, a structural false-stale minted by the caller's invocation
+shape, not by the index. The false-stale reads as a governance HOLD and
+invites the wrong cure (re-running rebuild, suspecting the index). General
+form: when a freshness predicate's population includes surfaces the caller's
+own tooling appends to as a side effect of each call, the producer and the
+checker of that predicate must share one invocation — or the checker measures
+the caller's harness, not the store.
+
 ### 2. Scan for Pending CogPR Flags
 
 Search for `<!-- --agnostic-candidate -->` blocks with `status: "pending"` in governance files only:
