@@ -998,7 +998,16 @@ _COMPARE_VOLATILE_KEYS = (
     # point value it baselines — it records WHICH INSTRUMENT took the prior
     # and current measurements, never what either measurement said — so it
     # rides the volatile set and cannot flip skip-vs-replace.
-    "producer_identity_delta")
+    "producer_identity_delta",
+    # THE BASELINE-COINCIDENCE face (/review 787,
+    # cpr_mogul_review_close_check_7d3ae95bceeb, ratified same-pass cure):
+    # derived FROM the two volatile lanes above (superseded_receipt +
+    # producer_identity_delta) — a fresh in-memory report after a
+    # supersession would carry a different coincidence block than the
+    # on-disk one, forcing decision=replace on identical content; the same
+    # skip-branch hazard the /review-716 comment names. Occurrence-class:
+    # it types WHICH baselines coincided, never what any measurement said.
+    "baseline_coincidence")
 _OCCURRENCE_RECORDING_FIELDS = {
     "genuine_zero_streak": (
         "row_count_within_streak", "same_tic_reobservation_tics"),
@@ -3629,6 +3638,14 @@ def audit_equality_flags_with_window(node):
             # delta-agreement discriminator; registry stays four, class
             # question routes to /review if ever load-bearing.
             "*.producer_identity.arm_producer_identity_changed",
+            # THE BASELINE-COINCIDENCE face (/review 787, 7d3ae95bceeb):
+            # the two-lane prior-equality collapse-candidate flag and its
+            # vacuity companion — baseline-coincidence typing between the
+            # supersession and pass-series lanes, not a delta-agreement
+            # discriminator; RULED at /review 787: registry stays four
+            # (the ratified option explicitly declined the widening).
+            "baseline_coincidence.baseline_coincidence_this_pass",
+            "baseline_coincidence.baseline_coincidence_vacuous",
         ],
         "class_ruling": ("RULED /review 760 (cpr_mogul_review_close_check_bfb2ebf77d70 ABSORBED into the "
                           "FORWARD-DECAY face): the two unregistered flags are NOT delta-agreement class — "
@@ -3993,6 +4010,102 @@ def compute_producer_identity_delta(report_dir, current_filename, current_tic,
     block["producer_identity_changed"] = (
         None if current_sha is None else (prior_sha != current_sha))
     block["delta_baseline_absent"] = False
+    return block
+
+
+def compute_baseline_coincidence(superseded_receipt, producer_identity_delta):
+    """THE BASELINE-COINCIDENCE face (/review 787,
+    cpr_mogul_review_close_check_7d3ae95bceeb, ratified same-pass cure).
+
+    WHY: this writer types an instrument boundary in TWO independent lanes
+    with DIFFERENT baselines — (a) the WITHIN-TIC supersession lane
+    (superseded_receipt.prior_producer_identity: the same-tic live artifact
+    this run overwrites) and (b) the CROSS-TIC pass-series lane
+    (producer_identity_delta.prior_writer_sha256_16: the previous PASS
+    artifact under the shared tic-keyed selector). At the tic-784 close fire
+    both lanes reported prior == c55dca32db418468 and a consumer could read
+    that as one lane corroborating the other. It is not corroboration: the
+    two priors coincided only because that tic's entry fire and the previous
+    pass happened to run the SAME writer bytes — the /review-784 cure landed
+    BETWEEN the entry fire and the close fire; one boundary earlier and the
+    two lanes would have reported DIFFERENT priors for the same instrument
+    boundary. The artifact already types exactly this shape for its counter
+    units (units_collapsed_this_pass / units_collapsed_vacuous); this block
+    gives the instrument-identity lanes the same collapse-candidate typing.
+    Equality is NECESSARY, NOT SUFFICIENT, for the two lanes to be measuring
+    the same thing — the flag names a COLLAPSE CANDIDATE and says so.
+
+    REGISTRY DISCIPLINE (/review 787, explicitly ruled at ratification): both
+    booleans here are equality-shaped and land OUTSIDE EQUALITY_FLAG_NAMES —
+    the registry stays FOUR per the /review-760 ruling (the ratified option
+    declined the widening); they are disclosed in the audit window's
+    known-unregistered list beside the other instrument-identity flags.
+
+    HONEST NULLS: no supersession this pass, a pre-cure supersession receipt
+    carrying no prior identity, or an unmeasured pass-series baseline each
+    yield coincidence=None with the absent lane NAMED in lanes_absent —
+    unmeasured, never inferred (the null discipline both parent lanes carry).
+    """
+    block = {
+        "read_at": _block_read_instant(),
+        "unit": ("equality of the two instrument-identity lanes' PRIOR shas — "
+                 "the within-tic supersession lane (superseded_receipt."
+                 "prior_producer_identity.writer_sha256_16) vs the cross-tic "
+                 "pass-series lane (producer_identity_delta."
+                 "prior_writer_sha256_16) — a baseline-coincidence typing, "
+                 "not a measurement delta"),
+        "supersession_prior_writer_sha256_16": None,
+        "pass_series_prior_writer_sha256_16": None,
+        "baseline_coincidence_this_pass": None,
+        "baseline_coincidence_vacuous": None,
+        "lanes_absent": [],
+        "timing_condition": None,
+        "note": ("agreement between the two lanes is a COLLAPSE CANDIDATE, "
+                 "never corroboration — the priors coincide exactly when the "
+                 "within-tic prior fire and the previous pass ran the same "
+                 "writer bytes; a writer change landing between this tic's "
+                 "fires produces the coincidence, one landing a boundary "
+                 "earlier splits the lanes. Divergence is the two lanes "
+                 "answering their two different questions (within-tic vs "
+                 "across the pass series), not an error."),
+    }
+    sup_prior = None
+    if isinstance(superseded_receipt, dict):
+        ppi = superseded_receipt.get("prior_producer_identity")
+        sup_prior = ppi.get("writer_sha256_16") if isinstance(ppi, dict) else None
+        if sup_prior is None:
+            block["lanes_absent"].append(
+                "supersession_prior_unmeasured_pre_cure_prior")
+    else:
+        block["lanes_absent"].append("no_within_tic_supersession_this_pass")
+    ps_prior = None
+    if isinstance(producer_identity_delta, dict):
+        ps_prior = producer_identity_delta.get("prior_writer_sha256_16")
+        if ps_prior is None:
+            block["lanes_absent"].append("pass_series_baseline_unmeasured")
+    else:
+        block["lanes_absent"].append("producer_identity_delta_absent")
+    block["supersession_prior_writer_sha256_16"] = sup_prior
+    block["pass_series_prior_writer_sha256_16"] = ps_prior
+    if sup_prior is None or ps_prior is None:
+        return block
+    coincide = (sup_prior == ps_prior)
+    block["baseline_coincidence_this_pass"] = coincide
+    current_sha = producer_identity_delta.get("current_writer_sha256_16")
+    # Vacuity companion (the GUARD-19 shape the counter units already carry):
+    # the coincidence is VACUOUS when the agreed prior ALSO equals the current
+    # writer — no instrument boundary exists in EITHER lane, so the agreement
+    # types nothing (trivially one instrument throughout). A non-vacuous
+    # coincidence names its timing condition explicitly.
+    block["baseline_coincidence_vacuous"] = bool(
+        coincide and current_sha is not None and sup_prior == current_sha)
+    if coincide and not block["baseline_coincidence_vacuous"]:
+        block["timing_condition"] = (
+            "both lanes' priors ran the same writer bytes while the current "
+            "run does not — the writer change landed BETWEEN the within-tic "
+            "prior fire and this fire; had it landed one boundary earlier "
+            "the two lanes would report different priors for the same "
+            "instrument boundary")
     return block
 
 
@@ -5306,6 +5419,14 @@ def run_check(project_dir, dry_run=False, obligation_tic=None, obligation_mandat
                         "producer_identity": superseded_receipt["producer_identity"],
                         "prior_producer_identity": prior_producer_identity,
                     }, indent=2), encoding="utf-8")
+            # THE BASELINE-COINCIDENCE face (/review 787, 7d3ae95bceeb): typed
+            # AFTER both instrument-identity lanes resolve (the pass-series
+            # delta above, the supersession receipt just decided), BEFORE the
+            # write — so every emitted artifact carries the block, with the
+            # no-supersession pass reporting its lane honestly absent rather
+            # than omitting the surface.
+            report["baseline_coincidence"] = compute_baseline_coincidence(
+                superseded_receipt, report.get("producer_identity_delta"))
             Path(output_path).write_text(json.dumps(report, indent=2), encoding="utf-8")
             if decision == "replace":
                 preserved_note = (
