@@ -5187,6 +5187,38 @@ def run_check(project_dir, dry_run=False, obligation_tic=None, obligation_mandat
                 sorted(matched_comment_ids) if isinstance(matched_comment_ids, list) else None),
             "matched_comment_id_unit": inscribed_unit.get("matched_comment_id_unit"),
             "matched_comment_ids_unit_parity": inscribed_unit.get("matched_comment_ids_unit_parity"),
+            # THE DISCLOSURE-LOCALITY cure (/review 790 Q2, cpr_mogul_review_close_check_66504a760079):
+            # a set published as a first-class block carries its attribution-stability caveat AT THE
+            # SET'S OWN ALTITUDE, not only on the downstream block that computes attribution from it.
+            # Two arms are content-keyed and replay-safe; the third is POSITIONALLY keyed
+            # (relative_path#occurrence_index#sha256_12), so ANY upstream insertion in a scanned file
+            # re-addresses every subsequent member — a member-exact set-difference replay on that arm
+            # reads addressing churn as membership churn (lived t787: 417 added / 415 removed on a
+            # tic whose real movement was 2 new comments; 415 of 417 shared (path, content_hash) with
+            # a removed member at a shifted occurrence_index). The arm that cannot back a replay says
+            # so where it is published.
+            "attribution_stability": {
+                "unit": "per-arm: is member identity stable under upstream insertion in the scanned surface?",
+                "index_tokens": {
+                    "member_identity_stable_under_upstream_insertion": True,
+                    "basis": "cpr-id-keyed; set-difference replay on this arm is attribution-valid",
+                },
+                "promoted_ids": {
+                    "member_identity_stable_under_upstream_insertion": True,
+                    "basis": "cpr-id-keyed; set-difference replay on this arm is attribution-valid",
+                },
+                "matched_comment_ids": {
+                    "member_identity_stable_under_upstream_insertion": False,
+                    "basis": (
+                        "positional addressing (occurrence_index) — an upstream insertion re-addresses "
+                        "every subsequent member; raw set-difference replay on this arm reports "
+                        "addressing churn, NOT membership churn (THE RELOCATION face, /review 782)"),
+                    "replay_surface": (
+                        "inscribed_index_delta.attribution (content-keyed projection: "
+                        "new/removed_matched_comments + positional_difference_note + layout_churn) "
+                        "and pair_coverage — replay THERE, never from this arm directly"),
+                },
+            },
         },
         # /review 756 Q2 — per-pair COVERAGE over every divergence pair this artifact
         # publishes: attributed / unresolved / unattributable-with-reason.

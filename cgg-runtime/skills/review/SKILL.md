@@ -143,6 +143,24 @@ own tooling appends to as a side effect of each call, the producer and the
 checker of that predicate must share one invocation — or the checker measures
 the caller's harness, not the store.
 
+**PRODUCERS-QUIET evidence standard (/review 790,
+`cpr_producers_quiet_is_process_exit_not_mandate_mirror_tic787` — the
+concurrent-producer face of the one-invocation law, lived t787 and again
+t790):** when a background producer (a mogul-runner mandate fire, a stepper,
+any process that appends to audit-logs) runs beside the chain, the "producers
+QUIET" precondition is resolved by the producer's PROCESS EXIT — never by its
+mandate mirror. The mirror flips terminal (`status: consumed`, `completed_at`
+stamped) while the producer's tail writes (its own mint, its report, its
+rollup) are still landing, so a chain launched on mirror-evidence reads a
+moving store and holds on `source_digest_changed` at 0/0 unresolved. Before
+re-running a held chain, type the hold with the STABLE-DIGEST PROBE PAIR: two
+bare `check-index` reads back-to-back — identical `current_source_digest`
+means the store is quiet and the delta was historical (re-run the chain; it
+passes); differing digests mean still-appending (wait for process exit; never
+re-run into the same hold). Neither mirror face substitutes for the process:
+the false-running mirror (ops born tic 677) and the true-terminal mirror
+(this clause) are the two halves of one rule.
+
 ### 2. Scan for Pending CogPR Flags
 
 Search for `<!-- --agnostic-candidate -->` blocks with `status: "pending"` in governance files only:
