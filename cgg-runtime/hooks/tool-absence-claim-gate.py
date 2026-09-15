@@ -28,6 +28,18 @@ POSTURE — NARROW + FAIL-CLOSED on the condition, FAIL-SOFT on the hook's own e
     the system; only a clean determination of an unreceipted claim blocks.
   * NEVER-GATED — the recorder invocation itself, and the gate's own engine/content
     files (writing ABOUT the gate in its own home is maintenance, not a claim).
+  * CONTEXT-CLASS (/review 791 Q1 — the enforcement-hit context-class face on the
+    presence-observation family, lived n=2 at tic 788): THREE contexts share any
+    trigger lexeme, and no pattern refinement inside the lexeme discriminates them —
+    context class is a property of the SURROUNDING TEXT and the WRITE TARGET, not
+    the token. (A) a LIVE ASSERTION is the guarded act: the gate blocks it. (B) a
+    QUOTATION/CITATION of a historical instance is a false positive the stderr
+    remediation valve absorbs cheaply (rephrase or annotate — the valve IS the
+    designed cure, not a workaround). (C) TEACHING TEXT about the guard itself is
+    exempt here via NEVER-GATED, and authored around the bare trigger lexeme
+    everywhere else. Any future lexical claim-gate on a claims surface owes either
+    this cheap self-describing correct-the-text valve or a context discriminator
+    (write-target class / quotation markers) BEFORE hard-blocking.
   * SCOPE-HONEST limitation, declared: receipts are TIC-scoped (the federation time
     authority), not session-scoped — two sessions in one tic share receipts. The
     cured failure is claim-with-NO-attempt, not cross-session reuse.
