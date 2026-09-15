@@ -66,7 +66,11 @@ class CatalogFifthMember(unittest.TestCase):
         # SIXTH member promotion_witness_comment_shed_by_matcher was ruled at
         # /review 780 (4cb469459489, the COVERAGE-IS-BINDING face). The
         # /review-775 pin-adaptation precedent, applied at composition time.
-        self.assertEqual(len(ROUTES), 6)
+        # /review 793 Q3 (0ea2e832cf75): SEVENTH member ruled — pin adapted
+        # at composition (the /review-775 pin-adaptation precedent).
+        self.assertEqual(len(ROUTES), 7)
+        self.assertEqual(ROUTES[6],
+                         "ellipsis_truncated_citation_head_resolves_to_no_queue_row")
         self.assertEqual(ROUTES[3],
                          "absorbed_reinforcement_breadcrumb_adds_token_without_promotion")
         self.assertEqual(ROUTES[4], ROUTE_E)

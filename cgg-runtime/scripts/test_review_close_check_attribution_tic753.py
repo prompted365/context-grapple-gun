@@ -69,7 +69,12 @@ class DisclosureBackCompat(unittest.TestCase):
         # members in stable order; a new /review-ruled member lawfully grows
         # it) — the /review-775 pin-adaptation precedent.
         self.assertEqual(d["divergence_routes"], ROUTES)
-        self.assertEqual(len(ROUTES), 6)
+        # /review 793 Q3 (0ea2e832cf75): SEVENTH member ruled — the ellipsis-
+        # elided citation face; pin adapted at composition per the same
+        # precedent this comment already cites.
+        self.assertEqual(len(ROUTES), 7)
+        self.assertEqual(ROUTES[6],
+                         "ellipsis_truncated_citation_head_resolves_to_no_queue_row")
         self.assertEqual(ROUTES[5],
                          "promotion_witness_comment_shed_by_matcher")
         self.assertEqual(ROUTES[4],

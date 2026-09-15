@@ -66,7 +66,11 @@ def _members(a):
 
 class CatalogSixthMember(unittest.TestCase):
     def test_catalog_sixth_member_appended_indices_stable(self):
-        self.assertEqual(len(ROUTES), 6)
+        # /review 793 Q3 (0ea2e832cf75): SEVENTH member ruled — pin adapted
+        # at composition (the /review-775 pin-adaptation precedent).
+        self.assertEqual(len(ROUTES), 7)
+        self.assertEqual(ROUTES[6],
+                         "ellipsis_truncated_citation_head_resolves_to_no_queue_row")
         self.assertEqual(ROUTES[5], ROUTE_F)
         # append-only: the five prior members hold their exact positions
         self.assertEqual(ROUTES[0],

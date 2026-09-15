@@ -1351,6 +1351,18 @@ _ADMISSION_ROUTES_NOT_DISCRIMINABLE = [
         "counter": "substring_of_longer_identifier",
     },
     {
+        "route": "ellipsis_truncated_citation_head",
+        "mechanism": "the token class stops at a non-word ellipsis character, so an "
+                     "ellipsis-elided citation donates its TRUNCATED HEAD — a token no "
+                     "queue row bears, permanently unpairable, minted precisely when an "
+                     "author elides to avoid donating (the mitigation inverting its own "
+                     "guard). The full, already-indexed id would donate nothing. THE "
+                     "/review-793 ROUTE — the class the t790 fire could only list as "
+                     "candidate-only.",
+        "machine_countable": True,
+        "counter": "ellipsis_truncated_head",
+    },
+    {
         "route": "greedy_right_extension_past_the_real_id",
         "mechanism": "`[A-Za-z0-9_]+` is greedy and stops only at a character outside "
                      "the class, so an id embedded in an underscore-joined compound is "
@@ -1643,8 +1655,13 @@ def build_inscribed_index(project_dir, queue_ids=None, diagnostics=None):
         "substring_of_cited_filename_or_path": 0,
         "greedy_right_extension": 0,
         "cogpr_numeric_form": 0,
+        "ellipsis_truncated_head": 0,
     }
     substring_route_samples = []
+    # /review 793 Q3 (the ELLIPSIS-ELIDED CITATION face): membership set beside
+    # the counter — every token whose match ended at an ellipsis character, so
+    # the divergence-route binding works by MEMBERSHIP, never by prose.
+    ellipsis_truncated_tokens = set()
     # /review-736 HEAD-ANCHOR RELAXATION disclosure: what the relaxed predicate
     # admitted AND what it declined, measured at runtime (never a frozen claim).
     relaxation_admitted_comments = 0
@@ -1693,6 +1710,11 @@ def build_inscribed_index(project_dir, queue_ids=None, diagnostics=None):
             if token.startswith("CogPR-"):
                 route_counts["cogpr_numeric_form"] += 1
             t_start, t_end = ref_match.span(1)
+            # /review 793 Q3: a match terminated by an ellipsis is an elided
+            # citation's truncated head — counted and collected by membership.
+            if seg[t_end:t_end + 1] == "…":
+                route_counts["ellipsis_truncated_head"] += 1
+                ellipsis_truncated_tokens.add(token)
             left = seg[t_start - 1] if t_start > 0 else ""
             if left and (left.isalnum() or left == "_"):
                 route_counts["substring_of_longer_identifier"] += 1
@@ -2053,6 +2075,10 @@ def build_inscribed_index(project_dir, queue_ids=None, diagnostics=None):
                 "discriminate them."
             ),
             "substring_route_samples": substring_route_samples,
+            # /review 793 Q3: the membership set beside the counter (a measured
+            # figure travels with the members it ranges over) — read by the
+            # cross-counter attribution to bind the ellipsis divergence route.
+            "ellipsis_truncated_head_tokens": sorted(ellipsis_truncated_tokens),
             "not_the_unit": "inscription EVENTS — the strictly-narrower referent an observer may assume; predictions against this counter are lawful only in the token unit",
             "matched_comment_count": matched_comment_count,
             "matched_comment_ids": sorted(matched_comment_ids),
@@ -4191,6 +4217,18 @@ _DIVERGENCE_ROUTES = (
     # residue comment. Bound by the precedence gate in
     # compute_cross_counter_attribution, never by prose.
     "promotion_witness_comment_shed_by_matcher",
+    # /review 793 Q3 (cpr_mogul_review_close_check_0ea2e832cf75 — the ELLIPSIS-
+    # ELIDED CITATION face; lived at /review 790 Q2, where a comment narrating
+    # the token-donation check's own result elided a cited id to AVOID donating
+    # it): an ellipsis-elided citation terminates the token match at the
+    # non-word ellipsis, donating the TRUNCATED HEAD — a token no queue row
+    # bears, permanently unpairable, minted precisely when an author is being
+    # careful. The full id, already indexed, would have donated nothing. Bound
+    # by MEMBERSHIP, never by prose: the index pass records every token whose
+    # match ended at an ellipsis character, and a non-queue member of that set
+    # is this route by construction. Disclosure parity, not gating — admission
+    # is byte-for-byte unchanged; the authoring cure stays at the pen.
+    "ellipsis_truncated_citation_head_resolves_to_no_queue_row",
 )
 
 # Per-member attribution stays enumerable only while the delta is small; past
@@ -4506,7 +4544,8 @@ def _attribution_not_computed(reason):
 
 def compute_cross_counter_attribution(report_dir, current_filename, current_tic,
                                       current_tokens, current_promoted, queue=None,
-                                      shed_witness_tokens=None):
+                                      shed_witness_tokens=None,
+                                      ellipsis_truncated_tokens=None):
     """Bind each moved member of the two cross-counter populations to what it is
     (/review 753, cpr_mogul_review_close_check_e193ae8e2af1 — the ATTRIBUTION
     clause, fifth ray on constitution-ledger#artifact-language-must-not-exceed-
@@ -4562,6 +4601,13 @@ def compute_cross_counter_attribution(report_dir, current_filename, current_tic,
     # not thread the measurement — the gate then never fires, which preserves
     # the pre-cure binding rather than inventing a falsifier.
     shed_witness_tokens = set(shed_witness_tokens or ())
+    # /review 793 Q3 (0ea2e832cf75, the ELLIPSIS-ELIDED CITATION face): the
+    # index pass's membership set of tokens whose match ended at an ellipsis,
+    # threaded from the SAME build_inscribed_index pass (the shed-witness
+    # precedent — one measurement, two consumers). Absent (None) means the
+    # caller did not thread it; the binding then never fires and the member
+    # falls through to the honest candidate-route listing.
+    ellipsis_truncated_tokens = set(ellipsis_truncated_tokens or ())
     block = _attribution_not_computed(None)
     prior_path, selector = _find_prior_check_artifact(
         report_dir, current_filename, current_tic)
@@ -4688,19 +4734,35 @@ def compute_cross_counter_attribution(report_dir, current_filename, current_tic,
             entry["class"] = "token_without_promotion"
             status = row.get("status")
             if m not in queue:
-                entry.update({
-                    "catalog_route": None,
-                    "catalog_covers": None,
-                    "candidate_routes": [
-                        routes[2],
-                        "cpr_shaped_substring_of_ANY_longer_identifier",
-                        "token_outside_the_queue_id_namespace",
-                    ],
-                    "note": "not a queue id — membership alone cannot discriminate a "
-                            "cited-filename, longer-identifier, or non-queue-namespace "
-                            "token; inscribed_index_unit.route_occurrence_counts "
-                            "discloses the occurrence routes",
-                })
+                if m in ellipsis_truncated_tokens:
+                    # /review 793 Q3: bound by MEMBERSHIP in the index pass's
+                    # own ellipsis set — the truncated head of an elided
+                    # citation, a token no queue row bears. The catalog binds
+                    # the class instead of listing it as a candidate.
+                    entry.update({
+                        "catalog_route": routes[6],
+                        "catalog_covers": True,
+                        "note": "the truncated head of an ellipsis-elided citation "
+                                "(measured by the index pass's own ellipsis "
+                                "membership set) — permanently unpairable; the "
+                                "authoring cure is at the pen: cite an "
+                                "already-indexed sibling IN FULL or by "
+                                "description, never by ellipsis",
+                    })
+                else:
+                    entry.update({
+                        "catalog_route": None,
+                        "catalog_covers": None,
+                        "candidate_routes": [
+                            routes[2],
+                            "cpr_shaped_substring_of_ANY_longer_identifier",
+                            "token_outside_the_queue_id_namespace",
+                        ],
+                        "note": "not a queue id — membership alone cannot discriminate a "
+                                "cited-filename, longer-identifier, or non-queue-namespace "
+                                "token; inscribed_index_unit.route_occurrence_counts "
+                                "discloses the occurrence routes",
+                    })
             elif status == "absorbed":
                 entry.update({
                     "catalog_route": routes[3],
@@ -5145,6 +5207,11 @@ def run_check(project_dir, dry_run=False, obligation_tic=None, obligation_mandat
         promoted_ids,
         queue,
         shed_witness_tokens=shed_witness_tokens,
+        # /review 793 Q3: the ellipsis membership set, threaded from the SAME
+        # build_inscribed_index pass (one measurement, two consumers).
+        ellipsis_truncated_tokens=(
+            (inscribed_diagnostics.get("unit_declaration") or {})
+            .get("ellipsis_truncated_head_tokens") or ()),
     )
     cross_disclosure = compute_cross_counter_disclosure(
         verdict_delta, index_delta, attribution)
