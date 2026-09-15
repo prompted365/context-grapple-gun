@@ -1012,6 +1012,24 @@ _OCCURRENCE_RECORDING_FIELDS = {
     "genuine_zero_streak": (
         "row_count_within_streak", "same_tic_reobservation_tics"),
     "queue_state_tuple": ("read_at",),
+    # THE SAME-TIC-ANTECEDENT OBSERVATION RECORD (fix landed at the tic-792
+    # batch, beside the CADENCE-GATED ARM cure; found by the suite, typed by
+    # fixture-diff, reproduced against PRE-cure writer bytes — pre-existing,
+    # not introduced by that cure): prior_same_tic_observation records
+    # WHETHER a same-tic prior artifact existed at observation and WHICH
+    # artifact it was — occurrence-class by the same discriminator as
+    # superseded_receipt (a fresh first-run report never carries one; the
+    # second observation of an UNCHANGED zone always does), so comparing it
+    # forced decision=replace on every re-run and broke the skip branch
+    # (test_skip_path_preserves_nothing). It records the observation
+    # occurrence, never what the measurement said — the verdict counts
+    # themselves remain compared. The consumer set is CLOSED and enumerated:
+    # all three delta blocks carrying the shared skeleton (the sibling-site
+    # law — the first fix registered one block and the fixture re-failed on
+    # its sibling).
+    "queue_state_tuple_delta": ("prior_same_tic_observation",),
+    "inscribed_index_delta": ("prior_same_tic_observation",),
+    "verdict_counts_delta": ("prior_same_tic_observation",),
 }
 
 
@@ -4045,6 +4063,22 @@ def compute_baseline_coincidence(superseded_receipt, producer_identity_delta):
     carrying no prior identity, or an unmeasured pass-series baseline each
     yield coincidence=None with the absent lane NAMED in lanes_absent —
     unmeasured, never inferred (the null discipline both parent lanes carry).
+
+    THE CADENCE-GATED ARM face (/review 792,
+    cpr_mogul_review_close_check_ea64430a30b6, ratified same-pass cure):
+    this block's non-null path requires a within-tic supersession, which
+    requires a SECOND fire of the tic — a precondition created by the
+    EXTERNAL dispatcher (the mogul runner's fire cadence), never by this
+    instrument's inputs. Measured over [752,789]: 38 check-bearing tics
+    split as a perfect parity lock (19/19 even multi-fire / 19/19 odd
+    single-fire), so the arm is unreachable on precisely half the series BY
+    SCHEDULE; over the full corpus [681,789] parity merely correlates (8
+    odd tics fired multiply) — the two windows disagree in KIND. The
+    reachability_gate field publishes the gate beside any absence, so an
+    absence-rate over this arm is never read as a property of the
+    instrument (an absence-rate over a cadence-gated arm measures the
+    SCHEDULER); the sibling block genuine_zero_streak already pays the same
+    fire-shape discipline via same_tic_reobservation_tics.
     """
     block = {
         "read_at": _block_read_instant(),
@@ -4059,6 +4093,15 @@ def compute_baseline_coincidence(superseded_receipt, producer_identity_delta):
         "baseline_coincidence_this_pass": None,
         "baseline_coincidence_vacuous": None,
         "lanes_absent": [],
+        "reachability_gate": (
+            "external_dispatch_fire_count — the within-tic supersession "
+            "lane's precondition (a SECOND fire of this tic superseding a "
+            "same-tic live artifact) is created by the mogul runner's "
+            "dispatch cadence, which this instrument neither sets nor "
+            "sees; an absence-rate computed over "
+            "no_within_tic_supersession_this_pass measures the SCHEDULER, "
+            "never this instrument (the CADENCE-GATED ARM face, "
+            "/review 792)"),
         "timing_condition": None,
         "note": ("agreement between the two lanes is a COLLAPSE CANDIDATE, "
                  "never corroboration — the priors coincide exactly when the "
