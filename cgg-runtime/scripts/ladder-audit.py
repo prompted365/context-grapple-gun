@@ -148,6 +148,22 @@ PER_AXIS_DISCLOSURE_DOES_NOT_SATISFY = (
 # Noise directories the chain walk skips entirely. Hoisted from the walk body to
 # module scope so the axis CONTENT below can name the set it fences (engine /
 # content separation) rather than describing an inline literal.
+#
+# `.git` IS STRUCTURALLY UNREACHABLE AT THIS LOCUS — DECLARED IN PLACE, NOT REMOVED
+# (RULED /review 804 round 2, Ruling C: "corrected or declared unreachable in
+# place"; answers F-803-LA-2, LOW). The chain walk applies hidden_directory
+# BEFORE skip_dirs, and every component beginning with "." is caught by that
+# earlier axis — so under FIRST-MATCH-WINS no path can ever reach the skip_dirs
+# test on account of `.git`. Shown BY EXECUTION, not by reading: a fixture path
+# containing `.git` lands on hidden_directory and never on skip_dirs
+# (test_ladder_audit_rung_walk_axis_counts_tic807.py).
+#
+# DECLARED rather than removed, deliberately: the member is BEHAVIOURALLY INERT
+# (identical outcome either way), the axis predicate text below enumerates this
+# set member-by-member, and the tic-803 no-behaviour-change ORACLE transcribes it
+# — removal would be a set-membership edit on a DISCLOSURE-ONLY increment and is
+# fenced out by this increment's rider. Contrast _RUNG_SKIP_DIRS, whose own
+# `.git` member IS reachable because the rung walk orders skip_dirs FIRST.
 CHAIN_NOISE_SKIP_DIRS = frozenset({
     "node_modules", "__pycache__", ".git", "dist", "build", "target",
 })
@@ -168,7 +184,12 @@ NON_MEMBERSHIP_EXCLUSION_AXES = (
     {
         "axis": "skip_dirs",
         "predicate": ("any path component is in CHAIN_NOISE_SKIP_DIRS "
-                      "(node_modules, __pycache__, .git, dist, build, target)"),
+                      "(node_modules, __pycache__, .git, dist, build, target). "
+                      "NOTE: the `.git` member of that set is STRUCTURALLY "
+                      "UNREACHABLE here — hidden_directory runs FIRST under "
+                      "first-match-wins and catches every dotted component, so no "
+                      "path ever reaches this test on account of `.git`. Declared "
+                      "in place, not removed (ruled /review 804)"),
         "reason": "build artifact / vendor internal / VCS noise directory",
         "enumerates_members": False,
     },
@@ -1103,6 +1124,180 @@ _NOISE_FILE_BASENAMES = {".DS_Store", "Thumbs.db", "desktop.ini", ".gitkeep"}
 _NOISE_FILE_SUFFIXES = (".pyc", ".pyo", ".swp", ".swo", ".tmp", ".lock")
 
 
+# ---------------------------------------------------------------------------
+# RUNG-DISCOVERY EXCLUSION AXES — per-axis cardinality disclosure
+#
+# RULED /review 804 round 2 (Ruling C) by ent_breyden (the Architect; recommended
+# option verbatim "Rule it, build after the 805 fire"), RELEASED to the build lane
+# at /review 806 round 1 (recommended option verbatim "Accept; release the build").
+# Answers F-803-LA-1 (MEDIUM) and F-803-LA-2 (LOW) of the tic-803 build receipt.
+#
+# Mirrors the chain walk's tic-803 cure (_build_axis_disclosure and its caller) at
+# the OTHER locus. The rung walk was already BETTER off than the chain walk was: it
+# enumerates its dormant rungs with per-rung reasons and its scope_declaration says
+# "vendor/build/hidden/eval-fixture dirs skipped". But a prose mention of a skip is
+# not a CARDINALITY — that is precisely the guard-18 distinction. DISCLOSURE ONLY:
+# which rungs are admitted, their order, and their active/dormant verdicts do not
+# move; only the counting was added.
+#
+# Engine/content separation (federation KI): the walk is the ENGINE; the axis keys,
+# predicates, reasons, UNITS and populations below are CONTENT.
+#
+# TWO UNITS, NEVER SUMMED — the discriminator this disclosure exists to draw:
+#   * the two candidate-collection axes count MARKER FILES (one rglob hit each) and
+#     PARTITION the scanned marker-file population, so they reconcile;
+#   * the newest-file walk's prune counts DIRECTORY PRUNE EVENTS over a DIFFERENT
+#     population (the per-candidate subtree walks). A directory pruned in two
+#     different rung walks counts twice — it is an EVENT count, not a distinct-
+#     directory count. It is therefore EXCLUDED from the reconciliation identity.
+#     Summing it into the marker-file identity would be a unit error.
+#
+# COUNTING DISCIPLINE — FIRST-MATCH-WINS, and THE ORDER IS THE OPPOSITE OF THE CHAIN
+# WALK'S. Rung discovery tests skip_dirs BEFORE hidden-ancestor; chain discovery
+# tests hidden_directory BEFORE skip_dirs. The consequence was MEASURED, not
+# assumed: on THIS walk a path containing `.git` is counted on skip_dirs (the member
+# IS reachable here); on the CHAIN walk the same member can never fire (declared
+# unreachable in place at CHAIN_NOISE_SKIP_DIRS).
+#
+# DOES-NOT-SATISFY RIDER (travels verbatim with this disclosure):
+# this increment does NOT give `exclusion_axes` a consumer, does NOT change which rungs are admitted, and does NOT extend the nested-repo predicate beyond the file's own parent (F-803-LA-3 stays disclosed in the predicate text).
+# ---------------------------------------------------------------------------
+
+RUNG_DISCOVERY_DOES_NOT_SATISFY = (
+    "this increment does NOT give `exclusion_axes` a consumer, does NOT change "
+    "which rungs are admitted, and does NOT extend the nested-repo predicate "
+    "beyond the file's own parent (F-803-LA-3 stays disclosed in the predicate "
+    "text)."
+)
+
+# The rung-discovery axes, IN THE ORDER THE WALK APPLIES THEM. `unit` and
+# `in_reconciliation` are per-axis CONTENT decisions: only same-unit axes over the
+# same population may be reconciled against a scanned total.
+RUNG_EXCLUSION_AXES = (
+    {
+        "axis": "skip_dirs",
+        "unit": "marker_files",
+        "population": ("marker files yielded by root.rglob() over "
+                       "RUNG_TOPOLOGY_MARKERS + '.ticzone'"),
+        "predicate": ("any component of the marker file's zone-relative path is in "
+                      "_RUNG_SKIP_DIRS (node_modules, __pycache__, .git, dist, "
+                      "build, target, evals, fixtures). Tested over ALL components, "
+                      "the marker filename included. Runs FIRST on this walk — the "
+                      "OPPOSITE order from the chain walk — so a path containing "
+                      "`.git` is counted HERE and never on hidden_ancestor"),
+        "reason": ("build artifact / vendor internal / VCS noise / eval-test FIXTURE "
+                   "ticzone — not a governance rung"),
+        "enumerates_members": True,
+        "in_reconciliation": True,
+    },
+    {
+        "axis": "hidden_ancestor",
+        "unit": "marker_files",
+        "population": ("the same rglob population, reached only when skip_dirs did "
+                       "not already fire"),
+        "predicate": ("any ANCESTOR component begins with '.' (except '.claude') — "
+                      "checked over parts[:-1], so the marker's own dotted filename "
+                      "(.ticzone, .domain-root) is never self-excluding. Runs SECOND"),
+        "reason": ("hidden/dotted infrastructure ancestor — not a governed rung "
+                   "surface"),
+        "enumerates_members": True,
+        "in_reconciliation": True,
+    },
+    {
+        "axis": "newest_file_prune",
+        "unit": "directory_prune_events",
+        "population": ("directory entries removed from os.walk's dirs list across "
+                       "the per-candidate newest-file walks — a DIFFERENT population "
+                       "from the two axes above, in a DIFFERENT unit"),
+        "predicate": ("a subdirectory is in _RUNG_SKIP_DIRS OR begins with '.' "
+                      "(except '.claude'). Counted as EVENTS: a directory pruned in "
+                      "two different rung walks counts twice, by design. DOES NOT "
+                      "COUNT the sibling FILE filter in the same loop (dotfiles, "
+                      "_NOISE_FILE_BASENAMES, _NOISE_FILE_SUFFIXES) — that predicate "
+                      "is not named by the ruling and stays UNCOUNTED here, disclosed "
+                      "rather than silently folded in. A walk that reaches file_cap "
+                      "returns EARLY, so this count is cap-truncated exactly where "
+                      "newest_file_scan_capped reports it"),
+        "reason": "noise subtree pruned from the disk-truth recency scan",
+        "enumerates_members": False,
+        "in_reconciliation": False,
+    },
+)
+
+
+def _build_rung_axis_disclosure(marker_files_scanned, marker_files_admitted,
+                                candidate_dir_count, axis_hits, axis_members):
+    """Assemble the typed per-axis disclosure `discover_active_rungs` carries under
+    `exclusion_axes`. Pure assembly of figures the walk measured IN ITS OWN PASS —
+    it re-walks nothing and re-derives nothing (mirrors _build_axis_disclosure)."""
+    axes = []
+    for spec in RUNG_EXCLUSION_AXES:
+        key = spec["axis"]
+        entry = {
+            "axis": key,
+            "count": axis_hits.get(key, 0),
+            "unit": spec["unit"],
+            "population": spec["population"],
+            "predicate": spec["predicate"],
+            "reason": spec["reason"],
+            "enumerates_members": spec["enumerates_members"],
+            "in_reconciliation": spec["in_reconciliation"],
+        }
+        if spec["enumerates_members"]:
+            entry["members"] = sorted(axis_members.get(key, []))
+        axes.append(entry)
+    reconciled_exclusions = sum(axis_hits.get(a["axis"], 0)
+                                for a in RUNG_EXCLUSION_AXES
+                                if a["in_reconciliation"])
+    return {
+        "_law": (
+            "Every narrowing predicate between two rendered cardinalities is a "
+            "disclosure obligation carried BESIDE the number, not left in the "
+            "source (guard 18, ledger.md#presence-observation-fallacy-guard). Each "
+            "count below is measured BY THE WALK ITSELF in the same pass that "
+            "collects the candidates — never re-derived by a second traversal."
+        ),
+        "counting_discipline": (
+            "FIRST-MATCH-WINS in walk order ("
+            + ", ".join(a["axis"] for a in RUNG_EXCLUSION_AXES
+                        if a["in_reconciliation"]) +
+            "). NOTE the order is the OPPOSITE of the chain walk's: skip_dirs runs "
+            "BEFORE hidden_ancestor here, so a `.git` path is counted on skip_dirs "
+            "on THIS walk and on hidden_directory on the chain walk. A marker file "
+            "excludable on several axes is counted ONCE, at the first axis that "
+            "fires, so these counts PARTITION the scanned marker-file population "
+            "and are NOT independent per-predicate totals."
+        ),
+        "unit_discipline": (
+            "TWO UNITS, NEVER SUMMED: skip_dirs and hidden_ancestor count MARKER "
+            "FILES and enter the reconciliation; newest_file_prune counts DIRECTORY "
+            "PRUNE EVENTS over the per-candidate subtree walks and is EXCLUDED from "
+            "it (in_reconciliation:false). Adding them would be a unit error."
+        ),
+        "marker_files_scanned": marker_files_scanned,
+        "marker_files_admitted": marker_files_admitted,
+        "reconciled_exclusions": reconciled_exclusions,
+        "reconciles": (
+            marker_files_scanned == marker_files_admitted + reconciled_exclusions
+        ),
+        "reconciliation_identity": (
+            "marker_files_scanned == marker_files_admitted + skip_dirs + "
+            "hidden_ancestor"
+        ),
+        "candidate_dir_count": candidate_dir_count,
+        "dedup_note": (
+            "candidate_dir_count <= marker_files_admitted: one directory may carry "
+            "several markers (e.g. a .domain-root beside its own .ticzone), and the "
+            "walk collapses them to ONE candidate dir. The admitted-marker-file "
+            "figure is what reconciles; the dir count is what the active/dormant "
+            "partition is built from (active_count + dormant_count == "
+            "candidate_dir_count)."
+        ),
+        "axes": axes,
+        "does_not_satisfy": RUNG_DISCOVERY_DOES_NOT_SATISFY,
+    }
+
+
 def _days_since_mtime(path, now=None):
     """Whole/fractional days since a path's mtime; None if it does not exist."""
     try:
@@ -1176,7 +1371,7 @@ def _mailbox_recent_days(zone_root, mailbox, now=None):
     return newest
 
 
-def _newest_file_days(dir_path, now=None, file_cap=50000):
+def _newest_file_days_with_prune_disclosure(dir_path, now=None, file_cap=50000):
     """Days since the newest file under dir_path — the DISK-TRUTH recency signal
     that survives .gitignore.
 
@@ -1184,18 +1379,29 @@ def _newest_file_days(dir_path, now=None, file_cap=50000):
     actively edited on disk (e.g. the CGG forge source: gitignored in canonical/
     yet the most-edited domain). Walking the tree for the newest mtime recovers
     that activity. Noise dirs (node_modules/.git/build/eval-fixtures) are pruned,
-    so real rungs scan only a few hundred files. Returns (days, capped); capped
-    is surfaced rather than silently truncating (no-silent-caps discipline).
+    so real rungs scan only a few hundred files. Returns (days, capped, pruned);
+    capped is surfaced rather than silently truncating (no-silent-caps
+    discipline), and `pruned` is the DIRECTORY-PRUNE-EVENT cardinality this walk
+    measured in its own pass (ruled /review 804 — a prose mention of a skip is
+    not a cardinality). A directory pruned in two different rung walks counts
+    twice: it is an EVENT count, in DIRECTORY units, over a different population
+    than the marker-file axes, and it never enters their reconciliation.
     """
     now = now if now is not None else datetime.now(timezone.utc).timestamp()
     newest = None
     scanned = 0
     capped = False
+    pruned = 0
     for root, dirs, files in os.walk(dir_path):
-        dirs[:] = [
+        # The prune is a narrowing predicate between two cardinalities, so its
+        # cardinality is MEASURED IN THIS PASS (ruled /review 804). Counted as
+        # EVENTS in DIRECTORY units — never summed with the marker-file axes.
+        _kept = [
             d for d in dirs
             if d not in _RUNG_SKIP_DIRS and not (d.startswith(".") and d != ".claude")
         ]
+        pruned += len(dirs) - len(_kept)
+        dirs[:] = _kept
         for fn in files:
             # Skip dotfiles (markers, .ticzone, .gitignore, .DS_Store — config
             # already covered by the marker/own_ticzone signals) + OS-noise
@@ -1214,8 +1420,22 @@ def _newest_file_days(dir_path, now=None, file_cap=50000):
             scanned += 1
             if scanned >= file_cap:
                 capped = True
-                return newest, capped
-    return newest, capped
+                return newest, capped, pruned
+    return newest, capped, pruned
+
+
+def _newest_file_days(dir_path, now=None, file_cap=50000):
+    """Pair-returning entry point — (days, capped).
+
+    ARITY PRESERVED (mirrors the tic-803 chain-walk cure, where
+    discover_claude_mds_with_exclusions kept its guarded 2-tuple while the new
+    disclosure rode a separate 3-returning entry point). The prune cardinality is
+    carried by _newest_file_days_with_prune_disclosure above, which this delegates
+    to — so no existing caller of this helper is broken by the added disclosure.
+    """
+    days, capped, _pruned = _newest_file_days_with_prune_disclosure(
+        dir_path, now=now, file_cap=file_cap)
+    return days, capped
 
 
 def discover_active_rungs(zone_root, window_days=ACTIVE_RUNG_WINDOW_DAYS):
@@ -1233,16 +1453,29 @@ def discover_active_rungs(zone_root, window_days=ACTIVE_RUNG_WINDOW_DAYS):
     # Collect candidate rung dirs: any dir carrying a topology marker OR its own
     # .ticzone (the site-rung marker / own clock).
     candidates = {}  # rel_dir -> {markers:set, abs}
+    # Per-axis cardinality, measured BY THIS WALK in THIS pass (ruled /review 804).
+    axis_hits = {a["axis"]: 0 for a in RUNG_EXCLUSION_AXES}
+    axis_members = {a["axis"]: [] for a in RUNG_EXCLUSION_AXES
+                    if a["enumerates_members"]}
+    marker_files_scanned = 0
+    marker_files_admitted = 0
     marker_names = sorted(set(RUNG_TOPOLOGY_MARKERS) | {".ticzone"})
     for marker in marker_names:
         for mp in sorted(root.rglob(marker)):
             parts = mp.relative_to(root).parts
+            marker_files_scanned += 1
+            _rel_marker = str(mp.relative_to(root))
             if any(p in _RUNG_SKIP_DIRS for p in parts):
+                axis_hits["skip_dirs"] += 1
+                axis_members["skip_dirs"].append(_rel_marker)
                 continue
             # Skip hidden ancestor dirs (except .claude); the marker itself is
             # a dotfile so only the ancestors (parts[:-1]) are checked.
             if any(p.startswith(".") and p != ".claude" for p in parts[:-1]):
+                axis_hits["hidden_ancestor"] += 1
+                axis_members["hidden_ancestor"].append(_rel_marker)
                 continue
+            marker_files_admitted += 1
             rung_dir = mp.parent
             rel = str(rung_dir.relative_to(root)) if rung_dir != root else "."
             entry = candidates.setdefault(rel, {"markers": set(), "abs": str(rung_dir)})
@@ -1282,7 +1515,9 @@ def discover_active_rungs(zone_root, window_days=ACTIVE_RUNG_WINDOW_DAYS):
         git_days = _git_last_commit_days(zone_root, rel, now=now)
         mailbox = _resolve_agent_mailbox(zone_root, abs_dir, ticzone_cfg)
         mailbox_days = _mailbox_recent_days(zone_root, mailbox, now=now)
-        files_days, files_capped = _newest_file_days(abs_dir, now=now)
+        files_days, files_capped, _files_pruned = (
+            _newest_file_days_with_prune_disclosure(abs_dir, now=now))
+        axis_hits["newest_file_prune"] += _files_pruned
 
         recent = {}
         for label, d in (("own_ticzone", ticzone_days), ("git", git_days),
@@ -1323,6 +1558,9 @@ def discover_active_rungs(zone_root, window_days=ACTIVE_RUNG_WINDOW_DAYS):
             dormant.append(entry)
 
     active.sort(key=lambda e: e["best_recency_days"])
+    exclusion_axes = _build_rung_axis_disclosure(
+        marker_files_scanned, marker_files_admitted, len(candidates),
+        axis_hits, axis_members)
     return {
         "audited_at": datetime.now(timezone.utc).isoformat(),
         "zone_root": zone_root,
@@ -1342,6 +1580,10 @@ def discover_active_rungs(zone_root, window_days=ACTIVE_RUNG_WINDOW_DAYS):
         ),
         "active_count": len(active),
         "dormant_count": len(dormant),
+        # Per-axis cardinality disclosure for the exclusion predicates this walk
+        # applies (RULED /review 804 round 2, Ruling C; released /review 806).
+        # DOES-NOT-SATISFY RIDER (verbatim): this increment does NOT give `exclusion_axes` a consumer, does NOT change which rungs are admitted, and does NOT extend the nested-repo predicate beyond the file's own parent (F-803-LA-3 stays disclosed in the predicate text).
+        "exclusion_axes": exclusion_axes,
         "active": active,
         "dormant": dormant,
     }
@@ -1359,9 +1601,66 @@ def format_active_rungs(result):
         f"  Active:     {result.get('active_count', 0)}    "
         f"Dormant: {result.get('dormant_count', 0)}"
     )
+    # ONE COUNT LINE PER EXCLUSION AXIS the rung walk applies (RULED /review 804
+    # round 2, Ruling C; released /review 806 round 1). Before this, both candidate
+    # predicates and the newest-file prune were silent `continue`s/filters and the
+    # scope_declaration named the skips without ever publishing a NUMBER.
+    # DOES-NOT-SATISFY RIDER (verbatim): this increment does NOT give `exclusion_axes` a consumer, does NOT change which rungs are admitted, and does NOT extend the nested-repo predicate beyond the file's own parent (F-803-LA-3 stays disclosed in the predicate text).
+    _rax = result.get("exclusion_axes") or {}
+    for _a in _rax.get("axes", []):
+        lines.append(f"  Excluded ({_a['axis']}): {_a['count']}  [{_a['unit']}]")
+    if _rax:
+        lines.append(
+            f"  Scanned (marker files seen by the walk): "
+            f"{_rax.get('marker_files_scanned', 0)}"
+            f"  = {_rax.get('marker_files_admitted', 0)} admitted"
+            f" + {_rax.get('reconciled_exclusions', 0)} excluded"
+            f"  [reconciles: {_rax.get('reconciles')}]")
+        lines.append(
+            f"  Candidate rung dirs: {_rax.get('candidate_dir_count', 0)}"
+            f"  = {result.get('active_count', 0)} active"
+            f" + {result.get('dormant_count', 0)} dormant"
+            "  (<= admitted marker files; one dir may carry several markers)")
     lines.append("")
     lines.append("  scope: " + result.get("scope_declaration", ""))
     lines.append("")
+    # The full per-axis section: predicate, reason, UNIT and population beside every
+    # number, plus the member enumeration for the two marker-file axes. Always
+    # rendered, including the honest-empty case — a zero is a CLAIM the walk makes,
+    # not a silence.
+    if _rax:
+        _axes = _rax.get("axes", [])
+        lines.append(
+            f"EXCLUSION AXES (rung discovery, {len(_axes)}) — one count line per "
+            "narrowing predicate the walk applies:")
+        lines.append("-" * 64)
+        lines.append(f"  law: {_rax.get('_law', '')}")
+        lines.append(f"  counting: {_rax.get('counting_discipline', '')}")
+        lines.append(f"  units: {_rax.get('unit_discipline', '')}")
+        lines.append(
+            f"  reconciliation: {_rax.get('reconciliation_identity', '')}"
+            f"  ->  {_rax.get('marker_files_scanned', 0)}"
+            f" == {_rax.get('marker_files_admitted', 0)}"
+            f" + {_rax.get('reconciled_exclusions', 0)}"
+            f"  [{_rax.get('reconciles')}]")
+        lines.append(f"  dedup: {_rax.get('dedup_note', '')}")
+        for _a in _axes:
+            _inrec = "in reconciliation" if _a.get("in_reconciliation") else \
+                "NOT in reconciliation (different unit + population)"
+            lines.append(f"  [{_a['axis']}] excluded: {_a['count']}  "
+                         f"unit={_a['unit']}  ({_inrec})")
+            lines.append(f"      population: {_a['population']}")
+            lines.append(f"      predicate: {_a['predicate']}")
+            lines.append(f"      reason: {_a['reason']}")
+            if _a.get("enumerates_members"):
+                _members = _a.get("members", [])
+                lines.append(f"      members ({len(_members)}):")
+                if not _members:
+                    lines.append("        (none)")
+                for _m in _members:
+                    lines.append(f"        - {_m}")
+        lines.append(f"  does-not-satisfy: {_rax.get('does_not_satisfy', '')}")
+        lines.append("")
     lines.append("ACTIVE RUNGS (marker + >=1 activity signal in window) → down-audit sites:")
     lines.append("-" * 64)
     if not result.get("active"):
