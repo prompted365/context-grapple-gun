@@ -274,7 +274,21 @@ fi
 # ============================================================================
 
 PROCESSED_IDS="$HOME/.claude/cgg-processed-handoff-ids.txt"
-touch "$PROCESSED_IDS"
+# THE MARKER IS CREATED-IF-MISSING WITHOUT BUMPING ITS MTIME (ruled /review 805
+# round 3, Architect-ratified, recommended option verbatim "Rule the cure for 806
+# entry; slip the drill one boundary"). A `touch` here advanced the marker to NOW
+# at every boot, while the plan-discovery gate below reads
+# `find ... -newer "$PROCESSED_IDS"` -- so nothing that already existed could be
+# newer than a file touched a moment earlier, in EITHER plan directory, and every
+# handoff-consuming locus went dark without one error. The mtime now advances only
+# when an id is RECORDED (cgg-gate.sh's append is the marker's only content
+# writer). The id check further down is and remains the real dedup; `-newer` stays
+# an optimization that no longer defeats itself. Creation is KEPT so the reference
+# file always EXISTS at that gate -- `find -newer <missing>` errors and matches
+# nothing, and the stderr that would say so is discarded there. The two sites are
+# NAMED here, never numbered: this comment's own arrival moved every line below it.
+# DOES-NOT-SATISFY RIDER (travels verbatim): this increment does NOT flip the payload switch, does NOT establish how long the loci have been dark or when the touch was introduced, does NOT change what a processed id means, and does NOT serve the successor session (manifest row B13).
+[ -e "$PROCESSED_IDS" ] || : > "$PROCESSED_IDS"
 FLAG_DIR="${TMPDIR:-/tmp}/claude_cgg/$PROJECT_KEY"
 CGG_MSG="$EFFECTIVE_RECORD_MSG"
 HANDOFF_ID=""
