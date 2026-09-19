@@ -462,33 +462,91 @@ def cross_reference(nodes):
 # Signal correlation
 # ---------------------------------------------------------------------------
 
+# Disclosed by load_active_signals: which surface supplied MEMBERSHIP on the last
+# call ("active-manifest.jsonl (by path)" | "daily-fold-fallback (manifest absent)").
+ACTIVE_SIGNALS_MEMBERSHIP_SOURCE = None
+
+
+def _fold_jsonl_latest_per_id(path):
+    """Latest-per-id fold of ONE jsonl file (id or signal_id keyed)."""
+    latest = {}
+    try:
+        lines = path.read_text(encoding="utf-8").splitlines()
+    except (OSError, UnicodeDecodeError):
+        return latest
+    for line in lines:
+        line = line.strip()
+        if not line:
+            continue
+        try:
+            d = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        eid = d.get("id") or d.get("signal_id")
+        if eid:
+            latest[eid] = d
+    return latest
+
+
 def load_active_signals(zone_root):
-    """Load active signals grouped by subsystem."""
+    """Load active signals grouped by subsystem — the PAYLOAD-JOIN shape.
+
+    MEMBERSHIP + STATUS come from the curated manifest (active-manifest.jsonl),
+    read BY PATH under the shared is_active_ray predicate — the same read the
+    runner pre-computes for signal_scan (federation ledger
+    #authoritative-set-readers-must-read-the-manifest-not-aggregate-raw-emissions,
+    the PAYLOAD-JOIN face, /review 798 Q1). PAYLOAD (subsystem) is joined from
+    the daily emission files latest-per-id by signal id, because the manifest is
+    deliberately payload-free (the /review 718 payload-free exception).
+
+    active-manifest.jsonl and resolved-archive.jsonl are NEVER folded into the
+    daily-file dict: a directory glob's membership is a property of the DIRECTORY
+    (what else got co-located, and how it sorts), and the archive sorts LAST, so
+    under the old whole-directory fold its thin terminal twin overrode
+    chronologically NEWER re-raised active rows — 16 down-lane rays plus
+    sig_maps_stale read 'resolved' while the manifest carried them active
+    (re-raised at tic 573 over /review-545 resolutions; measured 159/37 against
+    the manifest's 58/53 at tics 795 and 798). This mirrors load_downaudit_findings,
+    which honored the same law at tic 573
+    (cgg-ledger#file-sort-is-not-chronology-derived-surfaces-excluded-from-primary-readers);
+    the un-carried sibling site here is the
+    cgg-ledger#named-footgun-guard-leaves-sibling-site-unfixed shape.
+
+    Manifest-absent fallback: the parent's terminal-state-filtered daily fold —
+    disclosed through ACTIVE_SIGNALS_MEMBERSHIP_SOURCE, never silent.
+    """
+    global ACTIVE_SIGNALS_MEMBERSHIP_SOURCE
     tz_config = load_ticzone(zone_root)
     al_path = audit_logs_path(zone_root, tz_config)
     signal_dir = Path(al_path) / "signals"
     if not signal_dir.is_dir():
+        ACTIVE_SIGNALS_MEMBERSHIP_SOURCE = "signals-dir-absent"
         return {}
 
-    latest = {}
+    # PAYLOAD: daily emissions only, latest-per-id; derived partitions excluded.
+    payload = {}
     for f in sorted(signal_dir.glob("*.jsonl")):
-        for line in f.read_text(encoding="utf-8").splitlines():
-            line = line.strip()
-            if not line:
-                continue
-            try:
-                d = json.loads(line)
-                eid = d.get("id") or d.get("signal_id")
-                if eid:
-                    latest[eid] = d
-            except json.JSONDecodeError:
-                continue
+        if f.name in ("active-manifest.jsonl", "resolved-archive.jsonl"):
+            continue
+        payload.update(_fold_jsonl_latest_per_id(f))
 
     by_subsystem = defaultdict(list)
-    for eid, sig in latest.items():
+    manifest_path = signal_dir / "active-manifest.jsonl"
+    if manifest_path.is_file():
+        # MEMBERSHIP + STATUS: the curated manifest, by path, latest-per-id.
+        ACTIVE_SIGNALS_MEMBERSHIP_SOURCE = "active-manifest.jsonl (by path)"
+        for eid, row in _fold_jsonl_latest_per_id(manifest_path).items():
+            if not is_active_ray(row):
+                continue
+            sub = (payload.get(eid) or {}).get("subsystem") or row.get("subsystem") or "unknown"
+            by_subsystem[sub].append(eid)
+        return by_subsystem
+
+    # FALLBACK (manifest absent): the parent's terminal-state-filtered daily fold.
+    ACTIVE_SIGNALS_MEMBERSHIP_SOURCE = "daily-fold-fallback (manifest absent)"
+    for eid, sig in payload.items():
         if is_active_ray(sig):
             by_subsystem[sig.get("subsystem", "unknown")].append(eid)
-
     return by_subsystem
 
 
@@ -595,7 +653,8 @@ def run_audit(zone_root, verbose=False):
             "ladder_down_audit": {
                 "open_findings_on_manifold": len(downlane_ids),
                 "of_active_rays": active_total,
-                "predicate": "active rays with subsystem == 'ladder_downlane' or id prefix 'sig_ladder_down_audit_finding_' (latest-per-id over the signal lane; same read as signal_subsystems_active)",
+                "predicate": "active rays with subsystem == 'ladder_downlane' or id prefix 'sig_ladder_down_audit_finding_' (membership + status from active-manifest.jsonl by path under is_active_ray, subsystem joined from the daily emissions latest-per-id — the PAYLOAD-JOIN shape, /review 798; same read as signal_subsystems_active)",
+                "membership_source": ACTIVE_SIGNALS_MEMBERSHIP_SOURCE,
                 "ids": downlane_ids,
             }
         },
