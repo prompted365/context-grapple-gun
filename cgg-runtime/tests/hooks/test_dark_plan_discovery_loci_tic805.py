@@ -58,9 +58,16 @@ FUTURE = (2027, 1, 1, 0, 0, 0, 0, 0, -1)
 def _future_stamp(p: Path) -> None:
     """Satisfy session-restore.sh's `find -newer $PROCESSED_IDS` guard.
 
-    session-restore.sh touches PROCESSED_IDS to NOW immediately before the find, so no
-    at-or-before-boot file is ever strictly newer (finding F-805-2). Future-dating is the
-    only way to hold that variable constant while the DIRECTORY variable is under test.
+    AS WRITTEN AT TIC 805: session-restore.sh touched PROCESSED_IDS to NOW immediately
+    before the find, so no at-or-before-boot file was ever strictly newer (finding
+    F-805-2), and future-dating was the only way to hold that variable constant while the
+    DIRECTORY variable was under test.
+
+    CURED AT TIC 806 (ruled /review 805 round 3): the marker is now created-if-missing
+    WITHOUT bumping its mtime, so a live-dated plan written after the marker's last
+    recorded id is already newer. Future-dating here is therefore still SUFFICIENT and
+    no longer NECESSARY; it stays because these nodes hold the mtime variable constant
+    by construction. The live-mtime arms live in test_processed_ids_marker_tic806.py.
     """
     ts = time.mktime(FUTURE)
     os.utime(p, (ts, ts))
