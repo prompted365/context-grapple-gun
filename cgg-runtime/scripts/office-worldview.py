@@ -52,7 +52,10 @@ CLI:
 
 import argparse
 import json
+import os
+import subprocess
 import sys
+from datetime import datetime, timezone
 from pathlib import Path
 
 DEFAULT_MAX_CHARS = 20000  # aperture widened tic 600 (Architect): the orchestrator seam
@@ -271,7 +274,7 @@ def render_identity_frame(tic: int) -> str:
 # economics. Pure orientation — inscribable plain, no fix-then-present gate; forward-vision items
 # are flagged NAMED-NOT-BUILT.
 STANDING_SUBSTRATE = """
-THE STANDING SUBSTRATE — READ BEFORE YOU CONCLUDE ANYTHING IS MISSING. The single most expensive recurring error is concluding ABSENCE from a canonical-side index. The card catalog is not the library: an index's tags are sparse BECAUSE it is an index; the mass lives elsewhere, and it is large. The load-bearing substrate lives DELIBERATELY OUTSIDE canonical, and absence-from-canonical is indistinguishable from absence unless you cross the boundary. ⟨FIELD⟩ the lived corpus: /Volumes/T7 Shield/models/tmux-dumps (~35GB main corpus + its harvest pipeline echo-out/ — council / cpg / harmony / mogul indices → qwen-shaping; RELOCATED off ~/tmux-dumps ~2026-07-03, re-addressed tic 579 under the write-target ruling) — this IS "we are the data," the F2 training corpus, not a hypothesis. ~/tmux-dumps is now the ~262M INCREMENTAL capture landing zone (fresh traces land there before harvest); the repo face (AGENT.md, audits, echo-out mirror) is ~/prompted365_repos/tmux-dumps. ⟨FIELD⟩ the models: /Volumes/T7 Shield/models — THIRTEEN entries, not three (measured t748 — read audit-logs/governance/hoist-preparation-tic748/lane-A-affordability.json, never the July MODEL_INDEX: trellis2-4b is NOT on disk and the index header's free-space figure is off by 339 GiB): organization-engine-lora (20G — 14 epoch zips + 9G training; the declaration-adapter's proposer — PRESENT, not absent; its Qwen3-14B-4bit BASE is NOT on the machine, an 8.1 GiB re-acquisition) + unsloth-Qwen3.6-27B-MTP (16G — served ×6 via llama.cpp, NOT ollama; the only end-to-end-intact model; the hoist covenant's engine face, R3 rung /review 748) + qwen-agentworld-35b-a3b (65G bf16; 4-bit ≈ 20 GiB RAM-feasible, disk-blocked; R3) + qythos-9b (vision, 24G, never run) + gemma4-coding (11.8G, no provenance) + vggt-capture3d (env MPS-proven, checkpoints EMPTY, weights gated). MACHINE LIMITS (t748): internal disk 13–15 GiB free at 99% — NO model pull is safe; iogpu.wired_limit_mb=0 — one engine resident at a time; T7 407 GiB free but a membrane. (Figures are a CURRENCY fix at t748 — the law of this block is unchanged.) ⟨FIELD⟩ the breadth: audit-logs/ is 50+ lanes, ~700MB. RULE: when assessing "is there a corpus / a model / enough data," look at the lived mass ACROSS the boundary — never infer sparse/absent from one index file. These are MEMBRANES (observe-not-couple): evidence, never authority; canonical stays sole-writer (write-target RULED canonical-side at tic 579 — audit-logs/governance/receipts/2026-07-07-tic579-membrane-write-target-ruling.md).
+THE STANDING SUBSTRATE — READ BEFORE YOU CONCLUDE ANYTHING IS MISSING. The single most expensive recurring error is concluding ABSENCE from a canonical-side index. The card catalog is not the library: an index's tags are sparse BECAUSE it is an index; the mass lives elsewhere, and it is large. The load-bearing substrate lives DELIBERATELY OUTSIDE canonical, and absence-from-canonical is indistinguishable from absence unless you cross the boundary. ⟨FIELD⟩ the lived corpus: /Volumes/T7 Shield/models/tmux-dumps (~35GB main corpus + its harvest pipeline echo-out/ — council / cpg / harmony / mogul indices → qwen-shaping; RELOCATED off ~/tmux-dumps ~2026-07-03, re-addressed tic 579 under the write-target ruling) — this IS "we are the data," the F2 training corpus, not a hypothesis. ~/tmux-dumps is now the ~262M INCREMENTAL capture landing zone (fresh traces land there before harvest); the repo face (AGENT.md, audits, echo-out mirror) is ~/prompted365_repos/tmux-dumps. ⟨FIELD⟩ the models: /Volumes/T7 Shield/models — THIRTEEN entries, not three (measured t748 — read audit-logs/governance/hoist-preparation-tic748/lane-A-affordability.json, never the July MODEL_INDEX: trellis2-4b is NOT on disk and the index header's free-space figure is off by 339 GiB): organization-engine-lora (20G — 14 epoch zips + 9G training; the declaration-adapter's proposer — PRESENT, not absent; its Qwen3-14B-4bit BASE is NOT on the machine, an 8.1 GiB re-acquisition) + unsloth-Qwen3.6-27B-MTP (16G — served ×6 via llama.cpp, NOT ollama; the only end-to-end-intact model; the hoist covenant's engine face, R3 rung /review 748) + qwen-agentworld-35b-a3b (65G bf16; 4-bit ≈ 20 GiB RAM-feasible, disk-blocked; R3) + qythos-9b (vision, 24G, never run) + gemma4-coding (11.8G, no provenance) + vggt-capture3d (env MPS-proven, checkpoints EMPTY, weights gated). ⟦MACHINE_LIMITS_LIVE⟧ (Figures are RENDERED LIVE at render time since tic 803 — the law of this block is unchanged.) ⟨FIELD⟩ the breadth: audit-logs/ is 50+ lanes, ~700MB. RULE: when assessing "is there a corpus / a model / enough data," look at the lived mass ACROSS the boundary — never infer sparse/absent from one index file. These are MEMBRANES (observe-not-couple): evidence, never authority; canonical stays sole-writer (write-target RULED canonical-side at tic 579 — audit-logs/governance/receipts/2026-07-07-tic579-membrane-write-target-ruling.md).
 
 THE GAP IS THE JOIN, NOT ABSENCE. Every layer is PROVEN and PRESENT — corpus, harvest pipeline, models, the declaration-adapter SP-trilogy (fixture-proven), the §7.1 center-family (discharged in fixture), the rollback drill (built, both halves), and epoch05 (one governed training-morphism, fired). Nothing waits on a missing piece. What is missing is the LOOP CLOSING across three boundaries: the corpus + pipeline (/Volumes/T7 Shield/models/tmux-dumps, fed by the ~/tmux-dumps incremental landing zone) ↔ canonical (the mechanisms) ↔ /Volumes/T7 Shield/models (the weights). This is why the Architect has been the hoist crux — the human carrying corpus → model → mechanism because the pieces could not yet cross themselves. The target reality is the cabled, self-supporting join; the current reality is the parts, present and unjoined. CURRENCY (tic 535, Architect-directed): the join has BEGUN CLOSING — and it closed by the OFFICES crossing the boundary THEMSELVES, not by the Architect carrying it. The DAG waves fired as WAVES OF AGENTS: archivist drove S1 corpus-harvest (fresh, +11,823 traces, 142,501 cumulative, S2-ready); egress-router drove S3 and epoch16 LIVE-SERVED locally on the M2 Metal GPU (real inference, 8.31GB peak, gate_passed, proposal-only); civil verified the board. So "the pieces could not yet cross themselves" is now HISTORICAL — capability is REACHABLE on our own silicon (the GPU was a ~9GB download, not a wall; a pessimistic prior assessment said NOT_REACHABLE and was OVERTURNED by execution). THE COSTLY LESSON wired here so it stops recurring: never infer a capability-wall OR an absent tool from a prior assessment or a ToolSearch no-match — RE-TEST it, cross the boundary; office-citizen dispatch is present — an entity at the appropriate state, via the lead harness's active dispatch surface (subagent / workflow / agent-team; stewards of each office are installed to that end); attempt it at the act, don't conclude absence from any one tool name or roster index. What remains is not capability but the Architect's ring (live SP2 couple / hoist-admission via /review).
 
@@ -283,6 +286,174 @@ THE PINKY — THE ECONOMICS OF A GOVERNED SUBSTRATE. epoch05 recovered meaning a
 """
 
 
+# ── MACHINE LIMITS — RENDERED LIVE AT RENDER TIME (ruled /review 802 round 3, built tic 803) ──
+# Ruling: audit-logs/governance/receipts/2026-09-19-tic802-boot-machine-limits-live-render-ruling.md
+# (3,445 bytes, sha256 head-16 a6663b340d3ad9b1). The sentence this replaces carried FROZEN t748
+# figures — "internal disk 13–15 GiB free at 99% — NO model pull is safe" — which had rotted in
+# BOTH directions: at tic 802 the internal volume measured 94 GiB free at 90%, and inside tic 801
+# alone it moved 97 → 92 GiB. A swapped constant rots within a tic, so the figures are READ AT
+# RENDER TIME, the sentence stamps its OWN read time, and the model-pull caution is stated as a
+# THRESHOLD on the live figure (value + basis named below) rather than as a baked verdict.
+#
+# FAIL-SOFT, NEVER FAIL-STALE: an unreadable volume renders `unmeasured`, an absent T7 renders
+# `not mounted`, an unreadable sysctl renders `unmeasured`. No remembered number is EVER
+# substituted, and no failure in this sentence may block a boot — every read is individually
+# guarded and the top-level render is guarded again.
+#
+# DOES-NOT-SATISFY RIDER (attached by the ruling; travels verbatim):
+#   "this increment does NOT add the sentinel's disk arm, does NOT build the `cold_unavailable`
+#   reader helper, and does NOT rule or start canonical-cold Increment 2; disk headroom stays
+#   unobserved by the sentinel until that arm is ruled and built."
+# So: this renders a SENTENCE at boot. It observes nothing on any schedule, emits no signal,
+# writes no state, and gives the sentinel no disk arm.
+
+MACHINE_LIMITS_PLACEHOLDER = "⟦MACHINE_LIMITS_LIVE⟧"
+
+# The does-not-satisfy rider attached by /review 802 round 3, carried as ONE contiguous value
+# so it can be asserted and grepped verbatim rather than only read as wrapped prose. It is a
+# rider on THIS increment; it does not describe a capability this file has.
+DOES_NOT_SATISFY_RIDER_TIC803 = (
+    "this increment does NOT add the sentinel's disk arm, does NOT build the "
+    "`cold_unavailable` reader helper, and does NOT rule or start canonical-cold "
+    "Increment 2; disk headroom stays unobserved by the sentinel until that arm is "
+    "ruled and built."
+)
+
+# The internal DATA volume — the one that actually constrains a pull. `/` is the sealed system
+# volume and reports the same free space; the data volume is what t748 and /review 802 measured.
+INTERNAL_DATA_VOLUME = "/System/Volumes/Data"
+T7_MOUNT = "/Volumes/T7 Shield"
+
+# THE THRESHOLD AND ITS BASIS (the ruling requires both named in the code and the receipt).
+# 8.1 GiB is not a chosen safety margin — it is the size of the largest named PENDING
+# internal-disk model acquisition on this machine, read off the same t748 evidence file the
+# block above cites. Below it, the named pull cannot land at all.
+MODEL_PULL_THRESHOLD_GIB = 8.1
+MODEL_PULL_THRESHOLD_BASIS = (
+    "the largest named pending internal-disk model acquisition — the epoch16 proposer's "
+    "Qwen3-14B-4bit base at ~8.1 GiB, per "
+    "audit-logs/governance/hoist-preparation-tic748/lane-A-affordability.json "
+    "(\"~/.cache/huggingface (a NEW internal-disk write, ~8.1 GiB of 15 GiB free)\") and the "
+    "STANDING SUBSTRATE block's own \"an 8.1 GiB re-acquisition\""
+)
+# Deliberately NOT claimed above the threshold: that a pull is "safe". Fitting one named
+# artifact is not headroom for unpack/convert scratch, and this sentence does not model that.
+MODEL_PULL_THRESHOLD_UNCLAIMED = "headroom beyond that one pull is NOT assessed here"
+
+
+def _read_volume(path: str) -> dict:
+    """One volume's free space, read NOW. Never raises — returns a typed reading.
+
+    `capacity_pct` is computed the way df does (used / (used + avail)), so the rendered
+    figure matches the instrument /review 802 measured with.
+    """
+    reading = {"path": path, "mounted": None, "ok": False,
+               "free_gib": None, "capacity_pct": None, "error": None}
+    try:
+        if not os.path.exists(path):
+            reading["mounted"] = False
+            reading["error"] = "not mounted"
+            return reading
+        reading["mounted"] = True
+        st = os.statvfs(path)
+        avail = st.f_bavail * st.f_frsize
+        total = st.f_blocks * st.f_frsize
+        used = total - (st.f_bfree * st.f_frsize)
+        denom = used + avail
+        reading["free_gib"] = round(avail / (1024 ** 3), 1)
+        reading["capacity_pct"] = int(round(100.0 * used / denom)) if denom else None
+        reading["ok"] = True
+    except Exception as exc:  # noqa: BLE001 — fail-soft is the contract
+        reading["error"] = type(exc).__name__
+    return reading
+
+
+def _read_wired_limit() -> dict:
+    """iogpu.wired_limit_mb, read NOW via sysctl. Never raises."""
+    reading = {"ok": False, "value": None, "error": None}
+    try:
+        out = subprocess.run(["/usr/sbin/sysctl", "-n", "iogpu.wired_limit_mb"],
+                             capture_output=True, text=True, timeout=5)
+        if out.returncode != 0:
+            reading["error"] = f"sysctl rc={out.returncode}"
+            return reading
+        reading["value"] = int(out.stdout.strip())
+        reading["ok"] = True
+    except Exception as exc:  # noqa: BLE001 — fail-soft is the contract
+        reading["error"] = type(exc).__name__
+    return reading
+
+
+def read_machine_limits(internal_path: str = None, t7_path: str = None, now=None) -> dict:
+    """Take the live machine-limits reading and stamp it with its own read time."""
+    stamp = now or datetime.now(timezone.utc)
+    return {
+        "read_at": stamp.strftime("%Y-%m-%dT%H:%MZ"),
+        "internal": _read_volume(internal_path or INTERNAL_DATA_VOLUME),
+        "t7": _read_volume(t7_path or T7_MOUNT),
+        "wired_limit_mb": _read_wired_limit(),
+        "model_pull_threshold_gib": MODEL_PULL_THRESHOLD_GIB,
+        "model_pull_threshold_basis": MODEL_PULL_THRESHOLD_BASIS,
+    }
+
+
+def _internal_clause(internal: dict, threshold: float) -> str:
+    if not internal.get("ok"):
+        why = internal.get("error") or "unreadable"
+        return (f"internal disk unmeasured ({why}) — the {threshold} GiB model-pull "
+                f"threshold CANNOT be evaluated and no remembered figure is substituted")
+    free = internal["free_gib"]
+    cap = internal["capacity_pct"]
+    cap_txt = f" at {cap}%" if cap is not None else ""
+    if free < threshold:
+        return (f"internal disk {free} GiB free{cap_txt} — BELOW the {threshold} GiB "
+                f"model-pull threshold: NO model pull is safe")
+    return (f"internal disk {free} GiB free{cap_txt} — above the {threshold} GiB "
+            f"model-pull threshold, so the largest named pending pull FITS "
+            f"({MODEL_PULL_THRESHOLD_UNCLAIMED})")
+
+
+def _t7_clause(t7: dict) -> str:
+    if t7.get("mounted") is False:
+        return "T7 not mounted (a membrane when present)"
+    if not t7.get("ok"):
+        return f"T7 unmeasured ({t7.get('error') or 'unreadable'}) but a membrane"
+    cap = t7["capacity_pct"]
+    cap_txt = f" at {cap}%" if cap is not None else ""
+    return f"T7 {t7['free_gib']} GiB free{cap_txt} but a membrane"
+
+
+def _wired_clause(wired: dict) -> str:
+    if not wired.get("ok"):
+        return (f"iogpu.wired_limit_mb=unmeasured ({wired.get('error') or 'unreadable'}) "
+                f"— the resident-engine ceiling is unknown this boot")
+    if wired["value"] == 0:
+        # 0 = no override set; the t748 reading and its gloss both still hold at this value.
+        return "iogpu.wired_limit_mb=0 — one engine resident at a time"
+    # A raised limit invalidates the t748 gloss, so the gloss is NOT carried forward onto it.
+    return f"iogpu.wired_limit_mb={wired['value']} (raised from 0; the resident-engine ceiling moved)"
+
+
+def render_machine_limits(reading: dict = None) -> str:
+    """The MACHINE LIMITS sentence, rendered from a reading taken at render time.
+
+    Stamps its own read time. States the model-pull caution as a THRESHOLD on the live
+    figure, naming the threshold and its basis. Fails soft to `unmeasured` / `not mounted`,
+    never to a remembered number, and never raises into a boot.
+    """
+    try:
+        r = reading if reading is not None else read_machine_limits()
+        return (
+            f"MACHINE LIMITS (read live at {r['read_at']}): "
+            f"{_internal_clause(r['internal'], r['model_pull_threshold_gib'])}; "
+            f"threshold basis: {r['model_pull_threshold_basis']}; "
+            f"{_wired_clause(r['wired_limit_mb'])}; "
+            f"{_t7_clause(r['t7'])}."
+        )
+    except Exception as exc:  # noqa: BLE001 — a boot is never blocked by this sentence
+        return (f"MACHINE LIMITS: unmeasured (render failed: {type(exc).__name__}) — no "
+                f"remembered figure is substituted.")
+
 def render_standing_substrate(tic: int) -> str:
     """THE STANDING SUBSTRATE & THE HOIST — budget-exempt, verbatim, every tic (orchestrator +
     citizen). The tic-494 findings as durable orientation: substrate-present-not-absent, the join,
@@ -293,7 +464,10 @@ def render_standing_substrate(tic: int) -> str:
         f"\n━━━ THE STANDING SUBSTRATE & THE HOIST · what exists · the join · the grammar · "
         f"boot-verbatim every tic · tic {tic} (budget-exempt — over-explain now so we stop "
         "re-discovering it) ━━━"
-        + STANDING_SUBSTRATE
+        # The block is verbatim EXCEPT its MACHINE LIMITS sentence, which is rendered
+        # from reads taken right now (ruled /review 802 r3). Everything else in
+        # STANDING_SUBSTRATE — the model inventory, the law of the block — is untouched.
+        + STANDING_SUBSTRATE.replace(MACHINE_LIMITS_PLACEHOLDER, render_machine_limits())
     )
 
 
