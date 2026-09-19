@@ -100,6 +100,154 @@ MEMBERSHIP_EXCLUSION_REASONS = {
 }
 
 
+# ---------------------------------------------------------------------------
+# NON-MEMBERSHIP EXCLUSION AXES — per-axis cardinality disclosure
+#
+# RULED /review 803 round 1 Q1 (ent_breyden, the Architect; recommended option
+# verbatim "ABSORB + tail + rule cure"). Row cpr_mogul_ladder_audit_d458dbccb162
+# (birth 800), ABSORBED into guard 18 of the presence-observation family
+# (per-axis cardinality disclosure, born tic 735) with the UNRENDERED-AXIS tail.
+# THIRD recurrence of the per-axis family on this one instrument (membership
+# axis tic 688; type axis tic 735; noise axis tic 800) — a Case 2: the law
+# exists, the application was missing at its locus. The cure is wired, not
+# re-inscribed.
+#
+# The MEMBERSHIP fence above is ENUMERATED. The four OTHER narrowing predicates
+# this walk applies were, until this increment, SILENT `continue`s. The tic-800
+# rendered report printed `CLAUDE.md files: 6` and `Fenced (membership): 2` and
+# carried NO line for the NINE files dropped by the nested-repo predicate — so a
+# reader who honored every disclosure computed a population of 8. The nine are
+# CORRECTLY excluded (each governs itself at its own rung): the verdict was
+# right, the disclosure was thin. This adds DISCLOSURE ONLY — which files are in
+# the chain does not move.
+#
+# Engine/content separation (federation KI): the walk is the ENGINE; the axis
+# keys, predicates, reasons and enumerate-members decisions below are CONTENT.
+#
+# COUNTING DISCIPLINE — FIRST-MATCH-WINS. The predicates run in walk order and
+# each `continue`s, so a file excludable on several axes is counted ONCE, at the
+# FIRST axis that fires. The counts therefore PARTITION the scanned population;
+# they are NOT independent per-predicate totals. That is itself a narrowing
+# predicate between two cardinalities, so it rides BESIDE the numbers (guard 18)
+# instead of staying in the source.
+#
+# DOES-NOT-SATISFY RIDER (travels verbatim with this disclosure):
+# this increment does NOT admit any nested repo into the chain, does NOT audit
+# any of the nine, does NOT change the membership fence ruled at /review 688,
+# and does NOT satisfy guard 18's type-axis consumer (that one landed at
+# /review 738).
+# ---------------------------------------------------------------------------
+
+PER_AXIS_DISCLOSURE_DOES_NOT_SATISFY = (
+    "this increment does NOT admit any nested repo into the chain, does NOT "
+    "audit any of the nine, does NOT change the membership fence ruled at "
+    "/review 688, and does NOT satisfy guard 18's type-axis consumer (that one "
+    "landed at /review 738)."
+)
+
+# Noise directories the chain walk skips entirely. Hoisted from the walk body to
+# module scope so the axis CONTENT below can name the set it fences (engine /
+# content separation) rather than describing an inline literal.
+CHAIN_NOISE_SKIP_DIRS = frozenset({
+    "node_modules", "__pycache__", ".git", "dist", "build", "target",
+})
+
+# The non-membership axes, IN THE ORDER THE WALK APPLIES THEM. `enumerates_members`
+# is a per-axis CONTENT decision: the nested-repo members are GOVERNED SURFACES
+# (each a rung governing itself), not build noise, so their paths are published;
+# the noise axes publish a count only.
+NON_MEMBERSHIP_EXCLUSION_AXES = (
+    {
+        "axis": "hidden_directory",
+        "predicate": ("any path component begins with '.' (except '.claude') — "
+                      "checked over the zone-relative path components"),
+        "reason": ("hidden/dotted infrastructure directory — not a governed rung "
+                   "surface"),
+        "enumerates_members": False,
+    },
+    {
+        "axis": "skip_dirs",
+        "predicate": ("any path component is in CHAIN_NOISE_SKIP_DIRS "
+                      "(node_modules, __pycache__, .git, dist, build, target)"),
+        "reason": "build artifact / vendor internal / VCS noise directory",
+        "enumerates_members": False,
+    },
+    {
+        "axis": "vendor_depth",
+        "predicate": ("a 'vendor' path component exists AND the file sits more "
+                      "than 3 levels below it (depth_in_vendor > 3). NOTE: this "
+                      "is the walk's ONLY depth limit — it is vendor-RELATIVE; "
+                      "the walk is otherwise UNBOUNDED in depth (Path.rglob)"),
+        "reason": ("deep vendor nesting — probably a nested repo's own "
+                   "governance, outside this zone's authority"),
+        "enumerates_members": False,
+    },
+    {
+        "axis": "nested_repo",
+        "predicate": ("the file's OWN parent directory carries a .git AND is not "
+                      "the zone root ((md.parent / '.git').exists() and "
+                      "md.parent != root). Tests the PARENT only — a CLAUDE.md "
+                      "nested deeper INSIDE a nested repo is not caught here"),
+        "reason": ("a nested repository ROOT — it governs itself at its own rung; "
+                   "correctly excluded from THIS chain, and named because its "
+                   "members are governed surfaces rather than build noise"),
+        "enumerates_members": True,
+    },
+)
+
+
+def _build_axis_disclosure(scanned, chain_member_count, membership_exclusion_count,
+                           axis_hits, axis_members):
+    """Assemble the typed per-axis disclosure the report carries under
+    `exclusion_axes`. Pure assembly of figures the walk measured IN ITS OWN PASS —
+    it re-walks nothing and re-derives nothing."""
+    axes = []
+    for spec in NON_MEMBERSHIP_EXCLUSION_AXES:
+        key = spec["axis"]
+        entry = {
+            "axis": key,
+            "count": axis_hits.get(key, 0),
+            "predicate": spec["predicate"],
+            "reason": spec["reason"],
+            "enumerates_members": spec["enumerates_members"],
+        }
+        if spec["enumerates_members"]:
+            entry["members"] = sorted(axis_members.get(key, []))
+        axes.append(entry)
+    non_membership_total = sum(axis_hits.get(a["axis"], 0)
+                               for a in NON_MEMBERSHIP_EXCLUSION_AXES)
+    return {
+        "_law": (
+            "Every narrowing predicate between two rendered cardinalities is a "
+            "disclosure obligation carried BESIDE the number, not left in the "
+            "source (guard 18, ledger.md#presence-observation-fallacy-guard). "
+            "Each count below is measured BY THE WALK ITSELF in the same pass "
+            "that builds the chain — never re-derived by a second traversal."
+        ),
+        "counting_discipline": (
+            "FIRST-MATCH-WINS in walk order (membership fence, then "
+            + ", ".join(a["axis"] for a in NON_MEMBERSHIP_EXCLUSION_AXES) +
+            "). A file excludable on several axes is counted ONCE, at the first "
+            "axis that fires, so these counts PARTITION the scanned population "
+            "and are NOT independent per-predicate totals."
+        ),
+        "scanned_total": scanned,
+        "chain_members": chain_member_count,
+        "membership_exclusions": membership_exclusion_count,
+        "non_membership_exclusions": non_membership_total,
+        "reconciles": (
+            scanned == chain_member_count + membership_exclusion_count
+            + non_membership_total
+        ),
+        "reconciliation_identity": (
+            "scanned_total == chain_members + membership_exclusions + "
+            "non_membership_exclusions"
+        ),
+        "axes": axes,
+        "does_not_satisfy": PER_AXIS_DISCLOSURE_DOES_NOT_SATISFY,
+    }
+
+
 def _membrane_marker(parts):
     """The OUTERMOST assessment-membrane path component this artifact sits under,
     or None.
@@ -115,31 +263,41 @@ def _membrane_marker(parts):
     return None
 
 
-def discover_claude_mds_with_exclusions(zone_root):
-    """Walk from zone root downward; return (chain_members, membership_exclusions).
+def discover_claude_mds_with_disclosure(zone_root):
+    """Walk from zone root downward; return
+    (chain_members, membership_exclusions, exclusion_axes).
 
-    chain_members       — the CLAUDE.md files admitted into the governance chain.
+    chain_members         — the CLAUDE.md files admitted into the governance chain.
     membership_exclusions — the ENUMERATED disclosure of artifacts fenced OUT on
         the membership axis: [{path, reason, membrane_marker, detail}]. Always a
         list, empty when nothing fired (honest-empty, never an absent key).
+    exclusion_axes        — the per-axis cardinality disclosure for the NON-
+        membership narrowing predicates (hidden_directory, skip_dirs,
+        vendor_depth, nested_repo), each counted BY THIS WALK in THIS pass, with
+        the nested-repo axis additionally enumerating its members by path
+        (RULED /review 803 round 1 Q1).
 
     Aggressively skips vendor submodule internals and nested repos to avoid
     polluting the governance chain with files outside the zone's authority, AND
     fences the assessment membrane (see the section header) so un-admitted
     inbound material never becomes a chain member or a finding subject.
+
+    DISCLOSURE ONLY — every predicate below is byte-for-byte the predicate that
+    ran before this increment; only the counting was added. Which files are in
+    the chain does not move.
     """
     found = []
     membership_exclusions = []
+    axis_hits = {a["axis"]: 0 for a in NON_MEMBERSHIP_EXCLUSION_AXES}
+    axis_members = {a["axis"]: [] for a in NON_MEMBERSHIP_EXCLUSION_AXES
+                    if a["enumerates_members"]}
+    scanned = 0
     root = Path(zone_root)
-
-    # Directories to skip entirely — nested repos, vendor internals, build artifacts
-    skip_dirs = {
-        "node_modules", "__pycache__", ".git", "dist", "build", "target",
-    }
 
     for md in sorted(root.rglob("CLAUDE.md")):
         rel = str(md.relative_to(root))
         parts = rel.split(os.sep)
+        scanned += 1
 
         # MEMBERSHIP FENCE — runs FIRST, before every noise skip and before any
         # finding can be derived from this artifact. Enumerated, not implicit.
@@ -155,10 +313,12 @@ def discover_claude_mds_with_exclusions(zone_root):
 
         # Skip hidden directories (except .claude)
         if any(p.startswith(".") and p != ".claude" for p in parts):
+            axis_hits["hidden_directory"] += 1
             continue
 
         # Skip known noise directories
-        if any(p in skip_dirs for p in parts):
+        if any(p in CHAIN_NOISE_SKIP_DIRS for p in parts):
+            axis_hits["skip_dirs"] += 1
             continue
 
         # Skip deep vendor nesting (vendor/X/Y/CLAUDE.md is fine,
@@ -167,13 +327,34 @@ def discover_claude_mds_with_exclusions(zone_root):
         if vendor_idx >= 0:
             depth_in_vendor = len(parts) - vendor_idx - 1  # depth below vendor/
             if depth_in_vendor > 3:
+                axis_hits["vendor_depth"] += 1
                 continue
 
-        # Skip if the directory contains its own .git (nested repo)
+        # Skip if the directory contains its own .git (nested repo). Its members
+        # are ENUMERATED by path: they are governed surfaces, not build noise.
         if (md.parent / ".git").exists() and md.parent != root:
+            axis_hits["nested_repo"] += 1
+            axis_members["nested_repo"].append(rel)
             continue
 
         found.append(md)
+
+    exclusion_axes = _build_axis_disclosure(
+        scanned, len(found), len(membership_exclusions), axis_hits, axis_members)
+    return found, membership_exclusions, exclusion_axes
+
+
+def discover_claude_mds_with_exclusions(zone_root):
+    """Pair-returning entry point — (chain_members, membership_exclusions).
+
+    ARITY IS A GUARDED CONTRACT (test_ladder_audit_membership_fence.py
+    TestDiscoveryHelperContract.test_pair_helper_returns_two_values): this stays
+    a PAIR. The tic-803 per-axis disclosure is carried by the three-returning
+    `discover_claude_mds_with_disclosure` above, which this delegates to — so the
+    closed consumer set of this helper is not broken by the added disclosure.
+    """
+    found, membership_exclusions, _axes = discover_claude_mds_with_disclosure(
+        zone_root)
     return found, membership_exclusions
 
 
@@ -557,7 +738,7 @@ def load_active_signals(zone_root):
 def run_audit(zone_root, verbose=False):
     """Execute the full ladder audit and return structured results."""
     zone_root = os.path.abspath(zone_root)
-    md_paths, membership_exclusions = discover_claude_mds_with_exclusions(zone_root)
+    md_paths, membership_exclusions, exclusion_axes = discover_claude_mds_with_disclosure(zone_root)
 
     if not md_paths:
         # The fence disclosure survives the empty-chain path: a zone whose only
@@ -565,7 +746,12 @@ def run_audit(zone_root, verbose=False):
         # or the exclusion goes dark exactly when it explains the empty result.
         return {"error": "No CLAUDE.md files found", "zone_root": zone_root,
                 "membership_exclusions": membership_exclusions,
-                "membership_exclusion_count": len(membership_exclusions)}
+                "membership_exclusion_count": len(membership_exclusions),
+                # The per-axis disclosure survives the empty-chain path for the
+                # same reason the membership fence does: the exclusion axes are
+                # exactly what EXPLAINS an empty result, so they may not go dark
+                # here (ruled /review 803 Q1).
+                "exclusion_axes": exclusion_axes}
 
     nodes = build_chain(zone_root, md_paths)
     findings = cross_reference(nodes)
@@ -679,6 +865,15 @@ def run_audit(zone_root, verbose=False):
         ),
         "membership_exclusions": membership_exclusions,
         "membership_exclusion_count": len(membership_exclusions),
+        # Per-axis cardinality disclosure for the NON-membership narrowing
+        # predicates (RULED /review 803 round 1 Q1). The typed report carries the
+        # same figures the prose renders, under this named key, so a consumer
+        # need not parse prose. DOES-NOT-SATISFY RIDER (verbatim): this increment
+        # does NOT admit any nested repo into the chain, does NOT audit any of
+        # the nine, does NOT change the membership fence ruled at /review 688,
+        # and does NOT satisfy guard 18's type-axis consumer (that one landed at
+        # /review 738).
+        "exclusion_axes": exclusion_axes,
         "claude_md_count": len(md_paths),
         "rules_audited": len(rule_classifications),
         # Guard 18 (ledger.md#presence-observation-fallacy-guard, /review 738): every
@@ -4775,6 +4970,23 @@ def format_human_readable(result):
     lines.append(f"  CLAUDE.md files: {result.get('claude_md_count', 0)}")
     lines.append(f"  Rules audited:   {result.get('rules_audited', 0)}  [excludes type=='section' rows; chain-map counts include them — delta is a type filter, not coverage]")
     lines.append(f"  Fenced (membership): {result.get('membership_exclusion_count', 0)}")
+    # ONE COUNT LINE PER NON-MEMBERSHIP EXCLUSION AXIS the discovery walk applies
+    # (RULED /review 803 round 1 Q1). Before this, these four predicates were
+    # silent `continue`s and a reader honoring every disclosure under-counted the
+    # scanned population. DOES-NOT-SATISFY RIDER (verbatim): this increment does
+    # NOT admit any nested repo into the chain, does NOT audit any of the nine,
+    # does NOT change the membership fence ruled at /review 688, and does NOT
+    # satisfy guard 18's type-axis consumer (that one landed at /review 738).
+    _axes_disc = result.get("exclusion_axes") or {}
+    for _a in _axes_disc.get("axes", []):
+        lines.append(f"  Excluded ({_a['axis']}): {_a['count']}")
+    if _axes_disc:
+        lines.append(
+            f"  Scanned (CLAUDE.md seen by the walk): {_axes_disc.get('scanned_total', 0)}"
+            f"  = {_axes_disc.get('chain_members', 0)} chain"
+            f" + {_axes_disc.get('membership_exclusions', 0)} membership"
+            f" + {_axes_disc.get('non_membership_exclusions', 0)} non-membership"
+            f"  [reconciles: {_axes_disc.get('reconciles')}]")
     lines.append("")
     lines.append("  NOTE: Parent/child inferred from path nesting, not explicit")
     lines.append("  governance linkage. Not authoritative constitutional judgment.")
@@ -4804,6 +5016,47 @@ def format_human_readable(result):
         lines.append(f"  [{e.get('reason', '?')}] {e.get('path', '?')}")
         lines.append(f"      membrane_marker: {e.get('membrane_marker', '?')}")
     lines.append("")
+
+    # NON-MEMBERSHIP EXCLUSION AXES — the per-axis cardinality disclosure ruled at
+    # /review 803 round 1 Q1. Always rendered, including the honest-empty case: a
+    # zero is a CLAIM the walk makes, not a silence. The nested-repo axis also
+    # enumerates its members by path, because those members are governed surfaces
+    # (each a rung governing itself), not build noise.
+    #
+    # DOES-NOT-SATISFY RIDER (verbatim): this increment does NOT admit any nested
+    # repo into the chain, does NOT audit any of the nine, does NOT change the
+    # membership fence ruled at /review 688, and does NOT satisfy guard 18's
+    # type-axis consumer (that one landed at /review 738).
+    axes_disc = result.get("exclusion_axes") or {}
+    axes = axes_disc.get("axes", [])
+    if axes_disc:
+        lines.append(
+            f"EXCLUSION AXES (non-membership, {len(axes)}) — one count line per "
+            "narrowing predicate the walk applies:")
+        lines.append("-" * 60)
+        lines.append(f"  law: {axes_disc.get('_law', '')}")
+        lines.append(f"  counting: {axes_disc.get('counting_discipline', '')}")
+        lines.append(
+            f"  reconciliation: {axes_disc.get('reconciliation_identity', '')}"
+            f"  ->  {axes_disc.get('scanned_total', 0)}"
+            f" == {axes_disc.get('chain_members', 0)}"
+            f" + {axes_disc.get('membership_exclusions', 0)}"
+            f" + {axes_disc.get('non_membership_exclusions', 0)}"
+            f"  [{axes_disc.get('reconciles')}]")
+        for a in axes:
+            lines.append(f"  [{a['axis']}] excluded: {a['count']}")
+            lines.append(f"      predicate: {a['predicate']}")
+            lines.append(f"      reason: {a['reason']}")
+            if a.get("enumerates_members"):
+                members = a.get("members", [])
+                lines.append(f"      members ({len(members)}) — enumerated by path "
+                             "(governed surfaces, not build noise):")
+                if not members:
+                    lines.append("        (none)")
+                for m in members:
+                    lines.append(f"        - {m}")
+        lines.append(f"  does-not-satisfy: {axes_disc.get('does_not_satisfy', '')}")
+        lines.append("")
 
     # Summary
     summary = result.get("summary", {})
