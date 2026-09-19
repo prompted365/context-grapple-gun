@@ -280,10 +280,57 @@ CGG_MSG="$EFFECTIVE_RECORD_MSG"
 HANDOFF_ID=""
 LATEST_PLAN=""
 
-PLAN_DIR="$HOME/.claude/projects/$PROJECT_KEY"
+# ============================================================================
+# ONE RULE, THREE CALL SITES (ruled /review 804 round 3, Architect-ratified,
+# recommended option verbatim "Cure at 805, BEFORE the first pointer boundary").
+#
+# The plan-discovery DIRECTORY SET is NOT re-derived here: it is the seal
+# reconciler's own `candidate_plan_dirs()`, imported from cadence-handoff-seal.py
+# (READ-only; that file is untouched by this increment). Call site A is
+# cadence-handoff-seal.py `find_boundary_plan_file` -> `candidate_plan_dirs()`;
+# call site B is this block; call site C is cgg-gate.sh's Branch-B plan
+# resolution. A second bash-side derivation -- hardcoding the two directories
+# here -- would be a SECOND RULE the moment either copy drifted, which is exactly
+# how this seam broke: the seal globbed ~/.claude/plans/ all along while this
+# hook read only ~/.claude/projects/<key>/, so every handoff-consuming locus
+# below went dark without one error.
+#
+# THE ZONE ROOT IS BOUND EXPLICITLY before the rule is called. The module binds
+# itself at import to whatever zone it can resolve from its OWN file location,
+# and candidate_plan_dirs() derives the project key FROM that binding -- so an
+# unbound call would answer for the wrong zone.
+#
+# FAIL-OPEN TO THE PRE-CURE DIRECTORY, deliberately. If the rule cannot be
+# reached (seal hook absent, import failure, python3 missing) the set degrades to
+# $HOME/.claude/projects/$PROJECT_KEY -- EXACTLY the pre-cure behaviour. That
+# fallback is not a second derivation of the rule; it is the ABSENCE of the rule,
+# named as such, and it never silently invents the second directory.
+#
+# DOES-NOT-SATISFY RIDER (travels verbatim): this increment does NOT flip the payload switch, does NOT establish how long the loci have been dark, does NOT change the seal journal's vocabulary, and does NOT serve the successor session (manifest row B13), which has no call site and is served only by the pointer payload's own text.
+# ============================================================================
 
-if [ -d "$PLAN_DIR" ]; then
-  for PLAN_FILE in $(find "$PLAN_DIR" -maxdepth 2 -name "*.md" -newer "$PROCESSED_IDS" 2>/dev/null | sort -r | head -10); do
+PLAN_DIRS=()
+if [ -n "$SEAL_HOOK_SCRIPT" ]; then
+  while IFS= read -r _plan_dir; do
+    [ -n "$_plan_dir" ] && PLAN_DIRS+=("$_plan_dir")
+  done < <(CGG_SEAL_RULE="$SEAL_HOOK_SCRIPT" CGG_ZONE_ROOT="$ZONE_ROOT" python3 -c '
+import importlib.util, os
+from pathlib import Path
+spec = importlib.util.spec_from_file_location("cgg_seal_rule", os.environ["CGG_SEAL_RULE"])
+mod = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(mod)
+mod.bind_zone(Path(os.environ["CGG_ZONE_ROOT"]))
+for d in mod.candidate_plan_dirs():
+    print(d)
+' 2>/dev/null || true)
+fi
+if [ ${#PLAN_DIRS[@]} -eq 0 ]; then
+  PLAN_DIR="$HOME/.claude/projects/$PROJECT_KEY"
+  [ -d "$PLAN_DIR" ] && PLAN_DIRS=("$PLAN_DIR")
+fi
+
+if [ ${#PLAN_DIRS[@]} -gt 0 ]; then
+  for PLAN_FILE in $(find "${PLAN_DIRS[@]}" -maxdepth 2 -name "*.md" -newer "$PROCESSED_IDS" 2>/dev/null | sort -r | head -10); do
     if grep -q "cgg-handoff" "$PLAN_FILE" 2>/dev/null; then
       PLAN_PROJECT=$(grep 'project_dir:' "$PLAN_FILE" 2>/dev/null | head -1 | sed 's/.*project_dir: *"\{0,1\}\([^"]*\)"\{0,1\}/\1/' | tr -d ' ')
       if [ "$PLAN_PROJECT" = "$PROJECT_DIR" ]; then
@@ -313,6 +360,78 @@ if [ -n "$LATEST_PLAN" ] && [ -n "$HANDOFF_ID" ]; then
     echo "$HANDOFF_ID" > "$FLAG_DIR/pending-handoff-id.txt"
     TRIGGER_MSG="[CGG EVALUATION PENDING: $EXPECTED CogPR flags extracted from handoff $HANDOFF_ID]"
   fi
+fi
+
+# ============================================================================
+# THE BODY-CONSUMING PATH, UNDER THE ONE SWITCH (manifest rows B3..B6, the
+# re-points Deliverable 2 EXCLUDED; they land in THIS change, under the SAME
+# switch -- cgg-runtime/config/handoff-payload-mode.json, `body` today).
+#
+# Four readers below consume the handoff BODY, not a marker: the inline-CogPR
+# awk scan (B3), the cpr-extract --plan-file delegation (B4), and the two
+# section-bounded awk ranges that build the boot briefing (B5 `## Next Actions`,
+# B6 `### Not Started`). Under `pointer` mode $LATEST_PLAN is an ENVELOPE, not
+# the plan, and all four would read a body that never had their content -- an
+# empty extraction that reads as a LAWFUL ZERO and a strictly thinner briefing
+# emitted with no error. They therefore read HANDOFF_BODY_PATH, resolved here.
+#
+# The mode rule and the pointer/durable-home rule are NOT re-derived either:
+# resolve_payload_mode(), parse_pointer_block() and resolve_durable_home() are
+# the seal's own, imported the same READ-only way.
+#
+# UNDER `body` (today) HANDOFF_BODY_PATH IS $LATEST_PLAN -- the executed path and
+# every emitted byte are unchanged, which is the property the drill's byte-clean
+# comparison measures.
+#
+# A DANGLING durable home is REFUSED fail-closed and LOUD, mirroring the seal's
+# own pointer discipline: the body-consumers are left unfed rather than fed the
+# envelope, because a silent thinner briefing is the exact failure this re-point
+# exists to prevent.
+#
+# DOES-NOT-SATISFY RIDER (travels verbatim): this increment does NOT flip the payload switch, does NOT establish how long the loci have been dark, does NOT change the seal journal's vocabulary, and does NOT serve the successor session (manifest row B13), which has no call site and is served only by the pointer payload's own text.
+# ============================================================================
+
+HANDOFF_BODY_PATH="$LATEST_PLAN"
+HANDOFF_POINTER_MSG=""
+if [ -n "$LATEST_PLAN" ] && [ -n "$SEAL_HOOK_SCRIPT" ]; then
+  HANDOFF_BODY_FIELDS=$(CGG_SEAL_RULE="$SEAL_HOOK_SCRIPT" CGG_ZONE_ROOT="$ZONE_ROOT" \
+    CGG_PLAN_FILE="$LATEST_PLAN" python3 -c '
+import importlib.util, os
+from pathlib import Path
+spec = importlib.util.spec_from_file_location("cgg_seal_rule", os.environ["CGG_SEAL_RULE"])
+mod = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(mod)
+mod.bind_zone(Path(os.environ["CGG_ZONE_ROOT"]))
+mode, _reason = mod.resolve_payload_mode()
+plan = Path(os.environ["CGG_PLAN_FILE"])
+if mode != mod.PAYLOAD_MODE_POINTER:
+    print("body")
+    print(str(plan))
+else:
+    try:
+        text = plan.read_text(encoding="utf-8", errors="replace")
+    except OSError:
+        text = ""
+    block = mod.parse_pointer_block(text)
+    home, why = mod.resolve_durable_home(block.get("durable_home"))
+    if home is None:
+        print("pointer_unresolved")
+        print(why)
+    else:
+        print("pointer")
+        print(str(home))
+' 2>/dev/null || true)
+  HANDOFF_BODY_KIND=$(printf '%s\n' "$HANDOFF_BODY_FIELDS" | sed -n '1p')
+  HANDOFF_BODY_VALUE=$(printf '%s\n' "$HANDOFF_BODY_FIELDS" | sed -n '2p')
+  case "$HANDOFF_BODY_KIND" in
+    pointer)
+      [ -n "$HANDOFF_BODY_VALUE" ] && HANDOFF_BODY_PATH="$HANDOFF_BODY_VALUE"
+      ;;
+    pointer_unresolved)
+      HANDOFF_BODY_PATH=""
+      HANDOFF_POINTER_MSG="[CGG HANDOFF POINTER UNRESOLVED: payload mode is pointer but the durable home named by $LATEST_PLAN did not resolve ($HANDOFF_BODY_VALUE). The body-consuming readers are HELD rather than fed the envelope. Do NOT proceed from the pointer summary; open the durable home or report a broken handoff pointer.]"
+      ;;
+  esac
 fi
 
 # ============================================================================
@@ -379,8 +498,10 @@ fi
 
 # Active plan file (caller-selected by LATEST_PLAN discovery above).
 # Active plan only — never scans the whole plans directory.
-if [ -n "$LATEST_PLAN" ] && [ -f "$LATEST_PLAN" ]; then
-  emit_pending_cpr_ids "$LATEST_PLAN" >> "$INLINE_CPR_IDS_FILE"
+# Row B3 re-point (under the one switch): scan the durable home, not the
+# approval artifact. Under `body` this is byte-for-byte the previous read.
+if [ -n "$HANDOFF_BODY_PATH" ] && [ -f "$HANDOFF_BODY_PATH" ]; then
+  emit_pending_cpr_ids "$HANDOFF_BODY_PATH" >> "$INLINE_CPR_IDS_FILE"
 fi
 
 # Queue.jsonl counting (latest-entry-per-ID, non-terminal statuses)
@@ -480,8 +601,9 @@ resolve_script() {
 # ----------------------------------------------------------------------------
 CPR_EXTRACT=$(resolve_script "cpr-extract.py")
 if [ -n "$CPR_EXTRACT" ] && [ "$TOTAL_CPRS" -gt 0 ]; then
-  if [ -n "$LATEST_PLAN" ] && [ -f "$LATEST_PLAN" ]; then
-    python3 "$CPR_EXTRACT" --project-dir "$PROJECT_DIR" --plan-file "$LATEST_PLAN" 2>/dev/null || true
+  # Row B4 re-point (under the one switch): pass the durable home to --plan-file.
+  if [ -n "$HANDOFF_BODY_PATH" ] && [ -f "$HANDOFF_BODY_PATH" ]; then
+    python3 "$CPR_EXTRACT" --project-dir "$PROJECT_DIR" --plan-file "$HANDOFF_BODY_PATH" 2>/dev/null || true
   else
     python3 "$CPR_EXTRACT" --project-dir "$PROJECT_DIR" 2>/dev/null || true
   fi
@@ -1061,20 +1183,23 @@ fi
 # Build handoff context
 # ============================================================================
 
+# Rows B5 and B6 re-point (under the one switch): awk the durable home. Under
+# `body` HANDOFF_BODY_PATH IS $LATEST_PLAN, so every emitted byte is unchanged.
 HANDOFF_MSG=""
-if [ -n "$LATEST_PLAN" ]; then
-  NEXT_ACTIONS=$(awk '/^## Next Actions/,/^## [^N]/' "$LATEST_PLAN" 2>/dev/null | head -20 | sed 's/"/\\"/g' | tr '\n' ' ')
+if [ -n "$HANDOFF_BODY_PATH" ]; then
+  NEXT_ACTIONS=$(awk '/^## Next Actions/,/^## [^N]/' "$HANDOFF_BODY_PATH" 2>/dev/null | head -20 | sed 's/"/\\"/g' | tr '\n' ' ')
   if [ -n "$NEXT_ACTIONS" ] && [ ${#NEXT_ACTIONS} -gt 20 ]; then
-    HANDOFF_MSG="[CGG HANDOFF NEXT ACTIONS: $NEXT_ACTIONS] [Full plan if needed: $LATEST_PLAN]"
+    HANDOFF_MSG="[CGG HANDOFF NEXT ACTIONS: $NEXT_ACTIONS] [Full plan if needed: $HANDOFF_BODY_PATH]"
   else
-    WORKING=$(awk '/^### Not Started/,/^### [^N]/' "$LATEST_PLAN" 2>/dev/null | head -15 | sed 's/"/\\"/g' | tr '\n' ' ')
+    WORKING=$(awk '/^### Not Started/,/^### [^N]/' "$HANDOFF_BODY_PATH" 2>/dev/null | head -15 | sed 's/"/\\"/g' | tr '\n' ' ')
     if [ -n "$WORKING" ] && [ ${#WORKING} -gt 20 ]; then
-      HANDOFF_MSG="[CGG HANDOFF REMAINING: $WORKING] [Full plan if needed: $LATEST_PLAN]"
+      HANDOFF_MSG="[CGG HANDOFF REMAINING: $WORKING] [Full plan if needed: $HANDOFF_BODY_PATH]"
     else
-      HANDOFF_MSG="[CGG CHARTER: Read $LATEST_PLAN]"
+      HANDOFF_MSG="[CGG CHARTER: Read $HANDOFF_BODY_PATH]"
     fi
   fi
 fi
+[ -n "$HANDOFF_POINTER_MSG" ] && HANDOFF_MSG="${HANDOFF_MSG:+$HANDOFF_MSG }$HANDOFF_POINTER_MSG"
 [ -n "$HANDOFF_MSG" ] && CGG_MSG="${CGG_MSG:+$CGG_MSG }$HANDOFF_MSG"
 if [ -n "$TRIGGER_MSG" ]; then
   CGG_MSG="$CGG_MSG $TRIGGER_MSG"

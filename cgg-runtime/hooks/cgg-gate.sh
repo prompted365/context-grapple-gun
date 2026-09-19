@@ -171,6 +171,15 @@ resolve_script() {
   return 1
 }
 
+# Locate the seal hook — the HOME of the plan-discovery rule this gate consumes.
+# Resolving a PATH is not deriving a RULE: the rule stays one function in one file.
+SEAL_HOOK_SCRIPT=""
+for _seal_candidate in \
+  "$(cd "$(dirname "$0")" && pwd)/cadence-handoff-seal.py" \
+  "$CGG_PLUGIN_ROOT/cgg-runtime/hooks/cadence-handoff-seal.py"; do
+  [ -f "$_seal_candidate" ] && SEAL_HOOK_SCRIPT="$_seal_candidate" && break
+done
+
 # ============================================================================
 # Branch A: Mandate check — independent of trigger-file state
 # ============================================================================
@@ -374,15 +383,76 @@ if [ -f "$TRIGGER_FILE" ]; then
   [ -z "$EXPECTED_CPRS" ] && EXPECTED_CPRS=0
 
   # Find the plan file that contains this handoff_id
+  # ==========================================================================
+  # CALL SITE C of ONE RULE, THREE CALL SITES (ruled /review 804 round 3).
+  # The directory set is the seal reconciler's own `candidate_plan_dirs()`,
+  # imported READ-only from cadence-handoff-seal.py — never re-derived here.
+  # Site A is that function's home; site B is session-restore.sh's discovery
+  # block. This branch shared session-restore's wrong single directory, so the
+  # path it resolved (and handed onward to the body-consuming assessor) was
+  # unreachable for any live handoff. Fail-open to the pre-cure directory.
+  #
+  # M3's DELEGATED PATH is re-pointed below, under the SAME switch: this gate is
+  # a marker-referencer that survives a pointer intact, but the surface it hands
+  # to `--plan` is consumed as a BODY by the assessor.
+  #
+  # DOES-NOT-SATISFY RIDER (travels verbatim): this increment does NOT flip the payload switch, does NOT establish how long the loci have been dark, does NOT change the seal journal's vocabulary, and does NOT serve the successor session (manifest row B13), which has no call site and is served only by the pointer payload's own text.
+  # ==========================================================================
   PLAN_PATH=""
   if [ -n "$HANDOFF_ID" ]; then
-    PLAN_DIR="$HOME/.claude/projects/$PROJECT_KEY"
-    if [ -d "$PLAN_DIR" ]; then
-      PLAN_PATH=$(grep -rl "handoff_id.*$HANDOFF_ID" "$PLAN_DIR"/*.md 2>/dev/null | head -1)
+    PLAN_DIRS=()
+    if [ -n "$SEAL_HOOK_SCRIPT" ]; then
+      while IFS= read -r _plan_dir; do
+        [ -n "$_plan_dir" ] && PLAN_DIRS+=("$_plan_dir")
+      done < <(CGG_SEAL_RULE="$SEAL_HOOK_SCRIPT" CGG_ZONE_ROOT="$ZONE_ROOT" python3 -c '
+import importlib.util, os
+from pathlib import Path
+spec = importlib.util.spec_from_file_location("cgg_seal_rule", os.environ["CGG_SEAL_RULE"])
+mod = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(mod)
+mod.bind_zone(Path(os.environ["CGG_ZONE_ROOT"]))
+for d in mod.candidate_plan_dirs():
+    print(d)
+' 2>/dev/null || true)
     fi
+    if [ ${#PLAN_DIRS[@]} -eq 0 ]; then
+      PLAN_DIR="$HOME/.claude/projects/$PROJECT_KEY"
+      [ -d "$PLAN_DIR" ] && PLAN_DIRS=("$PLAN_DIR")
+    fi
+    for _plan_dir in ${PLAN_DIRS[@]+"${PLAN_DIRS[@]}"}; do
+      [ -n "$PLAN_PATH" ] && break
+      PLAN_PATH=$(grep -rl "handoff_id.*$HANDOFF_ID" "$_plan_dir"/*.md 2>/dev/null | head -1)
+    done
     if [ -z "$PLAN_PATH" ]; then
       PLAN_PATH=$(grep -rl "handoff_id.*$HANDOFF_ID" "${TMPDIR:-/tmp}/claude_cgg/$PROJECT_KEY"/*.md 2>/dev/null | head -1)
     fi
+  fi
+
+  # M3 delegated-path re-point, under the one switch. Under `body` (today)
+  # ASSESSOR_PLAN_PATH IS $PLAN_PATH and the dispatched argv is unchanged.
+  ASSESSOR_PLAN_PATH="$PLAN_PATH"
+  if [ -n "$PLAN_PATH" ] && [ -n "$SEAL_HOOK_SCRIPT" ]; then
+    ASSESSOR_RESOLVED=$(CGG_SEAL_RULE="$SEAL_HOOK_SCRIPT" CGG_ZONE_ROOT="$ZONE_ROOT" \
+      CGG_PLAN_FILE="$PLAN_PATH" python3 -c '
+import importlib.util, os
+from pathlib import Path
+spec = importlib.util.spec_from_file_location("cgg_seal_rule", os.environ["CGG_SEAL_RULE"])
+mod = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(mod)
+mod.bind_zone(Path(os.environ["CGG_ZONE_ROOT"]))
+mode, _reason = mod.resolve_payload_mode()
+plan = Path(os.environ["CGG_PLAN_FILE"])
+if mode != mod.PAYLOAD_MODE_POINTER:
+    print(str(plan))
+else:
+    try:
+        text = plan.read_text(encoding="utf-8", errors="replace")
+    except OSError:
+        text = ""
+    home, _why = mod.resolve_durable_home(mod.parse_pointer_block(text).get("durable_home"))
+    print(str(home) if home is not None else "")
+' 2>/dev/null || true)
+    [ -n "$ASSESSOR_RESOLVED" ] && ASSESSOR_PLAN_PATH="$ASSESSOR_RESOLVED"
   fi
 
   # One-shot: delete flag files immediately
@@ -495,7 +565,7 @@ print(json.dumps(body))
   DETERMINISTIC_ASSESSOR=$(resolve_script "ripple-assessor.py")
   if [ -n "$DETERMINISTIC_ASSESSOR" ]; then
     python3 "$DETERMINISTIC_ASSESSOR" \
-      --plan "$PLAN_PATH" \
+      --plan "$ASSESSOR_PLAN_PATH" \
       --project "$PROJECT_DIR" \
       --output "$HOME/.claude/grapple-proposals/latest.md" \
       2>/dev/null &
