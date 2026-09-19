@@ -54,6 +54,33 @@ from pathlib import Path
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from zone_root import resolve_zone_root, load_ticzone, audit_logs_path
+# EFFECTIVE-STATE PROJECTION RECOMPILE — the ONE shared owner of "after a
+# successful queue mutation, recompile the projection for the zone that owns
+# that queue; fail-soft, and say so on stderr". RULED /review 803 round 2
+# (Architect-ratified, recommended option verbatim: "One shared helper, all five
+# writers, today"), extending the /review 801 round-2 ruling "Key the writer on
+# mutation". Ruling receipts:
+#   audit-logs/governance/receipts/2026-09-19-tic803-projection-shared-recompile-helper-ruling.md
+#   audit-logs/governance/receipts/2026-09-19-tic801-projection-writer-locus-ruling.md
+# This script is a queue MUTATOR that named the compiler only in comments (or
+# not at all) and never invoked it, so every mutation left the derived
+# effective-state projection stale until the next /review writeback.
+# ZONE LAW (CLI shape 22) lives in the helper: every path it uses is derived
+# from THE QUEUE PATH IT IS HANDED, never from any script's __file__ — which is
+# what makes the source copy and the INSTALLED copy under ~/.claude/ behave
+# identically.
+# DOES-NOT-SATISFY RIDER (travels verbatim): this increment does NOT add a reader-side staleness detector, does NOT prove the compiled per-id states are correct, does NOT test two writers racing, and does NOT make the projection authoritative over the queue — `queue.jsonl` latest-per-id remains the only authority; the projection is a derived convenience that is now writer-fresh for five of six writers by construction and for the sixth by its own code.
+from lib.effective_state_recompile import recompile_effective_state  # noqa: E402
+
+
+# Per-run observability for the recompile. advance_gated's INT return is a
+# consumer contract (main() and the --quiet count reader), so the recompile
+# outcome rides this module-level dict rather than widening the return.
+RUN_COUNTERS = {
+    "effective_state_recompiled": 0,
+    "effective_state_recompile_failed": 0,
+    "effective_state_recompile_detail": "",
+}
 
 
 def load_queue(queue_path):
@@ -210,6 +237,27 @@ def advance_gated(project_dir, dry_run=False, quiet=False):
         raced = append_transitions(queue_path, update_map)
 
     advanced = len(update_map) - len(raced)
+
+    # ── Effective-state recompile, KEYED ON MUTATION (RULED /review 803 r2,
+    # the three-writer adoption half; extends /review 801 r2).
+    #
+    # WHERE AND WHY THIS SITS HERE. AFTER append_transitions() has returned —
+    # it takes the flock, runs the write-side terminal-valve compare-and-swap,
+    # appends the surviving rows and releases the lock, all inside itself — and
+    # gated on `advanced > 0`, i.e. at least one transition row actually landed.
+    # A DRY-RUN never appends, and a run where EVERY candidate raced-and-skipped
+    # mutated nothing; neither may move the projection. Fail-soft by the
+    # helper's contract: a compile failure NEVER fails the transition write.
+    #
+    # DOES-NOT-SATISFY RIDER (travels verbatim): this increment does NOT add a reader-side staleness detector, does NOT prove the compiled per-id states are correct, does NOT test two writers racing, and does NOT make the projection authoritative over the queue — `queue.jsonl` latest-per-id remains the only authority; the projection is a derived convenience that is now writer-fresh for five of six writers by construction and for the sixth by its own code.
+    RUN_COUNTERS["effective_state_recompiled"] = 0
+    RUN_COUNTERS["effective_state_recompile_failed"] = 0
+    RUN_COUNTERS["effective_state_recompile_detail"] = ""
+    if not dry_run and advanced > 0:
+        _ok, _detail = recompile_effective_state(queue_path)
+        RUN_COUNTERS["effective_state_recompiled"] = 1 if _ok else 0
+        RUN_COUNTERS["effective_state_recompile_failed"] = 0 if _ok else 1
+        RUN_COUNTERS["effective_state_recompile_detail"] = _detail
     if not quiet:
         verb = "would advance" if dry_run else "advanced"
         print(f"{advanced}")

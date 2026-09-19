@@ -40,6 +40,33 @@ from pathlib import Path
 # Allow importing zone_root from same directory
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from zone_root import resolve_zone_root, load_ticzone, load_subsystems_config, audit_logs_path, birth_topology
+# EFFECTIVE-STATE PROJECTION RECOMPILE — the ONE shared owner of "after a
+# successful queue mutation, recompile the projection for the zone that owns
+# that queue; fail-soft, and say so on stderr". RULED /review 803 round 2
+# (Architect-ratified, recommended option verbatim: "One shared helper, all five
+# writers, today"), extending the /review 801 round-2 ruling "Key the writer on
+# mutation". Ruling receipts:
+#   audit-logs/governance/receipts/2026-09-19-tic803-projection-shared-recompile-helper-ruling.md
+#   audit-logs/governance/receipts/2026-09-19-tic801-projection-writer-locus-ruling.md
+# This script is a queue MUTATOR that named the compiler only in comments (or
+# not at all) and never invoked it, so every mutation left the derived
+# effective-state projection stale until the next /review writeback.
+# ZONE LAW (CLI shape 22) lives in the helper: every path it uses is derived
+# from THE QUEUE PATH IT IS HANDED, never from any script's __file__ — which is
+# what makes the source copy and the INSTALLED copy under ~/.claude/ behave
+# identically.
+# DOES-NOT-SATISFY RIDER (travels verbatim): this increment does NOT add a reader-side staleness detector, does NOT prove the compiled per-id states are correct, does NOT test two writers racing, and does NOT make the projection authoritative over the queue — `queue.jsonl` latest-per-id remains the only authority; the projection is a derived convenience that is now writer-fresh for five of six writers by construction and for the sixth by its own code.
+from lib.effective_state_recompile import recompile_effective_state  # noqa: E402
+
+
+# Per-run observability for the recompile. scan_and_enrich's INT return is a
+# consumer contract, so the recompile outcome rides this module-level dict
+# rather than widening the return.
+RUN_COUNTERS = {
+    "effective_state_recompiled": 0,
+    "effective_state_recompile_failed": 0,
+    "effective_state_recompile_detail": "",
+}
 from pattern_miner import gather_recurrence_count
 # Shared active-ray predicate (tic 403): heat-based, retires acknowledged-as-active.
 from lib.signal_active import is_active_ray
@@ -1169,6 +1196,9 @@ def scan_and_enrich(project_dir, dry_run=False, quiet=False):
             )
 
     append_via = None
+    RUN_COUNTERS["effective_state_recompiled"] = 0
+    RUN_COUNTERS["effective_state_recompile_failed"] = 0
+    RUN_COUNTERS["effective_state_recompile_detail"] = ""
     if entries_to_append and not dry_run:
         # APPEND-ONLY WRITE PATH — bk-cpr-enrichment-scanner-whole-file-rewrite-
         # of-queue (HIGH), ruled /review 750 Q7, landed B2 wave 4 at tic 765.
@@ -1209,6 +1239,38 @@ def scan_and_enrich(project_dir, dry_run=False, quiet=False):
         # widening; only the write mechanism moved.
         os.makedirs(os.path.dirname(queue_path), exist_ok=True)
         append_via = append_queue_rows(queue_path, entries_to_append)
+
+        # ── Effective-state recompile, KEYED ON MUTATION (RULED /review 803 r2,
+        # the three-writer adoption half; extends /review 801 r2).
+        #
+        # WHERE AND WHY THIS SITS HERE — AFTER THE LOCK'S SUCCESSFUL WRITE.
+        # append_queue_rows() owns the whole locked write: it takes the shell
+        # writers' mkdir lockdir (or the atomic-append.sh primitive, which holds
+        # its own), appends every copy-forward row, fsyncs, and releases —
+        # entirely inside itself. It RAISES RuntimeError when the primitive
+        # refuses or fails, so returning normally IS the "successful write"
+        # signal, and this line is the first statement after it: the recompile
+        # therefore reads a queue whose bytes are final and whose lock is
+        # already released (recompiling UNDER the lock would hold a whole-queue
+        # compile inside a write lock every other queue writer is waiting on).
+        # The enclosing `entries_to_append and not dry_run` guard is why a
+        # DRY-RUN and a zero-row scan move nothing.
+        #
+        # NOTE ON THE RULING'S STATE LINE: both the /review 803 ruling and the
+        # tic-802 seat's F-802-B2 describe this script as one that "rewrites the
+        # WHOLE queue under flock" at ~L1091. That was TRUE until tic 765, when
+        # bk-cpr-enrichment-scanner-whole-file-rewrite-of-queue (HIGH, ruled
+        # /review 750 Q7) replaced the whole-file rewrite with the append-only
+        # copy-forward path documented above. The MUTATION is real either way —
+        # the queue's sha256 moves, so the projection's stamp is invalidated —
+        # so the ruled duty is unchanged; only the mechanism the ruling names is
+        # stale. Reported as a finding, not silently absorbed.
+        #
+        # DOES-NOT-SATISFY RIDER (travels verbatim): this increment does NOT add a reader-side staleness detector, does NOT prove the compiled per-id states are correct, does NOT test two writers racing, and does NOT make the projection authoritative over the queue — `queue.jsonl` latest-per-id remains the only authority; the projection is a derived convenience that is now writer-fresh for five of six writers by construction and for the sixth by its own code.
+        _ok, _detail = recompile_effective_state(queue_path)
+        RUN_COUNTERS["effective_state_recompiled"] = 1 if _ok else 0
+        RUN_COUNTERS["effective_state_recompile_failed"] = 0 if _ok else 1
+        RUN_COUNTERS["effective_state_recompile_detail"] = _detail
 
     if not quiet:
         if consolidated_counts:
