@@ -349,8 +349,17 @@ def discover_surfaces(plugin_root, zone_root):
             # load-bearing surface; non-schema config (runtime manifests,
             # examples) stays canonical-only via sync_exclude until a consumer
             # needs it installed. (bk-cgg-mandate-schema-install-sync, tic 619)
+            #
+            # include_files (F-804-D2-2, tic 805): a NAMED allowlist beside the
+            # schema scope, never a wider glob. A non-schema config file an
+            # INSTALLED consumer reads is admitted by name in the manifest
+            # (handoff-payload-mode.json -> the installed seal hook's payload
+            # switch; uncarried, a flip in canonical is invisible to the
+            # installed runtime). Absent key == the pre-tic-805 behaviour.
+            # sync_exclude still wins over a named entry.
+            include_files = set(spec.get("include_files", []))
             for entry in sorted(os.listdir(canonical_dir)):
-                if entry.endswith(".schema.json"):
+                if entry.endswith(".schema.json") or entry in include_files:
                     if _excluded(entry):
                         continue
                     canonical_path = os.path.join(canonical_dir, entry)

@@ -35,7 +35,11 @@
       "installed_subdir": ".claude/cgg-runtime/config",
       "pattern": "*.schema.json",
       "type": "DATA_SCHEMA",
-      "_doc": "Schema/data files read by INSTALLED runtime scripts (mogul-mandate.schema.json \u2192 mandate-write.py fail-closed teeth, /review 598). Scoped to *.schema.json; non-schema config (runtime manifests, examples) stays canonical-only via sync_exclude until a consumer needs it installed. bk-cgg-mandate-schema-install-sync, tic 619."
+      "include_files": [
+        "handoff-payload-mode.json"
+      ],
+      "_doc": "Schema/data files read by INSTALLED runtime scripts (mogul-mandate.schema.json \u2192 mandate-write.py fail-closed teeth, /review 598). Scoped to *.schema.json; non-schema config (runtime manifests, examples) stays canonical-only via sync_exclude until a consumer needs it installed. bk-cgg-mandate-schema-install-sync, tic 619.",
+      "_doc_include_files": "A NAMED allowlist beside the pattern, never a wider glob: each entry is one non-schema config file an INSTALLED consumer reads, admitted by name with its reason. handoff-payload-mode.json (F-804-D2-2, tic 805): the installed cadence-handoff-seal.py and rebru-cadence-emit.py resolve the payload switch from ~/.claude/cgg-runtime/config/; without carriage a flip in canonical is invisible to the installed runtime and the hook reads source=absent forever. It is a RUNTIME SWITCH, not a schema \u2014 it rides this target's DATA_SCHEMA type label only because the target has one label; that kind question is staged for /review 805, disclosed here rather than settled."
     },
     "migrations": {
       "canonical_subdir": "migrations",
