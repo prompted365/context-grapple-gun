@@ -54,6 +54,26 @@ for the next boot to consume.
 
 Tic/tdelta/git-cycle/ReBru live in the interstitial-entry hook — NOT here
 (t632 directive §4: do not move them into ExitPlanMode).
+
+PAYLOAD MODE (tic 804, /review-803 Deliverable 2 — LANDED INERT):
+  One switch, cgg-runtime/config/handoff-payload-mode.json, single key
+  `handoff_payload_mode` valued "body" | "pointer", landed as "body".
+  ABSENT / UNREADABLE / MALFORMED MEANS "body" — this hook fails to the OLD
+  path and says so on stderr. In "body" mode this hook's behaviour and every
+  byte it journals are UNCHANGED: no mode key is written, so no historical or
+  future body-mode row changes shape. In "pointer" mode plan_hash binds the
+  DURABLE HOME's content hash — carried in the payload and RE-COMPUTED from the
+  file; a carried hash that does not match the file is a REFUSAL, fail-closed
+  and loud — payload_chars is recorded separately from plan_chars, and a pointer
+  whose durable home is MISSING is REFUSED with a typed reason. The first
+  pointer-mode row is the series EPOCH MARKER (forward-only, never backfilled).
+
+**Does-not-satisfy rider (travels verbatim):** this increment does NOT remove or replace the local harness patch, does NOT rule which promoter is the seal seam's ordinary path (the tic-801 born, /review 804), does NOT cure the injected-plan-prompt dispatch gap (the tic-802 born, /review 805), and does NOT make any claim that the approval surface's budget is fixed across future harness versions — the born measured five versions and the pointer is chosen precisely so that the question stops mattering.
+
+This seat's addition (ent_harpoon_build_citizen, tic 804 — MINE, not the
+ruling's): this increment lands the pointer path INERT. No live boundary has
+been carried on it. A fixture rollback is not a live rollback. The new path may
+not become the default until the drill has passed.
 """
 
 import fcntl
@@ -137,6 +157,269 @@ def _atomic_append_jsonl(path: Path, obj: dict) -> None:
 
 def _sha16(text: str) -> str:
     return hashlib.sha256(text.encode("utf-8")).hexdigest()[:16]
+
+
+# ---------------------------------------------------------------------------
+# PAYLOAD MODE — the one switch (tic 804, D2 landed INERT).
+# Every reader FAILS TO BODY (the old path) on absent / unreadable / malformed.
+# ---------------------------------------------------------------------------
+
+PAYLOAD_MODE_BODY = "body"
+PAYLOAD_MODE_POINTER = "pointer"
+PAYLOAD_MODE_KEY = "handoff_payload_mode"
+PAYLOAD_MODE_CONFIG_ENV = "CGG_HANDOFF_PAYLOAD_MODE_CONFIG"
+
+
+def payload_mode_config_candidates():
+    """Config loci, in precedence order. The env override is the FIXTURE SEAM —
+    it is how a drill flips the switch inside a tempfile zone without ever
+    touching the real one. It is not a configuration framework: one key, one
+    file, three places to find it."""
+    out = []
+    env = os.environ.get(PAYLOAD_MODE_CONFIG_ENV)
+    if env:
+        out.append(Path(env))
+    out.append(HOOK_DIR.parent / "config" / "handoff-payload-mode.json")
+    out.append(Path.home() / ".claude" / "cgg-runtime" / "config" / "handoff-payload-mode.json")
+    return out
+
+
+def resolve_payload_mode() -> tuple:
+    """Return (mode, reason). Absent/unreadable/malformed -> ("body", reason) + stderr."""
+    for p in payload_mode_config_candidates():
+        try:
+            if not p.is_file():
+                continue
+        except OSError:
+            continue
+        try:
+            obj = json.loads(p.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError) as exc:
+            sys.stderr.write(
+                f"[cadence-handoff-seal] payload-mode switch at {p} is UNREADABLE/MALFORMED "
+                f"({exc.__class__.__name__}); failing to '{PAYLOAD_MODE_BODY}' — the OLD path.\n")
+            return PAYLOAD_MODE_BODY, f"malformed:{p}"
+        if not isinstance(obj, dict):
+            sys.stderr.write(
+                f"[cadence-handoff-seal] payload-mode switch at {p} is not a JSON object; "
+                f"failing to '{PAYLOAD_MODE_BODY}' — the OLD path.\n")
+            return PAYLOAD_MODE_BODY, f"malformed_not_object:{p}"
+        val = obj.get(PAYLOAD_MODE_KEY)
+        if val == PAYLOAD_MODE_POINTER:
+            return PAYLOAD_MODE_POINTER, f"configured:{p}"
+        if val == PAYLOAD_MODE_BODY:
+            return PAYLOAD_MODE_BODY, f"configured:{p}"
+        sys.stderr.write(
+            f"[cadence-handoff-seal] payload-mode switch at {p} carries an unrecognized "
+            f"{PAYLOAD_MODE_KEY}={val!r}; failing to '{PAYLOAD_MODE_BODY}' — the OLD path.\n")
+        return PAYLOAD_MODE_BODY, f"unrecognized_value:{val!r}"
+    sys.stderr.write(
+        f"[cadence-handoff-seal] payload-mode switch ABSENT; meaning '{PAYLOAD_MODE_BODY}' "
+        f"— the OLD path.\n")
+    return PAYLOAD_MODE_BODY, "absent"
+
+
+# ---------------------------------------------------------------------------
+# THE DURABLE HOME (Candidate A, ruled by the D1 manifest) — audit-logs/handoffs/.
+# Sited OUTSIDE both directories candidate_plan_dirs() globs, on purpose: siting
+# it inside either makes two files carry the same cgg-handoff entry_tic and the
+# mtime sort below goes nondeterministic (F-804-D1-4).
+# ---------------------------------------------------------------------------
+
+DURABLE_HOME_RELDIR = "audit-logs/handoffs"
+_DURABLE_UNSAFE_RE = re.compile(r"[^A-Za-z0-9._-]+")
+
+
+def durable_home_filename(entry_tic, handoff_id) -> str:
+    """PURE function (entry_tic, handoff_id) -> filename-safe key. No I/O.
+
+    A handoff id carries colons ("2026-09-19T13:12:00Z-..."), so every character
+    outside [A-Za-z0-9._-] sanitizes to '-'. Sanitization is lossy, so an 8-hex
+    digest of the RAW id is appended: two ids that sanitize alike can never
+    collide on one filename."""
+    raw = "" if handoff_id is None else str(handoff_id)
+    slug = _DURABLE_UNSAFE_RE.sub("-", raw).strip("-")[:80].strip("-") or "unnamed"
+    digest = hashlib.sha256(raw.encode("utf-8")).hexdigest()[:8]
+    tic = entry_tic if isinstance(entry_tic, int) else "na"
+    return f"{tic}-{slug}-{digest}.md"
+
+
+def durable_home_relpath(entry_tic, handoff_id) -> str:
+    return f"{DURABLE_HOME_RELDIR}/{durable_home_filename(entry_tic, handoff_id)}"
+
+
+def resolve_durable_home(rel_or_abs):
+    """Resolve a durable-home reference to an EXISTING file, or (None, why)."""
+    if not rel_or_abs:
+        return None, "no_durable_home_in_pointer_block"
+    p = Path(rel_or_abs)
+    cands = [p] if p.is_absolute() else []
+    if not p.is_absolute() and ZONE_ROOT is not None:
+        cands.append(ZONE_ROOT / p)
+    for c in cands:
+        try:
+            if c.is_file():
+                return c, "resolved"
+        except OSError:
+            continue
+    return None, f"not_found:{rel_or_abs}"
+
+
+# ---------------------------------------------------------------------------
+# THE POINTER PAYLOAD.
+#
+# B13 — THE SUCCESSOR SESSION — is the consumer with NO call site. It cannot be
+# re-pointed by code or config; only the payload's own first words can oblige it.
+# SUCCESSOR_IMPERATIVE is ONE CONTIGUOUS CONSTANT, quoted by the cadence skill and
+# tested for verbatim survival into a composed payload. THIS CONSUMER IS SERVED BY
+# PERSUASION, NOT BY MECHANISM.
+# ---------------------------------------------------------------------------
+
+SUCCESSOR_IMPERATIVE = (
+    "STOP — THIS IS A POINTER, NOT THE PLAN.\n"
+    "Before any other action, before answering, and before any tool call other than\n"
+    "the one named here: open the durable home named below, read it IN FULL and\n"
+    "GAPLESS, and verify its content hash equals the hash named below. THAT document\n"
+    "is your plan and your charter; everything else in this payload is only the\n"
+    "envelope that carries its address, and the summary below is NOT the plan.\n"
+    "If the durable home cannot be opened, or its hash does not match, STOP and report\n"
+    "a broken handoff pointer — do NOT proceed from the summary, and do NOT\n"
+    "reconstruct the plan from memory."
+)
+
+POINTER_BLOCK_RE = re.compile(r"<!--\s*cgg-handoff-pointer(.*?)-->", re.DOTALL)
+HANDOFF_BLOCK_FULL_RE = re.compile(r"<!--\s*cgg-handoff\b(?!-pointer).*?-->", re.DOTALL)
+EVALUATE_BLOCK_FULL_RE = re.compile(r"<!--\s*cgg-evaluate\b.*?-->", re.DOTALL)
+POINTER_SUMMARY_MAX_CHARS = 1200
+
+
+def parse_pointer_block(text: str) -> dict:
+    """Parse the cgg-handoff-pointer block out of a payload."""
+    m = POINTER_BLOCK_RE.search(text or "")
+    if not m:
+        return {}
+    body = m.group(1)
+    out = {}
+    for key in ("payload_mode", "durable_home", "handoff_id", "content_sha16"):
+        km = re.search(rf'{key}:\s*"?([^"\n]+?)"?\s*$', body, re.MULTILINE)
+        if km:
+            out[key] = km.group(1).strip()
+    for key in ("entry_tic", "body_chars"):
+        km = re.search(rf"{key}:\s*(\d+)", body)
+        if km:
+            out[key] = int(km.group(1))
+    return out
+
+
+def bounded_summary(body_text: str, limit: int = POINTER_SUMMARY_MAX_CHARS) -> str:
+    """A BOUNDED extract of the body with the machine blocks stripped."""
+    stripped = EVALUATE_BLOCK_FULL_RE.sub("", HANDOFF_BLOCK_FULL_RE.sub("", body_text or ""))
+    lines = [ln for ln in stripped.splitlines() if ln.strip()]
+    out, total = [], 0
+    for ln in lines:
+        if total + len(ln) + 1 > limit:
+            out.append(f"... [bounded summary truncated at {limit} chars — "
+                       f"the FULL plan is at the durable home above]")
+            break
+        out.append(ln)
+        total += len(ln) + 1
+    return "\n".join(out)
+
+
+def compose_pointer_payload(body_text, entry_tic, handoff_id, durable_rel, content_hash) -> str:
+    """Compose the payload handed to the approval surface: the imperative FIRST,
+    the durable-home path, the handoff id, the content hash, a BOUNDED summary,
+    and BOTH machine blocks VERBATIM (every marker-referencer is untouched)."""
+    hb = HANDOFF_BLOCK_FULL_RE.search(body_text or "")
+    eb = EVALUATE_BLOCK_FULL_RE.search(body_text or "")
+    parts = [
+        SUCCESSOR_IMPERATIVE,
+        "",
+        "<!-- cgg-handoff-pointer",
+        f'  payload_mode: "{PAYLOAD_MODE_POINTER}"',
+        f'  durable_home: "{durable_rel}"',
+        f'  handoff_id: "{handoff_id}"',
+        f"  entry_tic: {entry_tic}",
+        f'  content_sha16: "{content_hash}"',
+        f"  body_chars: {len(body_text or '')}",
+        "-->",
+        "",
+        "## Bounded summary — NOT the plan. The plan is the durable home named above.",
+        "",
+        bounded_summary(body_text),
+        "",
+    ]
+    if hb:
+        parts += [hb.group(0), ""]
+    if eb:
+        parts += [eb.group(0), ""]
+    return "\n".join(parts)
+
+
+def write_durable_home(zone_root, body_text, entry_tic, handoff_id):
+    """Write the body to its durable home and PROVE it landed (read back + re-hash).
+
+    Returns (abs_path, rel_path, content_hash) or raises. The caller falls back to
+    BODY mode on any failure: a pointer is never submitted to a home that does not
+    hold its body."""
+    rel = durable_home_relpath(entry_tic, handoff_id)
+    dest = Path(zone_root) / rel
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    tmp = dest.with_suffix(dest.suffix + ".tmp")
+    with tmp.open("w", encoding="utf-8") as f:
+        f.write(body_text)
+        f.flush()
+        os.fsync(f.fileno())
+    os.replace(tmp, dest)
+    readback = dest.read_text(encoding="utf-8")
+    content_hash = _sha16(readback)
+    if readback != body_text:
+        raise OSError(f"durable-home readback differs from body at {dest}")
+    return dest, rel, content_hash
+
+
+def _is_first_pointer_row() -> bool:
+    """True when no pointer-mode row exists in this journal yet."""
+    try:
+        if SEALS_LOG is None or not SEALS_LOG.is_file():
+            return True
+        with SEALS_LOG.open("r", encoding="utf-8") as f:
+            for line in f:
+                line = line.strip()
+                if not line or "payload_mode" not in line:
+                    continue
+                try:
+                    obj = json.loads(line)
+                except json.JSONDecodeError:
+                    continue
+                if obj.get("payload_mode") == PAYLOAD_MODE_POINTER:
+                    return False
+    except OSError:
+        return False
+    return True
+
+
+def _epoch_annotated(row: dict) -> dict:
+    """Stamp the SERIES EPOCH MARKER on the first pointer-mode row. FORWARD-ONLY:
+    historical body-mode rows are never backfilled. In BODY mode this returns the
+    row untouched and reads nothing — body-mode rows keep their exact shape."""
+    if row.get("payload_mode") != PAYLOAD_MODE_POINTER:
+        return row
+    if not _is_first_pointer_row():
+        return row
+    out = dict(row)
+    out["payload_mode_epoch"] = {
+        "series": "handoff_seal.plan_hash+plan_chars",
+        "epoch": PAYLOAD_MODE_POINTER,
+        "first_pointer_row": True,
+        "note": ("FIRST pointer-mode row in this journal. From here plan_hash binds the "
+                 "DURABLE HOME's content and plan_chars measures the durable body; "
+                 "payload_chars carries the approval payload's size. Forward-only — "
+                 "historical body-mode rows are NEVER backfilled and a longitudinal "
+                 "read of plan_chars must break the series at this row."),
+        "stamped_at": datetime.now(timezone.utc).isoformat(),
+    }
+    return out
 
 
 def _load_json(path) -> dict:
@@ -305,9 +588,86 @@ def _apply_plan_capture(seal: dict, plan_text: str, plan_file_path: str, boundar
                 **{k: v for k, v in identity.items() if k != "status"},
             }
         return
+    mode, mode_reason = resolve_payload_mode()
+    if mode == PAYLOAD_MODE_POINTER:
+        _apply_pointer_capture(seal, plan_text, mode_reason)
+        return
+    # BODY MODE — byte-identical to the pre-tic-804 path. No mode key is written,
+    # so no historical or future body-mode row changes shape.
     seal["plan_captured"] = bool(plan_text)
     seal["plan_hash"] = _sha16(plan_text) if plan_text else None
     seal["plan_chars"] = len(plan_text)
+
+
+def _apply_pointer_capture(seal: dict, payload_text: str, mode_reason: str) -> None:
+    """POINTER MODE capture. plan_hash binds the DURABLE HOME's content, RE-COMPUTED
+    from the file; a carried hash that does not match the file is a REFUSAL,
+    fail-closed and loud. A pointer whose durable home is MISSING is REFUSED with a
+    typed reason — the pre-approval write's failure story."""
+    ptr = parse_pointer_block(payload_text)
+    seal["payload_chars"] = len(payload_text or "")
+    if not ptr:
+        # The switch says pointer but the payload carries no pointer block: it IS a
+        # body payload. Bind body semantics and say so — never silently mislabel.
+        seal["payload_mode"] = PAYLOAD_MODE_BODY
+        seal["payload_mode_degraded"] = "no_pointer_block_in_payload_bound_as_body"
+        seal["plan_captured"] = bool(payload_text)
+        seal["plan_hash"] = _sha16(payload_text) if payload_text else None
+        seal["plan_chars"] = len(payload_text or "")
+        sys.stderr.write("[cadence-handoff-seal] payload-mode is 'pointer' but the payload "
+                         "carries no cgg-handoff-pointer block; bound as BODY.\n")
+        return
+    seal["payload_mode"] = PAYLOAD_MODE_POINTER
+    seal["payload_mode_source"] = mode_reason
+    seal["durable_home"] = ptr.get("durable_home")
+    resolved, why = resolve_durable_home(ptr.get("durable_home"))
+    if resolved is None:
+        seal["plan_captured"] = False
+        seal["plan_hash"] = None
+        seal["plan_chars"] = 0
+        seal["plan_capture_refusal"] = {
+            "reason": "pointer_durable_home_missing",
+            "durable_home": ptr.get("durable_home"),
+            "resolution": why,
+            "carried_content_sha16": ptr.get("content_sha16"),
+        }
+        sys.stderr.write(f"[cadence-handoff-seal] REFUSED: pointer payload names a durable home "
+                         f"that does not exist ({ptr.get('durable_home')!r}); {why}. A pointer is "
+                         f"never sealed against a home that does not hold its body.\n")
+        return
+    try:
+        body = resolved.read_text(encoding="utf-8", errors="replace")
+    except OSError as exc:
+        seal["plan_captured"] = False
+        seal["plan_hash"] = None
+        seal["plan_chars"] = 0
+        seal["plan_capture_refusal"] = {
+            "reason": "pointer_durable_home_unreadable",
+            "durable_home": str(resolved),
+            "error": exc.__class__.__name__,
+        }
+        sys.stderr.write(f"[cadence-handoff-seal] REFUSED: durable home {resolved} unreadable "
+                         f"({exc.__class__.__name__}).\n")
+        return
+    recomputed = _sha16(body)
+    carried = ptr.get("content_sha16")
+    if carried and carried != recomputed:
+        seal["plan_captured"] = False
+        seal["plan_hash"] = None
+        seal["plan_chars"] = 0
+        seal["plan_capture_refusal"] = {
+            "reason": "pointer_content_hash_mismatch",
+            "durable_home": str(resolved),
+            "carried_content_sha16": carried,
+            "recomputed_content_sha16": recomputed,
+        }
+        sys.stderr.write(f"[cadence-handoff-seal] REFUSED: pointer carries content_sha16 {carried} "
+                         f"but {resolved} hashes to {recomputed}. Fail-closed.\n")
+        return
+    seal["plan_captured"] = True
+    seal["plan_hash"] = recomputed
+    seal["plan_chars"] = len(body)
+    seal["durable_home_resolved"] = str(resolved)
 
 
 # ---------------------------------------------------------------------------
@@ -418,7 +778,7 @@ def handle_post(payload: dict) -> int:
     # History row always (audit honesty); current-pointer only when the seal is
     # bound to a live boundary WITH a real activation identity — there must be
     # a specific boundary for the next boot to match against (t634 item 2).
-    _atomic_append_jsonl(SEALS_LOG, {"journal_event": "approved", **sealed})
+    _atomic_append_jsonl(SEALS_LOG, _epoch_annotated({"journal_event": "approved", **sealed}))
     if sealed.get("boundary_bound") and (sealed.get("activation") or {}).get("emission_id"):
         _atomic_write_json(CURRENT_FILE, sealed)
 
@@ -618,7 +978,7 @@ def handle_reconcile_at_start(agent_id: str) -> int:
                 })
             else:
                 plan_text = evidence["text"]
-                recovered_hash = _sha16(plan_text)
+                recovered_hash, rec_pointer, rec_refusal = _recover_binding(plan_text)
                 staged_hash = staged.get("plan_hash")
                 # Recovery acceptance evidence (four-case truth table, tic 635):
                 #   absent   (staged hash None)  + exact-boundary plan verified -> ACCEPT
@@ -635,7 +995,25 @@ def handle_reconcile_at_start(agent_id: str) -> int:
                     else "match" if staged_hash == recovered_hash
                     else "mismatch"
                 )
-                if staged_hash_state == "mismatch":
+                if rec_refusal is not None:
+                    # POINTER MODE: the recovered plan file is a pointer whose durable
+                    # home is missing / unreadable / hash-divergent. REFUSE, typed.
+                    _atomic_append_jsonl(SEALS_LOG, {
+                        "journal_event": "recovery_refused",
+                        "staged_emission_id": st_em,
+                        "staged_entry_tic": st_entry,
+                        "plan_file": str(evidence["path"]),
+                        "payload_mode": PAYLOAD_MODE_POINTER,
+                        "at": now,
+                        **rec_refusal,
+                    })
+                    msg_parts.append(
+                        f"[SEAL RECOVERY REFUSED] The staged handoff seal for {st_em} was NOT "
+                        f"promoted: the approved payload is a POINTER and its durable home did "
+                        f"not verify ({rec_refusal.get('reason')}). The boundary REMAINS "
+                        f"INTERSTITIAL and the pause was NOT armed."
+                    )
+                elif staged_hash_state == "mismatch":
                     _atomic_append_jsonl(SEALS_LOG, {
                         "journal_event": "recovery_refused",
                         "reason": "plan_hash_mismatch",
@@ -677,6 +1055,14 @@ def handle_reconcile_at_start(agent_id: str) -> int:
                     sealed["plan_hash"] = recovered_hash
                     sealed["plan_chars"] = len(plan_text)
                     sealed["plan_file_path"] = str(evidence["path"])
+                    if rec_pointer is not None:
+                        # POINTER MODE: plan_chars measures the DURABLE BODY; the
+                        # approval payload's size is recorded separately.
+                        sealed["payload_mode"] = PAYLOAD_MODE_POINTER
+                        sealed["payload_chars"] = len(plan_text)
+                        sealed["plan_chars"] = rec_pointer.get("body_chars", len(plan_text))
+                        sealed["durable_home"] = rec_pointer.get("durable_home")
+                        sealed["durable_home_resolved"] = rec_pointer.get("durable_home_resolved")
                     sealed["plan_identity"] = {
                         "status": "verified_at_recovery",
                         "entry_tic": st_entry,
@@ -686,7 +1072,8 @@ def handle_reconcile_at_start(agent_id: str) -> int:
                     sealed["consumed_at"] = now
                     sealed["consumed_by"] = consumer
                     _atomic_write_json(CURRENT_FILE, sealed)
-                    _atomic_append_jsonl(SEALS_LOG, {"journal_event": "recovery_promoted", **sealed})
+                    _atomic_append_jsonl(SEALS_LOG,
+                                         _epoch_annotated({"journal_event": "recovery_promoted", **sealed}))
                     try:
                         STAGED_FILE.unlink()
                     except OSError:
@@ -733,8 +1120,121 @@ def handle_reconcile_at_start(agent_id: str) -> int:
     return 0
 
 
+def _recover_binding(plan_text: str) -> tuple:
+    """Resolve the hash the recovery seam binds, MODE-SYMMETRICALLY.
+
+    Returns (recovered_hash, pointer_info_or_None, refusal_or_None).
+    BODY mode — and ANY payload carrying no pointer block — returns
+    _sha16(plan_text): byte-identical to the pre-tic-804 seam. POINTER mode binds
+    the DURABLE HOME's content hash, RE-COMPUTED from the file, so the recovery
+    seam and the staged capture resolve the SAME binding deterministically."""
+    mode, _reason = resolve_payload_mode()
+    if mode != PAYLOAD_MODE_POINTER:
+        return _sha16(plan_text), None, None
+    ptr = parse_pointer_block(plan_text)
+    if not ptr:
+        return _sha16(plan_text), None, None
+    resolved, why = resolve_durable_home(ptr.get("durable_home"))
+    if resolved is None:
+        return None, ptr, {"reason": "pointer_durable_home_missing",
+                           "durable_home": ptr.get("durable_home"), "resolution": why}
+    try:
+        body = resolved.read_text(encoding="utf-8", errors="replace")
+    except OSError as exc:
+        return None, ptr, {"reason": "pointer_durable_home_unreadable",
+                           "durable_home": str(resolved), "error": exc.__class__.__name__}
+    recomputed = _sha16(body)
+    carried = ptr.get("content_sha16")
+    if carried and carried != recomputed:
+        return None, ptr, {"reason": "pointer_content_hash_mismatch",
+                           "durable_home": str(resolved),
+                           "carried_content_sha16": carried,
+                           "recomputed_content_sha16": recomputed}
+    return recomputed, {**ptr, "durable_home_resolved": str(resolved),
+                        "body_chars": len(body)}, None
+
+
+def _argval(argv, flag, default=None):
+    try:
+        return argv[argv.index(flag) + 1]
+    except (ValueError, IndexError):
+        return default
+
+
+def handle_stage_pointer_payload(argv) -> int:
+    """--stage-pointer-payload: body on stdin -> durable home written, payload on stdout.
+
+    THE PRE-APPROVAL WRITE. If the durable-home write fails for ANY reason this
+    falls back to BODY for this boundary and says so on stderr: a pointer is never
+    submitted to a home that does not hold its body."""
+    body = sys.stdin.read()
+    entry_tic = _argval(argv, "--entry-tic")
+    handoff_id = _argval(argv, "--handoff-id") or ""
+    zone = _argval(argv, "--zone-root") or (str(ZONE_ROOT) if ZONE_ROOT else "")
+    try:
+        entry_tic = int(entry_tic)
+    except (TypeError, ValueError):
+        block = parse_handoff_block(body)
+        entry_tic = block.get("entry_tic")
+        handoff_id = handoff_id or block.get("handoff_id", "")
+    mode, mode_reason = resolve_payload_mode()
+    if mode != PAYLOAD_MODE_POINTER:
+        sys.stdout.write(body)
+        sys.stderr.write(json.dumps({"payload_mode": PAYLOAD_MODE_BODY, "source": mode_reason,
+                                     "durable_home": None, "fallback": False}) + "\n")
+        return 0
+    try:
+        if not zone:
+            raise OSError("zone root unresolved")
+        dest, rel, content_hash = write_durable_home(zone, body, entry_tic, handoff_id)
+    except OSError as exc:
+        sys.stdout.write(body)
+        sys.stderr.write(json.dumps({
+            "payload_mode": PAYLOAD_MODE_BODY, "fallback": True,
+            "fallback_reason": f"durable_home_write_failed:{exc.__class__.__name__}",
+            "detail": str(exc),
+        }) + "\n")
+        sys.stderr.write("[cadence-handoff-seal] durable-home write FAILED; this boundary "
+                         "falls back to BODY mode. A pointer is never submitted to a home "
+                         "that does not hold its body.\n")
+        return 0
+    payload = compose_pointer_payload(body, entry_tic, handoff_id, rel, content_hash)
+    sys.stdout.write(payload)
+    sys.stderr.write(json.dumps({
+        "payload_mode": PAYLOAD_MODE_POINTER, "source": mode_reason, "fallback": False,
+        "durable_home": rel, "durable_home_abs": str(dest),
+        "content_sha16": content_hash, "body_chars": len(body),
+        "payload_chars": len(payload),
+    }) + "\n")
+    return 0
+
+
 def main():
     argv = sys.argv[1:]
+
+    if "--payload-mode" in argv:
+        mode, reason = resolve_payload_mode()
+        print(json.dumps({PAYLOAD_MODE_KEY: mode, "source": reason}))
+        return 0
+
+    if "--durable-home-path" in argv:
+        raw_tic = _argval(argv, "--entry-tic")
+        try:
+            tic = int(raw_tic)
+        except (TypeError, ValueError):
+            tic = raw_tic
+        print(durable_home_relpath(tic, _argval(argv, "--handoff-id") or ""))
+        return 0
+
+    if "--stage-pointer-payload" in argv:
+        if "--zone-root" in argv:
+            try:
+                zr = Path(_argval(argv, "--zone-root"))
+                if (zr / ".ticzone").is_file():
+                    bind_zone(zr)
+            except (TypeError, OSError):
+                pass
+        return handle_stage_pointer_payload(argv)
 
     if "--reconcile-at-start" in argv:
         # The SessionStart reconciler passes the resolved zone root explicitly

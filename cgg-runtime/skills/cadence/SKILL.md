@@ -138,6 +138,12 @@ All operational mutation happens here. These are the writes that MUST complete b
 #### Step 0: Reconcile Native Plan State
 Locate the active plan file in `~/.claude/plans/`. Evaluate its status based on the spirit of the original goal. Explicitly mark it 100% 'Completed', 'Superseded', or leave it 'Active' only if the exact thread must resume.
 
+**Under `pointer` payload mode, resolve the pointer FIRST (tic 804).** If that plan file carries a
+`cgg-handoff-pointer` block, it is an envelope and not the plan: read its `durable_home` and
+evaluate THAT document's status. A pointer cannot be evaluated "on the spirit of the original
+goal" — judging the envelope makes this reconciliation ceremonial. In `body` mode the plan file
+is the body and this paragraph does not apply.
+
 #### Step 0.5: Emit Tic + Conformation + Mandate (unified)
 
 **Primary path (MANDATORY when available):** Run `cadence-ops.py` — it handles tic emission, conformation snapshot, and mandate cascade in one deterministic invocation. This is the ONLY correct path for conformation writing. Do NOT write conformations inline or delegate to `/siren conformation` — LLM-approximated signal counts produce stale data (validated: tic-101 reported 2305 active signals instead of 0 because inline code counted raw JSONL lines without last-write-wins dedup).
@@ -390,11 +396,71 @@ echo "Active plan file: $ACTIVE_PLAN"
 # Then Read tool: Read(file_path=$ACTIVE_PLAN)
 ```
 
+<!-- payload-mode-switch:lookfirst:begin — ATOMIC HALF (tic 804). This block is
+     BYTE-IDENTICAL in the downbeat and syncopate look-first gates. A test diffs the two
+     occurrences; editing one and not the other fails loudly. -->
+**Under `pointer` payload mode the look-first gate is TWO reads, not one (F-804-D1-3).** The
+harness gate is satisfied by Reading ANY plan file — so Reading a short pointer PASSES the gate
+while delivering none of the discernment the Read was doubled up to provide. A green look-first
+gate is therefore NOT evidence that the discernment read happened. When `$PAYLOAD_MODE` is
+`pointer`, do BOTH:
+
+1. **The harness read** — Read the most-recent `~/.claude/plans/*.md` (by mtime) with the Read
+   tool, exactly as described above. This, and only this, satisfies the plan-write gate.
+2. **The discernment read** — resolve `durable_home` from that file's `cgg-handoff-pointer`
+   block and **Read the durable home with the Read tool as well**. THAT read is the one that
+   feeds Discernment-at-Penning Discipline and Step 0 reconciliation.
+
+In `body` mode there is exactly one read and nothing in this block applies.
+<!-- payload-mode-switch:lookfirst:end -->
+
 **Step 3b — Invoke EnterPlanMode.**
 Use the `EnterPlanMode` tool to switch to Claude Code's native plan mode. This is mandatory and mechanical — call the tool, do not just declare the shift.
 
 #### Step 4: Write the Handoff as the Plan
 Generate a NEW native plan. The plan content IS the handoff — a **bridge surface** carrying session state between contexts, not authoring truth or constitutional record. This is the ONE AND ONLY place the handoff gets written. Claude Code auto-saves the plan to `~/.claude/plans/` when approved, and references it in the next session.
+
+<!-- payload-mode-switch:step4:begin — ATOMIC HALF (tic 804). This block is
+     BYTE-IDENTICAL in the downbeat Step 4 and the syncopate Step 4. A test diffs the
+     two occurrences; editing one and not the other fails loudly. -->
+**PAYLOAD MODE — read the switch before writing the plan (tic 804; landed INERT at `body`).**
+
+```bash
+SEAL_HOOK="$ZONE_ROOT/canonical_developer/context-grapple-gun/cgg-runtime/hooks/cadence-handoff-seal.py"
+[ -f "$SEAL_HOOK" ] || SEAL_HOOK="$HOME/.claude/hooks/cadence-handoff-seal.py"
+PAYLOAD_MODE=$(python3 "$SEAL_HOOK" --payload-mode 2>/dev/null \
+  | python3 -c 'import json,sys; print(json.load(sys.stdin)["handoff_payload_mode"])' 2>/dev/null \
+  || echo body)
+echo "handoff payload mode: $PAYLOAD_MODE"
+```
+
+An absent, unreadable or malformed switch **MEANS `body`** — fail to the OLD path.
+
+- **If `$PAYLOAD_MODE` is `body`** (the default, and what is landed today) — every instruction
+  in this Step 4 applies **exactly as written, unchanged**. The plan content IS the handoff.
+  Do nothing differently; disregard the rest of this block.
+- **If `$PAYLOAD_MODE` is `pointer`** — the plan handed to the approval surface is a POINTER,
+  never the body. Author the full handoff body exactly as this Step 4 describes, write it to a
+  working file, then hand it to the stager instead of submitting it:
+
+```bash
+# Body on stdin. The durable home is written and PROVEN (read back + re-hashed) FIRST;
+# the payload to submit returns on stdout; a one-line JSON receipt on stderr.
+python3 "$SEAL_HOOK" --stage-pointer-payload \
+  --zone-root "$ZONE_ROOT" --entry-tic "$ENTRY_TIC" --handoff-id "$HANDOFF_ID" \
+  < handoff-body.md > payload-to-submit.md
+```
+
+  Submit **`payload-to-submit.md`** as the plan. It carries, in this order: an imperative FIRST
+  instruction to the successor session, the durable-home path, the handoff id, the content hash,
+  a BOUNDED summary, and BOTH machine blocks — `cgg-handoff` and `cgg-evaluate` — **VERBATIM**,
+  so every marker-referencer is untouched.
+
+  **If the durable-home write fails, the stager falls back to `body` for that boundary and says
+  so on stderr — a pointer is never submitted to a home that does not hold its body.** Read the
+  stderr receipt before submitting: if it reports `"fallback": true`, you are submitting a BODY
+  payload and must say so at the close.
+<!-- payload-mode-switch:step4:end -->
 
 ##### The Handoff Is a Delta Charge, Not a Map (mandatory content scope)
 
@@ -523,7 +589,7 @@ The carry-forward rules above are not a passive copy — they require active dis
 
 The discipline:
 
-1. **Read the prior plan file** (whatever its current name in `~/.claude/plans/`). It is the source-of-truth for what was carried into this session. If multiple plan files exist, take the most recent by mtime.
+1. **Read the prior plan file** (whatever its current name in `~/.claude/plans/`). It is the source-of-truth for what was carried into this session. If multiple plan files exist, take the most recent by mtime. **Under `pointer` payload mode the source-of-truth is the DURABLE HOME that plan file points at (tic 804)** — resolve `durable_home` from its `cgg-handoff-pointer` block and read that document; the pointer file carries a bounded summary only, and authoring the next handoff from it silently loses carried state.
 
 2. **For each Active Roadmap Goal, Production Next Action, and Deferred Goal in the prior plan**, assess current completion state against this session's actual work:
    - Did this session complete it? → mark `Completed` in this handoff (either drop from Active or move to a brief acknowledgment in Session Learning).
@@ -758,12 +824,72 @@ Use the same `$CADENCE_OPS` resolution (and `$SESSION_POSTURE` — the session's
 **Step 3a — Read the active plan file FIRST (Look-First gate, mandatory).**
 Before invoking `EnterPlanMode`, locate the most-recent file in `~/.claude/plans/` (by mtime) and **Read it via the Read tool**. The plan-write surface is hard-gated by the harness: it refuses to update a plan file unless that file has been Read in the current session. Skipping this step produces a `File has not been read yet. Read it first before writing to it.` error mid-write. Same gate, same fix as the downbeat path — even in emergency syncopate cadence, this 1-tool-call cost is mandatory.
 
+<!-- payload-mode-switch:lookfirst:begin — ATOMIC HALF (tic 804). This block is
+     BYTE-IDENTICAL in the downbeat and syncopate look-first gates. A test diffs the two
+     occurrences; editing one and not the other fails loudly. -->
+**Under `pointer` payload mode the look-first gate is TWO reads, not one (F-804-D1-3).** The
+harness gate is satisfied by Reading ANY plan file — so Reading a short pointer PASSES the gate
+while delivering none of the discernment the Read was doubled up to provide. A green look-first
+gate is therefore NOT evidence that the discernment read happened. When `$PAYLOAD_MODE` is
+`pointer`, do BOTH:
+
+1. **The harness read** — Read the most-recent `~/.claude/plans/*.md` (by mtime) with the Read
+   tool, exactly as described above. This, and only this, satisfies the plan-write gate.
+2. **The discernment read** — resolve `durable_home` from that file's `cgg-handoff-pointer`
+   block and **Read the durable home with the Read tool as well**. THAT read is the one that
+   feeds Discernment-at-Penning Discipline and Step 0 reconciliation.
+
+In `body` mode there is exactly one read and nothing in this block applies.
+<!-- payload-mode-switch:lookfirst:end -->
+
 **Step 3b — Invoke EnterPlanMode.**
 Use the `EnterPlanMode` tool to switch to Claude Code's native plan mode. This is mandatory and mechanical — call the tool, do not just declare the shift.
 
 #### Step 4: Write the Handoff as the Plan
 
 Generate a NEW native plan. The plan content IS the handoff — a **bridge surface** carrying session state between contexts, not authoring truth or constitutional record. This is the ONE AND ONLY place the handoff gets written. Claude Code auto-saves the plan to `~/.claude/plans/` when approved, and references it in the next session.
+
+<!-- payload-mode-switch:step4:begin — ATOMIC HALF (tic 804). This block is
+     BYTE-IDENTICAL in the downbeat Step 4 and the syncopate Step 4. A test diffs the
+     two occurrences; editing one and not the other fails loudly. -->
+**PAYLOAD MODE — read the switch before writing the plan (tic 804; landed INERT at `body`).**
+
+```bash
+SEAL_HOOK="$ZONE_ROOT/canonical_developer/context-grapple-gun/cgg-runtime/hooks/cadence-handoff-seal.py"
+[ -f "$SEAL_HOOK" ] || SEAL_HOOK="$HOME/.claude/hooks/cadence-handoff-seal.py"
+PAYLOAD_MODE=$(python3 "$SEAL_HOOK" --payload-mode 2>/dev/null \
+  | python3 -c 'import json,sys; print(json.load(sys.stdin)["handoff_payload_mode"])' 2>/dev/null \
+  || echo body)
+echo "handoff payload mode: $PAYLOAD_MODE"
+```
+
+An absent, unreadable or malformed switch **MEANS `body`** — fail to the OLD path.
+
+- **If `$PAYLOAD_MODE` is `body`** (the default, and what is landed today) — every instruction
+  in this Step 4 applies **exactly as written, unchanged**. The plan content IS the handoff.
+  Do nothing differently; disregard the rest of this block.
+- **If `$PAYLOAD_MODE` is `pointer`** — the plan handed to the approval surface is a POINTER,
+  never the body. Author the full handoff body exactly as this Step 4 describes, write it to a
+  working file, then hand it to the stager instead of submitting it:
+
+```bash
+# Body on stdin. The durable home is written and PROVEN (read back + re-hashed) FIRST;
+# the payload to submit returns on stdout; a one-line JSON receipt on stderr.
+python3 "$SEAL_HOOK" --stage-pointer-payload \
+  --zone-root "$ZONE_ROOT" --entry-tic "$ENTRY_TIC" --handoff-id "$HANDOFF_ID" \
+  < handoff-body.md > payload-to-submit.md
+```
+
+  Submit **`payload-to-submit.md`** as the plan. It carries, in this order: an imperative FIRST
+  instruction to the successor session, the durable-home path, the handoff id, the content hash,
+  a BOUNDED summary, and BOTH machine blocks — `cgg-handoff` and `cgg-evaluate` — **VERBATIM**,
+  so every marker-referencer is untouched.
+
+  **If the durable-home write fails, the stager falls back to `body` for that boundary and says
+  so on stderr — a pointer is never submitted to a home that does not hold its body.** Read the
+  stderr receipt before submitting: if it reports `"fallback": true`, you are submitting a BODY
+  payload and must say so at the close.
+<!-- payload-mode-switch:step4:end -->
 
 Keep it COMPACT (each section 5 lines max):
 

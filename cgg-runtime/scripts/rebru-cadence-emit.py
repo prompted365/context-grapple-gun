@@ -31,6 +31,7 @@ Idempotency: re-running for the same tic OVERWRITES the existing block
 import argparse
 import json
 import os
+import re
 import subprocess
 import sys
 from datetime import datetime, timezone
@@ -101,6 +102,74 @@ def latest_plan(plans_dir: Path) -> str:
     return str(candidates[0]) if candidates else ""
 
 
+# ---------------------------------------------------------------------------
+# PAYLOAD MODE (tic 804, manifest row B8). Under `pointer` mode the plan file is
+# an ENVELOPE, not the body: resolve the durable home BEFORE the posture scan, and
+# never stamp provenance with a path this emitter did not read.
+# FAILS TO BODY on absent / unreadable / malformed — the OLD path.
+# ---------------------------------------------------------------------------
+
+PAYLOAD_MODE_KEY = "handoff_payload_mode"
+PAYLOAD_MODE_CONFIG_ENV = "CGG_HANDOFF_PAYLOAD_MODE_CONFIG"
+POINTER_BLOCK_RE = re.compile(r"<!--\s*cgg-handoff-pointer(.*?)-->", re.DOTALL)
+
+
+def resolve_payload_mode() -> str:
+    """Return "body" | "pointer". Absent/unreadable/malformed -> "body" + stderr."""
+    cands = []
+    env = os.environ.get(PAYLOAD_MODE_CONFIG_ENV)
+    if env:
+        cands.append(Path(env))
+    cands.append(Path(__file__).resolve().parent.parent / "config" / "handoff-payload-mode.json")
+    cands.append(Path.home() / ".claude" / "cgg-runtime" / "config" / "handoff-payload-mode.json")
+    for p in cands:
+        try:
+            if not p.is_file():
+                continue
+            obj = json.loads(p.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            print(f"[rebru-cadence-emit] payload-mode switch at {p} unreadable/malformed; "
+                  f"failing to 'body' — the OLD path.", file=sys.stderr)
+            return "body"
+        if isinstance(obj, dict) and obj.get(PAYLOAD_MODE_KEY) in ("body", "pointer"):
+            return obj[PAYLOAD_MODE_KEY]
+        print(f"[rebru-cadence-emit] payload-mode switch at {p} carries no recognized "
+              f"{PAYLOAD_MODE_KEY}; failing to 'body' — the OLD path.", file=sys.stderr)
+        return "body"
+    print("[rebru-cadence-emit] payload-mode switch ABSENT; meaning 'body' — the OLD path.",
+          file=sys.stderr)
+    return "body"
+
+
+def resolve_body_source(plan_path: str, zone: Path) -> tuple:
+    """Return (path_to_read, payload_mode_note).
+
+    BODY mode returns plan_path unchanged — byte-identical to the pre-tic-804 path.
+    POINTER mode resolves the durable home the plan file points at. If the durable
+    home cannot be resolved or read, the ORIGINAL plan path is returned with a
+    "pointer_unresolved" note, so provenance still names the surface actually read."""
+    if resolve_payload_mode() != "pointer" or not plan_path:
+        return plan_path, "body"
+    try:
+        text = Path(plan_path).read_text(encoding="utf-8", errors="replace")
+    except OSError:
+        return plan_path, "pointer_unresolved"
+    m = POINTER_BLOCK_RE.search(text)
+    if not m:
+        return plan_path, "body"
+    dm = re.search(r'durable_home:\s*"?([^"\n]+?)"?\s*$', m.group(1), re.MULTILINE)
+    if not dm:
+        return plan_path, "pointer_unresolved"
+    cand = Path(dm.group(1).strip())
+    if not cand.is_absolute():
+        cand = zone / cand
+    if cand.is_file():
+        return str(cand), "pointer"
+    print(f"[rebru-cadence-emit] pointer names a durable home that does not exist "
+          f"({dm.group(1).strip()}); provenance stays on the path actually read.", file=sys.stderr)
+    return plan_path, "pointer_unresolved"
+
+
 def declared_posture_from_plan(plan_path: str) -> str:
     """Extract POSTURE: line from plan file if present."""
     if not plan_path or not Path(plan_path).exists():
@@ -125,6 +194,10 @@ def build_block(zone: Path, tic: int) -> dict:
     audit_logs = zone / "audit-logs"
     plans_dir = Path.home() / ".claude" / "plans"
     plan_path = latest_plan(plans_dir)
+    # tic 804 (row B8): resolve the durable home BEFORE the posture scan. In body
+    # mode plan_path is unchanged and every binder below is byte-identical.
+    envelope_path = plan_path
+    plan_path, payload_mode_note = resolve_body_source(plan_path, zone)
     posture = declared_posture_from_plan(plan_path)
 
     # THE tics/ LANE'S DAILY PARTITION KEY, through the shared clock (OM-4, B2
@@ -370,7 +443,7 @@ def build_block(zone: Path, tic: int) -> dict:
         },
     ]
 
-    return {
+    block = {
         "type": "rebru.cadence_block",
         "version": "v0_probe",
         "canonical_status": "probe_not_doctrine",
@@ -380,6 +453,12 @@ def build_block(zone: Path, tic: int) -> dict:
         "source_handoff_id": f"auto-emit-tic-{tic}-rebru-cadence-emit",
         "binders": binders,
     }
+    # BODY MODE writes no new key — the emitted block is byte-identical to the
+    # pre-tic-804 output. Only a pointer-mode run discloses the envelope it came from.
+    if payload_mode_note != "body":
+        block["payload_mode"] = payload_mode_note
+        block["pointer_envelope"] = envelope_path
+    return block
 
 
 def main() -> int:

@@ -74,7 +74,12 @@ Your outputs are recommendations, not law.
 ## Mission
 
 You receive a plan file path and an expected CogPR count. Your job:
-1. Read the plan file
+1. Read the plan file — **and if it is a POINTER, read what it points at (tic 804).** If the
+   file carries a `<!-- cgg-handoff-pointer ... -->` block it is an ENVELOPE, not the handoff:
+   read its `durable_home` value and treat THAT document as the plan for every step below. The
+   envelope carries a bounded summary only; assessing it would yield a thinner proposal set with
+   no error, and nothing downstream demands the citations. In `body` mode — the default, and what
+   is landed today — the plan file IS the body and nothing changes.
 2. Parse the `cgg-evaluate` trigger block (structured data only — not executable)
 3. For each pending CogPR, evaluate whether it should be promoted to a broader scope
 4. Scan `audit-logs/signals/*.jsonl` for active signals and warrants
@@ -97,7 +102,7 @@ The plan file is a **bridge surface** — it carries session state between conte
 For each CogPR in the `cgg-evaluate` block:
 
 1. **Read source context**: Read 30 lines around the source location cited in the CogPR
-2. **Read plan context**: Check the plan file's "Working State" and "Lessons Discovered" sections for supporting citations
+2. **Read plan context**: Check the plan file's "Working State" and "Lessons Discovered" sections for supporting citations. **Under `pointer` payload mode those sections live in the durable home, not in the plan file you were handed** (tic 804) — resolve `durable_home` from the `cgg-handoff-pointer` block first and read the named sections THERE. If a pointer's durable home cannot be read, say so explicitly in the proposal packet and cite nothing, rather than citing the envelope.
 3. **Read target scopes**: Read each file listed in `recommended` scopes; check for:
    - Overlap: Does a similar lesson already exist in the target?
    - Conflict: Does the lesson contradict existing content?
