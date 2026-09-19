@@ -15,6 +15,7 @@ import hashlib
 import json
 import os
 import re
+import subprocess
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
@@ -780,6 +781,115 @@ def _resolve_provenance_class(block, block_locator):
     return declared
 
 
+# ──────────────────────────────────────────────────────────────────────────────
+# EFFECTIVE-STATE PROJECTION RECOMPILE — KEYED ON MUTATION
+# RULED /review 801 round 2 (Architect-ratified, recommended option verbatim:
+# "Key the writer on mutation"). Ruling receipt:
+#   audit-logs/governance/receipts/2026-09-19-tic801-projection-writer-locus-ruling.md
+#
+# WHY HERE. audit-logs/cprs/effective-state/ is a DERIVED cache — queue.jsonl
+# stays the sole authority — but its only invokers were queue-lifecycle-
+# writeback.py (fires at a /review writeback) and bench-packet-prep.py (fires
+# at a bench prep). This script is a mint-side queue APPENDER that named the
+# compiler only in comments and never invoked it, so EVERY MINT left the
+# projection stale until the next /review pass. Lived at the tic-800 walk:
+# live-extracted 12 vs projection 5 — 7 invisible ids. The cure makes the
+# mutation boundary an owner of its own derived cache.
+#
+# DOES-NOT-SATISFY RIDER (travels verbatim): this increment does NOT add a reader-side staleness detector; a reader that trusts the projection is protected only while every queue writer recompiles. A writer added later without the call re-opens the window.
+#
+# MIRRORED, NOT REINVENTED. queue-lifecycle-writeback.recompile_effective_state
+# is the ratified shape and this is its faithful copy under the same
+# `--current-tic` contract:
+#   * EVERY path is derived from THE QUEUE THE APPEND ACTUALLY WROTE, never
+#     from this script's own location. The compiler used is the one living
+#     BESIDE that queue (`<queue>/../queue_state_compile.py`), and `--out` is
+#     pinned beside it too — the compiler's own DEFAULT_OUT is
+#     Path(__file__)-relative and would follow a copied script to the wrong
+#     zone. This is exactly what makes the SOURCE copy and the INSTALLED copy
+#     under ~/.claude/cgg-runtime/scripts/ behave identically: the installed
+#     tree carries no .ticzone in its ancestry, so any __file__-anchored zone
+#     resolution would miss the real zone entirely (or silently pick another).
+#   * THE CLOCK is the cured sibling reader cpr-gate-advance.resolve_current_tic
+#     (`domain_counter_after` on the LATEST tic event), read from the QUEUE's
+#     own audit-logs root. A second tic reader minted here would be the exact
+#     counter-disagreement shape `Disagreement-as-evidence` names.
+#     This module's own get_tic_count() reads the same cured
+#     authority, but it is anchored on --project-dir; the recompile
+#     anchors on the QUEUE's audit-logs root so the clock, the
+#     compiler and the projection all belong to the zone the append
+#     actually wrote to.
+#   * FAIL-SOFT, ABSOLUTELY. A compile failure NEVER fails the append: the
+#     append is the constitutional write, the projection is a derived cache.
+#     Every failure is LOUD on stderr AND counted in the caller's counters.
+# ──────────────────────────────────────────────────────────────────────────────
+
+def _resolve_recompile_tic(queue_path):
+    """Canonical current tic for the recompile, read from the QUEUE's own zone.
+
+    REUSED, not reimplemented: cpr-gate-advance.resolve_current_tic is the cured
+    sibling in this same queue lane. Returns a positive int, or None when the
+    tic log is absent/unreadable or the helper cannot be loaded. NEVER raises —
+    a derived-cache clock must not fail a constitutional write.
+    """
+    try:
+        import importlib.util
+        mod_path = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                                "cpr-gate-advance.py")
+        spec = importlib.util.spec_from_file_location(
+            "cpr_gate_advance_for_recompile", mod_path)
+        mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mod)
+        tic = mod.resolve_current_tic(Path(queue_path).parent.parent)
+    except Exception:
+        return None
+    return tic if isinstance(tic, int) and tic > 0 else None
+
+
+def recompile_effective_state(queue_file, current_tic=None):
+    """Recompile the derived effective-state projection for THIS queue.
+
+    Returns (ok: bool, detail: str). BEST-EFFORT BY CONTRACT: every failure path
+    returns False with a typed reason and prints to stderr; nothing here raises
+    into the caller, so a landed append stays landed.
+    """
+    qp = Path(queue_file)
+    if current_tic is None:
+        current_tic = _resolve_recompile_tic(qp)
+    if current_tic is None:
+        detail = (f"no_tic_resolvable: {qp.parent.parent / 'tics'} yielded no "
+                  f"canonical tic (queue_state_compile requires --current-tic)")
+        print(f"  ⚠ effective-state recompile SKIPPED — {detail}; the projection "
+              f"is STALE until a tic-bearing rebuild (backstop: civil).",
+              file=sys.stderr)
+        return False, detail
+    compile_script = qp.parent / "queue_state_compile.py"
+    if not compile_script.is_file():
+        detail = f"compiler_not_found: {compile_script}"
+        print(f"  ⚠ effective-state recompile skipped — {detail}; projection "
+              f"stale until the next rebuild (backstop: civil).", file=sys.stderr)
+        return False, detail
+    try:
+        res = subprocess.run(
+            [sys.executable, str(compile_script), "compile",
+             "--queue", str(qp), "--out", str(qp.parent / "effective-state"),
+             "--current-tic", str(current_tic)],
+            capture_output=True, text=True, timeout=120)
+    except Exception as exc:
+        detail = f"recompile_error: {exc}"
+        print(f"  ⚠ effective-state recompile error — {exc}; projection stale "
+              f"until the next rebuild (backstop: civil).", file=sys.stderr)
+        return False, detail
+    if res.returncode != 0:
+        tail = (res.stderr or res.stdout or "").strip()[:300]
+        detail = f"recompile_failed_rc={res.returncode}: {tail}"
+        print(f"  ⚠ effective-state recompile FAILED rc={res.returncode} — "
+              f"projection stale until the next rebuild (backstop: civil): {tail}",
+              file=sys.stderr)
+        return False, detail
+    return True, f"recompiled_at_tic={current_tic}"
+
+
 def extract_cprs(project_dir, dry_run=False, plan_file=None, anomaly_threshold=0.5,
                  session_lessons_window=SESSION_LESSONS_RECENCY_WINDOW,
                  borns_window=BORNS_RECENCY_WINDOW, waive_enum_guard=()):
@@ -867,6 +977,9 @@ def extract_cprs(project_dir, dry_run=False, plan_file=None, anomaly_threshold=0
         "terminal_duplicate_skipped": 0,
         "closed_form_markers_warned": 0,
         "skipped_block_scalar_bare_indicator": 0,
+        "effective_state_recompiled": 0,
+        "effective_state_recompile_failed": 0,
+        "effective_state_recompile_detail": "",
     }
 
     for gov_file in gov_files:
@@ -1376,9 +1489,13 @@ def extract_cprs(project_dir, dry_run=False, plan_file=None, anomaly_threshold=0
         # prevents re-extraction across runs but does not prevent duplicate
         # entries within a single run's new_entries list). The id-based
         # write-boundary check catches both classes.
+        # `written` is hoisted so BOTH write paths report it: the recompile
+        # gate below is keyed on a row ACTUALLY LANDING, and the fallback path
+        # historically set no counter at all (an un-reportable write is an
+        # un-gateable one).
+        written = 0
         try:
             from lib.atomic_append import dedup_queue_append
-            written = 0
             deduped = 0
             for entry in new_entries:
                 if dedup_queue_append(queue_file, entry):
@@ -1413,10 +1530,25 @@ def extract_cprs(project_dir, dry_run=False, plan_file=None, anomaly_threshold=0
                             if eid and eid in existing_ids:
                                 continue
                             f.write(json.dumps(entry, separators=(",", ":")) + "\n")
+                            written += 1
                             if eid:
                                 existing_ids.add(eid)
                 finally:
                     fcntl.flock(lf.fileno(), fcntl.LOCK_UN)
+            counters["written_to_queue"] = written
+            counters["deduped_at_write"] = len(new_entries) - written
+
+        # ── Effective-state recompile, KEYED ON MUTATION (RULED /review 801 r2).
+        # Fires ONLY after a SUCCESSFUL append: a dry-run writes nothing and a
+        # zero-append run (dedup hit / no candidates) mutates nothing, so neither
+        # may move the projection.
+        #
+        # DOES-NOT-SATISFY RIDER (verbatim): this increment does NOT add a reader-side staleness detector; a reader that trusts the projection is protected only while every queue writer recompiles. A writer added later without the call re-opens the window.
+        if written > 0:
+            _ok, _detail = recompile_effective_state(queue_file)
+            counters["effective_state_recompiled"] = 1 if _ok else 0
+            counters["effective_state_recompile_failed"] = 0 if _ok else 1
+            counters["effective_state_recompile_detail"] = _detail
 
     # Anomaly self-reporting (CogPR-150). Fires to stderr when blocks_found
     # is materially greater than blocks_extracted. The default 0.5 threshold

@@ -437,9 +437,76 @@ def handle_post(payload: dict) -> int:
 # Prints the boot-injection message (possibly empty). Fail-soft: never blocks.
 # ---------------------------------------------------------------------------
 
+# ---------------------------------------------------------------------------
+# Actor discrimination (tic-799 born -> /review 802 Q5, the THIRD BOOT KIND face
+# of cgg-ledger#boot-seam-duality-primary-sessionstart-citizens-subagentstart).
+#
+# A mogul-runner `claude -p` child is a TOP-LEVEL session: it boots through
+# SessionStart -- the PRIMARY's seam, not SubagentStart -- carrying an EMPTY
+# payload agent_id, so it satisfies every predicate the primary would and
+# consumed the primary's seal (measured at the entry-tic-800 boundary:
+# consumed_by orchestrator_session_start at 04:40:53Z, 44 s after the headless
+# child logged Status -> running at 04:40:09Z). The runner exports its
+# obligation identity into that child's environment before spawning it, so a
+# discriminator was present at this seam and unread.
+#
+# Only an empty agent_id with NO obligation environment is the primary. The
+# obligation ids are a LABEL source and are never trusted as authority; it is
+# their ABSENCE that makes the primary the primary.
+#
+# Lock line: whoever boots first is not thereby the primary; the seal asks who.
+# ---------------------------------------------------------------------------
+
+OBLIGATION_MANDATE_ENV = "CGG_OBLIGATION_MANDATE_ID"
+OBLIGATION_TIC_ENV = "CGG_OBLIGATION_TIC"
+
+
+def derive_actor(agent_id: str) -> dict:
+    """Derive the reconcile actor; only the primary may consume a seal.
+
+    Three boot kinds reach this seam:
+      subagent         -- non-empty payload agent_id (a subagent context)
+      headless_citizen -- empty agent_id + the runner's obligation environment
+      primary          -- empty agent_id AND no obligation environment
+    """
+    mandate_id = (os.environ.get(OBLIGATION_MANDATE_ENV) or "").strip()
+    obligation_tic = (os.environ.get(OBLIGATION_TIC_ENV) or "").strip()
+    agent_id = (agent_id or "").strip()
+
+    if agent_id:
+        # A subagent context reaching this seam is non-primary whether or not it
+        # also carries an obligation environment; both discriminators recorded.
+        return {
+            "actor": "subagent:" + agent_id,
+            "actor_class": "subagent",
+            "is_primary": False,
+            "agent_id": agent_id,
+            "obligation_mandate_id": mandate_id or None,
+            "obligation_tic": obligation_tic or None,
+        }
+    if mandate_id:
+        return {
+            "actor": "headless_citizen:" + mandate_id,
+            "actor_class": "headless_citizen",
+            "is_primary": False,
+            "agent_id": "",
+            "obligation_mandate_id": mandate_id,
+            "obligation_tic": obligation_tic or None,
+        }
+    return {
+        "actor": "orchestrator_session_start",
+        "actor_class": "primary",
+        "is_primary": True,
+        "agent_id": "",
+        "obligation_mandate_id": None,
+        "obligation_tic": obligation_tic or None,
+    }
+
+
 def handle_reconcile_at_start(agent_id: str) -> int:
     now = datetime.now(timezone.utc).isoformat()
-    consumer = agent_id or "orchestrator_session_start"
+    actor = derive_actor(agent_id)
+    consumer = actor["actor"]
     msg_parts = []
 
     marker = read_boundary()
@@ -447,6 +514,50 @@ def handle_reconcile_at_start(agent_id: str) -> int:
 
     current = _load_json(CURRENT_FILE)
     staged = _load_json(STAGED_FILE)
+
+    # ----------------------------------------------------------------------
+    # REFUSAL BRANCH (tic-799 born, ruled /review 802 Q5). A non-primary actor
+    # RECORDS its sighting and consumes NOTHING: the staged/current seal is left
+    # BYTE-IDENTICAL for the primary, and the interstitial marker is NOT
+    # activated -- marker activation below is driven solely by consumed_seal,
+    # which stays None on this path, so refusal leaves the primary's boundary
+    # unarmed rather than half-armed. With no seal pending, a non-primary boot
+    # writes NOTHING AT ALL: a citizen boot must not drop a noise row into the
+    # journal on every spawn. consumed_by on a real consumption now names an
+    # actor a non-primary could not have produced.
+    #
+    # DOES-NOT-SATISFY RIDER (travels verbatim): this increment does NOT rule or
+    # cure which promoter is the seam's ordinary path (the PostToolUse promoter
+    # versus the SessionStart recovery seam), does NOT touch the PostToolUse
+    # promoter, and does NOT retire the recovery_promoted label; a sibling born
+    # adjudicates that at its own round. It also does NOT prove the installed
+    # hook carries the cure -- that is the seat's sync-and-verify motion after
+    # the commit.
+    # ----------------------------------------------------------------------
+    if not actor["is_primary"]:
+        pending = None
+        if current and current.get("consumed_at") is None:
+            pending = current
+        elif staged and (not current or current.get("consumed_at") is not None):
+            pending = staged
+        if pending is not None:
+            pend_act = pending.get("activation") or {}
+            _atomic_append_jsonl(SEALS_LOG, {
+                "journal_event": "consume_refused",
+                "reason": "non_primary_actor",
+                "actor": actor["actor"],
+                "actor_class": actor["actor_class"],
+                "agent_id": actor["agent_id"],
+                "obligation_mandate_id": actor["obligation_mandate_id"],
+                "obligation_tic": actor["obligation_tic"],
+                "seal_emission_id": pend_act.get("emission_id"),
+                "seal_entry_tic": pend_act.get("entry_tic"),
+                "seal_stage": pending.get("stage"),
+                "marker_emission_id": marker_em,
+                "at": now,
+            })
+        print("")
+        return 0
 
     consumed_seal = None
 
