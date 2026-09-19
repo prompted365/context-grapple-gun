@@ -528,6 +528,15 @@ fi
 # Output — combine both branches into a single hook response
 # ============================================================================
 
+# AS-OF postmark (/review 802 Q4 — the INJECTED-CONTEXT AS-OF face on the federation
+# presence-observation family): the harness runs this hook at prompt ENQUEUE and attaches
+# its output at DELIVERY, which can be many minutes later. The mandate-state line carries
+# its own read time so the reader can rank it: the ledger rules, the mirror is second,
+# this injected line is third.
+if [ -n "$MANDATE_OUTPUT" ]; then
+  MANDATE_OUTPUT="$MANDATE_OUTPUT [gate read_at $(date -u +%Y-%m-%dT%H:%M:%SZ) — an AS-OF, not a live read: compare against current.json mtime and the latest mandates/history transition before acting]"
+fi
+
 # If neither branch produced output, fast exit
 if [ -z "$MANDATE_OUTPUT" ] && [ -z "$ASSESSOR_OUTPUT" ]; then
   exit 0
