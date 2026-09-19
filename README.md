@@ -4,7 +4,7 @@
 
 # Context Grapple Gun
 
-Context Grapple Gun is a portable governance lifecycle for Claude Code and a developer-facing entry point into Prompted LLC's Ubiquity substrate.
+Context Grapple Gun is a portable, harness-agnostic governance lifecycle for the Ubiquity substrate. cgg-runtime is its Claude Code adapter today (one admitted originator; Codex and sovereign-local shells mount through canonical-mount), and cogpr carries the conventions for any platform.
 
 CGG turns session-local human-agent learning into scoped, reviewable, receipted operating structure. It preserves the distinction between canonical source, installed plugin, loaded runtime, human judgment, and future hydration instead of calling all of them “memory.”
 

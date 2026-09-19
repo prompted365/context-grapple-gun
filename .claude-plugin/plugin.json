@@ -3,7 +3,7 @@
   "name": "context-grapple-gun",
   "displayName": "Context Grapple Gun",
   "version": "5.0.0",
-  "description": "Portable governance lifecycle for Claude Code. Captures lessons as CogPRs, preserves session continuity, routes proposals through human-gated review, and tracks recurring friction through the signal manifold.",
+  "description": "Portable, harness-agnostic governance lifecycle for the Ubiquity substrate (this plugin is the Claude Code adapter). Captures lessons as CogPRs, preserves session continuity, routes proposals through human-gated review, and tracks recurring friction through the signal manifold.",
   "author": {
     "name": "Prompted LLC",
     "email": "breyden@prompted.community"

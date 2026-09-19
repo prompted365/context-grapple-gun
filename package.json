@@ -1,7 +1,7 @@
 {
   "name": "context-grapple-gun",
   "version": "5.0.0",
-  "description": "Portable governance lifecycle for Claude Code: cognitive PRs, scoped promotion, and cross-session lesson compounding.",
+  "description": "Portable, harness-agnostic governance lifecycle for the Ubiquity substrate: cognitive PRs, scoped promotion, and cross-session lesson compounding. cgg-runtime is the Claude Code adapter today; cogpr carries the conventions for any platform.",
   "type": "module",
   "bin": {
     "cgg": "bin/cgg.mjs"

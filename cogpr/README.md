@@ -1,6 +1,6 @@
 # CogPR v3 — Cognitive Pull Request Conventions (Signal Manifold)
 
-Lesson flagging, signal emission, and cross-scope promotion conventions for Claude.
+Lesson flagging, signal emission, and cross-scope promotion conventions for any platform (harness-agnostic; cgg-runtime is the Claude Code adapter today).
 
 > Convention reference for CogPR/Signal/Warrant block formats. For the automation pipeline, see [cgg-runtime/](../cgg-runtime/skills/README.md). For the full architecture, see [README.md](../README.md).
 
