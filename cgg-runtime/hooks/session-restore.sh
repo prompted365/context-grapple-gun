@@ -213,6 +213,63 @@ if [ -n "$SEAL_HOOK_SCRIPT" ]; then
 fi
 
 # ============================================================================
+# Boot actor derivation (tic-799 born -> /review 802 Q5 -> /review 803 round 2
+# Ruling B, "refuse one, declare three"). Derived ONCE, here, and read by the
+# act-1 guard below.
+#
+# ONE RULE, TWO CALL SITES. The rule is NOT re-implemented here: it is the
+# seal reconciler's own `derive_actor`, imported from cadence-handoff-seal.py
+# (READ-only; that file is untouched by this increment). Call site A is
+# cadence-handoff-seal.py `handle_reconcile_at_start` -> `derive_actor(agent_id)`;
+# call site B is this block. A second bash-side re-derivation would be a SECOND
+# RULE the moment either copy drifted -- the exact spec-runtime divergence the
+# federation names as drift-by-accident.
+#
+# Three boot kinds reach THIS seam (SessionStart):
+#   primary           -- empty payload agent_id AND no obligation environment
+#   subagent          -- non-empty payload agent_id
+#   headless_citizen  -- empty agent_id + the runner's CGG_OBLIGATION_MANDATE_ID
+# A mogul-runner `claude -p` child is a TOP-LEVEL session: it boots through
+# SessionStart -- the PRIMARY's seam, not SubagentStart -- so "this is
+# SessionStart" never meant "this is the primary".
+#
+# FAIL-OPEN TO PRIMARY, deliberately. If the rule cannot be reached (seal hook
+# absent, import failure, python3 missing) the actor degrades to primary, which
+# is EXACTLY the pre-cure behaviour. A refusal is a RESTRICTION, and the only
+# safe failure direction for a restriction on this seam is open: the primary
+# must never be lockable out of its own mandate lane by a derivation fault.
+# Every non-"false" value of BOOT_ACTOR_IS_PRIMARY is therefore treated as the
+# primary by the guard below.
+# ============================================================================
+
+BOOT_ACTOR="orchestrator_session_start"
+BOOT_ACTOR_CLASS="primary"
+BOOT_ACTOR_IS_PRIMARY="true"
+BOOT_ACTOR_OBLIGATION_ID=""
+BOOT_ACTOR_OBLIGATION_TIC=""
+if [ -n "$SEAL_HOOK_SCRIPT" ]; then
+  BOOT_ACTOR_FIELDS=$(CGG_SEAL_RULE="$SEAL_HOOK_SCRIPT" CGG_PAYLOAD_AGENT_ID="$AGENT_ID" python3 -c '
+import importlib.util, os
+spec = importlib.util.spec_from_file_location("cgg_seal_rule", os.environ["CGG_SEAL_RULE"])
+mod = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(mod)
+a = mod.derive_actor(os.environ.get("CGG_PAYLOAD_AGENT_ID", ""))
+print(str(a["actor"]).replace("\n", " "))
+print(str(a["actor_class"]).replace("\n", " "))
+print("true" if a["is_primary"] else "false")
+print(str(a.get("obligation_mandate_id") or "").replace("\n", " "))
+print(str(a.get("obligation_tic") or "").replace("\n", " "))
+' 2>/dev/null || true)
+  if [ -n "$BOOT_ACTOR_FIELDS" ]; then
+    BOOT_ACTOR=$(printf '%s\n' "$BOOT_ACTOR_FIELDS" | sed -n '1p')
+    BOOT_ACTOR_CLASS=$(printf '%s\n' "$BOOT_ACTOR_FIELDS" | sed -n '2p')
+    BOOT_ACTOR_IS_PRIMARY=$(printf '%s\n' "$BOOT_ACTOR_FIELDS" | sed -n '3p')
+    BOOT_ACTOR_OBLIGATION_ID=$(printf '%s\n' "$BOOT_ACTOR_FIELDS" | sed -n '4p')
+    BOOT_ACTOR_OBLIGATION_TIC=$(printf '%s\n' "$BOOT_ACTOR_FIELDS" | sed -n '5p')
+  fi
+fi
+
+# ============================================================================
 # Plan discovery + trigger extraction
 # ============================================================================
 
@@ -410,6 +467,17 @@ resolve_script() {
   return 1
 }
 
+# ----------------------------------------------------------------------------
+# ACT 4 of 4 on this seam -- cpr-extract backfill.
+# ACTOR-AGNOSTIC BY DESIGN (/review 803 round 2, Ruling B). REASON: DEDUP AT
+# WRITE. The extractor keys on canonical CogPR identity at the write boundary,
+# so a second actor running it re-derives the same rows rather than minting
+# duplicates. The absence of an actor axis here is a RECORDED DECISION, not an
+# oversight: queue row 3,208 (the tic-802 born) was extracted at 09:23:53Z by
+# THIS act running inside the close-fire runner child's boot -- benign and
+# useful. Refusing it for a non-primary actor would make queue hygiene depend
+# on a human-led boot. Only ACT 1 (mandate auto-write + route) is refused.
+# ----------------------------------------------------------------------------
 CPR_EXTRACT=$(resolve_script "cpr-extract.py")
 if [ -n "$CPR_EXTRACT" ] && [ "$TOTAL_CPRS" -gt 0 ]; then
   if [ -n "$LATEST_PLAN" ] && [ -f "$LATEST_PLAN" ]; then
@@ -433,6 +501,14 @@ fi
 # with an empty enrichment[] even when their tic-427 baseline consolidated.json existed.
 # This reconciler is that owner. Deterministic (no model), idempotent, never promotes.
 # ----------------------------------------------------------------------------
+# ACT 2 of 4 on this seam -- the CPR gate-advance reconciler.
+# ACTOR-AGNOSTIC BY DESIGN (/review 803 round 2, Ruling B). REASON:
+# DETERMINISTIC (and idempotent). The tic_gated -> enrichment_needed edge is a
+# pure function of on-disk queue state and the tic authority -- no model, no
+# authority minted, same input same output for every actor. Re-running it from
+# a second boot advances nothing that was not already due. The absence of an
+# actor axis here is a RECORDED DECISION, not an oversight; only ACT 1
+# (mandate auto-write + trigger-router route) carries an actor axis.
 GATE_ADVANCE=$(resolve_script "cpr-gate-advance.py")
 if [ -n "$GATE_ADVANCE" ] && [ -f "$QUEUE_FILE" ]; then
   python3 "$GATE_ADVANCE" --project-dir "$PROJECT_DIR" --quiet > /dev/null 2>&1 || true
@@ -473,9 +549,17 @@ fi
 # perform. cpr-stepper is an AGENT — the assessment needs the model — so unlike the
 # enrichment script it cannot be a `scanner.py &` from a hook; it is surfaced as a
 # background-agent-spawn instruction, the agent-tier sibling of the enrichment lane
-# (same pattern as the MOGUL / RIPPLE protocols). Primary-only: this fires from the
-# SessionStart orchestrator hook, never the citizen boot path, so spawned citizens
-# do not each launch a stepper. This is the CONSUMER half of the tic-369
+# (same pattern as the MOGUL / RIPPLE protocols). SessionStart-seam-only, which is
+# NOT the same as primary-only (corrected /review 803 round 2, Ruling B; the claim
+# below read "Primary-only: ... never the citizen boot path" and was FALSE for one
+# of the three boot kinds). THREE boot kinds exist: (1) the PRIMARY orchestrator,
+# SessionStart -- fires; (2) a SubagentStart CITIZEN, which boots through
+# subagent-citizen-boot.py and never reaches this file -- does not fire, so spawned
+# citizens do not each launch a stepper; (3) a HEADLESS `claude -p` child (a
+# mogul-runner child), which is a TOP-LEVEL session and boots through THIS
+# SessionStart seam carrying an empty payload agent_id -- so it DOES fire here.
+# Kind (3) is the third-boot-kind blind spot; this lane is surfacing-only (it emits
+# a banner instruction, mints nothing), so it is left actor-agnostic. This is the CONSUMER half of the tic-369
 # producer-without-reconciler fix (the producer half is pattern_miner
 # dedup-at-write). Kept OFF compute_due_cycles deliberately: the stepper is robust
 # and slower than the sync cycles, so it belongs in the decoupled lane, not the
@@ -605,7 +689,85 @@ except: print(0)
   fi
 fi
 
-if [ "$TIC_COUNT" -gt 0 ] && [ "$MANDATE_ALREADY_EXISTS" = "false" ]; then
+# ----------------------------------------------------------------------------
+# ACT 1 of 4 on this seam -- mandate auto-write + trigger-router route.
+# THE ONE ACT OF THE FOUR THAT CARRIES AN ACTOR AXIS (/review 803 round 2,
+# Ruling B, Architect-ratified, recommended option verbatim "Refuse one,
+# declare three").
+#
+# WHY THIS ONE AND NOT THE OTHER THREE: this act is NON-IDEMPOTENT and
+# AUTHORITY-BEARING. A mogul-runner `claude -p` child boots through THIS seam
+# as a top-level session, so without this guard it could MINT and ROUTE a fresh
+# mandate while it was itself executing one -- a runner child manufacturing its
+# own successor's obligation. Acts 2, 3 and 4 are declared actor-agnostic by
+# design at their own call sites (deterministic; idempotent; dedup at write).
+#
+# A non-primary actor is REFUSED here: no mandate is written, none is routed, a
+# typed line is journaled naming the actor and the refusal, and THE BOOT
+# CONTINUES -- acts 2, 3 and 4 still run for that actor.
+#
+# DOES-NOT-SATISFY RIDER (travels verbatim): this increment does NOT rule or cure which promoter is the seal seam's ordinary path (that is the tic-801 born, adjudicated at /review 804), does NOT add coverage for the seal hook's PreToolUse stage path, its PostToolUse promoter or its plan-capture identity validator (F-802-B1's residue), and does NOT prove that the obligation variable reaches the SessionStart hook process — that leg remains reasoned from shared parentage until a live refusal row witnesses it.
+# ----------------------------------------------------------------------------
+ACT1_REFUSED=false
+if [ "$TIC_COUNT" -gt 0 ] && [ "$MANDATE_ALREADY_EXISTS" = "false" ] && [ "$BOOT_ACTOR_IS_PRIMARY" = "false" ]; then
+  ACT1_REFUSED=true
+  BOOT_ACTS_LOG="$AUDIT_LOGS/hooks/boot-act-refusals.jsonl"
+  mkdir -p "$(dirname "$BOOT_ACTS_LOG")" 2>/dev/null || true
+  # Typed refusal row, MIRRORING the seal reconciler's consume_refused /
+  # non_primary_actor shape. Deliberately a SIBLING journal, never the seal's
+  # own handoff-seals.jsonl: two different lifecycles must not share one
+  # journal, and the seal journal's event distribution is a measured surface.
+  ACT1_REFUSAL_ROW=$(CGG_R_ACTOR="$BOOT_ACTOR" CGG_R_CLASS="$BOOT_ACTOR_CLASS" \
+    CGG_R_AGENT_ID="$AGENT_ID" CGG_R_OBL_ID="$BOOT_ACTOR_OBLIGATION_ID" \
+    CGG_R_OBL_TIC="$BOOT_ACTOR_OBLIGATION_TIC" CGG_R_TIC="$TIC_COUNT" python3 -c '
+import json, os
+from datetime import datetime, timezone
+print(json.dumps({
+    "journal_event": "mandate_write_refused",
+    "reason": "non_primary_actor",
+    "act": "mandate_auto_write_and_trigger_router_route",
+    "actor": os.environ.get("CGG_R_ACTOR", ""),
+    "actor_class": os.environ.get("CGG_R_CLASS", ""),
+    "agent_id": os.environ.get("CGG_R_AGENT_ID", ""),
+    "obligation_mandate_id": os.environ.get("CGG_R_OBL_ID") or None,
+    "obligation_tic": os.environ.get("CGG_R_OBL_TIC") or None,
+    "tic": int(os.environ.get("CGG_R_TIC") or 0),
+    "acts_continued": ["cpr_extract_backfill", "cpr_gate_advance", "inbox_sweeps"],
+    "at": datetime.now(timezone.utc).isoformat(),
+}, separators=(",", ":")))
+' 2>/dev/null || true)
+  if [ -n "$ACT1_REFUSAL_ROW" ]; then
+    if type atomic_append &>/dev/null; then
+      atomic_append "$BOOT_ACTS_LOG" "$ACT1_REFUSAL_ROW"
+    else
+      printf '%s\n' "$ACT1_REFUSAL_ROW" >> "$BOOT_ACTS_LOG"
+    fi
+  fi
+
+  # ACT 3 ON THE REFUSAL PATH. The sweeps' ordinary call site is NESTED inside
+  # the routed branch of ACT 1 below, so refusing ACT 1 would otherwise take
+  # ACT 3 down with it -- and ACT 3 is ruled actor-agnostic BY DESIGN. The two
+  # invocations are duplicated here rather than hoisted into a shared lane
+  # precisely so the PRIMARY's executed path stays byte-for-byte unchanged by
+  # this cure. Keep the two sites in lockstep. (Finding F-804-B1.)
+  REFUSED_INBOX_SCANNER=$(resolve_script "inbox-envelope.py")
+  if [ -n "$REFUSED_INBOX_SCANNER" ]; then
+    python3 "$REFUSED_INBOX_SCANNER" \
+      --zone-root "$ZONE_ROOT" \
+      sweep \
+      --entity ent_homeskillet \
+      --current-tic "$TIC_COUNT" \
+      > /dev/null 2>&1 || true
+    python3 "$REFUSED_INBOX_SCANNER" \
+      --zone-root "$ZONE_ROOT" \
+      sweep \
+      --entity ent_mogul \
+      --current-tic "$TIC_COUNT" \
+      > /dev/null 2>&1 || true
+  fi
+fi
+
+if [ "$TIC_COUNT" -gt 0 ] && [ "$MANDATE_ALREADY_EXISTS" = "false" ] && [ "$BOOT_ACTOR_IS_PRIMARY" != "false" ]; then
   # ── Reconcile-first cycle computation (CogPR-57 fix #3) ──
   # Primary: read previous mandate's tic_context for scheduled due_tic values.
   # Secondary: estate_snapshot or modulo fallback only when no previous context.
@@ -725,6 +887,17 @@ print(json.dumps(body))
         # ── Inbox scan for prompt injection + attention-debt (Phase 5) ──
         INBOX_SCANNER=$(resolve_script "inbox-envelope.py")
         if [ -n "$INBOX_SCANNER" ]; then
+          # ACT 3 of 4 on this seam -- the inbox sweeps.
+          # ACTOR-AGNOSTIC BY DESIGN (/review 803 round 2, Ruling B). REASON:
+          # IDEMPOTENT. A DEFER->WAIT resurfacing re-derives the same due set
+          # from the same tic; sweeping twice resurfaces nothing twice. The
+          # absence of an actor axis here is a RECORDED DECISION, not an
+          # oversight. NOTE (structural, F-804-B1): this call site is NESTED
+          # inside ACT 1's guard and its routed branch, so it is reachable on
+          # the PRIMARY's path only. A non-primary actor, whose ACT 1 is
+          # refused, runs the same two sweeps from the refusal branch above --
+          # duplicated deliberately rather than hoisted, so that the primary's
+          # EXECUTED path stays byte-for-byte what it was before this cure.
           # Best-effort reminder/missed-fire sweep + manual-drop reconcile at boot
           # (mailbox lane consolidation, tic 384). Resurfaces due deferred reminders
           # (DEFER->WAIT) and reconciles hand-dropped + directory envelopes so the
