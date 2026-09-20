@@ -15,8 +15,18 @@ Both arms per conditional:
   - fields PRESENT on the original  → carried forward verbatim;
   - fields ABSENT on the original   → stay absent (carry, never invent);
   - sibling site (named-footgun-sibling discipline): the staleness-rollup HEAL
-    write is a resolve-class manifest row with the same thinness — fixed and
-    guarded together with the two named sites;
+    write is a resolve-class row with the same thinness — fixed and guarded
+    together with the two named sites;
+
+RE-POINTED AT /review 810 (manifest-keyed emit + remove-on-heal, answering
+F-809-B1). The parity CONTRACT is unchanged and is still enforced on every
+terminal row. What moved is the SURFACE the terminal row lands on: the heal now
+REMOVES the manifest line (that removal is what lets a recurrence re-emit) and
+writes the terminal row to resolved-archive.jsonl — the row manifest-prune would
+previously have swept there. So the two heal/resolve cases below assert the SAME
+four fields with the SAME expected values on the ARCHIVED row, and additionally
+assert the manifest line is gone. REAFFIRM is NOT a heal (the ray stays active),
+so its case still reads the manifest and is untouched.
   - end-to-end symptom: after reaffirm + manifest-prune collapse, the projected
     manifest row keeps band + a non-zero visible_volume (the tic-668 defect).
 
@@ -50,6 +60,19 @@ PARITY_FIELDS = ("kind", "band", "volume", "max_volume")
 def _manifest_rows(root, signal_id=None):
     """Raw manifest rows, in file order (the append surface under test)."""
     p = Path(root) / "audit-logs" / "signals" / "active-manifest.jsonl"
+    if not p.exists():
+        return []
+    rows = [json.loads(l) for l in p.read_text(encoding="utf-8").splitlines()
+            if l.strip()]
+    if signal_id is not None:
+        rows = [r for r in rows if r.get("signal_id") == signal_id]
+    return rows
+
+
+def _archive_rows(root, signal_id=None):
+    """Raw resolved-archive rows, in file order. Post-/review-810 this is where a
+    HEAL's terminal row lands (the manifest line is removed instead of shadowed)."""
+    p = Path(root) / "audit-logs" / "signals" / "resolved-archive.jsonl"
     if not p.exists():
         return []
     rows = [json.loads(l) for l in p.read_text(encoding="utf-8").splitlines()
@@ -123,18 +146,24 @@ class TestReaffirmResolveManifestRowParity(unittest.TestCase):
         self.assertEqual(row.get("status"), "active")
         self.assertEqual(row.get("retest_tic"), 508)
 
-    def test_resolve_manifest_row_carries_fields_forward(self):
+    def test_resolve_terminal_row_carries_fields_forward_on_the_archive(self):
+        """RE-POINTED at /review 810: under remove-on-heal the resolve's terminal
+        row lands on resolved-archive.jsonl and the manifest LINE IS REMOVED. Same
+        contract, same four fields, same values — different surface."""
         res = la.resolve_downaudit_finding(
             self.root, self.sid, review_tic=509, resolved_to="confirmed",
             justification="arena confirmed; tension dissolved (parity fixture)")
         self.assertTrue(res["ok"])
-        row = _manifest_rows(self.root, self.sid)[-1]
+        # The cure: the manifest line is GONE, not shadowed by a terminal row.
+        self.assertEqual(_manifest_rows(self.root, self.sid), [])
+        self.assertEqual(res["manifest_lines_removed"], 1)
+        row = _archive_rows(self.root, self.sid)[-1]
         self.assertEqual(row.get("status"), "resolved")
         self.assertEqual(row.get("structural_status"), "resolved")
         for f, want in (("kind", "WATCH"), ("band", "COGNITIVE"),
                         ("volume", 35), ("max_volume", 100)):
             self.assertEqual(row.get(f), want,
-                             f"resolve manifest row lost {f} (thin-row defect)")
+                             f"resolve terminal row lost {f} (thin-row defect)")
 
     def test_absent_fields_stay_absent_never_invented(self):
         """Arm B: an original signal missing band/max_volume yields a manifest
@@ -166,7 +195,8 @@ class TestReaffirmResolveManifestRowParity(unittest.TestCase):
 
 class TestStalenessHealSiblingSiteParity(unittest.TestCase):
     """Sibling site (named-footgun-sibling discipline): the staleness-rollup
-    HEAL manifest write is a resolve-class row — same parity contract."""
+    HEAL write is a resolve-class row — same parity contract. Post-/review-810
+    that row lands on the archive (the manifest line is removed)."""
 
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
@@ -192,13 +222,16 @@ class TestStalenessHealSiblingSiteParity(unittest.TestCase):
         self.assertTrue(second["ran"])
         self.assertEqual(second["resolved"], [sid])
 
-        row = _manifest_rows(self.root, sid)[-1]
+        # RE-POINTED at /review 810: remove-on-heal deletes the manifest line and
+        # writes the terminal row to the archive. Same contract, same fields.
+        self.assertEqual(_manifest_rows(self.root, sid), [])
+        row = _archive_rows(self.root, sid)[-1]
         self.assertEqual(row.get("status"), "resolved")
         for f, want in (("kind", "WATCH"), ("band", "COGNITIVE"),
                         ("volume", la.STALENESS_CANDIDATE_VOLUME),
                         ("max_volume", 100)):
             self.assertEqual(row.get(f), want,
-                             f"heal manifest row lost {f} (sibling-site defect)")
+                             f"heal terminal row lost {f} (sibling-site defect)")
 
 
 class TestEndToEndManifestCollapseKeepsObservability(unittest.TestCase):

@@ -13,6 +13,7 @@ Usage:
 """
 
 import argparse
+import fcntl
 import hashlib
 import json
 import os
@@ -41,6 +42,9 @@ from doctrine_surfaces import resolve_doctrine_surfaces  # noqa: E402
 # store): dedup-at-write keyed on the deterministic signal_id (Dedup-at-Write +
 # JSONL Atomic Writes KIs). `lib/` is on sys.path via the insert above.
 from atomic_append import dedup_signal_append, atomic_append_jsonl  # noqa: E402
+# The one shared umask-honoring atomic writer — the manifest KEEPS its mode
+# across a remove-on-heal rewrite (never re-clamped to owner-only).
+from atomic_write import atomic_write_text  # noqa: E402
 
 
 # ---------------------------------------------------------------------------
@@ -982,6 +986,122 @@ def _carry_manifest_observability(entry, sig):
     return entry
 
 
+# ---------------------------------------------------------------------------
+# MANIFEST-KEYED EMIT / REMOVE-ON-HEAL — the shared surface helpers
+#
+# RULED /review 810 (round 1 Q4 "Manifest-keyed + remove-on-heal", the
+# recommended option verbatim), answering F-809-B1 (HIGH). THE DEFECT, measured
+# at tic 810: the three exposed emitters below deduped against TODAY'S DAILY
+# FILE **and** the manifest, while every heal APPENDED a terminal row instead of
+# removing it. Both dedup sources therefore still carried the id after a heal, so
+# a RECURRENCE of the same condition was refused — the re-detected condition went
+# dark at the exact moment it re-fired. The window was bounded by the
+# manifest-prune sweep, not by the UTC day.
+#
+# THE CURE IS THE ALREADY-SHIPPED SHAPE, not a new one. Two production emitters
+# (the arena-index and maps-freshness canaries) have run it since tic 674:
+#   * the DAILY row is plain append-only LINEAGE — never the dedup key;
+#   * the DEDUP KEY is the curated manifest's ACTIVE set (pre-check below);
+#   * the HEAL physically REMOVES the manifest line and writes the terminal row
+#     to the daily file AND the resolved archive.
+# Because the heal removes, a recurrence finds no active id and re-emits — same
+# UTC day or any later day, with or without a prune sweep.
+#
+# IDS STAY CONDITION-STABLE (Signal ID Determinism): nothing here touches an id
+# computer, so one ray per owner still holds and a membership change still writes
+# no second row. The shared dedup gate in lib/atomic_append.py is NOT touched.
+#
+# WHY THE ARCHIVE WRITE IS REQUIRED, NOT DECORATIVE: under the old shape the
+# appended terminal manifest row was swept to resolved-archive.jsonl by
+# manifest-prune. Removing the line means prune never sees it, so the heal must
+# write that same row to the archive itself or the archive stream silently loses
+# every ladder terminal row (no-signal-goes-dark). The row written is the
+# MANIFEST-shaped row — exactly what prune would have archived — so the archive's
+# existing row shape is preserved rather than widened.
+#
+# DOES-NOT-SATISFY RIDER (travels verbatim with this cure): this increment does
+# NOT change the shared dedup gate, does NOT cure the three unexposed emitters
+# (none heals), does NOT wire the staleness precedent's `--persist` into cadence,
+# and does NOT make the rollup's first live row a series.
+# ---------------------------------------------------------------------------
+
+MANIFEST_KEYED_EMIT_DOES_NOT_SATISFY = (
+    "this increment does NOT change the shared dedup gate, does NOT cure the "
+    "three unexposed emitters (none heals), does NOT wire the staleness "
+    "precedent's `--persist` into cadence, and does NOT make the rollup's first "
+    "live row a series."
+)
+
+
+def _manifest_active_ids(manifest_path):
+    """The ACTIVE id set on the curated manifest — latest-per-id, then the shared
+    `is_active_ray` predicate. THIS IS THE DEDUP KEY for every emitter below.
+
+    Status-aware by construction, which is the whole point: a TERMINAL latest row
+    is not active, so an id whose condition healed is absent from this set and its
+    recurrence re-emits. (The heal also removes the line outright; this predicate
+    is the belt to that suspenders, and it is what makes a legacy terminal row
+    left behind by an older writer non-blocking.) Read-only; fail-soft on an
+    absent/bare manifest — an unreadable manifest yields the empty set, never a
+    false 'already active'."""
+    if not os.path.isfile(manifest_path):
+        return set()
+    latest = {}
+    try:
+        with open(manifest_path, encoding="utf-8") as f:
+            for line in f:
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    rec = json.loads(line)
+                except (json.JSONDecodeError, ValueError):
+                    continue
+                sid = rec.get("signal_id") or rec.get("id")
+                if sid:
+                    latest[sid] = rec
+    except OSError:
+        return set()
+    return {sid for sid, rec in latest.items() if is_active_ray(rec)}
+
+
+def _manifest_remove(manifest_path, sig_id):
+    """Physically remove EVERY manifest row carrying `sig_id`. Returns the count.
+
+    The remove half of remove-on-heal. Held under the manifest's own exclusive
+    lock and rewritten through the shared umask-honoring atomic writer, so the
+    manifest KEEPS its permission bits across the rewrite (a mkstemp+replace pair
+    would silently re-clamp the curated manifest to owner-only) and survivor bytes
+    are unchanged. Removes ALL rows for the id, not just the latest, because a
+    re-affirm may have appended several under one id. Fail-soft: an absent
+    manifest removes nothing and raises nothing."""
+    if not os.path.isfile(manifest_path):
+        return 0
+    removed = 0
+    with open(manifest_path + ".lock", "w") as lock_fd:
+        fcntl.flock(lock_fd.fileno(), fcntl.LOCK_EX)
+        try:
+            with open(manifest_path, encoding="utf-8") as f:
+                raw_lines = f.readlines()
+            kept = []
+            for raw in raw_lines:
+                s = raw.strip()
+                if s:
+                    try:
+                        rec = json.loads(s)
+                        if (rec.get("signal_id") or rec.get("id")) == sig_id:
+                            removed += 1
+                            continue
+                    except (json.JSONDecodeError, ValueError):
+                        pass
+                kept.append(raw)
+            if removed:
+                atomic_write_text(manifest_path, "".join(kept))
+        finally:
+            fcntl.flock(lock_fd.fileno(), fcntl.LOCK_UN)
+    return removed
+
+
 def emit_downaudit_finding(zone_root, rung, ki_id, verdict, opened_tic, *,
                            reinforce_signal=False, summary=None, artifact=None,
                            source="ladder-audit.py", dry_run=False):
@@ -1050,23 +1170,31 @@ def emit_downaudit_finding(zone_root, rung, ki_id, verdict, opened_tic, *,
     signal_file = os.path.join(signal_dir, f"{date_str}.jsonl")
     manifest_path = os.path.join(signal_dir, "active-manifest.jsonl")
 
-    written = dedup_signal_append(signal_file, signal, manifest_path=manifest_path)
+    # MANIFEST-KEYED DEDUP (ruled /review 810). The daily file is NOT consulted:
+    # it is append-only lineage. A condition whose ray was healed (manifest line
+    # removed) is absent from the active set, so its recurrence re-emits.
+    if signal_id in _manifest_active_ids(manifest_path):
+        return {"ok": True, "dry_run": False, "written": False,
+                "deduplicated": True, "signal_id": signal_id,
+                "summary": summary_text}
 
-    if written:
-        manifest_entry = {
-            "signal_id": signal_id,
-            "signal_type": DOWNAUDIT_FINDING_SIGNAL_TYPE,
-            "kind": vdef["kind"],
-            "band": "COGNITIVE",
-            "status": "active",
-            "volume": vdef["volume"],
-            "source_file": f"signals/{date_str}.jsonl",
-            "summary": summary_text,
-        }
-        # Field parity with the daily-row emit shape (the reference the
-        # reaffirm/resolve rows carry forward from): max_volume included.
-        _carry_manifest_observability(manifest_entry, signal)
-        dedup_signal_append(manifest_path, manifest_entry)
+    # Daily row = plain atomic append (lineage; one row per emit EDGE).
+    atomic_append_jsonl(signal_file, signal)
+
+    manifest_entry = {
+        "signal_id": signal_id,
+        "signal_type": DOWNAUDIT_FINDING_SIGNAL_TYPE,
+        "kind": vdef["kind"],
+        "band": "COGNITIVE",
+        "status": "active",
+        "volume": vdef["volume"],
+        "source_file": f"signals/{date_str}.jsonl",
+        "summary": summary_text,
+    }
+    # Field parity with the daily-row emit shape (the reference the
+    # reaffirm/resolve rows carry forward from): max_volume included.
+    _carry_manifest_observability(manifest_entry, signal)
+    written = dedup_signal_append(manifest_path, manifest_entry)
 
     return {"ok": True, "dry_run": False, "written": written,
             "deduplicated": (not written), "signal_id": signal_id,
@@ -3771,14 +3899,21 @@ def resolve_downaudit_finding(zone_root, signal_id, review_tic, resolved_to,
     os.makedirs(signal_dir, exist_ok=True)
     signal_file = os.path.join(signal_dir, f"{date_str}.jsonl")
     manifest_path = os.path.join(signal_dir, "active-manifest.jsonl")
+    archive_path = os.path.join(signal_dir, "resolved-archive.jsonl")
 
-    # Terminal transition = append a new row with the SAME signal_id (latest-per-id
-    # wins). NOT dedup_signal_append (which would refuse the duplicate id).
+    # REMOVE-ON-HEAL (ruled /review 810). The terminal row still lands in the
+    # daily file (append-only lineage, latest-per-id wins there) and now ALSO in
+    # the resolved archive — the row manifest-prune would have swept there under
+    # the old append-a-terminal-manifest-row shape. The manifest LINE IS REMOVED
+    # rather than shadowed, which is what lets the same condition re-emit if it
+    # recurs: the manifest is the dedup key.
     atomic_append_jsonl(signal_file, resolved_signal)
-    atomic_append_jsonl(manifest_path, manifest_entry)
+    atomic_append_jsonl(archive_path, manifest_entry)
+    manifest_lines_removed = _manifest_remove(manifest_path, signal_id)
 
     return {"ok": True, "dry_run": False, "signal_id": signal_id,
             "resolved_to": resolved_to, "receipt": receipt,
+            "manifest_lines_removed": manifest_lines_removed,
             "summary": manifest_entry["summary"]}
 
 
@@ -4635,8 +4770,21 @@ def compute_staleness_rollup_signal_id(staleness_signal):
 
 def load_staleness_rollups(zone_root):
     """Read staleness-candidate rollup signals from the manifold, terminal-per-id projected
-    (latest entry wins — the Terminal-State Valve discipline). Read-only; the active-manifest
-    file is skipped (thin entries). Returns the latest signal dict per signal_id."""
+    (latest entry wins — the Terminal-State Valve discipline). Read-only; the DERIVED
+    surfaces active-manifest.jsonl (thin entries) and resolved-archive.jsonl are both
+    skipped. Returns the latest signal dict per signal_id.
+
+    resolved-archive.jsonl is excluded for the same reason active-manifest.jsonl
+    is, and for the reason the two cured sibling readers in this file already
+    exclude it (_load_active_signals, load_downaudit_findings): a directory glob's
+    membership is a property of the DIRECTORY, and the archive sorts LAST
+    ('r' > any date), so its thin terminal copy would override a chronologically
+    NEWER active row and the re-emitted ray would read `resolved` the moment it
+    re-fires. Under remove-on-heal the archive is now WRITTEN BY THIS LANE's heal
+    (ruled /review 810), which makes excluding it load-bearing rather than
+    hygienic. Doctrine: file-sort-is-not-chronology / derived surfaces excluded
+    from primary readers.
+    """
     tz_config = load_ticzone(zone_root)
     al_path = audit_logs_path(zone_root, tz_config)
     signal_dir = Path(al_path) / "signals"
@@ -4644,7 +4792,7 @@ def load_staleness_rollups(zone_root):
         return []
     latest = {}
     for f in sorted(signal_dir.glob("*.jsonl")):
-        if f.name == "active-manifest.jsonl":
+        if f.name in ("active-manifest.jsonl", "resolved-archive.jsonl"):
             continue
         try:
             lines = f.read_text(encoding="utf-8").splitlines()
@@ -4740,6 +4888,7 @@ def persist_staleness_candidates(zone_root, scan_result, opened_tic=None, *,
     date_str = now.strftime("%Y-%m-%d")
     signal_file = os.path.join(signal_dir, f"{date_str}.jsonl")
     manifest_path = os.path.join(signal_dir, "active-manifest.jsonl")
+    archive_path = os.path.join(signal_dir, "resolved-archive.jsonl")
 
     emitted, deduped = [], []
     for p in plan_emit:
@@ -4768,14 +4917,20 @@ def persist_staleness_candidates(zone_root, scan_result, opened_tic=None, *,
             "source_date": date_str, "created_at": now.isoformat(),
             "payload": payload, "origin": "deterministic",
         }
-        written = dedup_signal_append(signal_file, signal, manifest_path=manifest_path)
+        # MANIFEST-KEYED DEDUP (ruled /review 810): the manifest's ACTIVE set is the
+        # key; the daily file is append-only lineage and is never consulted. A class
+        # whose rollup healed is absent from that set, so its recurrence re-emits.
+        if sig_id in _manifest_active_ids(manifest_path):
+            deduped.append(sig_id)
+            continue
+        atomic_append_jsonl(signal_file, signal)
+        written = dedup_signal_append(manifest_path, _carry_manifest_observability({
+            "signal_id": sig_id, "signal_type": STALENESS_CANDIDATE_SIGNAL_TYPE,
+            "kind": "WATCH", "band": "COGNITIVE", "status": "active",
+            "volume": STALENESS_CANDIDATE_VOLUME,
+            "source_file": f"signals/{date_str}.jsonl", "summary": summary_text,
+        }, signal))
         if written:
-            dedup_signal_append(manifest_path, _carry_manifest_observability({
-                "signal_id": sig_id, "signal_type": STALENESS_CANDIDATE_SIGNAL_TYPE,
-                "kind": "WATCH", "band": "COGNITIVE", "status": "active",
-                "volume": STALENESS_CANDIDATE_VOLUME,
-                "source_file": f"signals/{date_str}.jsonl", "summary": summary_text,
-            }, signal))
             emitted.append(sig_id)
         else:
             deduped.append(sig_id)
@@ -4797,17 +4952,20 @@ def persist_staleness_candidates(zone_root, scan_result, opened_tic=None, *,
             "made_known": "staleness rollup heal (machine)",
         }
         healed["payload"] = hp
-        # Terminal transition = append same signal_id (latest-per-id wins); NOT dedup
-        # (which would refuse the duplicate id) — mirrors resolve_downaudit_finding.
-        atomic_append_jsonl(signal_file, healed)
-        # Sibling site of the reaffirm/resolve thin-row defect (named-footgun-
-        # sibling discipline): the heal row carries the rollup's observability
-        # fields forward too.
-        atomic_append_jsonl(manifest_path, _carry_manifest_observability({
+        # REMOVE-ON-HEAL (ruled /review 810). Terminal row to the daily file
+        # (lineage) AND to the resolved archive — the row manifest-prune would have
+        # swept there under the old append-a-terminal-manifest-row shape — then the
+        # manifest LINE IS REMOVED so a recurrence of this class re-emits. The
+        # archived row carries the rollup's observability fields forward
+        # (named-footgun-sibling discipline) so the ray never closes acoustically dark.
+        heal_row = _carry_manifest_observability({
             "signal_id": r["signal_id"], "signal_type": STALENESS_CANDIDATE_SIGNAL_TYPE,
             "status": "resolved", "structural_status": "resolved",
             "summary": f"staleness rollup [{r['staleness_signal']}] healed (0 candidates)",
-        }, sig))
+        }, sig)
+        atomic_append_jsonl(signal_file, healed)
+        atomic_append_jsonl(archive_path, heal_row)
+        _manifest_remove(manifest_path, r["signal_id"])
         resolved.append(r["signal_id"])
 
     return {
@@ -4896,8 +5054,21 @@ def compute_unsourced_rung_rollup_signal_id(owner=UNSOURCED_RUNG_OWNER):
 
 def load_unsourced_rung_rollups(zone_root):
     """Read unsourced-rung rollup signals from the manifold, terminal-per-id projected
-    (latest entry wins — Terminal-State Valve). Read-only; the active-manifest file is
-    skipped (thin rows). Mirrors load_staleness_rollups exactly."""
+    (latest entry wins — Terminal-State Valve). Read-only; the DERIVED surfaces
+    active-manifest.jsonl (thin rows) and resolved-archive.jsonl are both skipped.
+    Mirrors load_staleness_rollups exactly.
+
+    resolved-archive.jsonl is excluded for the same reason active-manifest.jsonl
+    is, and for the reason the two cured sibling readers in this file already
+    exclude it (_load_active_signals, load_downaudit_findings): a directory glob's
+    membership is a property of the DIRECTORY, and the archive sorts LAST
+    ('r' > any date), so its thin terminal copy would override a chronologically
+    NEWER active row and the re-emitted ray would read `resolved` the moment it
+    re-fires. Under remove-on-heal the archive is now WRITTEN BY THIS LANE's heal
+    (ruled /review 810), which makes excluding it load-bearing rather than
+    hygienic. Doctrine: file-sort-is-not-chronology / derived surfaces excluded
+    from primary readers.
+    """
     tz_config = load_ticzone(zone_root)
     al_path = audit_logs_path(zone_root, tz_config)
     signal_dir = Path(al_path) / "signals"
@@ -4905,7 +5076,7 @@ def load_unsourced_rung_rollups(zone_root):
         return []
     latest = {}
     for f in sorted(signal_dir.glob("*.jsonl")):
-        if f.name == "active-manifest.jsonl":
+        if f.name in ("active-manifest.jsonl", "resolved-archive.jsonl"):
             continue
         try:
             lines = f.read_text(encoding="utf-8").splitlines()
@@ -4999,6 +5170,7 @@ def persist_unsourced_rung_rollup(zone_root, selection_result, opened_tic=None, 
     date_str = now.strftime("%Y-%m-%d")
     signal_file = os.path.join(signal_dir, f"{date_str}.jsonl")
     manifest_path = os.path.join(signal_dir, "active-manifest.jsonl")
+    archive_path = os.path.join(signal_dir, "resolved-archive.jsonl")
 
     emitted, deduped, resolved = [], [], []
 
@@ -5027,17 +5199,23 @@ def persist_unsourced_rung_rollup(zone_root, selection_result, opened_tic=None, 
             "source_date": date_str, "created_at": now.isoformat(),
             "payload": payload, "origin": "deterministic",
         }
-        written = dedup_signal_append(signal_file, signal, manifest_path=manifest_path)
-        if written:
-            dedup_signal_append(manifest_path, _carry_manifest_observability({
+        # MANIFEST-KEYED DEDUP (ruled /review 810): the manifest's ACTIVE set is the
+        # key; the daily file is append-only lineage and is never consulted. Once the
+        # owner's rollup has healed, a recurrence of the condition re-emits.
+        if sig_id in _manifest_active_ids(manifest_path):
+            deduped.append(sig_id)
+        else:
+            atomic_append_jsonl(signal_file, signal)
+            written = dedup_signal_append(manifest_path, _carry_manifest_observability({
                 "signal_id": sig_id, "signal_type": UNSOURCED_RUNG_SIGNAL_TYPE,
                 "kind": "WATCH", "band": "COGNITIVE", "status": "active",
                 "volume": UNSOURCED_RUNG_VOLUME,
                 "source_file": f"signals/{date_str}.jsonl", "summary": summary_text,
             }, signal))
-            emitted.append(sig_id)
-        else:
-            deduped.append(sig_id)
+            if written:
+                emitted.append(sig_id)
+            else:
+                deduped.append(sig_id)
     elif existing is not None:
         healed = dict(existing)
         healed["status"] = "resolved"
@@ -5052,17 +5230,21 @@ def persist_unsourced_rung_rollup(zone_root, selection_result, opened_tic=None, 
             "made_known": "unsourced-rung rollup heal (machine)",
         }
         healed["payload"] = hp
-        # Terminal transition = append the SAME signal_id (latest-per-id wins); NOT
-        # dedup (which would refuse the duplicate id) — mirrors resolve_downaudit_finding
-        # and the staleness rollup heal. The heal row carries the observability quartet
-        # forward so the ray does not go acoustically dark as it closes.
-        atomic_append_jsonl(signal_file, healed)
-        atomic_append_jsonl(manifest_path, _carry_manifest_observability({
+        # REMOVE-ON-HEAL (ruled /review 810). Terminal row to the daily file
+        # (lineage) AND to the resolved archive — the row manifest-prune would have
+        # swept there under the old append-a-terminal-manifest-row shape — then the
+        # manifest LINE IS REMOVED so a recurrence of the condition re-emits. The
+        # archived row carries the observability quartet forward so the ray does not
+        # go acoustically dark as it closes.
+        heal_row = _carry_manifest_observability({
             "signal_id": sig_id, "signal_type": UNSOURCED_RUNG_SIGNAL_TYPE,
             "status": "resolved", "structural_status": "resolved",
             "summary": (f"rung concern-coverage rollup [{owner}] healed "
                         "(0 active-but-unsourced rungs)"),
-        }, existing))
+        }, existing)
+        atomic_append_jsonl(signal_file, healed)
+        atomic_append_jsonl(archive_path, heal_row)
+        _manifest_remove(manifest_path, sig_id)
         resolved.append(sig_id)
 
     base.update({

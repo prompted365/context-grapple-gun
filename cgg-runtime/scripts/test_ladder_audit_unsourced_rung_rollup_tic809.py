@@ -13,6 +13,11 @@ The four ruled fixtures:
   empty                          -> resolves it
   already-resolved + still empty -> no row
 
+THE TWO PINNED LIMIT TESTS WERE INVERTED at /review 810 (ruling step 3). They were
+written at tic 809 to fail loudly on the day F-809-B1 was cured; the cure landed as
+manifest-keyed emit + remove-on-heal, so both now assert the CURED behaviour
+(recurrence after heal RE-EMITS) on this function AND on the precedent it mirrors.
+
 Plus the guards that keep the cure from damaging its neighbours:
   * the read-only selector still writes NOTHING (its fence is load-bearing — three
     read-only scans call it);
@@ -90,7 +95,13 @@ class _Fixture(unittest.TestCase):
             return []
         rows = []
         for f in sorted(d.glob("*.jsonl")):
-            if f.name == "active-manifest.jsonl":
+            # Both DERIVED surfaces are excluded, exactly as the cured production
+            # readers do. This is not hygiene: under remove-on-heal the heal writes
+            # the terminal row to resolved-archive.jsonl, which sorts LAST in this
+            # glob, so a harness that folded it in would read the thin archived
+            # copy as the newest row — the very file-sort-is-not-chronology defect
+            # this increment cured at load_staleness_rollups / load_unsourced_rung_rollups.
+            if f.name in ("active-manifest.jsonl", "resolved-archive.jsonl"):
                 continue
             for line in f.read_text(encoding="utf-8").splitlines():
                 if line.strip():
@@ -180,38 +191,45 @@ class TestRuledFixtures(_Fixture):
         self.assertEqual(len(self._rows()), before)     # idempotent: NO row
         self.assertEqual(self._active(), [])
 
-    def test_LIMIT_recurrence_after_heal_does_NOT_re_emit(self):
-        """PINNED INHERITED LIMIT — F-809-B1, NOT a property this increment chose.
+    def test_recurrence_after_heal_RE_EMITS(self):
+        """INVERTED at /review 810 (ruling step 3) — this was
+        `test_LIMIT_recurrence_after_heal_does_NOT_re_emit`.
 
-        The ruled four fixtures above all hold. This fifth case is BEYOND the ruling and
-        is pinned here so the limit is visible rather than silently unknown: once the
-        rollup has HEALED, a RECURRENCE of the same condition does NOT re-emit. The
-        stable id is still present in the daily file, so `dedup_signal_append` refuses
-        the new row, and latest-per-id leaves the ray `resolved` while the condition is
-        live — the re-detected condition goes dark at the exact moment it re-fires.
+        The tic-809 version PINNED the inherited F-809-B1 limit: after a heal, a
+        RECURRENCE of the same condition was REFUSED, because dedup keyed on the daily
+        file (and the manifest, which the heal only appended to) still carried the
+        condition-stable id — so the re-detected condition went dark at the exact
+        moment it re-fired. It was written to fail loudly on the day of the cure.
 
-        THIS IS INHERITED, MEASURED: the ratified precedent this increment was RULED to
-        mirror exactly (`persist_staleness_candidates`, live since /review 513) exhibits
-        the identical behaviour — emit, heal, then a recurring class is deduped away and
-        zero rollups remain active. Curing it here would (a) break the ruled "reuse that
-        machinery exactly" and (b) half-fix a defect that lives in the SHARED emit path,
-        leaving the sibling site un-fixed (the named-footgun-sibling shape).
+        This is that day. The ruled cure (manifest-keyed emit + remove-on-heal) makes
+        the manifest's ACTIVE set the sole dedup key and makes the heal REMOVE the
+        manifest line, so a recurrence finds no active id and re-emits — on the SAME
+        UTC day, and on any later day, with or without a manifest-prune sweep.
 
-        Routed UP as a finding; this test PINS today's behaviour so the day it is cured
-        this assertion fails loudly and is updated deliberately.
+        The id is unchanged across the cycle: condition-stability is preserved, which
+        is what distinguishes this cure from the rejected mint-a-new-id option.
         """
-        la.persist_unsourced_rung_rollup(self.root, self._select(["."]), opened_tic=809)
+        first = la.persist_unsourced_rung_rollup(self.root, self._select(["."]),
+                                                 opened_tic=809)
         la.persist_unsourced_rung_rollup(
             self.root, self._select([".", "sub-a", "sub-b"]), opened_tic=811)
         again = la.persist_unsourced_rung_rollup(self.root, self._select(["."]),
                                                  opened_tic=812)
-        self.assertEqual(again["emitted"], [])          # INHERITED LIMIT, not the design
-        self.assertEqual(again["deduplicated"], [again["signal_id"]])
-        self.assertEqual(self._active(), [])            # condition live, ray dark
+        self.assertEqual(again["emitted"], [again["signal_id"]])   # RE-EMITS (cured)
+        self.assertEqual(again["deduplicated"], [])
+        self.assertEqual(again["signal_id"], first["signal_id"])   # id still stable
+        self.assertEqual(len(self._active()), 1)        # the ray is live again
 
-    def test_LIMIT_is_inherited_from_the_mirrored_precedent(self):
-        """The same sequence on the PRECEDENT function, proving F-809-B1 is inherited
-        and not introduced by this increment."""
+    def test_the_precedent_IS_CURED_in_the_same_motion(self):
+        """INVERTED at /review 810 (ruling step 3) — this was
+        `test_LIMIT_is_inherited_from_the_mirrored_precedent`.
+
+        Its tic-809 job was to prove F-809-B1 was INHERITED from the ratified precedent
+        (`persist_staleness_candidates`) rather than introduced here — which is exactly
+        why the cure could not land on one caller alone without half-fixing a shared
+        shape (the named-footgun-leaves-sibling-site-unfixed defect class). Both were
+        cured in ONE motion, so the same sequence now proves the precedent re-emits
+        too."""
         _write(self.root, "autonomous_kernel/a.md",
                "---\nstatus: active\nlast_validated_tic: 100\n---\n# s\n")
         present = la.staleness_scan(self.root, current_tic=509)
@@ -222,9 +240,10 @@ class TestRuledFixtures(_Fixture):
             self.root, empty, opened_tic=510, force=True)["resolved"]), 1)
         recur = la.persist_staleness_candidates(
             self.root, present, opened_tic=511, force=True)
-        self.assertEqual(recur["emitted"], [])          # precedent: same dark recurrence
-        self.assertEqual([s for s in la.load_staleness_rollups(self.root)
-                          if la.is_active_ray(s)], [])
+        self.assertEqual(len(recur["emitted"]), 1)      # precedent RE-EMITS (cured)
+        self.assertEqual(recur["deduplicated"], [])
+        self.assertEqual(len([s for s in la.load_staleness_rollups(self.root)
+                              if la.is_active_ray(s)]), 1)
 
 
 class TestFencesAndFederationLaw(_Fixture):
