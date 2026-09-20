@@ -1693,14 +1693,17 @@ def format_active_rungs(result):
 # Boundary (per the KIND table — this piece is LOW gate, "read-only matching"):
 #   - read-only: reads the ledger tags + the Stage-0 active set + a rung-concern
 #     source. Writes nothing; no authority; no doctrine mutation; no signal; no arena.
-#   - CANDIDATE (center-hold): the rung-concern source is the tic-467 fork-B DERIVE —
+#   - CANDIDATE (center-hold): the rung-concern source is the fork-B DERIVE named by
+#     DEFAULT_CONCERN_SOURCE_REL (the constant is the single inscription of that
+#     identity; displayed prose derives from it) —
 #     heuristic, coherence-is-not-admission. A selection is a hypothesis about REACH,
 #     never a verdict about FIT (Arena Velocity Guard; the fit test is the Stage-2
 #     rehydration-in-spirit down-audit, which stays forward).
 #   - NON-bias guard: selection must NOT pre-bias toward demotion. `needs_mechanization`
 #     != defective (spec §2 S2 / readiness-map guardrail). Stage 1 answers only "does
 #     this KI plausibly reach here?", never "should it be demoted?".
-#   - honest reconciliation: the concern source is a tic-467 snapshot; the active set
+#   - honest reconciliation: the concern source is the DEFAULT_CONCERN_SOURCE_REL
+#     snapshot; the active set
 #     is live. Rungs active-but-unsourced and sourced-but-now-dormant are surfaced
 #     (Disagreement-as-evidence), never silently dropped or invented.
 # ---------------------------------------------------------------------------
@@ -1708,6 +1711,61 @@ def format_active_rungs(result):
 DEFAULT_CONCERN_SOURCE_REL = os.path.join(
     "governance", "c9-rung-concerns-derived-tic490.json")
 LEDGER_REL = os.path.join("governance", "constitution-ledger", "ledger.md")
+
+
+# ---------------------------------------------------------------------------
+# SAME-FILE INSCRIPTION cure — displayed provenance is DERIVED from the constant
+#
+# RULED /review 808 (cpr_mogul_ladder_audit_b3a7c12be3d5 -> ledger.md#an-instrument-
+# that-loads-an-authority-and-names-it-in-prose-owes-the-name-to-the-constant):
+# an instrument that both LOADS an authority and NAMES it in emitted prose holds TWO
+# inscriptions of one identity, and owes the name to the constant.
+#
+# The lived defect, measured on this file: DEFAULT_CONCERN_SOURCE_REL above loaded the
+# CURRENT derive while TEN strings in this same file still named its SUPERSEDED
+# predecessor -- in emitted JSON fields, CLI help, rendered prose and a docstring. The
+# failure is SILENT because BOTH artifacts persist on disk: the misdirected reader
+# opens a real, parseable, SUPERSEDED file and receives a plausible wrong answer with
+# no error. Same-file proximity is exactly what makes that prose feel already-updated.
+#
+# CURE AT THE ROOT (the ruled cure, verbatim): "derive displayed provenance FROM the
+# constant, so the next supersession cannot leave prose behind". Every DISPLAYED site
+# now calls _derive_concern_source_label() at build time; the two inline comments and
+# the one docstring -- surfaces that cannot carry a runtime value -- name the CONSTANT
+# instead of the identity, so no second inscription of the identity survives anywhere.
+#
+# THE PRE-LAND CHECK, CORRECTED AT /REVIEW, IS A BACKSTOP ONLY (the root cure above is
+# what retires the class): it searches the superseded artifact's DISTINGUISHING TOKEN
+# in each of its WRITTEN forms and NAMES the forms it searched -- never the artifact's
+# filename. On this file's own exhibit a literal search for the SUPERSEDED artifact's
+# FILENAME returned ZERO while its distinguishing token returned TEN, because the prose
+# named the authority by PARAPHRASE: the false-absent shape of guard 19. (This comment
+# deliberately mints NEITHER the superseded filename NOR its token -- a file that
+# explains the defect must not re-commit it.)
+#
+# DOES-NOT-SATISFY RIDER (travels verbatim with this cure): this increment does NOT
+# source or deliver the two unsourced rungs, does NOT perform the ladder-audit
+# re-derive staged for the round due at tic 810, does NOT change which rungs count as
+# active, and does NOT cure the rung-ident canonicalization defect
+# (bk-ladder-rung-ident-not-canonicalized-before-signal-id-hash).
+# ---------------------------------------------------------------------------
+
+_CONCERN_SOURCE_TIC_RE = re.compile(r"tic(\d+)")
+
+
+def _derive_concern_source_label(concern_source_rel=None):
+    """The human-facing provenance label for the rung-concern derive, DERIVED from the
+    constant that loads it (never a second hand-typed inscription of the identity).
+
+    Reads the tic token out of DEFAULT_CONCERN_SOURCE_REL's basename, so a supersession
+    that re-points the constant re-points every displayed string in the same motion.
+    NEVER INVENTS: a constant whose basename carries no tic token yields the basename
+    itself as the label -- honest, and still derived from the live source.
+    """
+    rel = concern_source_rel or DEFAULT_CONCERN_SOURCE_REL
+    base = os.path.basename(rel)
+    m = _CONCERN_SOURCE_TIC_RE.search(base)
+    return "tic-" + m.group(1) if m else base
 
 _LEDGER_INVARIANT_RE = re.compile(r"`invariant_id`:\s*`([a-z0-9_]+)`")
 _LEDGER_TERRAIN_RE = re.compile(r"`terrain_class`:\s*`([a-z0-9_]+)`")
@@ -1836,7 +1894,8 @@ def _parse_ledger_kis(ledger_path, include_body=False):
 
 
 def _load_rung_concerns(concern_source_path):
-    """Load the rung-concern source (default: the tic-467 fork-B derive).
+    """Load the rung-concern source (default: the fork-B derive named by the
+    DEFAULT_CONCERN_SOURCE_REL constant — displayed labels derive from it).
 
     Returns (concern_map, meta) where concern_map is {rung_path: {concerns,
     scores, recommend_fork_A_declare, raw_concerns}} keyed on the source's per-rung
@@ -1934,9 +1993,9 @@ def select_kis_per_rung(zone_root, concern_source=None,
                 "rung": e["rung"], "dir": d,
                 "concern_source": "missing",
                 "note": "active in Stage-0 but absent from the concern source "
-                        "(the tic-467 derive predates this rung's activation or did "
-                        "not cover it) — a fork-A declaration or a re-derive is owed "
-                        "before Stage-2 can down-audit it",
+                        f"(the {_derive_concern_source_label()} derive predates this "
+                        "rung's activation or did not cover it) — a fork-A declaration "
+                        "or a re-derive is owed before Stage-2 can down-audit it",
                 "ki_candidates": [], "candidate_count": 0,
             })
             continue
@@ -1976,11 +2035,13 @@ def select_kis_per_rung(zone_root, concern_source=None,
         "scope_declaration": (
             "Reads the constitution-ledger KI tags (terrain_class + structured and "
             "inline `lanes`), the live Stage-0 active-rung set, and the rung-concern "
-            "source (the tic-467 fork-B DERIVE — heuristic CANDIDATE, coherence-is-"
+            f"source (the {_derive_concern_source_label()} fork-B DERIVE — heuristic "
+            "CANDIDATE, coherence-is-"
             "not-admission). MATCHES KI.tags ∩ rung.concerns with hyphen/underscore "
             "normalization. CANNOT see: whether a selected KI actually rehydrates in "
             "spirit at the rung (that is the Stage-2 down-audit, forward), nor fork-A "
-            "declared concerns (not authored). The concern source is a tic-467 "
+            "declared concerns (not authored). The concern source is a "
+            f"{_derive_concern_source_label()} "
             "snapshot reconciled against the live active set: active-but-unsourced "
             "and sourced-but-now-dormant rungs are surfaced, never silently dropped "
             "or invented (Disagreement-as-evidence)."
@@ -2014,7 +2075,8 @@ def format_select_kis(result, top=15):
     lines.append("  scope: " + result.get("scope_declaration", ""))
     rec = result.get("reconciliation", {})
     lines.append("")
-    lines.append("RECONCILIATION (live active set vs tic-467 concern snapshot):")
+    lines.append("RECONCILIATION (live active set vs "
+                 f"{_derive_concern_source_label()} concern snapshot):")
     lines.append("-" * 68)
     lines.append(f"  matched:                 {', '.join(rec.get('matched', [])) or '(none)'}")
     lines.append(f"  active-but-unsourced:    {', '.join(rec.get('active_but_unsourced', [])) or '(none)'}")
@@ -2141,7 +2203,8 @@ def _downaudit_target(ki, cand):
     else:
         entry["selection_note"] = (
             "OUTSIDE the rung's Stage-1 selection — explicit/manual down-audit "
-            "(the tic-467 concern derive does not connect this KI to this rung). "
+            f"(the {_derive_concern_source_label()} concern derive does not connect "
+            "this KI to this rung). "
             "Surfaced as Disagreement-as-evidence, not silently honored; the "
             "down-audit verdict is still valid but the SELECTION gap is itself a "
             "signal (fork-A concern declaration may be owed for this rung)."
@@ -2259,9 +2322,10 @@ def build_downaudit_packet(zone_root, rung, ki_ids=None, top=3,
                           "from the constitution-ledger (read-only), the rung's Stage-0 "
                           "activity signals, the active-signal subsystem list",
                 "concern_source": rung_rec.get("concern_source"),
-                "concern_source_caveat": "the rung-concern derive is the tic-467 fork-B "
-                                         "CANDIDATE (coherence-is-not-admission); a thin "
-                                         "or fork-A-flagged concern set is itself signal",
+                "concern_source_caveat": ("the rung-concern derive is the "
+                                          f"{_derive_concern_source_label()} fork-B "
+                                          "CANDIDATE (coherence-is-not-admission); a thin "
+                                          "or fork-A-flagged concern set is itself signal"),
                 "cannot_see_from_assembler": "whether each KI actually rehydrates in "
                           "spirit (THAT is the auditor's judgment), the rung's live "
                           "operational friction beyond mtime recency, any non-name-"
@@ -4754,6 +4818,263 @@ def persist_staleness_candidates(zone_root, scan_result, opened_tic=None, *,
     }
 
 
+# ─── ADMISSION-AND-COVERAGE: the unsourced-rung ROLLUP (RULED /review 808) ──────────
+# cpr_mogul_ladder_audit_1d3045c0e3ce -> ledger.md#admission-and-coverage-are-separately-
+# clocked-the-generator-behind-an-undelivered-owed-motion (a refinement tail on
+# #can-it-eat-dataflow-liveness-predicate). CONSUMER RULED, verbatim: "the instrument
+# emits ONE condition-stable rollup signal while its unsourced set is non-empty and
+# resolves it on heal (emit/resolve symmetry; one ray per owner, never one per rung)".
+#
+# THE GAP THE RULING NAMES: rung ADMISSION is self-service (a marker and a zone file, and
+# the rung is active); concern-source COVERAGE is a separately fired derive event that no
+# cadence re-fires. TWO CLOCKS, NO COUPLING — so a rung can sit ACTIVE and structurally
+# un-auditable for an unbounded span while every instrument reports healthy, because the
+# one instrument that knows (select_kis_per_rung) computes the obligation as a FIELD in a
+# read-only probe's output whose sink is OPTIONAL. The refusal is exemplary; what was
+# missing is an OBLIGED CONSUMER, not a better refusal.
+#
+# READ-ONLY FENCE PRESERVED — THE LOAD-BEARING DESIGN CONSTRAINT: select_kis_per_rung
+# stays read-only and emits NOTHING. It is called by build_downaudit_packet,
+# run_downlane_campaign and staleness_scan; making the selector itself emit would convert
+# every read-only scan in this file into a writer and break each one's declared fence.
+# This is therefore a SEPARATE function over the selector's RESULT — exactly the
+# relationship persist_staleness_candidates has to the read-only staleness_scan.
+#
+# CONDITION-STABLE ID (the ruled discipline): the id is keyed on (signal_type, owner)
+# ONLY. It does NOT change when the MEMBERSHIP of the unsourced set changes — a rung
+# entering or leaving the set is the SAME standing condition, so dedup-at-write refuses a
+# second row and the manifold carries exactly ONE ray per owner, never one per rung
+# (cgg-ledger#emission-granularity-is-the-leak-not-the-obligation). The id flips only when
+# the CONDITION flips: non-empty -> emit, empty -> resolve.
+#
+# SUBSYSTEM IS DELIBERATELY *NOT* `ladder_downlane` — a measured coupling, not a style
+# choice: run_audit's ratified TWO-ALTITUDES disclosure counts a sibling down-lane finding
+# as `subsystem == "ladder_downlane" OR id startswith "sig_ladder_down_audit_finding_"`
+# (the /review 758 Q1 contract). Emitting this rollup under that subsystem would silently
+# inflate `sibling_instruments.ladder_down_audit.open_findings_on_manifold` with a row
+# that is NOT a down-audit finding, corrupting a disclosure another ruling fixed. The
+# distinct `ladder_admission` subsystem + the distinct id prefix keep that count
+# member-exact (guarded by test_ladder_audit_unsourced_rung_rollup_tic809).
+#
+# Center-hold: the rollup is a standing-OBLIGATION ping (kind WATCH). It opens no arena,
+# mutates no doctrine, sources no rung, and changes which rungs are active NOT AT ALL.
+#
+# DOES-NOT-SATISFY RIDER (travels verbatim with this rollup): this increment does NOT
+# source or deliver the two unsourced rungs, does NOT perform the ladder-audit re-derive
+# staged for the round due at tic 810, does NOT change which rungs count as active, and
+# does NOT cure the rung-ident canonicalization defect
+# (bk-ladder-rung-ident-not-canonicalized-before-signal-id-hash).
+# ---------------------------------------------------------------------------
+
+UNSOURCED_RUNG_SIGNAL_TYPE = "ladder.rung_concern_unsourced"
+# Observability weight: WATCH so /review sees it; 25 matches `needs_mechanization` — a
+# standing STRUCTURAL obligation (the coverage substrate does not exist for these rungs
+# yet), softer than a `damaging` down-audit finding (40) and firmer than a clean/N/A (10).
+UNSOURCED_RUNG_VOLUME = 25
+UNSOURCED_RUNG_OWNER = "ladder_downlane"
+
+UNSOURCED_RUNG_DOES_NOT_SATISFY = (
+    "this increment does NOT source or deliver the two unsourced rungs, does NOT "
+    "perform the ladder-audit re-derive staged for the round due at tic 810, does NOT "
+    "change which rungs count as active, and does NOT cure the rung-ident "
+    "canonicalization defect (bk-ladder-rung-ident-not-canonicalized-before-signal-id-hash)."
+)
+
+
+def compute_unsourced_rung_rollup_signal_id(owner=UNSOURCED_RUNG_OWNER):
+    """Deterministic, CONDITION-STABLE signal ID for the unsourced-rung rollup.
+
+    Keyed on (signal_type, OWNER) — never on the member set, its cardinality, or a tic.
+    Two rungs unsourced or five, and which ones, are the same standing condition: ONE ray
+    per owner (Signal ID Determinism KI + Emission-Granularity-Is-the-Leak). A re-scan
+    therefore dedups idempotently and a membership change writes no second row.
+    """
+    parts = [UNSOURCED_RUNG_SIGNAL_TYPE, f"owner={owner}"]
+    h = hashlib.sha256("|".join(parts).encode("utf-8")).hexdigest()[:8]
+    return f"sig_ladder_rung_concern_unsourced_{h}"
+
+
+def load_unsourced_rung_rollups(zone_root):
+    """Read unsourced-rung rollup signals from the manifold, terminal-per-id projected
+    (latest entry wins — Terminal-State Valve). Read-only; the active-manifest file is
+    skipped (thin rows). Mirrors load_staleness_rollups exactly."""
+    tz_config = load_ticzone(zone_root)
+    al_path = audit_logs_path(zone_root, tz_config)
+    signal_dir = Path(al_path) / "signals"
+    if not signal_dir.is_dir():
+        return []
+    latest = {}
+    for f in sorted(signal_dir.glob("*.jsonl")):
+        if f.name == "active-manifest.jsonl":
+            continue
+        try:
+            lines = f.read_text(encoding="utf-8").splitlines()
+        except (OSError, UnicodeDecodeError):
+            continue
+        for line in lines:
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                d = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            if d.get("signal_type") != UNSOURCED_RUNG_SIGNAL_TYPE:
+                continue
+            eid = d.get("signal_id") or d.get("id")
+            if eid:
+                latest[eid] = d
+    return list(latest.values())
+
+
+def persist_unsourced_rung_rollup(zone_root, selection_result, opened_tic=None, *,
+                                  dry_run=False, source="ladder-audit.py",
+                                  artifact_rel=None, owner=UNSOURCED_RUNG_OWNER):
+    """The OBLIGED CONSUMER the /review-808 tail rules: emit ONE condition-stable rollup
+    while `reconciliation.active_but_unsourced` is non-empty, and RESOLVE it on heal.
+
+    Takes the read-only selector's RESULT (select_kis_per_rung) — the selector itself is
+    never made a writer. Dedup-at-write on the stable per-owner id makes a re-scan and a
+    membership change idempotent; an empty set with an active rollup resolves it; an empty
+    set with nothing active writes NOTHING (no row, no churn). Fail-soft on a bare/absent
+    manifold. Returns a result dict; with dry_run=True nothing is written.
+
+    THE PAYLOAD IS CONTEXT, THE ID IS IDENTITY: the member list + count ride the FIRST
+    emitted row (and the regenerable selector output carries the live set). While the
+    condition stands, dedup refuses later rows BY DESIGN — that is what "condition-stable"
+    buys, and it is why the payload note points a reader at the live selector output
+    rather than treating the frozen row as current.
+    """
+    recon = (selection_result or {}).get("reconciliation") or {}
+    unsourced = sorted(recon.get("active_but_unsourced") or [])
+    condition_present = bool(unsourced)
+    if opened_tic is None:
+        opened_tic = _resolve_federation_tic(zone_root)
+
+    sig_id = compute_unsourced_rung_rollup_signal_id(owner)
+    active_rollups = [s for s in load_unsourced_rung_rollups(zone_root)
+                      if is_active_ray(s)]
+    existing = next((s for s in active_rollups
+                     if (s.get("signal_id") or s.get("id")) == sig_id), None)
+
+    summary_text = (
+        f"rung concern-coverage unsourced [{owner}]: {len(unsourced)} ACTIVE rung(s) "
+        f"carry no concern source ({', '.join(unsourced)}) — admission and coverage are "
+        "separately clocked; a standing obligation, not a verdict"
+    )
+    plan_emit = ({
+        "signal_id": sig_id,
+        "owner": owner,
+        "unsourced_count": len(unsourced),
+        "unsourced_rungs": unsourced,
+    } if condition_present else None)
+    plan_resolve = ({
+        "signal_id": sig_id,
+        "owner": owner,
+        "reason": "healed — 0 active-but-unsourced rungs this selection",
+    } if (not condition_present and existing is not None) else None)
+
+    base = {
+        "signal_id": sig_id,
+        "condition_present": condition_present,
+        "unsourced_count": len(unsourced),
+        "unsourced_rungs": unsourced,
+        "would_emit": plan_emit,
+        "would_resolve": plan_resolve,
+        "_fence": ("center-hold: a standing-OBLIGATION ping (WATCH). Opens no arena, "
+                   "mutates no doctrine, sources no rung, changes no rung's active "
+                   "status; ONE ray per owner, never one per rung."),
+        "does_not_satisfy": UNSOURCED_RUNG_DOES_NOT_SATISFY,
+    }
+    if dry_run:
+        base.update({"ran": False, "dry_run": True, "emitted": [],
+                     "deduplicated": [], "resolved": []})
+        return base
+
+    tz_config = load_ticzone(zone_root)
+    al_path = audit_logs_path(zone_root, tz_config)
+    signal_dir = os.path.join(al_path, "signals")
+    os.makedirs(signal_dir, exist_ok=True)
+    now = datetime.now(timezone.utc)
+    date_str = now.strftime("%Y-%m-%d")
+    signal_file = os.path.join(signal_dir, f"{date_str}.jsonl")
+    manifest_path = os.path.join(signal_dir, "active-manifest.jsonl")
+
+    emitted, deduped, resolved = [], [], []
+
+    if condition_present:
+        payload = {
+            "owner": owner,
+            "unsourced_count": len(unsourced),
+            "unsourced_rungs": unsourced,
+            "opened_tic": opened_tic,
+            "selection_artifact": artifact_rel,
+            "note": ("condition-present PING for the admission/coverage clock gap. ONE "
+                     "ray per owner, never one per rung: the id is stable across "
+                     "membership changes, so this row's member list is the set AT FIRST "
+                     "EMIT — read the live set from `select-kis` "
+                     "reconciliation.active_but_unsourced, not from this payload. A "
+                     "standing OBLIGATION (source the concerns or declare fork-A), never "
+                     "a verdict that these rungs are ungoverned."),
+            "does_not_satisfy": UNSOURCED_RUNG_DOES_NOT_SATISFY,
+        }
+        signal = {
+            "type": "signal", "id": sig_id, "signal_id": sig_id,
+            "signal_type": UNSOURCED_RUNG_SIGNAL_TYPE,
+            "kind": "WATCH", "band": "COGNITIVE", "status": "active",
+            "volume": UNSOURCED_RUNG_VOLUME, "max_volume": 100, "tick_count": 0,
+            "subsystem": "ladder_admission", "source": source,
+            "source_date": date_str, "created_at": now.isoformat(),
+            "payload": payload, "origin": "deterministic",
+        }
+        written = dedup_signal_append(signal_file, signal, manifest_path=manifest_path)
+        if written:
+            dedup_signal_append(manifest_path, _carry_manifest_observability({
+                "signal_id": sig_id, "signal_type": UNSOURCED_RUNG_SIGNAL_TYPE,
+                "kind": "WATCH", "band": "COGNITIVE", "status": "active",
+                "volume": UNSOURCED_RUNG_VOLUME,
+                "source_file": f"signals/{date_str}.jsonl", "summary": summary_text,
+            }, signal))
+            emitted.append(sig_id)
+        else:
+            deduped.append(sig_id)
+    elif existing is not None:
+        healed = dict(existing)
+        healed["status"] = "resolved"
+        healed["structural_status"] = "resolved"
+        healed["resolved_at"] = now.isoformat()
+        hp = dict(healed.get("payload", {}))
+        hp["resolution"] = {
+            "resolved_to": "healed", "resolved_tic": opened_tic,
+            "justification": ("0 active-but-unsourced rungs this selection — every "
+                              "active rung now carries a concern source "
+                              "(emit/resolve symmetry)"),
+            "made_known": "unsourced-rung rollup heal (machine)",
+        }
+        healed["payload"] = hp
+        # Terminal transition = append the SAME signal_id (latest-per-id wins); NOT
+        # dedup (which would refuse the duplicate id) — mirrors resolve_downaudit_finding
+        # and the staleness rollup heal. The heal row carries the observability quartet
+        # forward so the ray does not go acoustically dark as it closes.
+        atomic_append_jsonl(signal_file, healed)
+        atomic_append_jsonl(manifest_path, _carry_manifest_observability({
+            "signal_id": sig_id, "signal_type": UNSOURCED_RUNG_SIGNAL_TYPE,
+            "status": "resolved", "structural_status": "resolved",
+            "summary": (f"rung concern-coverage rollup [{owner}] healed "
+                        "(0 active-but-unsourced rungs)"),
+        }, existing))
+        resolved.append(sig_id)
+
+    base.update({
+        "ran": True, "dry_run": False,
+        "emitted": emitted, "deduplicated": deduped, "resolved": resolved,
+        "summary": (f"unsourced-rung rollup: {len(emitted)} emitted, "
+                    f"{len(deduped)} dedup, {len(resolved)} healed "
+                    f"({len(unsourced)} unsourced rung(s); one ray per owner)"),
+    })
+    return base
+
+
 def main():
     parser = argparse.ArgumentParser(
         description="Ladder Coherence Audit — scan CLAUDE.md governance chain; "
@@ -4812,7 +5133,8 @@ def main():
              "(KI.tags ∩ rung.concerns). Read-only CANDIDATE list; no down-audit, "
              "no mutation.")
     sk.add_argument("--concern-source", default=None, dest="concern_source",
-                    help="Rung-concern source JSON (default: the tic-467 fork-B "
+                    help="Rung-concern source JSON (default: the "
+                         f"{_derive_concern_source_label()} fork-B "
                          "derive under governance/)")
     sk.add_argument("--window-days", type=float, default=ACTIVE_RUNG_WINDOW_DAYS,
                     dest="window_days",
@@ -4820,6 +5142,12 @@ def main():
     sk.add_argument("--top", type=int, default=15,
                     help="Max KI candidates shown per rung in human output "
                          "(JSON always carries the full ranked list)")
+    sk.add_argument("--persist-unsourced", action="store_true", dest="persist_unsourced",
+                    help="ADMISSION-AND-COVERAGE consumer (RULED /review 808): emit ONE "
+                         "condition-stable rollup signal while active_but_unsourced is "
+                         "non-empty, and resolve it on heal (emit/resolve symmetry; one "
+                         "ray per owner, never one per rung). The selection scan itself "
+                         "stays read-only — this is the separate obliged-consumer write.")
     sk.add_argument("--zone-root", default=None, dest="zone_root")
 
     da = sub.add_parser(
@@ -5216,6 +5544,12 @@ def main():
         zone_root = args.zone_root or args.project_dir or resolve_zone_root()
         result = select_kis_per_rung(zone_root, concern_source=args.concern_source,
                                      window_days=args.window_days)
+        # ADMISSION-AND-COVERAGE consumer (RULED /review 808). The scan above stays
+        # READ-ONLY; the rollup is the SEPARATE obliged-consumer write, invoked only on
+        # explicit --persist-unsourced. Emit while non-empty, resolve on heal.
+        if args.persist_unsourced:
+            result["unsourced_rung_rollup"] = persist_unsourced_rung_rollup(
+                zone_root, result, artifact_rel=args.output)
         if args.json:
             print(json.dumps(result, indent=2))
         else:
