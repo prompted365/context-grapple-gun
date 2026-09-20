@@ -108,7 +108,32 @@ class Fixture:
 
     def reconcile(self):
         # agent_id EMPTY == the primary; only the primary may consume a seal.
-        return self.run("--reconcile-at-start", "--zone-root", str(self.zone))
+        #
+        # THE PRIMARY SHAPE, READ FROM THE PRODUCT'S OWN DISCRIMINATOR (tic 809,
+        # F-807-1, /review-808 ruling "Own increment, next"). derive_actor types
+        # THREE boot kinds: subagent (non-empty agent_id), headless_citizen (empty
+        # agent_id + the runner's obligation environment), primary (empty agent_id
+        # AND no obligation environment). This fixture's env is dict(os.environ)
+        # above, so when these selftests ran inside a headless runner child -- which
+        # exports the obligation environment -- the reconcile was typed
+        # headless_citizen, recovery lawfully did nothing, and the two recovery
+        # tests below went red for a reason that has nothing to do with payload
+        # mode. BOTH halves of the primary predicate are now supplied EXPLICITLY,
+        # so the verdict no longer depends on the ambient environment. The env keys
+        # are the PRODUCT'S OWN constants, not literals retyped here: if the
+        # discriminator renames them, this cure follows it. The --agent-id flag is
+        # PRESENT with an EMPTY value, mirroring the real primary call shape at
+        # session-restore.sh:211-212. Same cure form the tic-633 suite's gates 11
+        # to 16 received at tic 807.
+        #
+        # DOES-NOT-SATISFY RIDER (travels verbatim): this increment does NOT change the actor discriminator, does NOT make a headless child a lawful consumer of a handoff seal, does NOT touch the switch-landed-at-body test, and does NOT certify the pointer path.
+        env = dict(self.env)
+        env.pop(SEAL.OBLIGATION_MANDATE_ENV, None)
+        env.pop(SEAL.OBLIGATION_TIC_ENV, None)
+        return subprocess.run(
+            ["python3", str(self.seal), "--reconcile-at-start",
+             "--zone-root", str(self.zone), "--agent-id", ""],
+            input="", capture_output=True, text=True, env=env, timeout=60)
 
     def journal(self):
         j = self.zone / "audit-logs" / "hooks" / "handoff-seals.jsonl"
