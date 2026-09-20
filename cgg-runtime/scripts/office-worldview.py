@@ -1285,7 +1285,37 @@ def compile_fragments(zone_root: Path, office: str, tic: int,
                 if not mine:
                     owner = actor_off or "another office"
                     owner_disp = "Mogul" if owner in ("mogul", "ent_mogul") else owner
-                    guard = f" — {owner_disp}-owned; do NOT double-spawn ({owner_disp} consumes it)"
+                    # THE PENDING ARM NAMES THE DISCRIMINATOR (ruled /review 805 round 1 Q1;
+                    # receipt audit-logs/governance/receipts/2026-09-19-tic805-mandate-line-
+                    # names-the-discriminator-ruling.md). A `pending` mandate owned by another
+                    # office USED to read as an unconditional stand-back — correct when a human
+                    # typed at the boundary (the prompt gate spawned a runner) and WRONG-BY-
+                    # OMISSION when none did (the ordinary accept-with-clear boundary fires no
+                    # prompt event, so no dispatcher carries the lane and the line told the one
+                    # reader who could dispatch to stand back). The lead cannot know which
+                    # boundary it is on without reading the process table, so the line NAMES THE
+                    # DISCRIMINATOR instead of choosing a side.
+                    #
+                    # THE RENDERER MUST NOT READ THE PROCESS TABLE. A render is a SNAPSHOT; a
+                    # liveness claim baked into a packet is already stale at delivery. So this
+                    # text instructs the READER to take the reading — it never takes it here.
+                    #
+                    # DOES-NOT-SATISFY RIDER (attached by the ruling; travels verbatim):
+                    #   "this increment does NOT give the mandate an automatic dispatcher at a
+                    #   boundary nobody types at, does NOT change the prompt gate, does NOT move
+                    #   or mirror dispatch onto the session-start seam, and does NOT establish
+                    #   why the harness skips prompt hooks on an injected prompt."
+                    #
+                    # EVERY OTHER STATUS RENDERS BYTE-UNCHANGED — the else-arm below is the
+                    # pre-cure expression, character for character.
+                    if mandate.get("status") == "pending":
+                        guard = (f" — {owner_disp}-owned and PENDING; read the process table at "
+                                 f"the executable position FIRST (this line is a snapshot, not a "
+                                 f"liveness claim): if no runner is live and the mandate is "
+                                 f"pending, the lead dispatches script-route; if one is live, "
+                                 f"stand back ({owner_disp} consumes it); never double-spawn")
+                    else:
+                        guard = f" — {owner_disp}-owned; do NOT double-spawn ({owner_disp} consumes it)"
                 frags.append(_frag(zone_root, "tic.mandate", "mogul/mandates/current.json",
                     f"mandate[{mandate.get('status','?')}]: {', '.join(cyc)}{guard}",
                     "OFFICE" if mine else "FIELD",
