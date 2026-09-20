@@ -75,6 +75,32 @@ if [ -z "$CGG_ROOT" ] || [ ! -d "$CGG_ROOT" ]; then
 fi
 
 # ============================================================================
+# FOLDER-SEED LEG (tic 812, Architect-directed in-session) — a SECOND repo of
+# record, handled BEFORE the CGG resolution below can exit. The decision lives
+# in that repo's own tool (tools/seed_sync.py update --from-hook): did a commit
+# LAND there inside the window (its own reflog, never command text); read from
+# the COMMITTED tree (git archive); applied ONLY to user-lane children whose own
+# config says autoupdate: true. For every other child sync does not apply.
+# Fast exit with no subprocess beyond stat: an untouched reflog means no commit.
+# Fail-soft by construction: an absent repo or tool, a non-zero exit, or any
+# error costs a missed seed update and nothing else. This leg never changes
+# this hook's exit status and never touches the CGG leg below.
+# DOES-NOT-SATISFY RIDER: this leg does NOT admit the folder seed, its terms or
+# its soils as doctrine; it does NOT install a child (install is an explicit
+# act in that tool); and it does NOT cure the root/merge-commit predicate gap.
+# ============================================================================
+SEED_REPO="$ZONE_ROOT/canonical_developer/folder-seed"
+SEED_REFLOG="$SEED_REPO/.git/logs/HEAD"
+if [ -f "$SEED_REFLOG" ] && [ -f "$SEED_REPO/tools/seed_sync.py" ]; then
+    SEED_MTIME=$(stat -f %m "$SEED_REFLOG" 2>/dev/null || stat -c %Y "$SEED_REFLOG" 2>/dev/null || echo 0)
+    if [ "$SEED_MTIME" -gt 0 ] && [ $(( $(date +%s) - SEED_MTIME )) -le "$COMMIT_WINDOW" ]; then
+        SEED_OUT=$(FOLDER_SEED_SYNC_WINDOW_SECONDS="$COMMIT_WINDOW" python3 "$SEED_REPO/tools/seed_sync.py" update --from-hook 2>&1) \
+            || debug "folder-seed leg returned non-zero"
+        if [ -n "${SEED_OUT:-}" ]; then echo "[folder-seed sync] $SEED_OUT"; fi
+    fi
+fi
+
+# ============================================================================
 # WHICH REPO — resolved from the repos themselves, not from the command text.
 #
 # The runtime lives in exactly one repo of record:
