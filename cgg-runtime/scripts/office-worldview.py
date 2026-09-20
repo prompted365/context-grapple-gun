@@ -306,6 +306,27 @@ THE PINKY — THE ECONOMICS OF A GOVERNED SUBSTRATE. epoch05 recovered meaning a
 #   unobserved by the sentinel until that arm is ruled and built."
 # So: this renders a SENTENCE at boot. It observes nothing on any schedule, emits no signal,
 # writes no state, and gives the sentinel no disk arm.
+#
+# ── BOTH INTERNAL-DISK THRESHOLDS, NAMED, NO VERDICT WORD (ruled /review 804 round 2,
+# Ruling D; kept /review 811 round 1 Q3; built tic 812) ──
+# Ruling: audit-logs/governance/receipts/2026-09-19-tic804-machine-limits-two-thresholds-ruling.md
+# WHAT WAS WRONG (F-803-BL-2, MEDIUM, raised by the tic-803 build's own receipt): the sentence
+# conflated TWO different internal-disk thresholds under one word. "NO model pull is safe" was a
+# verdict about CONVERSION-OUTPUT headroom, not about a model PULL — the two differ by more than
+# 2x and select opposite reads at the same free-space figure. So the block now prints BOTH,
+# each NAMED, each with its OWN basis citation, and each with its OWN fits / does-not-fit read
+# taken against ONE live free-space reading (one read, two comparisons — never two reads that
+# can disagree). The word "safe" is RETIRED from every arm of the rendered output; it survives
+# only in these comments, which narrate its retirement, and in the constant below that names
+# what is deliberately NOT claimed. The law of the block is unchanged. The increment RENDERS;
+# it attributes nothing.
+#
+# The conversion-output threshold is a RANGE, so its read has THREE outcomes, not two: above
+# the top, inside it, below the bottom. Inside the range is a real state and says so.
+#
+# DOES-NOT-SATISFY RIDER (attached by the /review 804 ruling; travels verbatim as the
+# contiguous constant DOES_NOT_SATISFY_RIDER_TIC812 below — a wrapped comment is NOT a verbatim
+# carry, which is exactly the defect F-803-BL-1 caught and cured at the parent increment).
 
 MACHINE_LIMITS_PLACEHOLDER = "⟦MACHINE_LIMITS_LIVE⟧"
 
@@ -317,6 +338,15 @@ DOES_NOT_SATISFY_RIDER_TIC803 = (
     "`cold_unavailable` reader helper, and does NOT rule or start canonical-cold "
     "Increment 2; disk headroom stays unobserved by the sentinel until that arm is "
     "ruled and built."
+)
+
+# The does-not-satisfy rider attached by /review 804 round 2 (Ruling D) — the ruling THIS
+# increment executes. Carried as ONE contiguous value for the same reason its sibling is: a
+# rider reproduced only as wrapped prose cannot be matched as a unit by any reader or grep.
+DOES_NOT_SATISFY_RIDER_TIC812 = (
+    "this increment does NOT rule or build the crisis sentinel's disk-headroom arm, does "
+    "NOT build the cold_unavailable helper, does NOT rule Increment 2 of the T7 canonical-"
+    "cold region, and does NOT attribute disk movement to any cause."
 )
 
 # The internal DATA volume — the one that actually constrains a pull. `/` is the sealed system
@@ -339,6 +369,39 @@ MODEL_PULL_THRESHOLD_BASIS = (
 # Deliberately NOT claimed above the threshold: that a pull is "safe". Fitting one named
 # artifact is not headroom for unpack/convert scratch, and this sentence does not model that.
 MODEL_PULL_THRESHOLD_UNCLAIMED = "headroom beyond that one pull is NOT assessed here"
+
+# THE SECOND THRESHOLD AND ITS BASIS — the CONVERSION-OUTPUT constraint (ruled /review 804).
+# This is the lane-A BINDING constraint on the internal disk and it is a RANGE, because the
+# evidence file states it at two anchors and neither subsumes the other:
+#   BOTTOM (~14 GiB) — the general ceiling, stated for ANY conversion output.
+#   TOP    (~18.5 GiB) — the one sized conversion candidate's actual output.
+# Both are quoted verbatim in the basis below. The range is rendered honestly as a range; the
+# fits read against it therefore has THREE outcomes (above the top / inside / below the bottom).
+# These are OUTPUT SIZES the internal volume must be able to hold — not a chosen safety margin.
+CONVERSION_OUTPUT_THRESHOLD_GIB_LOW = 14.0
+CONVERSION_OUTPUT_THRESHOLD_GIB_HIGH = 18.5
+CONVERSION_OUTPUT_THRESHOLD_BASIS = (
+    "the lane-A binding constraint on the internal disk, per "
+    "audit-logs/governance/hoist-preparation-tic748/lane-A-affordability.json — its "
+    "hardware.disk.BINDING_CONSTRAINT gives the bottom (\"ANY conversion output larger than "
+    "~14 GiB has nowhere to land internally\") and the one sized conversion candidate gives "
+    "the top (affordability.ranking_summary.FITS_WITH_CONVERSION: \"~18.5 GiB conversion "
+    "output with NOWHERE INTERNAL TO LAND IT\", disk_needed_gib 18.5)"
+)
+# Deliberately NOT claimed above the range: that a conversion would succeed. The range is the
+# conversion OUTPUT size only — scratch consumed during the conversion, the source read, and
+# where the output is sited are all outside what this sentence measures.
+CONVERSION_OUTPUT_THRESHOLD_UNCLAIMED = (
+    "the range is the conversion OUTPUT size only; conversion scratch and output siting are "
+    "NOT assessed here"
+)
+
+
+def _gib(value) -> str:
+    """Render a GiB figure without a trailing `.0` (14.0 -> '14'), so a threshold reads as the
+    ruling states it and never as false precision. Used for the range only; the model-pull
+    threshold keeps its existing literal rendering."""
+    return f"{value:g}"
 
 
 def _read_volume(path: str) -> dict:
@@ -385,7 +448,12 @@ def _read_wired_limit() -> dict:
 
 
 def read_machine_limits(internal_path: str = None, t7_path: str = None, now=None) -> dict:
-    """Take the live machine-limits reading and stamp it with its own read time."""
+    """Take the live machine-limits reading and stamp it with its own read time.
+
+    ONE reading of the internal volume serves BOTH internal-disk thresholds (/review 804):
+    the model-PULL threshold and the CONVERSION-OUTPUT threshold are two comparisons against
+    the SAME `internal` free figure, never two reads that could disagree with each other.
+    """
     stamp = now or datetime.now(timezone.utc)
     return {
         "read_at": stamp.strftime("%Y-%m-%dT%H:%MZ"),
@@ -394,10 +462,14 @@ def read_machine_limits(internal_path: str = None, t7_path: str = None, now=None
         "wired_limit_mb": _read_wired_limit(),
         "model_pull_threshold_gib": MODEL_PULL_THRESHOLD_GIB,
         "model_pull_threshold_basis": MODEL_PULL_THRESHOLD_BASIS,
+        "conversion_output_threshold_gib_low": CONVERSION_OUTPUT_THRESHOLD_GIB_LOW,
+        "conversion_output_threshold_gib_high": CONVERSION_OUTPUT_THRESHOLD_GIB_HIGH,
+        "conversion_output_threshold_basis": CONVERSION_OUTPUT_THRESHOLD_BASIS,
     }
 
 
 def _internal_clause(internal: dict, threshold: float) -> str:
+    """The model-PULL threshold read — the FIRST of the two internal-disk thresholds."""
     if not internal.get("ok"):
         why = internal.get("error") or "unreadable"
         return (f"internal disk unmeasured ({why}) — the {threshold} GiB model-pull "
@@ -406,11 +478,35 @@ def _internal_clause(internal: dict, threshold: float) -> str:
     cap = internal["capacity_pct"]
     cap_txt = f" at {cap}%" if cap is not None else ""
     if free < threshold:
+        # "safe" RETIRED here (/review 804): this arm used to end "NO model pull is safe",
+        # a conversion-output verdict worn by a pull threshold. It states a fits read now.
         return (f"internal disk {free} GiB free{cap_txt} — BELOW the {threshold} GiB "
-                f"model-pull threshold: NO model pull is safe")
+                f"model-pull threshold: the largest named pending pull DOES NOT FIT")
     return (f"internal disk {free} GiB free{cap_txt} — above the {threshold} GiB "
             f"model-pull threshold, so the largest named pending pull FITS "
             f"({MODEL_PULL_THRESHOLD_UNCLAIMED})")
+
+
+def _conversion_clause(internal: dict, low: float, high: float) -> str:
+    """The CONVERSION-OUTPUT threshold read — the SECOND of the two internal-disk thresholds.
+
+    Reads the SAME `internal` dict the pull clause read: one live free-space figure, two
+    comparisons. The threshold is a RANGE, so the read has THREE outcomes and names which.
+    An unreadable volume renders `unmeasured` — never a fits read it cannot support.
+    """
+    rng = f"{_gib(low)}–{_gib(high)} GiB conversion-output threshold"
+    if not internal.get("ok"):
+        return (f"the same reading against the {rng}: unmeasured — no fits read is possible "
+                f"and no remembered figure is substituted")
+    free = internal["free_gib"]
+    if free < low:
+        return (f"the same reading against the {rng}: BELOW the bottom of the range, so a "
+                f"conversion output anywhere in the range DOES NOT FIT")
+    if free < high:
+        return (f"the same reading against the {rng}: INSIDE the range, so an output at the "
+                f"{_gib(low)} GiB bottom FITS and one at the {_gib(high)} GiB top DOES NOT FIT")
+    return (f"the same reading against the {rng}: ABOVE the top of the range, so a conversion "
+            f"output anywhere in the range FITS ({CONVERSION_OUTPUT_THRESHOLD_UNCLAIMED})")
 
 
 def _t7_clause(t7: dict) -> str:
@@ -437,16 +533,32 @@ def _wired_clause(wired: dict) -> str:
 def render_machine_limits(reading: dict = None) -> str:
     """The MACHINE LIMITS sentence, rendered from a reading taken at render time.
 
-    Stamps its own read time. States the model-pull caution as a THRESHOLD on the live
-    figure, naming the threshold and its basis. Fails soft to `unmeasured` / `not mounted`,
-    never to a remembered number, and never raises into a boot.
+    Stamps its own read time. Renders BOTH internal-disk thresholds (/review 804) — the
+    model-PULL threshold and the CONVERSION-OUTPUT threshold — each NAMED, each with its OWN
+    basis citation, and each with its OWN fits / does-not-fit read taken against the SAME live
+    free-space figure. No verdict word: the retired "safe" appears in no arm of this output.
+    Fails soft to `unmeasured` / `not mounted`, never to a remembered number, and never raises
+    into a boot.
+
+    The two conversion threshold bounds and their basis are taken from the reading when it
+    carries them and fall back to the module constants when it does not, so a partial or
+    older-shaped reading still renders both thresholds instead of losing one — the same
+    fail-soft direction every other read in this block takes.
     """
     try:
         r = reading if reading is not None else read_machine_limits()
+        conv_low = r.get("conversion_output_threshold_gib_low",
+                         CONVERSION_OUTPUT_THRESHOLD_GIB_LOW)
+        conv_high = r.get("conversion_output_threshold_gib_high",
+                          CONVERSION_OUTPUT_THRESHOLD_GIB_HIGH)
+        conv_basis = r.get("conversion_output_threshold_basis",
+                           CONVERSION_OUTPUT_THRESHOLD_BASIS)
         return (
             f"MACHINE LIMITS (read live at {r['read_at']}): "
             f"{_internal_clause(r['internal'], r['model_pull_threshold_gib'])}; "
             f"threshold basis: {r['model_pull_threshold_basis']}; "
+            f"{_conversion_clause(r['internal'], conv_low, conv_high)}; "
+            f"conversion threshold basis: {conv_basis}; "
             f"{_wired_clause(r['wired_limit_mb'])}; "
             f"{_t7_clause(r['t7'])}."
         )

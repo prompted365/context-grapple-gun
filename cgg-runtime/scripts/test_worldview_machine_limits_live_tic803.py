@@ -157,8 +157,12 @@ class ThresholdArms(unittest.TestCase):
     """Arms 4-6 - the caution is a THRESHOLD ON THE LIVE FIGURE, not a baked verdict."""
 
     def test_below_threshold_fires_the_caution(self):
+        # CONSUMER-SET CURE (/review 804, built tic 812): this arm pinned the retired verdict
+        # word. The below-threshold arm now states a fits read on the named PULL threshold
+        # instead of a conversion-output verdict worn by a pull threshold (F-803-BL-2).
         s = ow.render_machine_limits(_reading(internal_free=5.0, internal_cap=99))
-        self.assertIn("BELOW the 8.1 GiB model-pull threshold: NO model pull is safe", s)
+        self.assertIn("BELOW the 8.1 GiB model-pull threshold: the largest named pending "
+                      "pull DOES NOT FIT", s)
 
     def test_above_threshold_says_fits_and_never_claims_safe(self):
         s = ow.render_machine_limits(_reading(internal_free=85.5, internal_cap=91))
