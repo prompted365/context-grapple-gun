@@ -19,6 +19,53 @@ import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
+# Import the shared recompile helper (and the atomic-append physics) from THIS
+# script's own directory — the same sys.path line cogpr-ingest.py carries at its
+# L90 and cpr-extract.py at its L24. Without it a module-level `lib.` import
+# resolves only when sys.path[0] already happens to be the scripts directory:
+# true for a direct `python3 arena-pressure-ingest.py` run, NOT true when this
+# module is imported by a test or a wrapper. This is a CODE lookup (it travels
+# with the installation), never a zone lookup.
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+
+# ──────────────────────────────────────────────────────────────────────────────
+# EFFECTIVE-STATE PROJECTION RECOMPILE — KEYED ON MUTATION
+# RULED /review 804 round 2 (Ruling A', Architect-ratified on the recommended
+# option verbatim: "Adopt x3 + a class-closing test"); KEPT at /review 811 round
+# 1 Q3. Ruling receipt:
+#   audit-logs/governance/receipts/2026-09-19-tic804-queue-writer-class-closure-ruling.md
+# It EXTENDS — does not reverse — /review 801 ("Key the writer on mutation") and
+# /review 803 ("One shared helper, all five writers, today").
+#
+# WHY THIS FILE. The 803 increment wired five writers onto the shared helper and
+# its rider said the projection was "writer-fresh for five of six writers". That
+# denominator was not a census: this script is a SEVENTH live appender of
+# audit-logs/cprs/queue.jsonl (F-803-C3, HIGH) — structurally the same mint-side
+# lane as cogpr-ingest.py — and it recompiled nothing, so every arena-pressure
+# ingest left the derived projection stale until the next /review pass.
+#
+# THE CONTRACT IS THE HELPER'S, NOT THIS SCRIPT'S: fires only after a SUCCESSFUL
+# append, fail-soft (a compile failure never fails the append and never raises),
+# and every zone path the recompile uses is derived from THE QUEUE THIS SCRIPT
+# ACTUALLY WROTE — never from any __file__ and never from cwd. That is what makes
+# the source copy and the installed copy under ~/.claude/cgg-runtime/scripts/
+# behave identically.
+#
+# DOES-NOT-SATISFY RIDER (travels verbatim, on ONE unbroken line so a byte-exact grep resolves it): this increment does NOT add a reader-side staleness detector, does NOT prove two writers racing leave a whole projection, does NOT cure the ImportError double-append hazard (F-803-C6), and does NOT make the projection authoritative over the queue — queue.jsonl latest-per-id remains the only authority.
+# ──────────────────────────────────────────────────────────────────────────────
+
+from lib.effective_state_recompile import recompile_effective_state  # noqa: E402
+
+# Run counters for the recompile arm. A NEW module-level dict, mirroring the
+# surface cpr-gate-advance.py and cpr-enrichment-scanner.py grew at /review 803:
+# this script had no counters surface and main()'s return arity is a consumer
+# contract, so it was NOT widened.
+RUN_COUNTERS = {
+    "effective_state_recompiled": 0,
+    "effective_state_recompile_failed": 0,
+    "effective_state_recompile_detail": "",
+}
+
 
 def resolve_audit_logs(zone_root: Path) -> Path:
     """Resolve audit-logs path from .ticzone."""
@@ -216,9 +263,20 @@ def lesson_already_queued(lesson: str, existing_queue: dict) -> bool:
     return False
 
 
+def _queue_file(audit_logs: Path) -> str:
+    """The ONE resolution of this lane's queue target.
+
+    The recompile must be handed THE QUEUE THE APPEND ACTUALLY WROTE, so the
+    append site and the recompile site resolve it through the same function
+    rather than through two literal path joins that a later edit could drift
+    apart.
+    """
+    return str(audit_logs / "cprs" / "queue.jsonl")
+
+
 def append_to_queue(entry: dict, audit_logs: Path):
     """Append a single entry to queue.jsonl with atomic write."""
-    queue_file = str(audit_logs / "cprs" / "queue.jsonl")
+    queue_file = _queue_file(audit_logs)
     os.makedirs(os.path.dirname(queue_file), exist_ok=True)
     try:
         from lib.atomic_append import atomic_append_jsonl
@@ -466,6 +524,27 @@ def main():
             violation_msg = f" VIOLATIONS:{len(mode_violations)}" if mode_violations else ""
             print(f"  [{status}] {report_path.name} → signal{cpr_msg}{cand_msg}{violation_msg}")
 
+    # ── Effective-state recompile, KEYED ON MUTATION (RULED /review 804 r2).
+    # Placed AFTER the whole report loop, not inside append_to_queue: one run
+    # appends one row per report-level CogPR plus one per arena candidate, and a
+    # per-row recompile would run a whole-queue compile N times for one ingest.
+    # This mirrors pattern_miner.py, whose /review 803 call site likewise fires
+    # ONCE after a batch of appends completes.
+    #
+    # THE GATE IS AN ACTUAL MUTATION, not merely "we got here": `cprs_generated`
+    # and `candidates_minted` are both incremented on the dry-run path too (the
+    # mint functions build and return their row either way and only the append is
+    # gated), so `not args.dry_run` is load-bearing and is ANDed here. A run that
+    # appends nothing — no reports, every report already processed, every
+    # candidate deduped — moves nothing and so must not move the projection.
+    #
+    # DOES-NOT-SATISFY RIDER (travels verbatim): this increment does NOT add a reader-side staleness detector, does NOT prove two writers racing leave a whole projection, does NOT cure the ImportError double-append hazard (F-803-C6), and does NOT make the projection authoritative over the queue — queue.jsonl latest-per-id remains the only authority.
+    if not args.dry_run and (cprs_generated + candidates_minted) > 0:
+        _ok, _detail = recompile_effective_state(_queue_file(audit_logs))
+        RUN_COUNTERS["effective_state_recompiled"] = 1 if _ok else 0
+        RUN_COUNTERS["effective_state_recompile_failed"] = 0 if _ok else 1
+        RUN_COUNTERS["effective_state_recompile_detail"] = _detail
+
     if not args.quiet:
         prefix = "[DRY-RUN] " if args.dry_run else ""
         print(f"\n{prefix}Processed: {signals_emitted} reports, {signals_emitted} signals, {cprs_generated} report-level CogPRs, {candidates_minted} arena candidates")
@@ -473,6 +552,9 @@ def main():
             print(f"{prefix}Mode violations: {len(violations_found)}")
             for v in violations_found:
                 print(f"  ! {v}")
+        if RUN_COUNTERS["effective_state_recompile_detail"]:
+            print(f"{prefix}effective-state recompile: "
+                  f"{RUN_COUNTERS['effective_state_recompile_detail']}")
 
 
 if __name__ == "__main__":

@@ -376,9 +376,21 @@ CONTROL_SET = {
     # known-30%-FP predicate. They are labeled so a later refinement that
     # silently loses them trips this gate.
     "cpr-enrichment-scanner.py": {
-        "expect": "bypass", "verified_at_tic": 741,
-        "why": "L1091 `p.write_text('\\n'.join(new_lines) + '\\n')` rewrites the WHOLE of audit-logs/cprs/queue.jsonl under flock. 0/6 mechanism tokens.",
-        "source": "tic-741 probe, hand-read call site",
+        # ROW CORRECTED at tic 812 (RULED /review 804 round 2, Ruling A', item 2;
+        # receipt audit-logs/governance/receipts/2026-09-19-tic804-queue-writer-
+        # class-closure-ruling.md). The prior text named a whole-file rewrite
+        # (`p.write_text(...)` at ~L1091) that WAS TRUE until tic 765, when
+        # bk-cpr-enrichment-scanner-whole-file-rewrite-of-queue (HIGH, ruled
+        # /review 750 Q7) replaced it with the append-only copy-forward path.
+        # The stale line was re-seeding the wrong mechanism into downstream
+        # censuses — it is quoted in the /review 803 ruling and in F-802-B2, and
+        # this row is where both appear to have sourced it. The CLASSIFICATION
+        # is unchanged and re-verified, not merely carried: the write is still a
+        # real mutation of the queue and still carries 0/6 ratified mechanism
+        # tokens, so `bypass` remains correct for the current mechanism.
+        "expect": "bypass", "verified_at_tic": 812,
+        "why": "appends copy-forward rows to audit-logs/cprs/queue.jsonl via append_queue_rows() (def L935, call site L1241): preferred path is the `lib/atomic-append.sh --append` shell primitive, with an in-process mkdir-lockdir + fcntl fallback writing `open(queue_path, \"a\")` at L1005. Append-only since tic 765 — the whole-file rewrite this row used to name is GONE. 0/6 mechanism tokens.",
+        "source": "tic-812 re-read of the call sites (hand-read), correcting the tic-741 probe text per /review 804 Ruling A-prime item 2",
     },
     "cpr-gate-advance.py": {
         "expect": "bypass", "verified_at_tic": 741,

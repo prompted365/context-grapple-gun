@@ -46,6 +46,32 @@ sys.path.insert(0, str(_HERE / "lib"))
 import queue_event_materializer as M   # shadow_project, load_migration, _rows_for, _sha
 import enum_vocabulary_guard           # the shared loader/classify/refusal triple
 
+# ──────────────────────────────────────────────────────────────────────────────
+# EFFECTIVE-STATE PROJECTION RECOMPILE — KEYED ON MUTATION
+# RULED /review 804 round 2 (Ruling A', Architect-ratified on the recommended
+# option verbatim: "Adopt x3 + a class-closing test"); KEPT at /review 811 round
+# 1 Q3. Ruling receipt:
+#   audit-logs/governance/receipts/2026-09-19-tic804-queue-writer-class-closure-ruling.md
+# Extends /review 801 ("Key the writer on mutation") and /review 803 ("One
+# shared helper, all five writers, today").
+#
+# WHY THIS FILE, AND WHY IT IS THE SHARP ONE. This is the typed verdict writer
+# review-execute drives: `--queue` is argparse required=True, so the target is
+# caller-supplied and IS the real queue in its /review usage (F-803-C4). Before
+# this adoption a /review verdict landed through here left the derived
+# projection stale exactly when a reader is most likely to trust it — the moment
+# after an adjudication.
+#
+# THE CONTRACT IS THE HELPER'S: fires only after a SUCCESSFUL append, fail-soft
+# (a compile failure never fails the append and never raises into this CLI's
+# exit code), and every zone path is derived from THE QUEUE THIS WRITER WAS
+# HANDED — never from __file__, never from cwd. A caller pointing --queue at a
+# fixture therefore recompiles that fixture's zone and nothing else.
+#
+# DOES-NOT-SATISFY RIDER (travels verbatim, on ONE unbroken line so a byte-exact grep resolves it): this increment does NOT add a reader-side staleness detector, does NOT prove two writers racing leave a whole projection, does NOT cure the ImportError double-append hazard (F-803-C6), and does NOT make the projection authoritative over the queue — queue.jsonl latest-per-id remains the only authority.
+# ──────────────────────────────────────────────────────────────────────────────
+from lib.effective_state_recompile import recompile_effective_state  # noqa: E402
+
 ATOMIC_APPEND = _HERE / "lib" / "atomic-append.sh"
 SCHEMA_VERSION = 1
 REPAIR_B_EVENT_TYPES = {"birth", "formulation_update", "lifecycle_patch",
@@ -399,10 +425,24 @@ def main() -> int:
     if a.dry_run:
         print(json.dumps(ev, indent=2, ensure_ascii=False)); return 0
     append_event(ev, Path(a.queue))
+    # ── Effective-state recompile, KEYED ON MUTATION (RULED /review 804 r2).
+    # PLACED HERE, AFTER append_event RETURNS, because append_event owns the
+    # whole write: it shells out to lib/atomic-append.sh (which holds its own
+    # lock) and RAISES SystemExit on a non-zero rc, so returning normally IS the
+    # successful-write signal. Every earlier return path — a --dry-run (returns
+    # at the print above), a PendingClassOffEnum refusal, a PendingClassRequired
+    # refusal, a blank-formulation SystemExit — exits before this line, and each
+    # of those leaves the queue untouched, so none of them may move the stamp.
+    #
+    # DOES-NOT-SATISFY RIDER (travels verbatim): this increment does NOT add a reader-side staleness detector, does NOT prove two writers racing leave a whole projection, does NOT cure the ImportError double-append hazard (F-803-C6), and does NOT make the projection authoritative over the queue — queue.jsonl latest-per-id remains the only authority.
+    _ok, _detail = recompile_effective_state(Path(a.queue))
     print(json.dumps({"appended": True, "event_id": ev["event_id"], "id": ev["id"],
                       "event_type": ev["event_type"], "status": ev["status"],
                       "object_version": ev["object_version"],
-                      "lesson_len": len(ev.get("lesson") or "")}, ensure_ascii=False))
+                      "lesson_len": len(ev.get("lesson") or ""),
+                      "effective_state_recompiled": 1 if _ok else 0,
+                      "effective_state_recompile_failed": 0 if _ok else 1,
+                      "effective_state_recompile_detail": _detail}, ensure_ascii=False))
     return 0
 
 if __name__ == "__main__":
