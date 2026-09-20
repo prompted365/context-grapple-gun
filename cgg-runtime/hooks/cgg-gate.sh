@@ -93,7 +93,15 @@ TIMESTAMP=$(date -Iseconds)
 log_meta() {
   local payload="$1"
   local body="${payload%\}}"
-  payload="${body},\"agent_id\":\"${AGENT_ID:-}\",\"agent_type\":\"${AGENT_TYPE:-}\"}"
+  payload="${body},\"agent_id\":\"${AGENT_ID:-}\",\"agent_type\":\"${AGENT_TYPE:-}\""
+  # CALLER STAMP (ruled /review 808): the caller's typed actor shape, from the seal
+  # hook's OWN derive_actor. ADDITIVE — every pre-existing key keeps its position and
+  # its value; the reason key appears ONLY when the derivation did not land.
+  payload="${payload},\"actor_shape\":\"${ACTOR_SHAPE:-underived}\",\"actor_class\":\"${ACTOR_CLASS:-underived}\""
+  if [ -n "${ACTOR_UNDERIVED_REASON:-}" ]; then
+    payload="${payload},\"actor_underived_reason\":\"${ACTOR_UNDERIVED_REASON}\""
+  fi
+  payload="${payload}}"
   if type atomic_append &>/dev/null; then
     atomic_append "$META_LOG" "$payload"
   else
@@ -116,6 +124,68 @@ except: print('audit-logs')
 # Gate-observability sink (relocated canonical-side tic 583 — see META_LOG note above).
 # Zone-root-anchored per this hook's audit-path convention; created on first append.
 META_LOG="$ZONE_ROOT/$AUDIT_LOGS_REL/services/gate-meta.jsonl"
+
+# Locate the seal hook — the HOME of the plan-discovery rule this gate consumes.
+# Resolving a PATH is not deriving a RULE: the rule stays one function in one file.
+# RELOCATED HERE (ruled /review 808): the caller stamp below needs this path, and the
+# pause-after-boot gate further down holds the FIRST log_meta calls. Resolution only —
+# no side effects — so hoisting it changes nothing but the order it becomes available.
+SEAL_HOOK_SCRIPT=""
+for _seal_candidate in \
+  "$(cd "$(dirname "$0")" && pwd)/cadence-handoff-seal.py" \
+  "$CGG_PLUGIN_ROOT/cgg-runtime/hooks/cadence-handoff-seal.py"; do
+  [ -f "$_seal_candidate" ] && SEAL_HOOK_SCRIPT="$_seal_candidate" && break
+done
+
+# ============================================================================
+# CALLER STAMP — the prompt gate stamps its caller's typed actor shape.
+# RULED /review 808 round 1 (D3), Architect-ratified, the recommended option verbatim.
+#
+# WHY: twice (tics 807, 808) the processed-ids marker moved while these rows' agent
+# fields were EMPTY, and the fire could be attributed to the Mogul runner's headless
+# child only BY ELIMINATION. No row field said so. This turns that inference into a
+# field. If the field reads non-primary, the federation learns a headless child is
+# performing a seam act — and THAT, whether it should, is a separate question.
+#
+# ONE RULE, ONE IMPLEMENTATION: the shape is the seal hook's OWN derive_actor(),
+# imported READ-ONLY by the same importlib mechanism as CALL SITE C below. There is no
+# second derivation and no copy of the discriminator here. derive_actor reads only its
+# agent_id argument and the runner's obligation environment, both of which this process
+# already carries, so the child resolves the identical shape the seal seam would.
+#
+# FAIL-SOFT, NEVER FAIL-CLOSED: if the seal hook is unresolved, unimportable, or the
+# derivation raises, the stamp becomes the typed value "underived" WITH a reason and
+# the gate behaves exactly as it did before. A stamp must never break the prompt path.
+#
+# DOES-NOT-SATISFY RIDER (travels verbatim): this increment does NOT change who may consume a handoff seal, does NOT rule whether the Mogul runner's headless child SHOULD fire the prompt gate, does NOT change the actor discriminator, and does NOT produce the live refusal witness the seam's primary-only acts still owe.
+#
+# DOES-NOT-SATISFY RIDER (travels verbatim, from the ruling): this increment does NOT restrict who may fire the gate, does NOT change the seam's primary-only acts, does NOT re-attribute the two past fires, and does NOT touch the processed-ids marker's write.
+# ============================================================================
+
+ACTOR_SHAPE="underived"
+ACTOR_CLASS="underived"
+ACTOR_UNDERIVED_REASON="seal_hook_unresolved"
+if [ -n "$SEAL_HOOK_SCRIPT" ]; then
+  _actor_raw=$(CGG_SEAL_RULE="$SEAL_HOOK_SCRIPT" CGG_STAMP_AGENT_ID="${AGENT_ID:-}" python3 -c '
+import importlib.util, os
+spec = importlib.util.spec_from_file_location("cgg_seal_rule", os.environ["CGG_SEAL_RULE"])
+mod = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(mod)
+a = mod.derive_actor(os.environ.get("CGG_STAMP_AGENT_ID", ""))
+print("%s\t%s" % (a["actor"], a["actor_class"]))
+' 2>/dev/null || true)
+  if [ -n "$_actor_raw" ]; then
+    ACTOR_SHAPE="${_actor_raw%%$'\t'*}"
+    ACTOR_CLASS="${_actor_raw##*$'\t'}"
+    ACTOR_UNDERIVED_REASON=""
+  else
+    ACTOR_UNDERIVED_REASON="derivation_failed"
+  fi
+fi
+# JSON-safety: the stamp is concatenated into a JSON payload by log_meta, exactly as
+# agent_id/agent_type already are. Strip the two characters that could break a row.
+ACTOR_SHAPE=$(printf '%s' "$ACTOR_SHAPE" | tr -d '"\\')
+ACTOR_CLASS=$(printf '%s' "$ACTOR_CLASS" | tr -d '"\\')
 
 # ============================================================================
 # Pause-after-boot gate (tic 633 — activation modes, Architect-directed).
@@ -170,15 +240,6 @@ resolve_script() {
   done
   return 1
 }
-
-# Locate the seal hook — the HOME of the plan-discovery rule this gate consumes.
-# Resolving a PATH is not deriving a RULE: the rule stays one function in one file.
-SEAL_HOOK_SCRIPT=""
-for _seal_candidate in \
-  "$(cd "$(dirname "$0")" && pwd)/cadence-handoff-seal.py" \
-  "$CGG_PLUGIN_ROOT/cgg-runtime/hooks/cadence-handoff-seal.py"; do
-  [ -f "$_seal_candidate" ] && SEAL_HOOK_SCRIPT="$_seal_candidate" && break
-done
 
 # ============================================================================
 # Branch A: Mandate check — independent of trigger-file state
