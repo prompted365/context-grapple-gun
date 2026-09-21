@@ -25,6 +25,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import warnings
 from pathlib import Path
 
 import pytest
@@ -69,9 +70,35 @@ def sha16(text: str) -> str:
 # Fixtures
 # ---------------------------------------------------------------------------
 
+# THE FIXTURES REMOVE WHAT THEY CREATE (F-809-1, ruled /review 809). Every base
+# a Fixture makes is registered here at birth and removed when the test that made
+# it ends -- on PASS, on FAIL and on ERROR alike. The removal lives in a fixture
+# TEARDOWN rather than at the end of each test body precisely because a failing
+# assertion jumps over the end of a body, and that is the run which most needs its
+# residue gone. Before this, the file made a temp directory per Fixture and removed
+# none of them.
+#
+# DOES-NOT-SATISFY RIDER (travels verbatim): this increment does NOT remove the 420 pre-existing temp directories (a separate hygiene motion, the lead's), does NOT change what the body-mode proof asserts, does NOT touch the switch-landed-at-body test, and does NOT certify the pointer path.
+_FIXTURE_BASES_MADE = []
+
+
+@pytest.fixture(autouse=True)
+def _fixtures_remove_what_they_create():
+    """Remove every fixture temp directory this test made, whatever its outcome."""
+    start = len(_FIXTURE_BASES_MADE)
+    try:
+        yield
+    finally:
+        made = _FIXTURE_BASES_MADE[start:]
+        del _FIXTURE_BASES_MADE[start:]
+        for base in made:
+            shutil.rmtree(base, ignore_errors=True)
+
+
 class Fixture:
     def __init__(self, name, mode="body"):
         self.base = Path(tempfile.mkdtemp(prefix=f"t804-{name}-"))
+        _FIXTURE_BASES_MADE.append(self.base)
         self.zone = self.base / "zone"
         self.home = self.base / "home"
         (self.zone / "audit-logs" / "tics").mkdir(parents=True)
@@ -240,13 +267,57 @@ def test_switch_is_a_single_key_landed_at_body_in_the_repo():
 # 3. BODY MODE IS UNCHANGED — against the pre-change hook from git
 # ---------------------------------------------------------------------------
 
+# The environment seam follows this file's own convention and the seal hook's --
+# a CGG_-prefixed name bound to a module constant -- rather than inventing a second
+# one. EMPTY IS NOT SET: the value is stripped before it is believed, so an empty
+# override falls back to the hard failure, never to the silent skip.
+ALLOW_MISSING_PRE_CHANGE_SEAL_ENV = "CGG_ALLOW_MISSING_PRE_CHANGE_SEAL"
+
+
 def _pre_change_seal(zone):
     """The pre-change hook, from git, placed INSIDE the fixture zone so its own
-    fail-closed zone walk-up resolves the FIXTURE .ticzone (law #6)."""
-    r = subprocess.run(["git", "-C", str(CGG_REPO), "show", f"HEAD:{SEAL_REPO_PATH}"],
-                       capture_output=True, text=True, timeout=60)
+    fail-closed zone walk-up resolves the FIXTURE .ticzone (law #6).
+
+    AN UNRESOLVABLE PRE-CHANGE SEAL IS A HARD FAILURE, NOT A SILENT SKIP (F-809-2,
+    ruled /review 809). The body-mode non-regression proof below is the strongest
+    proof in this file. When git could not resolve the pre-change seal this
+    degraded to a bare skip and the run still read green -- the proof gone while
+    the count stayed clean, which is the silent-degrade class. It now fails and
+    says WHAT could not be resolved and HOW to supply it.
+
+    The opt-out restores the skip for a genuinely history-free checkout, and it
+    announces ITSELF BY NAME in three places so a skipped proof is never silent:
+    a warning (visible with no reporting flag at all), the skip reason (visible
+    under -rs), and stdout (visible under -s). Measured on this runner, not argued.
+
+    DOES-NOT-SATISFY RIDER (travels verbatim): this increment does NOT remove the 420 pre-existing temp directories (a separate hygiene motion, the lead's), does NOT change what the body-mode proof asserts, does NOT touch the switch-landed-at-body test, and does NOT certify the pointer path.
+    """
+    cmd = ["git", "-C", str(CGG_REPO), "show", f"HEAD:{SEAL_REPO_PATH}"]
+    r = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
     if r.returncode != 0:
-        pytest.skip("pre-change hook not retrievable from git")
+        if os.environ.get(ALLOW_MISSING_PRE_CHANGE_SEAL_ENV, "").strip():
+            announcement = (
+                f"{ALLOW_MISSING_PRE_CHANGE_SEAL_ENV} is set: the body-mode "
+                f"non-regression proof against the pre-change hook is SKIPPED, "
+                f"not satisfied."
+            )
+            print(announcement)
+            warnings.warn(announcement, stacklevel=2)
+            pytest.skip(announcement)
+        pytest.fail(
+            "PRE-CHANGE SEAL UNRESOLVABLE -- the body-mode non-regression proof "
+            "cannot run, so it FAILS rather than passing quietly.\n"
+            f"  command : {' '.join(cmd)}\n"
+            f"  exit    : {r.returncode}\n"
+            f"  stderr  : {r.stderr.strip() or '(empty)'}\n"
+            f"  repo    : {CGG_REPO}\n"
+            f"  path    : {SEAL_REPO_PATH}\n"
+            "  supply it: run this file inside a checkout whose HEAD carries that "
+            "path (a bare mirror with no history cannot), or set "
+            f"{ALLOW_MISSING_PRE_CHANGE_SEAL_ENV}=1 to skip this proof "
+            "deliberately and loudly.",
+            pytrace=False,
+        )
     p = Path(zone) / "prechange-cadence-handoff-seal.py"
     p.write_text(r.stdout, encoding="utf-8")
     return p
