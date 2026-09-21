@@ -483,6 +483,55 @@ def render_cold_boot_notice(entity: str, tic: int, standing: str, spawn_id: str)
     )
 
 
+def render_citizen_banner(entity: str, tic: int) -> str:
+    """The recognized-citizen boot BANNER — the header above the compiled worldview.
+
+    RULED /review 822 Round 2 Q1 ("Banner says 'seat'";
+    bk-subagent-banner-says-seat-not-citizen-t822): the banner STOPS TYPING STANDING and names
+    the office SEAT; the compiled worldview badge remains the ONLY surface that states standing.
+    Agent type names stay. No seat's standing changes.
+
+    THE DEFECT THIS CLOSES (/review 822 docket F-D): at tic 821 two build seats and the stepper
+    each booted under a banner calling them "a recognized federation entity" while their compiled
+    badge read `standing=resident` with an explicit not-a-citizen line. The banner MANUFACTURED
+    the contradiction that /review 773's narrower-governs rule then had to resolve on every
+    spawn; a banner that predicates no standing leaves nothing to resolve.
+
+    WHAT DELIBERATELY STAYS, and why none of it types THIS seat's standing:
+      * the `[CITIZEN-BOOT: <entity>]` marker — it names the boot HOOK and the agent TYPE, both
+        ruled to stay ("Agent type names stay");
+      * the standing-AXIS LEGEND (citizen full / non-citizen capped + APOPHATIC) — it teaches the
+        reader how to READ the badge and predicates nothing about this seat;
+      * the /review 773 hook-vs-grant disclaimer, verbatim with its citation.
+
+    SCOPE FENCE, stated so a later reader does not mistake this for a sweep: the two SIBLING
+    sites in this file that DO state a standing — render_cold_boot_notice (`standing: {standing}`)
+    and TASK_SCOPED_WORKER_FRAME (`standing: task_scoped_worker`) — are deliberately UNTOUCHED.
+    Neither path delivers a compiled badge (the cold path is a dedup-suppressed brief; a worker
+    gets no worldview at all), so on those paths the notice is the only standing surface there is,
+    and /review 752 D3 expressly ruled the cold notice must render the registry value. Applying
+    this ruling's second sentence there would contradict a standing ruling; it is handed up
+    instead. See audit-logs/governance/review-824-evidence/build-banner-says-seat/LANDING-NOTES.md.
+
+    DOES NOT SATISFY: this increment stops the banner typing standing on the FULL-BOOT path
+    ONLY. The ruling's second sentence — "The compiled badge remains the only surface that
+    states standing" — is NOT true system-wide after this landing: render_cold_boot_notice and
+    TASK_SCOPED_WORKER_FRAME still state a standing, deliberately, because neither path ships a
+    compiled badge and /review 752 D3 expressly ruled the cold notice must render the registry
+    value. Handed up unresolved at tic 824; no seat's standing changed.
+
+    Pure; no I/O — testable without a spawn (same contract as render_cold_boot_notice)."""
+    return (
+        f"[CITIZEN-BOOT: {entity}] You are booting into your office SEAT "
+        f"(tic {tic}). Your STANDING and its boundary are stamped in the worldview below — "
+        f"a citizen carries full authority; a resident/guest/recognized_body/registered_artifact "
+        f"carries a capped, shape-only worldview with an ⟨APOPHATIC⟩ boundary naming what it is "
+        f"NOT. Honor your badge. (The CITIZEN-BOOT banner names the boot HOOK, never a standing "
+        f"grant — the compiled worldview badge below is AUTHORITATIVE; a banner/badge conflict "
+        f"resolves NARROWER, always. Ruled /review 773 on F-772-W10-7 n=3.)\n"
+    )
+
+
 # Internal generic delegated worker types: spawned by a lead to execute a bounded
 # slice, never registered as citizens by design. These resolve to the `task_scoped_worker`
 # standing (entity-ontology.md) — a minimal rung/zone boot, NOT a citizen boot, NOT silence.
@@ -921,15 +970,7 @@ def main() -> int:
         parts.append(inject)
     if write_frame:
         parts.append(write_frame)
-    context = (
-        f"[CITIZEN-BOOT: {entity}] You are booting as a recognized federation entity "
-        f"(tic {tic}). Your STANDING and its boundary are stamped in the worldview below — "
-        f"a citizen carries full authority; a resident/guest/recognized_body/registered_artifact "
-        f"carries a capped, shape-only worldview with an ⟨APOPHATIC⟩ boundary naming what it is "
-        f"NOT. Honor your badge. (The CITIZEN-BOOT banner names the boot HOOK, never a standing "
-        f"grant — the compiled worldview badge below is AUTHORITATIVE; a banner/badge conflict "
-        f"resolves NARROWER, always. Ruled /review 773 on F-772-W10-7 n=3.)\n" + "\n".join(parts)
-    )
+    context = render_citizen_banner(entity, tic) + "\n".join(parts)
     print(json.dumps({
         "hookSpecificOutput": {
             "hookEventName": "SubagentStart",
