@@ -89,7 +89,9 @@ fi
 # its soils as doctrine; it does NOT install a child (install is an explicit
 # act in that tool); and it does NOT cure the root/merge-commit predicate gap.
 # ============================================================================
-SEED_REPO="$ZONE_ROOT/canonical_developer/folder-seed"
+# (tic 818) the seed SOURCE moved: the release repo became the source repo, and the
+# old one is archived. One repo of record for the seed; this is it.
+SEED_REPO="$ZONE_ROOT/canonical_developer/hoist"
 SEED_REFLOG="$SEED_REPO/.git/logs/HEAD"
 if [ -f "$SEED_REFLOG" ] && [ -f "$SEED_REPO/tools/seed_sync.py" ]; then
     SEED_MTIME=$(stat -f %m "$SEED_REFLOG" 2>/dev/null || stat -c %Y "$SEED_REFLOG" 2>/dev/null || echo 0)
