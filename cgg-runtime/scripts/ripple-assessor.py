@@ -25,6 +25,8 @@ from pathlib import Path
 # Allow importing zone_root from same directory
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from zone_root import resolve_zone_root, load_ticzone, audit_logs_path, birth_topology
+# The shared active-ray authority (/review 810 round 1 Q2).
+from lib.signal_active import is_active_ray, latest_per_id
 
 
 # ---------------------------------------------------------------------------
@@ -154,8 +156,49 @@ def load_signal_store(signals_dir):
     return entries
 
 
-def classify_entries(entries):
-    """Separate into active signals, working signals, warrants, etc."""
+def load_manifest_active(signals_dir):
+    """The AUTHORITATIVE active-signal set: the curated manifest, folded
+    latest-per-id, under the single shared is_active_ray predicate.
+
+    MIGRATED at /review 810 round 1 Q2. Previously this instrument derived its
+    "Active signals" headline from load_signal_store(), which globs every
+    signals/*.jsonl -- the raw daily emission history plus resolved-archive --
+    and keys on a truthy `id`. Manifest rows carry `signal_id` and no `id`, so
+    the curated manifest was globbed and then dropped WHOLESALE on field shape:
+    it contributed zero rows to the number this instrument published.
+
+    DOES-NOT-SATISFY RIDER (travels verbatim): this increment does NOT change what counts as an active signal, does NOT touch the manifest-prune engine or any emitter, does NOT reconcile historical reports that printed the old numbers, and does NOT certify that the enumerated set is the whole consumer set.
+    """
+    out = {}
+    p = Path(signals_dir) / "active-manifest.jsonl"
+    if not p.exists():
+        return out
+    rows = []
+    for line in p.read_text(encoding="utf-8").splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        try:
+            rows.append(json.loads(line))
+        except json.JSONDecodeError:
+            continue
+    for r in latest_per_id(rows):
+        if is_active_ray(r):
+            sid = r.get("signal_id") or r.get("id")
+            if sid:
+                out[sid] = r
+    return out
+
+
+def classify_entries(entries, manifest_active=None):
+    """Separate into active signals, working signals, warrants, etc.
+
+    `manifest_active`, when supplied, REPLACES the active-signal bucket with the
+    authoritative manifest reading. The warrant / working / resolved buckets keep
+    reading the daily emission store: warrants are a different manifold (they are
+    type=="warrant" rows that the signal manifest does not carry), and narrowing
+    them was NOT ruled.
+    """
     active_signals = {}
     working_signals = {}
     warranted_signals = {}
@@ -181,6 +224,11 @@ def classify_entries(entries):
                 working_signals[eid] = e
             elif status == "warranted":
                 warranted_signals[eid] = e
+
+    if manifest_active is not None:
+        # The authoritative set wins for the active bucket. Assigned AFTER the
+        # daily-store walk so the working/warrant/resolved buckets are unchanged.
+        active_signals = manifest_active
 
     return {
         "active_signals": active_signals,
@@ -763,7 +811,7 @@ def main():
     topo = birth_topology(project_dir)
 
     entries = load_signal_store(signals_dir)
-    classified = classify_entries(entries)
+    classified = classify_entries(entries, load_manifest_active(signals_dir))
     triads = detect_harmonic_triads(classified["active_signals"])
     tic_counter = load_tic_counter(tic_path)
     inline_cpr_count = count_pending_cprs_inline(project_dir)

@@ -38,6 +38,7 @@ import os
 import shutil
 import subprocess
 import sys
+import tempfile
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -402,6 +403,50 @@ def find_plugin_root(zone_root):
         if os.path.isdir(os.path.join(c, "cgg-runtime")):
             return c
     return None
+
+
+# ---------------------------------------------------------------------------
+# Install primitive — atomic replace, so a RUNNING script is never sheared
+# ---------------------------------------------------------------------------
+
+def _atomic_install(src, dst):
+    """Install src -> dst by writing a temp file BESIDE dst and renaming it over.
+
+    SAME BYTES, NEW INODE. `shutil.copy2(src, dst)` opens dst and rewrites it in
+    place, so dst keeps its inode; a shell already executing that installed file
+    holds an open fd on that inode and resumes at its saved BYTE OFFSET inside the
+    replaced content, executing a fragment mid-token (`bash -n` on the new file
+    passes — the corpse was reading old offsets). Renaming a fresh file over dst
+    gives dst a NEW inode: the running shell keeps the old, now-unlinked inode and
+    finishes on its ORIGINAL bytes.
+
+    The temp is created in dst's OWN directory because a rename across filesystems
+    is a copy, not an atomic replace. It is a DOTFILE so nothing that globs the
+    install directory picks it up, and it is removed on any failure, so a crash
+    between write and rename leaves the TARGET untouched and no stray surface.
+
+    copy2 onto the temp carries mode and times exactly as the in-place copy2 did,
+    so what consumers read is unchanged; os.replace is atomic within the directory.
+
+    DOES-NOT-SATISFY RIDER: this increment does NOT make editing a SOURCE script
+    under a live runner safe (the runner executes the source copy; that hazard
+    stands), does NOT change what is synced or when, and does NOT touch the commit
+    hook's own logic.
+    """
+    dst_dir = os.path.dirname(dst)
+    fd, tmp = tempfile.mkstemp(
+        prefix="." + os.path.basename(dst) + ".rts-", suffix=".tmp", dir=dst_dir
+    )
+    os.close(fd)
+    try:
+        shutil.copy2(src, tmp)
+        os.replace(tmp, dst)
+    except BaseException:
+        try:
+            os.unlink(tmp)
+        except OSError:
+            pass
+        raise
 
 
 # ---------------------------------------------------------------------------
@@ -1073,8 +1118,14 @@ def cmd_sync(surfaces, zone_root, plugin_root, commit_sha=None, commit_msg=None,
         # Ensure target directory exists
         os.makedirs(os.path.dirname(r["installed"]), exist_ok=True)
 
-        # Copy
-        shutil.copy2(r["canonical"], r["installed"])
+        # Copy — atomic replace: temp beside the target, renamed over it, so a
+        # shell already executing this installed file keeps its old inode and
+        # finishes on its original bytes instead of resuming at a shifted offset.
+        # DOES-NOT-SATISFY RIDER: this increment does NOT make editing a SOURCE
+        # script under a live runner safe (the runner executes the source copy;
+        # that hazard stands), does NOT change what is synced or when, and does
+        # NOT touch the commit hook's own logic.
+        _atomic_install(r["canonical"], r["installed"])
 
         # Make scripts executable
         if r.get("type") == "SCRIPT_CODE":
@@ -1299,7 +1350,14 @@ def cmd_auto_sync(surfaces, zone_root, plugin_root, commit_sha=None,
         if not os.path.isfile(r["canonical"]):
             continue
         os.makedirs(os.path.dirname(r["installed"]), exist_ok=True)
-        shutil.copy2(r["canonical"], r["installed"])
+        # Atomic replace — this is the hook-triggered path, and the commit hook is
+        # itself an installed script whose own run triggers this sync, so the file
+        # being replaced here can be the file currently executing.
+        # DOES-NOT-SATISFY RIDER: this increment does NOT make editing a SOURCE
+        # script under a live runner safe (the runner executes the source copy;
+        # that hazard stands), does NOT change what is synced or when, and does
+        # NOT touch the commit hook's own logic.
+        _atomic_install(r["canonical"], r["installed"])
         if r.get("type") == "SCRIPT_CODE":
             os.chmod(r["installed"], 0o755)
         new_hash = file_hash(r["installed"])

@@ -32,6 +32,9 @@ from pathlib import Path
 # Allow importing zone_root from same directory
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from zone_root import resolve_zone_root, load_ticzone, audit_logs_path, signal_governance
+# The shared active-ray authority (/review 810 round 1 Q2). The POPULATION here is
+# declared-different (see cmd_metrics); the PREDICATE is the shared one.
+from lib.signal_active import is_active_ray
 
 
 def resolve_signal_dir(project_dir=None):
@@ -140,7 +143,19 @@ def cmd_metrics(entries, output_json=False):
         id_date_counts[eid][source_date] += 1
 
     latest = latest_per_id(entries)
-    active = {k: v for k, v in latest.items() if v.get("status") == "active"}
+    # DECLARED POPULATION + MIGRATED PREDICATE (/review 810 round 1 Q2).
+    #
+    # This reader is a FORENSIC auditor OF the raw daily emission corpus. Its
+    # siblings in this very result -- collision_pressure, duplicate_entries,
+    # compression_ratio, per_file -- are meaningless over the curated manifest, and
+    # load_all_entries EXCLUDES active-manifest.jsonl BY NAME on purpose. So the
+    # POPULATION is legitimately different from the federation's authoritative set
+    # and is DECLARED in the result below rather than migrated. The PREDICATE was
+    # NOT legitimately different: the retired raw enum dropped carried rays that
+    # still carry live heat, so it moves onto the single shared is_active_ray.
+    #
+    # DOES-NOT-SATISFY RIDER (travels verbatim): this increment does NOT change what counts as an active signal, does NOT touch the manifest-prune engine or any emitter, does NOT reconcile historical reports that printed the old numbers, and does NOT certify that the enumerated set is the whole consumer set.
+    active = {k: v for k, v in latest.items() if is_active_ray(v)}
 
     if output_json:
         collisions = []
@@ -167,6 +182,15 @@ def cmd_metrics(entries, output_json=False):
             "total_entries": len(entries),
             "unique_signal_ids": len(id_counts),
             "active_signals": len(active),
+            "active_signals_population": (
+                "daily emission files + resolved-archive.jsonl; active-manifest.jsonl "
+                "is EXCLUDED BY DESIGN (load_all_entries). This is NOT the federation's "
+                "authoritative active-signal count -- that is the curated manifest "
+                "folded latest-per-id under lib/signal_active.py is_active_ray. A "
+                "difference between this number and the authoritative one is EXPECTED "
+                "and is not evidence that either reader is wrong."
+            ),
+            "active_signals_predicate": "lib.signal_active.is_active_ray (shared authority)",
             "duplicate_entries": len(entries) - len(id_counts),
             "compression_ratio": round(len(id_counts) / max(len(entries), 1), 4),
             "collision_pressure": collisions,

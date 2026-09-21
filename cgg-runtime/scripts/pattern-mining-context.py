@@ -31,6 +31,11 @@ import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
+# The shared active-ray authority (/review 810 round 1 Q2). Single owner of the
+# "is this signal live?" decision; never re-derived inline.
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from lib.signal_active import is_active_ray, latest_per_id
+
 # Shared dehydration-aware doctrine resolver + both-scheme id matcher (tic 335
 # consumer-set fix): a dehydrated rung's bodies live in a sibling ledger.md, and
 # most promoted ids are `cpr_<slug>` not `CogPR-N`. Reading the compact root and
@@ -253,8 +258,18 @@ def section_queue(zone_root, window_tics, current_tic):
 def section_signals(zone_root, window_tics, current_tic):
     """Signal manifold shape."""
     manifest = read_jsonl(zone_root / "audit-logs" / "signals" / "active-manifest.jsonl")
-    active = [s for s in manifest if s.get("status") == "active"]
-    resolved = [s for s in manifest if s.get("status") == "resolved"]
+    # MIGRATED onto the shared authority (/review 810 round 1 Q2). Two defects were
+    # stacked here and partially cancelled, which is why the number stayed plausible:
+    #   (1) NO latest-per-id fold -- the manifest is append-only BETWEEN prune sweeps,
+    #       so a resolved ray's earlier `active` row kept being counted; and
+    #   (2) the RETIRED raw `status == "active"` enum -- which drops carried rays that
+    #       still carry live heat.
+    # One error inflated and the other deflated, so the printed count read near-right
+    # while its MEMBERS were wrong. Fold first, then apply the single shared predicate.
+    # DOES-NOT-SATISFY RIDER (travels verbatim): this increment does NOT change what counts as an active signal, does NOT touch the manifest-prune engine or any emitter, does NOT reconcile historical reports that printed the old numbers, and does NOT certify that the enumerated set is the whole consumer set.
+    folded = latest_per_id(manifest)
+    active = [s for s in folded if is_active_ray(s)]
+    resolved = [s for s in folded if s.get("status") == "resolved"]
 
     # Raw signal history (recent files)
     signal_dir = zone_root / "audit-logs" / "signals"

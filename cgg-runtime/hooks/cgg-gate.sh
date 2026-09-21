@@ -359,6 +359,11 @@ print(len(pending))
             #
             # Mirrors mogul-runner.sh AUTH_SIGNAL_COUNT logic: read active-manifest.jsonl
             # only, latest-per-id, filter status in {active, acknowledged, working}.
+            # DOES-NOT-SATISFY RIDER (travels verbatim, /review 810 round 1 Q2):
+            # this increment does NOT change what counts as an active signal, does NOT
+            # touch the manifest-prune engine or any emitter, does NOT reconcile
+            # historical reports that printed the old numbers, and does NOT certify
+            # that the enumerated set is the whole consumer set.
             ACTIVE_MANIFEST="$ZONE_ROOT/$AUDIT_LOGS_REL/signals/active-manifest.jsonl"
             if [ -f "$ACTIVE_MANIFEST" ]; then
               ACTIVE_SIGS=$(python3 -c "
@@ -378,7 +383,10 @@ try:
                 seen[sid] = e
 except Exception:
     pass
-active = [v for v in seen.values() if v.get('status') in ('active', 'acknowledged', 'working')]
+import sys
+sys.path.insert(0, '$CGG_SCRIPTS_DIR')
+from lib.signal_active import is_active_ray, latest_per_id
+active = [v for v in latest_per_id(list(seen.values())) if is_active_ray(v)]
 print(len(active))
 " 2>/dev/null)
               LIGHTWEIGHT_RESULTS="${LIGHTWEIGHT_RESULTS}signal_scan=${ACTIVE_SIGS:-0}_active,"
@@ -552,20 +560,29 @@ print(max_counter)
 " 2>/dev/null || echo "0")
   fi
 
-  # Build signal snapshot for the trigger body
+  # Build signal snapshot for the trigger body.
+  # MIGRATED onto the curated manifest under the shared is_active_ray predicate
+  # (/review 810 round 1 Q2). DOES-NOT-SATISFY RIDER (travels verbatim): this
+  # increment does NOT change what counts as an active signal, does NOT touch the
+  # manifest-prune engine or any emitter, does NOT reconcile historical reports
+  # that printed the old numbers, and does NOT certify that the enumerated set is
+  # the whole consumer set.
   SIGNAL_SNAPSHOT=$(python3 -c "
-import json, glob
-signals = {}
-for f in sorted(glob.glob('$ZONE_ROOT/$AUDIT_LOGS_REL/signals/*.jsonl')):
-    for line in open(f):
-        try:
-            d = json.loads(line)
-            eid = d.get('id', '')
-            if eid and d.get('type') == 'signal':
-                signals[eid] = d
-        except: pass
-active = [{'id': s['id'], 'volume': s.get('volume',0), 'band': s.get('band','?')}
-          for s in signals.values() if s.get('status') in ('active','acknowledged','working')]
+import json, sys
+sys.path.insert(0, '$CGG_SCRIPTS_DIR')
+from lib.signal_active import is_active_ray, latest_per_id
+rows = []
+try:
+    with open('$ZONE_ROOT/$AUDIT_LOGS_REL/signals/active-manifest.jsonl') as f:
+        for line in f:
+            line = line.strip()
+            if not line: continue
+            try: rows.append(json.loads(line))
+            except Exception: continue
+except Exception:
+    pass
+active = [{'id': s.get('signal_id') or s.get('id'), 'volume': s.get('volume',0), 'band': s.get('band','?')}
+          for s in latest_per_id(rows) if is_active_ray(s)]
 print(json.dumps(active))
 " 2>/dev/null || echo "[]")
 
