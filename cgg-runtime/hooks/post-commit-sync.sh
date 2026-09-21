@@ -217,8 +217,27 @@ fi
 # ---------------------------------------------------------------------------
 # DID THAT COMMIT TOUCH THE RUNTIME — diff-tree of THAT sha, in THAT repo.
 # (Not of the repo's current HEAD, and not of some other repo's HEAD.)
+#
+# TIC-818 CURE (ruled /review 809 on finding F-808-2): MERGE-AWARE AND ROOT-AWARE.
+# The plain form prints NOTHING for a ROOT commit (no parent to diff against) and
+# NOTHING for a MERGE commit (it needs a per-parent form), so a repository's first
+# commit that adds the runtime, and a merge that brings runtime changes, never synced.
+# ONE predicate, ruled together, two flags — both required, neither sufficient
+# (measured): -m emits the per-parent diffs of a merge, whose UNION is what the ruling
+# names; --root emits the creation diff of a parentless commit. -m alone still prints
+# nothing for a root; --root alone still prints nothing for a merge. An ordinary
+# one-parent commit is BYTE-IDENTICAL under the old and new forms (measured, both a
+# runtime and a non-runtime commit), so it decides exactly as it did before.
+# --no-commit-id stays load-bearing: -m without it prefixes a bare commit-id line.
+# REACHABILITY, measured and NOT cured here (it is another predicate, fenced out of
+# this increment): the landed-commit gate above accepts only reflog actions `commit`
+# and `commit (...)`. A clean `git merge` writes `merge <branch>:` and is declined
+# THERE, before this line is reached, so this cure reaches a merge only when the merge
+# was authored by `git commit` (a resolved conflicted merge -> `commit (merge)`) or
+# when the repo has reflogs disabled and the committer-date fallback is in force.
+# DOES-NOT-SATISFY RIDER (travels verbatim): this increment does NOT change which paths count as runtime surfaces, does NOT widen the hook's 300-second freshness window, does NOT add a live witness for the committed-versus-working-tree arm (still fixture-only), and does NOT make the federation-repo arm reachable (F-808-4 stands).
 # ---------------------------------------------------------------------------
-CHANGED_FILES=$(git -C "$COMMIT_REPO" diff-tree --no-commit-id --name-only -r "$COMMIT_SHA" 2>/dev/null || true)
+CHANGED_FILES=$(git -C "$COMMIT_REPO" diff-tree --no-commit-id --name-only -r -m --root "$COMMIT_SHA" 2>/dev/null || true)
 if ! echo "$CHANGED_FILES" | grep -q "$RUNTIME_PREFIX/"; then
     debug "commit $COMMIT_SHA did not touch $RUNTIME_PREFIX/"
     exit 0

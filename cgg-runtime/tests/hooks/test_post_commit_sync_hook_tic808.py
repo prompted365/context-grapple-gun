@@ -20,6 +20,16 @@ fixture arm that reproduces the substring-only trigger as its negative control".
 
 DOES-NOT-SATISFY RIDER (travels verbatim): this ruling does NOT identify the command text that carried the substring, does NOT audit past syncs for unverified installs, does NOT change what the sync manifest covers, and does NOT touch any other hook's commit matching.
 
+TIC-818 EXTENSION — the ruled increment of /review 809 (Q3) on finding F-808-2:
+  audit-logs/governance/receipts/2026-09-20-tic809-f808-2-merge-and-root-commits-never-sync-own-increment-ruling.md
+    (2661 bytes, 15 lines, sha256 head-16 961ed5a01922eda2) — Architect-ratified,
+    recommended option verbatim "Own increment, after goal 25 (Recommended)".
+A merge-aware and root-aware "touched the runtime" predicate, ruled TOGETHER as ONE
+predicate: the union of the per-parent diffs for a merge, the root form for a first
+commit; an ordinary one-parent commit must decide exactly as it does today.
+
+DOES-NOT-SATISFY RIDER (tic 818, travels verbatim): this increment does NOT change which paths count as runtime surfaces, does NOT widen the hook's 300-second freshness window, does NOT add a live witness for the committed-versus-working-tree arm (still fixture-only), and does NOT make the federation-repo arm reachable (F-808-4 stands).
+
 THE HOOK UNDER TEST is located through ONE overridable seam — the environment variable
 CGG_POST_COMMIT_SYNC_HOOK — defaulting to the source-tree location relative to THIS file.
 The same test bytes therefore run against a scratch build now and against the landed hook
@@ -758,3 +768,360 @@ def test_the_command_text_is_never_read_as_a_gate():
     text = hook_under_test().read_text(encoding="utf-8")
     assert "tool_input" not in text, (
         "the cured hook reads tool_input again — the defect is a text gate")
+
+
+# ===========================================================================
+# TIC-818 ARMS — the merge-aware and root-aware predicate (ruled /review 809 on F-808-2).
+#
+# DOES-NOT-SATISFY RIDER (travels verbatim): this increment does NOT change which paths count as runtime surfaces, does NOT widen the hook's 300-second freshness window, does NOT add a live witness for the committed-versus-working-tree arm (still fixture-only), and does NOT make the federation-repo arm reachable (F-808-4 stands).
+# ===========================================================================
+import re as _re
+
+RIDER_818 = "this increment does NOT change which paths count as runtime surfaces, does NOT widen the hook's 300-second freshness window, does NOT add a live witness for the committed-versus-working-tree arm (still fixture-only), and does NOT make the federation-repo arm reachable (F-808-4 stands)."
+
+
+def _plain_predicate(fx, repo: Path, sha: str) -> list:
+    """The tic-808 predicate form, verbatim — the baseline an ordinary commit must still
+    decide identically under."""
+    r = fx.git(repo, "diff-tree", "--no-commit-id", "--name-only", "-r", sha)
+    return [x for x in r.stdout.splitlines() if x.strip()]
+
+
+def predicate_output(fx, repo: Path, sha: str) -> list:
+    """Run the predicate OF THE HOOK UNDER TEST: the flags are READ OUT of the hook's own
+    CHANGED_FILES assignment, never retyped here, so an arm can say what the predicate SAW
+    rather than only that the hook was silent. A silent zero and a looked-and-found-nothing
+    zero are different strengths of zero, and the ruled proof duty needs the second."""
+    line = None
+    for ln in hook_under_test().read_text(encoding="utf-8").splitlines():
+        s = ln.strip()
+        if s.startswith("CHANGED_FILES=") and "diff-tree" in s:
+            line = s
+            break
+    assert line is not None, "no CHANGED_FILES diff-tree assignment in the hook under test"
+    mm = _re.search(r'diff-tree\s+(.*?)\s+"\$COMMIT_SHA"', line)
+    assert mm, "could not read the predicate flags out of: %s" % line
+    flags = mm.group(1).split()
+    r = fx.git(repo, "diff-tree", *flags, sha)
+    return [x for x in r.stdout.splitlines() if x.strip()]
+
+
+def _first_parent_names(fx, repo: Path, sha: str) -> list:
+    r = fx.git(repo, "diff-tree", "--no-commit-id", "--name-only", "-r", sha + "^1", sha)
+    return [x for x in r.stdout.splitlines() if x.strip()]
+
+
+def _runtime(names) -> list:
+    return [n for n in names if n.startswith("cgg-runtime/")]
+
+
+def _merge_authored_by_commit(fx, repo: Path, side: str, message: str) -> str:
+    """A MERGE commit whose reflog action is `commit (merge)` — the authoring path a
+    resolved conflicted merge takes, and one of the two shapes that reach the ruled
+    predicate at all (see test_a_clean_merge_is_declined_by_the_landed_commit_gate)."""
+    fx.git(repo, "merge", "--no-commit", "--no-ff", side)
+    fx.git(repo, _VERB, "-q", "-m", message)
+    return fx.git(repo, "rev-parse", "HEAD").stdout.strip()
+
+
+def _is_merge(fx, repo: Path, sha: str) -> bool:
+    return len(fx.git(repo, "rev-list", "--parents", "-n1", sha).stdout.split()) == 3
+
+
+class RootFixture(Fixture):
+    """A fixture whose repo of record has NO commits at all, so the arm's own commit IS the
+    repository's ROOT commit.
+
+    The base Fixture deliberately opens every repo with an empty genesis commit
+    (Fixture._init_repo) precisely so that no fixture commit is ever a root commit — that
+    instrument choice is what kept F-808-2's root half invisible at tic 808, and it bit the
+    808 seat's own prediction bank (recorded there as M-808-1). This subclass removes the
+    shield for the arms that must see the blindness."""
+
+    def __init__(self, root: Path):
+        self.root = root
+        self.home = root / "home"
+        self.zone = root / "zone"
+        self.cgg = root / "cgg"
+        self.other = root / "other"
+        self.tmp = root / "tmp"
+        self.gitconf = root / "gitconfig-empty"
+
+        self.tmp.mkdir(parents=True)
+        self.gitconf.write_text("", encoding="utf-8")
+
+        (self.zone / "audit-logs" / "services").mkdir(parents=True)
+        (self.zone / "audit-logs" / "signals").mkdir(parents=True)
+        (self.zone / ".ticzone").write_text(
+            json.dumps({"name": "fixture-synchook-818-root", "tz": "UTC", "include": ["."],
+                        "bands": ["PRIMITIVE", "COGNITIVE", "SOCIAL"]}), encoding="utf-8")
+
+        (self.home / ".claude" / "hooks").mkdir(parents=True)
+        (self.home / ".claude" / "cgg-runtime").mkdir(parents=True)
+        os.symlink(REAL_SCRIPTS, self.home / ".claude" / "cgg-runtime" / "scripts")
+        shutil.copy2(REAL_MANIFEST, self.home / ".claude" / "cgg-runtime" / "sync-manifest.json")
+
+        # THE REPO OF RECORD OPENS EMPTY — no genesis, so the next commit is the ROOT.
+        self.cgg.mkdir(parents=True, exist_ok=True)
+        self.git(self.cgg, "init", "-q", "-b", "main")
+        self._init_repo(self.other)
+
+        (self.cgg / "cgg-runtime" / "hooks").mkdir(parents=True)
+        self.surface = self.cgg / "cgg-runtime" / "hooks" / "demo-hook.sh"
+        self.surface2 = self.cgg / "cgg-runtime" / "hooks" / "demo-second.sh"
+        self.nonruntime = self.cgg / "notes.txt"
+        self.fx_manifest = self.cgg / "cgg-runtime" / "sync-manifest.json"
+        self.surface.write_text("#!/usr/bin/env bash\necho ROOT-COMMITTED\n", encoding="utf-8")
+        self.surface2.write_text("#!/usr/bin/env bash\necho SECOND-BASE\n", encoding="utf-8")
+        self.nonruntime.write_text("base\n", encoding="utf-8")
+        shutil.copy2(REAL_MANIFEST, self.fx_manifest)
+        self.base_sha = None
+
+        self.installed = self.home / ".claude" / "hooks" / "demo-hook.sh"
+        self.installed2 = self.home / ".claude" / "hooks" / "demo-second.sh"
+        self.installed_manifest = self.home / ".claude" / "cgg-runtime" / "sync-manifest.json"
+        # deliberately NOT primed: nothing was ever installed from a repo with no commits.
+
+
+@pytest.fixture()
+def rootfx(tmp_path):
+    return RootFixture(tmp_path)
+
+
+# --- THE ROOT HALF ---------------------------------------------------------
+
+def test_a_root_commit_that_adds_the_runtime_syncs(rootfx):
+    """THE ROOT HALF OF THE RULED PREDICATE. A repository's FIRST commit, which adds the
+    runtime. `diff-tree -r <root>` prints nothing (no parent to diff against), so before
+    this cure the hook declined at the runtime-touch gate and the runtime was never
+    installed for a fresh repo."""
+    assert rootfx.git(rootfx.cgg, "rev-parse", "--verify", "HEAD").returncode != 0, (
+        "this arm is void unless the repo of record starts with NO commits")
+    sha = rootfx.commit(rootfx.cgg, "the repository's first commit, adding the runtime")
+    parents = rootfx.git(rootfx.cgg, "rev-list", "--parents", "-n1", sha).stdout.split()
+    assert len(parents) == 1, "this arm is void unless the commit is a ROOT commit: %r" % parents
+    committed = sha16(rootfx.surface)
+
+    before = rootfx.installed_shas()
+    r = rootfx.run("%s -m 'the first commit'" % ADJACENT_PHRASE)
+    after = rootfx.installed_shas()
+
+    assert r.returncode == 0, r.stderr
+    assert "via=reflog:commit (initial)" in r.stdout, (
+        "the landed-commit gate did not admit the root commit: %r" % r.stdout)
+    assert sha16(rootfx.installed) == committed, r.stdout
+    assert str(rootfx.installed) in _moved(before, after), _moved(before, after)
+    rows = rootfx.sync_rows()
+    assert len(rows) == 1, rows
+    assert rows[0]["commit_sha_full"] == sha, rows[0]
+
+
+def test_the_root_form_is_what_makes_the_root_half_work(rootfx):
+    """The root half is `--root`, and `-m` alone does not supply it — measured on the same
+    sha, so the two flags are proven to be one predicate rather than two spellings."""
+    sha = rootfx.commit(rootfx.cgg, "the repository's first commit, adding the runtime")
+    assert _plain_predicate(rootfx, rootfx.cgg, sha) == [], (
+        "the tic-808 plain form must be BLIND on a root commit, or this arm is void")
+    m_only = rootfx.git(rootfx.cgg, "diff-tree", "--no-commit-id", "--name-only", "-r", "-m", sha)
+    assert [x for x in m_only.stdout.splitlines() if x.strip()] == [], (
+        "-m alone must still be blind on a root commit")
+    assert _runtime(predicate_output(rootfx, rootfx.cgg, sha)), (
+        "the hook's own predicate must see the runtime in a root commit")
+
+
+# --- THE MERGE HALF --------------------------------------------------------
+
+def test_a_merge_that_brings_a_runtime_change_syncs(fx):
+    """THE MERGE HALF OF THE RULED PREDICATE. `diff-tree -r <merge>` prints nothing (it
+    needs a per-parent form), so before this cure a merge that brought runtime changes
+    never installed them."""
+    fx.git(fx.cgg, "checkout", "-q", "-b", "side")
+    fx.surface.write_text("#!/usr/bin/env bash\necho MERGED-FROM-SIDE\n", encoding="utf-8")
+    fx.commit(fx.cgg, "the side branch changes the runtime")
+    fx.git(fx.cgg, "checkout", "-q", "main")
+    sha = _merge_authored_by_commit(fx, fx.cgg, "side", "merge the side branch into main")
+    assert _is_merge(fx, fx.cgg, sha), "this arm is void unless HEAD is a MERGE commit"
+    committed = sha16(fx.surface)
+    assert _plain_predicate(fx, fx.cgg, sha) == [], (
+        "the tic-808 plain form must be BLIND on a merge, or this arm is void")
+
+    before = fx.installed_shas()
+    r = fx.run("%s -m 'merge the side branch into main'" % ADJACENT_PHRASE)
+    after = fx.installed_shas()
+
+    assert r.returncode == 0, r.stderr
+    assert "via=reflog:commit (merge)" in r.stdout, r.stdout
+    assert sha16(fx.installed) == committed, r.stdout
+    assert set(_moved(before, after)) == {str(fx.installed)}, _moved(before, after)
+    rows = fx.sync_rows()
+    assert len(rows) == 1, rows
+    assert rows[0]["commit_sha_full"] == sha, rows[0]
+
+
+def test_a_merge_that_brings_no_runtime_change_stays_silent(fx):
+    """THE RULED SILENCE. A merge whose side branch touched only non-runtime paths, forked
+    from a mainline whose runtime was already current. It must install nothing — and it must
+    be silent because the predicate LOOKED AND FOUND NO RUNTIME, not because it was blind.
+    A stale, committed, never-installed runtime surface is staged BEFORE the fork so that any
+    spurious sync would move a named member; without it the arm would pass for the wrong
+    reason."""
+    fx.stage_uninstalled_stale_runtime_commit()
+    fx.git(fx.cgg, "checkout", "-q", "-b", "side")
+    fx.nonruntime.write_text("the side branch touches only notes\n", encoding="utf-8")
+    fx.commit(fx.cgg, "the side branch changes nothing under the runtime")
+    fx.git(fx.cgg, "checkout", "-q", "main")
+    sha = _merge_authored_by_commit(fx, fx.cgg, "side", "merge a non-runtime side branch")
+    assert _is_merge(fx, fx.cgg, sha), "this arm is void unless HEAD is a MERGE commit"
+
+    names = predicate_output(fx, fx.cgg, sha)
+    assert names, (
+        "the predicate is BLIND here, so silence would prove nothing: a merge that brings "
+        "none must be silent because it LOOKED, not because it cannot see merges")
+    assert _runtime(names) == [], names
+    assert _runtime(_first_parent_names(fx, fx.cgg, sha)) == [], (
+        "this arm is void unless the merge truly brings no runtime change to its first parent")
+
+    before = fx.installed_shas()
+    r = fx.run("%s -m 'merge a non-runtime side branch'" % ADJACENT_PHRASE)
+    after = fx.installed_shas()
+
+    assert r.returncode == 0, r.stderr
+    assert "did not touch" in r.stdout, (
+        "expected the explicit did-not-touch-the-runtime decline; got %r" % r.stdout)
+    assert _moved(before, after) == {}, "a merge that brings no runtime change installed bytes"
+    assert fx.sync_rows() == []
+
+
+# --- THE ORDINARY COMMIT MUST NOT MOVE -------------------------------------
+
+def test_the_predicate_decides_an_ordinary_one_parent_commit_exactly_as_today(fx):
+    """BOTH ARMS of the unchanged requirement. The hook's own predicate flags are read out of
+    the hook under test and run against the same sha as the tic-808 plain form; the outputs
+    must be identical for a runtime commit AND for a non-runtime commit."""
+    fx.surface.write_text("#!/usr/bin/env bash\necho COMMITTED\n", encoding="utf-8")
+    runtime_sha = fx.commit(fx.cgg, "an ordinary runtime commit")
+    fx.nonruntime.write_text("changed, but not runtime\n", encoding="utf-8")
+    nonruntime_sha = fx.commit(fx.cgg, "an ordinary non-runtime commit")
+
+    for sha, label in ((runtime_sha, "runtime"), (nonruntime_sha, "non-runtime")):
+        plain = _plain_predicate(fx, fx.cgg, sha)
+        under_test = predicate_output(fx, fx.cgg, sha)
+        assert under_test == plain, (
+            "%s arm diverged from the tic-808 form: under_test=%r plain=%r"
+            % (label, under_test, plain))
+    assert _runtime(_plain_predicate(fx, fx.cgg, runtime_sha)), (
+        "positive control DARK: the runtime arm's plain output must be non-empty")
+    assert _runtime(_plain_predicate(fx, fx.cgg, nonruntime_sha)) == []
+
+
+# --- REACHABILITY: measured, NOT cured (fenced out of this increment) ------
+
+def test_a_clean_merge_is_declined_by_the_landed_commit_gate_not_by_the_predicate(fx):
+    """FINDING F-818-1, asserted rather than prosed, and TRUE OF BOTH HOOKS.
+
+    A clean `git merge` writes the reflog action `merge <branch>:`, which the landed-commit
+    gate DECLINES BY NAME (the hook's own documented decline list) before the runtime
+    predicate is ever reached. The tic-818 cure therefore does NOT make a clean merge sync.
+    That gate is a DIFFERENT predicate and is fenced out of this increment — this arm exists
+    so the limit is a measured, executing assertion instead of a sentence in a receipt."""
+    fx.git(fx.cgg, "checkout", "-q", "-b", "side")
+    fx.surface.write_text("#!/usr/bin/env bash\necho MERGED-FROM-SIDE\n", encoding="utf-8")
+    fx.commit(fx.cgg, "the side branch changes the runtime")
+    fx.git(fx.cgg, "checkout", "-q", "main")
+    fx.git(fx.cgg, "merge", "-q", "--no-ff", "side", "-m", "a clean merge")
+    sha = fx.git(fx.cgg, "rev-parse", "HEAD").stdout.strip()
+    assert _is_merge(fx, fx.cgg, sha), "this arm is void unless HEAD is a MERGE commit"
+    subject = fx.git(fx.cgg, "log", "-g", "-1", "--format=%gs").stdout.strip()
+    assert subject.startswith("merge side:"), (
+        "this arm is void unless a clean merge writes a `merge <branch>:` action: %r" % subject)
+
+    before = fx.installed_shas()
+    r = fx.run("git merge --no-ff side")
+    after = fx.installed_shas()
+
+    assert r.returncode == 0, r.stderr
+    assert "was not a commit" in r.stdout, (
+        "expected the landed-commit gate's by-name decline; got %r" % r.stdout)
+    assert _moved(before, after) == {}
+    assert fx.sync_rows() == []
+
+
+def test_a_merge_reaches_the_predicate_when_reflogs_are_disabled(fx):
+    """The OTHER reachable path for the merge half, and the far arm of the hook's own
+    documented reflog-present / reflog-absent conditional: with reflogs disabled the
+    committer-date fallback is in force, the action gate is not consulted at all, and a clean
+    merge does reach the ruled predicate."""
+    fx.git(fx.cgg, "checkout", "-q", "-b", "side")
+    fx.surface.write_text("#!/usr/bin/env bash\necho MERGED-NO-REFLOG\n", encoding="utf-8")
+    fx.commit(fx.cgg, "the side branch changes the runtime")
+    fx.git(fx.cgg, "checkout", "-q", "main")
+    fx.git(fx.cgg, "config", "core.logAllRefUpdates", "false")
+    fx.git(fx.cgg, "merge", "-q", "--no-ff", "side", "-m", "a clean merge, no reflog")
+    sha = fx.git(fx.cgg, "rev-parse", "HEAD").stdout.strip()
+    assert _is_merge(fx, fx.cgg, sha)
+    logs = fx.cgg / ".git" / "logs"
+    if logs.exists():
+        shutil.rmtree(logs)
+    assert not (fx.cgg / ".git" / "logs" / "HEAD").exists()
+    committed = sha16(fx.surface)
+
+    before = fx.installed_shas()
+    r = fx.run("git merge --no-ff side")
+    after = fx.installed_shas()
+
+    assert r.returncode == 0, r.stderr
+    assert "via=committer-date(no-reflog)" in r.stdout, r.stdout
+    assert sha16(fx.installed) == committed, r.stdout
+    assert set(_moved(before, after)) == {str(fx.installed)}, _moved(before, after)
+
+
+# --- THE UNION'S MEASURED EDGE --------------------------------------------
+
+def test_the_ruled_union_also_fires_when_only_the_mainline_advanced_the_runtime(fx):
+    """FINDING F-818-2, asserted rather than prosed.
+
+    The ruling names the UNION of the per-parent diffs. When the MAINLINE advanced the
+    runtime after the fork point and the side branch brought no runtime change at all, the
+    union still contains a runtime path — because relative to the SECOND parent, the
+    mainline's own runtime advance IS a change. So the hook syncs on a merge that brought NO
+    runtime change relative to the branch it landed on (its FIRST parent).
+
+    This is left exactly as the ruling ruled it and handed up, not re-scoped: the union is
+    what was ruled, the over-fire is an idempotent re-install of bytes the mainline's own
+    commit should already have installed, and the alternative axis (--first-parent) would be
+    a different predicate than the one ratified."""
+    fx.git(fx.cgg, "checkout", "-q", "-b", "side")
+    fx.nonruntime.write_text("the side branch touches only notes\n", encoding="utf-8")
+    fx.commit(fx.cgg, "the side branch changes nothing under the runtime")
+    fx.git(fx.cgg, "checkout", "-q", "main")
+    fx.surface.write_text("#!/usr/bin/env bash\necho MAINLINE-ADVANCED\n", encoding="utf-8")
+    fx.commit(fx.cgg, "the MAINLINE advances the runtime after the fork point")
+    sha = _merge_authored_by_commit(fx, fx.cgg, "side", "merge the non-runtime side branch")
+    assert _is_merge(fx, fx.cgg, sha)
+
+    assert _runtime(_first_parent_names(fx, fx.cgg, sha)) == [], (
+        "this arm is void unless the merge brings NO runtime change to its first parent")
+    names = predicate_output(fx, fx.cgg, sha)
+    assert _runtime(names), (
+        "the ruled UNION is expected to contain a runtime path here: %r" % names)
+
+    before = fx.installed_shas()
+    r = fx.run("%s -m 'merge the non-runtime side branch'" % ADJACENT_PHRASE)
+    after = fx.installed_shas()
+
+    assert r.returncode == 0, r.stderr
+    assert set(_moved(before, after)) == {str(fx.installed)}, (
+        "the ruled union is expected to SYNC here — that is the finding, measured: %r"
+        % _moved(before, after))
+
+
+# --- THE RIDER -------------------------------------------------------------
+
+def test_the_tic818_rider_travels_verbatim_on_one_contiguous_comment_line():
+    """The tic-818 does-not-satisfy rider, reproduced verbatim as ONE contiguous unit on ONE
+    comment line of the hook under test."""
+    text = hook_under_test().read_text(encoding="utf-8")
+    lines = [ln for ln in text.splitlines() if RIDER_818 in ln]
+    assert len(lines) == 1, (
+        "the tic-818 rider must appear exactly once, contiguous: found %d" % len(lines))
+    assert lines[0].lstrip().startswith("#"), "the rider must ride a comment line"
