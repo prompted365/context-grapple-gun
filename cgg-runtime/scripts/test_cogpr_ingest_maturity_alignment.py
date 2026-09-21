@@ -73,7 +73,7 @@ else:
 # override falls back to the hard failure, never to the silent skip.
 #
 # DOES-NOT-SATISFY RIDER (travels verbatim, on ONE unbroken line so a byte-exact grep resolves it):
-# this increment does NOT convert any skip outside the one named file, does NOT type or census the other skip sites under cgg-runtime, does NOT change what the file's arms assert, and does NOT certify that the tic-812 writer-class closure has fired live.
+# this increment does NOT convert any skip or silent guard outside the one named file, does NOT type or census the other skip sites under cgg-runtime, does NOT change what the file's arms assert, and does NOT certify that the tic-812 writer-class closure has fired live.
 ALLOW_MISSING_QUEUE_STATE_COMPILE_ENV = "CGG_ALLOW_MISSING_QUEUE_STATE_COMPILE"
 
 
