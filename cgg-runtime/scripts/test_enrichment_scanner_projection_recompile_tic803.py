@@ -59,6 +59,7 @@ import shutil
 import sys
 import tempfile
 import unittest
+import warnings
 from pathlib import Path
 
 _HERE = Path(__file__).resolve().parent
@@ -84,6 +85,23 @@ def _load(name="cpr_enrichment_scanner_tic803"):
 sc = _load()
 
 
+# THE OPT-OUT (F-812-C3, ruled /review 813). When NEITHER the seam above NOR a
+# walkable root resolves the compiler, this resolver now FAILS: a green count
+# that has lost its stamp-equality arms is the silent-degrade class. The name
+# below is the explicit opt-out that restores the skip, and it announces ITSELF
+# in three places so a skipped proof is never silent -- a warning (visible under
+# bare -q with NO reporting flag), the skip reason (visible under -rs), and
+# stdout (visible under -s) -- each MEASURED on this runner, not argued. It
+# follows the one existing CGG_ALLOW_MISSING_* precedent rather than inventing a
+# second convention. EMPTY IS NOT SET: the value is stripped before it is
+# believed, so an empty override falls back to the hard failure, never to the
+# silent skip.
+#
+# DOES-NOT-SATISFY RIDER (travels verbatim, on ONE unbroken line so a byte-exact grep resolves it):
+# this increment does NOT convert any skip outside the six named files, does NOT change what the stamp-equality arms assert, does NOT make the projection authoritative over the queue, and does NOT certify that the tic-812 writer-class closure has fired live.
+ALLOW_MISSING_QUEUE_STATE_COMPILE_ENV = "CGG_ALLOW_MISSING_QUEUE_STATE_COMPILE"
+
+
 def _real_compiler():
     env = os.environ.get("CGG_QUEUE_STATE_COMPILE", "")
     if env and Path(env).is_file():
@@ -92,7 +110,31 @@ def _real_compiler():
         cand = d / "audit-logs" / "cprs" / "queue_state_compile.py"
         if cand.is_file():
             return cand
-    raise unittest.SkipTest("queue_state_compile.py not locatable for fixtures")
+    if os.environ.get(ALLOW_MISSING_QUEUE_STATE_COMPILE_ENV, "").strip():
+        announcement = (
+            f"{ALLOW_MISSING_QUEUE_STATE_COMPILE_ENV} is set: the fixture "
+            f"compiler is unresolvable, so the projection proofs in this file "
+            f"are SKIPPED, not satisfied."
+        )
+        print(announcement)
+        warnings.warn(announcement, stacklevel=2)
+        raise unittest.SkipTest(announcement)
+    raise AssertionError(
+        "QUEUE STATE COMPILER UNRESOLVABLE -- the stamp-equality and fail-soft "
+        "proofs in this file cannot run, so they FAIL rather than skipping "
+        "quietly.\n"
+        "  wanted         : audit-logs/cprs/queue_state_compile.py\n"
+        f"  seam checked   : CGG_QUEUE_STATE_COMPILE="
+        f"{os.environ.get('CGG_QUEUE_STATE_COMPILE', '') or '(unset or empty)'}\n"
+        f"  walked up from : {_HERE}\n"
+        f"  roots walked   : {len([_HERE, *_HERE.parents])}, none carrying "
+        f"audit-logs/cprs/queue_state_compile.py\n"
+        "  supply it: point CGG_QUEUE_STATE_COMPILE at an existing "
+        "queue_state_compile.py, or run this file inside a tree whose ancestry "
+        "carries audit-logs/cprs/queue_state_compile.py, or set "
+        f"{ALLOW_MISSING_QUEUE_STATE_COMPILE_ENV}=1 to skip these proofs "
+        "deliberately and loudly."
+    )
 
 
 def build_zone(td, compiler="real"):
