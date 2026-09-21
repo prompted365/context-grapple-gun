@@ -1,0 +1,70 @@
+{
+  "schema_version": 1,
+  "type": "record_correction_migration",
+  "migration_id": "migration-rc_offenum_directed_row3276_tic821",
+  "canonical_correction": {
+    "schema_version": 1,
+    "type": "record_correction",
+    "correction_id": "rc_offenum_directed_row3276_tic821",
+    "target_record_id": "cpr_delegation_tuple_order_is_not_first_purpose_then_task_last_mandatory_dynamic_density_tic818",
+    "target_surface": "audit-logs/cprs/queue.jsonl",
+    "source": {
+      "repository": "prompted365/canonical_federation",
+      "commit": "638d095b45ff01a51027867e1989138ba9127cfb",
+      "surface": "audit-logs/reviews/2026-09-21.jsonl"
+    },
+    "patch": {
+      "confidence_tier": "tentative"
+    },
+    "literal_correction": "queue row 3,276 (cpr_delegation_tuple_order_is_not_first_purpose_then_task_last_mandatory_dynamic_density_tic818) carries confidence_tier 'directed' — a coinage of the recording seat, foreign to the ratified confidence_tier enum (tentative | reinforced | convergent | measured | measured_single_locus; cgg-runtime/contracts/confidence-tier-enum-v1.json) and to the confidence_class enum alike, so it is a stray coinage under /review 708 ruling 3, not field-routing bleed. Row-scoped repair: the effective view reads confidence_tier 'tentative'. THE VALUE IS THE SEAT'S PER-ROW CLASSIFICATION, not the Architect's word: the /review 820 Q1 docket sentence (the lead's sentence, which he accepted as part of the recommended option) says only 'restated to a ratified value'; 'tentative' is chosen on the contract's own definition — 'single-source lesson; no independent conformation yet (the birth default)' — which is what this row is. It stays his to overturn at /review 821. The precedent tranche at tic 709 set its stray coinages to null (typed absence); this repair differs on purpose because the 820 ruling's words are 'a ratified value' and null is not one. The base row is untouched; no other field moves.",
+    "authority": {
+      "author_id": "ent_homeskillet",
+      "authority_class": "ratified_review",
+      "authorization_ref": "/review:820 Q1 (Architect via in-tic AskUserQuestion; the option he chose, verbatim: \"Supersede by the 821 row\"; ruling row in audit-logs/reviews/2026-09-21.jsonl; ruling receipt audit-logs/governance/receipts/2026-09-21-tic820-review-820-one-supersession-and-three-ruled-increments-ruling.md, the RULED-NOT-DONE clause under Q1) + /review:708 off-enum ruling 3 (Architect via AskUserQuestion, ratified choice: \"remaining stray coinages classified per-row via the correction lane\"; decision_id off-enum-ruling-3, audit-logs/reviews/2026-08-12.jsonl)"
+    },
+    "reason": "Off-enum confidence_tier repair, one row, owed BEFORE the /review 821 docket (bk-row-3276-tier-restatement-via-correction-lane-t820). The tier word 'directed' said WHO asked, which is provenance, not an evidence grade; the stepper raised it twice (A2-819, A2-820 HIGH). At /review 820 the lead's docket named the queue lifecycle writeback as the instrument and the writeback lawfully refused it (envelope_protected_field: a reviewed data repair, not a status flip); the guard was not worked past. This correction lane is the ruled route for a per-row classification of a stray coinage.",
+    "effective_tic": 821,
+    "effective_at": "2026-09-21T12:48:11.479261+00:00",
+    "supersedes": [],
+    "consequence_class": "interpretive",
+    "reversible": false,
+    "lifecycle_state": "ratified",
+    "receipt_path": "cgg-runtime/migrations/record-correction-tic821-offenum-directed-row3276.json"
+  },
+  "canonical_authorization_receipt": {
+    "schema_version": 1,
+    "type": "record_correction_authorization_receipt",
+    "correction_id": "rc_offenum_directed_row3276_tic821",
+    "correction_digest": "d6fee4e49fb0791180218f5d8feec4cc0a164923e2ad8df4db0f008ebff15716",
+    "authority": {
+      "author_id": "ent_homeskillet",
+      "authority_class": "ratified_review",
+      "authorization_ref": "/review:820 Q1 (Architect via in-tic AskUserQuestion; the option he chose, verbatim: \"Supersede by the 821 row\"; ruling row in audit-logs/reviews/2026-09-21.jsonl; ruling receipt audit-logs/governance/receipts/2026-09-21-tic820-review-820-one-supersession-and-three-ruled-increments-ruling.md, the RULED-NOT-DONE clause under Q1) + /review:708 off-enum ruling 3 (Architect via AskUserQuestion, ratified choice: \"remaining stray coinages classified per-row via the correction lane\"; decision_id off-enum-ruling-3, audit-logs/reviews/2026-08-12.jsonl)"
+    },
+    "lifecycle_state": "ratified",
+    "receipt_path": "cgg-runtime/migrations/record-correction-tic821-offenum-directed-row3276.json",
+    "canonical_append_repository": "prompted365/canonical_federation",
+    "canonical_append_commit": "c49e7d78310c2fe35aa030e956fd5299e46b6a7d",
+    "canonical_append_surface": "audit-logs/reviews/2026-09-21.jsonl"
+  },
+  "provenance": {
+    "repository": "prompted365/canonical_federation",
+    "commit": "c49e7d78310c2fe35aa030e956fd5299e46b6a7d",
+    "surface": "audit-logs/reviews/2026-09-21.jsonl",
+    "doctrine_anchor": "cgg-runtime/contracts/confidence-tier-enum-v1.json (the ratified enum and its per-row classification rider); audit-logs/governance/off-enum-confidence-tier-decision-brief-tic708.md",
+    "authorization_anchor": "/review:820 Q1 (Architect via in-tic AskUserQuestion; the option he chose, verbatim: \"Supersede by the 821 row\"; ruling row in audit-logs/reviews/2026-09-21.jsonl; ruling receipt audit-logs/governance/receipts/2026-09-21-tic820-review-820-one-supersession-and-three-ruled-increments-ruling.md, the RULED-NOT-DONE clause under Q1) + /review:708 off-enum ruling 3 (Architect via AskUserQuestion, ratified choice: \"remaining stray coinages classified per-row via the correction lane\"; decision_id off-enum-ruling-3, audit-logs/reviews/2026-08-12.jsonl)",
+    "canonical_append_commit": "c49e7d78310c2fe35aa030e956fd5299e46b6a7d"
+  },
+  "base_record_snapshot": {
+    "type": "cpr",
+    "id": "cpr_delegation_tuple_order_is_not_first_purpose_then_task_last_mandatory_dynamic_density_tic818",
+    "id_origin": "explicit",
+    "status": "extracted",
+    "tier": "tier1",
+    "confidence_tier": "directed",
+    "birth_tic": 818,
+    "review_tic": 821,
+    "birth_rung": "site",
+    "_snapshot_scope": "IDENTITY AND THE CORRECTED FIELD ONLY, by design: the full envelope of this row (its lesson, rationale and origin context) stays on the canonical-side surface audit-logs/cprs/queue.jsonl, row 3,276, and is not reproduced in this repository. No code path reads this snapshot for this migration; the digest-bound receipt and the repository binding below are the evidence."
+  }
+}
