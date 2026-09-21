@@ -12,7 +12,8 @@
 #
 # Script resolution order:
 #   1. $ZONE_ROOT/scripts/<name>.py (project override)
-#   2. $CGG_SCRIPTS_DIR/<name>.py (plugin-root-anchored bundled script)
+#   2. $CGG_SCRIPTS_DIR/<name>.py (plugin-root-anchored bundled script; DROPPED, never
+#      composed root-anchored, when the plugin root is unresolved -- see Root Anchoring)
 #   3. $HOME/.claude/cgg-runtime/scripts/<name>.py (global install fallback)
 #
 # Mandate lifecycle:
@@ -48,6 +49,10 @@ except Exception:
 # User-registered hooks (~/.claude/hooks/) must resolve via fallback chain.
 CGG_PLUGIN_ROOT="${CLAUDE_PLUGIN_ROOT:-}"
 if [ -z "$CGG_PLUGIN_ROOT" ] || [ ! -d "$CGG_PLUGIN_ROOT/cgg-runtime" ]; then
+  # A root that does not carry cgg-runtime/ is NOT a root. Clearing it here is what makes
+  # "unresolvable" one predicate instead of two: an unset override and a stale non-empty
+  # one both arrive at the same typed state below.
+  CGG_PLUGIN_ROOT=""
   for _cpr_candidate in \
     "${CLAUDE_PROJECT_DIR:+$CLAUDE_PROJECT_DIR/vendor/context-grapple-gun}" \
     "${CLAUDE_PROJECT_DIR:+$CLAUDE_PROJECT_DIR/canonical_developer/context-grapple-gun}" \
@@ -56,10 +61,29 @@ if [ -z "$CGG_PLUGIN_ROOT" ] || [ ! -d "$CGG_PLUGIN_ROOT/cgg-runtime" ]; then
   done
 fi
 
-# Load atomic append library for JSONL-safe writes
-ATOMIC_LIB="$CGG_PLUGIN_ROOT/cgg-runtime/scripts/lib/atomic-append.sh"
-[ -f "$ATOMIC_LIB" ] && source "$ATOMIC_LIB"
-CGG_SCRIPTS_DIR="$CGG_PLUGIN_ROOT/cgg-runtime/scripts"
+# UNRESOLVED, NEVER A ROOT-ANCHORED PATH (ruled /review 822 round 1 Q4, the recommended
+# option verbatim "One increment, both sites"; backlog row
+# bk-gate-unread-queue-refresh-and-unresolvable-plugin-root-t822; the tic-822 docket carries
+# this arm as OM-4). When the chain above resolved nothing, $CGG_PLUGIN_ROOT was left empty
+# and EVERY path composed from it became ROOT-ANCHORED -- "/cgg-runtime/scripts" and the two
+# siblings that compose from the same root. Those fail safe today only because "/cgg-runtime"
+# happens not to exist on this filesystem; that is an accident, not a guard. The root is now
+# TYPED: either it resolved, or it is unresolved and NOTHING is composed from it. Every
+# consumer reads the typed state, so the fix-site and its sibling sites move together.
+# ON THE RESOLVED PATH NOTHING MOVES: when the root resolves, each value below is exactly
+# what it was before this increment.
+# DOES-NOT-SATISFY RIDER (travels verbatim; the seat's words, not the ruling's): this increment does NOT change what counts as a pending CPR, does NOT make any reader failure block or slow the prompt path, does NOT cure the same composition in posttool-microscan.sh or post-commit-sync.sh, does NOT correct the trigger manifest's comment on active_signals_snapshot, does NOT establish that an unresolvable plugin root has ever occurred in a live fire, and does NOT certify that the enumerated consumer set is the whole consumer set.
+if [ -n "$CGG_PLUGIN_ROOT" ]; then
+  CGG_PLUGIN_ROOT_STATE="resolved"
+  # Load atomic append library for JSONL-safe writes
+  ATOMIC_LIB="$CGG_PLUGIN_ROOT/cgg-runtime/scripts/lib/atomic-append.sh"
+  [ -f "$ATOMIC_LIB" ] && source "$ATOMIC_LIB"
+  CGG_SCRIPTS_DIR="$CGG_PLUGIN_ROOT/cgg-runtime/scripts"
+else
+  CGG_PLUGIN_ROOT_STATE="unresolved"
+  ATOMIC_LIB=""
+  CGG_SCRIPTS_DIR=""
+fi
 
 # Zone-root anchor: canonical for all governance data IO
 resolve_zone_root() {
@@ -131,9 +155,12 @@ META_LOG="$ZONE_ROOT/$AUDIT_LOGS_REL/services/gate-meta.jsonl"
 # pause-after-boot gate further down holds the FIRST log_meta calls. Resolution only —
 # no side effects — so hoisting it changes nothing but the order it becomes available.
 SEAL_HOOK_SCRIPT=""
-for _seal_candidate in \
-  "$(cd "$(dirname "$0")" && pwd)/cadence-handoff-seal.py" \
-  "$CGG_PLUGIN_ROOT/cgg-runtime/hooks/cadence-handoff-seal.py"; do
+# UNRESOLVED ROOT: the plugin-anchored candidate is DROPPED from the list, never composed
+# as "/cgg-runtime/hooks/...". The dirname candidate is unaffected and stays FIRST.
+_seal_candidates=("$(cd "$(dirname "$0")" && pwd)/cadence-handoff-seal.py")
+[ "$CGG_PLUGIN_ROOT_STATE" = "resolved" ] \
+  && _seal_candidates+=("$CGG_PLUGIN_ROOT/cgg-runtime/hooks/cadence-handoff-seal.py")
+for _seal_candidate in "${_seal_candidates[@]}"; do
   [ -f "$_seal_candidate" ] && SEAL_HOOK_SCRIPT="$_seal_candidate" && break
 done
 
@@ -229,10 +256,14 @@ fi
 
 resolve_script() {
   local name="$1"
-  for candidate in \
-    "$ZONE_ROOT/scripts/$name" \
-    "$CGG_SCRIPTS_DIR/$name" \
-    "$HOME/.claude/cgg-runtime/scripts/$name"; do
+  # UNRESOLVED ROOT: the plugin-anchored candidate is DROPPED rather than composed. An
+  # empty CGG_SCRIPTS_DIR would otherwise make this candidate "/$name" -- root-anchored,
+  # which is the very defect being cured. Candidate ORDER is unchanged.
+  local candidates=("$ZONE_ROOT/scripts/$name")
+  [ -n "$CGG_SCRIPTS_DIR" ] && candidates+=("$CGG_SCRIPTS_DIR/$name")
+  candidates+=("$HOME/.claude/cgg-runtime/scripts/$name")
+  local candidate
+  for candidate in "${candidates[@]}"; do
     if [ -f "$candidate" ]; then
       echo "$candidate"
       return 0
@@ -341,7 +372,24 @@ for line in open('$QUEUE_FILE'):
 pending = [v for v in seen.values() if v.get('status','') in PENDING_STATUSES]
 print(len(pending))
 " 2>/dev/null)
-              LIGHTWEIGHT_RESULTS="${LIGHTWEIGHT_RESULTS}queue_refresh=${PENDING:-0}_pending,"
+              # UNREAD, NEVER A PLAUSIBLE ZERO (ruled /review 822 round 1 Q4, the recommended
+              # option verbatim "One increment, both sites"; backlog row
+              # bk-gate-unread-queue-refresh-and-unresolvable-plugin-root-t822). The sibling
+              # arm below took this cure at /review 820; the tic-822 docket carries THIS one
+              # as OM-5 -- the identical plausible-zero shape, one branch away, left unfixed
+              # because the earlier ruling did not reach it. The reader above discards
+              # stderr, so ANY failure of it -- an unreadable queue file, a file removed
+              # between the -f test and the open, a fault in the reader itself -- produced an
+              # EMPTY string that the old ${PENDING:-0} turned into a confident "0_pending",
+              # and 0 pending reads as nothing to review. A REAL zero is still reported as 0:
+              # ONLY a non-numeric result (empty included) becomes UNREAD. UNREAD is not a
+              # crash -- the hook still completes with the exit status it has today and never
+              # blocks the prompt.
+              # DOES-NOT-SATISFY RIDER (travels verbatim; the seat's words, not the ruling's): this increment does NOT change what counts as a pending CPR, does NOT make any reader failure block or slow the prompt path, does NOT cure the same composition in posttool-microscan.sh or post-commit-sync.sh, does NOT correct the trigger manifest's comment on active_signals_snapshot, does NOT establish that an unresolvable plugin root has ever occurred in a live fire, and does NOT certify that the enumerated consumer set is the whole consumer set.
+              case "$PENDING" in
+                ''|*[!0-9]*) PENDING="UNREAD" ;;
+              esac
+              LIGHTWEIGHT_RESULTS="${LIGHTWEIGHT_RESULTS}queue_refresh=${PENDING}_pending,"
             else
               LIGHTWEIGHT_RESULTS="${LIGHTWEIGHT_RESULTS}queue_refresh=no_queue,"
             fi
@@ -384,7 +432,12 @@ try:
 except Exception:
     pass
 import sys
-sys.path.insert(0, '$CGG_SCRIPTS_DIR')
+# UNRESOLVED ROOT: an empty scripts dir is NOT inserted. sys.path.insert(0, '') would put
+# the process CWD at the head of the import path; the import simply fails instead, and the
+# UNREAD guard below reports that failure rather than a plausible number.
+_scripts_dir = '$CGG_SCRIPTS_DIR'
+if _scripts_dir:
+    sys.path.insert(0, _scripts_dir)
 from lib.signal_active import is_active_ray, latest_per_id
 active = [v for v in latest_per_id(list(seen.values())) if is_active_ray(v)]
 print(len(active))
@@ -581,7 +634,10 @@ print(max_counter)
   # the whole consumer set.
   SIGNAL_SNAPSHOT=$(python3 -c "
 import json, sys
-sys.path.insert(0, '$CGG_SCRIPTS_DIR')
+# UNRESOLVED ROOT: an empty scripts dir is NOT inserted (see the signal_scan reader).
+_scripts_dir = '$CGG_SCRIPTS_DIR'
+if _scripts_dir:
+    sys.path.insert(0, _scripts_dir)
 from lib.signal_active import is_active_ray, latest_per_id
 rows = []
 try:
