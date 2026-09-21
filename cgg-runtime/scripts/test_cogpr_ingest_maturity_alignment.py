@@ -23,9 +23,11 @@ repaired.
 """
 
 import importlib.util
+import os
 import sys
 import tempfile
 import unittest
+import warnings
 from pathlib import Path
 
 _HERE = Path(__file__).resolve().parent
@@ -43,14 +45,67 @@ mw = _load("mandate_write", _HERE / "mandate-write.py")
 sys.path.insert(0, str(_HERE / "lib"))
 import cpr_steppable  # noqa: E402
 
-# The compile layer lives canonical-side (tracked-external-scripts pattern);
-# walk up to the zone root the same way the runtime scripts do.
+# The compile layer lives canonical-side (tracked-external-scripts pattern).
+# CGG_QUEUE_STATE_COMPILE is the declared seam -- already the supply contract
+# of the six sibling projection suites cured at /review 813 -- and it is read
+# FIRST so a runner outside any walkable tree can still supply the compiler;
+# otherwise walk up to the zone root the same way the runtime scripts do.
 _QSC = None
-for _p in _HERE.parents:
-    _cand = _p / "audit-logs" / "cprs" / "queue_state_compile.py"
-    if _cand.exists():
-        _QSC = _load("queue_state_compile", _cand)
-        break
+_seam = os.environ.get("CGG_QUEUE_STATE_COMPILE", "")
+if _seam and Path(_seam).is_file():
+    _QSC = _load("queue_state_compile", Path(_seam))
+else:
+    for _p in _HERE.parents:
+        _cand = _p / "audit-logs" / "cprs" / "queue_state_compile.py"
+        if _cand.exists():
+            _QSC = _load("queue_state_compile", _cand)
+            break
+
+# THE OPT-OUT (F-814-A1, ruled /review 814 Q3). When NEITHER the seam above
+# NOR a walkable root resolves the compile layer, the proof that needs it now
+# FAILS: a green count that has lost an arm is the silent-degrade class. The
+# name below is the explicit opt-out that restores the skip, and it announces
+# ITSELF so a skipped proof is never silent -- a warning (visible under bare
+# -q with NO reporting flag), the skip reason (visible under -rs), and stdout
+# (visible under -s) -- each MEASURED on this runner, not argued. It is the
+# one name the six sibling suites already carry, not a second convention.
+# EMPTY IS NOT SET: the value is stripped before it is believed, so an empty
+# override falls back to the hard failure, never to the silent skip.
+#
+# DOES-NOT-SATISFY RIDER (travels verbatim, on ONE unbroken line so a byte-exact grep resolves it):
+# this increment does NOT convert any skip outside the one named file, does NOT type or census the other skip sites under cgg-runtime, does NOT change what the file's arms assert, and does NOT certify that the tic-812 writer-class closure has fired live.
+ALLOW_MISSING_QUEUE_STATE_COMPILE_ENV = "CGG_ALLOW_MISSING_QUEUE_STATE_COMPILE"
+
+
+def _require_queue_state_compile():
+    """Return the compile layer, or make its absence LOUD -- never silent."""
+    if _QSC is not None:
+        return _QSC
+    if os.environ.get(ALLOW_MISSING_QUEUE_STATE_COMPILE_ENV, "").strip():
+        announcement = (
+            f"{ALLOW_MISSING_QUEUE_STATE_COMPILE_ENV} is set: the compile "
+            f"layer is unresolvable, so the family-unification proof in this "
+            f"file is SKIPPED, not satisfied."
+        )
+        print(announcement)
+        warnings.warn(announcement, stacklevel=2)
+        raise unittest.SkipTest(announcement)
+    raise AssertionError(
+        "QUEUE STATE COMPILER UNRESOLVABLE -- the family-unification proof in "
+        "this file cannot run, so it FAILS rather than skipping quietly.\n"
+        "  wanted         : audit-logs/cprs/queue_state_compile.py\n"
+        f"  seam checked   : CGG_QUEUE_STATE_COMPILE="
+        f"{os.environ.get('CGG_QUEUE_STATE_COMPILE', '') or '(unset or empty)'}\n"
+        f"  walked up from : {_HERE}\n"
+        f"  roots walked   : {len(_HERE.parents)}, none carrying "
+        f"audit-logs/cprs/queue_state_compile.py\n"
+        "  supply it: point CGG_QUEUE_STATE_COMPILE at an existing "
+        "queue_state_compile.py, or run this file inside a tree whose "
+        "ancestry carries audit-logs/cprs/queue_state_compile.py, or set "
+        f"{ALLOW_MISSING_QUEUE_STATE_COMPILE_ENV}=1 to skip this proof "
+        "deliberately and loudly."
+    )
+
 
 TOPO = {"birth_rung": "site", "birth_scope_path": "/tmp/zone"}
 REPORT = {"mandate_id": "tic-694-test", "actor": {"runtime": "claude_code"}}
@@ -116,8 +171,7 @@ class GateReadersHonorMintedField(unittest.TestCase):
     def test_compile_layer_agrees_with_gate_on_minted_row(self):
         """Family unification: the bench-packet parking clock and the
         steppable gate fire at the SAME tic on a post-fix row."""
-        if _QSC is None:
-            self.skipTest("queue_state_compile not reachable from this tree")
+        _require_queue_state_compile()
         e = _mint({"lesson": "Unified-clock lesson.", "maturity_tics": 5})
         target = _QSC._resolve_target_tic(e)
         self.assertEqual(target, BIRTH + 5)
