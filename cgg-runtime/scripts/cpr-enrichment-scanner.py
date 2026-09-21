@@ -59,13 +59,26 @@ from zone_root import resolve_zone_root, load_ticzone, load_subsystems_config, a
 from lib.effective_state_recompile import recompile_effective_state  # noqa: E402
 
 
-# Per-run observability for the recompile. scan_and_enrich's INT return is a
-# consumer contract, so the recompile outcome rides this module-level dict
-# rather than widening the return.
+# Per-run observability. scan_and_enrich's INT return is a consumer contract, so
+# per-run outcomes ride this module-level dict rather than widening the return.
+# TWO lanes use it: the effective-state recompile outcome, and the SCAN-LEVEL
+# signal-correlation declaration (bk-scanner-unjoined-declaration-once-per-scan-t822,
+# RULED /review 822 round 1 Q3) -- see gather_signal_evidence and reset_scan_notices.
 RUN_COUNTERS = {
     "effective_state_recompiled": 0,
     "effective_state_recompile_failed": 0,
     "effective_state_recompile_detail": "",
+    # --- scan-level signal-correlation declaration (once per scan, by member) ---
+    # How many holding rows actually REACHED the join -- the arm's own fire count.
+    # It discriminates "the arm ran and found nothing undeclared" from "the arm
+    # never ran at all", which an empty member list alone cannot.
+    "signal_correlation_arm_rows": 0,
+    # The FIELD-WISE undeclared set, deduped, in first-seen order: ids with NO donor
+    # row at all, PLUS ids whose donor row carries no `subsystem`.
+    "signal_correlation_unjoined_ids": [],
+    # Ids whose donor rows DISAGREE on `subsystem`. The first donor row still wins
+    # (join_daily_fields takes values[0], unchanged); the disagreement is reported.
+    "signal_correlation_subsystem_conflicts": [],
 }
 from pattern_miner import gather_recurrence_count
 # Shared active-ray predicate (tic 403): heat-based, retires acknowledged-as-active.
@@ -76,6 +89,18 @@ from lib.signal_active import is_active_ray, latest_per_id, join_daily_fields
 # Shared doctrine-surface owner (tic 335): '<surface>#<anchor>' scope resolution
 # routes through the single ledger-discovery owner, never re-derived here (t692).
 from lib.doctrine_surfaces import resolve_surface_anchor, anchor_present
+
+def reset_scan_notices():
+    """Clear the per-scan declaration accumulators.
+
+    Called at the TOP of scan_and_enrich, BEFORE its early return, so a second scan
+    in the SAME process (a test harness, a long-lived runner) can never inherit the
+    first scan's members. An accumulator cleared only on the write path would make
+    "once per scan" silently mean "once per process".
+    """
+    RUN_COUNTERS["signal_correlation_arm_rows"] = 0
+    RUN_COUNTERS["signal_correlation_unjoined_ids"] = []
+    RUN_COUNTERS["signal_correlation_subsystem_conflicts"] = []
 
 
 HOLDING_STATUSES = {"enrichment_needed", "enrichment_eligible"}
@@ -288,6 +313,25 @@ def gather_signal_evidence(cpr, signal_dir):
 
     DOES-NOT-SATISFY RIDER (travels verbatim):
     this increment does NOT touch the manifest-prune engine or any emitter, does NOT change the manifest's row shape, does NOT change what counts as an active signal, and does NOT certify that the enumerated set is the whole consumer set.
+
+    THE DECLARATION IS SCAN-LEVEL, NOT ROW-LEVEL (tic 824) -- RULED at /review 822
+    round 1 Q3, "Move it to the scan's own report". The unjoinable-id notice used to
+    be appended to THIS row's evidence list, which stamped a SCAN-WIDE fact onto
+    whatever CPRs happened to be holding: the active set it describes is the whole
+    curated manifest and is IDENTICAL for every row reaching this arm, so the notice
+    was never about the row it rode. It also rode the type-accretion merge (a type
+    already on a row is never re-added), so it landed ONCE per queue row and was
+    never refreshed -- a snapshot stamped `gathered_at`, not a live declaration
+    (L-822-G55-1). And because a new evidence type makes a row eligible for a
+    copy-forward append, a session start could append one queue row per holding CPR
+    through this arm alone (L-822-G55-2).
+
+    The members now accumulate into RUN_COUNTERS and are declared ONCE per scan, BY
+    MEMBER, in the scan's own run output. The FIELD-WISE computation is UNCHANGED,
+    and so is the join: first donor row wins for `subsystem`, conflicts reported.
+
+    DOES-NOT-SATISFY RIDER for the tic-824 move (travels verbatim):
+    this increment does NOT change the join or its selection rule, does NOT change membership or what counts as an active signal, does NOT remove the declaration from queue rows that already carry it (history is append-only and is never rewritten), does NOT add any reader or consumer for the new run-output notice, does NOT make the notice survive `--quiet`, and does NOT prove anything about the live zone -- every proof it carries is fixture-green.
     """
     evidence = []
     subsystem = cpr.get("subsystem", "")
@@ -336,19 +380,28 @@ def gather_signal_evidence(cpr, signal_dir):
             ],
         })
 
-    # DECLARED, NEVER DROPPED. An id the join cannot complete stays IN the active
-    # set and is NAMED here. The declaration is FIELD-WISE, not merely row-wise:
-    # measured at tic 821, the real no-donor-row set is EMPTY while 2 active ids
-    # have a donor row that carries no `subsystem` -- a row-wise-only declaration
-    # would print zero and those ids would vanish from this filter in silence.
+    # DECLARED, NEVER DROPPED -- ONCE PER SCAN, BY MEMBER (tic 824, /review 822 Q3).
+    # An id the join cannot complete stays IN the active set and is NAMED. The
+    # declaration is FIELD-WISE, not merely row-wise: measured at tic 821 and
+    # re-measured at tic 824 (0 of 59 curated-manifest rows carry `subsystem`), the
+    # real no-donor-row set is EMPTY while active ids do carry donor rows with no
+    # `subsystem` -- a row-wise-only declaration would print zero and those ids
+    # would vanish from this filter in silence.
+    #
+    # These members ride RUN_COUNTERS to the SCAN's run output instead of THIS row's
+    # evidence list. Nothing here is truncated: the old per-row entry cut the detail
+    # at 10 members because it rode a queue row, and a declaration that drops members
+    # is not a declaration "by member".
+    RUN_COUNTERS["signal_correlation_arm_rows"] += 1
     undeclared = list(joined["unjoined"]) + list(joined["field_missing"].get("subsystem", []))
-    if undeclared:
-        evidence.append({
-            "evidence_type": "signal_correlation_unjoined",
-            "value": (f"{len(undeclared)} active signals could not be joined to a "
-                      f"subsystem and are NOT included in the count above"),
-            "detail": sorted(undeclared)[:10],
-        })
+    seen = set(RUN_COUNTERS["signal_correlation_unjoined_ids"])
+    for sid in undeclared:
+        if sid not in seen:
+            seen.add(sid)
+            RUN_COUNTERS["signal_correlation_unjoined_ids"].append(sid)
+    for conflict in joined["conflicts"].get("subsystem", []):
+        if conflict not in RUN_COUNTERS["signal_correlation_subsystem_conflicts"]:
+            RUN_COUNTERS["signal_correlation_subsystem_conflicts"].append(conflict)
 
     return evidence
 
@@ -1068,6 +1121,9 @@ def append_queue_rows(queue_path, rows):
 
 def scan_and_enrich(project_dir, dry_run=False, quiet=False):
     """Main enrichment pipeline: scan holding CPRs, gather evidence, append."""
+    # Per-scan declaration accumulators are cleared FIRST -- before the early return
+    # below -- so "once per scan" cannot decay into "once per process" (tic 824).
+    reset_scan_notices()
     project_dir = os.path.abspath(project_dir)
     tz_config = load_ticzone(project_dir)
     al_path = audit_logs_path(project_dir, tz_config)
@@ -1325,6 +1381,31 @@ def scan_and_enrich(project_dir, dry_run=False, quiet=False):
             print(
                 f"  queue: {len(entries_to_append)} copy-forward row(s) "
                 f"appended via {append_via}"
+            )
+        # THE SCAN'S OWN REPORT (tic 824, RULED /review 822 round 1 Q3): the
+        # signal-correlation declaration, ONCE per scan, BY MEMBER, never truncated
+        # -- it no longer rides a queue row, so nothing pressures it to drop members.
+        # The bare count line stays LAST on stdout, so any consumer reading the final
+        # line is unaffected by these additions.
+        unjoined_ids = RUN_COUNTERS["signal_correlation_unjoined_ids"]
+        if unjoined_ids:
+            print(
+                f"  signal_correlation_unjoined: {len(unjoined_ids)} active signal(s) "
+                f"could not be joined to a subsystem and are NOT included in any "
+                f"signal_correlation count above (declared once per scan over "
+                f"{RUN_COUNTERS['signal_correlation_arm_rows']} scanned row(s), "
+                f"by member): {', '.join(sorted(unjoined_ids))}"
+            )
+        conflicts = RUN_COUNTERS["signal_correlation_subsystem_conflicts"]
+        if conflicts:
+            rendered = "; ".join(
+                f"{c.get('id')}={'/'.join(str(v) for v in c.get('values', []))}"
+                for c in conflicts
+            )
+            print(
+                f"  signal_correlation_subsystem_conflict: {len(conflicts)} active "
+                f"signal(s) carry more than one donor `subsystem`; the FIRST donor "
+                f"row wins (by member): {rendered}"
             )
         print(f"{updated_count}")
 
