@@ -25,6 +25,22 @@ DOES-NOT-SATISFY RIDER (attached by the ruling; travels verbatim):
   dispatch onto the session-start seam, and does NOT establish why the harness
   skips prompt hooks on an injected prompt."
 
+AMENDED tic 817 — WHAT "THE EXECUTABLE POSITION" MEANS (ruled /review 810 round 2
+Q2; receipt audit-logs/governance/receipts/2026-09-20-tic810-mandate-line-
+executable-position-amendment-ruling.md, 1,881 bytes, sha16 4d0f14418c0ffafe).
+The pending arm's phrase gains its meaning IN PLACE: interpreter plus script —
+the runner is launched as `bash .../mogul-runner.sh`, so the script token sits at
+argv[1], NOT argv[0]; match the script token at ANY position. This answers
+F-810-B1, where an argv[0]-only probe returned a FALSE DEAD against a live runner
+— the one input that makes "never double-spawn" fire wrongly. Nothing else on the
+line moves; every other mandate status still renders byte-unchanged (ARM 3).
+
+DOES-NOT-SATISFY RIDER for the tic-817 amendment (attached by the ruling; travels
+verbatim):
+  "this increment does NOT make the renderer read the process table, does NOT add
+  a dispatcher, and does NOT certify any reader's probe — it says what to look
+  for, not that it was looked for."
+
 Arms (every documented conditional, both sides — cgg-ledger#selftest-fixtures-
 must-exercise-documented-conditional-paths):
   1. pending + not-mine   — all FOUR discriminator parts present
@@ -38,6 +54,10 @@ must-exercise-documented-conditional-paths):
   5. pending + not-mine   — pertinence class stays FIELD and authority is
                             unchanged (the cure is TEXT-only)
   6. owner display        — a non-Mogul owner renders its own name in both arms
+  7. pending + not-mine   — the executable position gains its MEANING IN PLACE
+                            (interpreter plus script; argv[1] not argv[0])
+  7b. every other arm     — no amendment token leaks onto any other status, nor
+                            onto the mine branch in any state
 
 The status value set is SOURCED, never guessed:
   schema enum   cgg-runtime/config/mogul-mandate.schema.json properties.status.enum
@@ -217,6 +237,67 @@ class MandatePendingNamesTheDiscriminator(unittest.TestCase):
                 f["text"],
                 f"mandate[consumed]: {', '.join(CYCLES)}"
                 " — archivist-owned; do NOT double-spawn (archivist consumes it)")
+
+    # ---- tic-817 amendment arms (ruled /review 810 round 2 Q2) -----------------
+
+    AMENDMENT_TOKENS = ("interpreter plus script", "argv[", "mogul-runner.sh")
+
+    def test_pending_names_what_the_executable_position_means(self):
+        """ARM 7 — the ruled amendment: the phrase "at the executable position"
+        gains its meaning IN PLACE — interpreter plus script, so the script token
+        sits at argv[1], not argv[0], and a probe must match it at ANY position.
+
+        DOES-NOT-SATISFY RIDER (attached by the ruling; travels verbatim):
+          "this increment does NOT make the renderer read the process table, does
+          NOT add a dispatcher, and does NOT certify any reader's probe — it says
+          what to look for, not that it was looked for."
+        """
+        with tempfile.TemporaryDirectory() as tmp:
+            f = _mandate_frag(_zone(tmp, "pending"), "ent_fixture_citizen")
+            self.assertIsNotNone(f, "the mandate fragment must render")
+            t = f["text"]
+            # the ruled meaning, token by token
+            self.assertIn("interpreter plus script", t)
+            self.assertIn("`bash .../mogul-runner.sh`", t)
+            self.assertIn("argv[1]", t)
+            self.assertIn("argv[0]", t)
+            # IN PLACE — the meaning is ADJACENT to the phrase it defines, not a
+            # detached sentence parked elsewhere on the line.
+            self.assertIn(
+                "the executable position (interpreter plus script: "
+                "`bash .../mogul-runner.sh` puts the script at argv[1], "
+                "not argv[0]) FIRST", t)
+            # The ruled meaning is PRECISE — interpreter plus script, argv[1] —
+            # and the line must NOT instruct a position-agnostic "match anywhere"
+            # probe: a bare substring match over `ps` output hits a sibling seat's
+            # ARGUMENT TEXT and returns a FALSE ALIVE (F-817-B1, observed live at
+            # this build: 1 candidate line, 0 true runners, 1 argument-text hit).
+            self.assertNotIn("ANY position", t)
+            # the four ruled parts of the 805 line SURVIVE the amendment
+            self.assertIn("process table", t)
+            self.assertIn("no runner is live", t)
+            self.assertIn("the lead dispatches", t)
+            self.assertIn("script-route", t)
+            self.assertIn("if one is live, stand back", t)
+            self.assertIn("never double-spawn", t)
+            # and the retired unconditional stand-back is still absent
+            self.assertNotIn("do NOT double-spawn", t)
+
+    def test_amendment_does_not_leak_onto_any_other_arm(self):
+        """ARM 7b — nothing else on the line moves. No amendment token may appear
+        on any non-pending status, nor on the mine branch in ANY state."""
+        for status in OTHER_STATUSES + [MISSING]:
+            with self.subTest(status=status, branch="not_mine"), \
+                    tempfile.TemporaryDirectory() as tmp:
+                t = _mandate_frag(_zone(tmp, status), "ent_fixture_citizen")["text"]
+                for tok in self.AMENDMENT_TOKENS:
+                    self.assertNotIn(tok, t, f"{tok!r} leaked onto status {status!r}")
+        for status in ["pending"] + OTHER_STATUSES + [MISSING]:
+            with self.subTest(status=status, branch="mine"), \
+                    tempfile.TemporaryDirectory() as tmp:
+                t = _mandate_frag(_zone(tmp, status), "ent_mogul")["text"]
+                for tok in self.AMENDMENT_TOKENS:
+                    self.assertNotIn(tok, t, f"{tok!r} leaked onto mine/{status!r}")
 
 
 if __name__ == "__main__":

@@ -1420,9 +1420,27 @@ def compile_fragments(zone_root: Path, office: str, tic: int,
                     #
                     # EVERY OTHER STATUS RENDERS BYTE-UNCHANGED — the else-arm below is the
                     # pre-cure expression, character for character.
+                    # WHAT "THE EXECUTABLE POSITION" MEANS (ruled /review 810 round 2
+                    # Q2; receipt audit-logs/governance/receipts/2026-09-20-tic810-
+                    # mandate-line-executable-position-amendment-ruling.md, sha16
+                    # 4d0f14418c0ffafe). It means INTERPRETER PLUS SCRIPT: the runner
+                    # is launched as `bash .../mogul-runner.sh`, so the script token
+                    # sits at argv[1], NOT argv[0]. An argv[0]-only probe returns a
+                    # FALSE DEAD on a live runner (F-810-B1, lived at the tic-810
+                    # build) — and a false DEAD is the one input that makes "never
+                    # double-spawn" fire wrongly. The phrase gains its meaning IN
+                    # PLACE; nothing else on the line moves.
+                    #
+                    # DOES-NOT-SATISFY RIDER (attached by the ruling; travels verbatim):
+                    #   "this increment does NOT make the renderer read the process
+                    #   table, does NOT add a dispatcher, and does NOT certify any
+                    #   reader's probe — it says what to look for, not that it was
+                    #   looked for."
                     if mandate.get("status") == "pending":
                         guard = (f" — {owner_disp}-owned and PENDING; read the process table at "
-                                 f"the executable position FIRST (this line is a snapshot, not a "
+                                 f"the executable position (interpreter plus script: `bash "
+                                 f".../mogul-runner.sh` puts the script at argv[1], not argv[0]) "
+                                 f"FIRST (this line is a snapshot, not a "
                                  f"liveness claim): if no runner is live and the mandate is "
                                  f"pending, the lead dispatches script-route; if one is live, "
                                  f"stand back ({owner_disp} consumes it); never double-spawn")
