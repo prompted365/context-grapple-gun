@@ -160,11 +160,21 @@ if [ -n "$REFLOG_FILE" ] && [ -f "$REFLOG_FILE" ]; then
 fi
 
 # ---------------------------------------------------------------------------
-# DID A COMMIT LAND — the reflog is the git-native record of "HEAD moved, by
-# WHICH action, WHEN". Only the actions `git commit` itself writes are accepted:
-#   commit:  commit (amend):  commit (initial):  commit (merge):  commit (cherry-pick):
-# DECLINED (named, not silently dropped): checkout:, reset:, merge <x>:, pull:,
-# rebase*, clone: — they move HEAD without a commit being authored here.
+# DID A LANDING HAPPEN — the reflog is the git-native record of "HEAD moved, by
+# WHICH action, WHEN". TWO action classes are accepted, and only two:
+#   COMMIT-CLASS (a commit authored here):
+#     commit:  commit (amend):  commit (initial):  commit (merge):  commit (cherry-pick):
+#   MERGE-CLASS (a merge landed here) — TIC-820, ruled /review 819 Q2 on F-818-1:
+#     merge <branch>:  — what a plain `git merge` writes, for BOTH a true merge and a
+#     fast-forward. A merge brings commits onto this branch exactly as a commit does;
+#     declining it meant a merge carrying runtime changes never installed them.
+# DECLINED (named, not silently dropped): checkout:, reset:, pull:, pull <flags>:,
+# cherry-pick:, revert:, rebase*, clone: — they move HEAD without a landing authored
+# here. `pull` is NOT admitted even though it can perform a merge: it writes its own
+# action (`pull:` / `pull <flags>:`), and the ruling admits merge-class only.
+# MEASURED on git 2.54.0 before this pattern was written, never assumed — a refname
+# cannot contain a colon, so the ${RL_SUBJECT%%:*} split cannot be spoofed by a branch
+# name (`git checkout -b 'we:ird'` -> fatal: not a valid branch name).
 # FALLBACK (documented conditional): a repo with reflogs disabled has no such
 # record; the committer date of HEAD is used instead, which answers "was this
 # commit created just now" without answering "by which action".
@@ -184,6 +194,16 @@ if [ -n "$REFLOG_LINE" ]; then
     RL_ACTION="${RL_SUBJECT%%:*}"
     case "$RL_ACTION" in
         commit|"commit ("*)
+            COMMIT_SHA="$RL_SHA"
+            COMMIT_WHEN="$RL_STAMP"
+            LANDED_VIA="reflog:$RL_ACTION"
+            ;;
+        # TIC-820 (ruled /review 819 Q2, on F-818-1 HIGH): merge-class, and merge-class
+        # ONLY. The trailing space in `"merge "*` is load-bearing — it admits
+        # `merge <branch>` and cannot match a longer word that merely starts with
+        # "merge". `pull`/`pull <flags>` remain declined below by not matching here.
+        # DOES-NOT-SATISFY RIDER (travels verbatim): this increment does NOT change which paths count as runtime surfaces, does NOT widen the 300-second freshness window, does NOT admit any reflog action other than commit-class and merge-class, and does NOT make the federation-repo arm reachable (F-808-4 stands).
+        merge|"merge "*)
             COMMIT_SHA="$RL_SHA"
             COMMIT_WHEN="$RL_STAMP"
             LANDED_VIA="reflog:$RL_ACTION"
@@ -231,15 +251,53 @@ fi
 # one-parent commit is BYTE-IDENTICAL under the old and new forms (measured, both a
 # runtime and a non-runtime commit), so it decides exactly as it did before.
 # --no-commit-id stays load-bearing: -m without it prefixes a bare commit-id line.
-# REACHABILITY, measured and NOT cured here (it is another predicate, fenced out of
-# this increment): the landed-commit gate above accepts only reflog actions `commit`
-# and `commit (...)`. A clean `git merge` writes `merge <branch>:` and is declined
-# THERE, before this line is reached, so this cure reaches a merge only when the merge
-# was authored by `git commit` (a resolved conflicted merge -> `commit (merge)`) or
-# when the repo has reflogs disabled and the committer-date fallback is in force.
+# REACHABILITY — as measured at tic 818, and SUPERSEDED AT TIC 820 (kept, not deleted,
+# because it is the record of why the 818 cure could not be observed on a clean merge):
+# at tic 818 the landed-commit gate accepted only `commit` / `commit (...)`, so a clean
+# `git merge` — which writes `merge <branch>:` — was declined THERE, before this line was
+# reached, and the 818 predicate reached a merge only via `commit (merge)` or the
+# reflogs-disabled committer-date fallback. That gate now admits merge-class (F-818-1,
+# ruled /review 819 Q2), so a clean `git merge` does reach this predicate.
+# ALSO SUPERSEDED: the UNION named below is the axis for NON-merge commits only; a merge
+# is measured against its FIRST parent (F-818-2, same ruling). See the tic-820 block at
+# the predicate itself.
 # DOES-NOT-SATISFY RIDER (travels verbatim): this increment does NOT change which paths count as runtime surfaces, does NOT widen the hook's 300-second freshness window, does NOT add a live witness for the committed-versus-working-tree arm (still fixture-only), and does NOT make the federation-repo arm reachable (F-808-4 stands).
 # ---------------------------------------------------------------------------
-CHANGED_FILES=$(git -C "$COMMIT_REPO" diff-tree --no-commit-id --name-only -r -m --root "$COMMIT_SHA" 2>/dev/null || true)
+# TIC-820 CURE (ruled /review 819 Q2 on finding F-818-2): FIRST PARENT, FOR MERGES ONLY.
+# The tic-818 UNION asks "did anything under the runtime differ from ANY parent", which
+# fires when the MAINLINE advanced the runtime after the fork point and the merge itself
+# brought nothing — relative to the SECOND parent the mainline's own advance reads as a
+# change, so a sync ran for a merge that delivered nothing. The ruled axis is what the
+# merge BROUGHT TO THE BRANCH IT LANDED ON: the diff against its FIRST parent.
+# THIS SUPERSEDES THE /review 809 UNION FOR MERGES ONLY. The axis is selected by the
+# commit's own PARENT COUNT, measured from the repo:
+#   >= 2 parents (a true merge, including an octopus) -> the first-parent two-tree diff;
+#   0 or 1 parent (a root commit, an ordinary commit, or a FAST-FORWARDED head) -> the
+#   tic-818 form, character for character, so those decide exactly as they did before.
+# MEASURED, and the reason this is a two-tree diff rather than a flag: on git 2.54.0
+# `diff-tree --no-commit-id --name-only -r -m --first-parent <merge>` still emits the
+# UNION (both parents' paths). The form that actually yields first-parent semantics is
+# `diff-tree ... -r <sha>^1 <sha>`. Trusting the flag's NAME would have shipped a cure
+# that changed nothing while every arm reported green.
+# DOES-NOT-SATISFY RIDER (travels verbatim): this increment does NOT change which paths count as runtime surfaces, does NOT widen the 300-second freshness window, does NOT admit any reflog action other than commit-class and merge-class, and does NOT make the federation-repo arm reachable (F-808-4 stands).
+PARENT_TOKENS=$(git -C "$COMMIT_REPO" rev-list --parents -n1 "$COMMIT_SHA" 2>/dev/null | wc -w | tr -d ' ')
+PARENT_COUNT=0
+# `if`, not `[ ] && assign`: under `set -e` a trailing and-list leaks its non-zero status
+# to the caller when it is the last command run (measured). An unreachable sha would make
+# the test false, and the axis selection must never be the thing that changes the hook's
+# exit status. 0 parents (a root commit) is a legitimate answer, not an error.
+if [ "${PARENT_TOKENS:-0}" -gt 0 ]; then
+    PARENT_COUNT=$((PARENT_TOKENS - 1))
+fi
+
+if [ "$PARENT_COUNT" -ge 2 ]; then
+    PREDICATE_AXIS="first-parent"
+    CHANGED_FILES=$(git -C "$COMMIT_REPO" diff-tree --no-commit-id --name-only -r "$COMMIT_SHA^1" "$COMMIT_SHA" 2>/dev/null || true)
+else
+    PREDICATE_AXIS="tic818-union-root"
+    CHANGED_FILES=$(git -C "$COMMIT_REPO" diff-tree --no-commit-id --name-only -r -m --root "$COMMIT_SHA" 2>/dev/null || true)
+fi
+debug "predicate axis=$PREDICATE_AXIS parents=$PARENT_COUNT sha=$COMMIT_SHA"
 if ! echo "$CHANGED_FILES" | grep -q "$RUNTIME_PREFIX/"; then
     debug "commit $COMMIT_SHA did not touch $RUNTIME_PREFIX/"
     exit 0
