@@ -1863,16 +1863,56 @@ def build_inscribed_index(project_dir, queue_ids=None, diagnostics=None):
             f"{d}={n}" for d, n in sorted(unmatched_disposition_counts.items()))
         excluded_detail = ", ".join(
             f"{k}={v}" for k, v in sorted(design_excluded_by_class.items()))
+        # /review 812 Q2 (cpr_mogul_review_close_check_86165cdd977a, the
+        # MEANING-ONLY-SPLIT face): the banner NAMES the index_loss sub-types
+        # WITH THEIR COUNTS and routes EACH to its own cure. Before this cure
+        # the banner built its split from the PARENT disposition counts alone
+        # and told every reader "a real witness lost from the index, cure it"
+        # while this same artifact's index_loss_subtype_counts — computed a few
+        # lines above and referenced nowhere in the print — said the whole
+        # residue was comment_only: zero index holes, zero index consequence,
+        # at every check-bearing tic 804 through 812. A loud counter that
+        # mis-types its own residue spends the attention it exists to command.
+        #
+        # THE COUNTER STAYS LOUD IN BOTH SUB-TYPES. This changes what the
+        # number MEANS, never whether it sounds: no member leaves the headline,
+        # no membership formula moves, and _DISPOSITION_TEXT is byte-unchanged.
+        #
+        # DOES-NOT-SATISFY RIDER (/review 812 Q2, travels verbatim; placed here by
+        # the lead at landing, tic 823 — the build seat handed the placement up,
+        # and this file already carries a rider of the same kind in the
+        # cross-counter disclosure docstring): this increment does NOT register
+        # the unregistered head verb that sheds the two comments, does NOT quiet
+        # the counter, does NOT re-audit any other sub-typed counter in the
+        # federation, and does NOT assign the raising row a tier.
+        _n_id_absent = index_loss_subtype_counts["index_loss_id_absent"]
+        _n_comment_only = index_loss_subtype_counts["index_loss_comment_only"]
+        if _n_id_absent or _n_comment_only:
+            index_loss_routing = (
+                f"index_loss splits by INDEX CONSEQUENCE — "
+                f"index_loss_id_absent={_n_id_absent} -> a real index hole, "
+                f"cure it; index_loss_comment_only={_n_comment_only} -> zero "
+                f"index consequence, a vocabulary registration at most "
+                f"(head_anchor_gap -> the head-anchor relaxation bound, build "
+                f"lane; vocabulary_gap -> verb registration)")
+        else:
+            # NEITHER sub-type present: this population carries no index_loss
+            # member at all, so the banner prints NO sentence implying a loss.
+            # Nothing is quieted — there is no index_loss residue here to
+            # quiet; the headline, the disposition split and every other
+            # disposition's routing are untouched.
+            index_loss_routing = (
+                "index_loss = 0 members this pass "
+                "(index_loss_id_absent=0, index_loss_comment_only=0), so no "
+                "index-loss routing applies")
         print(
             f"UNMATCHED-PROVENANCE-SHAPE: {unmatched_shaped_count} of "
             f"{residue_total} cpr-token-bearing residue comment(s) fail the "
             f"inscription-verb alternation, are NOT indexed, and are COUNTED "
             f"by this loud counter (skip-heads excluded upstream by design). "
             f"POPULATION SPLIT BY DISPOSITION ({by_disposition}) — each "
-            f"disposition routes DIFFERENTLY: index_loss = a real witness lost "
-            f"from the index, cure it (head_anchor_gap -> the head-anchor "
-            f"relaxation bound, build lane; vocabulary_gap -> verb "
-            f"registration); design_excludable = NOT a witness at all "
+            f"disposition routes DIFFERENTLY: {index_loss_routing}; "
+            f"design_excludable = NOT a witness at all "
             f"({excluded_detail}), excluded from the count above BY DESIGN and "
             f"no matcher change can ever be the fix; unclassified = residue "
             f"this counter does not dispose (LOUD by construction — the "
@@ -4545,7 +4585,8 @@ def _attribution_not_computed(reason):
 def compute_cross_counter_attribution(report_dir, current_filename, current_tic,
                                       current_tokens, current_promoted, queue=None,
                                       shed_witness_tokens=None,
-                                      ellipsis_truncated_tokens=None):
+                                      ellipsis_truncated_tokens=None,
+                                      index_loss_subtype_counts=None):
     """Bind each moved member of the two cross-counter populations to what it is
     (/review 753, cpr_mogul_review_close_check_e193ae8e2af1 — the ATTRIBUTION
     clause, fifth ray on constitution-ledger#artifact-language-must-not-exceed-
@@ -4608,6 +4649,36 @@ def compute_cross_counter_attribution(report_dir, current_filename, current_tic,
     # caller did not thread it; the binding then never fires and the member
     # falls through to the honest candidate-route listing.
     ellipsis_truncated_tokens = set(ellipsis_truncated_tokens or ())
+    # /review 812 Q2 (cpr_mogul_review_close_check_86165cdd977a, the
+    # MEANING-ONLY-SPLIT face): route (f)'s note NAMES the index_loss
+    # sub-types WITH THEIR COUNTS and routes EACH to its own cure. The note
+    # cites "the residue counter's index_loss typing" as the falsifier that
+    # outranks a negative-fact catalog route, but cited that typing at PARENT
+    # granularity only — so a reader of a fired route (f) could not tell
+    # whether the sibling measurement that outranked the route was a real
+    # index hole or a shed comment with ZERO index consequence.
+    #
+    # THE BINDING IS UNCHANGED: the precedence gate still fires on
+    # `m in shed_witness_tokens`, the parent-level membership set. This cure
+    # moves the NOTE TEXT only — no member enters or leaves route (f).
+    #
+    # Absent (None) means the caller did not thread the split; the note then
+    # says so rather than printing a fabricated zero.
+    index_loss_subtype_counts = dict(index_loss_subtype_counts or {})
+    if index_loss_subtype_counts:
+        _subtype_clause = (
+            ". That typing splits by INDEX CONSEQUENCE: "
+            f"index_loss_id_absent="
+            f"{index_loss_subtype_counts.get('index_loss_id_absent', 0)}"
+            " -> a real index hole, cure it; index_loss_comment_only="
+            f"{index_loss_subtype_counts.get('index_loss_comment_only', 0)}"
+            " -> zero index consequence, a vocabulary registration at most")
+    else:
+        _subtype_clause = (
+            ". The index_loss sub-type split was NOT threaded to this pass, so "
+            "which cure that typing routes to is UNMEASURED here — see "
+            "inscribed_index_unresolved.unmatched_disposition_split."
+            "index_loss_subtype_counts")
     block = _attribution_not_computed(None)
     prior_path, selector = _find_prior_check_artifact(
         report_dir, current_filename, current_tic)
@@ -4710,7 +4781,7 @@ def compute_cross_counter_attribution(report_dir, current_filename, current_tic,
                             "witness; the promotion did NOT land comment-less. "
                             "Route (f), bound by the precedence gate: the "
                             "sibling measurement outranks the negative-fact "
-                            "modify/merge assertion",
+                            "modify/merge assertion" + _subtype_clause,
                 })
             elif "modify" in verdict_text or "merge" in verdict_text:
                 entry.update({
@@ -5212,6 +5283,13 @@ def run_check(project_dir, dry_run=False, obligation_tic=None, obligation_mandat
         ellipsis_truncated_tokens=(
             (inscribed_diagnostics.get("unit_declaration") or {})
             .get("ellipsis_truncated_head_tokens") or ()),
+        # /review 812 Q2: the index_loss sub-type split, threaded from the SAME
+        # build_inscribed_index pass as shed_witness_tokens above — one
+        # measurement, two consumers — so route (f)'s note can route each
+        # sub-type to its own cure instead of citing the parent typing alone.
+        index_loss_subtype_counts=(
+            (inscribed_diagnostics.get("unmatched_disposition_split") or {})
+            .get("index_loss_subtype_counts") or {}),
     )
     cross_disclosure = compute_cross_counter_disclosure(
         verdict_delta, index_delta, attribution)
