@@ -355,6 +355,7 @@ def cmd_audit(entries, tz_config, output_json=False):
         if kind not in warrant_eligible and threshold is not None:
             ineligible_with_threshold.append((eid, e, kind, threshold))
 
+        # DECLARED, NOT CURED (ruled /review 820 round 1 Q3 part (c); F-819-G33-2): this site reads the RAW retired `status` enum -- not lib.signal_active.is_active_ray -- to build decayed_below_hearing for the audit verb. Left exactly as it is: it emits no active-signal COUNT, and changing which rays it flags is a behaviour change the ruling did not authorise.
         if status == "active" and volume < hearing_threshold:
             decayed_below_hearing.append((eid, e, volume))
 

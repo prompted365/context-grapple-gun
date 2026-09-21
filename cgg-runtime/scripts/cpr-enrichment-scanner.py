@@ -69,7 +69,10 @@ RUN_COUNTERS = {
 }
 from pattern_miner import gather_recurrence_count
 # Shared active-ray predicate (tic 403): heat-based, retires acknowledged-as-active.
-from lib.signal_active import is_active_ray
+# latest_per_id + join_daily_fields (tic 821, /review 820 round 1 Q2): the curated
+# manifest is this arm's population, and the ONE shared read-time join supplies the
+# `subsystem` that population does not carry.
+from lib.signal_active import is_active_ray, latest_per_id, join_daily_fields
 # Shared doctrine-surface owner (tic 335): '<surface>#<anchor>' scope resolution
 # routes through the single ledger-discovery owner, never re-derived here (t692).
 from lib.doctrine_surfaces import resolve_surface_anchor, anchor_present
@@ -268,7 +271,24 @@ def gather_test_evidence(cpr, project_dir, subsystem_config):
 
 
 def gather_signal_evidence(cpr, signal_dir):
-    """Check for active signals related to this CPR's subsystem."""
+    """Check for active signals related to this CPR's subsystem.
+
+    POPULATION MIGRATED + FIELD JOINED (tic 821) -- RULED at /review 820 round 1 Q2.
+    The ACTIVE SET is the curated manifest folded latest-per-id under the single
+    shared is_active_ray predicate; the `subsystem` that population does not carry
+    is supplied at READ TIME by the ONE shared join helper, from each ray's own
+    daily emission row by id.
+
+    Before this, the arm globbed the raw daily corpus and let the DONOR row decide
+    membership, so a ray already resolved in the manifest still counted as active
+    through its stale daily row. Moving the population alone was built and held back
+    at tic 820 for the opposite reason: 0 of 59 manifest rows carry `subsystem`, so
+    filtering the manifest row on that field returns NOTHING, silently. Both halves
+    are one motion -- the population move and the join land together or not at all.
+
+    DOES-NOT-SATISFY RIDER (travels verbatim):
+    this increment does NOT touch the manifest-prune engine or any emitter, does NOT change the manifest's row shape, does NOT change what counts as an active signal, and does NOT certify that the enumerated set is the whole consumer set.
+    """
     evidence = []
     subsystem = cpr.get("subsystem", "")
     if not subsystem:
@@ -277,32 +297,57 @@ def gather_signal_evidence(cpr, signal_dir):
     if not signal_dir.exists():
         return evidence
 
-    related_signals = []
-    for f in sorted(signal_dir.glob("*.jsonl")):
-        for line in f.read_text(encoding="utf-8").splitlines():
-            line = line.strip()
-            if not line:
-                continue
-            try:
-                d = json.loads(line)
-                if (d.get("subsystem") == subsystem
-                        and d.get("type") == "signal"
-                        and is_active_ray(d)):
-                    related_signals = [
-                        s for s in related_signals if s.get("id") != d.get("id")
-                    ]
-                    related_signals.append(d)
-            except json.JSONDecodeError:
-                continue
+    manifest_path = signal_dir / "active-manifest.jsonl"
+    if not manifest_path.exists():
+        return evidence
+
+    manifest_rows = []
+    for line in manifest_path.read_text(encoding="utf-8").splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        try:
+            manifest_rows.append(json.loads(line))
+        except json.JSONDecodeError:
+            continue
+
+    active = {}
+    for row in latest_per_id(manifest_rows):
+        if is_active_ray(row):
+            sid = row.get("signal_id") or row.get("id")
+            if sid:
+                active[sid] = row
+    if not active:
+        return evidence
+
+    joined = join_daily_fields(signal_dir, active.keys(), fields=("subsystem",))
+    related_signals = [
+        (sid, row) for sid, row in active.items()
+        if (joined["fields"].get(sid) or {}).get("subsystem") == subsystem
+    ]
 
     if related_signals:
         evidence.append({
             "evidence_type": "signal_correlation",
             "value": f"{len(related_signals)} active signals for subsystem {subsystem}",
             "detail": [
-                f"{s['id']} (vol={s.get('volume', 0)}, {s.get('kind', '?')})"
-                for s in related_signals[:5]
+                f"{sid} (vol={row.get('volume', 0)}, {row.get('kind', '?')})"
+                for sid, row in related_signals[:5]
             ],
+        })
+
+    # DECLARED, NEVER DROPPED. An id the join cannot complete stays IN the active
+    # set and is NAMED here. The declaration is FIELD-WISE, not merely row-wise:
+    # measured at tic 821, the real no-donor-row set is EMPTY while 2 active ids
+    # have a donor row that carries no `subsystem` -- a row-wise-only declaration
+    # would print zero and those ids would vanish from this filter in silence.
+    undeclared = list(joined["unjoined"]) + list(joined["field_missing"].get("subsystem", []))
+    if undeclared:
+        evidence.append({
+            "evidence_type": "signal_correlation_unjoined",
+            "value": (f"{len(undeclared)} active signals could not be joined to a "
+                      f"subsystem and are NOT included in the count above"),
+            "detail": sorted(undeclared)[:10],
         })
 
     return evidence

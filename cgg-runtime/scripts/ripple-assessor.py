@@ -26,7 +26,10 @@ from pathlib import Path
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from zone_root import resolve_zone_root, load_ticzone, audit_logs_path, birth_topology
 # The shared active-ray authority (/review 810 round 1 Q2).
-from lib.signal_active import is_active_ray, latest_per_id
+# join_daily_fields (tic 821, /review 820 round 1 Q2): the ONE shared read-time
+# join that supplies the `created_at` the curated manifest does not carry, so the
+# triad window below can finally discriminate by a ray's age.
+from lib.signal_active import is_active_ray, latest_per_id, join_daily_fields
 
 
 # ---------------------------------------------------------------------------
@@ -240,8 +243,24 @@ def classify_entries(entries, manifest_active=None):
     }
 
 
-def detect_harmonic_triads(active_signals, window_hours=24):
-    """PRIMITIVE BEACON + COGNITIVE LESSON + TENSION within window -> triad."""
+def detect_harmonic_triads(active_signals, window_hours=24, ages=None):
+    """PRIMITIVE BEACON + COGNITIVE LESSON + TENSION within window -> triad.
+
+    `ages` maps signal_id -> the ray's FIRST-emission `created_at`, supplied by the
+    ONE shared read-time join (tic 821, RULED /review 820 round 1 Q2). The active
+    set comes from the curated manifest, and NO manifest row carries `created_at`
+    (measured: 0 of 59 at tic 821) -- so before this the `if created:` guard below
+    was False for every ray, the age cutoff never fired, and this 24-hour window
+    applied to NOTHING. With the join it applies. That is a real behaviour change
+    on a live reader: an aged triad that used to fire now correctly does not.
+
+    A ray whose age the join could not supply keeps the previous behaviour -- it is
+    NOT aged out on a guess. Such ids are declared by the join's own `unjoined` /
+    `field_missing` lists, never silently dropped.
+
+    DOES-NOT-SATISFY RIDER (travels verbatim):
+    this increment does NOT touch the manifest-prune engine or any emitter, does NOT change the manifest's row shape, does NOT change what counts as an active signal, and does NOT certify that the enumerated set is the whole consumer set.
+    """
     now = datetime.now(timezone.utc)
     cutoff = now - timedelta(hours=window_hours)
 
@@ -253,7 +272,7 @@ def detect_harmonic_triads(active_signals, window_hours=24):
         band = sig.get("band", "")
         kind = sig.get("kind", "")
 
-        created = sig.get("created_at", "")
+        created = (ages or {}).get(eid) or sig.get("created_at", "")
         if created:
             try:
                 ts = created.replace("Z", "+00:00") if created.endswith("Z") else created
@@ -812,7 +831,16 @@ def main():
 
     entries = load_signal_store(signals_dir)
     classified = classify_entries(entries, load_manifest_active(signals_dir))
-    triads = detect_harmonic_triads(classified["active_signals"])
+    # The ONE shared read-time join (tic 821): the manifest carries no `created_at`,
+    # so the triad window below gets each ray's FIRST-emission age from its own daily
+    # emission row by id. Ids the join cannot complete are declared by the helper and
+    # keep their previous, un-aged behaviour rather than being dropped on a guess.
+    _triad_join = join_daily_fields(
+        signals_dir, classified["active_signals"].keys(), fields=("created_at",))
+    triads = detect_harmonic_triads(
+        classified["active_signals"],
+        ages={_sid: _f["created_at"]
+              for _sid, _f in _triad_join["fields"].items() if "created_at" in _f})
     tic_counter = load_tic_counter(tic_path)
     inline_cpr_count = count_pending_cprs_inline(project_dir)
 

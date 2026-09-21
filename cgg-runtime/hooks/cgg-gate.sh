@@ -389,7 +389,19 @@ from lib.signal_active import is_active_ray, latest_per_id
 active = [v for v in latest_per_id(list(seen.values())) if is_active_ray(v)]
 print(len(active))
 " 2>/dev/null)
-              LIGHTWEIGHT_RESULTS="${LIGHTWEIGHT_RESULTS}signal_scan=${ACTIVE_SIGS:-0}_active,"
+              # UNREAD, NEVER A PLAUSIBLE ZERO (ruled /review 820 round 1 Q3 part (a); cures
+              # F-819-G33-4). The reader above discards stderr, so ANY failure of it -- an
+              # import that does not resolve, a missing manifest, a parse error -- produced an
+              # EMPTY string that ${ACTIVE_SIGS:-0} then turned into a confident "0", and 0
+              # reads as all-clear. This is the "wrong zero with no error" tell sitting in a
+              # governance hook. A non-numeric result (empty included) now reports UNREAD.
+              # UNREAD is not a crash: the hook still completes with the exit status it has
+              # today and never blocks the prompt.
+              # DOES-NOT-SATISFY RIDER (travels verbatim): this increment does NOT change which rays the audit verb flags, does NOT normalise any other output of the gate, and does NOT certify that the enumerated set is the whole consumer set.
+              case "$ACTIVE_SIGS" in
+                ''|*[!0-9]*) ACTIVE_SIGS="UNREAD" ;;
+              esac
+              LIGHTWEIGHT_RESULTS="${LIGHTWEIGHT_RESULTS}signal_scan=${ACTIVE_SIGS}_active,"
             else
               LIGHTWEIGHT_RESULTS="${LIGHTWEIGHT_RESULTS}signal_scan=no_manifest,"
             fi
@@ -584,7 +596,16 @@ except Exception:
 active = [{'id': s.get('signal_id') or s.get('id'), 'volume': s.get('volume',0), 'band': s.get('band','?')}
           for s in latest_per_id(rows) if is_active_ray(s)]
 print(json.dumps(active))
-" 2>/dev/null || echo "[]")
+" 2>/dev/null || echo '"UNREAD"')
+  # UNREAD, NEVER A PLAUSIBLE EMPTY LIST (ruled /review 820 round 1 Q3 part (a); cures the
+  # arm-B half of F-819-G33-4). A failed reader used to yield [], indistinguishable from a
+  # manifold that genuinely has no active ray. UNREAD is emitted as a JSON *string* on
+  # purpose: the sole in-scope consumer is the json.loads() below, so a bare token would
+  # raise, blank RIPPLE_BODY_JSON and silently skip routing -- a behaviour change the ruling
+  # did not authorise. As a quoted string it parses, the body carries the word UNREAD, and
+  # routing is unchanged. The empty-but-rc-0 case is folded in for the same reason.
+  # DOES-NOT-SATISFY RIDER (travels verbatim): this increment does NOT change which rays the audit verb flags, does NOT normalise any other output of the gate, and does NOT certify that the enumerated set is the whole consumer set.
+  [ -z "$SIGNAL_SNAPSHOT" ] && SIGNAL_SNAPSHOT='"UNREAD"'
 
   RIPPLE_BODY_JSON=$(python3 -c "
 import json

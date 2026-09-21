@@ -22,6 +22,20 @@ import json
 import os
 import sys
 from datetime import datetime, timezone
+from pathlib import Path
+
+# THE SHARED ACTIVE-RAY AUTHORITY (ruled /review 820 round 1 Q3 part (b); cures
+# F-819-G33-1). This file is the SIXTH reader; the first five moved at tic 819. The
+# predicate is imported from its single owner and never re-derived here.
+#
+# The import is DELIBERATELY HARD (no try/except fallback). F-819-G33-4 named the
+# hazard that a migration like this one creates: an import that fails to resolve turns
+# a wrong count into a silent, plausible zero. An eval-harness snapshotter is not a
+# prompt gate -- it has no prompt to keep alive -- so the honest failure here is a LOUD
+# ImportError, never a quiet 0. No new silent-zero path is introduced by this cure.
+# DOES-NOT-SATISFY RIDER (travels verbatim): this increment does NOT change which rays the audit verb flags, does NOT normalise any other output of the gate, and does NOT certify that the enumerated set is the whole consumer set.
+sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "cgg-runtime" / "scripts"))
+from lib.signal_active import is_active_ray, latest_per_id
 
 
 def read_json(path: str) -> dict | None:
@@ -98,29 +112,61 @@ def snapshot_cpr_queue(workspace: str) -> dict:
 
 
 def snapshot_signals(workspace: str) -> dict:
-    signal_dir = os.path.join(workspace, "audit-logs/signals")
-    if not os.path.isdir(signal_dir):
-        return {"files": [], "total_entries": 0, "active_count": 0}
+    """Active-signal state, read from the CURATED MANIFEST under the shared predicate.
 
-    all_signals = []
-    for fname in sorted(os.listdir(signal_dir)):
-        if fname.endswith(".jsonl"):
-            entries = read_jsonl(os.path.join(signal_dir, fname))
-            all_signals.extend(entries)
+    MIGRATED (ruled /review 820 round 1 Q3 part (b); cures F-819-G33-1). What changed and why:
 
-    # Latest per ID
-    latest: dict[str, dict] = {}
-    for sig in all_signals:
-        sig_id = sig.get("id", "")
-        latest[sig_id] = sig
+      POPULATION. This read used to glob every audit-logs/signals/*.jsonl -- raw daily
+      emission files whose historical rows were never marked resolved in their own lineage
+      (resolution writeback goes to the manifest). That inflates. The authoritative active
+      set is the curated active-manifest.jsonl, folded latest-per-id.
 
-    active = [s for s in latest.values() if s.get("status") == "active"]
+      PREDICATE. It used to test `status == "active"` -- the raw enum the v2 projection
+      RETIRED at tic 230. That both over-counts a cooled `acknowledged` ray and drops a
+      `carried` ray that still holds live heat. It now uses the single shared is_active_ray.
+
+      THE EMPTY-KEY FOLD (the second defect in F-819-G33-1, cured by the same move). The
+      old fold keyed on `sig.get("id", "")` -- an EMPTY-STRING default. Every manifest row
+      carries `signal_id` and no `id`, so all of them collapsed into the single key "" and
+      overwrote one another: the manifest degenerated to at most ONE surviving row instead
+      of being cleanly excluded. Measured on the fixture: 7 manifest rows -> 1 key.
+      latest_per_id keys on signal_id with id as fallback, so the fold is now correct by
+      construction and id-less rows pass through unprojected rather than colliding.
+
+    DOES-NOT-SATISFY RIDER (travels verbatim): this increment does NOT change which rays the audit verb flags, does NOT normalise any other output of the gate, and does NOT certify that the enumerated set is the whole consumer set.
+    """
+    manifest_path = os.path.join(workspace, "audit-logs/signals/active-manifest.jsonl")
+    population = (
+        "audit-logs/signals/active-manifest.jsonl (curated), folded latest-per-id under "
+        "lib/signal_active.py latest_per_id + is_active_ray -- the federation's "
+        "authoritative active set. Raw daily emission files are EXCLUDED BY DESIGN: they "
+        "are un-writeback-ed emissions, not state."
+    )
+    if not os.path.exists(manifest_path):
+        # DECLARED ABSENCE, never a bare zero: a reader can tell "looked, no manifest" from
+        # "looked, nothing active". Mirrors the gate's own `signal_scan=no_manifest` arm.
+        return {
+            "manifest_present": False,
+            "total_entries": 0,
+            "unique_signals": 0,
+            "active_count": 0,
+            "active_ids": [],
+            "active_signals_population": population,
+            "active_signals_predicate": "lib.signal_active.is_active_ray (shared authority)",
+        }
+
+    rows = read_jsonl(manifest_path)
+    projected = latest_per_id(rows)
+    active = [r for r in projected if is_active_ray(r)]
 
     return {
-        "total_entries": len(all_signals),
-        "unique_signals": len(latest),
+        "manifest_present": True,
+        "total_entries": len(rows),
+        "unique_signals": len(projected),
         "active_count": len(active),
-        "active_ids": [s.get("id", "") for s in active],
+        "active_ids": [r.get("signal_id") or r.get("id", "") for r in active],
+        "active_signals_population": population,
+        "active_signals_predicate": "lib.signal_active.is_active_ray (shared authority)",
     }
 
 

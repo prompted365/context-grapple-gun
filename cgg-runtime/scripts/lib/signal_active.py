@@ -189,3 +189,147 @@ def escalation_attention_rays(records) -> list:
     A subset of the active set, never a parallel state machine — a terminal or
     cooled ray with a stale marker is excluded by the single-owner predicate."""
     return [r for r in records if is_active_ray(r) and is_reescalated_ray(r)]
+
+
+# ---------------------------------------------------------------------------
+# THE READ-TIME JOIN (tic 821) — RULED at /review 820 round 1 Q2, "Join at the
+# reader". ONE helper, living beside the predicate, for TWO consumers:
+# cpr-enrichment-scanner's signal-correlation arm and ripple-assessor's triad
+# window. Two private joins would be two truths.
+#
+# DOES-NOT-SATISFY RIDER (travels verbatim):
+# this increment does NOT touch the manifest-prune engine or any emitter, does NOT change the manifest's row shape, does NOT change what counts as an active signal, and does NOT certify that the enumerated set is the whole consumer set.
+#
+# THE SHAPE OF THE PROBLEM (MEASURED on the real manifold at tic 821, not assumed):
+#   * 0 of 59 active manifest rows carry `subsystem`; 0 of 59 carry `created_at`.
+#     A reader that moves its population onto the curated manifest and keeps
+#     filtering on either field reads NOTHING, silently, with no error. That is
+#     precisely the cure held back at tic 820, and the reason this helper exists.
+#   * 59 of 59 active ids DO join some daily emission row; 57 get a `subsystem`
+#     from it and 56 get a `created_at`.
+#   * The real UNJOINED-by-row set is EMPTY, while 2 ids have a donor row carrying
+#     no `subsystem` and 3 have one carrying no `created_at`. A row-wise-only
+#     "could I join this id?" declaration therefore declares ZERO on today's
+#     manifold while those ids still vanish from a field filter in silence.
+#     THE DECLARATION IS FIELD-WISE, never merely row-wise.
+#
+# MEMBERSHIP IS NOT DECIDED HERE. The ACTIVE SET comes from the curated manifest
+# under is_active_ray; the daily rows supply fields and decide nothing. A ray that
+# is resolved in the manifest and still reads active in a daily row is NOT active.
+# This is a READ-TIME join: it builds no cache, no index and no artifact on disk.
+# ---------------------------------------------------------------------------
+
+# Derived/secondary projections are never donors: a curated manifest row and an
+# archive row are projections OF the daily corpus, not emissions in it.
+DERIVED_SIGNAL_SURFACES = frozenset({"active-manifest.jsonl", "resolved-archive.jsonl"})
+
+# `created_at` asks for the ray's FIRST emission, so it is the MIN of the values
+# its donor rows carry -- never the last row by file-sort order. MEASURED reason:
+# 17 of 56 joinable ids have first != latest created_at, and one real id
+# (sig_2026-04-05_vpl_composite_rollback_gap) carries an EMPTY created_at on its
+# file-sort-LAST donor row, so a last-row-wins join loses that ray's age entirely.
+FIRST_EMISSION_FIELDS = frozenset({"created_at"})
+
+
+def join_daily_fields(signals_dir, ids, fields=("subsystem", "created_at")):
+    """Join fields the curated manifest does not carry from each ray's OWN daily
+    emission row, BY ID. Read-time only.
+
+    `ids` is the ACTIVE SET, already decided by the manifest under is_active_ray.
+    This helper never adds to it, never removes from it, and never invents a value.
+
+    Returns a typed result:
+      {
+        "fields":        {signal_id: {field: value}},  # only fields actually found
+        "unjoined":      [signal_id, ...],             # NO donor row at all
+        "field_missing": {field: [signal_id, ...]},    # donor row(s) exist, field absent
+        "conflicts":     {field: [{"id": …, "values": [...]}, ...]},
+        "donor_row_count": {signal_id: int},
+      }
+
+    `unjoined` and `field_missing` are DISJOINT: an id with no donor row at all is
+    declared exactly once, as unjoined. Both lists are part of the reader's output
+    contract -- an id the join cannot complete stays IN the active set and is NAMED,
+    never dropped and never given an invented value.
+    """
+    import json as _json
+    from pathlib import Path as _Path
+
+    wanted = list(dict.fromkeys(ids))
+    wanted_set = set(wanted)
+    fields = tuple(fields)
+    donors = {sid: [] for sid in wanted}
+
+    d = _Path(signals_dir)
+    if d.exists():
+        # File-name order is the daily corpus's chronological provenance (files are
+        # date-named, append-only within a day). It orders DONOR ROWS; it never
+        # decides a first-emission VALUE -- see FIRST_EMISSION_FIELDS.
+        for f in sorted(d.glob("*.jsonl")):
+            if f.name in DERIVED_SIGNAL_SURFACES:
+                continue
+            try:
+                text = f.read_text(encoding="utf-8")
+            except OSError:
+                continue
+            for line in text.splitlines():
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    rec = _json.loads(line)
+                except _json.JSONDecodeError:
+                    continue
+                if not isinstance(rec, dict):
+                    continue
+                sid = rec.get("id") or rec.get("signal_id")
+                # The donor row is NOT filtered on type/status: membership was
+                # already decided by the manifest, and a donor that "decides
+                # nothing" must not re-decide it here by shape.
+                if sid in wanted_set:
+                    donors[sid].append(rec)
+
+    out_fields = {}
+    unjoined = []
+    field_missing = {f: [] for f in fields}
+    conflicts = {f: [] for f in fields}
+
+    for sid in wanted:
+        rows = donors[sid]
+        if not rows:
+            unjoined.append(sid)
+            continue
+        got = {}
+        for field in fields:
+            values = [r.get(field) for r in rows if r.get(field) not in (None, "")]
+            if not values:
+                field_missing[field].append(sid)
+                continue
+            distinct = sorted({str(v) for v in values})
+            if len(distinct) > 1:
+                if field in FIRST_EMISSION_FIELDS:
+                    # Not a conflict: several emissions, and the FIRST one is asked for.
+                    pass
+                else:
+                    # The ruling does not say which donor row wins when they differ.
+                    # Report it rather than silently picking; measured 0 occurrences
+                    # on the real manifold at tic 821.
+                    conflicts[field].append({"id": sid, "values": distinct})
+            got[field] = min(values) if field in FIRST_EMISSION_FIELDS else values[0]
+        if got:
+            out_fields[sid] = got
+
+    return {
+        "fields": out_fields,
+        "unjoined": unjoined,
+        "field_missing": field_missing,
+        "conflicts": conflicts,
+        "donor_row_count": {sid: len(donors[sid]) for sid in wanted},
+    }
+
+
+def joined_field(join_result, signal_id, field, default=None):
+    """Read one joined field, or `default` when the join could not supply it.
+    Never invents a value -- an absent field is absent, and the id is already
+    named in the join result's `unjoined` / `field_missing` declaration."""
+    return (join_result.get("fields", {}).get(signal_id) or {}).get(field, default)

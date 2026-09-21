@@ -69,11 +69,24 @@ def seed_signals(zone: Path, entries: list[dict]) -> None:
     path.write_text("\n".join(json.dumps(e) for e in entries) + "\n")
 
 
-def run_gate(zone: Path, fake_home: Path, stdin_payload: str = "{}") -> tuple[int, str, str]:
-    """Run cgg-gate.sh against the synthetic zone, return (rc, stdout, stderr)."""
+def run_gate(zone: Path, fake_home: Path, stdin_payload: str = "{}",
+             resolvable_runtime: bool = True) -> tuple[int, str, str]:
+    """Run cgg-gate.sh against the synthetic zone, return (rc, stdout, stderr).
+
+    resolvable_runtime (tic 822, cures F-821-G56-1 / OM-1): the hook resolves its bundled
+    runtime from CLAUDE_PLUGIN_ROOT, then from the project dir, then from $HOME/.claude.
+    The synthetic zone and the fake HOME carry no cgg-runtime, so without a plugin root the
+    hook's inline readers cannot import lib.signal_active at all. True (the default) points
+    the plugin root at THIS repository, so the readers under test actually run; False
+    withholds every root on purpose, to exercise the UNREAD arm.
+    """
     env = os.environ.copy()
     env["CLAUDE_PROJECT_DIR"] = str(zone)
     env["HOME"] = str(fake_home)
+    if resolvable_runtime:
+        env["CLAUDE_PLUGIN_ROOT"] = str(CGG_GATE_SCRIPT.parent.parent.parent)
+    else:
+        env.pop("CLAUDE_PLUGIN_ROOT", None)
     env["TMPDIR"] = str(fake_home / "tmp")
     (fake_home / "tmp").mkdir(parents=True, exist_ok=True)
     (fake_home / ".claude").mkdir(parents=True, exist_ok=True)
@@ -175,8 +188,18 @@ class TestLightweightMandateConsumer:
         assert "queue_refresh=5_pending" in mandate["lightweight_results"], \
             f"expected 5 pending (PENDING_STATUSES set), got {mandate['lightweight_results']!r}"
 
-    def test_signal_scan_filters_active_acknowledged_working(self, tmp_path):
-        """signal_scan must filter active-manifest by {active, acknowledged, working} only."""
+    def test_signal_scan_counts_by_the_shared_active_ray_predicate(self, tmp_path):
+        """signal_scan counts the manifest under lib.signal_active.is_active_ray.
+
+        RE-EXPRESSED at tic 822. This test used to assert the RETIRED status enum
+        ({active, acknowledged, working} -> 3) and was red in the shipped tree for two
+        reasons at once (F-821-G56-1): run_gate() gave the hook no resolvable runtime, so
+        the reader's import failed with stderr discarded and ${ACTIVE_SIGS:-0} manufactured
+        a confident 0; and with a resolvable runtime the shared predicate answers 2 on the
+        old fixture, because it heat-gates an un-projected acknowledged ray. Acknowledged
+        is active only while it still carries heat: s2 is cooled and does not count, s6 is
+        still hot and does. The retired enum would read 4 here; the shared predicate reads 3.
+        """
         zone = make_zone(tmp_path)
         seed_queue(zone, [])
         seed_signals(zone, [
@@ -185,6 +208,7 @@ class TestLightweightMandateConsumer:
             {"id": "s3", "status": "working"},
             {"id": "s4", "status": "resolved"},
             {"id": "s5", "status": "dismissed"},
+            {"id": "s6", "status": "acknowledged", "volume": 40},
         ])
         make_lightweight_mandate(zone, ["signal_scan"])
 
@@ -195,9 +219,36 @@ class TestLightweightMandateConsumer:
             (zone / "audit-logs" / "mogul" / "mandates" / "current.json").read_text()
         )
         assert mandate["status"] == "consumed"
-        # Three entries match {active, acknowledged, working}; resolved/dismissed excluded.
+        # s1 (active), s3 (working), s6 (acknowledged AND hot); s2 cooled, s4/s5 terminal.
         assert "signal_scan=3_active" in mandate["lightweight_results"], \
-            f"expected 3 active (status filter), got {mandate['lightweight_results']!r}"
+            f"expected 3 active (shared predicate), got {mandate['lightweight_results']!r}"
+
+    def test_signal_scan_reports_unread_when_its_reader_cannot_run(self, tmp_path):
+        """A reader that cannot run reports UNREAD, never a plausible zero.
+
+        Ruled /review 820 round 1 Q3 part (a). With every runtime root withheld the inline
+        reader cannot import the shared predicate. Before the cure that failure was turned
+        into signal_scan=0_active, which reads as all-clear. The mandate is still consumed
+        and the hook still exits as it does today: UNREAD is a reading, not a crash.
+        """
+        zone = make_zone(tmp_path)
+        seed_queue(zone, [])
+        seed_signals(zone, [
+            {"id": "s1", "status": "active"},
+            {"id": "s3", "status": "working"},
+        ])
+        make_lightweight_mandate(zone, ["signal_scan"])
+
+        fake_home = tmp_path / "home"
+        run_gate(zone, fake_home, resolvable_runtime=False)
+
+        mandate = json.loads(
+            (zone / "audit-logs" / "mogul" / "mandates" / "current.json").read_text()
+        )
+        assert mandate["status"] == "consumed"
+        assert "signal_scan=UNREAD_active" in mandate["lightweight_results"], \
+            f"expected UNREAD, got {mandate['lightweight_results']!r}"
+        assert "signal_scan=0_active" not in mandate["lightweight_results"]
 
     def test_race_guard_skips_consumption_when_already_running(self, tmp_path):
         """Race guard: if mandate transitioned to non-pending between read and consume, skip."""
