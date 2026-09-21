@@ -233,8 +233,8 @@ class LegacyDivergenceDocumented(unittest.TestCase):
             "maturity_window_tics": 10,
         }
         self.assertTrue(cpr_steppable.is_steppable(legacy, BIRTH + 3))
-        if _QSC is not None:
-            self.assertEqual(_QSC._resolve_target_tic(legacy), BIRTH + 10)
+        _require_queue_state_compile()
+        self.assertEqual(_QSC._resolve_target_tic(legacy), BIRTH + 10)
 
 
 if __name__ == "__main__":
