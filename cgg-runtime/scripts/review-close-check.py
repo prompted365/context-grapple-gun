@@ -1844,12 +1844,28 @@ def build_inscribed_index(project_dir, queue_ids=None, diagnostics=None):
     # number stops meaning two different things at once.
     index_loss_subtype_counts = {
         "index_loss_id_absent": 0, "index_loss_comment_only": 0}
+    # F-822-G37-3 (RULED /review 823 round 2 Q4, built tic 824): the PER-MEMBER
+    # map from each index-loss TOKEN to its sub-type. index_loss_member_tokens
+    # publishes the UNION, so a fired route (f) could name the population's
+    # sub-types but not THIS member's. One token can be carried by two residue
+    # comments of different sub-types; that collision is DECLARED
+    # (index_loss_both_subtypes) and listed, never silently resolved to one.
+    index_loss_token_subtypes = {}
+    index_loss_token_subtype_collisions = []
     for _m in index_loss_members:
         _subtype = ("index_loss_comment_only"
                     if _m["tokens"] and _m["tokens"] <= inscribed
                     else "index_loss_id_absent")
         index_loss_subtype_counts[_subtype] += 1
         _m["sample"]["index_consequence"] = _subtype
+        for _tok in _m["tokens"]:
+            _prior = index_loss_token_subtypes.get(_tok)
+            if _prior is None or _prior == _subtype:
+                index_loss_token_subtypes[_tok] = _subtype
+            else:
+                index_loss_token_subtypes[_tok] = "index_loss_both_subtypes"
+                if _tok not in index_loss_token_subtype_collisions:
+                    index_loss_token_subtype_collisions.append(_tok)
     residue_total = sum(unmatched_disposition_counts.values())
     if residue_total:
         # /review-768 remediation: a string attached to a HETEROGENEOUS counter
@@ -1981,6 +1997,21 @@ def build_inscribed_index(project_dir, queue_ids=None, diagnostics=None):
             "index_loss_member_tokens": sorted(
                 set().union(*(m["tokens"] for m in index_loss_members))
                 if index_loss_members else set()),
+            # F-822-G37-3 (RULED /review 823 round 2 Q4, built tic 824): the
+            # PER-MEMBER map. Its key set equals index_loss_member_tokens by
+            # construction (same walk, same members). A token carried by two
+            # residue comments of different sub-types types as
+            # `index_loss_both_subtypes` and is listed in the collisions array —
+            # a declared ambiguity, never a silent pick.
+            "index_loss_member_token_subtypes": dict(
+                sorted(index_loss_token_subtypes.items())),
+            "index_loss_member_token_subtype_unit": (
+                "token -> index_loss_id_absent | index_loss_comment_only | "
+                "index_loss_both_subtypes (the token is carried by residue "
+                "comments of BOTH sub-types); keys equal "
+                "index_loss_member_tokens by construction"),
+            "index_loss_member_token_subtype_collisions": sorted(
+                index_loss_token_subtype_collisions),
             "token_bearing_residue_total": sum(
                 unmatched_disposition_counts.values()),
             "headline_counter_value": unmatched_shaped_count,
@@ -2188,20 +2219,38 @@ def check_deferred(cpr_id, cpr):
 
 
 def check_skipped(cpr_id, cpr):
-    """Verify skipped CPR has correct status."""
-    findings = []
-    status = cpr.get("status", "")
+    """CENSUS-ONLY arm. This function verifies NOTHING, and now says so.
 
-    if status != "skipped":
-        findings.append({
-            "type": "skip_status_mismatch",
-            "severity": "warning",
-            "cpr_id": cpr_id,
-            "actual_status": status,
-            "message": f"{cpr_id} should be 'skipped' but is '{status}'",
-        })
+    RULED /review 822 Q2 (cpr_mogul_review_close_check_0c8fb7d7972f, ABSORBED
+    as reinforcement onto
+    cgg-ledger#named-footgun-guard-leaves-sibling-site-unfixed; built tic 824):
+    the `skip_status_mismatch` finding class is RETIRED here.
 
-    return findings
+    WHY IT WAS UNCONSTRUCTIBLE: the dispatch guard in run_check
+    (`elif status == "skipped"`) was the EXACT NEGATION of the predicate this
+    function tested (`if status != "skipped"`). Both read `cpr.get("status", "")`
+    off the SAME dict object with nothing mutating it in between, so inside this
+    function `status == "skipped"` was guaranteed, the class could never be
+    built on any input the arm could receive, and the arm counted without
+    verifying. A green close could then be misread as evidence that some SKIP
+    had been checked.
+
+    WHY NO CHECK REPLACES IT: the tic-554 cure on the sibling `deferred` arm
+    worked by separating the GUARD axis (status) from the TEST axis (review
+    provenance). That separation cannot be ported here.
+    Neither cure creates a per-row SKIP check: that needs a machine-readable verdict source that does not exist (/review 819 Q1).
+
+    WHAT REPLACES IT: the skipped population is COUNTED
+    (verdict_counts.skipped), its MEMBERS are persisted
+    (membership_sets.skipped_ids), and the artifact DECLARES the arm
+    census-only under verdict_class_coverage. Membership is not verification;
+    nothing here claims any SKIP was correctly applied.
+
+    Returns [] always, BY DESIGN. Not a dead branch left standing: the declared
+    locus where a real per-row SKIP check attaches on the day a machine-readable
+    verdict source exists.
+    """
+    return []
 
 
 # /review 751 Q4 — per-run route disclosure for axis-3 orphan clears (route -> [{cpr_id, path}]).
@@ -4533,17 +4582,200 @@ def pair_coverage_statement(sibling_attribution, cross_attribution):
             },
             {
                 "pair": "verdict_counts_delta (promoted / deferred / skipped)",
-                "membership_sets": ["promoted_ids"],
+                "membership_sets": ["promoted_ids", "skipped_ids"],
                 "status": (
-                    "partially attributable — promoted differences by membership; deferred "
-                    "and skipped populations are NOT persisted as sets (declared, not "
-                    "fabricated: a future ruling may add them)"),
+                    "partially attributable — promoted AND skipped differences by "
+                    "membership (skipped_ids persisted from this pass on: the future "
+                    "ruling this entry anticipated is /review 822 Q2, built tic 824); "
+                    "the deferred population is NOT persisted as a set (declared, not "
+                    "fabricated: a future ruling may add it). Attribution is not "
+                    "verification — the skipped arm is census-only; see "
+                    "verdict_class_coverage"),
             },
         ],
         "note": (
             "a cure applied to one measured pair obligates a coverage statement over "
             "every pair the instrument publishes (/review 756 Q2, the CURE-SCOPE face; "
             "composes #structural-transform-implies-closed-consumer-set-obligation)"),
+    }
+
+
+# --- VERDICT-CLASS COVERAGE (RULED /review 823 Q2, built tic 824) ----------
+#
+# cpr_mogul_review_close_check_2b2f04a1e6bb, ABSORBED MODIFIED as the
+# VERDICT-DISPATCH refinement ray on
+# cgg-ledger#queue-index-status-coverage-discipline — whose own sentence is
+# "the coverage must be explicit: which status values are indexed, which are
+# aggregated, which are IGNORED". WIDENED at adjudication from the row's one
+# class (superseded) to EVERY verdict class that falls through the same chain.
+#
+# THE DEFECT: the verification dispatch is keyed on a CLOSED status set. A
+# /review verdict whose status has no branch was not merely treated leniently —
+# the artifact was SILENT about it, and a clean `genuine 0` covered none of it.
+# At the tic-820 fire the round's only queue verdict was a supersede whose id
+# occurred ZERO times in 466,619 bytes of artifact; its only trace was
+# queue_state_tuple.status_census.superseded, a magnitude with no member.
+#
+# DOES-NOT-SATISFY RIDER (/review 823 Q2, travels verbatim):
+# this increment does NOT make the checker a lifecycle auditor, does NOT assert that any past supersede, rejection or absorb was wrong, does NOT change which findings are genuine or known, and does NOT repair any row.
+_VERDICT_COVERAGE_KINDS = {
+    "verified": (
+        "a check ran against each member of this class and could emit a finding "
+        "about it"),
+    "counted_only": (
+        "members are COUNTED and their ids PERSISTED, and no check verifies them "
+        "— a census, not a verification"),
+    "not_read": (
+        "no branch of the verification dispatch reads this class at all; members "
+        "are persisted here so the class is enumerable rather than silent"),
+    "recognized_settled": (
+        "recognized by the lifecycle_state branch and deliberately skipped — a "
+        "settled disposition carrying its own per-row receipt"),
+    "mixed": (
+        "members of this status took DIFFERENT dispatch arms (see arms); read the "
+        "per-arm split, never the class label alone"),
+}
+
+_SUPERSEDE_TARGET_NAMESPACES = {
+    "queue_id": "resolves to an id present in this pass's latest-per-id queue",
+    "queue_id_absent_from_this_queue": (
+        "id-SHAPED but not present in this queue projection — typed, NOT called "
+        "unresolved: the shape is recognised even where the referent is not"),
+    "document_section_pointer": (
+        "a filename plus a human-readable section label inside that document "
+        "(lived: CogPR-54 -> 'substrate-performance-risk-map.md Hard Rule #6') — "
+        "a second LEGITIMATE target kind, not a failure to resolve"),
+    "absent": "the row carries no superseded_by value at all",
+    "unrecognized_namespace": (
+        "a non-empty target matching no namespace this typer knows; reported as "
+        "an unrecognised NAMESPACE, never as an unresolved target"),
+}
+
+_ID_SHAPED_PREFIXES = ("cpr_", "CogPR-", "arena-")
+
+
+def _type_supersede_target(raw, queue):
+    """Type a `superseded_by` target's NAMESPACE before anything calls it
+    unresolved (RULED /review 823 Q2; built tic 824).
+
+    A resolver keyed only on "is this string a queue id" reads a document-section
+    pointer as unresolved. Two of the 23 superseded rows measured at /review 823
+    carry exactly that shape. This function TYPES the namespace and stops: it
+    emits no finding, asserts no correctness, and repairs no row.
+    """
+    if raw is None:
+        return "absent"
+    if not isinstance(raw, str) or not raw.strip():
+        return "absent"
+    target = raw.strip()
+    if target in queue:
+        return "queue_id"
+    if any(target.startswith(p) for p in _ID_SHAPED_PREFIXES):
+        return "queue_id_absent_from_this_queue"
+    if re.search(r"\.(md|py|json|jsonl|ya?ml|sh|tsx?)\b", target, re.IGNORECASE):
+        return "document_section_pointer"
+    return "unrecognized_namespace"
+
+
+def compute_verdict_class_coverage(queue, dispatch_arms):
+    """Declare, per /review verdict class, whether this instrument VERIFIES it,
+    only COUNTS it, or does not READ it — and persist member ids for every class
+    it does not verify (RULED /review 823 Q2; built tic 824).
+
+    Built from `dispatch_arms`, the arm each row ACTUALLY took inside run_check's
+    dispatch loop — an OBSERVATION, never a re-derivation of the loop's
+    predicates. A coverage block that re-derived them would be a second source of
+    truth free to drift from the dispatch it describes.
+
+    DOES-NOT-SATISFY RIDER (/review 823 Q2, travels verbatim):
+    this increment does NOT make the checker a lifecycle auditor, does NOT assert that any past supersede, rejection or absorb was wrong, does NOT change which findings are genuine or known, and does NOT repair any row.
+    """
+    _verified_arms = {"verified_promoted", "verified_deferred"}
+    _arm_kind = {
+        "verified_promoted": "verified",
+        "verified_deferred": "verified",
+        "counted_only_skipped": "counted_only",
+        "recognized_settled_lifecycle_state": "recognized_settled",
+        "not_read_fell_through": "not_read",
+    }
+
+    classes = {}
+    for cpr_id, row in queue.items():
+        status = row.get("status", "")
+        if not isinstance(status, str) or not status:
+            status = "<status_absent>"
+        arm = dispatch_arms.get(cpr_id, "not_read_fell_through")
+        entry = classes.setdefault(status, {
+            "count": 0, "arms": {}, "members_not_verified": [],
+        })
+        entry["count"] += 1
+        entry["arms"][arm] = entry["arms"].get(arm, 0) + 1
+        if arm not in _verified_arms:
+            entry["members_not_verified"].append(cpr_id)
+
+    for status, entry in classes.items():
+        kinds = {_arm_kind.get(a, "not_read") for a in entry["arms"]}
+        entry["coverage"] = kinds.pop() if len(kinds) == 1 else "mixed"
+        entry["arms"] = dict(sorted(entry["arms"].items()))
+        entry["members_not_verified"] = sorted(entry["members_not_verified"])
+        entry["members_not_verified_count"] = len(entry["members_not_verified"])
+        # NOT a boolean: the ADDRESS where this class's members are persisted.
+        # A bare True here would be the same shape this increment retires —
+        # an assertion that cannot be false.
+        if entry["members_not_verified"]:
+            entry["members_persisted_at"] = (
+                f"verdict_class_coverage.classes['{status}']"
+                ".members_not_verified"
+                + (" (also membership_sets.skipped_ids)"
+                   if status == "skipped" else ""))
+        elif status == "promoted":
+            entry["members_persisted_at"] = "membership_sets.promoted_ids"
+        else:
+            entry["members_persisted_at"] = (
+                "none owed — every member of this class took a verified arm")
+
+    # THE NAMESPACE CLAUSE (/review 823 Q2): superseded targets are typed by
+    # NAMESPACE. A typed census — no finding, no correctness claim, no repair.
+    supersede_targets = {}
+    for cpr_id, row in queue.items():
+        if row.get("status") != "superseded":
+            continue
+        supersede_targets[cpr_id] = _type_supersede_target(
+            row.get("superseded_by"), queue)
+    namespace_census = {}
+    for ns in supersede_targets.values():
+        namespace_census[ns] = namespace_census.get(ns, 0) + 1
+
+    classified = sum(e["count"] for e in classes.values())
+    return {
+        "unit": (
+            "one entry per latest-per-id status value present in this pass; "
+            "coverage is OBSERVED from the dispatch arm each row actually took"),
+        "coverage_kinds": _VERDICT_COVERAGE_KINDS,
+        "classes": dict(sorted(classes.items())),
+        "totals": {
+            "latest_per_id_rows": len(queue),
+            "classified": classified,
+            "unclassified": len(queue) - classified,
+            "members_not_verified_total": sum(
+                e["members_not_verified_count"] for e in classes.values()),
+        },
+        "supersede_target_namespaces": {
+            "unit": (
+                "superseded_by target typed by NAMESPACE before anything calls a "
+                "target unresolved; a typed census, never a check"),
+            "namespaces": _SUPERSEDE_TARGET_NAMESPACES,
+            "by_member": dict(sorted(supersede_targets.items())),
+            "census": dict(sorted(namespace_census.items())),
+        },
+        "does_not_satisfy": (
+            "DOES-NOT-SATISFY RIDER (/review 823 Q2, travels verbatim): "
+            "this increment does NOT make the checker a lifecycle auditor, does NOT assert that any past supersede, rejection or absorb was wrong, does NOT change which findings are genuine or known, and does NOT repair any row."),
+        "skipped_arm_note": (
+            "The skipped arm is CENSUS-ONLY: its one finding class "
+            "(skip_status_mismatch) was structurally unconstructible and was "
+            "RETIRED at /review 822 Q2 (built tic 824). Members are persisted at "
+            "membership_sets.skipped_ids. Neither cure creates a per-row SKIP check: that needs a machine-readable verdict source that does not exist (/review 819 Q1)."),
     }
 
 
@@ -4586,7 +4818,8 @@ def compute_cross_counter_attribution(report_dir, current_filename, current_tic,
                                       current_tokens, current_promoted, queue=None,
                                       shed_witness_tokens=None,
                                       ellipsis_truncated_tokens=None,
-                                      index_loss_subtype_counts=None):
+                                      index_loss_subtype_counts=None,
+                                      index_loss_token_subtypes=None):
     """Bind each moved member of the two cross-counter populations to what it is
     (/review 753, cpr_mogul_review_close_check_e193ae8e2af1 — the ATTRIBUTION
     clause, fifth ray on constitution-ledger#artifact-language-must-not-exceed-
@@ -4665,6 +4898,14 @@ def compute_cross_counter_attribution(report_dir, current_filename, current_tic,
     # Absent (None) means the caller did not thread the split; the note then
     # says so rather than printing a fabricated zero.
     index_loss_subtype_counts = dict(index_loss_subtype_counts or {})
+    # F-822-G37-3 (/review 823 round 2 Q4, built tic 824): the PER-MEMBER map,
+    # threaded from the SAME build_inscribed_index pass as shed_witness_tokens
+    # (one measurement, two consumers). THE BINDING IS UNCHANGED — the
+    # precedence gate still fires on `m in shed_witness_tokens`; this names
+    # which sub-type THIS member is, where the /review 812 Q2 clause could only
+    # name the population's. Absent means the caller did not thread it, and the
+    # note then says so rather than printing a fabricated sub-type.
+    index_loss_token_subtypes = dict(index_loss_token_subtypes or {})
     if index_loss_subtype_counts:
         _subtype_clause = (
             ". That typing splits by INDEX CONSEQUENCE: "
@@ -4771,17 +5012,30 @@ def compute_cross_counter_attribution(report_dir, current_filename, current_tic,
                 # nearest-neighbor binding onto a falsified route is WORSE than
                 # an honest uncovered, because coverage renders the member as
                 # RESOLVED while the residue lane is shouting.
+                _this_member_subtype = index_loss_token_subtypes.get(m)
+                if _this_member_subtype:
+                    _member_clause = (
+                        ". THIS MEMBER's own token types as "
+                        f"{_this_member_subtype}")
+                else:
+                    _member_clause = (
+                        ". THIS MEMBER's own sub-type is UNMEASURED here — the "
+                        "per-member token map was not threaded to this pass; see "
+                        "inscribed_index_unresolved.unmatched_disposition_split."
+                        "index_loss_member_token_subtypes")
                 entry.update({
                     "catalog_route": routes[5],
                     "catalog_covers": True,
                     "witness_comment_shed": True,
+                    "index_loss_subtype_of_this_member": _this_member_subtype,
                     "note": "its witness comment WAS written and was SHED by the "
                             "matcher (the residue counter's index_loss typing "
                             "carries this member's token) — the index lost the "
                             "witness; the promotion did NOT land comment-less. "
                             "Route (f), bound by the precedence gate: the "
                             "sibling measurement outranks the negative-fact "
-                            "modify/merge assertion" + _subtype_clause,
+                            "modify/merge assertion"
+                            + _subtype_clause + _member_clause,
                 })
             elif "modify" in verdict_text or "merge" in verdict_text:
                 entry.update({
@@ -5108,11 +5362,23 @@ def run_check(project_dir, dry_run=False, obligation_tic=None, obligation_mandat
 
     all_findings = []
 
+    # VERDICT-CLASS COVERAGE, OBSERVED NOT MODELLED (RULED /review 823 Q2,
+    # cpr_mogul_review_close_check_2b2f04a1e6bb -> the VERDICT-DISPATCH
+    # refinement on cgg-ledger#queue-index-status-coverage-discipline; built
+    # tic 824). Each row records the arm it ACTUALLY took, and
+    # compute_verdict_class_coverage() is built from THIS observation. It is
+    # deliberately NOT a second re-derivation of the chain's predicates: a
+    # coverage declaration that models its own dispatch is a second source of
+    # truth that can silently disagree with the dispatch it describes, which is
+    # the exact shape this increment was ruled to close.
+    dispatch_arms = {}
+
     # Check each CPR based on its status
     for cpr_id, cpr in queue.items():
         status = cpr.get("status", "")
 
         if status == "promoted":
+            dispatch_arms[cpr_id] = "verified_promoted"
             all_findings.extend(check_promoted(cpr_id, cpr, project_dir, inscribed_ids, lesson_fallbacks))
 
         elif status in ("deferred", "enrichment_eligible"):
@@ -5120,9 +5386,20 @@ def run_check(project_dir, dry_run=False, obligation_tic=None, obligation_mandat
             # a call-site guard on the same predicate the check tests made the
             # deferred_no_review_tic finding-class unreachable (dead check,
             # found tic 554 via a 35-vs-36 counter delta).
+            dispatch_arms[cpr_id] = "verified_deferred"
             all_findings.extend(check_deferred(cpr_id, cpr))
 
         elif status == "skipped":
+            # CENSUS-ONLY arm (RULED /review 822 Q2, built tic 824).
+            # check_skipped verifies nothing and returns [] by design: its one
+            # finding class was the exact negation of this guard and has been
+            # RETIRED. The population is counted (verdict_counts.skipped), its
+            # members persisted (membership_sets.skipped_ids), and the artifact
+            # declares the arm census-only under verdict_class_coverage. The
+            # call stays so the declared locus for a future per-row SKIP check
+            # is where the dispatch can find it.
+            # Neither cure creates a per-row SKIP check: that needs a machine-readable verdict source that does not exist (/review 819 Q1).
+            dispatch_arms[cpr_id] = "counted_only_skipped"
             all_findings.extend(check_skipped(cpr_id, cpr))
 
         elif cpr.get("lifecycle_state", "") in LIFECYCLE_SETTLED_STATES:
@@ -5132,7 +5409,18 @@ def run_check(project_dir, dry_run=False, obligation_tic=None, obligation_mandat
             # promoted-text/orphan close-check applies. Explicit recognition of
             # the shared field; no behavior change (these ids already fell
             # through the status dispatch before tic 555).
+            dispatch_arms[cpr_id] = "recognized_settled_lifecycle_state"
             continue
+
+        else:
+            # NO BRANCH MATCHED. This else is an OBSERVATION ONLY: it makes no
+            # call, emits no finding and does not `continue`, so the loop's
+            # behaviour is exactly what it was before this increment. It exists
+            # because the fall-through set was previously invisible — a /review
+            # verdict class with no branch (absorbed, rejected, superseded)
+            # reached the artifact as a token at most, and a clean genuine 0 was
+            # SILENT about it rather than lenient toward it.
+            dispatch_arms[cpr_id] = "not_read_fell_through"
 
     # Orphan check across all promoted
     all_findings.extend(check_orphans(queue, project_dir, inscribed_ids))
@@ -5170,8 +5458,12 @@ def run_check(project_dir, dry_run=False, obligation_tic=None, obligation_mandat
                 f["severity"] = "info"  # known false-positive — not a hazard
         elif "finding_class" not in f:
             # A finding type with no dedicated classifier (promoted_no_target,
-            # skip_status_mismatch, …) is a real data-quality gap until a
+            # deferred_no_review_tic, …) is a real data-quality gap until a
             # discriminating axis exists — classified genuine, never left floating.
+            # (skip_status_mismatch stood here as the second example until
+            # /review 822 Q2 retired that class as unconstructible — built tic
+            # 824. The example was REPLACED, not left naming a class no producer
+            # can write.)
             f["finding_class"] = "genuine"
             f.setdefault("evidence", {
                 "note": "no dedicated known-false-positive axis for this finding "
@@ -5263,6 +5555,15 @@ def run_check(project_dir, dry_run=False, obligation_tic=None, obligation_mandat
     # attributed by membership — this pass against the previous pass's persisted sets.
     promoted_ids = sorted(
         cid for cid, c in queue.items() if c.get("status") == "promoted")
+    # THE MEMBERSHIP ARM for the census-only skipped population (RULED /review
+    # 822 Q2, built tic 824): verdict_counts_delta.skipped was a MAGNITUDE with
+    # no members, so a SKIP applied at /review moved a published counter no
+    # consumer could attribute without re-deriving it from queue bytes by hand.
+    # Same cpr-id-keyed unit as promoted_ids, so set-difference replay is valid
+    # on this arm. Membership is not verification.
+    # Neither cure creates a per-row SKIP check: that needs a machine-readable verdict source that does not exist (/review 819 Q1).
+    skipped_ids = sorted(
+        cid for cid, c in queue.items() if c.get("status") == "skipped")
     # /review 780 Q2 (4cb469459489): the residue counter's shed-comment token
     # membership, threaded from the SAME build_inscribed_index pass — one
     # measurement, two consumers; the precedence gate consults it before any
@@ -5290,6 +5591,12 @@ def run_check(project_dir, dry_run=False, obligation_tic=None, obligation_mandat
         index_loss_subtype_counts=(
             (inscribed_diagnostics.get("unmatched_disposition_split") or {})
             .get("index_loss_subtype_counts") or {}),
+        # F-822-G37-3 (/review 823 round 2 Q4): the PER-MEMBER token -> sub-type
+        # map, threaded from the SAME pass, so a fired route (f) names which
+        # sub-type THIS member is instead of only the population's.
+        index_loss_token_subtypes=(
+            (inscribed_diagnostics.get("unmatched_disposition_split") or {})
+            .get("index_loss_member_token_subtypes") or {}),
     )
     cross_disclosure = compute_cross_counter_disclosure(
         verdict_delta, index_delta, attribution)
@@ -5301,6 +5608,9 @@ def run_check(project_dir, dry_run=False, obligation_tic=None, obligation_mandat
     # stable within a run, so the two reads agree by construction).
     producer_identity_delta = compute_producer_identity_delta(
         report_dir, output_filename, mandate_tic, compute_producer_identity())
+    # RULED /review 823 Q2 (built tic 824) — built from the OBSERVED dispatch
+    # arms recorded in the loop above, never from a re-derivation of its guards.
+    verdict_class_coverage = compute_verdict_class_coverage(queue, dispatch_arms)
 
     report = {
         "check_type": "review_close_check",
@@ -5367,6 +5677,13 @@ def run_check(project_dir, dry_run=False, obligation_tic=None, obligation_mandat
             "index_tokens": sorted(inscribed_ids),
             "promoted_ids_count": len(promoted_ids),
             "promoted_ids": promoted_ids,
+            # RULED /review 822 Q2 (built tic 824) — the skipped population as a
+            # SET beside its magnitude. The count equals verdict_counts.skipped
+            # by construction (same predicate, same pass, same queue projection).
+            # MEMBERSHIP IS NOT VERIFICATION: the arm that produced these ids is
+            # census-only and says so under verdict_class_coverage.
+            "skipped_ids_count": len(skipped_ids),
+            "skipped_ids": skipped_ids,
             # /review 756 Q2 — the THIRD set: the matched-comment population, so the
             # tokens-vs-comments pair is attributable by set difference from this pass on.
             "matched_comment_ids_count": (
@@ -5395,6 +5712,10 @@ def run_check(project_dir, dry_run=False, obligation_tic=None, obligation_mandat
                     "member_identity_stable_under_upstream_insertion": True,
                     "basis": "cpr-id-keyed; set-difference replay on this arm is attribution-valid",
                 },
+                "skipped_ids": {
+                    "member_identity_stable_under_upstream_insertion": True,
+                    "basis": "cpr-id-keyed; set-difference replay on this arm is attribution-valid",
+                },
                 "matched_comment_ids": {
                     "member_identity_stable_under_upstream_insertion": False,
                     "basis": (
@@ -5413,6 +5734,12 @@ def run_check(project_dir, dry_run=False, obligation_tic=None, obligation_mandat
         "pair_coverage": pair_coverage_statement(
             index_delta.get("attribution"),
             (cross_disclosure or {}).get("attribution") if isinstance(cross_disclosure, dict) else None),
+        # VERDICT-CLASS COVERAGE (RULED /review 823 Q2, built tic 824): which
+        # /review verdict classes this instrument verifies, which it only counts,
+        # and which it does not read — with member ids for every class it does
+        # not verify, so a clean `genuine 0` can no longer be silent about a
+        # round whose verdicts fall outside the dispatch.
+        "verdict_class_coverage": verdict_class_coverage,
         "findings": all_findings,
         "summary": {
             "total_findings": len(all_findings),
