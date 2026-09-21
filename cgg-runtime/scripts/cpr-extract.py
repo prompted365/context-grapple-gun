@@ -25,6 +25,13 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "lib"))
 from zone_root import resolve_zone_root, load_ticzone, audit_logs_path, birth_topology
 import enum_vocabulary_guard  # the shared loader/classify/refusal triple (OM-W10-4)
+# The confidence_tier contract guard (/review 708 write-boundary physics),
+# consumed at this script's birth boundary since /review 823 round 2 Q2.
+# Module-level and NOT fail-soft on purpose: lib/confidence_tier loads its
+# governing contract at import and must crash LOUDLY if it is missing rather
+# than let this writer run half-guarded — the same posture this file already
+# takes for the pending_class contract below.
+from lib.confidence_tier import classify_tier_value, refusal_message  # noqa: E402
 
 
 BLOCK_RE = re.compile(
@@ -1109,9 +1116,76 @@ def extract_cprs(project_dir, dry_run=False, plan_file=None, anomaly_threshold=0
             elif not isinstance(recommended_scopes, list):
                 recommended_scopes = [recommended_scopes] if recommended_scopes else []
 
-            # confidence_tier — tentative for tier2/tier3 unless declared
+            # ── CONFIDENCE_TIER VOCABULARY GUARD at the BIRTH write boundary
+            # RULED /review 823 round 2 Q2 (Architect-ratified, recommended
+            # option verbatim: "One build increment: guard cpr-extract"), on the
+            # cpr-stepper's finding A2-822. Row
+            # `bk-cpr-extract-tier-guard-typed-refusal-t823`; ruling receipt
+            # audit-logs/governance/receipts/2026-09-21-tic823-review-823-one-skip-with-home-two-absorbs-the-cut-is-777-and-four-ruled-increments.md
+            #
+            # WHY HERE. /review 708 made this vocabulary WRITE-BOUNDARY PHYSICS
+            # — it "must not depend on producer restraint" (A6-707) — and landed
+            # the guard at cogpr-ingest.py (birth) and
+            # queue-lifecycle-writeback.py (verdict writeback). This script is
+            # the OTHER birth writer, and it carried no reference to the contract
+            # at all: a declared tier reached the queue row unclassified. A2-822
+            # located that BY MEMBER — the unguarded writer is the one that
+            # minted the off-enum value on queue row 3,276.
+            #
+            # THE SAME TYPED REFUSAL AS THE SIBLING, deliberately: the marker
+            # shape {value, reason, ruling} and the stderr TIER-REFUSAL notice
+            # are cogpr-ingest's, and the refusal TEXT comes from the contract
+            # module (refusal_message) — no wording is coined here. THE LESSON IS
+            # NEVER DROPPED: the row is still extracted, carrying the typed
+            # marker, because a row-level reject at a background birth surface
+            # would be its own coverage drop (guard 10's shape).
+            #
+            # ONLY A DECLARED VALUE IS CLASSIFIED. `""` is NOT an absence form
+            # for this family (`empty_string_is_absence=False` in
+            # lib/confidence_tier — the asymmetry preserved at F-773-W11-1), so
+            # classifying the UNSET field would mint a refusal on every born that
+            # declares no tier. Absent stays absent and is never refused; the
+            # tier2/tier3 "tentative" default still fires only when NOTHING was
+            # declared.
+            #
+            # A REFUSED DECLARATION IS STRIPPED TO ABSENT — never laundered into
+            # the lawful-looking default. Defaulting a refused value to
+            # "tentative" would assert a tier the born never lawfully declared,
+            # which is exactly the laundering of malformed input into well-formed
+            # WRONG data that decode-or-refuse forbids
+            # (constitution-ledger#defensive-normalization-masks-malformed-input-decode-or-refuse,
+            # the same law cogpr-ingest cites at its six-facet passthrough). The
+            # typed marker is what records the refused value.
+            #
+            # ENGINE-CONTENT SEPARATION: the enum stays contract DATA
+            # (contracts/confidence-tier-enum-v1.json); /review is its minting
+            # authority. No tier value is ever inlined here.
+            #
+            # DOES-NOT-SATISFY RIDER of the /review 823 ruling (travels verbatim): It does NOT repair existing off-enum rows.
             declared_confidence = block.get("confidence_tier", "")
-            if tier == "tier1":
+            tier_refusal = None
+            if declared_confidence != "" and declared_confidence is not None:
+                _tier_kind = classify_tier_value(declared_confidence)
+                if _tier_kind != "lawful":
+                    tier_refusal = {
+                        "value": declared_confidence,
+                        "reason": _tier_kind,
+                        "ruling": "review-708",
+                    }
+                    print(
+                        f"TIER-REFUSAL [{entry_id}]: "
+                        f"{refusal_message(declared_confidence, _tier_kind)} "
+                        f"Refused at {block_locator}.",
+                        file=sys.stderr,
+                    )
+                    declared_confidence = ""
+
+            # confidence_tier — tentative for tier2/tier3 unless declared.
+            # A REFUSAL is not "nothing declared": it suppresses the default
+            # outright, so a refused row carries the marker and NO tier.
+            if tier_refusal is not None:
+                confidence_tier = ""
+            elif tier == "tier1":
                 confidence_tier = declared_confidence  # may be empty; tier1 doesn't impose
             else:
                 confidence_tier = declared_confidence or "tentative"
@@ -1186,6 +1260,12 @@ def extract_cprs(project_dir, dry_run=False, plan_file=None, anomaly_threshold=0
                 entry["no_evidence_reason"] = no_evidence_reason
             if confidence_tier:
                 entry["confidence_tier"] = confidence_tier
+            # The typed refusal rides the row itself (the sibling's shape), so a
+            # reader sees a REFUSAL rather than an absence. cpr-stepper.md's
+            # copy-forward rule already types this key: a row carrying a DECLARED
+            # tier_refusal is never defaulted to "tentative" (A5-745, /review 746 Q4).
+            if tier_refusal is not None:
+                entry["tier_refusal"] = tier_refusal
             if origin_context:
                 entry["origin_context"] = origin_context
             # lesson_type passthrough (stepper-660 escalation: dropped at capture for the
