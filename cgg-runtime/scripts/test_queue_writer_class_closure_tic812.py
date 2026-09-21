@@ -173,6 +173,28 @@ ALLOW_LIST = {
         "HISTORICAL ONE-OFF (tic 648): queue repair, run once. Named for "
         "completeness by the tic-803 census (F-803-C4)."
     ),
+    # --- build-seat FIXTURE DRIVERS kept as hand-up evidence ------------------
+    # Found by this census at tic 825, on the first full-suite run after the
+    # tic-824 hand-ups were committed (it failed, loudly, as it should). Each
+    # builds a FIXTURE zone under a scratch root and writes that zone's own
+    # queue.jsonl; none is handed the live zone, and nothing invokes them.
+    # Named one by one, never by a directory prefix: a prefix over build
+    # hand-ups would pardon whatever a later seat leaves there.
+    "governance/review-824-evidence/build-scanner-notice/drivers/behaviour_diff.py": (
+        "BUILD EVIDENCE (tic 824, the scanner join-notice increment): writes a "
+        "one-row FIXTURE queue under a scratch root to diff old and new scanner "
+        "behaviour. Frozen hand-up evidence; not a live lane."
+    ),
+    "governance/review-824-evidence/build-scanner-notice/drivers/case_c_queue_writer.py": (
+        "BUILD EVIDENCE (tic 824, same increment): writes a one-row FIXTURE "
+        "queue under a scratch root for the append-path case. Frozen hand-up "
+        "evidence; not a live lane."
+    ),
+    "governance/review-824-evidence/build-checker-trio/logs/preflight.py": (
+        "BUILD EVIDENCE (tic 824, the close-checker trio): writes an EMPTY "
+        "fixture queue.jsonl into a scratch preflight zone so the checker's path "
+        "resolvers can be exercised. Frozen hand-up evidence; not a live lane."
+    ),
 }
 
 # Suffixes whose ANY-match means 'a recovered copy of a historical one-off'.
