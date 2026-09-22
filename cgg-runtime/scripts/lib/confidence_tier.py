@@ -6,7 +6,8 @@ vocabulary must not depend on producer restraint (A6-707). CONTENT lives in
 contracts/confidence-tier-enum-v1.json (engine-content separation) — extending
 the enum is a data edit there, never a rewrite of this predicate.
 
-Two write surfaces consume this module:
+Three write surfaces consume this module (two at the tic-775 migration; the
+third since tic 825 — count corrected /review 825):
   - cogpr-ingest.py (birth): an off-enum candidate value is stripped to ABSENT
     with a typed `tier_refusal` marker on the row + a loud stderr TIER-REFUSAL
     notice — the lesson is never dropped (a row-level reject at a background
@@ -16,6 +17,11 @@ Two write surfaces consume this module:
     carry-forward of a historical off-enum value stays lawful and is disclosed
     (ruling 2 keeps the 31 historical marker rows as-is — the guard must not
     refuse lawful copy-forward).
+  - cpr-extract.py (birth, the other birth writer; ruled /review 823 round 2
+    Q2, landed tic 825): a DECLARED off-enum value is stripped to ABSENT with
+    the same typed `tier_refusal` marker + stderr TIER-REFUSAL notice naming
+    the refused block; an unset tier is never refused; existing off-enum rows
+    are NOT repaired by it.
 
 SHARED-ENGINE MIGRATION (B2 wave 12, OM-W11-4, ruled in
 B2-wave-12-SIGNED-tic775.json self-sha b4f2177919d6bc72 over STAGED
