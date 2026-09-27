@@ -50,6 +50,10 @@ except Exception:
 # User-registered hooks (~/.claude/hooks/) must resolve via fallback chain.
 CGG_PLUGIN_ROOT="${CLAUDE_PLUGIN_ROOT:-}"
 if [ -z "$CGG_PLUGIN_ROOT" ] || [ ! -d "$CGG_PLUGIN_ROOT/cgg-runtime" ]; then
+  # A root that does not carry cgg-runtime/ is NOT a root. Clearing it here is what makes
+  # "unresolvable" one predicate instead of two: an unset override and a stale non-empty
+  # one both arrive at the same typed state below.
+  CGG_PLUGIN_ROOT=""
   for _cpr_candidate in \
     "${CLAUDE_PROJECT_DIR:+$CLAUDE_PROJECT_DIR/vendor/context-grapple-gun}" \
     "${CLAUDE_PROJECT_DIR:+$CLAUDE_PROJECT_DIR/canonical_developer/context-grapple-gun}" \
@@ -58,10 +62,27 @@ if [ -z "$CGG_PLUGIN_ROOT" ] || [ ! -d "$CGG_PLUGIN_ROOT/cgg-runtime" ]; then
   done
 fi
 
-# Load atomic append library for JSONL-safe writes
-ATOMIC_LIB="$CGG_PLUGIN_ROOT/cgg-runtime/scripts/lib/atomic-append.sh"
-[ -f "$ATOMIC_LIB" ] && source "$ATOMIC_LIB"
-CGG_SCRIPTS_DIR="$CGG_PLUGIN_ROOT/cgg-runtime/scripts"
+# UNRESOLVED, NEVER A ROOT-ANCHORED PATH (goal 76 — RULED /review 825 H3, backlog row
+# bk-gate-plugin-root-sibling-hooks-posttool-microscan-and-session-restore-t825; the gate took
+# this cure at fd51bcf and its rider named these two siblings as NOT cured). When the chain
+# above resolves nothing, an empty $CGG_PLUGIN_ROOT made every path composed from it
+# ROOT-ANCHORED ("/cgg-runtime/scripts/..."), failing safe only because "/cgg-runtime" happens
+# not to exist here. The root is now TYPED: resolved, or unresolved and NOTHING is composed
+# from it; every consumer below reads the typed state. ON THE RESOLVED PATH NOTHING MOVES.
+# DOES-NOT-SATISFY RIDER (the seat's words): this increment does NOT change any hook verb,
+# does NOT touch post-commit-sync.sh (measured: zero such compositions), and does NOT
+# establish that an unresolvable root has ever occurred in a live fire.
+if [ -n "$CGG_PLUGIN_ROOT" ]; then
+  CGG_PLUGIN_ROOT_STATE="resolved"
+  # Load atomic append library for JSONL-safe writes
+  ATOMIC_LIB="$CGG_PLUGIN_ROOT/cgg-runtime/scripts/lib/atomic-append.sh"
+  [ -f "$ATOMIC_LIB" ] && source "$ATOMIC_LIB"
+  CGG_SCRIPTS_DIR="$CGG_PLUGIN_ROOT/cgg-runtime/scripts"
+else
+  CGG_PLUGIN_ROOT_STATE="unresolved"
+  ATOMIC_LIB=""
+  CGG_SCRIPTS_DIR=""
+fi
 
 # Zone-root anchor: canonical for all governance data IO
 resolve_zone_root() {
@@ -101,8 +122,10 @@ PROJECT_KEY=$(echo "$PROJECT_DIR" | sed 's|/|-|g')
 # and stops before every downstream governance reader.
 # ============================================================================
 
-EFFECTIVE_RECORD_SCRIPT="$CGG_SCRIPTS_DIR/effective-record.py"
-[ -f "$EFFECTIVE_RECORD_SCRIPT" ] || EFFECTIVE_RECORD_SCRIPT="$HOME/.claude/cgg-runtime/scripts/effective-record.py"
+# UNRESOLVED ROOT: an empty scripts dir would compose "/effective-record.py"; the plugin-anchored
+# candidate is DROPPED and the HOME fallback below stands alone. Resolved path unchanged.
+EFFECTIVE_RECORD_SCRIPT="${CGG_SCRIPTS_DIR:+$CGG_SCRIPTS_DIR/effective-record.py}"
+[ -n "$EFFECTIVE_RECORD_SCRIPT" ] && [ -f "$EFFECTIVE_RECORD_SCRIPT" ] || EFFECTIVE_RECORD_SCRIPT="$HOME/.claude/cgg-runtime/scripts/effective-record.py"
 EFFECTIVE_RECORD_MSG=""
 EFFECTIVE_RECORD_HYDRATION_BLOCKED=0
 EFFECTIVE_RECORD_CAPABILITY_BLOCKED=0
@@ -201,9 +224,12 @@ fi
 # ============================================================================
 
 SEAL_HOOK_SCRIPT=""
-for _seal_candidate in \
-  "$(cd "$(dirname "$0")" && pwd)/cadence-handoff-seal.py" \
-  "$CGG_PLUGIN_ROOT/cgg-runtime/hooks/cadence-handoff-seal.py"; do
+# UNRESOLVED ROOT: the plugin-anchored candidate is DROPPED, never composed as
+# "/cgg-runtime/hooks/...". The dirname candidate is unaffected and stays FIRST.
+_seal_candidates=("$(cd "$(dirname "$0")" && pwd)/cadence-handoff-seal.py")
+[ "$CGG_PLUGIN_ROOT_STATE" = "resolved" ] \
+  && _seal_candidates+=("$CGG_PLUGIN_ROOT/cgg-runtime/hooks/cadence-handoff-seal.py")
+for _seal_candidate in "${_seal_candidates[@]}"; do
   [ -f "$_seal_candidate" ] && SEAL_HOOK_SCRIPT="$_seal_candidate" && break
 done
 SEAL_RECONCILE_MSG=""
@@ -584,16 +610,20 @@ TOTAL_CPRS=$(( CPR_COUNT + QUEUE_COUNT ))
 # ============================================================================
 # CPR extract backfill — script resolution order:
 #   1. $ZONE_ROOT/scripts/<name>.py (project override)
-#   2. $CGG_SCRIPTS_DIR/<name>.py (plugin-root-anchored bundled script)
+#   2. $CGG_SCRIPTS_DIR/<name>.py (plugin-root-anchored bundled script; DROPPED, never
+#      composed root-anchored, when the plugin root is unresolved)
 #   3. $HOME/.claude/cgg-runtime/scripts/<name>.py (global install fallback)
 # ============================================================================
 
 resolve_script() {
   local name="$1"
-  for candidate in \
-    "$ZONE_ROOT/scripts/$name" \
-    "$CGG_SCRIPTS_DIR/$name" \
-    "$HOME/.claude/cgg-runtime/scripts/$name"; do
+  # UNRESOLVED ROOT: the plugin-anchored candidate is DROPPED rather than composed as "/$name".
+  # Candidate ORDER is unchanged.
+  local candidates=("$ZONE_ROOT/scripts/$name")
+  [ -n "$CGG_SCRIPTS_DIR" ] && candidates+=("$CGG_SCRIPTS_DIR/$name")
+  candidates+=("$HOME/.claude/cgg-runtime/scripts/$name")
+  local candidate
+  for candidate in "${candidates[@]}"; do
     if [ -f "$candidate" ]; then
       echo "$candidate"
       return 0
@@ -758,7 +788,7 @@ for line in open('$QUEUE_FILE'):
         if eid: entries[eid] = d
     except: pass
 count_steppable = None
-for _libdir in ['$CGG_SCRIPTS_DIR/lib', os.path.expanduser('~/.claude/cgg-runtime/scripts/lib')]:
+for _libdir in ['${CGG_SCRIPTS_DIR:+$CGG_SCRIPTS_DIR/lib}', os.path.expanduser('~/.claude/cgg-runtime/scripts/lib')]:
     if _libdir and os.path.isdir(_libdir):
         sys.path.insert(0, _libdir)
         try:
@@ -1297,7 +1327,7 @@ for f in sorted(glob.glob('$SIGNAL_DIR/*.jsonl')):
 # sweep tic 571). Import from the lib when path-reachable; else run the faithful
 # embedded replica below (keep it in lockstep with signal_active.py).
 is_active_ray = None
-for _libdir in ['$CGG_SCRIPTS_DIR/lib', os.path.expanduser('~/.claude/cgg-runtime/scripts/lib')]:
+for _libdir in ['${CGG_SCRIPTS_DIR:+$CGG_SCRIPTS_DIR/lib}', os.path.expanduser('~/.claude/cgg-runtime/scripts/lib')]:
     if _libdir and os.path.isdir(_libdir):
         sys.path.insert(0, _libdir)
         try:

@@ -45,6 +45,10 @@ except Exception:
 # User-registered hooks (~/.claude/hooks/) must resolve via fallback chain.
 CGG_PLUGIN_ROOT="${CLAUDE_PLUGIN_ROOT:-}"
 if [ -z "$CGG_PLUGIN_ROOT" ] || [ ! -d "$CGG_PLUGIN_ROOT/cgg-runtime" ]; then
+  # A root that does not carry cgg-runtime/ is NOT a root. Clearing it here is what makes
+  # "unresolvable" one predicate instead of two: an unset override and a stale non-empty
+  # one both arrive at the same typed state below.
+  CGG_PLUGIN_ROOT=""
   for _cpr_candidate in \
     "${CLAUDE_PROJECT_DIR:+$CLAUDE_PROJECT_DIR/vendor/context-grapple-gun}" \
     "${CLAUDE_PROJECT_DIR:+$CLAUDE_PROJECT_DIR/canonical_developer/context-grapple-gun}" \
@@ -53,9 +57,25 @@ if [ -z "$CGG_PLUGIN_ROOT" ] || [ ! -d "$CGG_PLUGIN_ROOT/cgg-runtime" ]; then
   done
 fi
 
-# Load atomic append library for JSONL-safe writes
-ATOMIC_LIB="$CGG_PLUGIN_ROOT/cgg-runtime/scripts/lib/atomic-append.sh"
-[ -f "$ATOMIC_LIB" ] && source "$ATOMIC_LIB"
+# UNRESOLVED, NEVER A ROOT-ANCHORED PATH (goal 76 — RULED /review 825 H3, backlog row
+# bk-gate-plugin-root-sibling-hooks-posttool-microscan-and-session-restore-t825; the gate took
+# this cure at fd51bcf and its rider named these two siblings as NOT cured). When the chain
+# above resolves nothing, an empty $CGG_PLUGIN_ROOT made every path composed from it
+# ROOT-ANCHORED ("/cgg-runtime/scripts/..."), failing safe only because "/cgg-runtime" happens
+# not to exist here. The root is now TYPED: resolved, or unresolved and NOTHING is composed
+# from it; every consumer below reads the typed state. ON THE RESOLVED PATH NOTHING MOVES.
+# DOES-NOT-SATISFY RIDER (the seat's words): this increment does NOT change any hook verb,
+# does NOT touch post-commit-sync.sh (measured: zero such compositions), and does NOT
+# establish that an unresolvable root has ever occurred in a live fire.
+if [ -n "$CGG_PLUGIN_ROOT" ]; then
+  CGG_PLUGIN_ROOT_STATE="resolved"
+  # Load atomic append library for JSONL-safe writes
+  ATOMIC_LIB="$CGG_PLUGIN_ROOT/cgg-runtime/scripts/lib/atomic-append.sh"
+  [ -f "$ATOMIC_LIB" ] && source "$ATOMIC_LIB"
+else
+  CGG_PLUGIN_ROOT_STATE="unresolved"
+  ATOMIC_LIB=""
+fi
 
 # ============================================================================
 # Root Anchoring
