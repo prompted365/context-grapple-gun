@@ -38,7 +38,8 @@ description: |
   - videographer (operational resident specialist of this unit)
   - frederick-grant-runtime (authored-persona runtime; this unit holds the corpus)
   - narrative-arc-lane/CORPUS_POINTERS.md + NARRATIVE-ARC-LANE.md (the lane manifest + spec)
-model: sonnet
+model: claude-opus-5-5
+effort: high
 memory: user
 tools: Read, Grep, Glob, Bash, Write
 ---

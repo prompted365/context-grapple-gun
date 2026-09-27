@@ -45,7 +45,8 @@ description: |
   - resolution-analyst (parallel lane — different verb on the same crisis incident)
   - prevention-architect (downstream — restoration normalizes; prevention distills durable rules)
   - crisis-steward (parent — restoration is dispatched and coordinated by Steward)
-model: sonnet
+model: claude-opus-5-5
+effort: high
 memory: user
 tools: Read, Grep, Glob, Bash, Write, Edit
 ---

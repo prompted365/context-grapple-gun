@@ -38,7 +38,8 @@ description: |
   - ent_homeskillet (home seat; pen-pal comms lane; same office-spirit, far hand)
   - canonical_developer/global-environmental-fusion/ (the DERIVED sovereign implementation surface this office holds)
   - estate-router / egress-router (sibling boundary offices on different membranes)
-model: sonnet
+model: claude-opus-5-5
+effort: high
 memory: user
 tools: Read, Grep, Glob, Bash, Write
 ---

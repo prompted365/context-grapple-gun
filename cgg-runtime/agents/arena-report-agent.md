@@ -42,7 +42,8 @@ description: |
   - videographer (sibling Expression/encounter lane; different output format)
   - /review (downstream consumer of the arena-report output)
 tools: Read, Grep, Glob, Write, Bash
-model: sonnet
+model: claude-opus-5-5
+effort: high
 ---
 
 # Arena Report Generation Agent

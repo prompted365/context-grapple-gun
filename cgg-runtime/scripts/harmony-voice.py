@@ -20,7 +20,8 @@ Contract:
     carry (AMD-2 §5) — the prompt receives the slice's narrowed_to +
     renarrow_triggers as grounding.
   - Kill switch: HARMONY_VOICE=off skips the LLM entirely.
-  - Headless call: `claude -p` with model ${HARMONY_VOICE_MODEL:-sonnet},
+  - Headless call: `claude -p` with model ${HARMONY_VOICE_MODEL:-claude-opus-5-5}
+    at effort ${HARMONY_VOICE_EFFORT:-high} (Architect-directed 2026-09-27, tic 827),
     --max-turns 1, ${HARMONY_VOICE_TIMEOUT_S:-120}s subprocess timeout
     (raised 45→120 at tic 684: measured headless cold-start ~72.5s).
 
@@ -75,7 +76,8 @@ MAX_CHARS = 240
 # cold start grows past this too, the fallback_reason canary
 # (llm_timeout_<N>s) resurfaces through the same recurrence machinery.
 LLM_TIMEOUT_S = int(os.environ.get("HARMONY_VOICE_TIMEOUT_S", "120"))
-DEFAULT_MODEL = "sonnet"
+DEFAULT_MODEL = "claude-opus-5-5"
+DEFAULT_EFFORT = os.environ.get("HARMONY_VOICE_EFFORT", "high")
 
 # ---------------------------------------------------------------------------
 # Validators (α_j — the admission predicate). Extends the imperative-guard
@@ -235,7 +237,7 @@ def _run_claude(prompt: str, model: str, timeout_s: int = LLM_TIMEOUT_S) -> str:
     a classic silent-wait surface — ruled out as the t684 cause by probe, but
     closed on principle so it can never become one."""
     proc = subprocess.run(
-        ["claude", "-p", prompt, "--model", model, "--max-turns", "1"],
+        ["claude", "-p", prompt, "--model", model, "--effort", DEFAULT_EFFORT, "--max-turns", "1"],
         capture_output=True, text=True, timeout=timeout_s,
         stdin=subprocess.DEVNULL,
     )

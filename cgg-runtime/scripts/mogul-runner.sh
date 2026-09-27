@@ -613,12 +613,15 @@ MOGUL_RUNNER_BACKEND="${MOGUL_RUNNER_BACKEND:-claude}"
 # nested `claude -p` previously inherited the CLI default model with no floor —
 # a credit-wall HTTP 429 on that default (fable-5, tic-676 live hit: 0/7 cycles,
 # 0 tokens, transcript 2026-07-30T170834-tic-676.json) failed the whole mandate.
-# Default = opus per feedback_workflow-engines-opus-not-fable (workflow/fleet
-# dispatches run on opus; the lead's seat model is never inherited by fleets).
+# Default = claude-opus-5-5 at effort high (Architect-directed 2026-09-27, tic 827;
+# feedback_workflow-engines-opus-not-fable: fleet dispatches run on opus, the
+# lead's seat model is never inherited by fleets). MOGUL_RUNNER_EFFORT overrides
+# the effort the same way MOGUL_RUNNER_MODEL overrides the model.
 # Per-spawn override: MOGUL_RUNNER_MODEL=<model> — applies to BOTH claude spawn
 # sites (main lane + civil carve-out; sibling-site closure per
 # cgg-ledger#named-footgun-guard-leaves-sibling-site-unfixed).
-MOGUL_RUNNER_MODEL="${MOGUL_RUNNER_MODEL:-opus}"
+MOGUL_RUNNER_MODEL="${MOGUL_RUNNER_MODEL:-claude-opus-5-5}"
+MOGUL_RUNNER_EFFORT="${MOGUL_RUNNER_EFFORT:-high}"
 
 # Resolve Claude (always needed: the default backend AND the civil carve-out lane)
 CLAUDE_BIN=$(command -v claude 2>/dev/null || true)
@@ -650,7 +653,7 @@ if [ "$NEED_CLAUDE" = true ] && [ -z "$CLAUDE_BIN" ]; then
   exit 1
 fi
 
-echo "Backend: $MOGUL_RUNNER_BACKEND | model_floor: $MOGUL_RUNNER_MODEL | civil_in_cycles: $CIVIL_IN_CYCLES"
+echo "Backend: $MOGUL_RUNNER_BACKEND | model_floor: $MOGUL_RUNNER_MODEL | effort: $MOGUL_RUNNER_EFFORT | civil_in_cycles: $CIVIL_IN_CYCLES"
 echo "Spawning $MOGUL_RUNNER_BACKEND agent for mandate $MANDATE_ID..."
 
 set +e
@@ -700,6 +703,7 @@ else
   # subagent spawning under print mode).
   env -u CLAUDECODE "$CLAUDE_BIN" -p "$MOGUL_PROMPT" \
     --model "$MOGUL_RUNNER_MODEL" \
+    --effort "$MOGUL_RUNNER_EFFORT" \
     --allowedTools "Read,Grep,Glob,Bash,Write" \
     --dangerously-skip-permissions \
     --output-format json \
@@ -727,6 +731,7 @@ Do nothing else. Do NOT modify CLAUDE.md, MEMORY.md, queue.jsonl, or any governa
   env -u CLAUDECODE "$CLAUDE_BIN" -p "$CIVIL_PROMPT" \
     --agent civil-engineer \
     --model "$MOGUL_RUNNER_MODEL" \
+    --effort "$MOGUL_RUNNER_EFFORT" \
     --allowedTools "Read,Grep,Glob,Bash,Write" \
     --dangerously-skip-permissions \
     --output-format json \

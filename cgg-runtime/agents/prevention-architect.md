@@ -42,7 +42,8 @@ description: |
   - pattern-curator-meta (sibling lens; complementary scope on governance learning)
   - /review (downstream — prevention proposals route through CogPR discipline)
   - crisis-steward (parent — coordinates prevention dispatch post-resolution)
-model: sonnet
+model: claude-opus-5-5
+effort: high
 memory: user
 tools: Read, Grep, Glob, Bash
 ---

@@ -42,7 +42,8 @@ description: |
   - ladder-auditor (sibling team member; complementary lens on governance shape)
   - ripple-assessor (sibling team member; different verb on candidates)
   - pattern-curator (legacy fallback, superseded by this pair)
-model: sonnet
+model: claude-opus-5-5
+effort: high
 memory: user
 tools: Read, Grep, Glob
 ---

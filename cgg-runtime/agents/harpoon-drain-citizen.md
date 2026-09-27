@@ -48,7 +48,8 @@ description: |
   - route-metadata.json (READ for faces and admission pins; NEVER written — repin bases are handed up)
   - drain-receipts/ + cable-receipts/ (this citizen's two write surfaces, own-route files only)
   - ent_homeskillet (the dispatching lead; receives handed-up motions and findings)
-model: opus
+model: claude-opus-5-5
+effort: high
 tools: Read, Grep, Glob, Bash, Write, Edit
 ---
 

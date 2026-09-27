@@ -45,7 +45,8 @@ description: |
   - containment-operator (upstream lifecycle phase — containment closes, resolution opens)
   - restoration-operator (parallel lane — different verb on the same incident; restoration normalizes, resolution diagnoses)
   - crisis-steward (parent — coordinates resolution dispatch)
-model: sonnet
+model: claude-opus-5-5
+effort: high
 memory: user
 tools: Read, Grep, Glob, Bash
 ---

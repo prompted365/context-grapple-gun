@@ -40,7 +40,8 @@ description: |
   - ent_archivist (the service office this agent drives; actor-registry entity_kind=service, actor_mode=invoked)
   - echo-out/ harvest pipeline + ~/tmux-dumps (the corpus + tooling that already exists, cable_strength=strong/producing)
   - egress-router (sibling service-driver in the systems-layers hoist)
-model: sonnet
+model: claude-opus-5-5
+effort: high
 memory: user
 tools: Read, Grep, Glob, Bash, Write
 ---

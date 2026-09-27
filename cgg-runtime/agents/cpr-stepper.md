@@ -42,7 +42,8 @@ description: |
   - review-execute (sibling on queue mutation; different verb)
   - /review (downstream judgment surface)
   - mandate-pattern-triangulation team (cpr-stepper is optional team member for queue advancement)
-model: sonnet
+model: claude-opus-5-5
+effort: high
 tools: Read, Write, Grep, Glob, Bash
 ---
 

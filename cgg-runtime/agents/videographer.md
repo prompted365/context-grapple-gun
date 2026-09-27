@@ -50,7 +50,8 @@ description: |
   - cbux-steward (sibling Expression/encounter lane)
   - arena-report-agent (sibling Expression/encounter lane; different output format)
   - fal_router.py / overshoot_router.py (sibling media lanes; different asset lineage)
-model: sonnet
+model: claude-opus-5-5
+effort: high
 memory: user
 tools: Read, Grep, Glob, Bash
 ---

@@ -41,7 +41,8 @@ description: |
   - containment-operator (downstream actor — sentinel detects, Steward authorizes, containment acts)
   - /siren (data source — sentinel reads siren's manifold for crisis-class posture detection)
   - civil-engineer (sibling lens; routine vs crisis-class watch on overlapping surfaces)
-model: haiku
+model: claude-opus-5-5
+effort: high
 memory: user
 tools: Read, Grep, Glob, Bash
 ---

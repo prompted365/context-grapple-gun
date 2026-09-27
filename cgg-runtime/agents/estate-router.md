@@ -41,7 +41,8 @@ description: |
   - egress-router (sibling routing surface; different membrane)
   - ent_homeskillet (gathers estate proposals + standing-inquiries to /review — gather at intake, orchestrator judges)
   - /review (downstream judgment surface for gathered estate proposals)
-model: opus
+model: claude-opus-5-5
+effort: high
 memory: user
 tools: Read, Grep, Glob, Bash, Write
 ---

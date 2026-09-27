@@ -44,7 +44,8 @@ description: |
   - resolution-analyst (subordinate root-cause tracer)
   - prevention-architect (subordinate doctrine-candidate extractor)
   - Mogul (peer office; complementary jurisdictions)
-model: sonnet
+model: claude-opus-5-5
+effort: high
 memory: user
 tools: Read, Grep, Glob, Agent, Bash, Write, Edit
 ---

@@ -44,7 +44,8 @@ description: |
   - Mogul (parent — civil_status_check mandate originates here)
   - crisis-steward (peer office; civil escalates findings of crisis class upward)
   - mandate-pattern-triangulation team (civil is optional team member for infrastructure audit cycles)
-model: sonnet
+model: claude-opus-5-5
+effort: high
 memory: user
 tools: Read, Grep, Glob, Bash, Write, Edit
 ---

@@ -192,7 +192,7 @@ agents:
   - id: "agent-a"
     role: "<what this agent does>"
     pattern: internal | external
-    model: "sonnet | haiku | opus"
+    model: "claude-opus-5-5"   # default for every dispatch, effort high (Architect-directed 2026-09-27, tic 827)
     isolation: "worktree | none"
     blocked_by: []
     owns_regions: []         # optional — region-level ownership for sub-file parallelism (e.g. ["lights/*", "cameras/*"]); empty implies file-level ownership per blocked_by

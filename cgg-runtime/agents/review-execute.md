@@ -43,7 +43,8 @@ description: |
   - mogul (dispatcher — Mogul stages review material, then dispatches review-execute on approval)
   - cpr-stepper (sibling on queue surface; different verb)
   - ripple-assessor (sibling on queue surface; different lifecycle phase — proposes vs applies)
-model: sonnet
+model: claude-opus-5-5
+effort: high
 tools: Read, Edit, Write, Glob, Bash
 ---
 

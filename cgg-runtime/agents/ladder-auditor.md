@@ -42,7 +42,8 @@ description: |
   - pattern-curator-meta (sibling team member; different mining lens)
   - civil-engineer (sibling under Mogul; different audit class)
   - /review (downstream judgment surface)
-model: sonnet
+model: claude-opus-5-5
+effort: high
 memory: user
 tools: Read, Grep, Glob
 ---

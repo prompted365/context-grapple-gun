@@ -34,7 +34,8 @@ description: |
   - pattern-curator-direct (canonical replacement for direct-learning surface)
   - pattern-curator-meta (canonical replacement for meta-learning surface)
   - Mogul (parent — but Mogul should not normally spawn this; spawn the adversarial pair instead)
-model: sonnet
+model: claude-opus-5-5
+effort: high
 memory: user
 tools: Read, Grep, Glob
 ---

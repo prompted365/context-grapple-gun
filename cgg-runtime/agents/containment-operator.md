@@ -40,7 +40,8 @@ description: |
   - crisis-sentinel (upstream detector)
   - restoration-operator (downstream lifecycle — containment closes, restoration opens)
   - resolution-analyst (parallel lane — containment stabilizes operations, resolution diagnoses cause)
-model: haiku
+model: claude-opus-5-5
+effort: high
 memory: user
 tools: Read, Grep, Glob, Bash
 ---

@@ -39,7 +39,8 @@ description: |
   - videographer (operational resident specialist — the Office is the body, the specialist executes)
   - unit-narrative-media (parent recognized body — narrative spine steward)
   - arena-report-agent (sibling Expression/encounter lane)
-model: sonnet
+model: claude-opus-5-5
+effort: high
 memory: user
 tools: Read, Grep, Glob, Bash, Write
 ---

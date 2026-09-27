@@ -41,7 +41,8 @@ description: |
   - cgg-gate.sh (mandate dispatcher — routes lightweight inline, heavy to Mogul)
   - /review (Mogul stages, /review judges)
   - crisis-steward (peer office; Mogul does not handle crisis lifecycle)
-model: sonnet
+model: claude-opus-5-5
+effort: high
 memory: user
 tools: Read, Grep, Glob, Agent, Bash
 ---

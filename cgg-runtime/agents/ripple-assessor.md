@@ -42,7 +42,8 @@ description: |
   - /review (ripple proposes the docket; /review judges; review-execute applies)
   - cpr-stepper (sibling on the queue surface; different verb)
   - /siren (ripple consumes signal evidence; siren classifies)
-model: sonnet
+model: claude-opus-5-5
+effort: high
 memory: user
 tools: Read, Grep, Glob, Write
 ---

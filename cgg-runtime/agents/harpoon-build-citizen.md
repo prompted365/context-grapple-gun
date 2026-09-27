@@ -46,7 +46,8 @@ description: |
   - route-metadata.json + gate-resolutions (READ for faces, fences, admission pins; NEVER written)
   - cable-receipts/ (this citizen's write surface, own-increment files only)
   - ent_homeskillet (the dispatching lead; receives handed-up motions, findings, falsified premises)
-model: opus
+model: claude-opus-5-5
+effort: high
 tools: Read, Grep, Glob, Bash, Write, Edit
 ---
 

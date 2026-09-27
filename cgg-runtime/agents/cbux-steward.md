@@ -50,7 +50,8 @@ description: |
   - ladder-auditor (sibling audit lens; different surface)
   - arena-report-agent (sibling in Expression/encounter lane)
   - videographer (sibling in Expression/encounter lane; different verb — video capture vs encounter observation)
-model: sonnet
+model: claude-opus-5-5
+effort: high
 memory: user
 tools: Read, Grep, Glob, Bash, Agent, Write, Edit
 ---

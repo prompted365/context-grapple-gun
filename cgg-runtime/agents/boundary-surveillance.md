@@ -41,7 +41,8 @@ description: |
   - mogul (mandate-cycle invoker — candidates land in the cycle report, not the manifold)
   - crisis-sentinel (sibling watcher; crisis-class vs routine boundary lens)
   - archivist retrieval.mode conformation_proximity (pass-3 TARGET fulfiller — build-and-gate, ratified: false; typed-reject until /review flips it)
-model: haiku
+model: claude-opus-5-5
+effort: high
 memory: user
 tools: Read, Grep, Glob, Bash
 ---

@@ -38,7 +38,8 @@ description: |
   - ent_egress_router / AK Control Room (the service office this agent drives; actor-registry entity_kind=service, actor_mode=invoked)
   - the SP5 gate (the SEPARATE go that authorizes live model→SP2 coupling — NOT this agent's to flip)
   - archivist (sibling service-driver in the systems-layers hoist)
-model: sonnet
+model: claude-opus-5-5
+effort: high
 memory: user
 tools: Read, Grep, Glob, Bash, Write
 ---
